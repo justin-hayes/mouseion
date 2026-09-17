@@ -99,9 +99,11 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 		Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", Sentence: "Das seltene Wort ist heute wirklich wichtig.", TargetWord: "seltene",
 		DictionaryProviderVersion: "dictionary-v4", FirstEncounter: 1,
 	}
-	manifest := cardexport.NewTestManifest("owner-1", "Book", []cardexport.Entry{entry})
-	require.Len(t, manifest.Candidates(), 1)
-	candidate := manifest.Candidates()[0]
+	deck, err := testutil.FreezePresentationDeck(ctx, "owner-1", "Book", []cardexport.Entry{entry}, testutil.PresentationProvider{Name: "llm", Version: "model-1", TargetLanguage: "en"})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	candidate := work[0].RequestCandidate()
 
 	first, err := service.EnrichExternal(ctx, candidate)
 	require.NoError(t, err)
@@ -122,9 +124,14 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 	assert.Equal(t, "dictionary-v4", stored.CacheKey.DictionaryProviderVersion)
 	assert.Empty(t, stored.SenseSelection)
 
-	bound, err := manifest.BindCacheKeys([]enrichment.CacheKey{key})
-	require.NoError(t, err)
-	artifact, err := cardexport.RenderTestManifest(ctx, bound, []cardexport.ExactEnrichment{{CacheKey: key, Result: first}})
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, []cardexport.StoredResult{{CacheKey: key, Record: enrichment.CacheEntry{
+		CacheKey:                  key,
+		Translation:               first.Translation.Value,
+		FallbackGloss:             first.FallbackGloss.Value,
+		SentenceTranslation:       first.SentenceTranslation.Value,
+		SentenceTranslationTarget: first.SentenceTranslationTarget.Value,
+		SenseSelection:            append([]int(nil), first.SenseSelection.Value...),
+	}}}, cardexport.RunFacts{})
 	require.NoError(t, err)
 	require.Len(t, artifact.Generated, 1)
 	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)

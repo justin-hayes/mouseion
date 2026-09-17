@@ -9,6 +9,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,11 +34,12 @@ func TestListStalePreparedDecksOnlyReturnsCurrentUnretiredReadyDecks(t *testing.
 			Filename: name + ".apkg", DeckName: name, ContentHash: source.ContentHash,
 		})
 		require.NoError(t, createErr)
-		manifest := cardexport.NewTestManifest(owner.ID, name, nil)
+		deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, name, nil, testutil.PresentationProvider{})
+		require.NoError(t, err)
 		tx, beginErr := store.Pool().Begin(ctx)
 		require.NoError(t, beginErr)
 		frozen, freezeErr := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{
-			OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(),
+			OwnerID: owner.ID, PreparationID: preparation.ID, Projection: deck.StorageProjection(),
 		})
 		require.NoError(t, freezeErr)
 		require.NoError(t, tx.Commit(ctx))

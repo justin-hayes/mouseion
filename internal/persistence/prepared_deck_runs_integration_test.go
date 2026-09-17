@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,19 +40,19 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		require.NoError(t, err)
 	}
 
-	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: uuid.NewString(), SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "noun", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Morphology: `{"Gender":"Masc"}`, SourceDocument: source.Title, FirstEncounter: 20},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: source.Title, FirstEncounter: 30},
-	})
-	candidates := manifest.Candidates()
-	keys := make([]enrichment.CacheKey, len(candidates))
-	for i, candidate := range candidates {
+	}, testutil.PresentationProvider{Name: "openai", Version: "prompt-v3", TargetLanguage: "en"})
+	require.NoError(t, err)
+	deckWork := deck.WorkProjection()
+	keys := make([]enrichment.CacheKey, len(deckWork))
+	for i, item := range deckWork {
+		candidate := item.RequestCandidate()
 		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "prompt-v3", DictionaryProviderVersion: candidate.DictionaryProviderVersion, SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	}
-	manifest, err = manifest.BindCacheKeys(keys)
-	require.NoError(t, err)
-	snapshot := manifest.Snapshot()
+	snapshot := deck.StorageProjection()
 	snapshot.Items[0].Quality.Score = 94
 	snapshot.Items[0].Quality.GDEXScore = 0.5
 	snapshot.Items[0].Quality.Reasons = []string{"target present", "optimal length"}
@@ -156,7 +157,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	wantDigest, err := snapshot.Digest()
 	require.NoError(t, err)
 	assert.Equal(t, wantDigest, loadedDigest)
-	_, err = cardexport.RestoreTestManifest(loaded)
+	_, err = cardexport.NewPresentation(nil).Restore(loaded)
 	require.NoError(t, err, "manifest round trip")
 	records, err := store.LoadPreparedDeckStoredRecords(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
@@ -239,7 +240,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.Len(t, stored, 2, "finalization inputs")
 	assert.Equal(t, keys[0], stored[0].CacheKey, "finalization inputs")
 	assert.Equal(t, keys[1], stored[1].CacheKey, "finalization inputs")
-	deck, err := cardexport.NewPresentation(nil).Restore(frozenProjection)
+	deck, err = cardexport.NewPresentation(nil).Restore(frozenProjection)
 	require.NoError(t, err)
 	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
@@ -296,10 +297,11 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute am Fluss.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute am Fluss.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}}, testutil.PresentationProvider{})
+	require.NoError(t, err)
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)
-	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot()})
+	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: deck.StorageProjection()})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 	claimToken := uuid.NewString()
@@ -307,7 +309,7 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
-	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	deck, err = cardexport.NewPresentation(nil).Restore(frozen)
 	require.NoError(t, err)
 	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
@@ -364,12 +366,13 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}})
-	candidate := manifest.Candidates()[0]
-	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
-	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}}, testutil.PresentationProvider{Name: "openai", Version: "v1", TargetLanguage: "en"})
 	require.NoError(t, err)
-	params := FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(), Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"}, Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("b", 64), InputBytes: 64, Ordinals: []int{0}}}}
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	candidate := work[0].RequestCandidate()
+	key := enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
+	params := FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: deck.StorageProjection(), Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test"}, Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("b", 64), InputBytes: 64, Ordinals: []int{0}}}}
 	freeze := func() FreezePreparedDeckRunResult {
 		t.Helper()
 		tx, beginErr := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
@@ -437,19 +440,19 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma)
 		require.NoError(t, err)
 	}
-	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: source.Title, FirstEncounter: 2},
-	})
-	candidates := manifest.Candidates()
-	keys := make([]enrichment.CacheKey, len(candidates))
-	for i, candidate := range candidates {
+	}, testutil.PresentationProvider{Name: "openai", Version: "v1", TargetLanguage: "en"})
+	require.NoError(t, err)
+	deckWork := deck.WorkProjection()
+	keys := make([]enrichment.CacheKey, len(deckWork))
+	for i, item := range deckWork {
+		candidate := item.RequestCandidate()
 		keys[i] = enrichment.CacheKey{Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS, Provider: "openai", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence)}
 	}
-	manifest, err = manifest.BindCacheKeys(keys)
-	require.NoError(t, err)
 	params := FreezePreparedDeckRunParams{
-		OwnerID: owner.ID, PreparationID: preparation.ID, Projection: manifest.Snapshot(),
+		OwnerID: owner.ID, PreparationID: preparation.ID, Projection: deck.StorageProjection(),
 		Config: PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ContextMode: "sentence", Provider: "openai", ProviderVersion: "v1", Endpoint: "/v1/chat/completions", Model: "gpt-test", MaxBatchGenerations: 2, MaxProviderAttempts: 2},
 		Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("c", 64), InputBytes: 128, Ordinals: []int{0, 1}}},
 	}
@@ -571,8 +574,9 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 			{Surface: "an", UPOS: "ADV", Dependency: "compound:prt", Head: 4},
 		},
 	}
-	plan := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{entry})
-	snapshot := plan.Snapshot()
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{entry}, testutil.PresentationProvider{})
+	require.NoError(t, err)
+	snapshot := deck.StorageProjection()
 	require.Len(t, snapshot.Items, 1)
 	require.True(t, snapshot.Items[0].Quality.Accepted, "sentence was quality-omitted: %+v", snapshot.Items[0].Quality)
 
@@ -590,9 +594,9 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 	require.Len(t, loaded.Items, 1)
 	require.Equal(t, snapshot.Items[0].Entry.SentenceTokens, loaded.Items[0].Entry.SentenceTokens, "durable manifest lost the frozen parse")
 
-	manifest, err := cardexport.RestoreTestManifest(loaded)
+	deck, err = cardexport.NewPresentation(nil).Restore(loaded)
 	require.NoError(t, err)
-	artifact, err := cardexport.RenderTestManifest(ctx, manifest, nil)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, nil, cardexport.RunFacts{})
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }

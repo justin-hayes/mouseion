@@ -52,7 +52,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, owner.ID)
 	require.NoError(t, err)
 
-	manifest := cardexport.NewTestManifest(owner.ID, source.Title, []cardexport.Entry{{
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus steht heute am ruhigen Fluss.", TargetWord: "Haus", SourceDocument: source.Title,
 		FirstEncounter: 1, SentenceTokens: []analyzer.Token{
@@ -65,15 +65,16 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 			{Surface: "ruhigen", UPOS: "ADJ", Dependency: "amod", Head: 7},
 			{Surface: "Fluss", UPOS: "NOUN", Dependency: "obl", Head: 3},
 		},
-	}})
-	candidate := manifest.Candidates()[0]
+	}}, testutil.PresentationProvider{Name: "acceptance-provider", Version: "1", TargetLanguage: "en"})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	candidate := work[0].RequestCandidate()
 	key := enrichment.CacheKey{
 		Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma,
 		UPOS: candidate.UPOS, Provider: "acceptance-provider", ProviderVersion: "1",
 		SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence),
 	}
-	manifest, err = manifest.BindCacheKeys([]enrichment.CacheKey{key})
-	require.NoError(t, err)
 	provider := &barrierTranslationProvider{}
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{
@@ -90,7 +91,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 		ProviderVersion: key.ProviderVersion, Endpoint: enrichment.OpenAIChatCompletionsEndpoint, Model: "acceptance-model",
 	}
 	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{
-		RunID: uuid.NewString(), Projection: manifest.Snapshot(), Config: config,
+		RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config,
 	}}
 	result, err := NewDurableCoordinator(store, client, planner).Freeze(ctx, DurableFreezeRequest{
 		OwnerID: owner.ID, PreparationID: preparation.ID, ExternalTranslationConsent: true,
@@ -105,7 +106,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 
 	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
-	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	deck, err = cardexport.NewPresentation(nil).Restore(frozen)
 	require.NoError(t, err)
 	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
