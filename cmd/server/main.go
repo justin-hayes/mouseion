@@ -40,21 +40,27 @@ func main() {
 		}
 		return
 	}
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() (err error) {
 	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
-		log.Fatalf("invalid MOUSEION_SECRET: %v", err)
+		return fmt.Errorf("invalid MOUSEION_SECRET: %w", err)
 	}
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
 	if databaseURL == "" {
-		log.Fatal("MOUSEION_DATABASE_URL is required")
+		return errors.New("MOUSEION_DATABASE_URL is required")
 	}
 	if err := persistence.Migrate(databaseURL); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	store, err := persistence.Open(context.Background(), databaseURL)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	defer store.Close()
+	defer closeIntoResult("PostgreSQL store", store.Close, &err)
 	addr := os.Getenv("MOUSEION_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"
@@ -71,48 +77,48 @@ func main() {
 	opdsService := opds.NewService(store, epubService, nil)
 	nlp, err := analyzer.NewGRPCAnalyzer("")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	defer nlp.Close()
+	defer closeIntoResult("NLP analyzer", nlp.Close, &err)
 	selectionService := selection.NewService(store)
 	llmConfig, err := enrichment.LLMConfigFromEnv()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	var dictionaryIndex *dictionary.Index
 	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
 		dictionaryIndex, err = openDictionaryIndex(path)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 	if dictionaryIndex != nil {
-		defer dictionaryIndex.Close()
+		defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
 	}
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	batchConfig, err := prepareddeck.BatchConfigFromEnv()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	preparedDeckConfig, err := prepareddeck.PreparedDeckConfigFromEnv()
 	if err != nil {
-		log.Fatalf("invalid prepared-deck configuration: %v", err)
+		return fmt.Errorf("invalid prepared-deck configuration: %w", err)
 	}
 	var batchProvider *enrichment.OpenAIBatchClient
 	var batchCodec *enrichment.TranslationCodec
 	if llmConfig.Enabled {
 		batchCodec, err = enrichment.NewTranslationCodec(llmConfig)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		batchProvider, err = enrichment.NewOpenAIBatchClient(llmConfig, nil)
 		if err != nil {
-			log.Fatalf("prepared-deck external translation requires the official OpenAI Batch endpoint: %v", err)
+			return fmt.Errorf("prepared-deck external translation requires the official OpenAI Batch endpoint: %w", err)
 		}
 	}
 	batchMetrics := prepareddeck.NewMetricsCollector()
@@ -123,19 +129,24 @@ func main() {
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err = prepareddeck.EnsureRecoveryJob(context.Background(), store, riverClient); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err = riverClient.Start(context.Background()); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer func() {
-		if err := riverClient.Stop(context.Background()); err != nil {
-			log.Printf("stop analysis workers: %v", err)
+		if stopErr := riverClient.Stop(context.Background()); stopErr != nil {
+			stopErr = fmt.Errorf("stop analysis workers: %w", stopErr)
+			if err == nil {
+				err = stopErr
+			} else {
+				err = errors.Join(err, stopErr)
+			}
 		}
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
@@ -149,16 +160,27 @@ func main() {
 	}
 	catalogueSyncService := cataloguesync.NewService(store, riverClient, opdsService, capabilities)
 	if err = catalogueSyncService.RegisterAll(context.Background()); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
 	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: store, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
-		log.Fatalf("initialize web application: %v", err)
+		return fmt.Errorf("initialize web application: %w", err)
 	}
 	mux.Handle("/", webHandler)
 	log.Printf("mouseion web server listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	return http.ListenAndServe(addr, mux)
+}
+
+func closeIntoResult(name string, close func() error, result *error) {
+	if closeErr := close(); closeErr != nil {
+		closeErr = fmt.Errorf("close %s: %w", name, closeErr)
+		if *result == nil {
+			*result = closeErr
+		} else {
+			*result = errors.Join(*result, closeErr)
+		}
+	}
 }
 
 // runHealthcheck probes the server's own /healthz endpoint. It runs as the

@@ -2,6 +2,8 @@ package persistence
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,12 +20,23 @@ func (s *PostgresStore) queries() *sqlcgen.Queries { return sqlcgen.New(s.pool) 
 // withTx folds Begin/defer Rollback/Commit for the callers that need to run
 // generated queries against an in-flight transaction. The domain rules around
 // the transaction (fences, guards, bounded errors) stay in the callers.
-func withTx(ctx context.Context, pool *pgxpool.Pool, fn func(context.Context, pgx.Tx) error) error {
+func withTx(ctx context.Context, pool *pgxpool.Pool, fn func(context.Context, pgx.Tx) error) (err error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr == nil || errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			return
+		}
+		rollbackErr = fmt.Errorf("rollback transaction: %w", rollbackErr)
+		if err == nil {
+			err = rollbackErr
+			return
+		}
+		err = errors.Join(err, rollbackErr)
+	}()
 	if err := fn(ctx, tx); err != nil {
 		return err
 	}

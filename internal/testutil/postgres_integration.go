@@ -60,10 +60,11 @@ func Postgres(t *testing.T, ctx context.Context, migrate func(string) error) (st
 		pool.Close()
 		t.Fatalf("lock integration database: %v", err)
 	}
-	t.Cleanup(func() {
-		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
+	Cleanup(t, "integration database", func() error {
+		_, err := conn.Exec(context.Background(), `SELECT pg_advisory_unlock(90420009)`)
 		conn.Release()
 		pool.Close()
+		return err
 	})
 	if _, err = pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
 		t.Fatalf("reset integration database: %v", err)

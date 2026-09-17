@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -32,6 +33,8 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 		return nil, err
 	}
 	path := f.Name()
+	// The artifact is already buffered in memory; removal has no recovery path.
+	//nolint:errcheck // Temporary-file removal is documented best-effort cleanup.
 	defer os.Remove(path)
 	if err = f.Close(); err != nil {
 		return nil, err
@@ -42,6 +45,9 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 		return nil, err
 	}
 	if err = writeCollection(db, deckName, notes, description); err != nil {
+		// The write error is already returned; closing the failed temporary DB has
+		// no recovery action.
+		//nolint:errcheck // Documented best-effort cleanup after a failed write.
 		db.Close()
 		return nil, err
 	}
@@ -53,6 +59,9 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	// Reading has completed before the artifact is returned; there is no
+	// recovery action for a failed close of this input handle.
+	//nolint:errcheck // Documented best-effort input cleanup.
 	defer collection.Close()
 	var out bytes.Buffer
 	zw := zip.NewWriter(&out)
@@ -67,8 +76,8 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 			_, err = io.WriteString(media, "{}")
 		}
 	}
-	if closeErr := zw.Close(); err == nil {
-		err = closeErr
+	if closeErr := zw.Close(); closeErr != nil {
+		err = errors.Join(err, closeErr)
 	}
 	if err != nil {
 		return nil, err
@@ -76,7 +85,7 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 	return out.Bytes(), nil
 }
 
-func writeCollection(db *sql.DB, deckName string, notes []Note, description string) error {
+func writeCollection(db *sql.DB, deckName string, notes []Note, description string) (err error) {
 	const schema = `
 CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);
 CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld text not null, csum integer not null, flags integer not null, data text not null);
@@ -119,7 +128,18 @@ CREATE INDEX ix_revlog_cid ON revlog (cid);`
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		rollbackErr := tx.Rollback()
+		if rollbackErr == nil || errors.Is(rollbackErr, sql.ErrTxDone) {
+			return
+		}
+		rollbackErr = fmt.Errorf("rollback collection transaction: %w", rollbackErr)
+		if err == nil {
+			err = rollbackErr
+			return
+		}
+		err = errors.Join(err, rollbackErr)
+	}()
 	for i, note := range notes {
 		nid, cid := stableID("note|"+note.Key), stableID("card|"+note.Key)
 		fields := strings.Join(noteFields(note), "\x1f")
