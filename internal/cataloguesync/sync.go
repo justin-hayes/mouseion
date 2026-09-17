@@ -815,7 +815,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 		return nil
 	}
 	safe := safeSyncError(workErr, connection)
-	_ = w.Store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()})
+	if statusErr := w.Store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()}); statusErr != nil {
+		return errors.Join(safe, fmt.Errorf("record catalogue sync failure: %w", statusErr))
+	}
 	return safe
 }
 

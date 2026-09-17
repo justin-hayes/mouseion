@@ -215,8 +215,8 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 	var group errgroup.Group
 	group.Go(func() error {
 		err := writeBatchMultipart(multipartWriter, filename, content)
-		if closeErr := multipartWriter.Close(); err == nil {
-			err = closeErr
+		if closeErr := multipartWriter.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
 		}
 		if closeErr := writer.CloseWithError(err); closeErr != nil {
 			err = errors.Join(err, closeErr)

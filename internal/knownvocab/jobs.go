@@ -129,7 +129,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	}
 	defer func() {
 		if workErr != nil {
-			_ = w.update(context.WithoutCancel(ctx), job.ID, a.OwnerID, "failed", map[string]any{"error": workErr.Error()}, true)
+			if updateErr := w.update(context.WithoutCancel(ctx), job.ID, a.OwnerID, "failed", map[string]any{"error": workErr.Error()}, true); updateErr != nil {
+				workErr = errors.Join(workErr, fmt.Errorf("record known vocabulary failure: %w", updateErr))
+			}
 		}
 	}()
 	tx, err := w.Pool.Begin(ctx)
