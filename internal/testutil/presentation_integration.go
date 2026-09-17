@@ -21,11 +21,6 @@ type PresentationProvider struct {
 // FreezePresentationDeck builds an integration fixture through the public
 // presentation lifecycle instead of reaching into manifest internals.
 func FreezePresentationDeck(ctx context.Context, owner, deckName string, entries []cardexport.Entry, provider PresentationProvider) (cardexport.FrozenDeck, error) {
-	if len(entries) == 0 {
-		deck, _, err := cardexport.NewPresentation(nil).FreezeForDeck(ctx, owner, deckName, nil)
-		return deck, err
-	}
-
 	projections := make([]cardexport.CandidateProjection, 0, len(entries))
 	for _, entry := range entries {
 		upos := strings.ToUpper(strings.TrimSpace(entry.UPOS))
@@ -75,7 +70,7 @@ func FreezePresentationDeck(ctx context.Context, owner, deckName string, entries
 		}
 		projections = append(projections, projection)
 	}
-	deck, _, err := cardexport.NewPresentation(nil).Freeze(ctx, projections)
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(ctx, owner, deckName, projections)
 	return deck, err
 }
 
