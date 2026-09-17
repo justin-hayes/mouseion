@@ -12,7 +12,6 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 func (s *PostgresStore) GetPreparedDeckTranslationOutcome(ctx context.Context, owner, preparationID, runID string, ordinal int) (domain.PreparedDeckTranslationOutcome, error) {
@@ -212,13 +211,12 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 			return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 		}
 		key := *item.CacheKey
-		entry := enrichment.CacheEntry{CacheKey: key}
 		if outcome.State == domain.PreparedDeckOutcomeCompleted {
 			record, found := byStoredOrdinal[item.Ordinal]
 			if !found || !record.Found {
 				return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 			}
-			entry = record.Entry
+			entry := record.Entry
 			stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
 		}
 	}

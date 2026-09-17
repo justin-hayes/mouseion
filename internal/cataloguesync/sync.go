@@ -318,7 +318,7 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	}
 	languages, readErr := s.reader.Languages(ctx, owner, connection.ID)
 	if readErr != nil {
-		return RefreshResult{Book: book, Failed: true}, nil
+		return RefreshResult{Book: book, Failed: true}, readErr
 	}
 	var scopes []languageScope
 	if s.capabilities != nil {
@@ -336,7 +336,7 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	for _, scope := range scopes {
 		feed, feedErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, scope.languageID)
 		if feedErr != nil {
-			return RefreshResult{Book: book, Failed: true}, nil
+			return RefreshResult{Book: book, Failed: true}, feedErr
 		}
 		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
 			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {

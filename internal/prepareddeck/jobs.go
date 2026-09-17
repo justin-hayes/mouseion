@@ -315,7 +315,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error
 	if err != nil {
 		return Handle{}, err
 	}
-	jobID := int64(0)
+	var jobID int64
 	if result != nil && result.Job != nil && isLivePreparationJobState(result.Job.State) {
 		jobID = result.Job.ID
 	} else if confirmed, confirmErr := liveRerenderJobID(ctx, tx, owner, id, p.CurrentRunID, cardexport.PresentationVersion); confirmErr == nil {

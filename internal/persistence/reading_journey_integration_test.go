@@ -48,15 +48,11 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	}
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	require.NoError(t, err)
+	assertJourneyEntries(t, journey, alice.ID, []string{queuedEarly.ID, shared.ID})
 	italianJourney, err := store.GetReadingJourney(ctx, alice.ID, "it")
 	require.NoError(t, err)
-	bobJourney, err := store.GetReadingJourney(ctx, bob.ID, "de")
-	require.NoError(t, err)
-	assertJourneyEntries(t, journey, alice.ID, []string{queuedEarly.ID, shared.ID})
-	italianJourney, err = store.GetReadingJourney(ctx, alice.ID, "it")
-	require.NoError(t, err)
 	assertJourneyEntries(t, italianJourney, alice.ID, []string{italian.ID})
-	bobJourney, err = store.GetReadingJourney(ctx, bob.ID, "de")
+	bobJourney, err := store.GetReadingJourney(ctx, bob.ID, "de")
 	require.NoError(t, err)
 	assertJourneyEntries(t, bobJourney, bob.ID, []string{bobQueued.ID})
 

@@ -125,6 +125,7 @@ func insertProjectionFixture(t *testing.T, ctx context.Context, store *PostgresS
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: snapshot.Filename, DeckName: snapshot.DeckName, ContentHash: source.ContentHash})
 	require.NoError(t, err)
 	manifestDigest, candidateDigests, err := snapshot.Digests()
+	require.NoError(t, err)
 	if override != nil {
 		manifestDigest, candidateDigests = override(snapshot)
 	}

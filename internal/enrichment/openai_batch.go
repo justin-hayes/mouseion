@@ -588,7 +588,7 @@ func (c *OpenAIBatchClient) doJSON(req *http.Request, operation string, dst any)
 	if err = decoder.Decode(dst); err != nil {
 		return providerError(operation, ProviderErrorMalformedResponse, 0, err)
 	}
-	if err = decoder.Decode(&struct{}{}); err != io.EOF {
+	if err = decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return providerError(operation, ProviderErrorMalformedResponse, 0, nil)
 	}
 	return nil

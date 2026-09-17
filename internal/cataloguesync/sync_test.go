@@ -162,6 +162,7 @@ type refreshReader struct {
 	languages   opds.Feed
 	feed        opds.Feed
 	err         error
+	browseErr   error
 	reads       int
 	connections []string
 }
@@ -179,6 +180,9 @@ func (r *refreshReader) Languages(_ context.Context, _, connection string) (opds
 func (r *refreshReader) BrowseLanguage(_ context.Context, _, connection, _ string) (opds.Feed, error) {
 	r.connections = append(r.connections, connection)
 	r.reads++
+	if r.browseErr != nil {
+		return opds.Feed{}, r.browseErr
+	}
 	if r.err != nil {
 		return opds.Feed{}, r.err
 	}
@@ -266,6 +270,7 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 		name                                 string
 		feed                                 opds.Feed
 		readerErr                            error
+		browseErr                            error
 		titleChange                          bool
 		wantUpdated, wantMissing, wantFailed bool
 		wantReconciles                       int
@@ -274,6 +279,7 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 		{name: "unchanged", feed: entry("Old title"), wantReconciles: 1},
 		{name: "missing", feed: opds.Feed{}, wantMissing: true},
 		{name: "failed", readerErr: errors.New("upstream secret details"), wantFailed: true},
+		{name: "browse failed", browseErr: errors.New("browse failed"), wantFailed: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -284,8 +290,15 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 				supported:   []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}},
 				reconcile:   persistence.CatalogueEntryReconcileResult{TitleChanged: tc.titleChange, Book: domain.Book{ID: "book-1", OwnerID: "alice", Title: "New title", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 			}
-			result, err := newRefreshService(store, &refreshReader{feed: tc.feed, err: tc.readerErr}).RefreshEntry(context.Background(), "alice", "book-1")
-			require.NoError(t, err)
+			reader := &refreshReader{feed: tc.feed, err: tc.readerErr, browseErr: tc.browseErr}
+			result, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
+			if tc.readerErr != nil {
+				assert.ErrorIs(t, err, tc.readerErr)
+			} else if tc.browseErr != nil {
+				assert.ErrorIs(t, err, tc.browseErr)
+			} else {
+				require.NoError(t, err)
+			}
 			assert.Equal(t, tc.wantUpdated, result.Updated)
 			assert.Equal(t, tc.wantMissing, result.Missing)
 			assert.Equal(t, tc.wantFailed, result.Failed)

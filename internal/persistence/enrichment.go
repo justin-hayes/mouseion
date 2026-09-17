@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
@@ -12,7 +13,7 @@ import (
 func (s *PostgresStore) Get(ctx context.Context, key enrichment.CacheKey) (entry enrichment.CacheEntry, found bool, err error) {
 	entry.CacheKey = key
 	row, err := s.queries().GetEnrichmentCache(ctx, sqlcgen.GetEnrichmentCacheParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion})
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return enrichment.CacheEntry{}, false, nil
 	}
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *PostgresStore) PutPreparedDeckTranslationIfClaimed(ctx context.Context,
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		var claimMarker int
 		err := tx.QueryRow(ctx, `SELECT 1 FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='running' AND claim_token=$6 AND lease_expires_at > clock_timestamp() FOR UPDATE`, owner, preparationID, runID, ordinal, generation, uuidArg(token)).Scan(&claimMarker)
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrPreparedDeckClaimLost
 		}
 		if err != nil {

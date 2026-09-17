@@ -35,10 +35,14 @@ func (h *Handler) attachVocabularyStudyPreparation(ctx context.Context, owner st
 
 func (h *Handler) currentVocabularyStudyPreparation(ctx context.Context, owner string, book domain.SourceMaterialSummary, includeReady bool) (*domain.DeckPreparation, error) {
 	if !bookHasCompletedAnalysis(book) {
+		// No completed analysis means this book has no study preparation.
+		//nolint:nilnil // nil preparation is the explicit absence contract.
 		return nil, nil
 	}
 	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
 	if !ok {
+		// Stores without vocabulary-study support have no preparation to attach.
+		//nolint:nilnil // nil preparation is the explicit absence contract.
 		return nil, nil
 	}
 	preparation, err := reader.GetDeckPreparationForAnalysis(ctx, owner, book.Source.ID, book.AnalysisRunID)
@@ -53,6 +57,8 @@ func (h *Handler) currentVocabularyStudyPreparation(ctx context.Context, owner s
 		}
 	}
 	if errors.Is(err, persistence.ErrNotFound) {
+		// No preparation exists for this analysis or active study.
+		//nolint:nilnil // nil preparation is the explicit absence contract.
 		return nil, nil
 	}
 	if err != nil {
