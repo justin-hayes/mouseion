@@ -93,6 +93,8 @@ func LLMConfigFromEnv() (LLMConfig, error) {
 // EnrichmentConfig; Service is the final policy boundary for every request.
 func NewConfiguredLLMProvider(cfg LLMConfig, client *http.Client) (TranslationProvider, error) {
 	if !cfg.Enabled {
+		// A nil provider is the explicit disabled-provider contract.
+		//nolint:nilnil // callers distinguish disabled external enrichment from errors.
 		return nil, nil
 	}
 	llm, err := NewOpenAITranslationClient(cfg, client)

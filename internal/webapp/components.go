@@ -363,7 +363,6 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		if runID != "" && book.CorpusID != "" {
 			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View Journey entry", journeyEntryURL(bookID), StatusSuccess, false}
 		}
-		state = ""
 	}
 
 	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this Journey entry yet.", "", "", StatusInfo, false}

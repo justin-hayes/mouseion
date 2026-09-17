@@ -144,7 +144,7 @@ func parseNavigationXML(file *zip.File) (*navigationElement, error) {
 	var stack []*navigationElement
 	for {
 		token, tokenErr := decoder.Token()
-		if tokenErr == io.EOF {
+		if errors.Is(tokenErr, io.EOF) {
 			if root == nil || len(stack) != 0 {
 				return nil, errors.New("malformed navigation document")
 			}

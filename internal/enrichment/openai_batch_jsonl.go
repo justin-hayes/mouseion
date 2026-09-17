@@ -281,6 +281,8 @@ func (c *TranslationCodec) decodeBatchResultLine(wire batchResultWire, ordinal i
 	if err != nil {
 		outcome.ErrorClass = ProviderErrorInvalidResponse
 		outcome.ErrorCode = providerResultCode(outcome.ErrorClass)
+		// Invalid translation content is an item failure, not a decode failure.
+		//nolint:nilerr // the error is represented by the completed outcome fields.
 		return outcome, nil
 	}
 	outcome.Response = response

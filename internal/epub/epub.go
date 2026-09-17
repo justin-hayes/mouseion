@@ -270,7 +270,7 @@ func extractNavigation(f *zip.File, base string, labels, landmarks map[string][]
 	var label strings.Builder
 	for {
 		tok, err := d.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
@@ -396,7 +396,7 @@ func extractXHTML(f *zip.File) (string, string, error) {
 	}
 	for {
 		tok, err := d.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -467,7 +467,7 @@ func invalid(message string, err error) error {
 	if err == nil {
 		return fmt.Errorf("%w: %s", ErrInvalidEPUB, message)
 	}
-	return fmt.Errorf("%w: %s: %v", ErrInvalidEPUB, message, err)
+	return fmt.Errorf("%w: %s: %w", ErrInvalidEPUB, message, err)
 }
 
 func MediaType() string { return mediaType }

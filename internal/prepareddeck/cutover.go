@@ -267,7 +267,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 func (w *Worker) fail(ctx context.Context, args JobArgs, cause error) error {
 	_, failErr := w.Store.FailDeckPreparation(context.WithoutCancel(ctx), args.OwnerID, args.PreparationID, cause.Error())
 	if failErr != nil && !errors.Is(failErr, persistence.ErrInvalidTransition) {
-		return fmt.Errorf("prepare durable run: %v; mark preparation failed: %w", cause, failErr)
+		return fmt.Errorf("prepare durable run: %w; mark preparation failed: %w", cause, failErr)
 	}
 	return nil
 }

@@ -188,7 +188,7 @@ func (c *TranslationCodec) DecodeResponse(input TranslationRequest, body []byte)
 func (c *TranslationCodec) DecodeResponseWithUsage(input TranslationRequest, body []byte) (TranslationResponse, TranslationUsage, error) {
 	response, usage, err := c.decodeResponseWithItemID(input, body, TranslationItemID(input))
 	if err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("%w: %v", ErrInvalidTranslationResponse, err)
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("%w: %w", ErrInvalidTranslationResponse, err)
 	}
 	return response, usage, nil
 }

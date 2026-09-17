@@ -665,6 +665,8 @@ func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile
 			return &GermanVocabularyBackfillConflict{Table: "curated_sentences", CanonicalLemma: target, UPOS: row.upos, Detail: "both historical and modern curated facts exist"}, nil
 		}
 	}
+	// A nil conflict means the backfill is safe to apply.
+	//nolint:nilnil // the pointer is the explicit conflict/absence result.
 	return nil, nil
 }
 

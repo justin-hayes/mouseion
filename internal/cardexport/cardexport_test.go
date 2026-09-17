@@ -515,6 +515,7 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		require.NoError(t, err)
 		dues = append(dues, due)
 	}
+	require.NoError(t, rows.Err())
 	assert.Len(t, dues, len(notes), "card due positions = %v, want len %d", dues, len(notes))
 	for i, due := range dues {
 		assert.Equal(t, int64(i+1), due, "card due positions = %v, want 1..%d in text order", dues, len(notes))

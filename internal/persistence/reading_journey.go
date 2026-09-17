@@ -311,7 +311,7 @@ func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, lang
 			if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
 				return 0, err
 			}
-			if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
+			if _, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
 				return 0, err
 			}
 			if err = tx.Commit(ctx); err != nil {

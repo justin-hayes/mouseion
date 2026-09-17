@@ -565,7 +565,9 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (Status
 			if argsErr != nil {
 				return Status{}, argsErr
 			}
-			_, err = s.ensureAttemptTx(ctx, tx, args, status.RunID, false)
+			if _, err = s.ensureAttemptTx(ctx, tx, args, status.RunID, false); err != nil {
+				return Status{}, err
+			}
 		} else if err != nil {
 			return Status{}, err
 		}
@@ -575,6 +577,9 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (Status
 			_, err = tx.Exec(ctx, `UPDATE analysis_runs SET state='failed',last_error=$3,updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2`, owner, status.RunID, message)
 			if err == nil {
 				_, err = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='failed',error=$2,finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID, message)
+				if err != nil {
+					return Status{}, err
+				}
 			}
 		} else if err != nil {
 			return Status{}, err

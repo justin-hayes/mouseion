@@ -211,6 +211,8 @@ func openDictionaryIndex(path string) (*dictionary.Index, error) {
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		log.Printf("dictionary index not found at %s; continuing without local glosses", path)
+		// The local dictionary is optional; absence is a successful startup mode.
+		//nolint:nilnil // nil index explicitly represents the absent optional index.
 		return nil, nil
 	}
 	return nil, fmt.Errorf("invalid dictionary index at %s: %w", path, err)

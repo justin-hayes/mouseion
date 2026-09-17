@@ -10,6 +10,11 @@ linters:
     - sqlclosecheck
     - gocheckcompilerdirectives
     - nolintlint
+    - errorlint
+    - nilerr
+    - nilnil
+    - rowserrcheck
+    - wastedassign
 
   exclusions:
     generated: strict

@@ -149,7 +149,7 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 		clearExternalFields(&entry)
 		applySentenceDecision(&entry, projection.Candidate, projection.Sentences)
 		if err := resolver.resolveLexicalEntry(ctx, &entry); err != nil {
-			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: resolve lexical entry %s: %v", ErrInvalidInput, candidateKey(projection.Candidate), err)
+			return FrozenDeck{}, FreezeDiagnostics{}, fmt.Errorf("%w: resolve lexical entry %s: %w", ErrInvalidInput, candidateKey(projection.Candidate), err)
 		}
 		entries = append(entries, entry)
 	}

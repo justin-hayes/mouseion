@@ -111,7 +111,7 @@ func (s ManifestSnapshot) Digest() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cardexport: encode manifest: %w", err)
 	}
-	prefix := "mouseion-prepared-deck-manifest-v2\x00"
+	var prefix string
 	if s.SchemaVersion == LegacyManifestSchemaVersion {
 		prefix = "mouseion-prepared-deck-manifest-v1\x00"
 	} else if s.SchemaVersion == PreviousManifestSchemaVersion {
@@ -186,7 +186,7 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 	if err != nil {
 		return "", fmt.Errorf("cardexport: encode manifest item: %w", err)
 	}
-	prefix := "mouseion-prepared-deck-candidate-v2\x00"
+	var prefix string
 	if schemaVersion == LegacyManifestSchemaVersion {
 		prefix = "mouseion-prepared-deck-candidate-v1\x00"
 	} else if schemaVersion == PreviousManifestSchemaVersion {

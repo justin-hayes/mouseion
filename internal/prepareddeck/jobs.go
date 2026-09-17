@@ -315,7 +315,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error
 	if err != nil {
 		return Handle{}, err
 	}
-	jobID := int64(0)
+	var jobID int64
 	if result != nil && result.Job != nil && isLivePreparationJobState(result.Job.State) {
 		jobID = result.Job.ID
 	} else if confirmed, confirmErr := liveRerenderJobID(ctx, tx, owner, id, p.CurrentRunID, cardexport.PresentationVersion); confirmErr == nil {
@@ -347,15 +347,18 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	rows, queryErr := s.pool.Query(ctx, `SELECT id FROM river_job WHERE args->>'owner_id'=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id`, owner, id)
 	if queryErr == nil {
 		var jobIDs []int64
+		complete := true
 		for rows.Next() {
 			var jobID int64
 			if scanErr := rows.Scan(&jobID); scanErr != nil {
+				complete = false
 				break
 			}
 			jobIDs = append(jobIDs, jobID)
 		}
+		complete = complete && rows.Err() == nil
 		rows.Close()
-		if s.client != nil {
+		if complete && s.client != nil {
 			for _, jobID := range jobIDs {
 				_, _ = s.client.JobCancel(ctx, jobID)
 			}

@@ -34,7 +34,7 @@ func OpenIndex(path string) (*Index, error) {
 	}
 	absolute, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("%w: resolve path: %v", ErrInvalidIndex, err)
+		return nil, fmt.Errorf("%w: resolve path: %w", ErrInvalidIndex, err)
 	}
 	info, err := os.Stat(absolute)
 	if err != nil {
@@ -45,24 +45,24 @@ func OpenIndex(path string) (*Index, error) {
 	}
 	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(absolute)+"?mode=ro&_query_only=1")
 	if err != nil {
-		return nil, fmt.Errorf("%w: open: %v", ErrInvalidIndex, err)
+		return nil, fmt.Errorf("%w: open: %w", ErrInvalidIndex, err)
 	}
 	db.SetMaxOpenConns(8)
 	index := &Index{db: db, name: "kaikki", version: ""}
 	if err = db.Ping(); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("%w: ping: %v", ErrInvalidIndex, err)
+		return nil, fmt.Errorf("%w: ping: %w", ErrInvalidIndex, err)
 	}
 	if err = db.QueryRow(`SELECT value FROM metadata WHERE key = 'provider_version'`).Scan(&index.version); err != nil || strings.TrimSpace(index.version) == "" {
 		_ = db.Close()
 		if err == nil {
 			err = errors.New("provider_version is empty")
 		}
-		return nil, fmt.Errorf("%w: metadata: %v", ErrInvalidIndex, err)
+		return nil, fmt.Errorf("%w: metadata: %w", ErrInvalidIndex, err)
 	}
 	if _, err = db.Exec(`SELECT language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries LIMIT 0`); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("%w: schema: %v", ErrInvalidIndex, err)
+		return nil, fmt.Errorf("%w: schema: %w", ErrInvalidIndex, err)
 	}
 	return index, nil
 }

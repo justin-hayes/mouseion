@@ -395,7 +395,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Quality.Accepted = item.Disposition == cardexport.ManifestAccepted
 		var render preparedDeckRenderPayload
 		if err = json.Unmarshal(model.RenderPayload, &render); err != nil {
-			return snapshot, "", fmt.Errorf("%w: decode durable manifest render payload: %v", ErrPreparedDeckIdentity, err)
+			return snapshot, "", fmt.Errorf("%w: decode durable manifest render payload: %w", ErrPreparedDeckIdentity, err)
 		}
 		item.Entry.Morphology, item.Entry.Gloss, item.Entry.Plural, item.Entry.IPA, item.Entry.PrincipalParts, item.Entry.DictionaryProviderVersion = render.Morphology, render.Gloss, render.Plural, render.IPA, render.PrincipalParts, render.DictionaryProviderVersion
 		item.Entry.CandidateSenses = render.CandidateSenses
