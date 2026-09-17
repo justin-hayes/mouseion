@@ -118,6 +118,8 @@ func preparationPhase(state domain.DeckPreparationState, run domain.PreparedDeck
 		return "failed"
 	case domain.DeckPreparationCancelled:
 		return "cancelled"
+	case domain.DeckPreparationPreparing:
+		// The durable run and chunk state below determine the detailed phase.
 	}
 	if run.State == domain.PreparedDeckRunFinalizing {
 		if run.ExecutionMode == domain.PreparedDeckExecutionStandard {
@@ -142,6 +144,8 @@ func preparationPhase(state domain.DeckPreparationState, run domain.PreparedDeck
 			return "waiting"
 		case domain.PreparedDeckBatchSubmitting, domain.PreparedDeckBatchPending:
 			return "submitting"
+		case domain.PreparedDeckBatchCompleted, domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
+			// Terminal chunks do not determine an active phase.
 		}
 	}
 	return "translating"

@@ -632,6 +632,7 @@ func (s *Service) Wait(ctx context.Context, owner string, id int64) (Status, err
 		if err != nil {
 			return Status{}, err
 		}
+		//nolint:exhaustive // River's JobState is an open upstream enumeration; unknown states remain pending until context cancellation.
 		switch status.State {
 		case rivertype.JobStateCompleted, rivertype.JobStateCancelled, rivertype.JobStateDiscarded:
 			return status, nil

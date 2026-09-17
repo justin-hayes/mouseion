@@ -71,6 +71,8 @@ func (w *BatchPollWorker) Poll(ctx context.Context, args BatchPollJobArgs) error
 	switch chunk.State {
 	case domain.PreparedDeckBatchCompleted, domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
 		return nil
+	case domain.PreparedDeckBatchPending, domain.PreparedDeckBatchSubmitting, domain.PreparedDeckBatchSubmitted, domain.PreparedDeckBatchPolling, domain.PreparedDeckBatchReconciling:
+		// Nonterminal chunks continue through reconciliation.
 	}
 	claimToken := uuid.NewString()
 	claimed, err := w.Store.ClaimPreparedDeckBatchReconciliation(ctx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, claimToken, w.now().Add(batchReconciliationLease))
@@ -392,6 +394,7 @@ func validatePolledBatch(chunk domain.PreparedDeckBatchChunk, batch enrichment.B
 }
 
 func batchCanOmitRequestCounts(status enrichment.BatchStatus) bool {
+	//nolint:exhaustive // OpenAI may add provider lifecycle states; unknown states must not omit request counts.
 	switch status {
 	case enrichment.BatchStatusValidating, enrichment.BatchStatusInProgress, enrichment.BatchStatusFinalizing,
 		enrichment.BatchStatusFailed, enrichment.BatchStatusCancelling, enrichment.BatchStatusCancelled:
@@ -422,6 +425,7 @@ func batchReconciliationUpdate(batch enrichment.Batch, state domain.PreparedDeck
 
 func providerTerminalTime(batch enrichment.Batch) *time.Time {
 	var unix int64
+	//nolint:exhaustive // OpenAI may add provider lifecycle states; only known terminal timestamps are trusted.
 	switch batch.Status {
 	case enrichment.BatchStatusCompleted:
 		unix = batch.CompletedAt
@@ -440,6 +444,7 @@ func providerTerminalTime(batch enrichment.Batch) *time.Time {
 }
 
 func terminalBatchStatus(status enrichment.BatchStatus) bool {
+	//nolint:exhaustive // OpenAI may add provider lifecycle states; unknown states remain nonterminal.
 	switch status {
 	case enrichment.BatchStatusCompleted, enrichment.BatchStatusFailed, enrichment.BatchStatusExpired, enrichment.BatchStatusCancelled:
 		return true
@@ -463,7 +468,13 @@ func retryableBatchFailure(class enrichment.ProviderErrorClass) bool {
 	switch class {
 	case enrichment.ProviderErrorRateLimit, enrichment.ProviderErrorTimeout, enrichment.ProviderErrorUnavailable, enrichment.ProviderErrorTransport, enrichment.ProviderErrorExpired, enrichment.ProviderErrorCancelled:
 		return true
+	case enrichment.ProviderErrorNone, enrichment.ProviderErrorInvalidRequest, enrichment.ProviderErrorIneligibleEndpoint,
+		enrichment.ProviderErrorAuthentication, enrichment.ProviderErrorPermission, enrichment.ProviderErrorMalformedResponse,
+		enrichment.ProviderErrorResponseTooLarge, enrichment.ProviderErrorInvalidResponse, enrichment.ProviderErrorRequestFailed,
+		enrichment.ProviderErrorFileProcessing:
+		return false
 	default:
+		// Unknown classes are not retried without an explicit policy.
 		return false
 	}
 }
@@ -516,12 +527,17 @@ func outcomeErrorClass(class enrichment.ProviderErrorClass) string {
 		return "cancellation"
 	case enrichment.ProviderErrorInvalidResponse, enrichment.ProviderErrorMalformedResponse, enrichment.ProviderErrorResponseTooLarge:
 		return "validation"
-	default:
+	case enrichment.ProviderErrorNone, enrichment.ProviderErrorInvalidRequest, enrichment.ProviderErrorIneligibleEndpoint,
+		enrichment.ProviderErrorAuthentication, enrichment.ProviderErrorPermission, enrichment.ProviderErrorUnavailable,
+		enrichment.ProviderErrorTransport, enrichment.ProviderErrorRequestFailed, enrichment.ProviderErrorFileProcessing:
+		return "provider"
+	default: // Unknown classes use the generic provider classification.
 		return "provider"
 	}
 }
 
 func terminalChunkErrorClass(status enrichment.BatchStatus) string {
+	//nolint:exhaustive // OpenAI may add provider lifecycle states; only known terminal failures get a class.
 	switch status {
 	case enrichment.BatchStatusExpired:
 		return "expired"
@@ -556,7 +572,9 @@ func batchResultFailureClass(kind enrichment.BatchResultErrorKind) string {
 		return "duplicate_result"
 	case enrichment.BatchResultMissing:
 		return "missing_result"
-	default:
+	case enrichment.BatchResultMalformed, enrichment.BatchResultContradictory:
+		return "malformed_result"
+	default: // Unknown result errors use the bounded malformed classification.
 		return "malformed_result"
 	}
 }

@@ -28,7 +28,9 @@ func (s PreparedDeckRunState) CanTransitionTo(next PreparedDeckRunState) bool {
 		return next == PreparedDeckRunFinalizing || next == PreparedDeckRunFailed || next == PreparedDeckRunCancelled
 	case PreparedDeckRunFinalizing:
 		return next == PreparedDeckRunCompleted || next == PreparedDeckRunFailed || next == PreparedDeckRunCancelled
-	default:
+	case PreparedDeckRunCompleted, PreparedDeckRunFailed, PreparedDeckRunCancelled:
+		return false
+	default: // Invalid persisted states cannot transition.
 		return false
 	}
 }
@@ -52,7 +54,9 @@ func (s PreparedDeckTranslationState) CanTransitionTo(next PreparedDeckTranslati
 		return next == PreparedDeckTranslationRunning || next == PreparedDeckTranslationCompleted || next == PreparedDeckTranslationFailed || next == PreparedDeckTranslationCancelled
 	case PreparedDeckTranslationRunning:
 		return next == PreparedDeckTranslationCompleted || next == PreparedDeckTranslationFailed || next == PreparedDeckTranslationCancelled
-	default:
+	case PreparedDeckTranslationCompleted, PreparedDeckTranslationFailed, PreparedDeckTranslationCancelled:
+		return false
+	default: // Invalid persisted states cannot transition.
 		return false
 	}
 }
@@ -103,7 +107,9 @@ func (s PreparedDeckOutcomeState) CanTransitionTo(next PreparedDeckOutcomeState)
 		return next == PreparedDeckOutcomeRunning || next == PreparedDeckOutcomeCancelled
 	case PreparedDeckOutcomeRunning:
 		return next == PreparedDeckOutcomePending || next == PreparedDeckOutcomeCompleted || next == PreparedDeckOutcomeFailed || next == PreparedDeckOutcomeCancelled
-	default:
+	case PreparedDeckOutcomeCompleted, PreparedDeckOutcomeFailed, PreparedDeckOutcomeCancelled:
+		return false
+	default: // Invalid persisted states cannot transition.
 		return false
 	}
 }
@@ -152,7 +158,9 @@ func (s PreparedDeckBatchChunkState) CanTransitionTo(next PreparedDeckBatchChunk
 		return next == PreparedDeckBatchPolling || next == PreparedDeckBatchReconciling || next == PreparedDeckBatchFailed || next == PreparedDeckBatchCancelled
 	case PreparedDeckBatchReconciling:
 		return next == PreparedDeckBatchPolling || next == PreparedDeckBatchCompleted || next == PreparedDeckBatchFailed || next == PreparedDeckBatchCancelled
-	default:
+	case PreparedDeckBatchCompleted, PreparedDeckBatchFailed, PreparedDeckBatchCancelled, PreparedDeckBatchAmbiguous:
+		return false
+	default: // Invalid persisted states cannot transition.
 		return false
 	}
 }

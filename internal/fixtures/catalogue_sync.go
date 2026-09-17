@@ -199,7 +199,10 @@ func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueS
 	case domain.CatalogueSyncFailed:
 		status.State, status.LogicalState, status.Progress, status.Error = "discarded", "failed", 42, durable.LastError
 		status.FinalizedAt = timePtr(updatedAt)
+	case domain.CatalogueSyncSyncing:
+		status.State, status.LogicalState, status.Progress = "running", "running", 35
 	default:
+		// Invalid fixture states retain the conservative nonterminal projection.
 		status.State, status.LogicalState, status.Progress = "running", "running", 35
 	}
 	return status, nil

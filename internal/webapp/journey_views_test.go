@@ -91,3 +91,19 @@ func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
 	assert.Equal(t, "50.0%", journeyCurrentCoverage(item))
 	assert.Equal(t, "80.0% if reserved vocabulary graduates; 75.0% after the top 2 deck-eligible lemmas", journeyProjectedCoverage(item))
 }
+
+func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
+	item := testJourneyBook("analyzed", "Analyzed book", "analyzed")
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	item.Book.Source.ContentSnapshotID = "snapshot"
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run"
+	item.Book.CorpusID = "corpus"
+	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
+
+	assert.Equal(t, "current", journeyEvidenceState(item))
+	eligible, message := journeyGoalEligibility(item.Book)
+	assert.True(t, eligible)
+	assert.Empty(t, message)
+}

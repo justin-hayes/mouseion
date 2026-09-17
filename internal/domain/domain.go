@@ -28,9 +28,11 @@ func (s DeckPreparationState) CanTransitionTo(next DeckPreparationState) bool {
 		return next == DeckPreparationPreparing || next == DeckPreparationCancelled
 	case DeckPreparationPreparing:
 		return next == DeckPreparationReady || next == DeckPreparationFailed || next == DeckPreparationCancelled
+	case DeckPreparationReady:
+		return false
 	case DeckPreparationFailed, DeckPreparationCancelled:
 		return next == DeckPreparationQueued
-	default:
+	default: // Invalid persisted states cannot transition.
 		return false
 	}
 }

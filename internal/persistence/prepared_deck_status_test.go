@@ -18,6 +18,7 @@ func TestPreparationPhasesExposeDurableBatchLifecycle(t *testing.T) {
 		{name: "submission", chunks: []domain.PreparedDeckBatchChunk{{State: domain.PreparedDeckBatchPending}}, want: "submitting"},
 		{name: "waiting", chunks: []domain.PreparedDeckBatchChunk{{State: domain.PreparedDeckBatchPolling}}, want: "waiting"},
 		{name: "reconciling", chunks: []domain.PreparedDeckBatchChunk{{State: domain.PreparedDeckBatchReconciling}}, want: "reconciling"},
+		{name: "terminal chunks do not override active run", chunks: []domain.PreparedDeckBatchChunk{{State: domain.PreparedDeckBatchCompleted}}, want: "translating"},
 		{name: "retrying", progress: domain.PreparedDeckRunProgress{RetryingCount: 1}, want: "retrying"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
