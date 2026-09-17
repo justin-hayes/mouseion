@@ -34,14 +34,6 @@ type GermanVocabularyBackfillConflict struct {
 	Detail         string
 }
 
-type germanBackfillConflictError struct {
-	conflict GermanVocabularyBackfillConflict
-}
-
-func (e *germanBackfillConflictError) Error() string {
-	return fmt.Sprintf("%s %s/%s: %s", e.conflict.Table, e.conflict.CanonicalLemma, e.conflict.UPOS, e.conflict.Detail)
-}
-
 type backfillIdentity struct{ lemma, upos string }
 
 func (s *PostgresStore) BackfillGermanVocabulary(ctx context.Context) (GermanVocabularyBackfillReport, error) {

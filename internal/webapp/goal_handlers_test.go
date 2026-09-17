@@ -321,5 +321,3 @@ func TestPrimaryGoalFinishOutcomeShowsConditionalVocabularyEvidence(t *testing.T
 		assert.True(t, strings.Contains(output.String(), want), "residual outcome missing %q: %s", want, output.String())
 	}
 }
-
-func timePtr(value time.Time) *time.Time { return &value }

@@ -646,20 +646,6 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	return view, nil
 }
 
-func (h *Handler) journeyBookLanguage(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (string, error) {
-	if book, ok := bookByID[bookID]; ok {
-		return book.Source.Language, nil
-	}
-	book, err := h.services.Store.GetBook(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return book.LanguageTag, nil
-}
-
 func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (journeyBookView, error) {
 	if book, ok := bookByID[bookID]; ok {
 		return journeyBookView{Book: book, BookID: bookID}, nil

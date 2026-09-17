@@ -623,15 +623,6 @@ func maxOne(value int) int {
 	return value
 }
 
-func textProfileStatItems(profile domain.TextProfile) []StatItem {
-	return []StatItem{
-		{Label: "sentences", Value: fmt.Sprintf("%d", profile.SentenceCount)},
-		{Label: "median tokens per sentence", Value: fmt.Sprintf("%.1f", profile.MedianSentenceTokenCount)},
-		{Label: "90th-percentile tokens", Value: fmt.Sprintf("%d", profile.P90SentenceTokenCount)},
-		{Label: "long sentences (>35 tokens)", Value: fmt.Sprintf("%.1f%%", longSentencePercent(profile))},
-	}
-}
-
 func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
 	return []StatItem{
 		{Label: "current-known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage))},

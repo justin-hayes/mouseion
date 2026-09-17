@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -116,18 +115,6 @@ const (
 type Service struct {
 	pool   *pgxpool.Pool
 	client *river.Client[pgx.Tx]
-}
-
-var liveJobStates = []rivertype.JobState{
-	rivertype.JobStateAvailable,
-	rivertype.JobStatePending,
-	rivertype.JobStateRunning,
-	rivertype.JobStateRetryable,
-	rivertype.JobStateScheduled,
-}
-
-func isLiveJobState(state rivertype.JobState) bool {
-	return slices.Contains(liveJobStates, state)
 }
 
 func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, runID string, failOrphaned bool) (int64, error) {
