@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -67,7 +68,9 @@ func run() (err error) {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprintln(w, "ok")
+		if _, err := fmt.Fprintln(w, "ok"); err != nil {
+			log.Printf("write health response: %v", err)
+		}
 	})
 	secureCookies := strings.EqualFold(os.Getenv("MOUSEION_COOKIE_SECURE"), "true")
 	lifetime := 24 * time.Hour
@@ -209,12 +212,15 @@ func healthcheckURL(addr string) (string, error) {
 	return "http://" + net.JoinHostPort(host, port) + "/healthz", nil
 }
 
-func probeHealth(target string, client *http.Client) error {
+func probeHealth(target string, client *http.Client) (err error) {
 	resp, err := client.Get(target)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
+	if _, readErr := io.Copy(io.Discard, resp.Body); readErr != nil {
+		return fmt.Errorf("read health endpoint %s: %w", target, readErr)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("health endpoint %s returned %s", target, resp.Status)
 	}

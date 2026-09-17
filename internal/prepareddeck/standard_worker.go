@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 )
 
@@ -140,7 +141,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	return err
 }
 
-func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTranslationJobArgs, token string, attempt int, class, code string) error {
+func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTranslationJobArgs, token string, attempt int, class, code string) (err error) {
 	base, max := w.Config.StandardRetryBaseDelay, w.Config.StandardRetryMaxDelay
 	if base <= 0 {
 		base = DefaultStandardRetryBaseDelay
@@ -168,7 +169,7 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	inserted, err := w.Client.InsertTx(ctx, tx, newArgs, &river.InsertOpts{Queue: TranslationQueue, MaxAttempts: durableJobMaxAttempts, ScheduledAt: next, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 	if err != nil {
 		return err

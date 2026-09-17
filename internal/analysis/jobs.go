@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
@@ -171,7 +172,7 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
 
 // SubmitAnalysis atomically records one snapshot-bound analysis run and inserts
 // its River job. The worker reloads the immutable extracted snapshot.
-func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (Handle, error) {
+func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceID) == "" {
 		return Handle{}, fmt.Errorf("analysis owner and source are required")
 	}
@@ -179,7 +180,7 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	if err != nil {
 		return Handle{}, fmt.Errorf("begin analysis submission: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var args JobArgs
 	var revisionID, snapshotID, mediaType string
 	err = tx.QueryRow(ctx, `SELECT s.owner_id,s.id,s.language,s.source_identifier,s.title,
@@ -234,7 +235,10 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 			if retryErr != nil {
 				return Handle{}, retryErr
 			}
-			details, _ := json.Marshal(map[string]any{"run_id": runID, "from": state})
+			details, marshalErr := json.Marshal(map[string]any{"run_id": runID, "from": state})
+			if marshalErr != nil {
+				return Handle{}, fmt.Errorf("encode analysis retry history: %w", marshalErr)
+			}
 			if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
 				return Handle{}, err
 			}
@@ -302,8 +306,12 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 			status.Attempt = attemptNumber
 			status.FinalizedAt = nil
 			if state == "completed" || state == "failed" || state == "cancelled" {
-				_ = s.pool.QueryRow(ctx, `SELECT finalized_at FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=$2`, runID, attemptNumber).Scan(&status.FinalizedAt)
+				if finalErr := s.pool.QueryRow(ctx, `SELECT finalized_at FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=$2`, runID, attemptNumber).Scan(&status.FinalizedAt); finalErr != nil && !errors.Is(finalErr, pgx.ErrNoRows) {
+					return Status{}, fmt.Errorf("get analysis finalization time: %w", finalErr)
+				}
 			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return Status{}, fmt.Errorf("get analysis attempt: %w", err)
 		}
 		return status, nil
 	}
@@ -435,7 +443,7 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 	return corpus, err
 }
 
-func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, error) {
+func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result Status, err error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil {
 		return Status{}, err
@@ -445,7 +453,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 		if txErr != nil {
 			return Status{}, txErr
 		}
-		defer tx.Rollback(ctx)
+		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 		_, txErr = tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
 		if txErr != nil {
 			return Status{}, txErr
@@ -457,8 +465,14 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 		if txErr = tx.Commit(ctx); txErr != nil {
 			return Status{}, txErr
 		}
-		if jobID, queryErr := s.liveJobID(ctx, owner, status.RunID); queryErr == nil {
-			_, _ = s.client.JobCancel(ctx, jobID)
+		jobID, queryErr := s.liveJobID(ctx, owner, status.RunID)
+		if queryErr != nil && !errors.Is(queryErr, pgx.ErrNoRows) {
+			return Status{}, fmt.Errorf("find analysis job to cancel: %w", queryErr)
+		}
+		if queryErr == nil {
+			if _, cancelErr := s.client.JobCancel(ctx, jobID); cancelErr != nil {
+				return Status{}, fmt.Errorf("cancel analysis job: %w", cancelErr)
+			}
 		}
 		return s.Get(ctx, owner, id)
 	}
@@ -470,7 +484,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 
 // Retry starts a new execution attempt for a failed or cancelled snapshot run.
 // The logical run identity and status URL remain stable across attempts.
-func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, error) {
+func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Handle, err error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil {
 		return Handle{}, err
@@ -482,7 +496,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 	if err != nil {
 		return Handle{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var state string
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Handle{}, err
@@ -533,7 +547,10 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 	if err != nil {
 		return Handle{}, err
 	}
-	details, _ := json.Marshal(map[string]any{"run_id": status.RunID, "from": state})
+	details, marshalErr := json.Marshal(map[string]any{"run_id": status.RunID, "from": state})
+	if marshalErr != nil {
+		return Handle{}, fmt.Errorf("encode analysis retry history: %w", marshalErr)
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
 		return Handle{}, err
 	}
@@ -545,7 +562,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 
 // Reconcile makes an orphaned queued/running run actionable. A queued run is
 // re-enqueued; a running run without viable River work is failed safely.
-func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (Status, error) {
+func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result Status, err error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil || status.RunID == "" {
 		return status, err
@@ -554,7 +571,7 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (Status
 	if err != nil {
 		return Status{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var state string
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Status{}, err
@@ -725,8 +742,8 @@ func selectedSnapshotUnits(units []snapshotUnit, selectedIDs []string) []snapsho
 	return out
 }
 
-func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total, selected int) []byte {
-	details, _ := json.Marshal(map[string]any{
+func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total, selected int) ([]byte, error) {
+	details, err := json.Marshal(map[string]any{
 		"run_id":               args.RunID,
 		"attempt":              args.Attempt,
 		"selection_algorithm":  args.ConfigIdentity,
@@ -738,7 +755,7 @@ func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total
 		"selected_unit_count":  selected,
 		"total_unit_count":     total,
 	})
-	return details
+	return details, err
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
@@ -766,11 +783,24 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		}
 		failureCtx := context.WithoutCancel(ctx)
 		message := safeAnalysisError(workErr)
-		_, _ = w.Pool.Exec(failureCtx, `UPDATE analysis_runs SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,last_error=CASE WHEN state='cancelled' THEN last_error ELSE $3 END,updated_at=now(),completed_at=CASE WHEN state='cancelled' THEN completed_at ELSE now() END WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, a.OwnerID, a.RunID, message)
-		_, _ = w.Pool.Exec(failureCtx, `UPDATE analysis_run_attempts SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,error=CASE WHEN state='cancelled' THEN error ELSE $3 END,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, a.RunID, job.ID, message)
-		_, _ = w.Pool.Exec(failureCtx, `UPDATE analysis_jobs SET error=$3,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, message)
-		details, _ := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt, "error": message})
-		_, _ = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'analysis','failed',$2,now())`, a.OwnerID, details)
+		recordFailure := func(operation string, recordErr error) {
+			if recordErr != nil {
+				workErr = errors.Join(workErr, fmt.Errorf("record analysis failure in %s: %w", operation, recordErr))
+			}
+		}
+		_, recordErr := w.Pool.Exec(failureCtx, `UPDATE analysis_runs SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,last_error=CASE WHEN state='cancelled' THEN last_error ELSE $3 END,updated_at=now(),completed_at=CASE WHEN state='cancelled' THEN completed_at ELSE now() END WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, a.OwnerID, a.RunID, message)
+		recordFailure("analysis run", recordErr)
+		_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_run_attempts SET state=CASE WHEN state='cancelled' THEN state ELSE 'failed' END,error=CASE WHEN state='cancelled' THEN error ELSE $3 END,finalized_at=now() WHERE run_id=$1 AND river_job_id=$2 AND state IN ('queued','running')`, a.RunID, job.ID, message)
+		recordFailure("analysis attempt", recordErr)
+		_, recordErr = w.Pool.Exec(failureCtx, `UPDATE analysis_jobs SET error=$3,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$2`, a.OwnerID, a.RunID, message)
+		recordFailure("analysis job", recordErr)
+		details, marshalErr := json.Marshal(map[string]any{"run_id": a.RunID, "attempt": a.Attempt, "error": message})
+		if marshalErr != nil {
+			recordFailure("analysis failure history encoding", marshalErr)
+			return
+		}
+		_, recordErr = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,operation,status,details,completed_at) VALUES($1,'analysis','failed',$2,now())`, a.OwnerID, details)
+		recordFailure("analysis failure history", recordErr)
 	}()
 
 	var valid bool
@@ -845,7 +875,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
 		return err
 	}
@@ -875,7 +905,10 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err = persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
 		return err
 	}
-	details := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
+	details, err := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
+	if err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
 		return err
 	}
@@ -919,7 +952,10 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	}
 	selectionConfig := selection.DefaultConfig(corpusID)
 	if _, err = w.Selection.Select(ctx, a.OwnerID, merged, selectionConfig); err != nil {
-		w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "selection", err)
+		if recordErr := w.recordCandidateGenerationFailure(ctx, a.OwnerID, corpusID, job.ID, "selection", err); recordErr != nil {
+			return errors.Join(err, recordErr)
+		}
+		return err
 	}
 	return nil
 }
@@ -1005,10 +1041,16 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 	return nil
 }
 
-func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, corpusID string, jobID int64, stage string, cause error) {
-	details, _ := json.Marshal(map[string]any{"river_job_id": jobID, "stage": stage, "error": cause.Error()})
+func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, corpusID string, jobID int64, stage string, cause error) error {
+	details, err := json.Marshal(map[string]any{"river_job_id": jobID, "stage": stage, "error": cause.Error()})
+	if err != nil {
+		return fmt.Errorf("encode candidate-generation failure: %w", err)
+	}
 	failureCtx := context.WithoutCancel(ctx)
-	_, _ = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'candidate_generation','failed',$3,now())`, owner, corpusID, details)
+	if _, err = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'candidate_generation','failed',$3,now())`, owner, corpusID, details); err != nil {
+		return fmt.Errorf("record candidate-generation failure: %w", err)
+	}
+	return nil
 }
 
 func safeAnalysisError(err error) string {

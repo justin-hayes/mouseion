@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"strconv"
@@ -62,7 +63,11 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	var input bytes.Buffer
 	file, header, err := r.FormFile("vocabulary_file")
 	if err == nil {
-		defer file.Close()
+		defer func() {
+			if closeErr := file.Close(); closeErr != nil {
+				log.Printf("close uploaded vocabulary file: %v", closeErr)
+			}
+		}()
 		if contentType := header.Header.Get("Content-Type"); contentType != "" {
 			mediaType, _, mediaErr := mime.ParseMediaType(contentType)
 			if mediaErr != nil || (mediaType != "text/plain" && mediaType != "application/octet-stream") {

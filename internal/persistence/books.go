@@ -11,6 +11,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 // LanguageCount is one owner-scoped language pill count. Tag is "unknown"
@@ -290,12 +291,12 @@ func activateMembership(ctx context.Context, tx pgx.Tx, owner, bookID string) er
 	return sqlcgen.New(tx).ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: owner, BookID: bookID})
 }
 
-func (s *PostgresStore) AddBookToMyBooks(ctx context.Context, owner, bookID string) error {
+func (s *PostgresStore) AddBookToMyBooks(ctx context.Context, owner, bookID string) (err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
@@ -305,12 +306,12 @@ func (s *PostgresStore) AddBookToMyBooks(ctx context.Context, owner, bookID stri
 	return tx.Commit(ctx)
 }
 
-func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID string) error {
+func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID string) (err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
@@ -340,7 +341,7 @@ func aliasConflictError(err error) error {
 	return err
 }
 
-func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasType, namespace, value string) error {
+func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasType, namespace, value string) (err error) {
 	alias := domain.BookAlias{OwnerID: owner, BookID: bookID, AliasType: aliasType, Namespace: strings.TrimSpace(namespace), Value: strings.TrimSpace(value)}
 	if err := alias.Validate(); err != nil {
 		return err
@@ -352,7 +353,7 @@ func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasTy
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
@@ -375,12 +376,12 @@ func (s *PostgresStore) AddBookAlias(ctx context.Context, owner, bookID, aliasTy
 	return tx.Commit(ctx)
 }
 
-func (s *PostgresStore) LinkSourceToBook(ctx context.Context, owner, bookID, sourceMaterialID string) error {
+func (s *PostgresStore) LinkSourceToBook(ctx context.Context, owner, bookID, sourceMaterialID string) (err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
@@ -426,7 +427,7 @@ func (r CatalogueEntryReconcileResult) Upserted() bool {
 // sync scope determines that language deterministically from the catalogue
 // entry (never inferred). Source materials and acquired content are never
 // touched here: membership and identity are metadata-only.
-func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, language string) (CatalogueEntryReconcileResult, error) {
+func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, language string) (result CatalogueEntryReconcileResult, err error) {
 	owner, connectionID, sourceIdentifier, title, language = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(language)
 	if owner == "" || connectionID == "" || sourceIdentifier == "" || title == "" || language == "" {
 		return CatalogueEntryReconcileResult{}, errors.New("persistence: catalogue entry identity is incomplete")
@@ -435,7 +436,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	// Advisory lock serializes catalogue identity reconciliation; it is a
 	// domain fence rather than a data query and therefore remains raw SQL.
@@ -502,7 +503,7 @@ func (s *PostgresStore) ResolveOrCreateBookForAcquisitionForBook(ctx context.Con
 	return s.resolveOrCreateBookForAcquisition(ctx, owner, bookID, sourceIdentifier, language, title)
 }
 
-func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, owner, requestedBookID, sourceIdentifier, language, title string) (string, error) {
+func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, owner, requestedBookID, sourceIdentifier, language, title string) (result string, err error) {
 	if strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceIdentifier) == "" || strings.TrimSpace(language) == "" || strings.TrimSpace(title) == "" {
 		return "", errors.New("persistence: acquisition book identity is incomplete")
 	}
@@ -510,7 +511,7 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	// Advisory lock serializes acquisition identity resolution; it is a domain
 	// fence rather than a data query and therefore remains raw SQL.

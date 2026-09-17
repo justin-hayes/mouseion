@@ -24,6 +24,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/justin-hayes/mouseion/migrations"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
@@ -71,7 +72,7 @@ func Open(ctx context.Context, databaseURL string) (*PostgresStore, error) {
 	}
 	return s, nil
 }
-func Migrate(databaseURL string) error {
+func Migrate(databaseURL string) (err error) {
 	source, err := iofs.New(migrations.FS, ".")
 	if err != nil {
 		return fmt.Errorf("open embedded migrations: %w", err)
@@ -80,7 +81,10 @@ func Migrate(databaseURL string) error {
 	if err != nil {
 		return fmt.Errorf("initialize migrations: %w", err)
 	}
-	defer m.Close()
+	defer func() {
+		sourceErr, databaseErr := m.Close()
+		err = errors.Join(err, sourceErr, databaseErr)
+	}()
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
@@ -350,7 +354,7 @@ func (s *PostgresStore) CreateFirstUserAndSession(ctx context.Context, username,
 	if err != nil {
 		return u, false, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	// This process-wide advisory lock serializes first-user creation; it is a
 	// domain fence rather than a data query and therefore remains raw SQL.
@@ -854,7 +858,7 @@ func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, o
 	if err != nil {
 		return v, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	// Match the original dynamic query's trim semantics: a blank (after trim)
 	// bookID is treated as "any corpus", otherwise the predicate filters on the

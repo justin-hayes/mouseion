@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -184,7 +185,9 @@ func preparationFailureMessage(class string) string {
 
 func writePreparationStatus(w http.ResponseWriter, p domain.DeckPreparation) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(preparationResponse(p))
+	if err := json.NewEncoder(w).Encode(preparationResponse(p)); err != nil {
+		log.Printf("write deck preparation status: %v", err)
+	}
 }
 
 func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) {
@@ -340,7 +343,9 @@ func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request
 	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(p.CardsWithContextualSentenceTranslations))
 	w.Header().Set("X-Mouseion-Cards-Quality-Omitted", strconv.Itoa(p.QualityOmissions))
 	w.Header().Set("X-Mouseion-Deck-Revision", strconv.Itoa(p.DeckRevision))
-	_, _ = w.Write(p.Artifact)
+	if _, err = w.Write(p.Artifact); err != nil {
+		log.Printf("write deck preparation artifact: %v", err)
+	}
 }
 
 func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {

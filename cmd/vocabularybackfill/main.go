@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,24 +14,33 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() (err error) {
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
 	if databaseURL == "" {
-		log.Fatal("MOUSEION_DATABASE_URL is required")
+		return errors.New("MOUSEION_DATABASE_URL is required")
 	}
 	store, err := persistence.Open(context.Background(), databaseURL)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	defer store.Close()
+	defer func() { err = errors.Join(err, store.Close()) }()
 	report, err := store.BackfillGermanVocabulary(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for _, conflict := range report.Conflicts {
 		log.Printf("unresolved German vocabulary conflict: owner=%s table=%s lemma=%s upos=%s detail=%s", conflict.OwnerID, conflict.Table, conflict.CanonicalLemma, conflict.UPOS, conflict.Detail)
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "German vocabulary backfill complete: owners=%d examined=%d updated=%d merged=%d conflicts=%d\n", report.Owners, report.Examined, report.Updated, report.Merged, len(report.Conflicts))
-	if len(report.Conflicts) > 0 {
-		os.Exit(1)
+	if _, err = fmt.Fprintf(os.Stdout, "German vocabulary backfill complete: owners=%d examined=%d updated=%d merged=%d conflicts=%d\n", report.Owners, report.Examined, report.Updated, report.Merged, len(report.Conflicts)); err != nil {
+		return err
 	}
+	if len(report.Conflicts) > 0 {
+		return errors.New("German vocabulary backfill found unresolved conflicts")
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 type readingJourneyMembership struct {
@@ -46,21 +47,19 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language s
 	return journey, nil
 }
 
-func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, language string, create bool) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
-	tx, err := s.pool.Begin(ctx)
+func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, language string, create bool) (tx pgx.Tx, revision int64, members []readingJourneyMembership, exists, cleaned bool, err error) {
+	tx, err = s.pool.Begin(ctx)
 	if err != nil {
 		return nil, 0, nil, false, false, err
 	}
-	rollback := func(err error) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
-		_ = tx.Rollback(ctx)
-		return nil, 0, nil, false, false, err
+	rollback := func(cause error) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
+		return nil, 0, nil, false, false, errors.Join(cause, txcleanup.Rollback(ctx, tx))
 	}
 	if create {
 		if err = sqlcgen.New(tx).InsertReadingJourneyIfAbsent(ctx, sqlcgen.InsertReadingJourneyIfAbsentParams{Owner: owner, Language: language}); err != nil {
 			return rollback(err)
 		}
 	}
-	var revision int64
 	revision, err = sqlcgen.New(tx).GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		if create {
@@ -80,7 +79,6 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 	if err != nil {
 		return rollback(err)
 	}
-	var members []readingJourneyMembership
 	for _, row := range rows {
 		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: row.CreatedAt})
 	}
@@ -107,7 +105,7 @@ func bumpReadingJourneyRevision(ctx context.Context, tx pgx.Tx, owner, language 
 }
 
 // AddToReadingJourney appends a known owner book to the Journey.
-func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
+func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if language == "" {
 		return 0, ErrJourneyLanguageRequired
@@ -116,7 +114,7 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if expectedRevision != revision {
 		return 0, ErrJourneyStale
 	}
@@ -192,13 +190,13 @@ func (s *PostgresStore) ResolveJourneyBookID(ctx context.Context, owner, id stri
 }
 
 // RemoveFromReadingJourney removes a Journey member and compacts positions.
-func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
+func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, revision, members, exists, cleaned, err := s.beginReadingJourneyMutation(ctx, owner, language, false)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if !exists {
 		if expectedRevision != 0 {
 			return 0, ErrJourneyStale
@@ -283,13 +281,13 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 // interpreted as a 1-based position within the visible (Goal-excluded) order,
 // and the Goal entry itself is never moved. Without a member Goal, newPosition
 // is an absolute position in the full membership order.
-func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, language, bookID string, newPosition int, expectedRevision int64) (int64, error) {
+func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, language, bookID string, newPosition int, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, revision, members, exists, cleaned, err := s.beginReadingJourneyMutation(ctx, owner, language, false)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if !exists {
 		if expectedRevision != 0 {
 			return 0, ErrJourneyStale

@@ -17,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 )
 
@@ -131,7 +132,7 @@ type DurableFreezeRequest struct {
 // Freeze commits the run, immutable manifest, outcomes, Batch placeholders,
 // current-run pointer, and initial River jobs atomically. A concurrent retry
 // observes the committed run without invoking the planner again.
-func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRequest) (persistence.FreezePreparedDeckRunResult, error) {
+func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRequest) (result persistence.FreezePreparedDeckRunResult, err error) {
 	if c == nil || c.pool == nil || c.store == nil || c.client == nil || c.planner == nil || strings.TrimSpace(request.OwnerID) == "" || strings.TrimSpace(request.PreparationID) == "" {
 		return persistence.FreezePreparedDeckRunResult{}, ErrInvalidInput
 	}
@@ -139,7 +140,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	preparation, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, request.OwnerID, request.PreparationID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return persistence.FreezePreparedDeckRunResult{}, persistence.ErrNotFound
@@ -170,7 +171,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("plan durable prepared deck: %w", err)
 	}
 	plan.OwnerID, plan.PreparationID, plan.ExpectedManifestDigest = request.OwnerID, request.PreparationID, request.ExpectedManifestDigest
-	result, err := c.store.FreezePreparedDeckRunTx(ctx, tx, plan)
+	result, err = c.store.FreezePreparedDeckRunTx(ctx, tx, plan)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
@@ -444,21 +445,27 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	projection, stored, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
 		if ctx.Err() == nil && (errors.Is(err, persistence.ErrPreparedDeckIdentity) || errors.Is(err, cardexport.ErrInvalidInput)) {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest")
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest"); failErr != nil {
+				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+			}
 		}
 		return domain.DeckPreparation{}, err
 	}
 	deck, err := f.Renderer.Restore(projection)
 	if err != nil {
 		if ctx.Err() == nil {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest")
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest"); failErr != nil {
+				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+			}
 		}
 		return domain.DeckPreparation{}, err
 	}
 	artifact, diagnostics, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		if ctx.Err() == nil {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed")
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed"); failErr != nil {
+				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+			}
 		}
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)

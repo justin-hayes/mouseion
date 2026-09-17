@@ -540,7 +540,11 @@ LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::te
 	}
 	status.LogicalState = logicalState(riverState)
 	status.State = riverState
-	status.Error = firstError(durableError, riverError(s.pool, ctx, id, owner))
+	riverMessage, riverErr := riverError(s.pool, ctx, id, owner)
+	if riverErr != nil {
+		return Status{}, fmt.Errorf("get catalogue sync error: %w", riverErr)
+	}
+	status.Error = firstError(durableError, riverMessage)
 	status.Progress = 0
 	if status.LogicalState == "completed" {
 		status.Progress = 100
@@ -711,10 +715,10 @@ func firstError(values ...string) string {
 	return ""
 }
 
-func riverError(pool *pgxpool.Pool, ctx context.Context, id int64, owner string) string {
+func riverError(pool *pgxpool.Pool, ctx context.Context, id int64, owner string) (string, error) {
 	var value string
-	_ = pool.QueryRow(ctx, `SELECT COALESCE(errors[array_length(errors,1)]->>'error','') FROM river_job WHERE id=$1 AND args->>'owner_id'=$2`, id, owner).Scan(&value)
-	return value
+	err := pool.QueryRow(ctx, `SELECT COALESCE(errors[array_length(errors,1)]->>'error','') FROM river_job WHERE id=$1 AND args->>'owner_id'=$2`, id, owner).Scan(&value)
+	return value, err
 }
 
 func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
@@ -815,7 +819,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 		return nil
 	}
 	safe := safeSyncError(workErr, connection)
-	_ = w.Store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()})
+	if statusErr := w.Store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()}); statusErr != nil {
+		return errors.Join(safe, fmt.Errorf("record catalogue sync failure: %w", statusErr))
+	}
 	return safe
 }
 

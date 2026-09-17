@@ -33,7 +33,10 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSession(w, token)
-	h.rotateCSRF(w)
+	h.rotateCSRF(w, r)
+	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
+		return
+	}
 	redirect(w, r, webauth.SafeReturnPath(r.FormValue("next")))
 }
 func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
@@ -59,13 +62,19 @@ func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSession(w, token)
-	h.rotateCSRF(w)
+	h.rotateCSRF(w, r)
+	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
+		return
+	}
 	redirect(w, r, "/")
 }
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		if c, err := r.Cookie(webauth.CookieName); err == nil {
-			_ = h.services.Auth.Logout(r.Context(), c.Value)
+			if err = h.services.Auth.Logout(r.Context(), c.Value); err != nil {
+				http.Error(w, "unable to invalidate session", http.StatusInternalServerError)
+				return
+			}
 		}
 		h.clearSession(w)
 		w.WriteHeader(http.StatusNoContent)
@@ -75,7 +84,10 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if c, err := r.Cookie(webauth.CookieName); err == nil {
-		_ = h.services.Auth.Logout(r.Context(), c.Value)
+		if err = h.services.Auth.Logout(r.Context(), c.Value); err != nil {
+			fail(w, err)
+			return
+		}
 	}
 	h.clearSession(w)
 	redirect(w, r, "/login")

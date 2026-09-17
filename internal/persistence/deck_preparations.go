@@ -14,16 +14,17 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 // CompletePreparedDeck atomically stores the immutable artifact and every card
 // and generated-vocabulary row. A failure rolls back all assignment state.
-func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id string, artifact cardexport.Artifact) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	ready, err := completePreparedDeckTx(ctx, tx, owner, id, artifact, cardexport.RenderInputVersion, cardexport.PresentationVersion)
 	if err != nil {
 		return ready, err
@@ -37,18 +38,18 @@ func (s *PostgresStore) CompletePreparedDeck(ctx context.Context, owner, id stri
 // CompletePreparedDeckRun extends the existing atomic artifact boundary with a
 // current-run and finalizer-token fence. A retry after commit is a no-op only
 // when both the immutable artifact and completed run match.
-func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, preparationID, runID, claimToken string, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, preparationID, runID, claimToken string, artifact cardexport.Artifact) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
-	preparation, err := sqlcgen.New(tx).GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	preparationModel, err := sqlcgen.New(tx).GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
 		return domain.DeckPreparation{}, missing(err)
 	}
-	preparationState := domain.DeckPreparationState(preparation.State)
-	currentRunID := uuidString(preparation.CurrentRunID)
+	preparationState := domain.DeckPreparationState(preparationModel.State)
+	currentRunID := uuidString(preparationModel.CurrentRunID)
 	runModel, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: owner, PreparationID: preparationID, ID: runID})
 	if err != nil {
 		return domain.DeckPreparation{}, missing(err)
@@ -87,7 +88,7 @@ func (s *PostgresStore) CompletePreparedDeckRun(ctx context.Context, owner, prep
 // SupersedePreparedDeckArtifact replaces one completed run's presentation in
 // place. The run-version predicate and preparation lock make concurrent or
 // repeated rerenders publish one revision at most.
-func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner, preparationID, runID string, presentationVersion int, artifact cardexport.Artifact) (domain.DeckPreparation, error) {
+func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner, preparationID, runID string, presentationVersion int, artifact cardexport.Artifact) (result domain.DeckPreparation, err error) {
 	if presentationVersion < 1 {
 		return domain.DeckPreparation{}, ErrInvalidTransition
 	}
@@ -95,7 +96,7 @@ func (s *PostgresStore) SupersedePreparedDeckArtifact(ctx context.Context, owner
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	preparationModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
@@ -260,12 +261,12 @@ func (s *PostgresStore) CountDeckPreparationVocabularyToGraduate(ctx context.Con
 
 // StartDeckVocabularyStudy reserves one ready, non-empty deck for its owner.
 // The partial unique index enforces the owner-wide lease atomically.
-func (s *PostgresStore) StartDeckVocabularyStudy(ctx context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
+func (s *PostgresStore) StartDeckVocabularyStudy(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	currentModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
@@ -313,12 +314,12 @@ func (s *PostgresStore) StartDeckVocabularyStudy(ctx context.Context, owner, pre
 
 // ConfirmDeckVocabularyReview graduates exactly the snapshot linked to this
 // prepared deck and records the review in one transaction.
-func (s *PostgresStore) ConfirmDeckVocabularyReview(ctx context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
+func (s *PostgresStore) ConfirmDeckVocabularyReview(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	currentModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
@@ -354,12 +355,12 @@ func (s *PostgresStore) ConfirmDeckVocabularyReview(ctx context.Context, owner, 
 
 // ReleaseDeckVocabularyStudy releases an unfinished reservation without
 // deleting its immutable snapshot or generated provenance.
-func (s *PostgresStore) ReleaseDeckVocabularyStudy(ctx context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
+func (s *PostgresStore) ReleaseDeckVocabularyStudy(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	currentModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
 	if err != nil {
@@ -392,12 +393,12 @@ func isConstraint(err error, name string) bool {
 // CreateDeckPreparation creates the current preparation for a Book. A new
 // analysis retires the prior current row, while retries of the same analysis
 // return its existing row. Unlinked legacy sources retain their old identity.
-func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.DeckPreparation) (domain.DeckPreparation, error) {
+func (s *PostgresStore) CreateDeckPreparation(ctx context.Context, p domain.DeckPreparation) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	created, _, err := CreateDeckPreparationTx(ctx, tx, p)
 	if err != nil {
 		return domain.DeckPreparation{}, err
@@ -515,7 +516,7 @@ func (s *PostgresStore) FailDeckPreparation(ctx context.Context, owner, id, mess
 // FailPreparedDeckFinalization fences a completeness failure after a run has
 // advanced to finalizing. No artifact is written, and the public preparation
 // receives only a bounded message.
-func (s *PostgresStore) FailPreparedDeckFinalization(ctx context.Context, owner, preparationID, runID, claimToken, errorClass, errorCode string) error {
+func (s *PostgresStore) FailPreparedDeckFinalization(ctx context.Context, owner, preparationID, runID, claimToken, errorClass, errorCode string) (err error) {
 	if err := validateBoundedError(errorClass, errorCode); err != nil {
 		return err
 	}
@@ -523,7 +524,7 @@ func (s *PostgresStore) FailPreparedDeckFinalization(ctx context.Context, owner,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if _, err = sqlcgen.New(tx).FailPreparedDeckFinalizationRun(ctx, sqlcgen.FailPreparedDeckFinalizationRunParams{OwnerID: owner, PreparationID: preparationID, ID: runID, FinalizationClaimToken: uuidArg(claimToken), ErrorClass: errorClass, ErrorCode: errorCode}); err != nil {
 		return missing(err)
 	}
@@ -541,21 +542,21 @@ func (s *PostgresStore) RetryDeckPreparation(ctx context.Context, owner, id stri
 	return s.transitionDeckPreparation(ctx, owner, id, domain.DeckPreparationQueued, "", "failed", "cancelled")
 }
 
-func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id string, next domain.DeckPreparationState, message string, from ...string) (domain.DeckPreparation, error) {
+func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id string, next domain.DeckPreparationState, message string, from ...string) (result domain.DeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	model, err := sqlcgen.New(tx).TransitionDeckPreparation(ctx, sqlcgen.TransitionDeckPreparationParams{NextState: string(next), Message: message, Owner: owner, ID: id, FromStates: from})
 	err = missing(err)
 	p := deckPreparationFromModel(model)
 	if errors.Is(err, ErrNotFound) {
-		_ = tx.Rollback(ctx)
+		rollbackErr := txcleanup.Rollback(ctx, tx)
 		if _, getErr := s.GetDeckPreparation(ctx, owner, id); getErr != nil {
-			return p, getErr
+			return p, errors.Join(getErr, rollbackErr)
 		}
-		return p, ErrInvalidTransition
+		return p, errors.Join(ErrInvalidTransition, rollbackErr)
 	}
 	if err != nil {
 		return p, err
