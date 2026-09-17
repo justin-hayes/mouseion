@@ -125,10 +125,10 @@ func goalFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, *fi
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
 	loginPage := httptest.NewRecorder()
-	h.ServeHTTP(loginPage, httptest.NewRequest(http.MethodGet, "/login", nil))
+	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
 	initialCSRFCookie := cookieByName(t, loginPage.Result().Cookies(), csrfCookie)
 	token := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(loginPage.Body.String())[1]
-	loginRequest := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(url.Values{"csrf_token": {token}, "username": {fixtures.Username}, "password": {fixtures.Password}}.Encode()))
+	loginRequest := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/login", strings.NewReader(url.Values{"csrf_token": {token}, "username": {fixtures.Username}, "password": {fixtures.Password}}.Encode()))
 	loginRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginRequest.AddCookie(initialCSRFCookie)
 	loginResponse := httptest.NewRecorder()
@@ -151,7 +151,7 @@ func cookieByName(t *testing.T, cookies []*http.Cookie, name string) *http.Cooki
 
 func goalRequest(t *testing.T, h http.Handler, path string, form url.Values, cookies []*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, strings.NewReader(form.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
@@ -191,7 +191,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequest(http.MethodGet, "/journey", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -230,7 +230,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-edge-content", italianJourney.Entries[0].BookID, "Italian Journey after move=%+v", italianJourney.Entries)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
-	request = httptest.NewRequest(http.MethodGet, "/journey", nil)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -254,7 +254,7 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequest(http.MethodGet, "/journey", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

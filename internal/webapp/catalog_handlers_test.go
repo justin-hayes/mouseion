@@ -13,7 +13,7 @@ import (
 
 func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
 	h, cookies, _, _ := goalFixtureSession(t)
-	request := httptest.NewRequest(http.MethodGet, "/catalogs?error=Sync+failed", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/catalogs?error=Sync+failed", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -35,7 +35,7 @@ func TestCatalogsRouteRendersCatalogManagementScreen(t *testing.T) {
 
 func TestLegacyConnectionsRoutePermanentlyRedirectsAndPreservesSupportedQuery(t *testing.T) {
 	h, cookies, _, _ := goalFixtureSession(t)
-	request := httptest.NewRequest(http.MethodGet, "/connections?book_id=book%2F1&message=Catalog+added&error=Try+again&ignored=secret", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/connections?book_id=book%2F1&message=Catalog+added&error=Try+again&ignored=secret", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

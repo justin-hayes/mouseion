@@ -17,7 +17,7 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""))
 
-	request := httptest.NewRequest(http.MethodGet, "/journey", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

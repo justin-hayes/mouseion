@@ -39,7 +39,7 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 		{path: "/static/vendor/htmx-2.0.7.min.js", want: `version:"2.0.7"`},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodGet, asset.path, nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
 			response := httptest.NewRecorder()
 			StaticHandler().ServeHTTP(response, request)
 
@@ -50,7 +50,7 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 }
 
 func TestAppStylesExposeMouseionFoundations(t *testing.T) {
-	request := httptest.NewRequest(http.MethodGet, "/static/app.css", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
 
@@ -252,7 +252,7 @@ func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, stri
 }
 
 func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
-	request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=it&return_to=known-vocab", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/vocabulary/import?language=it&return_to=known-vocab", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{ActiveLanguage: "de"}))
 	assert.Equal(t, "de", knownVocabImportLanguage(request))
 	request.Form = url.Values{"language": {" de "}, "return_to": {" settings "}}
@@ -261,7 +261,7 @@ func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
 
 func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
 	h := &Handler{services: Services{Store: knownVocabContextStore{}}}
-	request := httptest.NewRequest(http.MethodGet, "/vocabulary?language=it", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?language=it", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
 		Options:        []activeStudyLanguageOption{{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true}},
@@ -289,7 +289,7 @@ func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
 		{name: "oversized", body: bytes.NewReader(oversized.Bytes())},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/vocabulary/import?language=it", test.body)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/vocabulary/import?language=it", test.body)
 			request.Header.Set("Content-Type", `multipart/form-data; boundary=known-vocabulary`)
 			request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 				ActiveLanguage: "de",

@@ -120,7 +120,7 @@ func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T)
 	h := &Handler{services: Services{Store: store, SessionLifetime: 0}}
 	csrf := strings.Repeat("c", 32)
 	form := url.Values{"csrf_token": {csrf}, "expected_revision": {"8"}, "deck_preparation_id": {"prep-1"}}
-	r := httptest.NewRequest(http.MethodPost, "/journey/books/book-1/add", strings.NewReader(form.Encode()))
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/journey/books/book-1/add", strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.Header.Set("HX-Request", "true")
 	r.AddCookie(&http.Cookie{Name: csrfCookie, Value: csrf, HttpOnly: true, SameSite: http.SameSiteLaxMode}) //nolint:gosec // test cookie mirrors the local CSRF cookie contract.

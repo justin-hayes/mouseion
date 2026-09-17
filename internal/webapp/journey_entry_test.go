@@ -35,7 +35,7 @@ func (s *journeyEntryStore) GetReadingJourney(context.Context, string, string) (
 
 func journeyEntryRequest(t *testing.T, h http.Handler, path string, cookies []*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodGet, path, nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

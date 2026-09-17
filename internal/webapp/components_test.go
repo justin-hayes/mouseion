@@ -241,7 +241,7 @@ func TestAsyncStatusPattern(t *testing.T) {
 }
 
 func TestComponentStylesAvailable(t *testing.T) {
-	request := httptest.NewRequest(http.MethodGet, "/static/app.css", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
