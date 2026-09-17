@@ -58,10 +58,12 @@ func createCompletedStaleDeck(t *testing.T, ctx context.Context, store *persiste
 		OwnerID: owner, SourceMaterialID: source.ID, Filename: name + ".apkg", DeckName: cardexport.DeckName("und", name), ContentHash: source.ContentHash,
 	})
 	require.NoError(t, err)
+	deck, err := testutil.FreezePresentationDeck(ctx, owner, name, nil, testutil.PresentationProvider{})
+	require.NoError(t, err)
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	result, err := store.FreezePreparedDeckRunTx(ctx, tx, persistence.FreezePreparedDeckRunParams{
-		OwnerID: owner, PreparationID: preparation.ID, Projection: cardexport.NewTestManifest(owner, name, nil).Snapshot(),
+		OwnerID: owner, PreparationID: preparation.ID, Projection: deck.StorageProjection(),
 	})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
