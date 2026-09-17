@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -124,7 +125,11 @@ func (c *CachedCapabilityProvider) GetCapabilities(ctx context.Context) (Capabil
 		if result.Err != nil {
 			return Capabilities{}, result.Err
 		}
-		return cloneCapabilities(result.Val.(Capabilities)), nil
+		value, ok := result.Val.(Capabilities)
+		if !ok {
+			return Capabilities{}, fmt.Errorf("capability refresh returned %T, want analyzer.Capabilities", result.Val)
+		}
+		return cloneCapabilities(value), nil
 	case <-ctx.Done():
 		return Capabilities{}, ctx.Err()
 	}

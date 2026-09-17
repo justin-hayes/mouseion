@@ -3,7 +3,7 @@ package enrichment
 import (
 	"context"
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&received))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, testChatResponse(input, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}))
+		testwrite.String(t, w, testChatResponse(input, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}))
 	}))
 	defer server.Close()
 
@@ -32,16 +33,24 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	got, err := client.Translate(context.Background(), input)
 	require.NoError(t, err)
 	assert.Equal(t, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, got)
-	body, _ := json.Marshal(received)
+	body, err := json.Marshal(received)
+	require.NoError(t, err)
 	for _, forbidden := range []string{"user_id", "owner", "document", "reading", "corpus", "metadata"} {
 		assert.NotContains(t, strings.ToLower(string(body)), forbidden, "request leaked %q: %s", forbidden, body)
 	}
-	messages := received["messages"].([]any)
-	system := messages[0].(map[string]any)["content"].(string)
+	messages, ok := received["messages"].([]any)
+	require.True(t, ok)
+	systemMessage, ok := messages[0].(map[string]any)
+	require.True(t, ok)
+	system, ok := systemMessage["content"].(string)
+	require.True(t, ok)
 	assert.True(t, strings.Contains(system, "exactly one JSON object"), "prompt does not enforce concise strict JSON output: %q", system)
 	assert.True(t, strings.Contains(system, "using only these eight field names"), "prompt does not enumerate the response fields: %q", system)
 	assert.False(t, strings.Contains(strings.ToLower(system), "verbosity"), "prompt does not enforce concise strict JSON output: %q", system)
-	user := messages[1].(map[string]any)["content"].(string)
+	userMessage, ok := messages[1].(map[string]any)
+	require.True(t, ok)
+	user, ok := userMessage["content"].(string)
+	require.True(t, ok)
 	var externalInput map[string]any
 	require.NoError(t, json.Unmarshal([]byte(user), &externalInput))
 	assert.Len(t, externalInput, 7)
@@ -60,7 +69,7 @@ func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature
 	var received map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&received))
-		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
+		testwrite.String(t, w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()
 
@@ -82,11 +91,12 @@ func TestOpenAITranslationClientSendsConfiguredReasoningEffortWithoutTemperature
 func TestOpenAITranslationClientRequiresContextualOutputForSentence(t *testing.T) {
 	requestInput := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus."}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
+		testwrite.String(t, w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()
-	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
-	_, err := client.Translate(context.Background(), requestInput)
+	client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
+	require.NoError(t, err)
+	_, err = client.Translate(context.Background(), requestInput)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sentence_translation is empty")
 }
@@ -94,7 +104,7 @@ func TestOpenAITranslationClientRequiresContextualOutputForSentence(t *testing.T
 func TestOpenAITranslationClientRedactsProviderErrorBody(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = io.WriteString(w, `{"error":{"message":"private source sentence and sk-secret"}}`)
+		testwrite.String(t, w, `{"error":{"message":"private source sentence and sk-secret"}}`)
 	}))
 	defer server.Close()
 	client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
@@ -114,13 +124,14 @@ func TestOpenAITranslationClientLemmaOnlyOmitsSentence(t *testing.T) {
 		var body struct {
 			Messages []chatMessage `json:"messages"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		userContent = body.Messages[1].Content
-		_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
+		testwrite.String(t, w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 	}))
 	defer server.Close()
-	client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
-	_, err := client.Translate(context.Background(), requestInput)
+	client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
+	require.NoError(t, err)
+	_, err = client.Translate(context.Background(), requestInput)
 	require.NoError(t, err)
 	assert.NotContains(t, userContent, "example_sentence", "lemma-only request included sentence field: %s", userContent)
 }
@@ -138,10 +149,16 @@ func testChatResponse(input TranslationRequest, response TranslationResponse) st
 		TargetLanguage string `json:"target_language"`
 		TranslationResponse
 	}{TranslationItemID(input), input.Language, "en", response}
-	content, _ := json.Marshal(payload)
-	body, _ := json.Marshal(struct {
+	content, err := json.Marshal(payload)
+	if err != nil {
+		panic(fmt.Sprintf("test chat payload is not JSON encodable: %v", err))
+	}
+	body, err := json.Marshal(struct {
 		Choices []choice `json:"choices"`
 	}{Choices: []choice{{Message: message{Content: string(content)}}}})
+	if err != nil {
+		panic(fmt.Sprintf("test chat response is not JSON encodable: %v", err))
+	}
 	return string(body)
 }
 
@@ -170,11 +187,13 @@ func TestLLMRetryRateLimitAndPermanentDegradation(t *testing.T) {
 					}
 					return
 				}
-				_, _ = io.WriteString(w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
+				testwrite.String(t, w, testChatResponse(requestInput, TranslationResponse{Translation: "house", FallbackGloss: "dwelling"}))
 			}))
 			defer server.Close()
-			client, _ := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
-			provider, _ := NewLLMProvider("openai-compatible", "model/translation-v1", client)
+			client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "model", BaseURL: server.URL}, server.Client())
+			require.NoError(t, err)
+			provider, err := NewLLMProvider("openai-compatible", "model/translation-v1", client)
+			require.NoError(t, err)
 			result := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, provider, nil).
 				Enrich(context.Background(), []Candidate{{Identity: Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}})[0]
 			assert.Equal(t, test.wantCalls, calls, "result=%+v", result)
@@ -238,8 +257,10 @@ func TestLLMConfigFromEnvRejectsInvalidReasoningSupport(t *testing.T) {
 }
 
 func TestKnownReasoningModelRequiresOpenAIEndpoint(t *testing.T) {
-	openAIURL, _ := url.Parse("https://api.openai.com/v1")
-	customURL, _ := url.Parse("https://llm.example/v1")
+	openAIURL, err := url.Parse("https://api.openai.com/v1")
+	require.NoError(t, err)
+	customURL, err := url.Parse("https://llm.example/v1")
+	require.NoError(t, err)
 	assert.True(t, knownReasoningModel(openAIURL, "o3-mini"), "o3-mini should be recognized at the OpenAI endpoint")
 	assert.False(t, knownReasoningModel(customURL, "o3-mini"), "o3-mini should not be assumed supported at an unknown endpoint")
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -80,7 +81,7 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(struct {
+		testwrite.JSON(t, w, struct {
 			Choices []responseChoice `json:"choices"`
 		}{Choices: []responseChoice{{Message: responseMessage{Content: string(content)}}}})
 	}))

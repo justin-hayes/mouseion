@@ -4,6 +4,7 @@ package webauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -130,15 +131,26 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
-	c, _ := r.Cookie(CookieName)
+	c, err := r.Cookie(CookieName)
+	if err != nil && !errors.Is(err, http.ErrNoCookie) {
+		http.Error(w, "unable to read session", http.StatusInternalServerError)
+		return
+	}
 	if c != nil {
-		_ = h.auth.Logout(r.Context(), c.Value)
+		if err := h.auth.Logout(r.Context(), c.Value); err != nil {
+			http.Error(w, "unable to invalidate session", http.StatusInternalServerError)
+			return
+		}
 	}
 	h.clearCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
-	u, _ := UserFromContext(r.Context())
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "missing authenticated user", http.StatusInternalServerError)
+		return
+	}
 	if err := h.auth.LogoutEverywhere(r.Context(), u.ID); err != nil {
 		http.Error(w, "unable to invalidate sessions", http.StatusInternalServerError)
 		return

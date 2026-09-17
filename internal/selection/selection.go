@@ -166,9 +166,18 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 		sort.Strings(forms)
 		p := Provenance{cfg.MinOccurrences, a.count}
 		c := Candidate{id, a.count, forms, a.refs, p}
-		formsJSON, _ := json.Marshal(forms)
-		refsJSON, _ := json.Marshal(a.refs)
-		provenanceJSON, _ := json.Marshal(p)
+		formsJSON, err := json.Marshal(forms)
+		if err != nil {
+			return nil, fmt.Errorf("encode observed forms: %w", err)
+		}
+		refsJSON, err := json.Marshal(a.refs)
+		if err != nil {
+			return nil, fmt.Errorf("encode sentence references: %w", err)
+		}
+		provenanceJSON, err := json.Marshal(p)
+		if err != nil {
+			return nil, fmt.Errorf("encode candidate provenance: %w", err)
+		}
 		kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, OccurrenceCount: a.count, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
 		if err != nil {
 			return nil, fmt.Errorf("persist candidate: %w", err)

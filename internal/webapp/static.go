@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"net/http"
 )
@@ -10,6 +11,9 @@ import (
 var staticFiles embed.FS
 
 func StaticHandler() http.Handler {
-	root, _ := fs.Sub(staticFiles, "static")
+	root, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		panic(fmt.Sprintf("embedded static files are invalid: %v", err))
+	}
 	return http.StripPrefix("/static/", http.FileServer(http.FS(root)))
 }

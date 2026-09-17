@@ -9,6 +9,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +42,7 @@ func TestAcquireUsesOwnerScopedConnectionAndPrivateImport(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", EPUBMediaType)
-		_, _ = w.Write([]byte("epub"))
+		testwrite.String(t, w, "epub")
 	}))
 	defer server.Close()
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL, Username: "alice", Password: "encrypted-round-trip"}}
@@ -63,7 +64,7 @@ func TestAcquireResolvesRelativeEPUBLinkAgainstCatalogOrigin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/book.epub", r.URL.Path)
 		w.Header().Set("Content-Type", EPUBMediaType)
-		_, _ = w.Write([]byte("epub"))
+		testwrite.String(t, w, "epub")
 	}))
 	defer server.Close()
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL + "/opds"}}
@@ -82,7 +83,7 @@ func TestAcquireRejectsEntryWithoutEPUB(t *testing.T) {
 func TestBrowseLanguageFiltersNonEPUBFormats(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/opds/language/3", r.URL.Path)
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>pdf</id><title>PDF</title><link rel="http://opds-spec.org/acquisition" type="application/pdf" href="/book.pdf"/></entry><entry><id>epub</id><title>EPUB</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/book.epub"/></entry></feed>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>pdf</id><title>PDF</title><link rel="http://opds-spec.org/acquisition" type="application/pdf" href="/book.pdf"/></entry><entry><id>epub</id><title>EPUB</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/book.epub"/></entry></feed>`)
 	}))
 	defer server.Close()
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL + "/opds"}}
@@ -96,7 +97,7 @@ func TestBrowsePageRejectsTargetOutsideOwnerCatalogOrigin(t *testing.T) {
 	requested := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		requested = true
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"/>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"/>`)
 	}))
 	defer server.Close()
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL + "/opds"}}
@@ -110,12 +111,12 @@ func TestBrowseRejectsExternalEagerPaginationTarget(t *testing.T) {
 	var externalHit bool
 	external := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		externalHit = true
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"/>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"/>`)
 	}))
 	defer external.Close()
 
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><link rel="next" href="` + external.URL + `/next"/></feed>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><link rel="next" href="`+external.URL+`/next"/></feed>`)
 	}))
 	defer catalog.Close()
 
@@ -128,7 +129,7 @@ func TestBrowseRejectsExternalEagerPaginationTarget(t *testing.T) {
 
 func TestAcquireRejectsTargetOutsideOwnerCatalogOrigin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("must not be fetched"))
+		testwrite.String(t, w, "must not be fetched")
 	}))
 	defer server.Close()
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: "https://catalog.example/opds"}}

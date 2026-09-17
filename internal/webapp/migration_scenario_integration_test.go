@@ -105,7 +105,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, journey.Revision)
 	require.NoError(t, err)
-	journey, _ = store.GetReadingJourney(ctx, alice.ID, "de")
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision)
 	require.NoError(t, err)
 	_, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID)
@@ -174,7 +175,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		legacyFound = legacyFound || item.CanonicalLemma == "legacy" && item.FirstSourceMaterialID == nil
 	}
 	assert.True(t, legacyFound)
-	knownAgain, _ := store.ListKnownVocabulary(ctx, alice.ID, "de")
+	knownAgain, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
+	require.NoError(t, err)
 	assert.Len(t, knownAgain, len(known))
 	afterCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)

@@ -361,21 +361,21 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 		rows.Close()
 		if complete && s.client != nil {
 			for _, jobID := range jobIDs {
-				_, _ = s.client.JobCancel(ctx, jobID)
+				_, _ = s.client.JobCancel(ctx, jobID) //nolint:errcheck // River cancellation is best effort after local durable cancellation.
 			}
 		}
 	}
 	if s.batchCanceller != nil && p.CurrentRunID != "" {
 		if batchIDs, listErr := s.store.ListPreparedDeckLiveBatchIDs(ctx, owner, id, p.CurrentRunID); listErr == nil {
 			for _, batchID := range batchIDs {
-				_, _ = s.batchCanceller.CancelBatch(ctx, batchID)
+				_, _ = s.batchCanceller.CancelBatch(ctx, batchID) //nolint:errcheck // Provider cancellation is best effort after local durable cancellation.
 			}
 		}
 		if cleaner, ok := s.batchCanceller.(batchFileDeleter); ok {
 			if chunks, listErr := s.store.ListPreparedDeckBatchChunks(ctx, owner, id, p.CurrentRunID); listErr == nil {
 				cleanup := &BatchCleanupWorker{Store: s.store, Provider: cleaner}
 				for _, chunk := range chunks {
-					_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, ChunkID: chunk.ID, Generation: chunk.Generation})
+					_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, ChunkID: chunk.ID, Generation: chunk.Generation}) //nolint:errcheck // Durable recovery retries cleanup when the immediate attempt fails.
 				}
 			}
 		}

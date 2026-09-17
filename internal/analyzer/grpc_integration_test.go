@@ -5,6 +5,7 @@ package analyzer
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -38,17 +39,29 @@ func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	require.NoError(t, err)
 	cmd.Stderr = cmd.Stdout
 	require.NoError(t, cmd.Start())
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	t.Cleanup(func() {
+		if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			t.Errorf("stop Python server: %v", err)
+		}
+		if err := cmd.Wait(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			t.Errorf("wait for Python server: %v", err)
+		}
+	})
 	line, err := bufio.NewReader(stdout).ReadString('\n')
 	if err != nil {
-		body, _ := io.ReadAll(stdout)
+		body, readErr := io.ReadAll(stdout)
+		require.NoError(t, readErr)
 		require.FailNow(t, fmt.Sprintf("start Python server: %v: %s", err, body))
 	}
 	const prefix = "mouseion NLP gRPC server listening on "
 	require.True(t, strings.HasPrefix(line, prefix), "unexpected server output: %q", line)
 	analyzer, err := NewGRPCAnalyzer(strings.TrimSpace(strings.TrimPrefix(line, prefix)))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = analyzer.Close() })
+	t.Cleanup(func() {
+		if err := analyzer.Close(); err != nil {
+			t.Errorf("close gRPC analyzer: %v", err)
+		}
+	})
 	result, err := analyzer.Analyze(ctx, AnalyzeRequest{Language: "de", Document: SourceDocument{ID: "real-grpc", Text: "Das Haus ist groß."}})
 	require.NoError(t, err, "real gRPC analysis: %v", err)
 	assert.Equal(t, "de", result.Language)

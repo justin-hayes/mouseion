@@ -1305,7 +1305,10 @@ type AuthStore struct {
 }
 
 func NewAuthStore() *AuthStore {
-	h, _ := auth.HashPassword(Password)
+	h, err := auth.HashPassword(Password)
+	if err != nil {
+		panic("fixture password hash failed: " + err.Error())
+	}
 	return &AuthStore{user: domain.User{ID: OwnerID, Username: Username}, hash: h, sessions: map[string]domain.User{}}
 }
 func (s *AuthStore) HasUsers(context.Context) (bool, error) { return true, nil }

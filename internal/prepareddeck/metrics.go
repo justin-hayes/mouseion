@@ -174,7 +174,11 @@ func observeBatchMetric(metrics BatchMetrics, metric BatchMetric) {
 	if metrics == nil {
 		return
 	}
-	defer func() { _ = recover() }()
+	defer func() {
+		if recover() != nil {
+			return
+		}
+	}()
 	metrics.ObserveBatch(metric)
 }
 

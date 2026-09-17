@@ -304,13 +304,16 @@ func TestProviderVersionInvalidatesCache(t *testing.T) {
 func TestDeterministicLocalProviders(t *testing.T) {
 	c := Candidate{Identity: Identity{"de", "Straße", "NOUN"}, Morphology: map[string]string{"Case": "Nom"}}
 	ip := GermanIPA{}
-	a, ok, _ := ip.Pronunciation(context.Background(), c.Identity)
-	b, _, _ := ip.Pronunciation(context.Background(), c.Identity)
+	a, ok, err := ip.Pronunciation(context.Background(), c.Identity)
+	require.NoError(t, err)
+	b, _, err := ip.Pronunciation(context.Background(), c.Identity)
+	require.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, a, b)
 	assert.Equal(t, "/ʃtrase/", a)
 	m := NewStanzaMorphology("1")
-	got, ok, _ := m.Morphology(context.Background(), c)
+	got, ok, err := m.Morphology(context.Background(), c)
+	require.NoError(t, err)
 	got["Case"] = "Acc"
 	assert.True(t, ok)
 	assert.NotEqual(t, c.Morphology, got, "morphology was not copied")

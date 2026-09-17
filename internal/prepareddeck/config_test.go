@@ -88,7 +88,7 @@ func unsetenv(t *testing.T, name string) {
 	require.NoError(t, os.Unsetenv(name))
 	t.Cleanup(func() {
 		if existed {
-			_ = os.Setenv(name, previous)
+			require.NoError(t, os.Setenv(name, previous))
 		}
 	})
 }

@@ -71,12 +71,14 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
 	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed"), "location=%q", stale.Header().Get("Location"))
-	goal, _ = store.GetPrimaryGoal(ctx, alice.ID, "de")
+	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
+	require.NoError(t, err)
 	assert.Equal(t, readingOnly.ID, goal.BookID)
 
 	csrfFailure := perform(t, h, http.MethodPost, "/goal/books/"+replacement.ID, url.Values{"expected_goal_book_id": {readingOnly.ID}}, aliceCookies)
 	assert.Equal(t, http.StatusForbidden, csrfFailure.Code)
-	goal, _ = store.GetPrimaryGoal(ctx, alice.ID, "de")
+	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
+	require.NoError(t, err)
 	assert.Equal(t, readingOnly.ID, goal.BookID)
 
 	foreign := perform(t, h, http.MethodPost, "/goal/books/"+readingOnly.ID, url.Values{

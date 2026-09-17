@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,36 +41,38 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 					t.Errorf("multipart file cleanup failed: %v", err)
 				}
 			}()
-			content, _ := io.ReadAll(file)
+			content, err := io.ReadAll(file)
+			require.NoError(t, err)
 			assert.Equal(t, "run-opaque.jsonl", header.Filename)
 			assert.Equal(t, "{\"custom_id\":\"opaque\"}\n", string(content))
-			_, _ = io.WriteString(w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"uploaded"}`)
+			testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"uploaded"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-input":
-			_, _ = io.WriteString(w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"processed"}`)
+			testwrite.String(t, w, `{"id":"file-input","object":"file","bytes":25,"created_at":1,"expires_at":2,"filename":"run-opaque.jsonl","purpose":"batch","status":"processed"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-output/content":
 			w.Header().Set("Content-Type", "application/jsonl")
-			_, _ = io.WriteString(w, "result-line\n")
+			testwrite.String(t, w, "result-line\n")
 		case r.Method == http.MethodDelete && r.URL.Path == "/v1/files/file-input":
-			_, _ = io.WriteString(w, `{"id":"file-input","object":"file","deleted":true}`)
+			testwrite.String(t, w, `{"id":"file-input","object":"file","deleted":true}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/batches":
 			var request map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
 			assert.Equal(t, "file-input", request["input_file_id"])
 			assert.Equal(t, OpenAIChatCompletionsEndpoint, request["endpoint"])
 			assert.Equal(t, "24h", request["completion_window"])
-			metadata := request["metadata"].(map[string]any)
+			metadata, ok := request["metadata"].(map[string]any)
+			require.True(t, ok)
 			assert.Equal(t, "018f64b6-opaque", metadata["chunk_id"])
-			writeBatchStub(w, "batch-created", BatchStatusValidating)
+			writeBatchStub(t, w, "batch-created", BatchStatusValidating)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/batches/batch-created":
-			writeBatchStub(w, "batch-created", BatchStatusCompleted)
+			writeBatchStub(t, w, "batch-created", BatchStatusCompleted)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/batches":
 			assert.Equal(t, "batch-before", r.URL.Query().Get("after"))
 			assert.Equal(t, "2", r.URL.Query().Get("limit"))
-			_, _ = io.WriteString(w, `{"object":"list","data":[`)
-			writeBatchStub(w, "batch-listed", BatchStatusInProgress)
-			_, _ = io.WriteString(w, `],"first_id":"batch-listed","last_id":"batch-listed","has_more":false}`)
+			testwrite.String(t, w, `{"object":"list","data":[`)
+			writeBatchStub(t, w, "batch-listed", BatchStatusInProgress)
+			testwrite.String(t, w, `],"first_id":"batch-listed","last_id":"batch-listed","has_more":false}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/batches/batch-created/cancel":
-			writeBatchStub(w, "batch-created", BatchStatusCancelling)
+			writeBatchStub(t, w, "batch-created", BatchStatusCancelling)
 		default:
 			http.NotFound(w, r)
 		}
@@ -114,14 +116,14 @@ func TestOpenAIBatchClientWaitsForFileProcessing(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
-			_, _ = io.WriteString(w, `{"id":"file-pending","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+			testwrite.String(t, w, `{"id":"file-pending","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-pending":
 			fileGets++
 			status := "pending"
 			if fileGets == 2 {
 				status = "processed"
 			}
-			_, _ = fmt.Fprintf(w, `{"id":"file-pending","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":%q}`, status)
+			testwrite.Fprintf(t, w, `{"id":"file-pending","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":%q}`, status)
 		default:
 			http.NotFound(w, r)
 		}
@@ -140,9 +142,9 @@ func TestOpenAIBatchClientReportsFileProcessingFailureWithoutProviderDetails(t *
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
-			_, _ = io.WriteString(w, `{"id":"file-error","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+			testwrite.String(t, w, `{"id":"file-error","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-error":
-			_, _ = io.WriteString(w, `{"id":"file-error","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"error","status_details":"private source text"}`)
+			testwrite.String(t, w, `{"id":"file-error","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"error","status_details":"private source text"}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -165,9 +167,9 @@ func TestOpenAIBatchClientTimesOutWaitingForFileProcessing(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/files":
-			_, _ = io.WriteString(w, `{"id":"file-timeout","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
+			testwrite.String(t, w, `{"id":"file-timeout","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"uploaded"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/files/file-timeout":
-			_, _ = io.WriteString(w, `{"id":"file-timeout","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"pending"}`)
+			testwrite.String(t, w, `{"id":"file-timeout","object":"file","bytes":25,"created_at":1,"filename":"run.jsonl","purpose":"batch","status":"pending"}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -189,7 +191,7 @@ func TestOpenAIBatchClientAcceptsRealisticValidatingFixture(t *testing.T) {
 	require.NoError(t, err)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(fixture)
+		testwrite.Bytes(t, w, fixture)
 	}))
 	defer server.Close()
 	client := newStubbedBatchClient(t, server)
@@ -206,7 +208,7 @@ func TestOpenAIBatchClientClassifiesQueuedTokenValidationFailure(t *testing.T) {
 	require.NoError(t, err)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(fixture)
+		testwrite.Bytes(t, w, fixture)
 	}))
 	defer server.Close()
 	client := newStubbedBatchClient(t, server)
@@ -252,7 +254,7 @@ func TestOpenAIBatchClientRedactsHTTPAndMalformedResponses(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(test.status)
-				_, _ = io.WriteString(w, test.response)
+				testwrite.String(t, w, test.response)
 			}))
 			defer server.Close()
 			client := newStubbedBatchClient(t, server)
@@ -331,8 +333,8 @@ func TestBatchWireRejectsInconsistentCountsAndUsage(t *testing.T) {
 	}
 }
 
-func writeBatchStub(w io.Writer, id string, status BatchStatus) {
-	_, _ = fmt.Fprintf(w, `{"id":%q,"object":"batch","endpoint":"/v1/chat/completions","input_file_id":"file-input","completion_window":"24h","status":%q,"output_file_id":"file-output","error_file_id":"file-error","created_at":1,"in_progress_at":2,"expires_at":3,"finalizing_at":4,"completed_at":5,"failed_at":0,"expired_at":0,"cancelling_at":0,"cancelled_at":0,"request_counts":{"total":3,"completed":2,"failed":1},"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30},"errors":{"object":"list","data":[{"code":"invalid_request","line":7,"message":"private ignored"}]},"metadata":{"chunk_id":"018f64b6-opaque"}}`, id, status)
+func writeBatchStub(t *testing.T, w io.Writer, id string, status BatchStatus) {
+	testwrite.Fprintf(t, w, `{"id":%q,"object":"batch","endpoint":"/v1/chat/completions","input_file_id":"file-input","completion_window":"24h","status":%q,"output_file_id":"file-output","error_file_id":"file-error","created_at":1,"in_progress_at":2,"expires_at":3,"finalizing_at":4,"completed_at":5,"failed_at":0,"expired_at":0,"cancelling_at":0,"cancelled_at":0,"request_counts":{"total":3,"completed":2,"failed":1},"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30},"errors":{"object":"list","data":[{"code":"invalid_request","line":7,"message":"private ignored"}]},"metadata":{"chunk_id":"018f64b6-opaque"}}`, id, status)
 }
 
 func newStubbedBatchClient(t *testing.T, server *httptest.Server) *OpenAIBatchClient {

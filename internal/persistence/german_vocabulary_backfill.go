@@ -556,13 +556,19 @@ func mergeSelectionCandidates(rows []selectionCandidateRow) (selectionCandidateR
 		return selectionCandidateRow{}, errors.New("empty candidate group")
 	}
 	result := rows[0]
-	result.observedForms, _ = mergeJSONArray(rows[0].observedForms, nil)
-	result.sentenceReferences, _ = mergeJSONArray(rows[0].sentenceReferences, nil)
+	var err error
+	result.observedForms, err = mergeJSONArray(rows[0].observedForms, nil)
+	if err != nil {
+		return selectionCandidateRow{}, err
+	}
+	result.sentenceReferences, err = mergeJSONArray(rows[0].sentenceReferences, nil)
+	if err != nil {
+		return selectionCandidateRow{}, err
+	}
 	result.occurrenceCount = 0
 	minOccurrences := 0
 	for _, row := range rows {
 		result.occurrenceCount += row.occurrenceCount
-		var err error
 		result.observedForms, err = mergeJSONArray(result.observedForms, row.observedForms)
 		if err != nil {
 			return selectionCandidateRow{}, err
@@ -583,7 +589,6 @@ func mergeSelectionCandidates(rows []selectionCandidateRow) (selectionCandidateR
 		}
 	}
 	provenance := map[string]any{"min_occurrences": minOccurrences, "occurrence_count": result.occurrenceCount}
-	var err error
 	result.provenance, err = json.Marshal(provenance)
 	return result, err
 }

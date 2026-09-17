@@ -15,7 +15,7 @@ func TestConfiguredJobTimeout(t *testing.T) {
 		require.NoError(t, os.Unsetenv(jobTimeoutEnv))
 		t.Cleanup(func() {
 			if existed {
-				_ = os.Setenv(jobTimeoutEnv, previous)
+				require.NoError(t, os.Setenv(jobTimeoutEnv, previous))
 			}
 		})
 		timeout, err := configuredJobTimeout()

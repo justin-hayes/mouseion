@@ -305,7 +305,7 @@ func (s *bookRefreshStub) RefreshEntry(_ context.Context, owner, _ string) (cata
 func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	stub := &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Updated: true}}
-	h.(*Handler).services.CatalogueSync = stub
+	requireHandler(t, h).services.CatalogueSync = stub
 	missingCSRF := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{}, cookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	assert.Equal(t, 0, stub.calls)
@@ -316,7 +316,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
-	h.(*Handler).services.CatalogueSync = stub
+	requireHandler(t, h).services.CatalogueSync = stub
 	request := httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
@@ -331,7 +331,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated row title"}, Updated: true}}
-	h.(*Handler).services.CatalogueSync = stub
+	requireHandler(t, h).services.CatalogueSync = stub
 	request = httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
@@ -349,7 +349,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 
 func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
-	h.(*Handler).services.CatalogueSync = nil
+	requireHandler(t, h).services.CatalogueSync = nil
 	request := httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")

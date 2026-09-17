@@ -14,10 +14,12 @@ import (
 func TestGetAnalysisCorpusVocabularyIsOwnerScopedAndAggregatesMorphology(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
-	alice, _ := store.CreateUser(ctx, "alice", false)
-	bob, _ := store.CreateUser(ctx, "bob", false)
+	alice, err := store.CreateUser(ctx, "alice", false)
+	require.NoError(t, err)
+	bob, err := store.CreateUser(ctx, "bob", false)
+	require.NoError(t, err)
 	artifact := domain.NormalizedArtifact{ContentHash: "sha256:insights", Language: "de", SchemaVersion: "1", NormalizationProfile: "de", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
-	err := store.PutArtifact(ctx, artifact, []domain.SharedLemma{
+	err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{
 		{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: []byte(`{"Number":"Sing"}`), Frequency: 3},
 		{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: []byte(`{"Number":"Plur"}`), Frequency: 2},
 		{CanonicalLemma: "gehen", UPOS: "VERB", Morphology: []byte(`{}`), Frequency: 1},

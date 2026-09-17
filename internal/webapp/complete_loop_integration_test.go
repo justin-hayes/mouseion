@@ -29,6 +29,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
@@ -65,12 +66,12 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		w.Header().Set("Content-Type", "application/atom+xml")
 		switch r.URL.Path {
 		case "/opds/language":
-			_, _ = fmt.Fprint(w, `<?xml version="1.0"?><feed><title>Languages</title><entry><title>German</title><link rel="subsection" href="/opds/language/7"/></entry></feed>`)
+			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>Languages</title><entry><title>German</title><link rel="subsection" href="/opds/language/7"/></entry></feed>`)
 		case "/opds/language/7":
-			_, _ = fmt.Fprint(w, `<?xml version="1.0"?><feed><title>German books</title><entry><id>complete-loop-book</id><title>Complete Loop Book</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/book.epub"/></entry></feed>`)
+			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>German books</title><entry><id>complete-loop-book</id><title>Complete Loop Book</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/book.epub"/></entry></feed>`)
 		case "/book.epub":
 			w.Header().Set("Content-Type", opds.EPUBMediaType)
-			_, _ = w.Write(bookEPUB)
+			testwrite.Bytes(t, w, bookEPUB)
 		default:
 			http.NotFound(w, r)
 		}

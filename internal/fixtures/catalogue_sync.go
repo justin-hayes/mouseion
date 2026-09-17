@@ -137,7 +137,11 @@ func (s *CatalogueSync) List(ctx context.Context, owner string) ([]cataloguesync
 	}
 	result := make([]cataloguesync.Status, 0, len(statuses))
 	for _, durable := range statuses {
-		result = append(result, s.jobStatus(ctx, durable))
+		status, err := s.jobStatus(ctx, durable)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, status)
 	}
 	return result, nil
 }
@@ -176,8 +180,11 @@ func (s *CatalogueSync) Cancel(ctx context.Context, owner string, id int64) (cat
 	return s.Get(ctx, owner, id)
 }
 
-func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueSyncStatus) cataloguesync.Status {
-	connection, _ := s.Store.GetOpdsConnection(ctx, durable.OwnerID, durable.ConnectionID)
+func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueSyncStatus) (cataloguesync.Status, error) {
+	connection, err := s.Store.GetOpdsConnection(ctx, durable.OwnerID, durable.ConnectionID)
+	if err != nil {
+		return cataloguesync.Status{}, err
+	}
 	jobID := fixtureCatalogueSyncJobIDs[durable.ConnectionID]
 	createdAt := fixtureJourneyTime
 	updatedAt := durable.UpdatedAt
@@ -195,7 +202,7 @@ func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueS
 	default:
 		status.State, status.LogicalState, status.Progress = "running", "running", 35
 	}
-	return status
+	return status, nil
 }
 
 func timePtr(value time.Time) *time.Time { return &value }

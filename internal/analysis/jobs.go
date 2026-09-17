@@ -1121,7 +1121,10 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 			if token.Dependency == "compound:prt" || !lexical.IsLemma(token.CanonicalLemma) {
 				continue
 			}
-			raw, _ := json.Marshal(token.Morphology)
+			raw, err := json.Marshal(token.Morphology)
+			if err != nil {
+				continue
+			}
 			key := token.CanonicalLemma + "\x00" + token.UPOS + "\x00" + string(raw)
 			e := values[key]
 			e.lemma = token
@@ -1131,7 +1134,10 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	}
 	out := make([]domain.SharedLemma, 0, len(values))
 	for _, e := range values {
-		raw, _ := json.Marshal(e.lemma.Morphology)
+		raw, err := json.Marshal(e.lemma.Morphology)
+		if err != nil {
+			continue
+		}
 		out = append(out, domain.SharedLemma{ContentHash: hash, Language: result.Language, CanonicalLemma: e.lemma.CanonicalLemma, UPOS: e.lemma.UPOS, Morphology: raw, Frequency: e.count})
 	}
 	return out

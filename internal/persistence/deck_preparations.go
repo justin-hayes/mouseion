@@ -206,7 +206,10 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 			if err = q.SetVocabularyStateGenerated(ctx, sqlcgen.SetVocabularyStateGeneratedParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
 				return domain.DeckPreparation{}, err
 			}
-			details, _ := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": vocabularyState, "to": "generated"})
+			details, err := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": vocabularyState, "to": "generated"})
+			if err != nil {
+				return domain.DeckPreparation{}, fmt.Errorf("encode vocabulary transition history: %w", err)
+			}
 			if err = q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: owner, Operation: "vocabulary.transition", Status: "completed", Details: details, CompletedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}); err != nil {
 				return domain.DeckPreparation{}, err
 			}

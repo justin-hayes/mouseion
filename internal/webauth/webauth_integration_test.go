@@ -39,7 +39,11 @@ func setup(t *testing.T) (*persistence.PostgresStore, *auth.Service, http.Handle
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close auth store: %v", err)
+		}
+	})
 	s := auth.New(store, time.Hour)
 	return store, s, New(s, false, time.Hour)
 }

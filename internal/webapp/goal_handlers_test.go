@@ -174,7 +174,8 @@ func TestGoalMutationRoutesAreIdempotent(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, changed.Code)
 	assert.True(t, strings.Contains(changed.Header().Get("Location"), "is+your+Primary+Goal"), "change location=%q", changed.Header().Get("Location"))
-	goal, _ := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", goal.BookID)
 
 	cleared := goalRequest(t, h, "/goal/clear", url.Values{

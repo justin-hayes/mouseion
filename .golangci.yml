@@ -15,6 +15,12 @@ linters:
     - nilnil
     - rowserrcheck
     - wastedassign
+    - errcheck
+
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
 
   exclusions:
     generated: strict
