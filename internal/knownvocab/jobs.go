@@ -65,7 +65,10 @@ func (s *JobService) Submit(ctx context.Context, owner, language, fileContents s
 	if err != nil {
 		return Handle{}, fmt.Errorf("enqueue known vocabulary import: %w", err)
 	}
-	details, _ := json.Marshal(map[string]any{"river_job_id": inserted.Job.ID, "language": language, "processed": 0, "total": 0, "imported": 0, "already_known": 0, "rejected": []Rejection{}})
+	details, err := json.Marshal(map[string]any{"river_job_id": inserted.Job.ID, "language": language, "processed": 0, "total": 0, "imported": 0, "already_known": 0, "rejected": []Rejection{}})
+	if err != nil {
+		return Handle{}, fmt.Errorf("encode known vocabulary history: %w", err)
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'known_vocabulary.import','queued',$2)`, owner, details); err != nil {
 		return Handle{}, fmt.Errorf("record known vocabulary job: %w", err)
 	}

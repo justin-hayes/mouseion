@@ -235,7 +235,10 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (r
 			if retryErr != nil {
 				return Handle{}, retryErr
 			}
-			details, _ := json.Marshal(map[string]any{"run_id": runID, "from": state})
+			details, marshalErr := json.Marshal(map[string]any{"run_id": runID, "from": state})
+			if marshalErr != nil {
+				return Handle{}, fmt.Errorf("encode analysis retry history: %w", marshalErr)
+			}
 			if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
 				return Handle{}, err
 			}
@@ -303,8 +306,12 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 			status.Attempt = attemptNumber
 			status.FinalizedAt = nil
 			if state == "completed" || state == "failed" || state == "cancelled" {
-				_ = s.pool.QueryRow(ctx, `SELECT finalized_at FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=$2`, runID, attemptNumber).Scan(&status.FinalizedAt)
+				if finalErr := s.pool.QueryRow(ctx, `SELECT finalized_at FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=$2`, runID, attemptNumber).Scan(&status.FinalizedAt); finalErr != nil && !errors.Is(finalErr, pgx.ErrNoRows) {
+					return Status{}, fmt.Errorf("get analysis finalization time: %w", finalErr)
+				}
 			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return Status{}, fmt.Errorf("get analysis attempt: %w", err)
 		}
 		return status, nil
 	}
@@ -540,7 +547,10 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 	if err != nil {
 		return Handle{}, err
 	}
-	details, _ := json.Marshal(map[string]any{"run_id": status.RunID, "from": state})
+	details, marshalErr := json.Marshal(map[string]any{"run_id": status.RunID, "from": state})
+	if marshalErr != nil {
+		return Handle{}, fmt.Errorf("encode analysis retry history: %w", marshalErr)
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,operation,status,details) VALUES($1,'analysis','queued',$2)`, owner, details); err != nil {
 		return Handle{}, err
 	}
@@ -732,8 +742,8 @@ func selectedSnapshotUnits(units []snapshotUnit, selectedIDs []string) []snapsho
 	return out
 }
 
-func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total, selected int) []byte {
-	details, _ := json.Marshal(map[string]any{
+func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total, selected int) ([]byte, error) {
+	details, err := json.Marshal(map[string]any{
 		"run_id":               args.RunID,
 		"attempt":              args.Attempt,
 		"selection_algorithm":  args.ConfigIdentity,
@@ -745,7 +755,7 @@ func analysisHistoryDetails(args JobArgs, decision epub.MainTextSelection, total
 		"selected_unit_count":  selected,
 		"total_unit_count":     total,
 	})
-	return details
+	return details, err
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
@@ -895,7 +905,10 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err = persistNormalizedCorpus(ctx, tx, a.OwnerID, merged.Language, a.RunID, corpusID, merged); err != nil {
 		return err
 	}
-	details := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
+	details, err := analysisHistoryDetails(a, decision, len(allUnits), len(selectedUnits))
+	if err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'analysis','complete',$3,now())`, a.OwnerID, corpusID, details); err != nil {
 		return err
 	}
