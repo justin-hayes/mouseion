@@ -39,7 +39,10 @@ func activeStudyLanguageLabel(option activeStudyLanguageOption) string {
 }
 
 func shellViewFromContext(ctx context.Context) *shellView {
-	view, _ := ctx.Value(shellViewContextKey{}).(*shellView)
+	view, ok := ctx.Value(shellViewContextKey{}).(*shellView)
+	if !ok {
+		return nil
+	}
 	return view
 }
 

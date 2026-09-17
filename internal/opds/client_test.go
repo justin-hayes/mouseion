@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,10 +23,10 @@ func TestListRootPaginationAndAcquisition(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/atom+xml")
 		if r.URL.Path == "/page2" {
-			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>urn:2</id><title>Second</title><link rel="http://opds-spec.org/acquisition/open-access" type="application/pdf" href="/two.pdf"/></entry></feed>`))
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>urn:2</id><title>Second</title><link rel="http://opds-spec.org/acquisition/open-access" type="application/pdf" href="/two.pdf"/></entry></feed>`)
 			return
 		}
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="next" href="/page2"/><entry><id>urn:1</id><title>First</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip; charset=binary" href="/one.epub"/></entry></feed>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="next" href="/page2"/><entry><id>urn:1</id><title>First</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip; charset=binary" href="/one.epub"/></entry></feed>`)
 	}))
 	defer server.Close()
 
@@ -46,10 +47,10 @@ func TestRelativePaginationPreservesCatalogQueryCredentials(t *testing.T) {
 		assert.Equal(t, "catalog-secret", r.URL.Query().Get("access_token"), "access token query=%q", r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/atom+xml")
 		if r.URL.Query().Get("offset") == "1" {
-			_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>two</id><title>Two</title></entry></feed>`)
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>two</id><title>Two</title></entry></feed>`)
 			return
 		}
-		_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="next" href="?offset=1"/><entry><id>one</id><title>One</title></entry></feed>`)
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="next" href="?offset=1"/><entry><id>one</id><title>One</title></entry></feed>`)
 	}))
 	defer server.Close()
 
@@ -66,10 +67,10 @@ func TestRelativeEPUBAcquisitionPreservesCatalogQueryCredentials(t *testing.T) {
 		switch r.URL.Path {
 		case "/catalog":
 			w.Header().Set("Content-Type", "application/atom+xml")
-			_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>one</id><title>One</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="books/one.epub"/></entry></feed>`)
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><entry><id>one</id><title>One</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="books/one.epub"/></entry></feed>`)
 		case "/books/one.epub":
 			w.Header().Set("Content-Type", EPUBMediaType)
-			_, _ = io.WriteString(w, "epub bytes")
+			testwrite.String(t, w, "epub bytes")
 		default:
 			http.NotFound(w, r)
 		}
@@ -92,12 +93,12 @@ func TestSearchViaOpenSearchDescription(t *testing.T) {
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/root":
-			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><link rel="search" type="application/opensearchdescription+xml" href="/open-search.xml"/></feed>`))
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><link rel="search" type="application/opensearchdescription+xml" href="/open-search.xml"/></feed>`)
 		case "/open-search.xml":
-			_, _ = w.Write([]byte(`<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><Url type="application/atom+xml" template="` + server.URL + `/search?q={searchTerms}"/></OpenSearchDescription>`))
+			testwrite.String(t, w, `<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><Url type="application/atom+xml" template="`+server.URL+`/search?q={searchTerms}"/></OpenSearchDescription>`)
 		case "/search":
 			assert.Equal(t, "Moby Dick", r.URL.Query().Get("q"), "query=%q", r.URL.RawQuery)
-			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Results</title><entry><id>moby</id><title>Moby Dick</title></entry></feed>`))
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Results</title><entry><id>moby</id><title>Moby Dick</title></entry></feed>`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -116,12 +117,12 @@ func TestLanguageEndpointsFollowPagination(t *testing.T) {
 		w.Header().Set("Content-Type", "application/atom+xml")
 		switch r.URL.Path {
 		case "/calibre/opds/language":
-			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title><entry><id>/opds/language/7</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/calibre/opds/language/7"/></entry></feed>`))
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title><entry><id>/opds/language/7</id><title>German</title><link rel="subsection" type="application/atom+xml" href="/calibre/opds/language/7"/></entry></feed>`)
 		case "/calibre/opds/language/7":
 			if r.URL.Query().Get("offset") == "" {
-				_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><link rel="next" href="?offset=1"/><entry><id>epub-1</id><title>EPUB one</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/one.epub"/></entry></feed>`))
+				testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><link rel="next" href="?offset=1"/><entry><id>epub-1</id><title>EPUB one</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/one.epub"/></entry></feed>`)
 			} else {
-				_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>pdf-1</id><title>PDF only</title><link rel="http://opds-spec.org/acquisition" type="application/pdf" href="/one.pdf"/></entry><entry><id>epub-2</id><title>EPUB two</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/two.epub"/></entry></feed>`))
+				testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>German</title><entry><id>pdf-1</id><title>PDF only</title><link rel="http://opds-spec.org/acquisition" type="application/pdf" href="/one.pdf"/></entry><entry><id>epub-2</id><title>EPUB two</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/two.epub"/></entry></feed>`)
 			}
 		default:
 			http.NotFound(w, r)
@@ -150,7 +151,7 @@ func TestLanguageEndpointPreservesCatalogQueryCredentials(t *testing.T) {
 		requests = append(requests, r.URL.RequestURI())
 		assert.Equal(t, "catalog-secret", r.URL.Query().Get("access_token"), "access token query=%q", r.URL.RawQuery)
 		w.Header().Set("Content-Type", "application/atom+xml")
-		_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title></feed>`)
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Languages</title></feed>`)
 	}))
 	defer server.Close()
 
@@ -165,10 +166,10 @@ func TestListPageReturnsOnlyRequestedPageAndPaginationLinks(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/atom+xml")
 		if r.URL.Path == "/page-2" {
-			_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="previous" href="/page-1"/><entry><id>two</id><title>Two</title></entry></feed>`))
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="previous" href="/page-1"/><entry><id>two</id><title>Two</title></entry></feed>`)
 			return
 		}
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="next" href="/page-2"/><entry><id>one</id><title>One</title></entry></feed>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title><link rel="next" href="/page-2"/><entry><id>one</id><title>One</title></entry></feed>`)
 	}))
 	defer server.Close()
 
@@ -181,7 +182,7 @@ func TestListPageReturnsOnlyRequestedPageAndPaginationLinks(t *testing.T) {
 
 func TestSearchUnavailableIsTypedAndDiscoverable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`<feed xmlns="http://www.w3.org/2005/Atom"><title>No search</title></feed>`))
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>No search</title></feed>`)
 	}))
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{})
@@ -197,7 +198,7 @@ func TestDownloadErrorsAndMediaType(t *testing.T) {
 		switch r.URL.Path {
 		case "/book":
 			w.Header().Set("Content-Type", EPUBMediaType)
-			_, _ = w.Write([]byte("epub bytes"))
+			testwrite.String(t, w, "epub bytes")
 		case "/pdf":
 			w.Header().Set("Content-Type", "application/pdf")
 		case "/missing":
@@ -237,7 +238,7 @@ func TestCredentialsAreScopedToCatalogOrigin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _, receivedCredentials = r.BasicAuth()
 		w.Header().Set("Content-Type", EPUBMediaType)
-		_, _ = w.Write([]byte("epub"))
+		testwrite.String(t, w, "epub")
 	}))
 	defer server.Close()
 	client := NewClient(server.Client(), Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example/opds"})
@@ -281,7 +282,7 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 			assert.True(t, ok)
 			assert.Equal(t, "reader", user, "same-origin redirect lost credentials")
 			assert.Equal(t, "secret", password, "same-origin redirect lost credentials")
-			_, _ = io.WriteString(w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title></feed>`)
+			testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom"><title>Books</title></feed>`)
 			return
 		}
 		http.NotFound(w, r)
@@ -331,7 +332,7 @@ func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
 	defer external.Close()
 
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeFeed := func(body string) { _, _ = io.WriteString(w, body) }
+		writeFeed := func(body string) { testwrite.String(t, w, body) }
 		switch r.URL.Path {
 		case "/next-root":
 			writeFeed(`<feed xmlns="http://www.w3.org/2005/Atom"><link rel="next" href="` + external.URL + `/next"/></feed>`)

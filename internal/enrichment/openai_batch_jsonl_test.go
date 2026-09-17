@@ -68,7 +68,8 @@ func TestDecodeBatchResultsRejectsDuplicateUnknownAndMalformedLines(t *testing.T
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}
-	id, _ := enrichment.BatchCustomID("123e4567-e89b-12d3-a456-426614174000", 1, 1)
+	id, err := enrichment.BatchCustomID("123e4567-e89b-12d3-a456-426614174000", 1, 1)
+	require.NoError(t, err)
 	valid := `{"custom_id":"` + id + `","error":{"code":"invalid_request_error"}}` + "\n"
 	for name, fixture := range map[string]struct {
 		content string
@@ -99,7 +100,8 @@ func TestDecodeBatchResultsPartialReportsSortedMissingIDs(t *testing.T) {
 		{Ordinal: 2, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "zwei", UPOS: "NUM"}},
 		{Ordinal: 5, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "fünf", UPOS: "NUM"}},
 	}
-	id, _ := enrichment.BatchCustomID(runID, 5, 1)
+	id, err := enrichment.BatchCustomID(runID, 5, 1)
+	require.NoError(t, err)
 	content := `{"custom_id":"` + id + `","error":{"code":"batch_expired"}}` + "\n"
 	results, missing, err := codec.DecodeBatchResultsPartial(runID, 1, items, nil, strings.NewReader(content))
 	require.NoError(t, err)
@@ -115,12 +117,14 @@ func TestDecodeBatchResultsPartialReportsSortedMissingIDs(t *testing.T) {
 func TestTranslationCodecPreservesReasoningCapabilityBehavior(t *testing.T) {
 	known, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "o3-mini", BaseURL: "https://api.openai.com/v1", ReasoningEffort: "medium"})
 	require.NoError(t, err)
-	body, _ := known.EncodeRequest(enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	body, err := known.EncodeRequest(enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	require.NoError(t, err)
 	assert.Contains(t, string(body), `"reasoning_effort":"medium"`, "reasoning body=%s", body)
 	assert.NotContains(t, string(body), `"temperature"`, "reasoning body=%s", body)
 	unknown, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "o3-mini", BaseURL: "https://custom.example/v1"})
 	require.NoError(t, err)
-	body, _ = unknown.EncodeRequest(enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	body, err = unknown.EncodeRequest(enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})
+	require.NoError(t, err)
 	assert.Contains(t, string(body), `"temperature":0`, "custom endpoint body=%s", body)
 	assert.NotContains(t, string(body), `"reasoning_effort"`, "custom endpoint body=%s", body)
 }

@@ -18,7 +18,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "selection store", store.Close)
 	alice, err := store.CreateUser(ctx, "selection-alice", false)
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "selection-bob", false)

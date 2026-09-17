@@ -15,7 +15,9 @@ import (
 
 func main() {
 	if os.Getenv("MOUSEION_SECRET") == "" {
-		_ = os.Setenv("MOUSEION_SECRET", "fixture-server-secret-0123456789")
+		if err := os.Setenv("MOUSEION_SECRET", "fixture-server-secret-0123456789"); err != nil {
+			log.Fatalf("set fixture server secret: %v", err)
+		}
 	}
 	addr := os.Getenv("MOUSEION_FIXTURE_ADDR")
 	if addr == "" {
@@ -37,7 +39,11 @@ func main() {
 		log.Fatalf("initialize fixture webapp: %v", err)
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = fmt.Fprintln(w, "ok") })
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := fmt.Fprintln(w, "ok"); err != nil {
+			log.Printf("write health response: %v", err)
+		}
+	})
 	mux.Handle("/static/", webapp.StaticHandler())
 	mux.Handle("/", h)
 	log.Printf("mouseion fixture server listening on %s", addr)

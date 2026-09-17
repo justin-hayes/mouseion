@@ -64,13 +64,26 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NotNil(t, members["collection.anki2"])
 	require.NotNil(t, members["media"])
 	assert.Len(t, members, 2)
-	media, _ := members["media"].Open()
+	media, err := members["media"].Open()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := media.Close(); err != nil {
+			t.Errorf("media cleanup failed: %v", err)
+		}
+	})
 	var mediaMap map[string]string
 	err = json.NewDecoder(media).Decode(&mediaMap)
 	require.NoError(t, err)
 	assert.Empty(t, mediaMap)
-	dbReader, _ := members["collection.anki2"].Open()
-	dbBytes, _ := io.ReadAll(dbReader)
+	dbReader, err := members["collection.anki2"].Open()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := dbReader.Close(); err != nil {
+			t.Errorf("database ZIP member cleanup failed: %v", err)
+		}
+	})
+	dbBytes, err := io.ReadAll(dbReader)
+	require.NoError(t, err)
 	dbPath := t.TempDir() + "/collection.anki2"
 	err = os.WriteFile(dbPath, dbBytes, 0o600)
 	require.NoError(t, err)
@@ -388,15 +401,22 @@ func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.Equal(t, []string{"Identity", "Text", "Article", "Lemma", "Plural", "IPA", "PrincipalParts", "POS", "Gloss", "English", "EnglishSentence", "BookTitle"}, fieldNames)
 	model := modelMetadata(1, 2)
-	modelFields := model["flds"].([]map[string]any)
+	modelFields, ok := model["flds"].([]map[string]any)
+	require.True(t, ok)
 	modelNames := make([]string, len(modelFields))
 	for i, field := range modelFields {
-		modelNames[i] = field["name"].(string)
+		modelNames[i], ok = field["name"].(string)
+		require.True(t, ok)
 	}
 	assert.Equal(t, fieldNames, modelNames)
 	assert.False(t, containsString(modelNames, "Morph"))
 	assert.False(t, containsString(modelNames, "SourceSentence"))
-	template := model["tmpls"].([]any)[0].(map[string]any)["afmt"].(string)
+	templates, ok := model["tmpls"].([]any)
+	require.True(t, ok)
+	templateMap, ok := templates[0].(map[string]any)
+	require.True(t, ok)
+	template, ok := templateMap["afmt"].(string)
+	require.True(t, ok)
 	assert.Contains(t, template, `{{#Article}}<span class="article">{{Article}}</span><span class="article-space" data-article="{{Article}}"> </span>{{/Article}}<strong class="headword">{{Lemma}}</strong>`)
 	assert.Contains(t, template, `{{#Plural}} <span class="inflection plural">(Pl. {{Plural}})</span>{{/Plural}}`)
 	assert.Contains(t, template, `{{#IPA}} <span class="inflection pronunciation">{{IPA}}</span>{{/IPA}}`)
@@ -404,10 +424,12 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	assert.Contains(t, template, `<div class="gloss meaning-block">{{Gloss}}</div>`)
 	assert.Contains(t, template, `<div class="sentence contextual-translation">{{EnglishSentence}}</div>`)
 	assert.NotContains(t, template, `<div class="english">{{English}}</div>`)
-	assert.Contains(t, model["css"].(string), `.article-space[data-article="l'"]`)
-	assert.Contains(t, model["css"].(string), `.inflection`)
-	assert.Contains(t, model["css"].(string), `--mouseion-color-text-muted`)
-	assert.NotContains(t, model["css"].(string), ".english")
+	css, ok := model["css"].(string)
+	require.True(t, ok)
+	assert.Contains(t, css, `.article-space[data-article="l'"]`)
+	assert.Contains(t, css, `.inflection`)
+	assert.Contains(t, css, `--mouseion-color-text-muted`)
+	assert.NotContains(t, css, ".english")
 	assert.NotContains(t, template, "{{Morph}}")
 	assert.NotContains(t, template, "{{SourceSentence}}")
 
@@ -493,8 +515,15 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		if f.Name != "collection.anki2" {
 			continue
 		}
-		rc, _ := f.Open()
-		dbBytes, _ := io.ReadAll(rc)
+		rc, err := f.Open()
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			if err := rc.Close(); err != nil {
+				t.Errorf("database ZIP member cleanup failed: %v", err)
+			}
+		})
+		dbBytes, err := io.ReadAll(rc)
+		require.NoError(t, err)
 		require.NoError(t, rc.Close())
 		path := t.TempDir() + "/collection.anki2"
 		err = os.WriteFile(path, dbBytes, 0o600)

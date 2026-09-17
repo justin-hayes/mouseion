@@ -239,7 +239,7 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		// will enqueue the bounded retry if this immediate attempt cannot run.
 		if cleaner, ok := w.Provider.(batchFileDeleter); ok {
 			cleanup := &BatchCleanupWorker{Store: w.Store, Provider: cleaner, Now: w.Now, Metrics: w.Metrics}
-			_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation})
+			_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}) //nolint:errcheck // durable recovery retries cleanup when the immediate attempt fails.
 		}
 		for _, item := range updates {
 			if item.State == domain.PreparedDeckOutcomePending {

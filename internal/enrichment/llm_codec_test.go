@@ -87,8 +87,9 @@ func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
 		TargetLanguage string `json:"target_language"`
 		TranslationResponse
 	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}}
-	contentBytes, _ := json.Marshal(content)
-	body, _ := json.Marshal(struct {
+	contentBytes, err := json.Marshal(content)
+	require.NoError(t, err)
+	body, err := json.Marshal(struct {
 		Choices []struct {
 			Message struct {
 				Content string `json:"content"`
@@ -102,6 +103,7 @@ func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
 	}{{Message: struct {
 		Content string `json:"content"`
 	}{string(contentBytes)}}}, Usage: TranslationUsage{PromptTokens: 12, CompletionTokens: 8, TotalTokens: 20}})
+	require.NoError(t, err)
 	response, usage, err := codec.DecodeResponseWithUsage(input, body)
 	require.NoError(t, err)
 	assert.Equal(t, "house", response.Translation)

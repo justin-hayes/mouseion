@@ -121,7 +121,11 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 		return Status{}, ErrNotFound
 	}
 	var progress struct{ Completed, Total int64 }
-	_ = json.Unmarshal(row.Metadata, &progress)
+	if len(row.Metadata) > 0 {
+		if err := json.Unmarshal(row.Metadata, &progress); err != nil {
+			return Status{}, fmt.Errorf("decode enrichment progress: %w", err)
+		}
+	}
 	status := Status{ID: row.ID, Completed: progress.Completed, Total: progress.Total, State: row.State, Attempt: row.Attempt, CreatedAt: row.CreatedAt, FinalizedAt: row.FinalizedAt}
 	if len(row.Errors) > 0 {
 		status.Error = row.Errors[len(row.Errors)-1].Error
@@ -172,7 +176,11 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		progress = w.updateProgress
 	}
 	var prior struct{ Completed int }
-	_ = json.Unmarshal(job.Metadata, &prior)
+	if len(job.Metadata) > 0 {
+		if err := json.Unmarshal(job.Metadata, &prior); err != nil {
+			return fmt.Errorf("decode enrichment progress: %w", err)
+		}
+	}
 	for i, item := range job.Args.Items {
 		if i < prior.Completed {
 			continue

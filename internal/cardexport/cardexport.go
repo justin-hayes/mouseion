@@ -152,7 +152,10 @@ func CardIdentity(owner string, input RenderInput) string {
 		SourceSentence: input.Sentence, SourceDocument: input.SourceDocument,
 		FirstEncounter: input.FirstEncounter,
 	}
-	payload, _ := json.Marshal(inputs)
+	payload, err := json.Marshal(inputs)
+	if err != nil {
+		panic(fmt.Sprintf("card identity inputs are not JSON encodable: %v", err))
+	}
 	sum := sha256.Sum256(append([]byte("mouseion-card-identity-v1\x00"), payload...))
 	return hex.EncodeToString(sum[:])
 }
@@ -511,7 +514,9 @@ func bestSentenceEvidence(candidate domain.SelectionCandidate, persisted map[int
 		return SentenceEvidence{}, false
 	}
 	var forms []string
-	_ = json.Unmarshal(candidate.ObservedForms, &forms)
+	if err := json.Unmarshal(candidate.ObservedForms, &forms); err != nil {
+		return SentenceEvidence{}, false
+	}
 	forms = append(forms, candidate.CanonicalLemma)
 	type rankedSentence struct {
 		evidence SentenceEvidence

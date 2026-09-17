@@ -868,7 +868,10 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		}
 	}
 	artifactHash := normalizedArtifactHash(a.ContentHash, "", a.AnalysisIdentity, a.AnalyzerName, a.AnalyzerVersion, a.ConfigIdentity, merged)
-	lemmas := aggregateLemmas(artifactHash, merged)
+	lemmas, err := aggregateLemmas(artifactHash, merged)
+	if err != nil {
+		return fmt.Errorf("aggregate analyzed lemmas: %w", err)
+	}
 	statistics := selection.AnalyzableStatistics(merged, selection.DefaultConfig(""))
 	artifact := domain.NormalizedArtifact{ContentHash: artifactHash, Language: merged.Language, SchemaVersion: merged.SchemaVersion, NormalizationProfile: merged.NormalizationProfile.Name, NormalizationVersion: merged.NormalizationProfile.Version, AnalyzerName: merged.Analysis.AnalyzerName, AnalyzerVersion: merged.Analysis.AnalyzerVersion}
 	tx, err := w.Pool.Begin(ctx)
@@ -1110,7 +1113,7 @@ func offsetResultLocations(result *analyzer.Result, offset uint64) {
 	}
 }
 
-func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
+func aggregateLemmas(hash string, result analyzer.Result) ([]domain.SharedLemma, error) {
 	type entry struct {
 		lemma analyzer.Token
 		count int64
@@ -1121,7 +1124,10 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 			if token.Dependency == "compound:prt" || !lexical.IsLemma(token.CanonicalLemma) {
 				continue
 			}
-			raw, _ := json.Marshal(token.Morphology)
+			raw, err := json.Marshal(token.Morphology)
+			if err != nil {
+				return nil, fmt.Errorf("marshal morphology for %s/%s: %w", token.CanonicalLemma, token.UPOS, err)
+			}
 			key := token.CanonicalLemma + "\x00" + token.UPOS + "\x00" + string(raw)
 			e := values[key]
 			e.lemma = token
@@ -1131,10 +1137,13 @@ func aggregateLemmas(hash string, result analyzer.Result) []domain.SharedLemma {
 	}
 	out := make([]domain.SharedLemma, 0, len(values))
 	for _, e := range values {
-		raw, _ := json.Marshal(e.lemma.Morphology)
+		raw, err := json.Marshal(e.lemma.Morphology)
+		if err != nil {
+			return nil, fmt.Errorf("marshal morphology for %s/%s: %w", e.lemma.CanonicalLemma, e.lemma.UPOS, err)
+		}
 		out = append(out, domain.SharedLemma{ContentHash: hash, Language: result.Language, CanonicalLemma: e.lemma.CanonicalLemma, UPOS: e.lemma.UPOS, Morphology: raw, Frequency: e.count})
 	}
-	return out
+	return out, nil
 }
 
 func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {

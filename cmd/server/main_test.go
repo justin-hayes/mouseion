@@ -48,7 +48,9 @@ func TestProbeHealth(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = fmt.Fprintln(w, "ok")
+		if _, err := fmt.Fprintln(w, "ok"); err != nil {
+			t.Errorf("write health response: %v", err)
+		}
 	}))
 	defer server.Close()
 	require.NoError(t, probeHealth(server.URL+"/healthz", client))

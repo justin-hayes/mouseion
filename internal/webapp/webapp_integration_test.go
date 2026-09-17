@@ -30,6 +30,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -308,7 +309,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 		}
 		downloads++
 		w.Header().Set("Content-Type", opds.EPUBMediaType)
-		_, _ = w.Write(testEPUBVariant(t, "metadata-entry", "Metadata-only synced book", "Hallo Welt."))
+		testwrite.Bytes(t, w, testEPUBVariant(t, "metadata-entry", "Metadata-only synced book", "Hallo Welt."))
 	}))
 	defer catalog.Close()
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Metadata catalog", URL: catalog.URL + "/opds"})
@@ -495,7 +496,8 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	moved = perform(t, h, "POST", "/journey/entries/"+second.ID+"/move-later", moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision")), aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, moved.Code)
 	assert.True(t, strings.HasPrefix(moved.Header().Get("Location"), "/journey?message="), "location=%q", moved.Header().Get("Location"))
-	journey, _ = store.GetReadingJourney(ctx, alice.ID, "de")
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
 	assert.Equal(t, goal.ID, journey.Entries[0].BookID)
 	assert.Equal(t, first.ID, journey.Entries[1].BookID)
 	assert.Equal(t, second.ID, journey.Entries[2].BookID)
@@ -503,7 +505,8 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	stale := perform(t, h, "POST", "/journey/entries/"+third.ID+"/move-earlier", moveForm(csrf, staleRevision), aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
 	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+Journey+changed+since+this+page+was+loaded"), "location=%q", stale.Header().Get("Location"))
-	journeyAfterStale, _ := store.GetReadingJourney(ctx, alice.ID, "de")
+	journeyAfterStale, err := store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
 	assert.Len(t, journeyAfterStale.Entries, len(journey.Entries))
 	assert.Equal(t, journey.Entries[0].BookID, journeyAfterStale.Entries[0].BookID)
 	assert.Equal(t, journey.Entries[1].BookID, journeyAfterStale.Entries[1].BookID)

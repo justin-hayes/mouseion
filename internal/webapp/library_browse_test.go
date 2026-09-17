@@ -79,7 +79,7 @@ func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query
 
 func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	h, cookies, _, fixtureStore := goalFixtureSession(t)
-	handler := h.(*Handler)
+	handler := requireHandler(t, h)
 	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
 		Total: 26, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: "de", Count: 26}},
@@ -143,7 +143,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 
 func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.T) {
 	h, cookies, _, fixtureStore := goalFixtureSession(t)
-	handler := h.(*Handler)
+	handler := requireHandler(t, h)
 	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{
 			{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: fixtures.OwnerID, Title: "Eligible metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
@@ -194,7 +194,7 @@ func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
 
 func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	handler := h.(*Handler)
+	handler := requireHandler(t, h)
 	request := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, path, nil)
 		for _, cookie := range cookies {

@@ -47,7 +47,7 @@ func journeyEntryRequest(t *testing.T, h http.Handler, path string, cookies []*h
 func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	handler := h.(*Handler)
+	handler := requireHandler(t, h)
 	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
 
 	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
@@ -166,7 +166,7 @@ func TestJourneyEntryRequiresCurrentCompletedMemberAnalysis(t *testing.T) {
 				},
 				journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de", Revision: 4, Entries: []domain.ReadingJourneyEntry{{BookID: bookID}}},
 			}
-			handler := h.(*Handler)
+			handler := requireHandler(t, h)
 			handler.services.Store = store
 
 			response := journeyEntryRequest(t, h, "/journey/"+bookID, cookies)
@@ -206,7 +206,7 @@ func TestJourneyEntryRequiresMembershipAndOwnerScopedBook(t *testing.T) {
 				journey: test.journey,
 				missing: test.missing,
 			}
-			h.(*Handler).services.Store = store
+			requireHandler(t, h).services.Store = store
 
 			response := journeyEntryRequest(t, h, "/journey/"+test.bookID, cookies)
 			assert.Equal(t, http.StatusNotFound, response.Code)
@@ -232,7 +232,7 @@ func TestAnalysisCompatibilityRouteRequiresJourneyMembership(t *testing.T) {
 		},
 		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de"},
 	}
-	h.(*Handler).services.Store = store
+	requireHandler(t, h).services.Store = store
 
 	response := journeyEntryRequest(t, h, "/books/"+bookID+"/analyses/run-"+bookID, cookies)
 	assert.Equal(t, http.StatusNotFound, response.Code)
@@ -256,7 +256,7 @@ func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 		},
 		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de", Entries: []domain.ReadingJourneyEntry{{BookID: "stale-book"}}},
 	}
-	handler := h.(*Handler)
+	handler := requireHandler(t, h)
 	handler.services.Store = store
 	handler.services.Analysis = analysisService
 

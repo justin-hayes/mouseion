@@ -389,11 +389,14 @@ func TestPresentationLifecycleProjectionsAreDefensive(t *testing.T) {
 }
 
 func lifecycleProjection() cardexport.CandidateProjection {
-	refs, _ := json.Marshal([]struct {
+	refs, err := json.Marshal([]struct {
 		SentenceIndex int              `json:"sentence_index"`
 		Text          string           `json:"text"`
 		Location      map[string]int64 `json:"location"`
 	}{{SentenceIndex: 0, Text: "stale", Location: map[string]int64{"start_offset": 2}}})
+	if err != nil {
+		panic("lifecycle fixture references are not JSON encodable: " + err.Error())
+	}
 	return cardexport.CandidateProjection{
 		OwnerID: "owner-1", DeckName: "Book",
 		Candidate: domain.SelectionCandidate{OwnerID: "owner-1", CorpusID: "corpus-1", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", ObservedForms: []byte(`["Haus"]`), SentenceReferences: refs},

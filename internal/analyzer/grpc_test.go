@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -64,7 +65,11 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 		SourceDocument: &mouseionv1.SourceDocument{Id: "document-1", SourceIdentifier: "opds:1", Title: "Faust"},
 	}
 	mouseionv1.RegisterAnalyzerServiceServer(server, &analyzerService{want: want})
-	go func() { _ = server.Serve(listener) }()
+	go func() {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			t.Errorf("serve analyzer: %v", err)
+		}
+	}()
 	t.Cleanup(server.Stop)
 
 	analyzer, err := NewGRPCAnalyzer("passthrough:///bufconn",
@@ -72,7 +77,11 @@ func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = analyzer.Close() })
+	t.Cleanup(func() {
+		if err := analyzer.Close(); err != nil {
+			t.Errorf("close gRPC analyzer: %v", err)
+		}
+	})
 
 	result, err := analyzer.Analyze(context.Background(), AnalyzeRequest{
 		Language: "de",
@@ -104,7 +113,11 @@ func TestGRPCAnalyzerReportsRPCFailure(t *testing.T) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = analyzer.Close() })
+	t.Cleanup(func() {
+		if err := analyzer.Close(); err != nil {
+			t.Errorf("close gRPC analyzer: %v", err)
+		}
+	})
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
 	_, err = analyzer.Analyze(ctx, AnalyzeRequest{})

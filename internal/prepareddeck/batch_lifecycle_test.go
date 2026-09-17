@@ -182,7 +182,8 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	require.NoError(t, err)
 	var output strings.Builder
 	for _, ordinal := range []int{1, 0} {
-		customID, _ := enrichment.BatchCustomID(runID, ordinal, 1)
+		customID, err := enrichment.BatchCustomID(runID, ordinal, 1)
+		require.NoError(t, err)
 		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":%q,"fallback_gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, customID, responses[ordinal].Translation, responses[ordinal].FallbackGloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
 	}
 	decoded, err := codec.DecodeBatchResults(runID, 1, items, strings.NewReader(output.String()), nil)

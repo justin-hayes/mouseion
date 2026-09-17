@@ -212,12 +212,18 @@ func stableID(value string) int64 {
 	sum := sha1.Sum([]byte(value))
 	// Collection metadata stores IDs in JSON as well as SQLite. Keep them below
 	// 2^53 so every importer can represent them exactly before writing SQLite.
-	n, _ := strconv.ParseInt(hex.EncodeToString(sum[:8])[:13], 16, 64)
+	n, err := strconv.ParseInt(hex.EncodeToString(sum[:8])[:13], 16, 64)
+	if err != nil {
+		panic(fmt.Sprintf("stable ID digest is not hexadecimal: %v", err))
+	}
 	return n
 }
 
 func fieldChecksum(value string) int64 {
 	sum := sha1.Sum([]byte(value))
-	n, _ := strconv.ParseInt(hex.EncodeToString(sum[:])[:8], 16, 64)
+	n, err := strconv.ParseInt(hex.EncodeToString(sum[:])[:8], 16, 64)
+	if err != nil {
+		panic(fmt.Sprintf("field checksum digest is not hexadecimal: %v", err))
+	}
 	return n
 }

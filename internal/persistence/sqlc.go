@@ -36,7 +36,9 @@ func withTx(ctx context.Context, pool *pgxpool.Pool, fn func(context.Context, pg
 // nullable uuid columns whose domain rules guarantee a value.
 func uuidArg(value string) pgtype.UUID {
 	var id pgtype.UUID
-	_ = id.Scan(value)
+	if err := id.Scan(value); err != nil {
+		panic("invalid UUID passed to persistence boundary: " + err.Error())
+	}
 	return id
 }
 

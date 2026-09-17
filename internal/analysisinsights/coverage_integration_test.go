@@ -18,10 +18,12 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "analysis insights store", store.Close)
 
-	alice, _ := store.CreateUser(ctx, "insights-alice", false)
-	bob, _ := store.CreateUser(ctx, "insights-bob", false)
+	alice, err := store.CreateUser(ctx, "insights-alice", false)
+	require.NoError(t, err)
+	bob, err := store.CreateUser(ctx, "insights-bob", false)
+	require.NoError(t, err)
 	artifact := domain.NormalizedArtifact{ContentHash: "sha256:insights-e2e", Language: "de", SchemaVersion: "1", NormalizationProfile: "test", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}
 	err = store.PutArtifact(ctx, artifact, []domain.SharedLemma{
 		{CanonicalLemma: "eins", UPOS: "NOUN", Morphology: []byte(`{}`), Frequency: 70},
