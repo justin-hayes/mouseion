@@ -67,6 +67,8 @@ type Store interface {
 	ChangePrimaryGoal(context.Context, string, string, string, string) (domain.PrimaryGoal, error)
 	ClearPrimaryGoal(context.Context, string, string, string) error
 }
+
+type csrfFailureContextKey struct{}
 type OPDS interface {
 	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
 }
@@ -232,6 +234,9 @@ func (h *Handler) user(next http.Handler) http.Handler {
 func render(w http.ResponseWriter, r *http.Request, component interface {
 	Render(context.Context, io.Writer) error
 }) {
+	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "unable to render page", 500)
@@ -241,12 +246,13 @@ func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(csrfCookie); err == nil && len(c.Value) >= 32 {
 		return c.Value
 	}
-	return h.rotateCSRF(w)
+	return h.rotateCSRF(w, r)
 }
-func (h *Handler) rotateCSRF(w http.ResponseWriter) string {
+func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		log.Printf("generate CSRF token: %v", err)
+		*r = *r.WithContext(context.WithValue(r.Context(), csrfFailureContextKey{}, err))
 		http.Error(w, "unable to establish CSRF protection", http.StatusInternalServerError)
 		return ""
 	}

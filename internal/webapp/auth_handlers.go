@@ -33,7 +33,10 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSession(w, token)
-	h.rotateCSRF(w)
+	h.rotateCSRF(w, r)
+	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
+		return
+	}
 	redirect(w, r, webauth.SafeReturnPath(r.FormValue("next")))
 }
 func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +62,10 @@ func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSession(w, token)
-	h.rotateCSRF(w)
+	h.rotateCSRF(w, r)
+	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
+		return
+	}
 	redirect(w, r, "/")
 }
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {

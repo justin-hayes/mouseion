@@ -445,21 +445,27 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	projection, stored, err := f.Store.LoadPreparedDeckFinalization(ctx, owner, preparationID, runID)
 	if err != nil {
 		if ctx.Err() == nil && (errors.Is(err, persistence.ErrPreparedDeckIdentity) || errors.Is(err, cardexport.ErrInvalidInput)) {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest")
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest"); failErr != nil {
+				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+			}
 		}
 		return domain.DeckPreparation{}, err
 	}
 	deck, err := f.Renderer.Restore(projection)
 	if err != nil {
 		if ctx.Err() == nil {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest")
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "invalid_manifest"); failErr != nil {
+				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+			}
 		}
 		return domain.DeckPreparation{}, err
 	}
 	artifact, diagnostics, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		if ctx.Err() == nil {
-			_ = f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed")
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed"); failErr != nil {
+				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
+			}
 		}
 		observeBatchMetric(f.Metrics, BatchMetric{Mode: mode, Name: MetricAPKGOutcome, Phase: "finalizing", State: "failed", ErrorClass: "terminal", Provider: "openai", Value: 1})
 		return domain.DeckPreparation{}, fmt.Errorf("render durable prepared deck: %w", err)

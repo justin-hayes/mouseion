@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -215,6 +216,9 @@ func probeHealth(target string, client *http.Client) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, resp.Body.Close()) }()
+	if _, readErr := io.Copy(io.Discard, resp.Body); readErr != nil {
+		return fmt.Errorf("read health endpoint %s: %w", target, readErr)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("health endpoint %s returned %s", target, resp.Status)
 	}

@@ -477,7 +477,11 @@ func statusError(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
-	return fmt.Errorf("opds: HTTP %s", resp.Status)
+	statusErr := fmt.Errorf("opds: HTTP %s", resp.Status)
+	if _, drainErr := io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10)); drainErr != nil {
+		return errors.Join(statusErr, fmt.Errorf("opds: drain error response: %w", drainErr))
+	}
+	return statusErr
 }
 func resolveLinks(base *url.URL, links []atomLink) []Link {
 	out := make([]Link, 0, len(links))
