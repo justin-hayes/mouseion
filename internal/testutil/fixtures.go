@@ -26,7 +26,7 @@ func ZipDirectory(t *testing.T, directory string) []byte {
 		if err != nil {
 			return err
 		}
-		data, err := os.ReadFile(name)
+		data, err := os.ReadFile(name) //nolint:gosec // filepath.WalkDir confines this to the checked-in fixture directory.
 		if err != nil {
 			return err
 		}

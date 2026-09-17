@@ -264,7 +264,7 @@ func replaceCollectionModels(t *testing.T, apkg []byte, models string) []byte {
 	_, err = db.Exec(`UPDATE col SET models=?`, models)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
-	collection, err = os.ReadFile(path)
+	collection, err = os.ReadFile(path) //nolint:gosec // path is a file created in this test's TempDir.
 	require.NoError(t, err)
 
 	var output bytes.Buffer

@@ -2,9 +2,11 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -155,7 +157,11 @@ func (s *PostgresStore) ListPreparedDeckStuckBatches(ctx context.Context, olderT
 	if olderThan <= 0 || limit < 1 {
 		return nil, ErrInvalidTransition
 	}
-	rows, err := s.queries().ListPreparedDeckStuckBatches(ctx, sqlcgen.ListPreparedDeckStuckBatchesParams{OlderSeconds: olderThan.Seconds(), Limit: int32(limit)})
+	sqlLimit, err := checked.Int32FromInt(limit)
+	if err != nil {
+		return nil, fmt.Errorf("invalid stuck-batch limit: %w", err)
+	}
+	rows, err := s.queries().ListPreparedDeckStuckBatches(ctx, sqlcgen.ListPreparedDeckStuckBatchesParams{OlderSeconds: olderThan.Seconds(), Limit: sqlLimit})
 	if err != nil {
 		return nil, err
 	}

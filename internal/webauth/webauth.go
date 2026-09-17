@@ -112,9 +112,11 @@ func decode(w http.ResponseWriter, r *http.Request, value any) bool {
 	return true
 }
 func (h *Handler) setCookie(w http.ResponseWriter, token string) {
+	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
 	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: token, Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.lifetime.Seconds())})
 }
 func (h *Handler) clearCookie(w http.ResponseWriter) {
+	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.
 	http.SetCookie(w, &http.Cookie{Name: CookieName, Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 }
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {

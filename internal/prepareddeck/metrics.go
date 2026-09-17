@@ -11,8 +11,8 @@ const (
 	MetricBatchQueueAge             = "batch_queue_age_seconds"
 	MetricBatchProviderTransitions  = "batch_provider_transitions_total"
 	MetricBatchRequests             = "batch_requests_total"
-	MetricBatchUsageInputTokens     = "batch_usage_input_tokens_total"
-	MetricBatchUsageOutputTokens    = "batch_usage_output_tokens_total"
+	MetricBatchUsageInputTokens     = "batch_usage_input_tokens_total"  //nolint:gosec // metric names are not credentials.
+	MetricBatchUsageOutputTokens    = "batch_usage_output_tokens_total" //nolint:gosec // metric names are not credentials.
 	MetricBatchValidationFailures   = "batch_validation_failures_total"
 	MetricBatchRetries              = "batch_retries_total"
 	MetricBatchReconciliationErrors = "batch_reconciliation_errors_total"

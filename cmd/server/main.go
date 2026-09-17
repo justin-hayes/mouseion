@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -32,6 +33,13 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
+)
+
+const (
+	serverReadHeaderTimeout = 10 * time.Second
+	serverReadTimeout       = 30 * time.Second
+	serverWriteTimeout      = 30 * time.Second
+	serverIdleTimeout       = 2 * time.Minute
 )
 
 func main() {
@@ -171,8 +179,19 @@ func run() (err error) {
 		return fmt.Errorf("initialize web application: %w", err)
 	}
 	mux.Handle("/", webHandler)
-	log.Printf("mouseion web server listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+	log.Print("mouseion web server listening")
+	return newHTTPServer(addr, mux).ListenAndServe()
+}
+
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		ReadTimeout:       serverReadTimeout,
+		WriteTimeout:      serverWriteTimeout,
+		IdleTimeout:       serverIdleTimeout,
+	}
 }
 
 func closeIntoResult(name string, close func() error, result *error) {
@@ -209,11 +228,21 @@ func healthcheckURL(addr string) (string, error) {
 	case "", "0.0.0.0", "::":
 		host = "127.0.0.1"
 	}
+	if !loopbackHost(host) {
+		return "", fmt.Errorf("MOUSEION_HTTP_ADDR host must be loopback, got %q", host)
+	}
 	return "http://" + net.JoinHostPort(host, port) + "/healthz", nil
 }
 
 func probeHealth(target string, client *http.Client) (err error) {
-	resp, err := client.Get(target)
+	if err := validateHealthcheckTarget(target); err != nil {
+		return err
+	}
+	probeClient := *client
+	probeClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	// validateHealthcheckTarget permits only this process's loopback health endpoint.
+	//nolint:gosec // the destination is constrained before the request is sent.
+	resp, err := probeClient.Get(target)
 	if err != nil {
 		return err
 	}
@@ -227,6 +256,18 @@ func probeHealth(target string, client *http.Client) (err error) {
 	return nil
 }
 
+func validateHealthcheckTarget(target string) error {
+	parsed, err := url.Parse(target)
+	if err != nil || parsed.User != nil || parsed.Scheme != "http" || parsed.Host == "" || parsed.Path != "/healthz" || parsed.RawQuery != "" || parsed.Fragment != "" || !loopbackHost(parsed.Hostname()) {
+		return errors.New("healthcheck target must be the local HTTP health endpoint")
+	}
+	return nil
+}
+
+func loopbackHost(host string) bool {
+	return host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
+}
+
 // openDictionaryIndex loads the optional local dictionary index. An absent file
 // means the operator has not derived the index, so glosses fall back to the
 // morphology heuristic. A path that exists but is not a usable index is a
@@ -234,11 +275,11 @@ func probeHealth(target string, client *http.Client) (err error) {
 func openDictionaryIndex(path string) (*dictionary.Index, error) {
 	index, err := dictionary.OpenIndex(path)
 	if err == nil {
-		log.Printf("dictionary index loaded: %s (%s)", index.Name(), index.Version())
+		log.Print("dictionary index loaded")
 		return index, nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		log.Printf("dictionary index not found at %s; continuing without local glosses", path)
+		log.Print("dictionary index not found; continuing without local glosses")
 		// The local dictionary is optional; absence is a successful startup mode.
 		//nolint:nilnil // nil index explicitly represents the absent optional index.
 		return nil, nil

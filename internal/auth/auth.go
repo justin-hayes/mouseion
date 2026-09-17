@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"golang.org/x/crypto/argon2"
 )
@@ -89,7 +90,11 @@ func VerifyPassword(encoded, password string) (bool, error) {
 	if err != nil || len(want) == 0 {
 		return false, ErrInvalidPasswordHash
 	}
-	got := argon2.IDKey([]byte(password), salt, t, m, p, uint32(len(want)))
+	keyLength, err := checked.Uint32FromInt(len(want))
+	if err != nil {
+		return false, ErrInvalidPasswordHash
+	}
+	got := argon2.IDKey([]byte(password), salt, t, m, p, keyLength)
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }
 

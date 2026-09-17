@@ -27,12 +27,12 @@ func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	if _, err := os.Stat(python); err != nil {
 		t.Skip("Python virtualenv unavailable")
 	}
-	if _, err := os.Stat(modelDir); err != nil {
+	if _, err := os.Stat(modelDir); err != nil { //nolint:gosec // modelDir is assembled from the test repository HOME fixture.
 		t.Skip("Stanza German model unavailable")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, python, "-m", "mouseion_nlp.server")
+	cmd := exec.CommandContext(ctx, python, "-m", "mouseion_nlp.server") //nolint:gosec // the executable is the repository's test virtualenv.
 	cmd.Dir = repo
 	cmd.Env = append(os.Environ(), "PYTHONPATH="+filepath.Join(repo, "nlp", "src")+":"+filepath.Join(repo, "gen", "python"), "MOUSEION_NLP_ADDR=127.0.0.1:0")
 	stdout, err := cmd.StdoutPipe()

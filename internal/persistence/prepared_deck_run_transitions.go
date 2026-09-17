@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
@@ -508,7 +509,11 @@ func (s *PostgresStore) ListPreparedDeckRecoveryWork(ctx context.Context, limit 
 	if limit < 1 {
 		return nil, ErrInvalidTransition
 	}
-	rows, err := s.queries().ListPreparedDeckRecoveryWork(ctx, int32(limit))
+	sqlLimit, err := checked.Int32FromInt(limit)
+	if err != nil {
+		return nil, fmt.Errorf("invalid recovery limit: %w", err)
+	}
+	rows, err := s.queries().ListPreparedDeckRecoveryWork(ctx, sqlLimit)
 	if err != nil {
 		return nil, err
 	}

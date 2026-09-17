@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
@@ -589,11 +590,15 @@ func (s *PostgresStore) ListStalePreparedDecks(ctx context.Context, presentation
 	if presentationVersion < 1 || limit < 1 {
 		return nil, ErrInvalidTransition
 	}
+	sqlLimit, err := checked.Int32FromInt(limit)
+	if err != nil {
+		return nil, fmt.Errorf("invalid stale-deck limit: %w", err)
+	}
 	rows, err := s.queries().ListStalePreparedDecks(ctx, sqlcgen.ListStalePreparedDecksParams{
 		PresentationVersion:        presentationVersion,
 		RenderInputVersion:         cardexport.RenderInputVersion,
 		RequiresRepreparationError: domain.DeckPreparationRequiresRepreparationError,
-		Limit:                      int32(limit),
+		Limit:                      sqlLimit,
 	})
 	if err != nil {
 		return nil, err

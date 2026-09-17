@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -71,6 +72,22 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 				return err
 			}
 			for _, unit := range units.Units {
+				unitOrder, conversionErr := checked.Int64FromUint64(unit.Order)
+				if conversionErr != nil {
+					return conversionErr
+				}
+				spineIndex, conversionErr := checked.Int64FromUint64(unit.SpineIndex)
+				if conversionErr != nil {
+					return conversionErr
+				}
+				startOffset, conversionErr := checked.Int64FromUint64(unit.StartOffset)
+				if conversionErr != nil {
+					return conversionErr
+				}
+				endOffset, conversionErr := checked.Int64FromUint64(unit.EndOffset)
+				if conversionErr != nil {
+					return conversionErr
+				}
 				properties, marshalErr := json.Marshal(unit.Properties)
 				if marshalErr != nil {
 					return marshalErr
@@ -85,8 +102,8 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 				}
 				if err = q.InsertSourceMaterialUnit(ctx, sqlcgen.InsertSourceMaterialUnitParams{
 					OwnerID: out.OwnerID, SourceMaterialID: out.ID, SnapshotID: snapshotID, UnitID: unit.ID,
-					UnitOrder: int64(unit.Order), SpineIndex: int64(unit.SpineIndex), Title: unit.Title, TitleSource: unit.TitleSource,
-					Text: unit.Text, StartOffset: int64(unit.StartOffset), EndOffset: int64(unit.EndOffset), PackagePath: unit.PackagePath,
+					UnitOrder: unitOrder, SpineIndex: spineIndex, Title: unit.Title, TitleSource: unit.TitleSource,
+					Text: unit.Text, StartOffset: startOffset, EndOffset: endOffset, PackagePath: unit.PackagePath,
 					ManifestID: unit.ManifestID, SourceHref: unit.SourceHref, ResolvedHref: unit.ResolvedHref, MediaType: unit.MediaType,
 					Properties: properties, Linear: unit.Linear, NavigationLabels: navigationLabels, LandmarkTypes: landmarkTypes,
 				}); err != nil {
@@ -133,10 +150,26 @@ func (s *PostgresStore) GetExtractedUnitSnapshot(ctx context.Context, owner, sou
 		return "", out, err
 	}
 	for _, row := range rows {
+		order, conversionErr := checked.Uint64FromInt64(row.UnitOrder)
+		if conversionErr != nil {
+			return "", out, fmt.Errorf("validate persisted unit order: %w", conversionErr)
+		}
+		spineIndex, conversionErr := checked.Uint64FromInt64(row.SpineIndex)
+		if conversionErr != nil {
+			return "", out, fmt.Errorf("validate persisted spine index: %w", conversionErr)
+		}
+		startOffset, conversionErr := checked.Uint64FromInt64(row.StartOffset)
+		if conversionErr != nil {
+			return "", out, fmt.Errorf("validate persisted unit start offset: %w", conversionErr)
+		}
+		endOffset, conversionErr := checked.Uint64FromInt64(row.EndOffset)
+		if conversionErr != nil {
+			return "", out, fmt.Errorf("validate persisted unit end offset: %w", conversionErr)
+		}
 		var unit domain.ExtractedUnit
-		unit.ID, unit.Order, unit.SpineIndex = row.UnitID, uint64(row.UnitOrder), uint64(row.SpineIndex)
+		unit.ID, unit.Order, unit.SpineIndex = row.UnitID, order, spineIndex
 		unit.Title, unit.TitleSource, unit.Text = row.Title, row.TitleSource, row.Text
-		unit.StartOffset, unit.EndOffset = uint64(row.StartOffset), uint64(row.EndOffset)
+		unit.StartOffset, unit.EndOffset = startOffset, endOffset
 		unit.PackagePath, unit.ManifestID, unit.SourceHref = row.PackagePath, row.ManifestID, row.SourceHref
 		unit.ResolvedHref, unit.MediaType, unit.Linear = row.ResolvedHref, row.MediaType, row.Linear
 		if err = json.Unmarshal(row.Properties, &unit.Properties); err != nil {

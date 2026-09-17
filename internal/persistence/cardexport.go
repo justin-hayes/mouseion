@@ -8,6 +8,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -35,13 +36,17 @@ func listCorpusSentences(ctx context.Context, q sqlcgen.DBTX, owner, corpusID st
 			sentence = analyzer.Sentence{Text: row.SentenceText, Tokens: make([]analyzer.Token, 0)}
 		}
 		if row.TokenOrdinal >= 0 {
+			head, err := checked.Uint32FromInt64(row.Head)
+			if err != nil {
+				return nil, fmt.Errorf("decode head ordinal for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
+			}
 			morphology := make(map[string]string)
 			if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
 				return nil, fmt.Errorf("decode morphology for sentence %d token %d: %w", row.SentenceOrdinal, row.TokenOrdinal, err)
 			}
 			sentence.Tokens = append(sentence.Tokens, analyzer.Token{
 				Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
-				UPOS: row.Upos, Dependency: row.Dependency, Head: uint32(row.Head), Morphology: morphology,
+				UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
 			})
 		}
 		result[row.SentenceOrdinal] = sentence
