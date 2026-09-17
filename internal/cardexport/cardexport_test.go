@@ -77,9 +77,13 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	assert.Empty(t, mediaMap)
 	dbReader, err := members["collection.anki2"].Open()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := dbReader.Close(); err != nil {
+			t.Errorf("database ZIP member cleanup failed: %v", err)
+		}
+	})
 	dbBytes, err := io.ReadAll(dbReader)
 	require.NoError(t, err)
-	require.NoError(t, dbReader.Close())
 	dbPath := t.TempDir() + "/collection.anki2"
 	err = os.WriteFile(dbPath, dbBytes, 0o600)
 	require.NoError(t, err)
@@ -513,6 +517,11 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		}
 		rc, err := f.Open()
 		require.NoError(t, err)
+		t.Cleanup(func() {
+			if err := rc.Close(); err != nil {
+				t.Errorf("database ZIP member cleanup failed: %v", err)
+			}
+		})
 		dbBytes, err := io.ReadAll(rc)
 		require.NoError(t, err)
 		require.NoError(t, rc.Close())

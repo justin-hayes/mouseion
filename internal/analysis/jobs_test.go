@@ -39,7 +39,8 @@ func TestRequireDependencyParsing(t *testing.T) {
 
 func TestAggregateLemmasIsIdempotent(t *testing.T) {
 	result := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Tokens: []analyzer.Token{{CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Sing"}}, {CanonicalLemma: "haus", UPOS: "NOUN", Morphology: map[string]string{"Number": "Sing"}}, {CanonicalLemma: "5", UPOS: "NOUN"}}}}}
-	lemmas := aggregateLemmas("sha256:x", result)
+	lemmas, err := aggregateLemmas("sha256:x", result)
+	require.NoError(t, err)
 	require.Len(t, lemmas, 1)
 	assert.Equal(t, int64(2), lemmas[0].Frequency)
 	assert.Equal(t, "sha256:x", lemmas[0].ContentHash)
@@ -51,7 +52,8 @@ func TestAggregateLemmasExcludesSeparableParticles(t *testing.T) {
 		{CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt"},
 	}}}}
 
-	lemmas := aggregateLemmas("sha256:x", result)
+	lemmas, err := aggregateLemmas("sha256:x", result)
+	require.NoError(t, err)
 
 	require.Len(t, lemmas, 1)
 	assert.Equal(t, "aufstehen", lemmas[0].CanonicalLemma)

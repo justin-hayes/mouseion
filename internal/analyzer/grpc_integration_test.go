@@ -40,11 +40,12 @@ func TestGRPCAnalyzerRealPythonServer(t *testing.T) {
 	cmd.Stderr = cmd.Stdout
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() {
-		if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			t.Errorf("stop Python server: %v", err)
+		killErr := cmd.Process.Kill()
+		if killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
+			t.Errorf("stop Python server: %v", killErr)
 		}
-		if err := cmd.Wait(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			t.Errorf("wait for Python server: %v", err)
+		if waitErr := cmd.Wait(); errors.Is(killErr, os.ErrProcessDone) && waitErr != nil {
+			t.Errorf("wait for Python server: %v", waitErr)
 		}
 	})
 	line, err := bufio.NewReader(stdout).ReadString('\n')

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,11 +14,9 @@ func TestConfiguredJobTimeout(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		previous, existed := os.LookupEnv(jobTimeoutEnv)
 		require.NoError(t, os.Unsetenv(jobTimeoutEnv))
-		t.Cleanup(func() {
-			if existed {
-				require.NoError(t, os.Setenv(jobTimeoutEnv, previous))
-			}
-		})
+		if existed {
+			testutil.Cleanup(t, "job timeout environment", func() error { return os.Setenv(jobTimeoutEnv, previous) })
+		}
 		timeout, err := configuredJobTimeout()
 		require.NoError(t, err)
 		assert.Equal(t, defaultJobTimeout, timeout)
