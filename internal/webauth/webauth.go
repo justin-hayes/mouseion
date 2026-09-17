@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -159,11 +158,4 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 	}
 	h.clearCookie(w)
 	w.WriteHeader(http.StatusNoContent)
-}
-func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(value); err != nil {
-		log.Printf("write JSON response: %v", err)
-	}
 }

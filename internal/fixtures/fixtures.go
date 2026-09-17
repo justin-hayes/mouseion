@@ -1271,15 +1271,6 @@ func (s *Store) fixtureBookID(owner, id string) string {
 	return ""
 }
 
-func (s *Store) fixtureSourceID(owner, bookID string) string {
-	for _, source := range s.books {
-		if source.Source.OwnerID == owner && source.BookID == bookID {
-			return source.Source.ID
-		}
-	}
-	return bookID
-}
-
 func fixtureJobs() []domain.AnalysisJob {
 	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
 	for i := int64(3); i <= 18; i++ {

@@ -31,10 +31,6 @@ type MyBooksBrowseState struct {
 	RefreshableBookIDs map[string]bool
 }
 
-func myBooksBrowseURL(query string, page int) string {
-	return myBooksURL(query, page, false)
-}
-
 func myBooksURL(query string, page int, needsLanguage bool) string {
 	values := url.Values{}
 	if needsLanguage {

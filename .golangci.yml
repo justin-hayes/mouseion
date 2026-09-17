@@ -16,6 +16,8 @@ linters:
     - rowserrcheck
     - wastedassign
     - errcheck
+    - unused
+    - ineffassign
     - gosec
 
   settings:

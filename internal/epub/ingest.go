@@ -133,10 +133,6 @@ func (s *Service) importBookForBook(ctx context.Context, ownerID, language, book
 	return ImportResult{Source: source, Book: book, History: history}, nil
 }
 
-func (s *Service) linkAcquiredSource(ctx context.Context, ownerID, language string, source domain.SourceMaterial, fallbackTitle string) error {
-	return s.linkAcquiredSourceForBook(ctx, ownerID, language, "", source, fallbackTitle)
-}
-
 func (s *Service) linkAcquiredSourceForBook(ctx context.Context, ownerID, language, requestedBookID string, source domain.SourceMaterial, fallbackTitle string) error {
 	title := source.Title
 	if title == "" {

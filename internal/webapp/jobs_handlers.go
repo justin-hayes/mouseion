@@ -258,15 +258,6 @@ func analysisStatusSummary(status analysis.Status) string {
 func jobRetryable(status analysis.Status) bool {
 	return status.LogicalState == "failed" || status.LogicalState == "cancelled"
 }
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
 	ids := make([]string, 0, len(jobs))
 	for _, job := range jobs {
@@ -274,12 +265,6 @@ func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
 	}
 	return ids
 }
-func statusClass(status string) string { return strings.ReplaceAll(status, " ", "-") }
-
-func catalogueSyncJobRunning(status cataloguesync.Status) bool {
-	return status.LogicalState == "queued" || status.LogicalState == "running"
-}
-
 func catalogueSyncJobState(status cataloguesync.Status) string {
 	switch status.LogicalState {
 	case "completed":

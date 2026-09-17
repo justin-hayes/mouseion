@@ -22,8 +22,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -41,20 +39,6 @@ type recordingAnalysis struct {
 	owner, source, scope string
 	calls                int
 }
-type recordingAnalysisInsights struct {
-	owner, corpus string
-	coverage      domain.AnalysisCoverage
-}
-
-func (r *recordingAnalysisInsights) Coverage(_ context.Context, owner, corpus string) (domain.AnalysisCoverage, error) {
-	r.owner, r.corpus = owner, corpus
-	return r.coverage, nil
-}
-
-func (r *recordingAnalysisInsights) JourneyProjection(context.Context, string, string) (domain.JourneyProjectionResult, error) {
-	return domain.JourneyProjectionResult{}, nil
-}
-
 type staticCapabilities struct {
 	value analyzer.Capabilities
 	err   error
@@ -95,11 +79,6 @@ type recordingKnownVocab struct {
 	service *knownvocab.Service
 	status  knownvocab.Status
 	owner   string
-}
-type recordingEnrichment struct {
-	owner      string
-	candidates []enrichment.Candidate
-	cancelled  bool
 }
 type recordingPreparedDeck struct {
 	preparations map[string]domain.DeckPreparation
@@ -167,28 +146,6 @@ func (r *recordingPreparedDeck) Download(ctx context.Context, owner, id string) 
 	}
 	r.downloads++
 	return p, nil
-}
-
-func (r *recordingEnrichment) SubmitEnrichment(_ context.Context, owner string, candidates []enrichment.Candidate) (enrichmentjob.Handle, error) {
-	r.owner, r.candidates = owner, append([]enrichment.Candidate(nil), candidates...)
-	return enrichmentjob.Handle{ID: 88}, nil
-}
-func (r *recordingEnrichment) Get(_ context.Context, owner string, id int64) (enrichmentjob.Status, error) {
-	if owner != r.owner || id != 88 {
-		return enrichmentjob.Status{}, enrichmentjob.ErrNotFound
-	}
-	state := rivertype.JobStateRunning
-	if r.cancelled {
-		state = rivertype.JobStateCancelled
-	}
-	return enrichmentjob.Status{ID: 88, Completed: 1, Total: 2, State: state, Attempt: 2, Error: "temporary provider failure"}, nil
-}
-func (r *recordingEnrichment) Cancel(ctx context.Context, owner string, id int64) (enrichmentjob.Status, error) {
-	if _, err := r.Get(ctx, owner, id); err != nil {
-		return enrichmentjob.Status{}, err
-	}
-	r.cancelled = true
-	return r.Get(ctx, owner, id)
 }
 
 func (r *recordingKnownVocab) Submit(ctx context.Context, owner, language, input string) (knownvocab.Handle, error) {
@@ -670,9 +627,6 @@ func cookieNamed(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie
 	}
 	require.Failf(t, "cookie absent", "cookie %s absent", name)
 	return nil
-}
-func testEPUB(t *testing.T) []byte {
-	return testEPUBVariant(t, "book-1", "Test Book", "Hallo Welt.")
 }
 func testEPUBVariant(t *testing.T, identifier, title, text string) []byte {
 	t.Helper()
