@@ -127,7 +127,11 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 
 	index, err := dictionary.OpenIndex(path)
 	require.NoError(t, err)
-	defer index.Close()
+	t.Cleanup(func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
 	service := &lexicalResolver{lexical: index}
 	entry := Entry{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
@@ -201,7 +205,11 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 
 	index, err := dictionary.OpenIndex(path)
 	require.NoError(t, err)
-	defer index.Close()
+	t.Cleanup(func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
 	service := &lexicalResolver{lexical: index}
 	for _, test := range []struct {
 		lemma, target, sentence, article, plural, gloss string

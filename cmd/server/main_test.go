@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,7 +89,7 @@ func TestOpenDictionaryIndexOpensValidIndex(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, index)
-	defer index.Close()
+	testutil.Cleanup(t, "dictionary index", index.Close)
 	assert.Equal(t, "fixture-v1", index.Version())
 }
 

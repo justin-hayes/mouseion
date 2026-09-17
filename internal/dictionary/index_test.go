@@ -47,7 +47,11 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 
 	index, err := OpenIndex(path)
 	require.NoError(t, err)
-	defer index.Close()
+	t.Cleanup(func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
 	assert.Equal(t, "kaikki", index.Name())
 	assert.Equal(t, "fixture-v1", index.Version())
 	result, found, err := index.Lookup(context.Background(), enrichment.LexicalLookupRequest{Language: "de-DE", CanonicalLemma: "Haus", UPOS: "NOUN", RepresentativeSentence: "Das Haus ist groß."})
@@ -100,7 +104,11 @@ func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
 
 	index, err := OpenIndex(path)
 	require.NoError(t, err)
-	defer index.Close()
+	t.Cleanup(func() {
+		if err := index.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
 	result, found, err := index.Lookup(context.Background(), enrichment.LexicalLookupRequest{
 		Language: "de", CanonicalLemma: "See", UPOS: "NOUN", TargetWord: "See",
 		RepresentativeSentence: "Die See ist tief und salzig.",

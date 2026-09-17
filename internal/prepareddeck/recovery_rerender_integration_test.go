@@ -22,7 +22,7 @@ func TestRecoveryWorkerEnqueuesEachStaleDeckOnce(t *testing.T) {
 	defer cancel()
 	store, err := persistence.Open(ctx, integrationDatabase(t, ctx))
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 	owner, err := store.CreateUser(ctx, "recovery-rerender-owner", false)
 	require.NoError(t, err)
 

@@ -25,7 +25,7 @@ func TestLegacyRerenderRecoversDependencyParseWithoutChangingManifest(t *testing
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 
 	owner, err := store.CreateUser(ctx, "legacy-rerender-owner", false)
 	require.NoError(t, err)
