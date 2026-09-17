@@ -233,6 +233,7 @@ type durableFinalizerStore interface {
 
 type durablePresentation interface {
 	Restore(cardexport.StorageProjection) (cardexport.FrozenDeck, error)
+	RestoreWithRecoveredRenderInputs(cardexport.StorageProjection, []cardexport.RecoveredRenderInput) (cardexport.FrozenDeck, error)
 	Finalize(context.Context, cardexport.FrozenDeck, []cardexport.StoredResult, cardexport.RunFacts) (cardexport.FinalArtifact, cardexport.FinalizeDiagnostics, error)
 }
 
@@ -302,11 +303,11 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	projection, err = recoverLegacyRenderInputs(ctx, r.Store, owner, run.RenderInputVersion, projection)
+	projection, recovered, err := recoverLegacyRenderInputs(ctx, r.Store, owner, run.RenderInputVersion, projection)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	deck, err := r.Renderer.Restore(projection)
+	deck, err := r.Renderer.RestoreWithRecoveredRenderInputs(projection, recovered)
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
@@ -318,54 +319,49 @@ func (r *DurableRerenderer) Rerender(ctx context.Context, owner, preparationID, 
 	return r.Store.SupersedePreparedDeckArtifact(ctx, owner, preparationID, runID, presentationVersion, artifact)
 }
 
-func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, projection cardexport.StorageProjection) (cardexport.StorageProjection, error) {
+func recoverLegacyRenderInputs(ctx context.Context, store durableRerenderStore, owner string, renderInputVersion int, projection cardexport.StorageProjection) (cardexport.StorageProjection, []cardexport.RecoveredRenderInput, error) {
 	if renderInputVersion >= cardexport.RenderInputVersion {
-		return projection, nil
+		return projection, nil, nil
 	}
 
-	snapshot := projection
 	ordinalsByCorpus := make(map[string][]int64)
-	itemsByCorpus := make(map[string][]int)
-	for index, item := range snapshot.Items {
+	itemsByCorpus := make(map[string][]cardexport.ManifestItem)
+	for _, item := range projection.Items {
 		if item.Disposition != cardexport.ManifestAccepted || len(item.Entry.SentenceTokens) > 0 {
 			continue
 		}
 		if strings.TrimSpace(item.CorpusID) == "" || item.SentenceOrdinal < 0 {
-			return cardexport.StorageProjection{}, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
+			return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: manifest item %d has no corpus coordinate", ErrRequiresRepreparation, item.Ordinal)
 		}
 		if _, ok := itemsByCorpus[item.CorpusID]; !ok {
 			ordinalsByCorpus[item.CorpusID] = nil
 		}
 		ordinalsByCorpus[item.CorpusID] = append(ordinalsByCorpus[item.CorpusID], item.SentenceOrdinal)
-		itemsByCorpus[item.CorpusID] = append(itemsByCorpus[item.CorpusID], index)
+		itemsByCorpus[item.CorpusID] = append(itemsByCorpus[item.CorpusID], item)
 	}
 	if len(itemsByCorpus) == 0 {
-		return projection, nil
+		return projection, nil, nil
 	}
 
 	corpusStore, ok := store.(durableRerenderCorpusStore)
 	if !ok {
-		return cardexport.StorageProjection{}, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
+		return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: corpus reader is unavailable", ErrRequiresRepreparation)
 	}
-	for corpusID, indexes := range itemsByCorpus {
+	recovered := make([]cardexport.RecoveredRenderInput, 0)
+	for corpusID, items := range itemsByCorpus {
 		sentences, err := corpusStore.ListCorpusSentences(ctx, owner, corpusID, ordinalsByCorpus[corpusID])
 		if err != nil {
-			return cardexport.StorageProjection{}, fmt.Errorf("recover corpus %s: %w", corpusID, err)
+			return cardexport.StorageProjection{}, nil, fmt.Errorf("recover corpus %s: %w", corpusID, err)
 		}
-		for _, index := range indexes {
-			item := snapshot.Items[index]
+		for _, item := range items {
 			sentence, found := sentences[item.SentenceOrdinal]
 			if !found || strings.TrimSpace(sentence.Text) == "" || sentence.Text != item.Entry.Sentence || !hasDependencyParse(sentence) {
-				return cardexport.StorageProjection{}, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
+				return cardexport.StorageProjection{}, nil, fmt.Errorf("%w: corpus %s sentence %d is unavailable", ErrRequiresRepreparation, corpusID, item.SentenceOrdinal)
 			}
-			snapshot.Items[index].Entry.SentenceTokens = sentence.Tokens
+			recovered = append(recovered, cardexport.RecoveredRenderInput{ManifestOrdinal: item.Ordinal, Sentence: sentence.Text, SentenceTokens: sentence.Tokens})
 		}
 	}
-	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
-	if err != nil {
-		return cardexport.StorageProjection{}, fmt.Errorf("rebuild recovered projection: %w", err)
-	}
-	return deck.StorageProjection(), nil
+	return projection, recovered, nil
 }
 
 func hasDependencyParse(sentence analyzer.Sentence) bool {

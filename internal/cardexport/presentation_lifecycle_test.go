@@ -148,6 +148,36 @@ func TestPresentationLifecycleRestoresPersistedV1TargetLanguage(t *testing.T) {
 	assert.Equal(t, "en", work.Request.TargetLanguage)
 }
 
+func TestPresentationLifecycleRestoresLegacyRenderInputsWithoutChangingProjection(t *testing.T) {
+	sentence := "Ich stehe heute auf."
+	key := &enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "aufstehen", UPOS: "VERB", Provider: "llm", ProviderVersion: "prompt-v1", SentenceHash: enrichment.SentenceHash(sentence)}
+	snapshot := cardexport.ManifestSnapshot{
+		SchemaVersion: cardexport.ManifestSchemaVersion,
+		Owner:         "owner-1",
+		DeckName:      "Book",
+		Filename:      cardexport.DownloadFilename("Book"),
+		Items: []cardexport.ManifestItem{{
+			Ordinal: 0, Disposition: cardexport.ManifestAccepted,
+			Entry:   cardexport.Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB", Sentence: sentence, TargetWord: "stehe"},
+			Quality: cardexport.SentenceQuality{Accepted: true, Score: 12, Reasons: []string{"target present"}}, CacheKey: key,
+		}},
+	}
+	tokens := []analyzer.Token{
+		{Surface: "Ich", Dependency: "nsubj", Head: 1},
+		{Surface: "stehe", Dependency: "root", Head: 1},
+		{Surface: "heute", Dependency: "advmod", Head: 1},
+		{Surface: "auf", Dependency: "compound:prt", Head: 1},
+	}
+	deck, err := cardexport.NewPresentation(nil).RestoreWithRecoveredRenderInputs(snapshot, []cardexport.RecoveredRenderInput{{ManifestOrdinal: 0, Sentence: sentence, SentenceTokens: tokens}})
+	require.NoError(t, err)
+	assert.Empty(t, snapshot.Items[0].Entry.SentenceTokens)
+	assert.Equal(t, tokens, deck.StorageProjection().Items[0].Entry.SentenceTokens)
+
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: *key}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Equal(t, "Ich <b>stehe</b> heute <b>auf</b>.", artifact.Generated[0].Note.Text)
+}
+
 func TestPresentationLifecycleRestoreRejectsMalformedSnapshots(t *testing.T) {
 	tests := []struct {
 		name   string
