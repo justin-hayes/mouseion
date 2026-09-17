@@ -45,7 +45,7 @@ func setup(t *testing.T) (*persistence.PostgresStore, *auth.Service, http.Handle
 }
 func request(t *testing.T, h http.Handler, method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
-	r := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+	r := httptest.NewRequestWithContext(t.Context(), method, path, bytes.NewBufferString(body))
 	r.Header.Set("Content-Type", "application/json")
 	if cookie != nil {
 		r.AddCookie(cookie)

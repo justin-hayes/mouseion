@@ -26,7 +26,7 @@ func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := httptest.NewRequest(tt.method, "/library?sort=title", nil)
+			r := httptest.NewRequestWithContext(t.Context(), tt.method, "/library?sort=title", nil)
 			r.Header.Set("Accept", tt.accept)
 			r.Header.Set("Sec-Fetch-Mode", tt.fetchMode)
 			w := httptest.NewRecorder()

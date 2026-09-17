@@ -204,7 +204,7 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, page.Code)
 	assert.False(t, strings.Contains(page.Body.String(), "Create your account"), "body=%s", page.Body.String())
 	assert.True(t, strings.Contains(page.Body.String(), `action="/login"`), "body=%s", page.Body.String())
-	navigationRequest := httptest.NewRequest("GET", "/library?sort=title", nil)
+	navigationRequest := httptest.NewRequestWithContext(t.Context(), "GET", "/library?sort=title", nil)
 	navigationRequest.Header.Set("Accept", "text/html")
 	navigationRequest.Header.Set("Sec-Fetch-Mode", "navigate")
 	navigation := httptest.NewRecorder()
@@ -479,7 +479,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, invalidCSRF.Code)
 	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
 	form := moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision"))
-	request := httptest.NewRequest(http.MethodPost, "/journey/entries/"+third.ID+"/move-earlier", strings.NewReader(form.Encode()))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/journey/entries/"+third.ID+"/move-earlier", strings.NewReader(form.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	for _, cookie := range aliceCookies {
@@ -568,7 +568,7 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 	_, err = io.WriteString(part, content)
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
-	r := httptest.NewRequest("POST", path, &body)
+	r := httptest.NewRequestWithContext(t.Context(), "POST", path, &body)
 	r.Header.Set("Content-Type", writer.FormDataContentType())
 	for _, c := range cookies {
 		r.AddCookie(c)
@@ -584,7 +584,7 @@ func perform(t *testing.T, h http.Handler, method, path string, form url.Values,
 	if form != nil {
 		body = strings.NewReader(form.Encode())
 	}
-	r := httptest.NewRequest(method, path, body)
+	r := httptest.NewRequestWithContext(t.Context(), method, path, body)
 	if form != nil {
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}

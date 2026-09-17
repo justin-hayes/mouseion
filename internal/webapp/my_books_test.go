@@ -175,7 +175,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	h, cookies, _, _ := goalFixtureSession(t)
 	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search", "/library/books/book-id"} {
-		r := httptest.NewRequest(http.MethodGet, route, nil)
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, route, nil)
 		for _, cookie := range cookies {
 			r.AddCookie(cookie)
 		}
@@ -183,7 +183,7 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 		h.ServeHTTP(response, r)
 		assert.Equal(t, http.StatusNotFound, response.Code, route)
 	}
-	request := httptest.NewRequest(http.MethodPost, "/library/books/book-id", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/book-id", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -195,7 +195,7 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	for _, path := range []string{"/books/fixture-empty", "/books/fixture-book", "/books/fixture-failed"} {
-		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		for _, cookie := range cookies {
 			request.AddCookie(cookie)
 		}
@@ -210,7 +210,7 @@ func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T)
 
 func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T) {
 	h, cookies, _, _ := goalFixtureSession(t)
-	request := httptest.NewRequest(http.MethodGet, "/books/fixture-book/analyses/fixture-run", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/fixture-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -218,7 +218,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, "/journey/fixture-book", response.Header().Get("Location"))
-	request = httptest.NewRequest(http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -317,7 +317,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
 	requireHandler(t, h).services.CatalogueSync = stub
-	request := httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	for _, cookie := range cookies {
@@ -332,7 +332,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	h, cookies, csrf, _ = goalFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated row title"}, Updated: true}}
 	requireHandler(t, h).services.CatalogueSync = stub
-	request = httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	request.Header.Set("HX-Target", "book-row-fixture-metadata-only")
@@ -350,7 +350,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	requireHandler(t, h).services.CatalogueSync = nil
-	request := httptest.NewRequest(http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("HX-Request", "true")
 	request.Header.Set("HX-Target", "book-row-fixture-metadata-only")

@@ -45,7 +45,7 @@ func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
 func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 	h := &Handler{}
 	rec := httptest.NewRecorder()
-	h.dashboard(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	h.dashboard(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 	assert.Equal(t, http.StatusSeeOther, rec.Code)
 	assert.Equal(t, "/library", rec.Header().Get("Location"))
 }
@@ -55,7 +55,7 @@ func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
 	for _, path := range []string{"/known-vocab", "/known-vocab?language=de"} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			h.knownVocabPage(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			h.knownVocabPage(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
 			assert.Equal(t, http.StatusSeeOther, rec.Code)
 			assert.Equal(t, "/vocabulary", rec.Header().Get("Location"))
 		})
@@ -64,7 +64,7 @@ func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
 
 func TestRedirectRejectsExternalDestination(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	redirect(recorder, httptest.NewRequest(http.MethodGet, "/", nil), "https://evil.example/phishing")
+	redirect(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "https://evil.example/phishing")
 	assert.Equal(t, http.StatusSeeOther, recorder.Code)
 	assert.Equal(t, "/", recorder.Header().Get("Location"))
 }

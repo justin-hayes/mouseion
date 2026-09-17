@@ -87,7 +87,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	handler.services.Store = store
 
 	request := func(path string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest(http.MethodGet, path, nil)
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		for _, cookie := range cookies {
 			r.AddCookie(cookie)
 		}
@@ -112,7 +112,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	legacy := request("/library?language=it&q=Dampf")
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
 	assert.Equal(t, "/library?q=Dampf", legacy.Header().Get("Location"))
-	htmxRequest := httptest.NewRequest(http.MethodGet, "/library?q=Dampf", nil)
+	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
 	htmxRequest.Header.Set("HX-Request", "true")
 	for _, cookie := range cookies {
 		htmxRequest.AddCookie(cookie)
@@ -152,7 +152,7 @@ func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.
 		Total: 2, ScopeTotal: 2, AllCount: 2, Counts: []persistence.LanguageCount{{Tag: "de", Count: 2}},
 	}}
 	handler.services.Store = store
-	request := httptest.NewRequest(http.MethodGet, "/library", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -196,7 +196,7 @@ func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	handler := requireHandler(t, h)
 	request := func(path string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest(http.MethodGet, path, nil)
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		for _, cookie := range cookies {
 			r.AddCookie(cookie)
 		}

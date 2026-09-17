@@ -78,7 +78,7 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 	html := renderShell(t, NavigationLibrary)
 	assert.True(t, strings.Contains(html, `class="site-header__nav"`) && strings.Contains(html, `class="site-header__navigation"`), "shell compact layout hooks missing: %s", html)
 
-	request := httptest.NewRequest(http.MethodGet, "/static/app.css", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
 	css := response.Body.String()
@@ -95,7 +95,7 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 }
 
 func TestRootCompatibilityRedirectsToLibrary(t *testing.T) {
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 	(&Handler{}).dashboard(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
