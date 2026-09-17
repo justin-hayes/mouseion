@@ -324,8 +324,8 @@ func nullableTextArg(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: value != ""}
 }
 
-// intArg converts an int into the pgtype form sqlc binds for nullable integer
-// columns that are guaranteed non-null by the caller's domain rules.
+// intArg converts an int into the validated pgtype form sqlc binds for integer
+// columns.
 func intArg(value int) (pgtype.Int4, error) {
 	converted, err := checked.Int32FromInt(value)
 	if err != nil {

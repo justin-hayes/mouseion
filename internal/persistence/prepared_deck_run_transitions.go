@@ -193,7 +193,14 @@ func (s *PostgresStore) FinishPreparedDeckTranslationOutcome(ctx context.Context
 		if err != nil {
 			return err
 		}
-		run.CompletedCount, run.FailedCount = int(counts.CompletedCount), int(counts.FailedCount)
+		run.CompletedCount, err = checked.IntFromInt64(counts.CompletedCount)
+		if err != nil {
+			return fmt.Errorf("invalid completed translation count: %w", err)
+		}
+		run.FailedCount, err = checked.IntFromInt64(counts.FailedCount)
+		if err != nil {
+			return fmt.Errorf("invalid failed translation count: %w", err)
+		}
 		if counts.NonterminalCount == 0 {
 			if run.ExecutionMode == domain.PreparedDeckExecutionStandard && run.ExternalTranslationConsent && run.ExternalTranslationConfigured && run.FailedCount > 0 {
 				if runModel, err = q.FailPreparedDeckRunWithCounts(ctx, sqlcgen.FailPreparedDeckRunWithCountsParams{
