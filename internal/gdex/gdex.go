@@ -92,7 +92,7 @@ func hasFiniteRootWithSubject(tokens []analyzer.Token) bool {
 			continue
 		}
 		for _, dependent := range tokens {
-			if dependent.Head != uint32(index) {
+			if uint64(dependent.Head) != uint64(index) {
 				continue
 			}
 			switch strings.ToLower(strings.TrimSpace(dependent.Dependency)) {

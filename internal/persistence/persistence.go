@@ -779,11 +779,19 @@ func (s *PostgresStore) ReplaceSelectedSentences(ctx context.Context, owner, cor
 			return err
 		}
 		for _, example := range examples {
+			selectionRank, conversionErr := intArg(example.SelectionRank)
+			if conversionErr != nil {
+				return fmt.Errorf("invalid selected sentence rank: %w", conversionErr)
+			}
+			selectionScore, conversionErr := intArg(example.SelectionScore)
+			if conversionErr != nil {
+				return fmt.Errorf("invalid selected sentence score: %w", conversionErr)
+			}
 			if err = q.InsertSelectedSentence(ctx, sqlcgen.InsertSelectedSentenceParams{
 				OwnerID: owner, CorpusID: corpus, SentenceKey: example.SentenceKey,
 				SentenceText: example.Text, SourceLocation: example.SourceLocation,
 				Language: textArg(language), CanonicalLemma: textArg(lemma), Upos: textArg(upos),
-				SelectionRank: intArg(example.SelectionRank), SelectionScore: intArg(example.SelectionScore),
+				SelectionRank: selectionRank, SelectionScore: selectionScore,
 				SelectionReasons: example.SelectionReasons, IsChosen: example.Chosen,
 			}); err != nil {
 				return err

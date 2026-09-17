@@ -414,9 +414,12 @@ func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, 
 	count64, err := sqlcgen.New(tx).CompletePreparedDeckBatchCacheHits(ctx, sqlcgen.CompletePreparedDeckBatchCacheHitsParams{
 		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, Generation: generation, SubmissionClaimToken: uuidArg(token),
 	})
-	result = int(count64)
 	if err != nil {
 		return 0, err
+	}
+	result, err = checked.IntFromInt64(count64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid completed cache-hit count: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, err

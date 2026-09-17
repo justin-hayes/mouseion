@@ -78,8 +78,14 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 		if coverageErr != nil {
 			return p, coverageErr
 		}
-		p.CardsWithEnglish = int(coverage.CardsWithEnglish)
-		p.CardsWithContextualSentenceTranslations = int(coverage.CardsWithContextualSentenceTranslations)
+		p.CardsWithEnglish, coverageErr = checked.IntFromInt64(coverage.CardsWithEnglish)
+		if coverageErr != nil {
+			return p, fmt.Errorf("invalid cards-with-English count: %w", coverageErr)
+		}
+		p.CardsWithContextualSentenceTranslations, coverageErr = checked.IntFromInt64(coverage.CardsWithContextualSentenceTranslations)
+		if coverageErr != nil {
+			return p, fmt.Errorf("invalid contextual-translation count: %w", coverageErr)
+		}
 		p.TotalCards = progress.CandidateCount
 		p.QualityOmissions = progress.ManifestOmissions
 	}
@@ -170,8 +176,8 @@ func (s *PostgresStore) ListPreparedDeckStuckBatches(ctx context.Context, olderT
 		result = append(result, PreparedDeckStuckBatch{
 			OwnerID: row.OwnerID, PreparationID: row.PreparationID, RunID: row.RunID, ChunkID: row.ID,
 			State: row.State, ProviderStatus: row.ProviderStatus, ErrorClass: row.ErrorClass,
-			RequestCount: int(row.RequestCount), CompletedCount: int(row.CompletedCount),
-			FailedCount: int(row.FailedCount), ExpiredCount: int(row.ExpiredCount),
+			RequestCount: row.RequestCount, CompletedCount: row.CompletedCount,
+			FailedCount: row.FailedCount, ExpiredCount: row.ExpiredCount,
 			Age: time.Duration(row.AgeSeconds * float64(time.Second)),
 		})
 	}
