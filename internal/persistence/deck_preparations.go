@@ -260,7 +260,10 @@ func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, langu
 // confirmation without making the count authoritative for the transaction.
 func (s *PostgresStore) CountDeckPreparationVocabularyToGraduate(ctx context.Context, owner, preparationID string) (int, error) {
 	count, err := s.queries().CountDeckPreparationVocabularyToGraduate(ctx, sqlcgen.CountDeckPreparationVocabularyToGraduateParams{Owner: owner, Preparation: preparationID})
-	return int(count), err
+	if err != nil {
+		return 0, err
+	}
+	return checked.IntFromInt64(count)
 }
 
 // StartDeckVocabularyStudy reserves one ready, non-empty deck for its owner.

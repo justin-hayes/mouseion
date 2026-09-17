@@ -370,10 +370,10 @@ func hasDependencyParse(sentence analyzer.Sentence) bool {
 		return false
 	}
 	for index, token := range sentence.Tokens {
-		if strings.TrimSpace(token.Dependency) == "" || int(token.Head) >= len(sentence.Tokens) {
+		if strings.TrimSpace(token.Dependency) == "" || uint64(token.Head) >= uint64(len(sentence.Tokens)) {
 			return false
 		}
-		if token.Dependency == "root" && int(token.Head) != index {
+		if token.Dependency == "root" && uint64(token.Head) != uint64(index) {
 			return false
 		}
 	}

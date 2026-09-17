@@ -1011,7 +1011,7 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 			if uint64(token.Head) >= uint64(len(sentence.Tokens)) {
 				return fmt.Errorf("persist normalized corpus token %d in sentence %d: head ordinal %d is out of range", tokenOrdinal, sentenceOrdinal, token.Head)
 			}
-			if token.Dependency == "root" && token.Head != uint32(tokenOrdinal) {
+			if token.Dependency == "root" && uint64(token.Head) != uint64(tokenOrdinal) {
 				return fmt.Errorf("persist normalized corpus token %d in sentence %d: root must be self-headed", tokenOrdinal, sentenceOrdinal)
 			}
 			if tokenCount == normalizedCorpusTokenInsertBatchSize {

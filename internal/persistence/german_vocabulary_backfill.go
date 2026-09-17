@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
@@ -576,8 +577,17 @@ func mergeSelectionCandidates(rows []selectionCandidateRow) (selectionCandidateR
 		if err = json.Unmarshal(row.provenance, &provenance); err != nil {
 			return selectionCandidateRow{}, err
 		}
-		if value, ok := provenance["min_occurrences"].(float64); ok && (minOccurrences == 0 || int(value) < minOccurrences) {
-			minOccurrences = int(value)
+		if value, ok := provenance["min_occurrences"].(float64); ok {
+			converted, conversionErr := checked.IntFromFloat64(value)
+			if conversionErr != nil {
+				return selectionCandidateRow{}, fmt.Errorf("invalid min_occurrences: %w", conversionErr)
+			}
+			if converted < 0 {
+				return selectionCandidateRow{}, errors.New("invalid min_occurrences: value must not be negative")
+			}
+			if minOccurrences == 0 || converted < minOccurrences {
+				minOccurrences = converted
+			}
 		}
 	}
 	provenance := map[string]any{"min_occurrences": minOccurrences, "occurrence_count": result.occurrenceCount}

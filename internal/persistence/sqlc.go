@@ -324,14 +324,14 @@ func nullableTextArg(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: value != ""}
 }
 
-// intArg converts an int into the pgtype form sqlc binds for nullable integer
-// columns that are guaranteed non-null by the caller's domain rules.
-func intArg(value int) pgtype.Int4 {
+// intArg converts an int into the validated pgtype form sqlc binds for integer
+// columns.
+func intArg(value int) (pgtype.Int4, error) {
 	converted, err := checked.Int32FromInt(value)
 	if err != nil {
-		return pgtype.Int4{}
+		return pgtype.Int4{}, err
 	}
-	return pgtype.Int4{Int32: converted, Valid: true}
+	return pgtype.Int4{Int32: converted, Valid: true}, nil
 }
 
 func pgTimeArgPtr(value *time.Time) pgtype.Timestamptz {

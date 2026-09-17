@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
@@ -275,7 +277,18 @@ func advancePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, run domain.Prepare
 	if err != nil {
 		return run, err
 	}
-	completed, failed, nonterminal := int(counts.CompletedCount), int(counts.FailedCount), int(counts.NonterminalCount)
+	completed, conversionErr := checked.IntFromInt64(counts.CompletedCount)
+	if conversionErr != nil {
+		return run, fmt.Errorf("invalid completed translation count: %w", conversionErr)
+	}
+	failed, conversionErr := checked.IntFromInt64(counts.FailedCount)
+	if conversionErr != nil {
+		return run, fmt.Errorf("invalid failed translation count: %w", conversionErr)
+	}
+	nonterminal, conversionErr := checked.IntFromInt64(counts.NonterminalCount)
+	if conversionErr != nil {
+		return run, fmt.Errorf("invalid nonterminal translation count: %w", conversionErr)
+	}
 	if nonterminal > 0 {
 		model, err := sqlcgen.New(tx).UpdatePreparedDeckRunTranslationRunning(ctx, sqlcgen.UpdatePreparedDeckRunTranslationRunningParams{OwnerID: run.OwnerID, PreparationID: run.PreparationID, ID: run.ID, CompletedCount: completed, FailedCount: failed})
 		return preparedDeckRunFromModel(model), err

@@ -223,7 +223,7 @@ func targetSurfaces(target string, tokens []analyzer.Token) []string {
 			continue
 		}
 		for _, dependent := range tokens {
-			if dependent.Dependency != "compound:prt" || int(dependent.Head) != index {
+			if dependent.Dependency != "compound:prt" || uint64(dependent.Head) != uint64(index) {
 				continue
 			}
 			surface := textmatch.CleanLexicalSurface(dependent.Surface)

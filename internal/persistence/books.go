@@ -129,23 +129,36 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	result.Total = int(total)
+	result.Total, err = checked.IntFromInt64(total)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid filtered book count: %w", err)
+	}
 	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	result.ScopeTotal = int(scopeTotal)
+	result.ScopeTotal, err = checked.IntFromInt64(scopeTotal)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid scoped book count: %w", err)
+	}
 	allCount, err := q.CountMyBooksAll(ctx, owner)
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	result.AllCount = int(allCount)
+	result.AllCount, err = checked.IntFromInt64(allCount)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid total book count: %w", err)
+	}
 	counts, err := q.CountMyBooksByLanguage(ctx, owner)
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
 	for _, count := range counts {
-		result.Counts = append(result.Counts, LanguageCount{Tag: count.LanguageTag, Count: int(count.BookCount)})
+		bookCount, conversionErr := checked.IntFromInt64(count.BookCount)
+		if conversionErr != nil {
+			return MyBooksBrowseResult{}, fmt.Errorf("invalid book count for language %q: %w", count.LanguageTag, conversionErr)
+		}
+		result.Counts = append(result.Counts, LanguageCount{Tag: count.LanguageTag, Count: bookCount})
 	}
 	sort.Slice(result.Counts, func(i, j int) bool {
 		if result.Counts[i].Tag == "unknown" {

@@ -15,6 +15,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
@@ -443,16 +444,99 @@ func (s *PostgresStore) PreparedDeckRunProgress(ctx context.Context, owner, prep
 	if err != nil {
 		return domain.PreparedDeckRunProgress{}, err
 	}
+	count := func(name string, value int64) (int, error) {
+		converted, conversionErr := checked.IntFromInt64(value)
+		if conversionErr != nil {
+			return 0, fmt.Errorf("invalid %s: %w", name, conversionErr)
+		}
+		return converted, nil
+	}
+	candidateCount, err := count("candidate count", row.CandidateCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	pendingCount, err := count("pending count", row.PendingCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	runningCount, err := count("running count", row.RunningCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	completedCount, err := count("completed count", row.CompletedCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	failedCount, err := count("failed count", row.FailedCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	cancelledCount, err := count("cancelled count", row.CancelledCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	retryingCount, err := count("retrying count", row.RetryingCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	manifestOmissions, err := count("manifest omission count", row.ManifestOmissions)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchChunkCount, err := count("batch chunk count", row.BatchChunkCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchSubmittedChunks, err := count("submitted batch chunk count", row.BatchSubmittedChunks)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchPollingChunks, err := count("polling batch chunk count", row.BatchPollingChunks)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchReconcilingChunks, err := count("reconciling batch chunk count", row.BatchReconcilingChunks)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchCompletedChunks, err := count("completed batch chunk count", row.BatchCompletedChunks)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchFailedChunks, err := count("failed batch chunk count", row.BatchFailedChunks)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchCancelledChunks, err := count("cancelled batch chunk count", row.BatchCancelledChunks)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchRequestCount, err := count("batch request count", row.BatchRequestCount)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchCompletedRequests, err := count("completed batch request count", row.BatchCompletedRequests)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchFailedRequests, err := count("failed batch request count", row.BatchFailedRequests)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
+	batchExpiredRequests, err := count("expired batch request count", row.BatchExpiredRequests)
+	if err != nil {
+		return domain.PreparedDeckRunProgress{}, err
+	}
 	progress := domain.PreparedDeckRunProgress{
-		CandidateCount: int(row.CandidateCount), PendingCount: int(row.PendingCount), RunningCount: int(row.RunningCount),
-		CompletedCount: int(row.CompletedCount), FailedCount: int(row.FailedCount), CancelledCount: int(row.CancelledCount),
-		RetryingCount: int(row.RetryingCount), ManifestOmissions: int(row.ManifestOmissions),
-		BatchChunkCount: int(row.BatchChunkCount), BatchSubmittedChunks: int(row.BatchSubmittedChunks),
-		BatchPollingChunks: int(row.BatchPollingChunks), BatchReconcilingChunks: int(row.BatchReconcilingChunks),
-		BatchCompletedChunks: int(row.BatchCompletedChunks), BatchFailedChunks: int(row.BatchFailedChunks),
-		BatchCancelledChunks: int(row.BatchCancelledChunks), BatchRequestCount: int(row.BatchRequestCount),
-		BatchCompletedRequests: int(row.BatchCompletedRequests), BatchFailedRequests: int(row.BatchFailedRequests),
-		BatchExpiredRequests: int(row.BatchExpiredRequests), BatchInputTokens: row.BatchInputTokens,
+		CandidateCount: candidateCount, PendingCount: pendingCount, RunningCount: runningCount,
+		CompletedCount: completedCount, FailedCount: failedCount, CancelledCount: cancelledCount,
+		RetryingCount: retryingCount, ManifestOmissions: manifestOmissions,
+		BatchChunkCount: batchChunkCount, BatchSubmittedChunks: batchSubmittedChunks,
+		BatchPollingChunks: batchPollingChunks, BatchReconcilingChunks: batchReconcilingChunks,
+		BatchCompletedChunks: batchCompletedChunks, BatchFailedChunks: batchFailedChunks,
+		BatchCancelledChunks: batchCancelledChunks, BatchRequestCount: batchRequestCount,
+		BatchCompletedRequests: batchCompletedRequests, BatchFailedRequests: batchFailedRequests,
+		BatchExpiredRequests: batchExpiredRequests, BatchInputTokens: row.BatchInputTokens,
 		BatchOutputTokens: row.BatchOutputTokens,
 	}
 	if row.BatchSubmittedEpoch > 0 {

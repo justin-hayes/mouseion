@@ -92,7 +92,7 @@ func hasFiniteRootWithSubject(tokens []analyzer.Token) bool {
 			continue
 		}
 		for _, dependent := range tokens {
-			if dependent.Head != uint32(index) {
+			if uint64(dependent.Head) != uint64(index) {
 				continue
 			}
 			switch strings.ToLower(strings.TrimSpace(dependent.Dependency)) {
@@ -148,8 +148,11 @@ func isInSubordinateSubtree(tokens []analyzer.Token, index int) bool {
 		if _, ok := subordinateDependencies[strings.ToLower(strings.TrimSpace(tokens[index].Dependency))]; ok {
 			return true
 		}
+		if uint64(tokens[index].Head) >= uint64(len(tokens)) {
+			break
+		}
 		head := int(tokens[index].Head)
-		if head == index || head < 0 || head >= len(tokens) {
+		if head == index {
 			break
 		}
 		index = head

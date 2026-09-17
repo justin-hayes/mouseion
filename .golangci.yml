@@ -24,6 +24,9 @@ linters:
     errcheck:
       check-blank: true
       check-type-assertions: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
 
   exclusions:
     generated: strict
