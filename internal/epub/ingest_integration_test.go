@@ -18,7 +18,7 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	url, admin := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "epub store", store.Close)
 	alice, err := store.CreateUser(ctx, "epub-alice", false)
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "epub-bob", false)
@@ -99,7 +99,7 @@ func TestImportMainTextFixturePreservesAllDeclaredUnits(t *testing.T) {
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "epub store", store.Close)
 	owner, err := store.CreateUser(ctx, "main-text-import", false)
 	require.NoError(t, err)
 
