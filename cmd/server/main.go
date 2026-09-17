@@ -54,7 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer store.Close()
+	defer closeAtProcessBoundary("PostgreSQL store", store.Close)
 	addr := os.Getenv("MOUSEION_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"
@@ -73,7 +73,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer nlp.Close()
+	defer closeAtProcessBoundary("NLP analyzer", nlp.Close)
 	selectionService := selection.NewService(store)
 	llmConfig, err := enrichment.LLMConfigFromEnv()
 	if err != nil {
@@ -87,7 +87,7 @@ func main() {
 		}
 	}
 	if dictionaryIndex != nil {
-		defer dictionaryIndex.Close()
+		defer closeAtProcessBoundary("dictionary index", dictionaryIndex.Close)
 	}
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
@@ -159,6 +159,12 @@ func main() {
 	mux.Handle("/", webHandler)
 	log.Printf("mouseion web server listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
+}
+
+func closeAtProcessBoundary(name string, close func() error) {
+	if err := close(); err != nil {
+		log.Printf("close %s: %v", name, err)
+	}
 }
 
 // runHealthcheck probes the server's own /healthz endpoint. It runs as the

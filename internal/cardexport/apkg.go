@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -67,8 +68,8 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 			_, err = io.WriteString(media, "{}")
 		}
 	}
-	if closeErr := zw.Close(); err == nil {
-		err = closeErr
+	if closeErr := zw.Close(); closeErr != nil {
+		err = errors.Join(err, closeErr)
 	}
 	if err != nil {
 		return nil, err
