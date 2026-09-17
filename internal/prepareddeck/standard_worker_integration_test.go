@@ -122,14 +122,19 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	require.NoError(t, err)
 	prep, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename("Integration"), DeckName: "Integration", ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	keys := make([]enrichment.CacheKey, itemCount)
-	items := make([]cardexport.ManifestItem, itemCount)
-	for i := range items {
+	entries := make([]cardexport.Entry, itemCount)
+	for i := range entries {
 		lemma := "lemma-" + uuid.NewString()
-		keys[i] = enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: lemma, UPOS: "NOUN", Provider: "integration-provider", ProviderVersion: "1", SentenceHash: enrichment.SentenceHash("Ein Satz.")}
-		items[i] = cardexport.ManifestItem{Ordinal: i, Disposition: cardexport.ManifestAccepted, Entry: cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", Sentence: "Ein Satz.", TargetWord: "Ein", SourceDocument: "Integration", FirstEncounter: int64(i + 1)}, Quality: cardexport.SentenceQuality{Accepted: true, Reasons: []string{}}, CacheKey: &keys[i]}
+		entries[i] = cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", Sentence: "Ein alter Satz steht heute im Buch.", TargetWord: "Ein", SourceDocument: "Integration", FirstEncounter: int64(i + 1)}
 	}
-	manifest := cardexport.ManifestSnapshot{SchemaVersion: cardexport.ManifestSchemaVersion, Owner: owner.ID, DeckName: "Integration", Filename: cardexport.DownloadFilename("Integration"), Items: items}
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, "Integration", entries, testutil.PresentationProvider{Name: "integration-provider", Version: "1", TargetLanguage: "en"})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, itemCount)
+	keys := make([]enrichment.CacheKey, len(work))
+	for i, item := range work {
+		keys[i] = item.CacheKey
+	}
 	provider := &barrierTranslationProvider{}
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 2}}, Workers: workers})
@@ -139,7 +144,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	config := persistence.PreparedDeckRunConfig{ExternalTranslationConsent: true, ExternalTranslationConfigured: true, ExecutionMode: string(domain.PreparedDeckExecutionStandard), TargetLanguage: "en", ContextMode: string(enrichment.SentenceContext), Provider: "integration-provider", ProviderVersion: "1", MaxProviderAttempts: maxAttempts}
 	config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
 	config.Model = "integration-model"
-	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: manifest, Config: config}}
+	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config}}
 	coordinator := NewDurableCoordinator(store, client, planner)
 	result, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: prep.ID, ExternalTranslationConsent: true})
 	require.NoError(t, err)
