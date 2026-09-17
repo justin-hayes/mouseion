@@ -3,7 +3,6 @@ package persistence
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 // queries returns the generated sqlc query layer bound to the pool.
@@ -25,18 +25,7 @@ func withTx(ctx context.Context, pool *pgxpool.Pool, fn func(context.Context, pg
 	if err != nil {
 		return err
 	}
-	defer func() {
-		rollbackErr := tx.Rollback(ctx)
-		if rollbackErr == nil || errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			return
-		}
-		rollbackErr = fmt.Errorf("rollback transaction: %w", rollbackErr)
-		if err == nil {
-			err = rollbackErr
-			return
-		}
-		err = errors.Join(err, rollbackErr)
-	}()
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if err := fn(ctx, tx); err != nil {
 		return err
 	}

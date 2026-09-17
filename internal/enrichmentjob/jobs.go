@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
@@ -67,7 +68,7 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx], enrich *enrich
 
 // SubmitEnrichment atomically inserts owner-scoped external translation work.
 // A zero handle means external translation is disabled or no work was supplied.
-func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates []enrichment.Candidate) (Handle, error) {
+func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates []enrichment.Candidate) (result Handle, err error) {
 	if s.enrichment == nil || !s.enrichment.ExternalConfigured() || len(candidates) == 0 {
 		return Handle{}, nil
 	}
@@ -96,7 +97,7 @@ func (s *Service) SubmitEnrichment(ctx context.Context, owner string, candidates
 	if err != nil {
 		return Handle{}, fmt.Errorf("begin enrichment submission: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	inserted, err := s.client.InsertTx(ctx, tx, JobArgs{OwnerID: owner, Language: language, Items: items}, &river.InsertOpts{Queue: Queue, MaxAttempts: 3, Metadata: []byte(fmt.Sprintf(`{"completed":0,"total":%d}`, len(items))), UniqueOpts: river.UniqueOpts{ByArgs: true}})
 	if err != nil {
 		return Handle{}, fmt.Errorf("enqueue enrichment: %w", err)

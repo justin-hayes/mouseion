@@ -317,7 +317,7 @@ func sameLanguageLabel(left, right string) bool {
 // SupportsSearch reports whether a feed advertises an OpenSearch endpoint.
 func SupportsSearch(feed Feed) bool { return findLink(feed.Links, "search") != nil }
 
-func (c *Client) Download(ctx context.Context, downloadURL string) ([]byte, error) {
+func (c *Client) Download(ctx context.Context, downloadURL string) (data []byte, err error) {
 	scoped, err := c.withOrigin(downloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("opds: download EPUB: %w", err)
@@ -329,7 +329,7 @@ func (c *Client) Download(ctx context.Context, downloadURL string) ([]byte, erro
 	if err != nil {
 		return nil, fmt.Errorf("opds: download EPUB: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if err := statusError(resp); err != nil {
 		return nil, err
 	}
@@ -337,7 +337,7 @@ func (c *Client) Download(ctx context.Context, downloadURL string) ([]byte, erro
 	if mediaType != "" && !strings.EqualFold(mediaType, EPUBMediaType) && !strings.EqualFold(mediaType, "application/octet-stream") {
 		return nil, fmt.Errorf("opds: download returned incompatible media type %q", mediaType)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
+	data, err = io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
 	if err != nil {
 		return nil, fmt.Errorf("opds: read EPUB: %w", err)
 	}
@@ -360,12 +360,12 @@ func (c *Client) withOrigin(target string) (*Client, error) {
 	return &scoped, nil
 }
 
-func (c *Client) fetchFeed(ctx context.Context, feedURL string) (Feed, error) {
+func (c *Client) fetchFeed(ctx context.Context, feedURL string) (feed Feed, err error) {
 	resp, err := c.get(ctx, feedURL)
 	if err != nil {
 		return Feed{}, fmt.Errorf("opds: fetch feed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if err := statusError(resp); err != nil {
 		return Feed{}, err
 	}
@@ -374,19 +374,19 @@ func (c *Client) fetchFeed(ctx context.Context, feedURL string) (Feed, error) {
 		return Feed{}, fmt.Errorf("opds: parse Atom feed: %w", err)
 	}
 	base := resp.Request.URL
-	feed := Feed{Title: strings.TrimSpace(raw.Title), Links: resolveLinks(base, raw.Links)}
+	feed = Feed{Title: strings.TrimSpace(raw.Title), Links: resolveLinks(base, raw.Links)}
 	for _, item := range raw.Entries {
 		feed.Entries = append(feed.Entries, Entry{ID: strings.TrimSpace(item.ID), Title: strings.TrimSpace(item.Title), Links: resolveLinks(base, item.Links)})
 	}
 	return feed, nil
 }
 
-func (c *Client) fetchSearchTemplate(ctx context.Context, descriptionURL string) (string, error) {
+func (c *Client) fetchSearchTemplate(ctx context.Context, descriptionURL string) (template string, err error) {
 	resp, err := c.get(ctx, descriptionURL)
 	if err != nil {
 		return "", fmt.Errorf("opds: fetch search description: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if err := statusError(resp); err != nil {
 		return "", err
 	}

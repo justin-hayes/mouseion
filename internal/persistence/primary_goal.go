@@ -10,6 +10,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 func primaryGoalFromValues(ownerID, language, bookID string, createdAt, updatedAt time.Time, readingFinishedAt pgtype.Timestamptz) domain.PrimaryGoal {
@@ -43,10 +44,10 @@ func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language stri
 
 // CreatePrimaryGoal creates the owner's current Goal for an analyzed Reading
 // Journey member in language.
-func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, bookID string) (domain.PrimaryGoal, error) {
+func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, bookID string) (goal domain.PrimaryGoal, err error) {
 	language = canonicalization.NormalizeLanguage(language)
-	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}
-	if err := goal.Validate(); err != nil {
+	goalInput := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}
+	if err := goalInput.Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
 
@@ -54,7 +55,7 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
@@ -112,7 +113,7 @@ func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language,
 
 // ChangePrimaryGoal changes the language's Goal only when expectedBookID still
 // names the current Goal, protecting callers from overwriting stale state.
-func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
+func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, bookID, expectedBookID string) (result domain.PrimaryGoal, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if err := (domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
@@ -122,7 +123,7 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -153,13 +154,13 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 // RecordReadingFinishedPrimaryGoal records only the reading-finished fact for
 // the current Goal. Vocabulary graduation is not part of this reading
 // transition.
-func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (ReadingFinishResult, error) {
+func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (result ReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return ReadingFinishResult{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
@@ -188,13 +189,13 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 
 // ClearPrimaryGoal removes the language's Goal only when expectedBookID still
 // names the current Goal.
-func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) error {
+func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {

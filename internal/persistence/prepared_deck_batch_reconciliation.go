@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 type PreparedDeckBatchItemReconciliation struct {
@@ -49,7 +51,7 @@ type preparedDeckBatchMember struct {
 // provider result. Exact cache rows, fenced item outcomes, retry chunks, the
 // terminal chunk, and a possible finalizer job either all commit or all roll
 // back together.
-func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params PreparedDeckBatchReconcileParams, insertSubmission PreparedDeckBatchSubmissionJobInserter, insertFinalizer PreparedDeckRunJobInserter) (PreparedDeckBatchReconcileResult, error) {
+func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params PreparedDeckBatchReconcileParams, insertSubmission PreparedDeckBatchSubmissionJobInserter, insertFinalizer PreparedDeckRunJobInserter) (result PreparedDeckBatchReconcileResult, err error) {
 	if s == nil || strings.TrimSpace(params.OwnerID) == "" || strings.TrimSpace(params.PreparationID) == "" || strings.TrimSpace(params.RunID) == "" || strings.TrimSpace(params.ChunkID) == "" || strings.TrimSpace(params.ClaimToken) == "" {
 		return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
 	}
@@ -67,7 +69,7 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 	if err != nil {
 		return PreparedDeckBatchReconcileResult{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	runModel, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, ID: params.RunID})
 	if err != nil {
 		return PreparedDeckBatchReconcileResult{}, missing(err)
@@ -306,12 +308,12 @@ func advancePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, run domain.Prepare
 	return run, nil
 }
 
-func (s *PostgresStore) AdvancePreparedDeckRunIfTerminal(ctx context.Context, owner, preparationID, runID string, insertFinalizer PreparedDeckRunJobInserter) (domain.PreparedDeckRun, error) {
+func (s *PostgresStore) AdvancePreparedDeckRunIfTerminal(ctx context.Context, owner, preparationID, runID string, insertFinalizer PreparedDeckRunJobInserter) (result domain.PreparedDeckRun, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.PreparedDeckRun{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	model, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: owner, PreparationID: preparationID, ID: runID})
 	run := preparedDeckRunFromModel(model)
 	if err != nil {
@@ -330,7 +332,7 @@ func (s *PostgresStore) AdvancePreparedDeckRunIfTerminal(ctx context.Context, ow
 	return run, tx.Commit(ctx)
 }
 
-func (s *PostgresStore) FailPreparedDeckBatchReconciliation(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token, providerStatus, errorClass, errorCode string) error {
+func (s *PostgresStore) FailPreparedDeckBatchReconciliation(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token, providerStatus, errorClass, errorCode string) (err error) {
 	if !terminalProviderStatus(providerStatus) || validateBoundedError(errorClass, errorCode) != nil {
 		return ErrInvalidTransition
 	}
@@ -338,7 +340,7 @@ func (s *PostgresStore) FailPreparedDeckBatchReconciliation(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	state, err := sqlcgen.New(tx).GetDeckPreparationStateForRun(ctx, sqlcgen.GetDeckPreparationStateForRunParams{OwnerID: owner, ID: preparationID, CurrentRunID: uuidArg(runID)})
 	if err != nil {
 		return missing(err)
@@ -386,7 +388,7 @@ func preparedDeckRunReconciliationErrorClass(chunkClass string) string {
 	}
 }
 
-func (s *PostgresStore) FailPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string) error {
+func (s *PostgresStore) FailPreparedDeckBatchSubmission(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string, state domain.PreparedDeckBatchChunkState, errorClass, errorCode string) (err error) {
 	if state != domain.PreparedDeckBatchFailed && state != domain.PreparedDeckBatchAmbiguous || validateBoundedError(errorClass, errorCode) != nil {
 		return ErrInvalidTransition
 	}
@@ -394,7 +396,7 @@ func (s *PostgresStore) FailPreparedDeckBatchSubmission(ctx context.Context, own
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	stateValue, err := sqlcgen.New(tx).GetDeckPreparationStateForRun(ctx, sqlcgen.GetDeckPreparationStateForRunParams{OwnerID: owner, ID: preparationID, CurrentRunID: uuidArg(runID)})
 	if err != nil {
 		return missing(err)

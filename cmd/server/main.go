@@ -209,12 +209,12 @@ func healthcheckURL(addr string) (string, error) {
 	return "http://" + net.JoinHostPort(host, port) + "/healthz", nil
 }
 
-func probeHealth(target string, client *http.Client) error {
+func probeHealth(target string, client *http.Client) (err error) {
 	resp, err := client.Get(target)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("health endpoint %s returned %s", target, resp.Status)
 	}

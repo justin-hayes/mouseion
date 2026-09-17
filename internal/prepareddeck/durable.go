@@ -17,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 )
 
@@ -131,7 +132,7 @@ type DurableFreezeRequest struct {
 // Freeze commits the run, immutable manifest, outcomes, Batch placeholders,
 // current-run pointer, and initial River jobs atomically. A concurrent retry
 // observes the committed run without invoking the planner again.
-func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRequest) (persistence.FreezePreparedDeckRunResult, error) {
+func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRequest) (result persistence.FreezePreparedDeckRunResult, err error) {
 	if c == nil || c.pool == nil || c.store == nil || c.client == nil || c.planner == nil || strings.TrimSpace(request.OwnerID) == "" || strings.TrimSpace(request.PreparationID) == "" {
 		return persistence.FreezePreparedDeckRunResult{}, ErrInvalidInput
 	}
@@ -139,7 +140,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	preparation, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, request.OwnerID, request.PreparationID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return persistence.FreezePreparedDeckRunResult{}, persistence.ErrNotFound
@@ -170,7 +171,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("plan durable prepared deck: %w", err)
 	}
 	plan.OwnerID, plan.PreparationID, plan.ExpectedManifestDigest = request.OwnerID, request.PreparationID, request.ExpectedManifestDigest
-	result, err := c.store.FreezePreparedDeckRunTx(ctx, tx, plan)
+	result, err = c.store.FreezePreparedDeckRunTx(ctx, tx, plan)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}

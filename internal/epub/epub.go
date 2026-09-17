@@ -344,16 +344,16 @@ func containsWord(words []string, word string) bool {
 	return false
 }
 
-func readFile(f *zip.File) ([]byte, error) {
+func readFile(f *zip.File) (data []byte, err error) {
 	r, err := f.Open()
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer func() { err = errors.Join(err, r.Close()) }()
 	return io.ReadAll(r)
 }
 
-func decodeXMLFile(files map[string]*zip.File, name string, dst any) error {
+func decodeXMLFile(files map[string]*zip.File, name string, dst any) (err error) {
 	f := files[path.Clean(name)]
 	if f == nil {
 		return fmt.Errorf("missing %s", name)
@@ -362,7 +362,7 @@ func decodeXMLFile(files map[string]*zip.File, name string, dst any) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { err = errors.Join(err, r.Close()) }()
 	d := xml.NewDecoder(r)
 	if err := d.Decode(dst); err != nil {
 		return fmt.Errorf("malformed or unsupported encoding: %w", err)
@@ -370,7 +370,7 @@ func decodeXMLFile(files map[string]*zip.File, name string, dst any) error {
 	return nil
 }
 
-func extractXHTML(f *zip.File) (string, string, error) {
+func extractXHTML(f *zip.File) (text string, heading string, err error) {
 	if f == nil {
 		return "", "", errors.New("manifest resource is missing")
 	}
@@ -378,7 +378,7 @@ func extractXHTML(f *zip.File) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	defer r.Close()
+	defer func() { err = errors.Join(err, r.Close()) }()
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return "", "", err

@@ -9,6 +9,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 type readingJourneyMembership struct {
@@ -107,7 +108,7 @@ func bumpReadingJourneyRevision(ctx context.Context, tx pgx.Tx, owner, language 
 }
 
 // AddToReadingJourney appends a known owner book to the Journey.
-func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
+func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if language == "" {
 		return 0, ErrJourneyLanguageRequired
@@ -116,7 +117,7 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if expectedRevision != revision {
 		return 0, ErrJourneyStale
 	}
@@ -192,13 +193,13 @@ func (s *PostgresStore) ResolveJourneyBookID(ctx context.Context, owner, id stri
 }
 
 // RemoveFromReadingJourney removes a Journey member and compacts positions.
-func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
+func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, revision, members, exists, cleaned, err := s.beginReadingJourneyMutation(ctx, owner, language, false)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if !exists {
 		if expectedRevision != 0 {
 			return 0, ErrJourneyStale
@@ -283,13 +284,13 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 // interpreted as a 1-based position within the visible (Goal-excluded) order,
 // and the Goal entry itself is never moved. Without a member Goal, newPosition
 // is an absolute position in the full membership order.
-func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, language, bookID string, newPosition int, expectedRevision int64) (int64, error) {
+func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, language, bookID string, newPosition int, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, revision, members, exists, cleaned, err := s.beginReadingJourneyMutation(ctx, owner, language, false)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if !exists {
 		if expectedRevision != 0 {
 			return 0, ErrJourneyStale

@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -120,7 +121,7 @@ func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *rive
 // Submit creates a preparation for one completed scoped analysis and its
 // River job in one transaction. The analysis run and content hash in the job
 // freeze the immutable input used by all retries.
-func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent bool) (Handle, error) {
+func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent bool) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -128,7 +129,7 @@ func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent 
 	if err != nil {
 		return Handle{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	analysis, err := loadCompletedAnalysis(ctx, tx, owner, analysisID)
 	if err != nil {
 		return Handle{}, err
@@ -243,7 +244,7 @@ func (s *Service) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, a
 // no live River job is safely re-enqueued. A preparing preparation without a
 // live job is failed because it may have been claimed by a worker that died;
 // rerunning it would not be safe without a durable attempt lease.
-func (s *Service) Reconcile(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
+func (s *Service) Reconcile(ctx context.Context, owner, id string) (result domain.DeckPreparation, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
 		return domain.DeckPreparation{}, ErrInvalidInput
 	}
@@ -251,7 +252,7 @@ func (s *Service) Reconcile(ctx context.Context, owner, id string) (domain.DeckP
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DeckPreparation{}, persistence.ErrNotFound
@@ -285,7 +286,7 @@ func (s *Service) Download(ctx context.Context, owner, id string) (domain.DeckPr
 // Rerender queues a presentation-only rebuild for a completed preparation. The
 // run identity is captured before enqueueing so a newer preparation cannot be
 // rendered into this artifact.
-func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error) {
+func (s *Service) Rerender(ctx context.Context, owner, id string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -293,7 +294,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error
 	if err != nil {
 		return Handle{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, persistence.ErrNotFound
@@ -311,13 +312,13 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (Handle, error
 		return Handle{Preparation: p}, nil
 	}
 	args := RerenderJobArgs{OwnerID: owner, PreparationID: id, RunID: p.CurrentRunID, PresentationVersion: cardexport.PresentationVersion}
-	result, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+	inserted, err := s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 	if err != nil {
 		return Handle{}, err
 	}
 	var jobID int64
-	if result != nil && result.Job != nil && isLivePreparationJobState(result.Job.State) {
-		jobID = result.Job.ID
+	if inserted != nil && inserted.Job != nil && isLivePreparationJobState(inserted.Job.State) {
+		jobID = inserted.Job.ID
 	} else if confirmed, confirmErr := liveRerenderJobID(ctx, tx, owner, id, p.CurrentRunID, cardexport.PresentationVersion); confirmErr == nil {
 		jobID = confirmed
 	} else if !errors.Is(confirmErr, pgx.ErrNoRows) {
@@ -382,7 +383,7 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	return p, nil
 }
 
-func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (Handle, error) {
+func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -390,7 +391,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (Ha
 	if err != nil {
 		return Handle{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, persistence.ErrNotFound

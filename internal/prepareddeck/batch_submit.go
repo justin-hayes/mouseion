@@ -14,6 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 )
 
@@ -189,7 +190,7 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 	return err
 }
 
-func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmitJobArgs, token, inputFileID, batchID string) error {
+func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmitJobArgs, token, inputFileID, batchID string) (err error) {
 	if w.Client == nil {
 		return w.finishSubmissionFailure(ctx, args, token, domain.PreparedDeckBatchFailed, "submission", "poll_dispatch_unavailable")
 	}
@@ -197,7 +198,7 @@ func (w *BatchSubmitWorker) recordSubmitted(ctx context.Context, args BatchSubmi
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	_, err = w.Store.RecordPreparedDeckBatchSubmittedTx(ctx, tx, args.OwnerID, args.PreparationID, args.RunID, args.ChunkID, args.Generation, token, inputFileID, batchID, w.now().UTC(), func(ctx context.Context, tx pgx.Tx, chunk domain.PreparedDeckBatchChunk) (int64, error) {
 		inserted, insertErr := w.Client.InsertTx(ctx, tx, BatchPollJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.ReconciliationGeneration}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 		if insertErr != nil {

@@ -218,19 +218,27 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 		if closeErr := multipartWriter.Close(); err == nil {
 			err = closeErr
 		}
-		_ = writer.CloseWithError(err)
+		if closeErr := writer.CloseWithError(err); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
 		return err
 	})
 	req, err := c.newRequest(ctx, http.MethodPost, "/files", reader)
 	if err != nil {
-		_ = reader.CloseWithError(err)
-		_ = group.Wait()
+		if closeErr := reader.CloseWithError(err); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+		if waitErr := group.Wait(); waitErr != nil {
+			err = errors.Join(err, waitErr)
+		}
 		return OpenAIFile{}, err
 	}
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	var file OpenAIFile
 	err = c.doJSON(req, "upload file", &file)
-	_ = reader.CloseWithError(err)
+	if closeErr := reader.CloseWithError(err); closeErr != nil {
+		err = errors.Join(err, closeErr)
+	}
 	if writeErr := group.Wait(); writeErr != nil && err == nil {
 		class := ProviderErrorTransport
 		if errors.Is(writeErr, errBatchFileTooLarge) {
@@ -358,7 +366,7 @@ func writeBatchMultipart(writer *multipart.Writer, filename string, content io.R
 
 // FileContent streams a provider file to dst and rejects content larger than
 // the Batch input/output safety ceiling.
-func (c *OpenAIBatchClient) FileContent(ctx context.Context, fileID string, dst io.Writer) error {
+func (c *OpenAIBatchClient) FileContent(ctx context.Context, fileID string, dst io.Writer) (err error) {
 	if c == nil || dst == nil || !validProviderObjectID(fileID) {
 		return providerError("get file content", ProviderErrorInvalidRequest, 0, nil)
 	}
@@ -370,7 +378,7 @@ func (c *OpenAIBatchClient) FileContent(ctx context.Context, fileID string, dst 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	written, copyErr := io.CopyN(dst, resp.Body, maxOpenAIBatchFileBytes+1)
 	if copyErr != nil && !errors.Is(copyErr, io.EOF) {
 		return providerError("get file content", ProviderErrorTransport, 0, copyErr)
@@ -571,12 +579,12 @@ func (c *OpenAIBatchClient) newRequest(ctx context.Context, method, path string,
 	return req, nil
 }
 
-func (c *OpenAIBatchClient) doJSON(req *http.Request, operation string, dst any) error {
+func (c *OpenAIBatchClient) doJSON(req *http.Request, operation string, dst any) (err error) {
 	resp, err := c.do(req, operation)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxOpenAIJSONResponseBytes+1))
 	if err != nil {
 		return providerError(operation, ProviderErrorTransport, 0, err)
@@ -600,9 +608,14 @@ func (c *OpenAIBatchClient) do(req *http.Request, operation string) (*http.Respo
 		return nil, providerError(operation, ProviderErrorTransport, 0, err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
-		_ = resp.Body.Close()
-		return nil, providerError(operation, classifyHTTPStatus(resp.StatusCode), resp.StatusCode, nil)
+		var responseErr error = providerError(operation, classifyHTTPStatus(resp.StatusCode), resp.StatusCode, nil)
+		if _, copyErr := io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10)); copyErr != nil {
+			responseErr = errors.Join(responseErr, fmt.Errorf("drain %s response: %w", operation, copyErr))
+		}
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return nil, errors.Join(responseErr, fmt.Errorf("close %s response: %w", operation, closeErr))
+		}
+		return nil, responseErr
 	}
 	return resp, nil
 }

@@ -304,12 +304,12 @@ func (w *BatchPollWorker) decodeProviderFiles(ctx context.Context, runID string,
 	if errorPipe != nil {
 		errorReader = errorPipe.reader
 	}
-	decoded, missing, err := func() (map[int]enrichment.BatchTranslationOutcome, []int, error) {
+	decoded, missing, err := func() (decoded map[int]enrichment.BatchTranslationOutcome, missing []int, err error) {
 		if outputPipe != nil {
-			defer outputPipe.reader.Close()
+			defer func() { err = errors.Join(err, outputPipe.reader.Close()) }()
 		}
 		if errorPipe != nil {
-			defer errorPipe.reader.Close()
+			defer func() { err = errors.Join(err, errorPipe.reader.Close()) }()
 		}
 		return w.Codec.DecodeBatchResultsPartial(runID, generation, items, outputReader, errorReader)
 	}()
@@ -339,7 +339,9 @@ func (w *BatchPollWorker) streamFile(group *errgroup.Group, ctx context.Context,
 	file := &streamedBatchFile{reader: reader}
 	group.Go(func() error {
 		file.err = w.Provider.FileContent(ctx, fileID, writer)
-		_ = writer.CloseWithError(file.err)
+		if closeErr := writer.CloseWithError(file.err); closeErr != nil && file.err == nil {
+			file.err = closeErr
+		}
 		return file.err
 	})
 	return file

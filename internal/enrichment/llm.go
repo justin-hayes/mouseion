@@ -153,7 +153,7 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 // TranslateWithUsage is the observed form used only by the explicit
 // validation harness. Normal enrichment deliberately keeps usage out of its
 // semantic result and cache identity.
-func (c *OpenAITranslationClient) TranslateWithUsage(ctx context.Context, input TranslationRequest) (TranslationResponse, TranslationUsage, error) {
+func (c *OpenAITranslationClient) TranslateWithUsage(ctx context.Context, input TranslationRequest) (response TranslationResponse, usage TranslationUsage, err error) {
 	body, err := c.codec.EncodeRequest(input)
 	if err != nil {
 		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("encode LLM request: %w", err)
@@ -168,7 +168,7 @@ func (c *OpenAITranslationClient) TranslateWithUsage(ctx context.Context, input 
 	if err != nil {
 		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("call LLM: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
 		return TranslationResponse{}, TranslationUsage{}, &LLMHTTPError{StatusCode: resp.StatusCode}

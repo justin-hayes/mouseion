@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 func validClaim(token string, leaseExpiresAt time.Time) bool {
@@ -338,7 +339,7 @@ func (s *PostgresStore) ClaimPreparedDeckBatchSubmission(ctx context.Context, ow
 	return chunk, err
 }
 
-func (s *PostgresStore) RecordPreparedDeckBatchSubmitted(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token, inputFileID, batchID string, submittedAt time.Time) (domain.PreparedDeckBatchChunk, error) {
+func (s *PostgresStore) RecordPreparedDeckBatchSubmitted(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token, inputFileID, batchID string, submittedAt time.Time) (result domain.PreparedDeckBatchChunk, err error) {
 	if strings.TrimSpace(inputFileID) == "" || strings.TrimSpace(batchID) == "" {
 		return domain.PreparedDeckBatchChunk{}, ErrInvalidTransition
 	}
@@ -346,7 +347,7 @@ func (s *PostgresStore) RecordPreparedDeckBatchSubmitted(ctx context.Context, ow
 	if err != nil {
 		return domain.PreparedDeckBatchChunk{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	chunk, err := s.RecordPreparedDeckBatchSubmittedTx(ctx, tx, owner, preparationID, runID, chunkID, generation, token, inputFileID, batchID, submittedAt, nil)
 	if err != nil {
 		return chunk, err
@@ -403,24 +404,23 @@ type PreparedDeckBatchReconciliationUpdate struct {
 // CompletePreparedDeckBatchCacheHits closes exact cache hits while a chunk is
 // fenced for submission. It never broadens identity or changes a running or
 // terminal outcome.
-func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) (int, error) {
+func (s *PostgresStore) CompletePreparedDeckBatchCacheHits(ctx context.Context, owner, preparationID, runID, chunkID string, generation int, token string) (result int, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
-	var count int
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	count64, err := sqlcgen.New(tx).CompletePreparedDeckBatchCacheHits(ctx, sqlcgen.CompletePreparedDeckBatchCacheHitsParams{
 		OwnerID: owner, PreparationID: preparationID, RunID: runID, ID: chunkID, Generation: generation, SubmissionClaimToken: uuidArg(token),
 	})
-	count = int(count64)
+	result = int(count64)
 	if err != nil {
 		return 0, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, err
 	}
-	return count, nil
+	return result, nil
 }
 
 // FinishPreparedDeckBatchSubmission records a pre-network terminal outcome

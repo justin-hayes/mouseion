@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/selection"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
@@ -171,7 +172,7 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
 
 // SubmitAnalysis atomically records one snapshot-bound analysis run and inserts
 // its River job. The worker reloads the immutable extracted snapshot.
-func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (Handle, error) {
+func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceID) == "" {
 		return Handle{}, fmt.Errorf("analysis owner and source are required")
 	}
@@ -179,7 +180,7 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (H
 	if err != nil {
 		return Handle{}, fmt.Errorf("begin analysis submission: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var args JobArgs
 	var revisionID, snapshotID, mediaType string
 	err = tx.QueryRow(ctx, `SELECT s.owner_id,s.id,s.language,s.source_identifier,s.title,
@@ -435,7 +436,7 @@ func (s *Service) Result(ctx context.Context, owner string, id int64) (domain.Co
 	return corpus, err
 }
 
-func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, error) {
+func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result Status, err error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil {
 		return Status{}, err
@@ -445,7 +446,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 		if txErr != nil {
 			return Status{}, txErr
 		}
-		defer tx.Rollback(ctx)
+		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 		_, txErr = tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
 		if txErr != nil {
 			return Status{}, txErr
@@ -470,7 +471,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 
 // Retry starts a new execution attempt for a failed or cancelled snapshot run.
 // The logical run identity and status URL remain stable across attempts.
-func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, error) {
+func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Handle, err error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil {
 		return Handle{}, err
@@ -482,7 +483,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 	if err != nil {
 		return Handle{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var state string
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Handle{}, err
@@ -545,7 +546,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 
 // Reconcile makes an orphaned queued/running run actionable. A queued run is
 // re-enqueued; a running run without viable River work is failed safely.
-func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (Status, error) {
+func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (result Status, err error) {
 	status, err := s.Get(ctx, owner, id)
 	if err != nil || status.RunID == "" {
 		return status, err
@@ -554,7 +555,7 @@ func (s *Service) Reconcile(ctx context.Context, owner string, id int64) (Status
 	if err != nil {
 		return Status{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var state string
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, status.RunID).Scan(&state); err != nil {
 		return Status{}, err
@@ -845,7 +846,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
 	if err = tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
 		return err
 	}

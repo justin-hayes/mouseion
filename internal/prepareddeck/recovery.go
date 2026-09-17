@@ -9,6 +9,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 )
 
@@ -70,12 +71,12 @@ func (w *RecoveryWorker) Work(ctx context.Context, _ *river.Job[RecoveryJobArgs]
 	return river.JobSnooze(interval)
 }
 
-func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.PreparedDeckRerenderWork) error {
+func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.PreparedDeckRerenderWork) (err error) {
 	tx, err := w.Store.Pool().Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var currentRunID string
 	err = tx.QueryRow(ctx, `SELECT current_run_id::text FROM deck_preparations WHERE owner_id=$1 AND id=$2 AND state='ready' AND retired_at IS NULL AND current_run_id=$3::uuid FOR UPDATE`, item.OwnerID, item.PreparationID, item.RunID).Scan(&currentRunID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -105,7 +106,7 @@ func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.Prepar
 	return tx.Commit(ctx)
 }
 
-func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) error {
+func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) (err error) {
 	if item.Kind == "outcome" {
 		run, err := w.Store.GetPreparedDeckRun(ctx, item.OwnerID, item.PreparationID, item.RunID)
 		if err != nil {
@@ -128,7 +129,7 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback(ctx)
+		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 		args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: generation}
 		inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
 		if err != nil {
@@ -150,7 +151,7 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var args river.JobArgs
 	switch item.Kind {
 	case "batch_submission":
@@ -206,7 +207,7 @@ func (w *RecoveryWorker) insertFinalizer(ctx context.Context, tx pgx.Tx, run dom
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }
 
-func EnsureRecoveryJob(ctx context.Context, store *persistence.PostgresStore, client riverClient) error {
+func EnsureRecoveryJob(ctx context.Context, store *persistence.PostgresStore, client riverClient) (err error) {
 	if store == nil || client == nil {
 		return ErrInvalidInput
 	}
@@ -214,7 +215,7 @@ func EnsureRecoveryJob(ctx context.Context, store *persistence.PostgresStore, cl
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	inserted, err := client.InsertTx(ctx, tx, RecoveryJobArgs{}, durableInsertOpts())
 	if err != nil {
 		return err

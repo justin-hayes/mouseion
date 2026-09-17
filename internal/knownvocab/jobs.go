@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/lexical"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -50,7 +51,7 @@ func NewJobService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *JobService
 	return &JobService{pool: pool, client: client}
 }
 
-func (s *JobService) Submit(ctx context.Context, owner, language, fileContents string) (Handle, error) {
+func (s *JobService) Submit(ctx context.Context, owner, language, fileContents string) (result Handle, err error) {
 	owner, language = strings.TrimSpace(owner), strings.TrimSpace(language)
 	if s == nil || s.pool == nil || s.client == nil || owner == "" || language == "" || fileContents == "" {
 		return Handle{}, ErrInvalidInput
@@ -59,7 +60,7 @@ func (s *JobService) Submit(ctx context.Context, owner, language, fileContents s
 	if err != nil {
 		return Handle{}, fmt.Errorf("begin known vocabulary submission: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	inserted, err := s.client.InsertTx(ctx, tx, JobArgs{OwnerID: owner, Language: language, FileContents: fileContents}, &river.InsertOpts{Queue: Queue, MaxAttempts: 3})
 	if err != nil {
 		return Handle{}, fmt.Errorf("enqueue known vocabulary import: %w", err)
@@ -135,7 +136,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { workErr = errors.Join(workErr, txcleanup.Rollback(ctx, tx)) }()
 	var libraryLanguage bool
 	if err = tx.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1 FROM books b

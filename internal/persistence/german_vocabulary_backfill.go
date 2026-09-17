@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 const germanVocabularyBackfillLockSalt int64 = 849
@@ -83,13 +84,12 @@ func (s *PostgresStore) BackfillGermanVocabulary(ctx context.Context) (GermanVoc
 
 type germanOwnerBackfillReport struct{ examined, updated, merged int }
 
-func (s *PostgresStore) backfillGermanOwner(ctx context.Context, owner string, profile canonicalization.Profile) (germanOwnerBackfillReport, *GermanVocabularyBackfillConflict, error) {
-	var report germanOwnerBackfillReport
+func (s *PostgresStore) backfillGermanOwner(ctx context.Context, owner string, profile canonicalization.Profile) (report germanOwnerBackfillReport, conflict *GermanVocabularyBackfillConflict, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return report, nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, $2))`, owner, germanVocabularyBackfillLockSalt); err != nil {
 		return report, nil, err
 	}
