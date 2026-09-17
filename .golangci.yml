@@ -1,0 +1,29 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - bodyclose
+    - durationcheck
+    - nilnesserr
+    - sqlclosecheck
+    - gocheckcompilerdirectives
+    - nolintlint
+
+  exclusions:
+    generated: strict
+    warn-unused: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: true
+
+run:
+  timeout: 5m
+  relative-path-mode: gomod
+  modules-download-mode: readonly
+  build-tags:
+    - integration
+  tests: true

@@ -18,7 +18,10 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint gen templ dev clean go-tmp browser-smoke sqlc dictionary-index
+.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke sqlc dictionary-index
+
+GOLANGCI_LINT ?= golangci-lint
+GOLANGCI_LINT_VERSION := 2.13.2
 
 go-tmp:
 	mkdir -p $(GOTMPDIR)
@@ -64,8 +67,23 @@ test-integration-shared: go-tmp
 	if test "$$ready" -ne 1; then docker logs "$$container"; exit 1; fi; \
 	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -tags=integration -p 1 $(MOUSEION_TEST_PACKAGES)
 
-lint: go-tmp
-	go vet ./...
+lint-go: go-tmp
+	@version="$$( "$(GOLANGCI_LINT)" version 2>&1 )" || { \
+		printf '%s\n' "golangci-lint $(GOLANGCI_LINT_VERSION) is required; unable to execute $(GOLANGCI_LINT)." >&2; \
+		printf 'detail: %s\n' "$$version" >&2; \
+		exit 1; \
+	}; \
+	case "$$version" in \
+		*"has version $(GOLANGCI_LINT_VERSION) "*) ;; \
+		*) \
+			printf '%s\n' "golangci-lint $(GOLANGCI_LINT_VERSION) is required; found:" >&2; \
+			printf '%s\n' "$$version" >&2; \
+			exit 1; \
+		;; \
+	esac
+	"$(GOLANGCI_LINT)" run ./...
+
+lint: lint-go
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
 
 templ:

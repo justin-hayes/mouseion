@@ -26,7 +26,11 @@ The workspace supports Go 1.24 and Python 3.11. It also requires Protobuf
 `nlp/requirements-dev.txt`.
 
 ```sh
-export PATH="$PATH:$(go env GOBIN 2>/dev/null || echo "$HOME/go/bin"):/usr/local/go/bin"
+GO_BIN_DIR="$(go env GOBIN 2>/dev/null)"
+[ -n "$GO_BIN_DIR" ] || GO_BIN_DIR="$(go env GOPATH)/bin"
+export PATH="$PATH:$GO_BIN_DIR:/usr/local/go/bin"
+curl -sSfL https://golangci-lint.run/install.sh | sh -s -- \
+  -b "$GO_BIN_DIR" v2.13.2
 make setup
 make gen
 make build
@@ -97,7 +101,9 @@ export MOUSEION_NLP_WARM_LANGUAGES=de,it
 .venv/bin/python -m mouseion_nlp.server
 
 # 3. Go web server (separate terminal) — runs migrations, starts River
-export PATH="$PATH:$(go env GOBIN 2>/dev/null || echo "$HOME/go/bin"):/usr/local/go/bin"
+GO_BIN_DIR="$(go env GOBIN 2>/dev/null)"
+[ -n "$GO_BIN_DIR" ] || GO_BIN_DIR="$(go env GOPATH)/bin"
+export PATH="$PATH:$GO_BIN_DIR:/usr/local/go/bin"
 make dev
 ```
 
