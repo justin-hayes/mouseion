@@ -21,7 +21,7 @@ func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "enrichment store", store.Close)
 	provider := &fakeProvider{}
 	enrich := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 2, RetryBaseDelay: time.Millisecond}, nil, nil, nil, provider, store)
 	client, err := NewClient(store.Pool(), enrich)
@@ -33,7 +33,9 @@ func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCancelled, cancelled.State)
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "enrichment job client", func() error {
+		return client.Stop(context.Background())
+	})
 	candidates := []enrichment.Candidate{{Identity: enrichment.Identity{Language: "de", CanonicalLemma: "haus", UPOS: "noun"}, ExampleSentence: "Das Haus ist groß."}, {Identity: enrichment.Identity{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN"}, ExampleSentence: "Der Baum ist groß."}}
 	handle, err := service.SubmitEnrichment(ctx, "11111111-1111-1111-1111-111111111111", candidates)
 	require.NoError(t, err)

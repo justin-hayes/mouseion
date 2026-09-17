@@ -16,9 +16,7 @@ import (
 func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "books-alice", false)
 	require.NoError(t, err)
@@ -193,9 +191,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "active-language-alice", false)
 	require.NoError(t, err)
@@ -248,9 +244,7 @@ func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
 func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "book-detail-alice", false)
 	require.NoError(t, err)
@@ -285,9 +279,7 @@ func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "study-languages-alice", false)
 	require.NoError(t, err)

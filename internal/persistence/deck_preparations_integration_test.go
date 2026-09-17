@@ -14,9 +14,7 @@ import (
 
 func TestDeckPreparationPersistence(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	alice, err := store.CreateUser(ctx, "prep-alice", false)
 	require.NoError(t, err)
@@ -94,9 +92,7 @@ func TestDeckPreparationPersistence(t *testing.T) {
 
 func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "atomic-prep", false)
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "atomic-book", Title: "Atomic Book", MediaType: "text/plain", ContentHash: "atomic-hash", Content: []byte("Haus"), FullText: "Haus"})
@@ -145,9 +141,7 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 
 func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "study-owner", false)
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "study-book", Title: "Study Book", MediaType: "text/plain", ContentHash: "study-hash", Content: []byte("Haus"), FullText: "Haus"})
@@ -213,9 +207,7 @@ func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 
 func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "current-deck-owner", false)
 	require.NoError(t, err)
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Reanalyzed Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})

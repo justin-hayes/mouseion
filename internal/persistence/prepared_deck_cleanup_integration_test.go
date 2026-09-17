@@ -19,9 +19,7 @@ import (
 
 func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "cleanup-owner", false)
 	require.NoError(t, err)
 	other, err := store.CreateUser(ctx, "cleanup-other", false)
@@ -44,7 +42,7 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 		Chunks: []PreparedDeckBatchChunkPlan{{ChunkIndex: 0, Generation: 1, Model: "gpt-test", Endpoint: "/v1/chat/completions", SplitReason: "run", InputDigest: strings.Repeat("a", 64), InputBytes: 64, Ordinals: []int{0}}},
 	})
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, tx)
 		require.NoError(t, err)
 	}
 	err = tx.Commit(ctx)

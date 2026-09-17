@@ -14,16 +14,14 @@ import (
 
 func TestEnrichmentCacheSeparatesTargetLanguages(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	base := enrichment.CacheKey{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "test", ProviderVersion: "v1", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	english := base
 	english.TargetLanguage = "en"
 	french := base
 	french.TargetLanguage = "fr"
-	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: english, Translation: "house", CachedAt: time.Now().UTC()})
+	_, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: english, Translation: "house", CachedAt: time.Now().UTC()})
 	require.NoError(t, err)
 	_, err = store.Put(ctx, enrichment.CacheEntry{CacheKey: french, Translation: "maison", CachedAt: time.Now().UTC()})
 	require.NoError(t, err)

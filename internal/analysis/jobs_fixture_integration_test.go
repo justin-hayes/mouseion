@@ -25,7 +25,7 @@ func TestImportedMainTextFixtureAnalysisExcludesAncillaryText(t *testing.T) {
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "analysis store", store.Close)
 	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "main-text-e2e", false)
 	require.NoError(t, err)
@@ -56,7 +56,9 @@ func TestImportedMainTextFixtureAnalysisExcludesAncillaryText(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "analysis client", func() error {
+		return client.Stop(context.Background())
+	})
 
 	handle, err := NewService(store.Pool(), client).SubmitAnalysis(ctx, owner.ID, imported.Source.ID)
 	require.NoError(t, err)

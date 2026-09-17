@@ -14,9 +14,7 @@ import (
 func TestGeneratedVocabularyFirstProvenanceAndOwnerIsolation(t *testing.T) {
 	ctx := context.Background()
 	url := integrationDatabase(t, ctx)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "generated-alice", false)
 	require.NoError(t, err)

@@ -17,9 +17,7 @@ import (
 func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 	alice, err := store.CreateUser(ctx, "journey-alice", false)
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "journey-bob", false)
@@ -56,10 +54,8 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	require.NoError(t, err)
 	assertJourneyEntries(t, bobJourney, bob.ID, []string{bobQueued.ID})
 
-	store.Close()
-	store, err = Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	require.NoError(t, store.Close(), "close store before reopen")
+	store = openIntegrationStore(t, ctx, url)
 
 	carol, err := store.CreateUser(ctx, "journey-carol", false)
 	require.NoError(t, err)
@@ -165,9 +161,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 func TestReadingJourneyLanguageIsolationAndLazyLifecycle(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 
 	owner, err := store.CreateUser(ctx, "journey-language-isolation", false)
 	require.NoError(t, err)
@@ -249,9 +243,7 @@ type readingJourneyMoveResult struct {
 func TestResolveJourneyBookID(t *testing.T) {
 	ctx := context.Background()
 	url := integrationDatabase(t, ctx)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "resolve-book-owner", false)
 	require.NoError(t, err)

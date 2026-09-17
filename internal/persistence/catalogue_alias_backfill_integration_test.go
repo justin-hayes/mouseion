@@ -15,9 +15,7 @@ import (
 func TestCatalogueAliasBackfillPersistenceIsScopedAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 
 	alice, err := store.CreateUser(ctx, "alias-backfill-alice", false)
 	require.NoError(t, err)
