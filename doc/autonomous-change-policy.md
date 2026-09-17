@@ -17,6 +17,7 @@ through the normal workflow:
 The required CI jobs currently are:
 
 - **Go build and test**
+- **Go lint**
 - **Python build and test**
 - **Protobuf generated code**
 
