@@ -144,7 +144,9 @@ func (m *ExternalMetrics) addError(class ExternalErrorClass) {
 		m.Cancellations++
 	case ExternalErrorCache:
 		m.CacheErrors++
-	default:
+	case ExternalErrorOther:
+		m.OtherErrors++
+	default: // Unknown runtime values remain in the privacy-safe catch-all bucket.
 		m.OtherErrors++
 	}
 }

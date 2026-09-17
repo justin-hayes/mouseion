@@ -234,6 +234,7 @@ func jobState(status analysis.Status) string {
 			return "Queued"
 		}
 	}
+	//nolint:exhaustive // River's JobState is an open upstream enumeration; unknown states retain their provider label.
 	switch status.State {
 	case "completed":
 		return "Succeeded"

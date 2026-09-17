@@ -29,6 +29,33 @@ func TestDeckPreparationStateTransitions(t *testing.T) {
 	}
 }
 
+func TestTerminalLifecycleStatesRejectCrossTransitions(t *testing.T) {
+	tests := []struct {
+		name string
+		got  bool
+	}{
+		{"deck preparation ready", DeckPreparationReady.CanTransitionTo(DeckPreparationQueued)},
+		{"run completed", PreparedDeckRunCompleted.CanTransitionTo(PreparedDeckRunFailed)},
+		{"run failed", PreparedDeckRunFailed.CanTransitionTo(PreparedDeckRunTranslating)},
+		{"run cancelled", PreparedDeckRunCancelled.CanTransitionTo(PreparedDeckRunTranslating)},
+		{"translation completed", PreparedDeckTranslationCompleted.CanTransitionTo(PreparedDeckTranslationRunning)},
+		{"translation failed", PreparedDeckTranslationFailed.CanTransitionTo(PreparedDeckTranslationPending)},
+		{"translation cancelled", PreparedDeckTranslationCancelled.CanTransitionTo(PreparedDeckTranslationPending)},
+		{"outcome completed", PreparedDeckOutcomeCompleted.CanTransitionTo(PreparedDeckOutcomeFailed)},
+		{"outcome failed", PreparedDeckOutcomeFailed.CanTransitionTo(PreparedDeckOutcomePending)},
+		{"outcome cancelled", PreparedDeckOutcomeCancelled.CanTransitionTo(PreparedDeckOutcomePending)},
+		{"batch completed", PreparedDeckBatchCompleted.CanTransitionTo(PreparedDeckBatchFailed)},
+		{"batch failed", PreparedDeckBatchFailed.CanTransitionTo(PreparedDeckBatchPending)},
+		{"batch cancelled", PreparedDeckBatchCancelled.CanTransitionTo(PreparedDeckBatchPending)},
+		{"batch ambiguous", PreparedDeckBatchAmbiguous.CanTransitionTo(PreparedDeckBatchPending)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.False(t, tt.got, "terminal lifecycle state accepted a cross-transition")
+		})
+	}
+}
+
 func TestVocabularyStudyStatusPrioritizesTerminalFacts(t *testing.T) {
 	now := time.Now()
 	assert.Equal(t, VocabularyStudyNotStarted, (DeckPreparation{}).VocabularyStudyStatus())

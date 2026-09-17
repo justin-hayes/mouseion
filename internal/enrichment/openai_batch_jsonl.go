@@ -305,7 +305,11 @@ func providerResultCode(class ProviderErrorClass) string {
 		return "cancelled"
 	case ProviderErrorExpired:
 		return "expired"
-	default:
+	case ProviderErrorNone, ProviderErrorIneligibleEndpoint, ProviderErrorAuthentication,
+		ProviderErrorPermission, ProviderErrorTransport, ProviderErrorMalformedResponse,
+		ProviderErrorResponseTooLarge, ProviderErrorRequestFailed, ProviderErrorFileProcessing:
+		return "request_failed"
+	default: // Unknown provider values use the bounded generic result code.
 		return "request_failed"
 	}
 }

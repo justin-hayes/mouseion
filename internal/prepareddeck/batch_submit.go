@@ -72,6 +72,8 @@ func (w *BatchSubmitWorker) Submit(ctx context.Context, args BatchSubmitJobArgs)
 		return nil
 	case domain.PreparedDeckBatchFailed, domain.PreparedDeckBatchCancelled, domain.PreparedDeckBatchAmbiguous:
 		return nil
+	case domain.PreparedDeckBatchPending, domain.PreparedDeckBatchSubmitting:
+		// These states continue into the submission claim below.
 	}
 
 	wasSubmitting := chunk.State == domain.PreparedDeckBatchSubmitting

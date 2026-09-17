@@ -120,11 +120,13 @@ func journeyEvidenceState(item journeyBookView) string {
 		return "unassessed"
 	case domain.BookNotAcquired, domain.BookUnavailable:
 		return "unavailable"
-	default:
+	case domain.BookAnalyzed:
 		if item.StatisticsUnavailable || item.Coverage == nil {
 			return "unavailable"
 		}
 		return "current"
+	default: // Unknown evidence states are not treated as current.
+		return "unavailable"
 	}
 }
 
@@ -192,8 +194,11 @@ func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
 		return false, "This book cannot become a Primary Goal until its analysis matches the current content."
 	case domain.GoalNoCompletedAnalysis:
 		return false, "This book needs a successfully completed current analysis before it can become a Primary Goal."
+	case domain.GoalEligible:
+		return true, ""
+	default:
+		return false, "This book's Goal eligibility is unavailable."
 	}
-	return true, ""
 }
 
 func journeyCurrentCoverage(item journeyBookView) string {

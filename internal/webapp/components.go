@@ -200,7 +200,10 @@ func statusBadgeClass(tone StatusTone) string {
 	switch tone {
 	case StatusInfo, StatusSuccess, StatusWarning, StatusDanger:
 		return "status-badge status-badge--" + string(tone)
+	case StatusNeutral:
+		return "status-badge status-badge--neutral"
 	default:
+		// Unknown tones use the neutral presentation.
 		return "status-badge status-badge--neutral"
 	}
 }
@@ -372,7 +375,10 @@ func feedbackClass(kind FeedbackKind) string {
 	switch kind {
 	case FeedbackSuccess, FeedbackWarning, FeedbackError:
 		return "feedback feedback--" + string(kind)
+	case FeedbackInfo:
+		return "feedback feedback--info"
 	default:
+		// Unknown feedback kinds use the informational presentation.
 		return "feedback feedback--info"
 	}
 }
@@ -517,26 +523,30 @@ func bookFeedbackKind(message string) FeedbackKind {
 
 func vocabularyStudyLabel(preparation domain.DeckPreparation) string {
 	switch preparation.VocabularyStudyStatus() {
+	case domain.VocabularyStudyNotStarted:
+		return "Ready to study"
 	case domain.VocabularyStudyStudying:
 		return "Studying"
 	case domain.VocabularyStudyReviewed:
 		return "Reviewed and graduated"
 	case domain.VocabularyStudyReleased:
 		return "Released"
-	default:
+	default: // Unknown derived status uses the initial-state label.
 		return "Ready to study"
 	}
 }
 
 func vocabularyStudyTone(preparation domain.DeckPreparation) StatusTone {
 	switch preparation.VocabularyStudyStatus() {
+	case domain.VocabularyStudyNotStarted:
+		return StatusNeutral
 	case domain.VocabularyStudyStudying:
 		return StatusInfo
 	case domain.VocabularyStudyReviewed:
 		return StatusSuccess
 	case domain.VocabularyStudyReleased:
 		return StatusWarning
-	default:
+	default: // Unknown derived status uses the neutral presentation.
 		return StatusNeutral
 	}
 }
@@ -587,6 +597,7 @@ func knownVocabImportSummary(status knownvocab.Status) string {
 		}
 		return "The import is continuing in the background. You can leave this page and return later."
 	}
+	//nolint:exhaustive // River's JobState is an open upstream enumeration; unknown states use the generic summary.
 	switch status.State {
 	case "completed":
 		return "The import is complete. Review the updated known vocabulary in Vocabulary."
