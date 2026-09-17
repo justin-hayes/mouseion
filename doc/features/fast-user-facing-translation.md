@@ -370,7 +370,7 @@ Use the commands required by `AGENTS.md` for every implementation PR:
 
 ```bash
 gofmt -w <changed-go-files>
-go vet ./...
+make lint
 go test ./...
 templ generate
 make generate
