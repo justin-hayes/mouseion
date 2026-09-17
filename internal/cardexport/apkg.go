@@ -3,6 +3,7 @@ package cardexport
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	//nolint:gosec // Anki's legacy collection schema requires SHA-1 compatibility.
 	"crypto/sha1"
 	"database/sql"
@@ -28,7 +29,7 @@ var recognitionCardCSS string
 // renderAPKG writes Anki's documented legacy schema version 11. Anki imports
 // collection.anki2 from a ZIP package and upgrades it to the current schema.
 // The package contains no media, so its media manifest is an empty JSON object.
-func renderAPKG(deckName string, notes []Note, description string) ([]byte, error) {
+func renderAPKG(ctx context.Context, deckName string, notes []Note, description string) ([]byte, error) {
 	f, err := os.CreateTemp("", "mouseion-*.anki2")
 	if err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	if err = writeCollection(db, deckName, notes, description); err != nil {
+	if err = writeCollection(ctx, db, deckName, notes, description); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
 	if err = db.Close(); err != nil {
@@ -82,7 +83,7 @@ func renderAPKG(deckName string, notes []Note, description string) ([]byte, erro
 	return out.Bytes(), nil
 }
 
-func writeCollection(db *sql.DB, deckName string, notes []Note, description string) (err error) {
+func writeCollection(ctx context.Context, db *sql.DB, deckName string, notes []Note, description string) (err error) {
 	const schema = `
 CREATE TABLE col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null);
 CREATE TABLE notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld text not null, csum integer not null, flags integer not null, data text not null);
@@ -95,7 +96,7 @@ CREATE INDEX ix_cards_nid ON cards (nid);
 CREATE INDEX ix_cards_sched ON cards (did, queue, due);
 CREATE INDEX ix_revlog_usn ON revlog (usn);
 CREATE INDEX ix_revlog_cid ON revlog (cid);`
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("create Anki schema: %w", err)
 	}
 	modelID, deckID := stableID("model|"+noteTypeName), stableID("deck|"+deckName)
@@ -118,10 +119,10 @@ CREATE INDEX ix_revlog_cid ON revlog (cid);`
 	if err != nil {
 		return fmt.Errorf("marshal Anki deck configuration: %w", err)
 	}
-	if _, err := db.Exec(`INSERT INTO col VALUES(1,0,0,0,11,0,0,0,?,?,?,?,?)`, `{}`, string(models), string(decks), string(dconf), `{}`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO col VALUES(1,0,0,0,11,0,0,0,?,?,?,?,?)`, `{}`, string(models), string(decks), string(dconf), `{}`); err != nil {
 		return fmt.Errorf("insert collection: %w", err)
 	}
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -141,10 +142,10 @@ CREATE INDEX ix_revlog_cid ON revlog (cid);`
 		nid, cid := stableID("note|"+note.Key), stableID("card|"+note.Key)
 		fields := strings.Join(noteFields(note), "\x1f")
 		tags := " " + strings.Join(note.Tags, " ") + " "
-		if _, err = tx.Exec(`INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)`, nid, note.Key[:20], modelID, 0, -1, tags, fields, note.Identity, fieldChecksum(note.Identity), 0, ""); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)`, nid, note.Key[:20], modelID, 0, -1, tags, fields, note.Identity, fieldChecksum(note.Identity), 0, ""); err != nil {
 			return fmt.Errorf("insert note: %w", err)
 		}
-		if _, err = tx.Exec(`INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, cid, nid, deckID, 0, 0, -1, 0, 0, i+1, 0, 0, 0, 0, 0, 0, 0, 0, ""); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, cid, nid, deckID, 0, 0, -1, 0, 0, i+1, 0, 0, 0, 0, 0, 0, 0, 0, ""); err != nil {
 			return fmt.Errorf("insert card: %w", err)
 		}
 	}

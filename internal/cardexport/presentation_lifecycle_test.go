@@ -27,7 +27,7 @@ func (lifecycleLexicalProvider) Lookup(context.Context, enrichment.LexicalLookup
 
 func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	presentation := cardexport.NewPresentation(lifecycleLexicalProvider{})
-	deck, diagnostics, err := presentation.Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, diagnostics, err := presentation.Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	assert.Empty(t, diagnostics.DegradationCodes)
 	assert.Equal(t, 1, deck.Summary().Completeness.TotalCards)
@@ -39,7 +39,7 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 	assert.Equal(t, "en", work[0].CacheKey.TargetLanguage)
 	assert.Equal(t, "dictionary-v1", work[0].DictionaryProviderVersion)
 	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house is old today.", SenseSelection: []int{1, 0}}
-	artifact, finalDiagnostics, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	artifact, finalDiagnostics, err := presentation.Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Empty(t, finalDiagnostics.DegradationCodes)
 	assert.Equal(t, finalDiagnostics, artifact.Diagnostics)
@@ -51,7 +51,7 @@ func TestPresentationLifecycleFreezesProjectsAndFinalizes(t *testing.T) {
 }
 
 func TestPresentationLifecycleFreezesEmptyLocalDeck(t *testing.T) {
-	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(context.Background(), "owner-1", "Empty Book", nil)
+	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Empty Book", nil)
 
 	require.NoError(t, err)
 	assert.Empty(t, diagnostics.QualityOmissions)
@@ -66,7 +66,7 @@ func TestPresentationLifecycleReturnsDictionaryCoverageDiagnostics(t *testing.T)
 		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "de", UPOS: "NOUN"}, Entry: cardexport.Entry{Language: "de", UPOS: "NOUN", Sentence: "Das Fragment steht dort.", TargetWord: "Fragment"}},
 		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "it", UPOS: "VERB"}, Entry: cardexport.Entry{Language: "it", UPOS: "VERB", Sentence: "La casa sta lì.", TargetWord: "sta", Gloss: "stands"}},
 	}
-	_, diagnostics, err := cardexport.NewPresentation(nil).Freeze(context.Background(), "owner-1", "Book", projections)
+	_, diagnostics, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", projections)
 	require.NoError(t, err)
 	assert.Equal(t, []cardexport.GlossCoverage{
 		{Language: "de", POS: "NOUN", Selected: 2, WithGloss: 1, WithoutGloss: 1},
@@ -74,7 +74,7 @@ func TestPresentationLifecycleReturnsDictionaryCoverageDiagnostics(t *testing.T)
 	}, diagnostics.GlossCoverage)
 
 	diagnostics.GlossCoverage[0].Selected = 99
-	_, diagnostics, err = cardexport.NewPresentation(nil).Freeze(context.Background(), "owner-1", "Book", projections)
+	_, diagnostics, err = cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", projections)
 	require.NoError(t, err)
 	assert.Equal(t, 2, diagnostics.GlossCoverage[0].Selected)
 }
@@ -121,7 +121,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		assert.Equal(t, "house", stored.Items[0].Entry.Gloss)
 		if schema == cardexport.LegacyManifestSchemaVersion {
 			work := deck.WorkProjection()
-			_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today."}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+			_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house stands there today."}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 			require.NoError(t, err, "schema %d finalization", schema)
 		}
 	}
@@ -173,7 +173,7 @@ func TestPresentationLifecycleRestoresLegacyRenderInputsWithoutChangingProjectio
 	assert.Empty(t, snapshot.Items[0].Entry.SentenceTokens)
 	assert.Equal(t, tokens, deck.StorageProjection().Items[0].Entry.SentenceTokens)
 
-	artifact, _, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: *key}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: *key}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Equal(t, "Ich <b>stehe</b> heute <b>auf</b>.", artifact.Generated[0].Note.Text)
 }
@@ -237,7 +237,7 @@ func TestPresentationLifecycleFreezeOrdersByFirstEncounter(t *testing.T) {
 	early.Entry.CanonicalLemma = "zebra"
 	early.Candidate.FirstEncounter = 10
 
-	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{late, early})
+	deck, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{late, early})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
 	require.Len(t, work, 2)
@@ -260,7 +260,7 @@ func TestPresentationLifecycleFreezeOrdersByFirstEncounter(t *testing.T) {
 }
 
 func TestPresentationLifecycleSelectsFrozenWorkByOrdinal(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 
 	work, ok := deck.WorkByOrdinal(0)
@@ -271,9 +271,9 @@ func TestPresentationLifecycleSelectsFrozenWorkByOrdinal(t *testing.T) {
 }
 
 func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
-	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(t.Context(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Equal(t, 1, artifact.Count)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
@@ -281,9 +281,9 @@ func TestPresentationLifecycleFinalizesBatchWithMissingOptionalResults(t *testin
 }
 
 func TestPresentationLifecycleTreatsUnconfiguredExternalResultsAsOptional(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
-	artifact, _, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, nil, cardexport.RunFacts{ExecutionMode: "batch"})
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, cardexport.RunFacts{ExecutionMode: "batch"})
 	require.NoError(t, err)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
 }
@@ -291,50 +291,50 @@ func TestPresentationLifecycleTreatsUnconfiguredExternalResultsAsOptional(t *tes
 func TestPresentationLifecycleReportsQualityOmissionAndMalformedOptionalData(t *testing.T) {
 	projection := lifecycleProjection()
 	projection.Sentences[0] = analyzer.Sentence{Text: "Fragment."}
-	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
 	require.NoError(t, err)
 	assert.Len(t, diagnostics.QualityOmissions, 1)
 	assert.Equal(t, 0, deck.Summary().Accepted)
 
 	projection = lifecycleProjection()
-	deck, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	deck, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
 	malformed := enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{9}, FallbackGloss: "<unsafe>"}
-	artifact, finalDiagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: malformed}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	artifact, finalDiagnostics, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: malformed}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Equal(t, "house · building", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, finalDiagnostics.DegradationCodes, cardexport.DegradationInvalidSenseSelection)
 }
 
 func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
 	wrongKey := work[0].CacheKey
 	wrongKey.ProviderVersion = "other"
-	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 
 	wrongRecordKey := work[0].CacheKey
 	wrongRecordKey.Provider = "other"
-	_, _, err = cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: wrongRecordKey, Translation: "house"}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: wrongRecordKey, Translation: "house"}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
 func TestPresentationLifecycleRequiresCompleteStandardResults(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
-	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(t.Context(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
 func TestPresentationLifecycleReportsFallbackGlossAndRejectsWrongCandidate(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
 	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{}, FallbackGloss: "a contextual house"}
-	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	artifact, diagnostics, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Equal(t, "a contextual house", artifact.Generated[0].Note.Gloss)
 	assert.Contains(t, diagnostics.DegradationCodes, cardexport.DegradationFallbackGlossApplied)
@@ -342,15 +342,15 @@ func TestPresentationLifecycleReportsFallbackGlossAndRejectsWrongCandidate(t *te
 
 	wrongKey := work[0].CacheKey
 	wrongKey.CanonicalLemma = "other"
-	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(context.Background(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
 func TestPresentationLifecycleReportsRejectedFallbackGloss(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
-	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{
+	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{
 		CacheKey: work[0].CacheKey,
 		Record:   enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{}, FallbackGloss: "<unsafe>"},
 	}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
@@ -361,10 +361,10 @@ func TestPresentationLifecycleReportsRejectedFallbackGloss(t *testing.T) {
 }
 
 func TestPresentationLifecycleReportsRejectedFallbackEvenWhenSenseSelectionIsValid(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
-	_, diagnostics, err := cardexport.NewPresentation(nil).Finalize(context.Background(), deck, []cardexport.StoredResult{{
+	_, diagnostics, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{
 		CacheKey: work[0].CacheKey,
 		Record:   enrichment.CacheEntry{CacheKey: work[0].CacheKey, SenseSelection: []int{0}, FallbackGloss: "<unsafe>"},
 	}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
@@ -373,7 +373,7 @@ func TestPresentationLifecycleReportsRejectedFallbackEvenWhenSenseSelectionIsVal
 }
 
 func TestPresentationLifecycleProjectionsAreDefensive(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(context.Background(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	first := deck.StorageProjection()
 	first.Items[0].Entry.CandidateSenses[0].Examples[0] = "changed"

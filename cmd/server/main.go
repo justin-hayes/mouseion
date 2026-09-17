@@ -44,7 +44,7 @@ const (
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := runHealthcheck(); err != nil {
+		if err := runHealthcheck(context.Background()); err != nil {
 			log.Fatalf("healthcheck failed: %v", err)
 		}
 		return
@@ -55,6 +55,7 @@ func main() {
 }
 
 func run() (err error) {
+	ctx := context.Background()
 	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return fmt.Errorf("invalid MOUSEION_SECRET: %w", err)
 	}
@@ -65,7 +66,7 @@ func run() (err error) {
 	if err := persistence.Migrate(databaseURL); err != nil {
 		return err
 	}
-	store, err := persistence.Open(context.Background(), databaseURL)
+	store, err := persistence.Open(ctx, databaseURL)
 	if err != nil {
 		return err
 	}
@@ -98,7 +99,7 @@ func run() (err error) {
 	}
 	var dictionaryIndex *dictionary.Index
 	if path := strings.TrimSpace(os.Getenv("MOUSEION_DICTIONARY_INDEX")); path != "" {
-		dictionaryIndex, err = openDictionaryIndex(path)
+		dictionaryIndex, err = openDictionaryIndex(ctx, path)
 		if err != nil {
 			return err
 		}
@@ -144,14 +145,14 @@ func run() (err error) {
 	}
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
-	if err = prepareddeck.EnsureRecoveryJob(context.Background(), store, riverClient); err != nil {
+	if err = prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
 		return err
 	}
-	if err = riverClient.Start(context.Background()); err != nil {
+	if err = riverClient.Start(ctx); err != nil {
 		return err
 	}
 	defer func() {
-		if stopErr := riverClient.Stop(context.Background()); stopErr != nil {
+		if stopErr := riverClient.Stop(ctx); stopErr != nil {
 			stopErr = fmt.Errorf("stop analysis workers: %w", stopErr)
 			if err == nil {
 				err = stopErr
@@ -170,7 +171,7 @@ func run() (err error) {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
 	catalogueSyncService := cataloguesync.NewService(store, riverClient, opdsService, capabilities)
-	if err = catalogueSyncService.RegisterAll(context.Background()); err != nil {
+	if err = catalogueSyncService.RegisterAll(ctx); err != nil {
 		return err
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
@@ -208,12 +209,12 @@ func closeIntoResult(name string, close func() error, result *error) {
 // runHealthcheck probes the server's own /healthz endpoint. It runs as the
 // image entrypoint's `healthcheck` subcommand, since the distroless image has
 // no shell or network utility for a Compose CMD-SHELL check.
-func runHealthcheck() error {
+func runHealthcheck(ctx context.Context) error {
 	target, err := healthcheckURL(os.Getenv("MOUSEION_HTTP_ADDR"))
 	if err != nil {
 		return err
 	}
-	return probeHealth(target, &http.Client{Timeout: 5 * time.Second})
+	return probeHealth(ctx, target, &http.Client{Timeout: 5 * time.Second})
 }
 
 func healthcheckURL(addr string) (string, error) {
@@ -234,7 +235,7 @@ func healthcheckURL(addr string) (string, error) {
 	return "http://" + net.JoinHostPort(host, port) + "/healthz", nil
 }
 
-func probeHealth(target string, client *http.Client) (err error) {
+func probeHealth(ctx context.Context, target string, client *http.Client) (err error) {
 	if err := validateHealthcheckTarget(target); err != nil {
 		return err
 	}
@@ -242,7 +243,12 @@ func probeHealth(target string, client *http.Client) (err error) {
 	probeClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	// validateHealthcheckTarget permits only this process's loopback health endpoint.
 	//nolint:gosec // the destination is constrained before the request is sent.
-	resp, err := probeClient.Get(target)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return err
+	}
+	//nolint:gosec // the destination is constrained before the request is sent.
+	resp, err := probeClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -272,8 +278,8 @@ func loopbackHost(host string) bool {
 // means the operator has not derived the index, so glosses fall back to the
 // morphology heuristic. A path that exists but is not a usable index is a
 // misconfiguration and must not silently degrade card output.
-func openDictionaryIndex(path string) (*dictionary.Index, error) {
-	index, err := dictionary.OpenIndex(path)
+func openDictionaryIndex(ctx context.Context, path string) (*dictionary.Index, error) {
+	index, err := dictionary.OpenIndex(ctx, path)
 	if err == nil {
 		log.Print("dictionary index loaded")
 		return index, nil

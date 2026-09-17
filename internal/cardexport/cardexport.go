@@ -1219,7 +1219,7 @@ func renderAccepted(ctx context.Context, owner, deckName string, entries []Rende
 		language = entries[0].Language
 	}
 	ankiDeckName := DeckName(language, deckName)
-	apkg, err := renderAPKG(ankiDeckName, notes, deckDescription(entries))
+	apkg, err := renderAPKG(ctx, ankiDeckName, notes, deckDescription(entries))
 	if err != nil {
 		return Artifact{}, fmt.Errorf("render Anki package: %w", err)
 	}
