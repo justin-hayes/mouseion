@@ -110,7 +110,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	require.NoError(t, err)
 	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, cardexport.RunFacts{Consent: result.Run.ExternalTranslationConsent, Configured: result.Run.ExternalTranslationConfigured, ExecutionMode: string(result.Run.ExecutionMode), TargetLanguage: result.Run.TargetLanguage, Provider: result.Run.Provider, ProviderVersion: result.Run.ProviderVersion})
 	require.NoError(t, err)
-	artifact.APKG = legacyPresentationArtifact(t, artifact.APKG)
+	artifact.APKG = legacyPresentationArtifact(t, ctx, artifact.APKG)
 	claimToken := uuid.NewString()
 	_, err = store.ClaimPreparedDeckFinalization(ctx, owner.ID, preparation.ID, result.Run.ID, 0, claimToken, time.Now().UTC().Add(time.Minute))
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	require.NoError(t, err)
 	before, err := store.DownloadDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
-	assert.Contains(t, collectionModels(t, before.Artifact), "letter-spacing: -0.015em")
+	assert.Contains(t, collectionModels(t, ctx, before.Artifact), "letter-spacing: -0.015em")
 	var knownBeforeRecovery int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, owner.ID).Scan(&knownBeforeRecovery))
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET retired_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, retired.ID)
@@ -194,7 +194,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	after, err := store.DownloadDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, before.Artifact, after.Artifact, "rerender did not replace the old presentation")
-	assert.Contains(t, collectionModels(t, after.Artifact), "letter-spacing: 0em")
+	assert.Contains(t, collectionModels(t, ctx, after.Artifact), "letter-spacing: 0em")
 	assert.Equal(t, result.Run.ID, updated.CurrentRunID)
 	assert.Equal(t, started.StudyingAt, updated.StudyingAt)
 	assert.Nil(t, updated.ReviewedAt)
@@ -232,14 +232,14 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	assert.Equal(t, 1, calls, "rerender of graduated deck performed provider work")
 }
 
-func legacyPresentationArtifact(t *testing.T, apkg []byte) []byte {
+func legacyPresentationArtifact(t *testing.T, ctx context.Context, apkg []byte) []byte {
 	t.Helper()
-	models := collectionModels(t, apkg)
+	models := collectionModels(t, ctx, apkg)
 	models = strings.Replace(models, "letter-spacing: 0em", "letter-spacing: -0.015em", 1)
-	return replaceCollectionModels(t, apkg, models)
+	return replaceCollectionModels(t, ctx, apkg, models)
 }
 
-func collectionModels(t *testing.T, apkg []byte) string {
+func collectionModels(t *testing.T, ctx context.Context, apkg []byte) string {
 	t.Helper()
 	collection := collectionBytes(t, apkg)
 	path := t.TempDir() + "/collection.anki2"
@@ -248,11 +248,11 @@ func collectionModels(t *testing.T, apkg []byte) string {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "SQLite database", db.Close)
 	var models string
-	require.NoError(t, db.QueryRow(`SELECT models FROM col`).Scan(&models))
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT models FROM col`).Scan(&models))
 	return models
 }
 
-func replaceCollectionModels(t *testing.T, apkg []byte, models string) []byte {
+func replaceCollectionModels(t *testing.T, ctx context.Context, apkg []byte, models string) []byte {
 	t.Helper()
 	reader, err := zip.NewReader(bytes.NewReader(apkg), int64(len(apkg)))
 	require.NoError(t, err)
@@ -261,7 +261,7 @@ func replaceCollectionModels(t *testing.T, apkg []byte, models string) []byte {
 	require.NoError(t, os.WriteFile(path, collection, 0o600))
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`UPDATE col SET models=?`, models)
+	_, err = db.ExecContext(ctx, `UPDATE col SET models=?`, models)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 	collection, err = os.ReadFile(path) //nolint:gosec // path is a file created in this test's TempDir.

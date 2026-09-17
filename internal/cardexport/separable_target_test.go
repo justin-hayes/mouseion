@@ -1,7 +1,6 @@
 package cardexport
 
 import (
-	"context"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -126,7 +125,7 @@ func TestNewManifestSnapshotPreservesFrozenParseForBolding(t *testing.T) {
 
 	deck, err := NewPresentation(nil).Restore(snapshot)
 	require.NoError(t, err)
-	artifact, _, err := NewPresentation(nil).Finalize(context.Background(), deck, nil, RunFacts{})
+	artifact, _, err := NewPresentation(nil).Finalize(t.Context(), deck, nil, RunFacts{})
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }
@@ -159,7 +158,7 @@ func TestRenderManifestBoldsSeparableVerbFromFrozenParse(t *testing.T) {
 
 	deck, err := NewPresentation(nil).Restore(snapshot)
 	require.NoError(t, err)
-	artifact, _, err := NewPresentation(nil).Finalize(context.Background(), deck, nil, RunFacts{})
+	artifact, _, err := NewPresentation(nil).Finalize(t.Context(), deck, nil, RunFacts{})
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }

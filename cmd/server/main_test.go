@@ -63,7 +63,7 @@ func TestProbeHealth(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	require.NoError(t, probeHealth(server.URL+"/healthz", client))
+	require.NoError(t, probeHealth(t.Context(), server.URL+"/healthz", client))
 	var redirectFollowed bool
 	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
@@ -74,29 +74,29 @@ func TestProbeHealth(t *testing.T) {
 		http.Error(w, "redirect followed", http.StatusInternalServerError)
 	}))
 	defer redirecting.Close()
-	require.Error(t, probeHealth(redirecting.URL+"/healthz", client))
+	require.Error(t, probeHealth(t.Context(), redirecting.URL+"/healthz", client))
 	assert.False(t, redirectFollowed, "healthcheck followed a redirect")
 
 	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "nope", http.StatusInternalServerError)
 	}))
 	defer failing.Close()
-	require.Error(t, probeHealth(failing.URL+"/healthz", client))
+	require.Error(t, probeHealth(t.Context(), failing.URL+"/healthz", client))
 
-	require.Error(t, probeHealth("http://127.0.0.1:1/healthz", client))
-	require.Error(t, probeHealth("http://192.0.2.1:1/healthz", client))
-	require.Error(t, probeHealth("http://127.0.0.1:1/not-healthz", client))
+	require.Error(t, probeHealth(t.Context(), "http://127.0.0.1:1/healthz", client))
+	require.Error(t, probeHealth(t.Context(), "http://192.0.2.1:1/healthz", client))
+	require.Error(t, probeHealth(t.Context(), "http://127.0.0.1:1/not-healthz", client))
 }
 
 func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {
-	index, err := openDictionaryIndex(filepath.Join(t.TempDir(), "absent.sqlite"))
+	index, err := openDictionaryIndex(t.Context(), filepath.Join(t.TempDir(), "absent.sqlite"))
 
 	require.NoError(t, err)
 	assert.Nil(t, index)
 }
 
 func TestOpenDictionaryIndexRejectsInvalidPath(t *testing.T) {
-	index, err := openDictionaryIndex(t.TempDir())
+	index, err := openDictionaryIndex(t.Context(), t.TempDir())
 
 	require.Error(t, err)
 	assert.Nil(t, index)
@@ -107,11 +107,11 @@ func TestOpenDictionaryIndexOpensValidIndex(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1')`)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
-	index, err := openDictionaryIndex(path)
+	index, err := openDictionaryIndex(t.Context(), path)
 
 	require.NoError(t, err)
 	require.NotNil(t, index)

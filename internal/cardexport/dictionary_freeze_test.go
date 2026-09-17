@@ -35,7 +35,7 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 		Senses:         []enrichment.LexicalSense{{Gloss: "building"}},
 	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 	assert.Equal(t, "building", entry.Gloss)
 	assert.Equal(t, "Häuser", entry.Plural)
 	assert.Equal(t, "/haʊ̯s/", entry.IPA)
@@ -66,7 +66,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 		Senses: []enrichment.LexicalSense{{Gloss: "rogue"}},
 	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "gauner", UPOS: "NOUN", Sentence: "Viele Gauner wurden gestern verhaftet.", TargetWord: "Gauner"}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 	note, err := makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
 	assert.Equal(t, "Gauner", note.Plural)
@@ -77,7 +77,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 		Senses: []enrichment.LexicalSense{{Gloss: "parents"}},
 	}}}
 	entry = Entry{Language: "de", CanonicalLemma: "eltern", UPOS: "NOUN", Sentence: "Meine Eltern wohnen seit Jahren am See.", TargetWord: "Eltern"}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 	note, err = makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
 	assert.Empty(t, note.Plural)
@@ -87,7 +87,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 	service := &lexicalResolver{lexical: lexicalStub{}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: `{"Gender":"Neut"}`}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 	note, err := makeNote("owner", renderInputFromEntry(Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`}))
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
@@ -108,7 +108,7 @@ func TestNonNounPluralIsNotRenderedOnCard(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			entry := Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: test.upos, Sentence: "Wir stehen auf.", TargetWord: "stehen auf"}
-			require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 			assert.Equal(t, "to get up", entry.Gloss)
 			assert.Empty(t, entry.Morphology)
 		})
@@ -119,13 +119,13 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Neut","Article":"das","Plural":"Häuser","IPA":""}]', 'Neut', 'das', 'Häuser', '', ''); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '', '')`)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Neut","Article":"das","Plural":"Häuser","IPA":""}]', 'Neut', 'das', 'Häuser', '', ''); INSERT INTO entries VALUES ('de', 'see', 'NOUN', '[{"Gloss":"lake","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"der","Plural":"Seen","IPA":""},{"Gloss":"sea","Examples":[],"Topics":["tief","salzig"],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Meere","IPA":""}]', 'Masc', 'der', 'Seen', '', '')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO entries VALUES ('de', 'straße', 'NOUN', '[{"Gloss":"street","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Straßen","IPA":""}]', 'Fem', 'die', 'Straßen', '', '')`)
+	_, err = db.ExecContext(t.Context(), `INSERT INTO entries VALUES ('de', 'straße', 'NOUN', '[{"Gloss":"street","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"die","Plural":"Straßen","IPA":""}]', 'Fem', 'die', 'Straßen', '', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
-	index, err := dictionary.OpenIndex(path)
+	index, err := dictionary.OpenIndex(t.Context(), path)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if err := index.Close(); err != nil {
@@ -138,7 +138,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus",
 		Morphology: `{"Gender":"Masc","Article":"der"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 
 	note, err := makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Die Straße führt zum Bahnhof.", TargetWord: "Straße",
 		Morphology: `{"Gender":"Masc"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &sharpS))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &sharpS))
 	assert.Equal(t, `{"Article":"die","Gender":"Fem","Plural":"Straßen"}`, sharpS.Morphology)
 	assert.Equal(t, "street", sharpS.Gloss)
 	assert.Equal(t, "Straßen", sharpS.Plural)
@@ -174,7 +174,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Die See ist tief und salzig.", TargetWord: "See",
 		Morphology: `{"Gender":"Masc","Article":"der"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &ranked))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &ranked))
 	note, err = makeNote("owner", renderInputFromEntry(ranked))
 	require.NoError(t, err)
 	assert.Equal(t, "die", note.Article)
@@ -186,7 +186,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Der Baum steht dort.", TargetWord: "Baum",
 		Morphology: `{"Gender":"Masc"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(context.Background(), &unindexed))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &unindexed))
 	assert.Empty(t, unindexed.Gloss)
 	assert.Empty(t, unindexed.DictionaryProviderVersion)
 	note, err = makeNote("owner", renderInputFromEntry(unindexed))
@@ -199,11 +199,11 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.Exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""},{"Gloss":"home","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""}]', 'Fem', 'la', 'case', '', ''); INSERT INTO entries VALUES ('it', 'libro', 'NOUN', '[{"Gloss":"book","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"il","Plural":"libri","IPA":""}]', 'Masc', 'il', 'libri', '', ''); INSERT INTO entries VALUES ('it', 'zaino', 'NOUN', '[{"Gloss":"backpack","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"lo","Plural":"zaini","IPA":""}]', 'Masc', 'lo', 'zaini', '', ''); INSERT INTO entries VALUES ('it', 'albero', 'NOUN', '[{"Gloss":"tree","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"l''","Plural":"alberi","IPA":""}]', 'Masc', 'l''', 'alberi', '', '')`)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""},{"Gloss":"home","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Fem","Article":"la","Plural":"case","IPA":""}]', 'Fem', 'la', 'case', '', ''); INSERT INTO entries VALUES ('it', 'libro', 'NOUN', '[{"Gloss":"book","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"il","Plural":"libri","IPA":""}]', 'Masc', 'il', 'libri', '', ''); INSERT INTO entries VALUES ('it', 'zaino', 'NOUN', '[{"Gloss":"backpack","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"lo","Plural":"zaini","IPA":""}]', 'Masc', 'lo', 'zaini', '', ''); INSERT INTO entries VALUES ('it', 'albero', 'NOUN', '[{"Gloss":"tree","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"Masc","Article":"l''","Plural":"alberi","IPA":""}]', 'Masc', 'l''', 'alberi', '', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
-	index, err := dictionary.OpenIndex(path)
+	index, err := dictionary.OpenIndex(t.Context(), path)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if err := index.Close(); err != nil {
@@ -225,7 +225,7 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 				Sentence: test.sentence, TargetWord: test.target,
 				Morphology: `{"Gender":"Masc","Article":"il"}`,
 			}
-			require.NoError(t, service.resolveLexicalEntry(context.Background(), &entry))
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
 
 			note, err := makeNote("owner", renderInputFromEntry(entry))
 			require.NoError(t, err)

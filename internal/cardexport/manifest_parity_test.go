@@ -2,7 +2,6 @@ package cardexport
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -29,9 +28,9 @@ func TestManifestSnapshotRetainsHistoricalDigestAndRenderParity(t *testing.T) {
 	require.NoError(t, err)
 	provenance := enrichment.Provenance{Provider: key.Provider, ProviderVersion: key.ProviderVersion}
 	exact := []ExactEnrichment{{CacheKey: key, Result: enrichment.Result{Candidate: candidate, Translation: enrichment.Field[string]{Value: "house", Available: true, Provenance: provenance}, SentenceTranslation: enrichment.Field[string]{Value: "The old house is surprisingly large.", Available: true, Provenance: provenance}}}}
-	want, _, err := renderManifest(context.Background(), bound, exact)
+	want, _, err := renderManifest(t.Context(), bound, exact)
 	require.NoError(t, err)
-	got, _, err := renderManifest(context.Background(), rebuilt, exact)
+	got, _, err := renderManifest(t.Context(), rebuilt, exact)
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(want.APKG, got.APKG))
 	assert.Equal(t, want.TSV, got.TSV)
