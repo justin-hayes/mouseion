@@ -347,15 +347,18 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	rows, queryErr := s.pool.Query(ctx, `SELECT id FROM river_job WHERE args->>'owner_id'=$1 AND args->>'preparation_id'=$2 AND state IN ('available','pending','running','retryable','scheduled') ORDER BY id`, owner, id)
 	if queryErr == nil {
 		var jobIDs []int64
+		complete := true
 		for rows.Next() {
 			var jobID int64
 			if scanErr := rows.Scan(&jobID); scanErr != nil {
+				complete = false
 				break
 			}
 			jobIDs = append(jobIDs, jobID)
 		}
+		complete = complete && rows.Err() == nil
 		rows.Close()
-		if s.client != nil {
+		if complete && s.client != nil {
 			for _, jobID := range jobIDs {
 				_, _ = s.client.JobCancel(ctx, jobID)
 			}
