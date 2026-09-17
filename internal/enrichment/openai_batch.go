@@ -239,12 +239,12 @@ func (c *OpenAIBatchClient) UploadFile(ctx context.Context, filename string, con
 	if closeErr := reader.CloseWithError(err); closeErr != nil {
 		err = errors.Join(err, closeErr)
 	}
-	if writeErr := group.Wait(); writeErr != nil && err == nil {
+	if writeErr := group.Wait(); writeErr != nil {
 		class := ProviderErrorTransport
 		if errors.Is(writeErr, errBatchFileTooLarge) {
 			class = ProviderErrorResponseTooLarge
 		}
-		err = providerError("upload file", class, 0, writeErr)
+		err = errors.Join(err, providerError("upload file", class, 0, writeErr))
 	}
 	if err != nil {
 		return OpenAIFile{}, err

@@ -170,8 +170,11 @@ func (c *OpenAITranslationClient) TranslateWithUsage(ctx context.Context, input 
 	}
 	defer func() { err = errors.Join(err, resp.Body.Close()) }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
-		return TranslationResponse{}, TranslationUsage{}, &LLMHTTPError{StatusCode: resp.StatusCode}
+		var responseErr error = &LLMHTTPError{StatusCode: resp.StatusCode}
+		if _, copyErr := io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10)); copyErr != nil {
+			responseErr = errors.Join(responseErr, fmt.Errorf("drain LLM response: %w", copyErr))
+		}
+		return TranslationResponse{}, TranslationUsage{}, responseErr
 	}
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxTranslationResponseBytes+1))
 	if err != nil {

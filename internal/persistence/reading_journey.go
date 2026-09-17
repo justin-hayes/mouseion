@@ -47,21 +47,19 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language s
 	return journey, nil
 }
 
-func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, language string, create bool) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
-	tx, err := s.pool.Begin(ctx)
+func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, language string, create bool) (tx pgx.Tx, revision int64, members []readingJourneyMembership, exists, cleaned bool, err error) {
+	tx, err = s.pool.Begin(ctx)
 	if err != nil {
 		return nil, 0, nil, false, false, err
 	}
-	rollback := func(err error) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
-		_ = tx.Rollback(ctx)
-		return nil, 0, nil, false, false, err
+	rollback := func(cause error) (pgx.Tx, int64, []readingJourneyMembership, bool, bool, error) {
+		return nil, 0, nil, false, false, errors.Join(cause, txcleanup.Rollback(ctx, tx))
 	}
 	if create {
 		if err = sqlcgen.New(tx).InsertReadingJourneyIfAbsent(ctx, sqlcgen.InsertReadingJourneyIfAbsentParams{Owner: owner, Language: language}); err != nil {
 			return rollback(err)
 		}
 	}
-	var revision int64
 	revision, err = sqlcgen.New(tx).GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		if create {
@@ -81,7 +79,6 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 	if err != nil {
 		return rollback(err)
 	}
-	var members []readingJourneyMembership
 	for _, row := range rows {
 		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: row.CreatedAt})
 	}

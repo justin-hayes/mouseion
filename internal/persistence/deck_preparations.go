@@ -552,11 +552,11 @@ func (s *PostgresStore) transitionDeckPreparation(ctx context.Context, owner, id
 	err = missing(err)
 	p := deckPreparationFromModel(model)
 	if errors.Is(err, ErrNotFound) {
-		_ = tx.Rollback(ctx)
+		rollbackErr := txcleanup.Rollback(ctx, tx)
 		if _, getErr := s.GetDeckPreparation(ctx, owner, id); getErr != nil {
-			return p, getErr
+			return p, errors.Join(getErr, rollbackErr)
 		}
-		return p, ErrInvalidTransition
+		return p, errors.Join(ErrInvalidTransition, rollbackErr)
 	}
 	if err != nil {
 		return p, err

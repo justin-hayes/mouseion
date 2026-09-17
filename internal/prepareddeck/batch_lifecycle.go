@@ -339,8 +339,8 @@ func (w *BatchPollWorker) streamFile(group *errgroup.Group, ctx context.Context,
 	file := &streamedBatchFile{reader: reader}
 	group.Go(func() error {
 		file.err = w.Provider.FileContent(ctx, fileID, writer)
-		if closeErr := writer.CloseWithError(file.err); closeErr != nil && file.err == nil {
-			file.err = closeErr
+		if closeErr := writer.CloseWithError(file.err); closeErr != nil {
+			file.err = errors.Join(file.err, closeErr)
 		}
 		return file.err
 	})

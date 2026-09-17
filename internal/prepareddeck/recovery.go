@@ -108,9 +108,9 @@ func (w *RecoveryWorker) enqueueRerender(ctx context.Context, item domain.Prepar
 
 func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRecoveryWork) (err error) {
 	if item.Kind == "outcome" {
-		run, err := w.Store.GetPreparedDeckRun(ctx, item.OwnerID, item.PreparationID, item.RunID)
-		if err != nil {
-			return err
+		run, runErr := w.Store.GetPreparedDeckRun(ctx, item.OwnerID, item.PreparationID, item.RunID)
+		if runErr != nil {
+			return runErr
 		}
 		// The persisted execution mode is the only authority during recovery.
 		// Batch outcomes are repaired by their durable chunk jobs.
@@ -125,21 +125,21 @@ func (w *RecoveryWorker) repair(ctx context.Context, item domain.PreparedDeckRec
 			}
 			generation = redispatched.DispatchGeneration
 		}
-		tx, err := w.Store.Pool().Begin(ctx)
-		if err != nil {
-			return err
+		tx, beginErr := w.Store.Pool().Begin(ctx)
+		if beginErr != nil {
+			return beginErr
 		}
 		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 		args := StandardTranslationJobArgs{OwnerID: item.OwnerID, PreparationID: item.PreparationID, RunID: item.RunID, Ordinal: item.Ordinal, Generation: generation}
-		inserted, err := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
-		if err != nil {
-			return err
+		inserted, insertErr := w.Client.InsertTx(ctx, tx, args, durableInsertOptsForQueue(TranslationQueue))
+		if insertErr != nil {
+			return insertErr
 		}
 		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
 			return errors.New("River did not return live standard translation recovery work")
 		}
-		if err = w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, generation, inserted.Job.ID); err != nil {
-			return err
+		if setErr := w.Store.SetPreparedDeckTranslationJobTx(ctx, tx, item.OwnerID, item.PreparationID, item.RunID, item.Ordinal, generation, inserted.Job.ID); setErr != nil {
+			return setErr
 		}
 		return tx.Commit(ctx)
 	}

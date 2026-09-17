@@ -245,7 +245,11 @@ func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {
 }
 func (h *Handler) rotateCSRF(w http.ResponseWriter) string {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		log.Printf("generate CSRF token: %v", err)
+		http.Error(w, "unable to establish CSRF protection", http.StatusInternalServerError)
+		return ""
+	}
 	token := base64.RawURLEncoding.EncodeToString(b)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: token, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
 	return token
