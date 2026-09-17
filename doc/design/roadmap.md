@@ -117,8 +117,8 @@ Before an implementation issue is complete its PR must:
 - satisfy every acceptance criterion;
 - add or update tests for changed behavior;
 - keep generated Templ output committed and reproducible;
-- pass `templ generate`, `go test ./...`, `go build ./...`, `go vet ./...`,
-  `make lint`, and `git diff --check`;
+- pass `templ generate`, `go test ./...`, `go build ./...`, `make lint`, and
+  `git diff --check`;
 - run the applicable integration harness when the environment supports it;
 - preserve native server-rendered forms/links with HTMX only as enhancement;
 - keep the diff limited to the issue's vertical slice;

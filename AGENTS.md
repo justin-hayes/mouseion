@@ -23,7 +23,8 @@ make templ            # templ generate (check in the generated *_templ.go)
 make build            # go build ./... + python compileall
 make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
 make test-integration # go test -tags=integration ./internal/...
-make lint             # go vet ./... + ruff check nlp/src nlp/tests
+make lint-go          # pinned golangci-lint over the complete Go module
+make lint             # make lint-go + ruff check nlp/src nlp/tests
 make browser-smoke    # Playwright against cmd/fixtureserver
 make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```
@@ -42,6 +43,11 @@ Non-obvious setup:
   `mkdir -p .tmp && (make test-integration >.tmp/integration.log 2>&1; printf '%s\n' $? >.tmp/integration.exit) & printf '%s\n' $! >.tmp/integration.pid`
   Check progress with `tail -n 100 .tmp/integration.log`; when the PID exits, read `.tmp/integration.exit` and treat only `0` as passing. Remove the reusable container after the run with `docker rm -f mouseion-test-postgres` when it is no longer needed.
 - `make dev` requires a running Postgres (`MOUSEION_DATABASE_URL`) and NLP gRPC (`MOUSEION_NLP_ADDR`, default `localhost:50051`); `MOUSEION_SECRET` is validated at startup.
+
+For Go-only iteration, run `make lint-go` followed by `go test ./...`. Before
+handoff, run `make lint` for the whole project. When `.golangci.yml` changes,
+verify it with `golangci-lint config verify`; `golangci-lint run --fast-only ./...`
+is optional fast feedback, not a replacement for the final full-tree run.
 
 ## Generated artifacts
 

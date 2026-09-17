@@ -41,6 +41,7 @@ jobs:
               - 'sqlc/**'
               - 'migrations/**'
               - 'Makefile'
+              - '.golangci.yml'
               - '.github/workflows/ci.yml'
 
             python:
@@ -92,12 +93,6 @@ jobs:
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.go == 'true'
         run: go test ./...
-
-      - name: Go vet
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
-        run: go vet ./...
 
       # ------------------------------------------------------------------
       # Python
@@ -217,6 +212,28 @@ jobs:
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.generated == 'true'
         run: git diff --exit-code
+
+  golangci:
+    name: Go lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47 # v9.0.0
+        with:
+          version: v2.13.2
 
   integration:
     name: Integration tests
