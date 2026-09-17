@@ -29,7 +29,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 	var languageProfilesExists, languageProfilesForeignKeyExists bool
 	err = store.Pool().QueryRow(ctx, `SELECT to_regclass('public.language_profiles') IS NOT NULL`).Scan(&languageProfilesExists)
 	require.NoError(t, err)

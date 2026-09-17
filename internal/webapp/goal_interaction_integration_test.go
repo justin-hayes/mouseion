@@ -26,7 +26,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "goal-integration-alice", "alice-password", false)

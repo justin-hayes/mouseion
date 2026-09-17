@@ -57,7 +57,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	bookEPUB := testEPUBVariant(t, "complete-loop-book", "Complete Loop Book", "Heute liest Anna das alte Haus. Heute liest Anna das alte Haus. Heute liest Anna das alte Haus.")
 
@@ -117,7 +117,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	require.NoError(t, prepareddeck.EnsureRecoveryJob(ctx, store, analysisClient))
 	require.NoError(t, catalogueSyncService.RegisterAll(ctx))
 	require.NoError(t, analysisClient.Start(ctx))
-	defer analysisClient.Stop(context.Background())
+	testutil.Cleanup(t, "analysis River client", func() error { return analysisClient.Stop(context.Background()) })
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{

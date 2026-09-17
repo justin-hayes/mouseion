@@ -115,7 +115,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	testutil.Cleanup(t, "store", store.Close)
 	owner, err := store.CreateUser(ctx, "standard-worker-"+uuid.NewString(), false)
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: "Integration", MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
@@ -180,7 +180,7 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 	provider.barrier = 2
 	provider.released = make(chan struct{})
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "River client", func() error { return client.Stop(context.Background()) })
 	outcomes := waitStandardOutcomes(t, ctx, run, len(run.keys))
 	calls, max := provider.stats()
 	assert.Equal(t, len(run.keys), calls, "provider calls=%d max_in_flight=%d", calls, max)
@@ -415,7 +415,7 @@ func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *
 	}
 	startedAt := time.Now().UTC()
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "River client", func() error { return client.Stop(context.Background()) })
 
 	outcomes := waitStandardOutcomes(t, ctx, run, 1)
 	require.Len(t, outcomes, 1)
@@ -462,7 +462,7 @@ func TestStandardWorkerRestartRestoresPendingProjection(t *testing.T) {
 	AddStandardTranslationWorkerWithDependencies(workers, run.store, restarted, provider, PreparedDeckConfig{}, time.Second)
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	require.NoError(t, restarted.Start(ctx))
-	defer restarted.Stop(context.Background())
+	testutil.Cleanup(t, "restarted River client", func() error { return restarted.Stop(context.Background()) })
 	outcomes = waitStandardOutcomes(t, ctx, run, 1)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
 	calls, _ := provider.stats()
@@ -503,7 +503,7 @@ func TestStandardWorkerRestartSkipsCompletedOutcome(t *testing.T) {
 	require.NotNil(t, inserted.Job)
 	require.NoError(t, tx.Commit(ctx))
 	require.NoError(t, restarted.Start(ctx))
-	defer restarted.Stop(context.Background())
+	testutil.Cleanup(t, "restarted River client", func() error { return restarted.Stop(context.Background()) })
 	for {
 		job, err := restarted.JobGet(ctx, inserted.Job.ID)
 		require.NoError(t, err)

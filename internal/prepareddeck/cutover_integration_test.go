@@ -24,7 +24,7 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 
 	owner, err := store.CreateUser(ctx, "planner-equivalence", false)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func plannerPlan(t *testing.T, ctx context.Context, store *persistence.PostgresS
 	t.Helper()
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)
-	defer tx.Rollback(ctx)
+	testutil.Cleanup(t, "transaction", func() error { return tx.Rollback(ctx) })
 	plan, err := planner.PlanPreparedDeckRun(ctx, tx, preparation, consent)
 	require.NoError(t, err)
 	return plan

@@ -76,7 +76,11 @@ func TestAnkiPackageContractAndStableIDs(t *testing.T) {
 	require.NoError(t, err)
 	db, err := sql.Open("sqlite", dbPath)
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("SQLite database cleanup failed: %v", err)
+		}
+	})
 	var modelsJSON, decksJSON, dconfJSON string
 	err = db.QueryRow(`SELECT models,decks,dconf FROM col`).Scan(&modelsJSON, &decksJSON, &dconfJSON)
 	require.NoError(t, err)
@@ -232,7 +236,11 @@ func collectionColumn(t *testing.T, apkg []byte, column string) string {
 		require.NoError(t, os.WriteFile(dbPath, dbBytes, 0o600))
 		db, openErr := sql.Open("sqlite", dbPath)
 		require.NoError(t, openErr)
-		defer db.Close()
+		t.Cleanup(func() {
+			if err := db.Close(); err != nil {
+				t.Errorf("SQLite database cleanup failed: %v", err)
+			}
+		})
 		var value string
 		require.NoError(t, db.QueryRow("SELECT "+column+" FROM col").Scan(&value))
 		return value
@@ -414,7 +422,11 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	path := t.TempDir() + "/collection.anki2"
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("SQLite database cleanup failed: %v", err)
+		}
+	})
 	first := german
 	first.Key = strings.Repeat("a", 64)
 	first.Identity = "identity-a"
@@ -426,7 +438,11 @@ func TestAnkiCardSchemaRegressionContract(t *testing.T) {
 	require.NoError(t, err)
 	rows, err := db.Query(`SELECT flds,sfld,csum FROM notes`)
 	require.NoError(t, err)
-	defer rows.Close()
+	t.Cleanup(func() {
+		if err := rows.Close(); err != nil {
+			t.Errorf("SQLite rows cleanup failed: %v", err)
+		}
+	})
 	seen := make(map[string]bool, 2)
 	for rows.Next() {
 		var fields, sortField string
@@ -479,7 +495,7 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		}
 		rc, _ := f.Open()
 		dbBytes, _ := io.ReadAll(rc)
-		rc.Close()
+		require.NoError(t, rc.Close())
 		path := t.TempDir() + "/collection.anki2"
 		err = os.WriteFile(path, dbBytes, 0o600)
 		require.NoError(t, err)
@@ -487,7 +503,12 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 		require.NoError(t, err)
 		break
 	}
-	defer db.Close()
+	require.NotNil(t, db)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("SQLite database cleanup failed: %v", err)
+		}
+	})
 	var dconfJSON string
 	err = db.QueryRow(`SELECT dconf FROM col`).Scan(&dconfJSON)
 	require.NoError(t, err)
@@ -507,7 +528,11 @@ func TestAnkiNewCardOrderFollowsTextPosition(t *testing.T) {
 	// Every card's position must ascend 1..N, bound to text order.
 	rows, err := db.Query(`SELECT due FROM cards ORDER BY due`)
 	require.NoError(t, err)
-	defer rows.Close()
+	t.Cleanup(func() {
+		if err := rows.Close(); err != nil {
+			t.Errorf("SQLite rows cleanup failed: %v", err)
+		}
+	})
 	var dues []int64
 	for rows.Next() {
 		var due int64

@@ -33,7 +33,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "store", store.Close)
 
 	owner, err := store.CreateUser(ctx, "acceptance-rerender-owner", false)
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	var snooze *river.JobSnoozeError
 	require.ErrorAs(t, recovery.Work(ctx, nil), &snooze)
 	require.NoError(t, rerenderClient.Start(ctx))
-	defer rerenderClient.Stop(context.Background())
+	testutil.Cleanup(t, "River client", func() error { return rerenderClient.Stop(context.Background()) })
 
 	var updated, updatedOther, updatedGraduated domain.DeckPreparation
 	for {
@@ -246,7 +246,7 @@ func collectionModels(t *testing.T, apkg []byte) string {
 	require.NoError(t, os.WriteFile(path, collection, 0o600))
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	defer db.Close()
+	testutil.Cleanup(t, "SQLite database", db.Close)
 	var models string
 	require.NoError(t, db.QueryRow(`SELECT models FROM col`).Scan(&models))
 	return models
