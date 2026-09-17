@@ -20,7 +20,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "enrichment store", store.Close)
 	when := time.Date(2026, 8, 21, 2, 3, 4, 0, time.UTC)
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "1", DictionaryProviderVersion: "dictionary-v4", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
 	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house", CachedAt: when})
@@ -91,7 +91,7 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "enrichment store", store.Close)
 
 	provider := &postgresFallbackProvider{}
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, provider, store)

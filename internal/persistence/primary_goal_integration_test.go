@@ -15,9 +15,7 @@ import (
 func TestPrimaryGoalPersistence(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "goal-alice", false)
 	require.NoError(t, err)
@@ -107,9 +105,7 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 
 	owner, err := store.CreateUser(ctx, "goal-finish", false)
 	require.NoError(t, err)

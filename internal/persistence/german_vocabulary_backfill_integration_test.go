@@ -14,9 +14,7 @@ import (
 
 func TestBackfillGermanVocabularyMergesMutableIdentityProjections(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "german-backfill", false)
 	require.NoError(t, err)
 	deckID := ""
@@ -72,9 +70,7 @@ func TestBackfillGermanVocabularyMergesMutableIdentityProjections(t *testing.T) 
 
 func TestBackfillGermanVocabularyRollsBackCuratedConflict(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "german-backfill-conflict", false)
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "conflict", Title: "Conflict", MediaType: "text/plain", ContentHash: "conflict-hash", Content: []byte("Haß"), FullText: "Haß"})

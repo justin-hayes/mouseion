@@ -16,9 +16,7 @@ import (
 func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 
 	owner, err := store.CreateUser(ctx, "refresh-owner", false)
 	require.NoError(t, err)

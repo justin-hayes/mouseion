@@ -14,9 +14,7 @@ import (
 
 func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	alice, err := store.CreateUser(ctx, "concordance-alice", false)
 	require.NoError(t, err)
@@ -137,9 +135,7 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 
 func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	owner, err := store.CreateUser(ctx, "cardexport-sentence-owner", false)
 	require.NoError(t, err)

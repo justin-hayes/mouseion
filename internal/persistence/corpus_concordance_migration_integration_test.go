@@ -13,9 +13,7 @@ import (
 
 func TestCorpusConcordanceSchemaPersistsZeroTokenSentencesAndTokens(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	owner, err := store.CreateUser(ctx, "concordance-owner", false)
 	require.NoError(t, err)

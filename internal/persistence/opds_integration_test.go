@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,9 +17,7 @@ func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	ctx := context.Background()
 	databaseURL := integrationDatabase(t, ctx)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 	alice, err := store.CreateUser(ctx, "alice", false)
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "bob", false)
@@ -28,7 +27,10 @@ func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
 	assert.Equal(t, "plain-password-must-not-be-stored", created.Password)
 	pool, err := pgxpool.New(ctx, databaseURL)
 	require.NoError(t, err)
-	defer pool.Close()
+	testutil.Cleanup(t, "opds pool", func() error {
+		pool.Close()
+		return nil
+	})
 	var legacyID string
 	err = pool.QueryRow(ctx, `INSERT INTO opds_connections(name,url,language) VALUES('Preserved legacy catalog','https://legacy.example/opds','de') RETURNING id`).Scan(&legacyID)
 	require.NoError(t, err)

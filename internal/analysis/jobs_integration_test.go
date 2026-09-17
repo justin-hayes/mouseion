@@ -43,7 +43,7 @@ func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) 
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "analysis store", store.Close)
 	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "depparse-missing", false)
 	require.NoError(t, err)
@@ -58,7 +58,9 @@ func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) 
 	client, err := NewClient(store.Pool(), fake, capabilities, selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "analysis client", func() error {
+		return client.Stop(context.Background())
+	})
 
 	service := NewService(store.Pool(), client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -83,7 +85,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	testutil.Cleanup(t, "analysis store", store.Close)
 	if err = MigrateRiver(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +130,9 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if err = client.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "analysis client", func() error {
+		return client.Stop(context.Background())
+	})
 	service := NewService(store.Pool(), client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	if err != nil {
@@ -216,7 +220,7 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "analysis store", store.Close)
 	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "main-text-analysis", false)
 	require.NoError(t, err)
@@ -263,7 +267,9 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "analysis client", func() error {
+		return client.Stop(context.Background())
+	})
 	service := NewService(store.Pool(), client)
 
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, selectedSource.ID)
@@ -351,7 +357,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "analysis store", store.Close)
 	require.NoError(t, MigrateRiver(ctx, pool))
 	alice, _ := store.CreateUser(ctx, "jobs-alice", false)
 	bob, _ := store.CreateUser(ctx, "jobs-bob", false)
@@ -380,7 +386,9 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "analysis client", func() error {
+		return client.Stop(context.Background())
+	})
 	service := NewService(store.Pool(), client)
 	bobSource, err := putAnalysisSource(ctx, store, bob.ID, "bob-job-source", "Bob Job", "Haus.", "sha256:bob-job")
 	require.NoError(t, err)
@@ -507,7 +515,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "analysis store", store.Close)
 	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "journey-lifecycle", false)
 	require.NoError(t, err)
@@ -538,7 +546,9 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "analysis client", func() error {
+		return client.Stop(context.Background())
+	})
 	service := NewService(store.Pool(), client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	require.NoError(t, err)

@@ -15,9 +15,7 @@ import (
 
 func TestCreateFirstUserAndSessionIsAtomicAndOwnerReady(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	exists, err := store.HasUsers(ctx)
 	require.NoError(t, err)
 	assert.False(t, exists, "fresh users")
@@ -43,9 +41,7 @@ func integrationDatabase(t *testing.T, ctx context.Context) string {
 func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	ctx := context.Background()
 	url := integrationDatabase(t, ctx)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	alice, err := store.CreateUser(ctx, "alice", false)
 	require.NoError(t, err)

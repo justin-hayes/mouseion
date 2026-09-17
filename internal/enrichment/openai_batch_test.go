@@ -34,7 +34,13 @@ func TestOpenAIBatchClientFilesAndBatchOperations(t *testing.T) {
 			assert.Equal(t, "604800", r.FormValue("expires_after[seconds]"))
 			file, header, err := r.FormFile("file")
 			require.NoError(t, err)
-			defer file.Close()
+			// The multipart file is owned by this request and must close before
+			// the handler returns; t.Cleanup would run after that ownership ends.
+			defer func() {
+				if err := file.Close(); err != nil {
+					t.Errorf("multipart file cleanup failed: %v", err)
+				}
+			}()
 			content, _ := io.ReadAll(file)
 			assert.Equal(t, "run-opaque.jsonl", header.Filename)
 			assert.Equal(t, "{\"custom_id\":\"opaque\"}\n", string(content))

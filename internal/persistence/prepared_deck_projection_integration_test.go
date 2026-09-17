@@ -20,9 +20,7 @@ import (
 
 func TestLoadPreparedDeckStorageProjectionSupportsHistoricalSchemas(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		t.Run(fmt.Sprintf("v%d", schema), func(t *testing.T) {
@@ -64,9 +62,7 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 	}
 
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			snapshot := test.snapshot("")
@@ -77,7 +73,8 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 				if test.name == "partial cache identity" {
 					candidateDigests := make([]string, len(snapshot.Items))
 					for i, item := range snapshot.Items {
-						candidateDigests[i], err = cardexport.CandidateDigestVersion(item, snapshot.SchemaVersion)
+						candidateDigest, err := cardexport.CandidateDigestVersion(item, snapshot.SchemaVersion)
+						candidateDigests[i] = candidateDigest
 						require.NoError(t, err)
 					}
 					return strings.Repeat("a", 64), candidateDigests
@@ -98,9 +95,7 @@ func TestLoadPreparedDeckStorageProjectionRejectsPersistedCorruption(t *testing.
 
 func TestPostgresRejectsDuplicatePreparedDeckCandidateDigest(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	owner, preparationID, runID, snapshot := insertProjectionFixture(t, ctx, store, projectionSnapshot(t, "", cardexport.ManifestSchemaVersion), nil)
 	_, candidateDigests, err := snapshot.Digests()

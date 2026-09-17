@@ -15,9 +15,7 @@ import (
 func TestBookAliasConnectionContract(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 
 	owner, err := store.CreateUser(ctx, "alias-contract-owner", false)
 	require.NoError(t, err)

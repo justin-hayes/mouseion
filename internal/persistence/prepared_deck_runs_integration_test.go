@@ -22,9 +22,7 @@ import (
 
 func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	owner, err := store.CreateUser(ctx, "durable-run-owner", false)
 	require.NoError(t, err)
@@ -71,7 +69,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.NoError(t, err)
 	result, err := store.FreezePreparedDeckRunTx(ctx, tx, params)
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, tx)
 		require.NoError(t, err)
 	}
 	err = tx.Commit(ctx)
@@ -92,7 +90,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.NoError(t, err)
 	repeated, err := store.FreezePreparedDeckRunTx(ctx, retryTx, params)
 	if err != nil {
-		_ = retryTx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, retryTx)
 		require.NoError(t, err)
 	}
 	err = retryTx.Commit(ctx)
@@ -109,7 +107,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		}
 		result, freezeErr := store.FreezePreparedDeckRunTx(ctx, changedTx, changedMode)
 		if freezeErr != nil {
-			_ = changedTx.Rollback(ctx)
+			rollbackIntegrationTx(t, ctx, changedTx)
 			return result, freezeErr
 		}
 		return result, changedTx.Commit(ctx)
@@ -125,7 +123,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		}
 		result, freezeErr := store.FreezePreparedDeckRunTx(ctx, changedTx, changedTarget)
 		if freezeErr != nil {
-			_ = changedTx.Rollback(ctx)
+			rollbackIntegrationTx(t, ctx, changedTx)
 			return result, freezeErr
 		}
 		return result, changedTx.Commit(ctx)
@@ -180,7 +178,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.NoError(t, err)
 	err = store.SetPreparedDeckBatchSubmissionJobTx(ctx, jobTx, owner.ID, preparation.ID, result.Run.ID, result.Chunks[0].ID, 1, 9001)
 	if err != nil {
-		_ = jobTx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, jobTx)
 		require.NoError(t, err)
 	}
 	err = jobTx.Commit(ctx)
@@ -195,7 +193,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		return 9003, nil
 	})
 	if err != nil {
-		_ = submitTx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, submitTx)
 		require.NoError(t, err)
 	}
 	assert.Equal(t, domain.PreparedDeckBatchSubmitted, chunk.State, "submitted chunk")
@@ -285,9 +283,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 
 func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "rerender-owner", false)
 	require.NoError(t, err)
 	source := domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "rerender-book", Title: "Rerender Book", MediaType: "text/plain", ContentHash: "rerender-hash", Content: []byte("Haus"), FullText: "Haus"}
@@ -356,9 +352,7 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 
 func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "durable-cancel-owner", false)
 	require.NoError(t, err)
 	source := domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "durable-cancel-book", Title: "Cancel Book", MediaType: "text/plain", ContentHash: "durable-cancel-hash", Content: []byte("Haus"), FullText: "Haus"}
@@ -379,7 +373,7 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 		require.NoError(t, beginErr)
 		result, freezeErr := store.FreezePreparedDeckRunTx(ctx, tx, params)
 		if freezeErr != nil {
-			_ = tx.Rollback(ctx)
+			rollbackIntegrationTx(t, ctx, tx)
 			require.NoError(t, freezeErr)
 		}
 		require.NoError(t, tx.Commit(ctx))
@@ -390,7 +384,7 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 	require.NoError(t, err)
 	err = store.SetPreparedDeckBatchSubmissionJobTx(ctx, jobTx, owner.ID, preparation.ID, first.Run.ID, first.Chunks[0].ID, 1, 9101)
 	if err != nil {
-		_ = jobTx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, jobTx)
 		require.NoError(t, err)
 	}
 	err = jobTx.Commit(ctx)
@@ -426,9 +420,7 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 
 func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGenerations(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "batch-reconcile-owner", false)
 	require.NoError(t, err)
 	source := domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "batch-reconcile-book", Title: "Batch Reconcile", MediaType: "text/plain", ContentHash: "batch-reconcile-hash", Content: []byte("Haus Baum"), FullText: "Haus Baum"}
@@ -460,12 +452,12 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	require.NoError(t, err)
 	frozen, err := store.FreezePreparedDeckRunTx(ctx, tx, params)
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, tx)
 		require.NoError(t, err)
 	}
 	err = store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, owner.ID, preparation.ID, frozen.Run.ID, frozen.Chunks[0].ID, 1, 9201)
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, tx)
 		require.NoError(t, err)
 	}
 	err = tx.Commit(ctx)
@@ -546,9 +538,7 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 
 func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(ctx, integrationDatabase(t, ctx))
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 
 	owner, err := store.CreateUser(ctx, "durable-parse-owner", false)
 	require.NoError(t, err)
@@ -584,7 +574,7 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 	require.NoError(t, err)
 	result, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: snapshot, Config: PreparedDeckRunConfig{ExecutionMode: "batch"}})
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		rollbackIntegrationTx(t, ctx, tx)
 		require.NoError(t, err)
 	}
 	require.NoError(t, tx.Commit(ctx))

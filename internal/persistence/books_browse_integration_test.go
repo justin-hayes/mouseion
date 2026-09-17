@@ -17,9 +17,7 @@ import (
 func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, databaseURL)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, databaseURL)
 
 	alice, err := store.CreateUser(ctx, "browse-alice", false)
 	require.NoError(t, err)

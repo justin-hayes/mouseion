@@ -15,9 +15,7 @@ import (
 func TestAddToReadingJourneyRejectsBookWithoutChosenLanguage(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, Migrate)
-	store, err := Open(ctx, url)
-	require.NoError(t, err)
-	defer store.Close()
+	store := openIntegrationStore(t, ctx, url)
 
 	owner, err := store.CreateUser(ctx, "journey-language-owner", false)
 	require.NoError(t, err)

@@ -18,7 +18,7 @@ func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "known vocabulary store", store.Close)
 	alice, err := store.CreateUser(ctx, "known-import-alice", false)
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "known-import-bob", false)

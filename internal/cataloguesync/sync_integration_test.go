@@ -68,7 +68,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "catalogue sync store", store.Close)
 	alice, err := store.CreateUser(ctx, "sync-alice", false)
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "sync-bob", false)
@@ -180,7 +180,7 @@ func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "catalogue sync store", store.Close)
 	owner, err := store.CreateUser(ctx, "sync-collision-owner", false)
 	require.NoError(t, err)
 	for _, language := range []string{"de"} {
@@ -220,7 +220,7 @@ func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "catalogue sync store", store.Close)
 	owner, err := store.CreateUser(ctx, "sync-failure", false)
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Private catalog", URL: "https://catalog.example/opds", Password: "super-secret"})
@@ -243,7 +243,7 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	defer store.Close()
+	testutil.Cleanup(t, "catalogue sync store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
 	owner, err := store.CreateUser(ctx, "sync-status-owner", false)
 	require.NoError(t, err)
@@ -258,7 +258,9 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
 	require.NoError(t, err)
-	defer client.Stop(context.Background())
+	testutil.Cleanup(t, "catalogue sync client", func() error {
+		return client.Stop(context.Background())
+	})
 	service.client = client
 	first, err := service.Enqueue(ctx, owner.ID, connection.ID)
 	require.NoError(t, err)
