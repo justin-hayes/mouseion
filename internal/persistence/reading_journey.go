@@ -104,6 +104,116 @@ func bumpReadingJourneyRevision(ctx context.Context, tx pgx.Tx, owner, language 
 	return sqlcgen.New(tx).BumpReadingJourneyRevision(ctx, sqlcgen.BumpReadingJourneyRevisionParams{Owner: owner, Language: language})
 }
 
+func validateReadingJourneyMove(exists bool, revision, expectedRevision int64, members []readingJourneyMembership, bookID string) (int, error) {
+	if !exists {
+		if expectedRevision != 0 {
+			return -1, ErrJourneyStale
+		}
+		return -1, ErrNotFound
+	}
+	if expectedRevision != revision {
+		return -1, ErrJourneyStale
+	}
+	for index, member := range members {
+		if member.bookID == bookID {
+			return index, nil
+		}
+	}
+	return -1, ErrNotFound
+}
+
+func readingJourneyGoalBookID(ctx context.Context, tx pgx.Tx, owner, language string) (string, error) {
+	goalBookID, err := sqlcgen.New(tx).GetPrimaryGoalBookID(ctx, sqlcgen.GetPrimaryGoalBookIDParams{Owner: owner, Language: language})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return goalBookID, err
+}
+
+func clampReadingJourneyPosition(position, length int) int {
+	if position < 1 {
+		return 1
+	}
+	if position > length {
+		return length
+	}
+	return position
+}
+
+func moveReadingJourneySlice(members []readingJourneyMembership, memberIndex, newPosition int) []readingJourneyMembership {
+	member := members[memberIndex]
+	members = append(members[:memberIndex], members[memberIndex+1:]...)
+	members = append(members, readingJourneyMembership{})
+	copy(members[newPosition:], members[newPosition-1:])
+	members[newPosition-1] = member
+	return members
+}
+
+func visibleReadingJourneyMembers(members []readingJourneyMembership, memberIndex int, goalBookID string) ([]readingJourneyMembership, int, int) {
+	goalIndex := -1
+	visibleIndex := -1
+	visible := make([]readingJourneyMembership, 0, len(members)-1)
+	for index, member := range members {
+		if member.bookID == goalBookID {
+			goalIndex = index
+			continue
+		}
+		if index == memberIndex {
+			visibleIndex = len(visible)
+		}
+		visible = append(visible, member)
+	}
+	return visible, goalIndex, visibleIndex
+}
+
+func restoreReadingJourneyGoal(visible []readingJourneyMembership, goalIndex int, goalBookID string) []readingJourneyMembership {
+	members := make([]readingJourneyMembership, 0, len(visible)+1)
+	visibleIndex := 0
+	for index := 0; index < len(visible)+1; index++ {
+		if index == goalIndex {
+			members = append(members, readingJourneyMembership{bookID: goalBookID})
+			continue
+		}
+		members = append(members, visible[visibleIndex])
+		visibleIndex++
+	}
+	return members
+}
+
+func moveReadingJourneyMembers(members []readingJourneyMembership, memberIndex int, bookID, goalBookID string, newPosition int) ([]readingJourneyMembership, bool) {
+	if goalBookID != "" && goalBookID != bookID {
+		visible, goalIndex, visibleIndex := visibleReadingJourneyMembers(members, memberIndex, goalBookID)
+		if goalIndex >= 0 {
+			newPosition = clampReadingJourneyPosition(newPosition, len(visible))
+			if visibleIndex == newPosition-1 {
+				return members, false
+			}
+			visible = moveReadingJourneySlice(visible, visibleIndex, newPosition)
+			return restoreReadingJourneyGoal(visible, goalIndex, goalBookID), true
+		}
+	}
+
+	newPosition = clampReadingJourneyPosition(newPosition, len(members))
+	if memberIndex == newPosition-1 {
+		return members, false
+	}
+	return moveReadingJourneySlice(members, memberIndex, newPosition), true
+}
+
+func (s *PostgresStore) commitReadingJourneyMove(ctx context.Context, tx pgx.Tx, owner, language string, members []readingJourneyMembership) (int64, error) {
+	if err := rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
+		return 0, err
+	}
+	revision, err := bumpReadingJourneyRevision(ctx, tx, owner, language)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return revision, nil
+}
+
 // AddToReadingJourney appends a known owner book to the Journey.
 func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language, bookID string, expectedRevision int64) (result int64, err error) {
 	language = canonicalization.NormalizeLanguage(language)
@@ -288,116 +398,22 @@ func (s *PostgresStore) MoveReadingJourneyEntry(ctx context.Context, owner, lang
 		return 0, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if !exists {
-		if expectedRevision != 0 {
-			return 0, ErrJourneyStale
-		}
-		return 0, ErrNotFound
-	}
-	if expectedRevision != revision {
-		return 0, ErrJourneyStale
-	}
-	memberIndex := -1
-	for i, member := range members {
-		if member.bookID == bookID {
-			memberIndex = i
-			break
-		}
-	}
-	if memberIndex == -1 {
-		if cleaned {
-			if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
-				return 0, err
-			}
-			if _, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
-				return 0, err
-			}
-			if err = tx.Commit(ctx); err != nil {
-				return 0, err
+	memberIndex, err := validateReadingJourneyMove(exists, revision, expectedRevision, members, bookID)
+	if err != nil {
+		if cleaned && errors.Is(err, ErrNotFound) {
+			if _, cleanupErr := s.commitReadingJourneyMove(ctx, tx, owner, language, members); cleanupErr != nil {
+				return 0, cleanupErr
 			}
 		}
-		return 0, ErrNotFound
-	}
-	goalBookID, goalErr := sqlcgen.New(tx).GetPrimaryGoalBookID(ctx, sqlcgen.GetPrimaryGoalBookIDParams{Owner: owner, Language: language})
-	if goalErr != nil && !errors.Is(goalErr, pgx.ErrNoRows) {
-		return 0, goalErr
-	}
-	if errors.Is(goalErr, pgx.ErrNoRows) {
-		goalBookID = ""
-	}
-	if goalBookID != "" && goalBookID != bookID {
-		goalIndex := -1
-		visible := make([]readingJourneyMembership, 0, len(members)-1)
-		for index, member := range members {
-			if member.bookID == goalBookID {
-				goalIndex = index
-				continue
-			}
-			visible = append(visible, member)
-		}
-		if goalIndex >= 0 {
-			visibleIndex := 0
-			for index, member := range members {
-				if member.bookID == bookID {
-					visibleIndex = index
-					if index > goalIndex {
-						visibleIndex--
-					}
-					break
-				}
-			}
-			if newPosition < 1 {
-				newPosition = 1
-			}
-			if newPosition > len(visible) {
-				newPosition = len(visible)
-			}
-			if visibleIndex == newPosition-1 {
-				return revision, nil
-			}
-			member := visible[visibleIndex]
-			visible = append(visible[:visibleIndex], visible[visibleIndex+1:]...)
-			visible = append(visible, readingJourneyMembership{})
-			copy(visible[newPosition:], visible[newPosition-1:])
-			visible[newPosition-1] = member
-			members = make([]readingJourneyMembership, 0, len(visible)+1)
-			visibleIndex = 0
-			for index := 0; index < len(visible)+1; index++ {
-				if index == goalIndex {
-					members = append(members, readingJourneyMembership{bookID: goalBookID})
-					continue
-				}
-				members = append(members, visible[visibleIndex])
-				visibleIndex++
-			}
-		} else {
-			goalBookID = ""
-		}
-	}
-	if goalBookID == "" {
-		if newPosition < 1 {
-			newPosition = 1
-		}
-		if newPosition > len(members) {
-			newPosition = len(members)
-		}
-		if memberIndex == newPosition-1 {
-			return revision, nil
-		}
-		member := members[memberIndex]
-		members = append(members[:memberIndex], members[memberIndex+1:]...)
-		members = append(members, readingJourneyMembership{})
-		copy(members[newPosition:], members[newPosition-1:])
-		members[newPosition-1] = member
-	}
-	if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
 		return 0, err
 	}
-	if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
+	goalBookID, err := readingJourneyGoalBookID(ctx, tx, owner, language)
+	if err != nil {
 		return 0, err
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return 0, err
+	members, changed := moveReadingJourneyMembers(members, memberIndex, bookID, goalBookID, newPosition)
+	if !changed {
+		return revision, nil
 	}
-	return revision, nil
+	return s.commitReadingJourneyMove(ctx, tx, owner, language, members)
 }
