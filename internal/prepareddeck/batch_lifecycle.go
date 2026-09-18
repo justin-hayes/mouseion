@@ -123,97 +123,30 @@ func terminalBatchFailsRun(batch enrichment.Batch) bool {
 }
 
 func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token string, batch enrichment.Batch) error {
-	if (batch.RequestCounts.Completed > 0 && batch.OutputFileID == "") || (batch.RequestCounts.Failed > 0 && batch.ErrorFileID == "") {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "missing_result", "missing_provider_file")
+	if code := terminalBatchFileContract(batch); code != "" {
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "missing_result", code)
 	}
-	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
-	if err != nil {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "manifest_load")
+	items, code := w.loadTerminalBatchItems(ctx, args, chunk)
+	if code != "" {
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", code)
 	}
-	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
-	if err != nil {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "manifest_load")
-	}
-	items, byOrdinal, err := batchResultItems(deck, chunk.Ordinals)
-	if err != nil {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "chunk_membership")
-	}
-	decoded, missingOrdinals, downloadErr := w.decodeProviderFiles(ctx, args.RunID, chunk.Generation, items, batch.OutputFileID, batch.ErrorFileID)
+	decoded, missingOrdinals, downloadErr := w.decodeProviderFiles(ctx, args.RunID, chunk.Generation, items.items, batch.OutputFileID, batch.ErrorFileID)
 	if downloadErr != nil {
-		var resultErr *enrichment.BatchResultError
-		if errors.As(downloadErr, &resultErr) {
-			class := batchResultFailureClass(resultErr.Kind)
-			return w.failUntrustworthy(ctx, args, token, string(batch.Status), class, string(resultErr.Kind))
+		return w.handleTerminalFileError(ctx, chunk, args, token, batch, downloadErr)
+	}
+	counts, code := validateTerminalBatchResults(decoded, missingOrdinals, batch, chunk)
+	if code != "" {
+		class := "reconciliation"
+		if code == "missing_custom_id" {
+			class = "missing_result"
 		}
-		if temporaryProviderError(downloadErr) {
-			return w.snoozeAfterPollError(ctx, chunk, args, token, providerErrorCode(downloadErr))
-		}
-		// Terminal files are part of the provider result contract. A missing
-		// file or permanent download failure is therefore an explicit
-		// reconciliation failure.
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", providerErrorCode(downloadErr))
-	}
-	providerCompleted, providerFailed := batchProviderResultCounts(decoded)
-	successes, failures, expiredFailures := 0, 0, 0
-	for _, outcome := range decoded {
-		if outcome.Successful() {
-			successes++
-		} else {
-			failures++
-			if outcome.ErrorClass == enrichment.ProviderErrorExpired {
-				expiredFailures++
-			}
-		}
-	}
-	if providerCompleted != batch.RequestCounts.Completed || providerFailed != batch.RequestCounts.Failed {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", "contradictory_counts")
-	}
-	missing := len(missingOrdinals)
-	if missing != chunk.RequestCount-len(decoded) {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", "contradictory_counts")
-	}
-	if missing < 0 || (batch.Status == enrichment.BatchStatusCompleted && missing != 0) {
-		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "missing_result", "missing_custom_id")
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), class, code)
 	}
 	run, err := w.Store.GetPreparedDeckRun(ctx, args.OwnerID, args.PreparationID, args.RunID)
 	if err != nil {
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "run_load")
 	}
-	updates := make([]persistence.PreparedDeckBatchItemReconciliation, 0, len(items))
-	retryWork := make([]cardexport.WorkItem, 0, missing+failures)
-	for _, item := range items {
-		providerOutcome, found := decoded[item.Ordinal]
-		if found && providerOutcome.Successful() {
-			workItem := byOrdinal[item.Ordinal]
-			response := providerOutcome.Response
-			for _, warning := range response.Warnings {
-				log.Printf("prepared deck translation: %s", warning)
-			}
-			updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}})
-			continue
-		}
-		class := enrichment.ProviderErrorExpired
-		if found {
-			class = providerOutcome.ErrorClass
-		} else if batch.Status != enrichment.BatchStatusExpired {
-			class = batchFailureClass(batch)
-		}
-		retryable := retryableBatchFailure(class) && chunk.Generation < run.MaxBatchGenerations
-		state, errorClass := domain.PreparedDeckOutcomeFailed, outcomeErrorClass(class)
-		if retryable {
-			state = domain.PreparedDeckOutcomePending
-			retryWork = append(retryWork, byOrdinal[item.Ordinal])
-		} else if retryableBatchFailure(class) {
-			errorClass = "retry_exhausted"
-		}
-		errorCode := string(class)
-		if found && providerOutcome.ErrorCode != "" {
-			errorCode = providerOutcome.ErrorCode
-		} else if batch.Status == enrichment.BatchStatusFailed {
-			errorCode = batchFailureCode(batch)
-		}
-		updates = append(updates, persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: state, ErrorClass: errorClass, ErrorCode: boundedProviderCode(errorCode)})
-	}
+	updates, retryWork := w.buildTerminalBatchUpdates(items, decoded, batch, chunk, run)
 	var retryPlans []persistence.PreparedDeckBatchChunkPlan
 	if len(retryWork) > 0 {
 		retryPlans, err = PlanBatchChunks(w.Codec, args.RunID, chunk.Generation+1, run.Model, run.Endpoint, retryWork, BatchChunkLimits{MaxRequests: run.BatchMaxRequests, MaxBytes: run.BatchMaxBytes})
@@ -221,11 +154,11 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 			return w.failUntrustworthy(ctx, args, token, string(batch.Status), "validation", "retry_plan")
 		}
 	}
-	failedCount, expiredCount := batch.RequestCounts.Failed-expiredFailures, expiredFailures
+	failedCount, expiredCount := batch.RequestCounts.Failed-counts.expiredFailures, counts.expiredFailures
 	if batch.Status == enrichment.BatchStatusExpired {
-		expiredCount += missing
+		expiredCount += len(missingOrdinals)
 	} else if batch.Status == enrichment.BatchStatusFailed || batch.Status == enrichment.BatchStatusCancelled {
-		failedCount += missing
+		failedCount += len(missingOrdinals)
 	}
 	update := batchReconciliationUpdate(batch, domain.PreparedDeckBatchCompleted, terminalChunkErrorClass(batch.Status), terminalBatchErrorCode(batch), expiredCount)
 	update.FailedCount = failedCount
@@ -237,24 +170,152 @@ func (w *BatchPollWorker) reconcileTerminal(ctx context.Context, chunk domain.Pr
 		return nil
 	}
 	if err == nil {
-		// Cleanup is deliberately best effort. The durable recovery projection
-		// will enqueue the bounded retry if this immediate attempt cannot run.
-		if cleaner, ok := w.Provider.(batchFileDeleter); ok {
-			cleanup := &BatchCleanupWorker{Store: w.Store, Provider: cleaner, Now: w.Now, Metrics: w.Metrics}
-			_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}) //nolint:errcheck // durable recovery retries cleanup when the immediate attempt fails.
-		}
-		for _, item := range updates {
-			if item.State == domain.PreparedDeckOutcomePending {
-				observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRetries, Phase: "reconciling", State: "pending", ErrorClass: item.ErrorClass, Provider: "openai", Value: 1})
-			}
-		}
-		if batch.Status == enrichment.BatchStatusCompleted {
-			observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "reconciling", State: "completed", Provider: "openai", Value: float64(successes)})
-		}
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageInputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
-		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageOutputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
+		w.cleanupTerminalBatchFiles(ctx, args, chunk)
+		w.recordTerminalBatchMetrics(batch, updates, counts.successes)
 	}
 	return err
+}
+
+type terminalBatchItems struct {
+	items     []enrichment.BatchTranslationItem
+	byOrdinal map[int]cardexport.WorkItem
+}
+
+type terminalBatchCounts struct {
+	successes       int
+	expiredFailures int
+}
+
+func terminalBatchFileContract(batch enrichment.Batch) string {
+	if batch.RequestCounts.Completed > 0 && batch.OutputFileID == "" {
+		return "missing_provider_file"
+	}
+	if batch.RequestCounts.Failed > 0 && batch.ErrorFileID == "" {
+		return "missing_provider_file"
+	}
+	return ""
+}
+
+func (w *BatchPollWorker) loadTerminalBatchItems(ctx context.Context, args BatchPollJobArgs, chunk domain.PreparedDeckBatchChunk) (terminalBatchItems, string) {
+	snapshot, _, err := w.Store.LoadPreparedDeckStorageProjection(ctx, args.OwnerID, args.PreparationID, args.RunID)
+	if err != nil {
+		return terminalBatchItems{}, "manifest_load"
+	}
+	deck, err := cardexport.NewPresentation(nil).Restore(snapshot)
+	if err != nil {
+		return terminalBatchItems{}, "manifest_load"
+	}
+	items, byOrdinal, err := batchResultItems(deck, chunk.Ordinals)
+	if err != nil {
+		return terminalBatchItems{}, "chunk_membership"
+	}
+	return terminalBatchItems{items: items, byOrdinal: byOrdinal}, ""
+}
+
+func (w *BatchPollWorker) handleTerminalFileError(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token string, batch enrichment.Batch, err error) error {
+	var resultErr *enrichment.BatchResultError
+	if errors.As(err, &resultErr) {
+		class := batchResultFailureClass(resultErr.Kind)
+		return w.failUntrustworthy(ctx, args, token, string(batch.Status), class, string(resultErr.Kind))
+	}
+	if temporaryProviderError(err) {
+		return w.snoozeAfterPollError(ctx, chunk, args, token, providerErrorCode(err))
+	}
+	// Terminal files are part of the provider result contract. Permanent
+	// download failures are explicit reconciliation failures.
+	return w.failUntrustworthy(ctx, args, token, string(batch.Status), "reconciliation", providerErrorCode(err))
+}
+
+func validateTerminalBatchResults(decoded map[int]enrichment.BatchTranslationOutcome, missing []int, batch enrichment.Batch, chunk domain.PreparedDeckBatchChunk) (terminalBatchCounts, string) {
+	providerCompleted, providerFailed := batchProviderResultCounts(decoded)
+	if providerCompleted != batch.RequestCounts.Completed || providerFailed != batch.RequestCounts.Failed {
+		return terminalBatchCounts{}, "contradictory_counts"
+	}
+	if len(missing) != chunk.RequestCount-len(decoded) {
+		return terminalBatchCounts{}, "contradictory_counts"
+	}
+	if batch.Status == enrichment.BatchStatusCompleted && len(missing) != 0 {
+		return terminalBatchCounts{}, "missing_custom_id"
+	}
+	counts := terminalBatchCounts{}
+	for _, outcome := range decoded {
+		if outcome.Successful() {
+			counts.successes++
+		} else if outcome.ErrorClass == enrichment.ProviderErrorExpired {
+			counts.expiredFailures++
+		}
+	}
+	return counts, ""
+}
+
+func (w *BatchPollWorker) buildTerminalBatchUpdates(items terminalBatchItems, decoded map[int]enrichment.BatchTranslationOutcome, batch enrichment.Batch, chunk domain.PreparedDeckBatchChunk, run domain.PreparedDeckRun) ([]persistence.PreparedDeckBatchItemReconciliation, []cardexport.WorkItem) {
+	updates := make([]persistence.PreparedDeckBatchItemReconciliation, 0, len(items.items))
+	retryWork := make([]cardexport.WorkItem, 0, len(items.items))
+	for _, item := range items.items {
+		providerOutcome, found := decoded[item.Ordinal]
+		if found && providerOutcome.Successful() {
+			updates = append(updates, completedBatchItem(w, item, items.byOrdinal[item.Ordinal], providerOutcome))
+			continue
+		}
+		update, retry := failedBatchItem(item.Ordinal, providerOutcome, found, batch, chunk, run)
+		updates = append(updates, update)
+		if retry {
+			retryWork = append(retryWork, items.byOrdinal[item.Ordinal])
+		}
+	}
+	return updates, retryWork
+}
+
+func completedBatchItem(w *BatchPollWorker, item enrichment.BatchTranslationItem, workItem cardexport.WorkItem, outcome enrichment.BatchTranslationOutcome) persistence.PreparedDeckBatchItemReconciliation {
+	for _, warning := range outcome.Response.Warnings {
+		log.Printf("prepared deck translation: %s", warning)
+	}
+	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: outcome.Response.Translation, FallbackGloss: outcome.Response.FallbackGloss, SenseSelection: append([]int{}, outcome.Response.SenseOrder...), SentenceTranslation: outcome.Response.SentenceTranslation, SentenceTranslationTarget: outcome.Response.SentenceTranslationTarget, CachedAt: w.now()}}
+}
+
+func failedBatchItem(ordinal int, outcome enrichment.BatchTranslationOutcome, found bool, batch enrichment.Batch, chunk domain.PreparedDeckBatchChunk, run domain.PreparedDeckRun) (persistence.PreparedDeckBatchItemReconciliation, bool) {
+	class := enrichment.ProviderErrorExpired
+	if found {
+		class = outcome.ErrorClass
+	} else if batch.Status != enrichment.BatchStatusExpired {
+		class = batchFailureClass(batch)
+	}
+	retry := retryableBatchFailure(class) && chunk.Generation < run.MaxBatchGenerations
+	state, errorClass := domain.PreparedDeckOutcomeFailed, outcomeErrorClass(class)
+	if retry {
+		state = domain.PreparedDeckOutcomePending
+	} else if retryableBatchFailure(class) {
+		errorClass = "retry_exhausted"
+	}
+	errorCode := string(class)
+	if found && outcome.ErrorCode != "" {
+		errorCode = outcome.ErrorCode
+	} else if batch.Status == enrichment.BatchStatusFailed {
+		errorCode = batchFailureCode(batch)
+	}
+	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: ordinal, State: state, ErrorClass: errorClass, ErrorCode: boundedProviderCode(errorCode)}, retry
+}
+
+func (w *BatchPollWorker) cleanupTerminalBatchFiles(ctx context.Context, args BatchPollJobArgs, chunk domain.PreparedDeckBatchChunk) {
+	// Cleanup is deliberately best effort. Durable recovery retries it when the
+	// immediate attempt cannot run.
+	if cleaner, ok := w.Provider.(batchFileDeleter); ok {
+		cleanup := &BatchCleanupWorker{Store: w.Store, Provider: cleaner, Now: w.Now, Metrics: w.Metrics}
+		_ = cleanup.Cleanup(context.WithoutCancel(ctx), BatchCleanupJobArgs{OwnerID: args.OwnerID, PreparationID: args.PreparationID, RunID: args.RunID, ChunkID: args.ChunkID, Generation: chunk.Generation}) //nolint:errcheck // durable recovery retries cleanup when the immediate attempt fails.
+	}
+}
+
+func (w *BatchPollWorker) recordTerminalBatchMetrics(batch enrichment.Batch, updates []persistence.PreparedDeckBatchItemReconciliation, successes int) {
+	for _, item := range updates {
+		if item.State == domain.PreparedDeckOutcomePending {
+			observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRetries, Phase: "reconciling", State: "pending", ErrorClass: item.ErrorClass, Provider: "openai", Value: 1})
+		}
+	}
+	if batch.Status == enrichment.BatchStatusCompleted {
+		observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchRequests, Phase: "reconciling", State: "completed", Provider: "openai", Value: float64(successes)})
+	}
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageInputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.InputTokens)})
+	observeBatchMetric(w.Metrics, BatchMetric{Mode: "batch", Name: MetricBatchUsageOutputTokens, Phase: "reconciling", State: string(batch.Status), Provider: "openai", Value: float64(batch.Usage.OutputTokens)})
 }
 
 // batchProviderResultCounts mirrors OpenAI's request_counts semantics: a
