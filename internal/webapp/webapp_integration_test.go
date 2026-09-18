@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -290,7 +291,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, bookPage.Code)
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	added := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	added := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, added.Code)
 	assert.Equal(t, 1, downloads)
 	assert.Equal(t, 1, recorder.calls)
@@ -298,18 +299,18 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, journey.Entries, 1)
 	assert.Equal(t, bookResult.Book.ID, journey.Entries[0].BookID)
-	readded := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	readded := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, readded.Code)
 	assert.Equal(t, 1, downloads)
 	assert.Equal(t, 1, recorder.calls)
-	removed := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/remove", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	removed := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/remove", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, removed.Code)
 	assert.True(t, strings.Contains(removed.Header().Get("Location"), "removed+from+Reading+Journey"), "location=%q body=%s", removed.Header().Get("Location"), removed.Body.String())
 	assert.Equal(t, 1, recorder.calls)
 	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, journey.Entries)
-	alreadyAcquired := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, cookies)
+	alreadyAcquired := perform(t, h, "POST", "/journey/books/"+bookResult.Book.ID+"/add", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, alreadyAcquired.Code)
 	assert.Equal(t, 1, downloads)
 	assert.Equal(t, 2, recorder.calls)
@@ -384,7 +385,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	assert.Equal(t, http.StatusOK, updatedPage.Code)
 	assert.Contains(t, updatedPage.Body.String(), "Updated deck revision available")
 	assert.Contains(t, updatedPage.Body.String(), "revision 2")
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
 		assert.Equal(t, http.StatusOK, download.Code, "download %d", i)
 		assert.Equal(t, "newest-rendered-apkg", download.Body.String(), "download %d", i)
@@ -468,14 +469,14 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	assert.Equal(t, journey.Entries[0].BookID, journeyAfterStale.Entries[0].BookID)
 	assert.Equal(t, journey.Entries[1].BookID, journeyAfterStale.Entries[1].BookID)
 	assert.Equal(t, journey.Entries[2].BookID, journeyAfterStale.Entries[2].BookID)
-	foreignResponse := perform(t, h, "POST", "/journey/entries/"+foreign.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	foreignResponse := perform(t, h, "POST", "/journey/entries/"+foreign.ID+"/move-earlier", moveForm(csrf, strconv.FormatInt(journey.Revision, 10)), aliceCookies)
 	assert.Equal(t, http.StatusNotFound, foreignResponse.Code)
-	absent := perform(t, h, "POST", "/journey/entries/"+notMember.ID+"/move-earlier", moveForm(csrf, fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	absent := perform(t, h, "POST", "/journey/entries/"+notMember.ID+"/move-earlier", moveForm(csrf, strconv.FormatInt(journey.Revision, 10)), aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, absent.Code)
 	assert.True(t, strings.Contains(absent.Header().Get("Location"), "no+longer+in+your+Reading+Journey"), "location=%q", absent.Header().Get("Location"))
-	missingCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", url.Values{"expected_revision": {fmt.Sprintf("%d", journey.Revision)}}, aliceCookies)
+	missingCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", url.Values{"expected_revision": {strconv.FormatInt(journey.Revision, 10)}}, aliceCookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
-	invalidCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", moveForm("invalid", fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	invalidCSRF := perform(t, h, "POST", "/journey/entries/"+first.ID+"/move-later", moveForm("invalid", strconv.FormatInt(journey.Revision, 10)), aliceCookies)
 	assert.Equal(t, http.StatusForbidden, invalidCSRF.Code)
 	page = perform(t, h, "GET", "/journey", nil, aliceCookies)
 	form := moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision"))
@@ -503,7 +504,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, journey.Entries, 5)
-	repeated := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(fmt.Sprintf("%d", journey.Revision)), aliceCookies)
+	repeated := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(strconv.FormatInt(journey.Revision, 10)), aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Header().Get("Location"), "already+in+your+Reading+Journey"), "location=%q", repeated.Header().Get("Location"))
 	staleAdd := perform(t, h, "POST", "/journey/books/"+notMember.ID+"/add", addForm(journeyPageRevision), aliceCookies)

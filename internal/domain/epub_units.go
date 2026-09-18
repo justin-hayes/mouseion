@@ -82,7 +82,7 @@ func (e ExtractedUnits) ValidateOffsets(fullText string) error {
 		previousEnd = unit.EndOffset
 	}
 	if previousEnd != uint64(len(runes)) {
-		return fmt.Errorf("epub: final unit does not end at FullText length")
+		return errors.New("epub: final unit does not end at FullText length")
 	}
 	return nil
 }

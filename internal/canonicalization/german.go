@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -66,7 +67,7 @@ func (p GermanPost1996Profile) Canonical(s string) string {
 }
 
 func primaryAnalyzerLemma(value string) string {
-	for _, alternative := range strings.Split(value, "|") {
+	for alternative := range strings.SplitSeq(value, "|") {
 		if alternative = strings.TrimSpace(alternative); alternative != "" {
 			return alternative
 		}
@@ -77,10 +78,8 @@ func primaryAnalyzerLemma(value string) string {
 func cleanLemmaEdges(value string) string {
 	runes := []rune(value)
 	isEdgeDecoration := func(r rune) bool {
-		for _, preserved := range germanPost1996PolicyData.EdgeCleanup.PreserveCharacters {
-			if preserved == string(r) {
-				return false
-			}
+		if slices.Contains(germanPost1996PolicyData.EdgeCleanup.PreserveCharacters, string(r)) {
+			return false
 		}
 		for _, category := range germanPost1996PolicyData.EdgeCleanup.StripUnicodeCategories {
 			switch category {

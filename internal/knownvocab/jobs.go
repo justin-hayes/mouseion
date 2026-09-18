@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,7 +81,7 @@ func (s *JobService) Submit(ctx context.Context, owner, language, fileContents s
 
 func (s *JobService) Get(ctx context.Context, owner string, id int64) (Status, error) {
 	var details []byte
-	err := s.pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND operation='known_vocabulary.import' AND details->>'river_job_id'=$2 ORDER BY started_at DESC LIMIT 1`, owner, fmt.Sprint(id)).Scan(&details)
+	err := s.pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND operation='known_vocabulary.import' AND details->>'river_job_id'=$2 ORDER BY started_at DESC LIMIT 1`, owner, strconv.FormatInt(id, 10)).Scan(&details)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Status{}, ErrJobNotFound
 	}
@@ -221,14 +222,14 @@ func (w *Worker) update(ctx context.Context, id int64, owner, state string, fiel
 	if completed {
 		completedSQL = ",completed_at=now()"
 	}
-	tag, err := w.Pool.Exec(ctx, `UPDATE processing_history SET status=$3,details=details || $4::jsonb`+completedSQL+` WHERE owner_id=$1 AND operation='known_vocabulary.import' AND details->>'river_job_id'=$2`, owner, fmt.Sprint(id), state, fields)
+	tag, err := w.Pool.Exec(ctx, `UPDATE processing_history SET status=$3,details=details || $4::jsonb`+completedSQL+` WHERE owner_id=$1 AND operation='known_vocabulary.import' AND details->>'river_job_id'=$2`, owner, strconv.FormatInt(id, 10), state, fields)
 	if err == nil && tag.RowsAffected() != 1 {
 		return ErrJobNotFound
 	}
 	return err
 }
 func (w *Worker) updateTx(ctx context.Context, tx pgx.Tx, id int64, owner, state string, fields map[string]any) error {
-	tag, err := tx.Exec(ctx, `UPDATE processing_history SET status=$3,details=details || $4::jsonb,completed_at=now() WHERE owner_id=$1 AND operation='known_vocabulary.import' AND details->>'river_job_id'=$2`, owner, fmt.Sprint(id), state, fields)
+	tag, err := tx.Exec(ctx, `UPDATE processing_history SET status=$3,details=details || $4::jsonb,completed_at=now() WHERE owner_id=$1 AND operation='known_vocabulary.import' AND details->>'river_job_id'=$2`, owner, strconv.FormatInt(id, 10), state, fields)
 	if err == nil && tag.RowsAffected() != 1 {
 		return ErrJobNotFound
 	}

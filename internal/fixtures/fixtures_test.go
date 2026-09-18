@@ -227,7 +227,7 @@ func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
 	var wait sync.WaitGroup
 	results := make(chan error, 2)
 	wait.Add(2)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		go func() {
 			defer wait.Done()
 			_, moveErr := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 1, journey.Revision)

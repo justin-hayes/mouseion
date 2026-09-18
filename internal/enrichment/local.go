@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"unicode"
 )
@@ -33,9 +34,7 @@ func (p *StanzaMorphology) Morphology(_ context.Context, c Candidate) (map[strin
 		return nil, false, nil
 	}
 	out := make(map[string]string, len(c.Morphology))
-	for k, v := range c.Morphology {
-		out[k] = v
-	}
+	maps.Copy(out, c.Morphology)
 	return out, true, nil
 }
 

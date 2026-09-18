@@ -5,6 +5,7 @@ package persistence
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -205,13 +206,14 @@ func createConcordanceBook(t *testing.T, ctx context.Context, store *PostgresSto
 		LanguageState: domain.LanguageChosen, LanguageTag: "de",
 	})
 	require.NoError(t, err)
-	fullText := ""
+	var fullTextBuilder strings.Builder
 	for i, unit := range units {
 		if i > 0 {
-			fullText += "\n\n"
+			fullTextBuilder.WriteString("\n\n")
 		}
-		fullText += unit.Text
+		fullTextBuilder.WriteString(unit.Text)
 	}
+	fullText := fullTextBuilder.String()
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{
 		OwnerID: owner, Language: "de", SourceIdentifier: "concordance-" + suffix,
 		Title: title, MediaType: "application/epub+zip", Content: []byte("epub-" + suffix), FullText: fullText,

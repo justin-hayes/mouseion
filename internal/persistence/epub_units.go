@@ -30,7 +30,7 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 		digestVersion = 1
 	}
 	if digest == "" {
-		return out, fmt.Errorf("persist EPUB source: content identity is required")
+		return out, errors.New("persist EPUB source: content identity is required")
 	}
 	if digestVersion == 0 && !strings.HasPrefix(digest, "legacy:") {
 		digest = "legacy:" + digest
@@ -120,7 +120,7 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedUnits(ctx context.Context,
 		out.ContentHash = current.ContentHash
 		out.ContentDigest = current.ContentDigest
 		out.ContentRevisionID = current.ContentRevisionID
-		out.ContentDigestVersion = int(current.DigestVersion)
+		out.ContentDigestVersion = current.DigestVersion
 		return nil
 	})
 	return out, err

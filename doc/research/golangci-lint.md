@@ -92,6 +92,30 @@ the `integration` tag, including the Go 1.24.0 verification run. Generated-file
 suppression also worked as intended: no findings were reported from `gen/go`,
 `gen/sqlc`, or `*_templ.go`.
 
+## Issue 1017 Rollout
+
+The issue 1017 baseline was recounted against the post-1016 `main` tree with
+golangci-lint v2.13.2 and the repository's `integration` build tag. The
+candidate findings were:
+
+| Linter | Findings before cleanup | Findings after cleanup |
+| --- | ---: | ---: |
+| `modernize` | 28 | 0 |
+| `intrange` | 9 | 0 |
+| `unconvert` | 12 | 0 |
+| `predeclared` | 5 | 0 |
+| `perfsprint` | 44 | 0 |
+| `usestdlibvars` | 2 | 0 |
+| `errname` | 1 | 0 |
+
+All seven candidates are now required gates. The changes are limited to
+mechanical Go 1.24 modernization, equivalent standard-library helpers,
+unnecessary conversion removal, names that shadow predeclared identifiers,
+standard-library constants, and the conventional `Error` suffix for an error
+type. No generated file was edited. The `unconvert` changes remove only casts
+that the compiler already treats as assignable; casts at actual type or
+serialization boundaries remain in place.
+
 The baseline also exposed project-specific policy questions:
 
 - Most `errcheck` findings are ignored `Rollback` and `Close` results. These

@@ -628,7 +628,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 		return Handle{}, err
 	}
 	if status.LogicalState != "failed" && status.LogicalState != "cancelled" {
-		return Handle{}, fmt.Errorf("catalogue sync job is not retryable")
+		return Handle{}, errors.New("catalogue sync job is not retryable")
 	}
 	return s.Enqueue(ctx, owner, status.ConnectionID)
 }
@@ -686,8 +686,8 @@ func sameLanguage(left, right string) bool {
 }
 
 func baseLanguage(language string) string {
-	if index := strings.IndexByte(language, '-'); index >= 0 {
-		return language[:index]
+	if before, _, ok := strings.Cut(language, "-"); ok {
+		return before
 	}
 	return language
 }

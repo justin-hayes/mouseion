@@ -40,7 +40,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	err = store.LinkSourceToBook(ctx, alice.ID, acquiredID, acquiredSource.ID)
 	require.NoError(t, err)
-	for i := 0; i < 26; i++ {
+	for i := range 26 {
 		create(alice.ID, fmt.Sprintf("Page %02d", i), domain.LanguageChosen, "it", domain.MetadataProvenanceCatalogueSync)
 	}
 	tieA := create(alice.ID, "Same title", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)

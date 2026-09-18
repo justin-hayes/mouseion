@@ -162,7 +162,7 @@ func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
 // its River job. The worker reloads the immutable extracted snapshot.
 func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceID) == "" {
-		return Handle{}, fmt.Errorf("analysis owner and source are required")
+		return Handle{}, errors.New("analysis owner and source are required")
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -478,7 +478,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (result Han
 		return Handle{}, err
 	}
 	if status.RunID == "" {
-		return Handle{}, fmt.Errorf("legacy analysis jobs cannot be retried through the snapshot lifecycle")
+		return Handle{}, errors.New("legacy analysis jobs cannot be retried through the snapshot lifecycle")
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

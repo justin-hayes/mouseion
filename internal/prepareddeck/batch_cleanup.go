@@ -3,6 +3,7 @@ package prepareddeck
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -105,7 +106,7 @@ func (w *BatchCleanupWorker) Cleanup(ctx context.Context, args BatchCleanupJobAr
 
 func providerFileGone(err error) bool {
 	var providerErr *enrichment.ProviderError
-	return errors.As(err, &providerErr) && providerErr.StatusCode == 404
+	return errors.As(err, &providerErr) && providerErr.StatusCode == http.StatusNotFound
 }
 
 func (w *BatchCleanupWorker) now() time.Time {

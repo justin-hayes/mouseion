@@ -14,6 +14,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -463,7 +464,7 @@ func citationDense(text string) bool {
 	brackets := strings.Count(text, "[") + strings.Count(text, "]")
 	years := 0
 	for year := 1500; year <= 2099; year++ {
-		if strings.Contains(text, fmt.Sprintf("%d", year)) {
+		if strings.Contains(text, strconv.Itoa(year)) {
 			years++
 		}
 	}

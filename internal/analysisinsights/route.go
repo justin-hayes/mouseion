@@ -2,6 +2,7 @@ package analysisinsights
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -14,11 +15,11 @@ import (
 func (s *Service) JourneyProjection(ctx context.Context, owner, language string) (domain.JourneyProjectionResult, error) {
 	journeyStore, ok := s.store.(JourneyStore)
 	if !ok {
-		return domain.JourneyProjectionResult{}, fmt.Errorf("journey projection: store does not provide Journey")
+		return domain.JourneyProjectionResult{}, errors.New("journey projection: store does not provide Journey")
 	}
 	evidenceStore, ok := s.store.(BookEvidenceStore)
 	if !ok {
-		return domain.JourneyProjectionResult{}, fmt.Errorf("journey projection: store does not provide book evidence")
+		return domain.JourneyProjectionResult{}, errors.New("journey projection: store does not provide book evidence")
 	}
 	journey, err := journeyStore.GetReadingJourney(ctx, owner, language)
 	if err != nil {

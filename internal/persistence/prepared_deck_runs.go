@@ -433,11 +433,11 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		return snapshot, "", missing(err)
 	}
 	snapshot.Owner = owner
-	snapshot.SchemaVersion = int(manifest.SchemaVersion)
+	snapshot.SchemaVersion = manifest.SchemaVersion
 	snapshot.DeckName = manifest.DeckName
 	snapshot.Filename = manifest.Filename
 	storedDigest := manifest.ManifestDigest
-	selectedCount, acceptedCount, omittedCount := int(manifest.SelectedCount), int(manifest.AcceptedCount), int(manifest.OmittedCount)
+	selectedCount, acceptedCount, omittedCount := manifest.SelectedCount, manifest.AcceptedCount, manifest.OmittedCount
 	items, err := sqlcgen.New(s.pool).ListPreparedDeckManifestItems(ctx, sqlcgen.ListPreparedDeckManifestItemsParams{OwnerID: owner, PreparationID: preparationID, RunID: runID})
 	if err != nil {
 		return snapshot, "", err
@@ -445,11 +445,11 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 	candidateDigests := make([]string, 0, len(items))
 	for _, model := range items {
 		var item cardexport.ManifestItem
-		item.Ordinal = int(model.Ordinal)
+		item.Ordinal = model.Ordinal
 		item.Disposition = cardexport.ManifestDisposition(model.Disposition)
 		item.Entry.Language, item.Entry.CanonicalLemma, item.Entry.UPOS = model.Language, model.CanonicalLemma, model.Upos
 		item.Entry.Sentence, item.Entry.TargetWord, item.Entry.FirstEncounter = model.SourceSentence, model.TestedTarget, model.FirstEncounter
-		item.Quality.Score, item.Quality.GDEXScore, item.Quality.Reasons = int(model.QualityScore), model.QualityGdexScore, model.QualityReasons
+		item.Quality.Score, item.Quality.GDEXScore, item.Quality.Reasons = model.QualityScore, model.QualityGdexScore, model.QualityReasons
 		item.Quality.Accepted = item.Disposition == cardexport.ManifestAccepted
 		var render preparedDeckRenderPayload
 		if err = json.Unmarshal(model.RenderPayload, &render); err != nil {

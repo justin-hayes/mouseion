@@ -29,6 +29,13 @@ linters:
     - interfacebloat
     - gocognit
     - testifylint
+    - modernize
+    - intrange
+    - unconvert
+    - predeclared
+    - perfsprint
+    - usestdlibvars
+    - errname
 
   settings:
     gocognit:

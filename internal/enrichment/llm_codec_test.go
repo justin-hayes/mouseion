@@ -37,7 +37,7 @@ func TestTranslationCodecBatchJSONLGoldenDeterministicAndPrivate(t *testing.T) {
 		assert.NotContains(t, strings.ToLower(serialized), forbidden, "Batch request leaked forbidden field %q", forbidden)
 	}
 	for _, privateValue := range []string{"Haus", "Das Haus ist groß."} {
-		for _, line := range strings.Split(strings.TrimSpace(serialized), "\n") {
+		for line := range strings.SplitSeq(strings.TrimSpace(serialized), "\n") {
 			customIDStart := strings.Index(line, `"custom_id":"`)
 			customIDEnd := strings.Index(line[customIDStart+13:], `"`)
 			customID := line[customIDStart+13 : customIDStart+13+customIDEnd]

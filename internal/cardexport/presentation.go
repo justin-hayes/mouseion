@@ -3,6 +3,7 @@ package cardexport
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -462,12 +463,7 @@ func (m manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {
 }
 
 func containsCacheKey(keys []enrichment.CacheKey, wanted enrichment.CacheKey) bool {
-	for _, key := range keys {
-		if key == wanted {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(keys, wanted)
 }
 
 func storedRecordHasRequiredFields(record enrichment.CacheEntry, entry RenderInput) bool {
@@ -502,10 +498,8 @@ func fallbackGlossEligible(gloss string) bool {
 }
 
 func appendUniqueCode(codes []string, code string) []string {
-	for _, existing := range codes {
-		if existing == code {
-			return codes
-		}
+	if slices.Contains(codes, code) {
+		return codes
 	}
 	return append(codes, code)
 }

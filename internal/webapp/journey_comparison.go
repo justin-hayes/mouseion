@@ -3,6 +3,7 @@ package webapp
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -112,7 +113,7 @@ func routeRankLabel(book domain.JourneyRouteBook) string {
 	if book.Rank == nil || !book.Comparable {
 		return "—"
 	}
-	return fmt.Sprintf("%d", *book.Rank)
+	return strconv.Itoa(*book.Rank)
 }
 
 func routeIncomparableDetail(book domain.JourneyRouteBook) string {

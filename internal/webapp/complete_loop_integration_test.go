@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -191,7 +192,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	require.NoError(t, err)
 	added := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/add", url.Values{
 		"csrf_token":        {csrf},
-		"expected_revision": {fmt.Sprintf("%d", journey.Revision)},
+		"expected_revision": {strconv.FormatInt(journey.Revision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, added.Code)
 

@@ -197,8 +197,8 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 	}
 }
 
-func closeIntoResult(name string, close func() error, result *error) {
-	if closeErr := close(); closeErr != nil {
+func closeIntoResult(name string, closeFn func() error, result *error) {
+	if closeErr := closeFn(); closeErr != nil {
 		closeErr = fmt.Errorf("close %s: %w", name, closeErr)
 		if *result == nil {
 			*result = closeErr

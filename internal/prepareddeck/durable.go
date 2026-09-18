@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -510,10 +511,8 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 }
 
 func logFinalizeDiagnostics(diagnostics cardexport.FinalizeDiagnostics) {
-	for _, code := range diagnostics.DegradationCodes {
-		if code == cardexport.DegradationInvalidSenseSelection {
-			log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
-			return
-		}
+	if slices.Contains(diagnostics.DegradationCodes, cardexport.DegradationInvalidSenseSelection) {
+		log.Printf("prepared deck translation: invalid sense selection; using deterministic order")
+		return
 	}
 }
