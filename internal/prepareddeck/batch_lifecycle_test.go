@@ -121,6 +121,48 @@ func TestRetryableFailedBatchUsesBoundedItemReconciliation(t *testing.T) {
 	assert.True(t, terminalBatchFailsRun(batch), "permanent Batch validation failure was made retryable")
 }
 
+func TestTerminalBatchResultsPreserveProviderCountsAndExpiredItems(t *testing.T) {
+	chunk := domain.PreparedDeckBatchChunk{RequestCount: 2}
+	decoded := map[int]enrichment.BatchTranslationOutcome{
+		0: {StatusCode: 200, ErrorClass: enrichment.ProviderErrorNone},
+		1: {StatusCode: 500, ErrorClass: enrichment.ProviderErrorExpired},
+	}
+	counts, code := validateTerminalBatchResults(decoded, nil, enrichment.Batch{
+		Status:        enrichment.BatchStatusCompleted,
+		RequestCounts: enrichment.BatchRequestCounts{Completed: 1, Failed: 1},
+	}, chunk)
+	assert.Equal(t, "", code)
+	assert.Equal(t, 1, counts.successes)
+	assert.Equal(t, 1, counts.expiredFailures)
+
+	counts, code = validateTerminalBatchResults(map[int]enrichment.BatchTranslationOutcome{
+		0: {StatusCode: 200, ErrorClass: enrichment.ProviderErrorNone},
+	}, []int{1}, enrichment.Batch{
+		Status:        enrichment.BatchStatusExpired,
+		RequestCounts: enrichment.BatchRequestCounts{Completed: 1},
+	}, chunk)
+	assert.Equal(t, "", code)
+	assert.Equal(t, 1, counts.successes)
+}
+
+func TestFailedBatchItemRetainsProviderErrorAndExhaustsRetryGeneration(t *testing.T) {
+	outcome := enrichment.BatchTranslationOutcome{ErrorClass: enrichment.ProviderErrorRateLimit, ErrorCode: "token_limit_exceeded"}
+	chunk := domain.PreparedDeckBatchChunk{Generation: 1}
+	run := domain.PreparedDeckRun{MaxBatchGenerations: 2}
+	update, retry := failedBatchItem(4, outcome, true, enrichment.Batch{Status: enrichment.BatchStatusCompleted}, chunk, run)
+	assert.True(t, retry)
+	assert.Equal(t, domain.PreparedDeckOutcomePending, update.State)
+	assert.Equal(t, "rate_limit", update.ErrorClass)
+	assert.Equal(t, "token_limit_exceeded", update.ErrorCode)
+
+	chunk.Generation = 2
+	update, retry = failedBatchItem(4, outcome, true, enrichment.Batch{Status: enrichment.BatchStatusCompleted}, chunk, run)
+	assert.False(t, retry)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, update.State)
+	assert.Equal(t, "retry_exhausted", update.ErrorClass)
+	assert.Equal(t, "token_limit_exceeded", update.ErrorCode)
+}
+
 func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
 	require.NoError(t, err)

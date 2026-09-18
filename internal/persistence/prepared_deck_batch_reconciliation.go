@@ -54,16 +54,7 @@ type preparedDeckBatchMember struct {
 // terminal chunk, and a possible finalizer job either all commit or all roll
 // back together.
 func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params PreparedDeckBatchReconcileParams, insertSubmission PreparedDeckBatchSubmissionJobInserter, insertFinalizer PreparedDeckRunJobInserter) (result PreparedDeckBatchReconcileResult, err error) {
-	if s == nil || strings.TrimSpace(params.OwnerID) == "" || strings.TrimSpace(params.PreparationID) == "" || strings.TrimSpace(params.RunID) == "" || strings.TrimSpace(params.ChunkID) == "" || strings.TrimSpace(params.ClaimToken) == "" {
-		return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
-	}
-	if params.Chunk.State != domain.PreparedDeckBatchCompleted || !terminalProviderStatus(params.Chunk.ProviderStatus) {
-		return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
-	}
-	if params.Chunk.CompletedCount < 0 || params.Chunk.FailedCount < 0 || params.Chunk.ExpiredCount < 0 || params.Chunk.InputTokens < 0 || params.Chunk.OutputTokens < 0 {
-		return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
-	}
-	if err := validateBoundedError(params.Chunk.ErrorClass, params.Chunk.ErrorCode); err != nil {
+	if err := validatePreparedDeckBatchReconcileParams(s, params); err != nil {
 		return PreparedDeckBatchReconcileResult{}, err
 	}
 
@@ -72,113 +63,22 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 		return PreparedDeckBatchReconcileResult{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	runModel, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, ID: params.RunID})
-	if err != nil {
-		return PreparedDeckBatchReconcileResult{}, missing(err)
-	}
-	run := preparedDeckRunFromModel(runModel)
-	if run.State != domain.PreparedDeckRunTranslating || (run.TranslationState != domain.PreparedDeckTranslationPending && run.TranslationState != domain.PreparedDeckTranslationRunning) {
-		return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckClaimLost
-	}
-	chunkModel, err := sqlcgen.New(tx).GetPreparedDeckBatchChunkForUpdate(ctx, sqlcgen.GetPreparedDeckBatchChunkForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ID: params.ChunkID})
-	if err != nil {
-		return PreparedDeckBatchReconcileResult{}, missing(err)
-	}
-	chunk := preparedDeckBatchChunkFromModel(chunkModel)
-	if chunk.State != domain.PreparedDeckBatchReconciling || chunk.ReconciliationGeneration != params.ReconciliationGeneration || chunk.ReconciliationClaimToken != params.ClaimToken {
-		return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckClaimLost
-	}
-
-	members, err := loadPreparedDeckBatchMembers(ctx, tx, params)
+	run, chunk, err := lockPreparedDeckBatchForReconciliation(ctx, tx, params)
 	if err != nil {
 		return PreparedDeckBatchReconcileResult{}, err
 	}
-	if len(members) != chunk.RequestCount || len(params.Items) != len(members) || params.Chunk.CompletedCount+params.Chunk.FailedCount+params.Chunk.ExpiredCount > chunk.RequestCount {
-		return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
-	}
-	memberByOrdinal := make(map[int]preparedDeckBatchMember, len(members))
-	for _, member := range members {
-		memberByOrdinal[member.Ordinal] = member
-	}
-	seen := make(map[int]struct{}, len(params.Items))
-	retryOrdinals := make(map[int]struct{})
-	for _, item := range params.Items {
-		member, ok := memberByOrdinal[item.Ordinal]
-		if !ok {
-			return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
-		}
-		if _, duplicate := seen[item.Ordinal]; duplicate {
-			return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
-		}
-		seen[item.Ordinal] = struct{}{}
-		if item.State != domain.PreparedDeckOutcomeCompleted && item.State != domain.PreparedDeckOutcomePending && item.State != domain.PreparedDeckOutcomeFailed {
-			return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
-		}
-		if item.State == domain.PreparedDeckOutcomeFailed && strings.TrimSpace(item.ErrorClass) == "" {
-			return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
-		}
-		if err = validateBoundedError(item.ErrorClass, item.ErrorCode); err != nil {
-			return PreparedDeckBatchReconcileResult{}, err
-		}
-		outcomeModel, getErr := sqlcgen.New(tx).GetPreparedDeckTranslationOutcomeForUpdate(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal})
-		outcome := preparedDeckOutcomeFromModel(outcomeModel)
-		if getErr != nil {
-			return PreparedDeckBatchReconcileResult{}, missing(getErr)
-		}
-		if outcome.State == domain.PreparedDeckOutcomeCompleted || outcome.State == domain.PreparedDeckOutcomeFailed || outcome.State == domain.PreparedDeckOutcomeCancelled {
-			continue
-		}
-		if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeRunning {
-			return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
-		}
-		if item.State == domain.PreparedDeckOutcomePending && chunk.Generation >= run.MaxBatchGenerations {
-			return PreparedDeckBatchReconcileResult{}, ErrInvalidTransition
-		}
-		if item.State == domain.PreparedDeckOutcomeCompleted {
-			if item.CacheEntry == nil || item.CacheEntry.CacheKey != member.Key || item.CacheEntry.CachedAt.IsZero() {
-				return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
-			}
-			entry := item.CacheEntry
-			selection, marshalErr := marshalSenseSelection(entry.SenseSelection)
-			if marshalErr != nil {
-				return PreparedDeckBatchReconcileResult{}, marshalErr
-			}
-			if err = sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
-				return PreparedDeckBatchReconcileResult{}, err
-			}
-			// The cache is immutable and first-writer-wins. Another run may have
-			// populated this exact key after this Batch was submitted; that row is
-			// the trusted result the finalizer must consume even when a stochastic
-			// provider returned different text or this attempt has a later timestamp.
-			if _, err = sqlcgen.New(tx).EnrichmentCacheLookup(ctx, sqlcgen.EnrichmentCacheLookupParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion}); err != nil {
-				return PreparedDeckBatchReconcileResult{}, err
-			}
-		} else if item.CacheEntry != nil {
-			return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
-		}
-		var terminalAt *time.Time
-		if item.State != domain.PreparedDeckOutcomePending {
-			terminal := time.Now().UTC()
-			terminalAt = &terminal
-		} else {
-			retryOrdinals[item.Ordinal] = struct{}{}
-		}
-		if err = sqlcgen.New(tx).UpdatePreparedDeckOutcomeFromBatch(ctx, sqlcgen.UpdatePreparedDeckOutcomeFromBatchParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal, State: string(item.State), ProviderAttemptCount: chunk.Generation, TerminalAt: pgTimeArgPtr(terminalAt), ErrorClass: item.ErrorClass, ErrorCode: item.ErrorCode}); err != nil {
-			return PreparedDeckBatchReconcileResult{}, err
-		}
-	}
-	if len(seen) != len(members) {
-		return PreparedDeckBatchReconcileResult{}, ErrPreparedDeckIdentity
+	retryOrdinals, err := reconcilePreparedDeckBatchOutcomes(ctx, tx, params, run, chunk)
+	if err != nil {
+		return PreparedDeckBatchReconcileResult{}, err
 	}
 
 	retryChunks, err := insertPreparedDeckRetryChunks(ctx, tx, params, run, chunk.Generation+1, retryOrdinals, insertSubmission)
 	if err != nil {
 		return PreparedDeckBatchReconcileResult{}, err
 	}
-	chunkModel, err = sqlcgen.New(tx).CompletePreparedDeckBatchChunk(ctx, sqlcgen.CompletePreparedDeckBatchChunkParams{Owner: params.OwnerID, Preparation: params.PreparationID, Run: params.RunID, ID: params.ChunkID, ProviderStatus: textArg(params.Chunk.ProviderStatus), OutputFileID: params.Chunk.OutputFileID, ErrorFileID: params.Chunk.ErrorFileID, CompletedCount: params.Chunk.CompletedCount, FailedCount: params.Chunk.FailedCount, ExpiredCount: params.Chunk.ExpiredCount, InputTokens: params.Chunk.InputTokens, OutputTokens: params.Chunk.OutputTokens, ErrorClass: params.Chunk.ErrorClass, ErrorCode: params.Chunk.ErrorCode, ProviderCompletedAt: pgTimeArgPtr(params.Chunk.ProviderCompletedAt)})
-	chunk = preparedDeckBatchChunkFromModel(chunkModel)
+	chunk, err = completePreparedDeckBatchChunk(ctx, tx, params)
 	if err != nil {
-		return PreparedDeckBatchReconcileResult{}, missing(err)
+		return PreparedDeckBatchReconcileResult{}, err
 	}
 
 	run, err = advancePreparedDeckRunTx(ctx, tx, run, insertFinalizer)
@@ -189,6 +89,150 @@ func (s *PostgresStore) ReconcilePreparedDeckBatch(ctx context.Context, params P
 		return PreparedDeckBatchReconcileResult{}, err
 	}
 	return PreparedDeckBatchReconcileResult{Chunk: chunk, Run: run, RetryChunks: retryChunks}, nil
+}
+
+func validatePreparedDeckBatchReconcileParams(s *PostgresStore, params PreparedDeckBatchReconcileParams) error {
+	if s == nil || strings.TrimSpace(params.OwnerID) == "" || strings.TrimSpace(params.PreparationID) == "" || strings.TrimSpace(params.RunID) == "" || strings.TrimSpace(params.ChunkID) == "" || strings.TrimSpace(params.ClaimToken) == "" {
+		return ErrInvalidTransition
+	}
+	if params.Chunk.State != domain.PreparedDeckBatchCompleted || !terminalProviderStatus(params.Chunk.ProviderStatus) {
+		return ErrInvalidTransition
+	}
+	if params.Chunk.CompletedCount < 0 || params.Chunk.FailedCount < 0 || params.Chunk.ExpiredCount < 0 || params.Chunk.InputTokens < 0 || params.Chunk.OutputTokens < 0 {
+		return ErrInvalidTransition
+	}
+	return validateBoundedError(params.Chunk.ErrorClass, params.Chunk.ErrorCode)
+}
+
+func lockPreparedDeckBatchForReconciliation(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) (domain.PreparedDeckRun, domain.PreparedDeckBatchChunk, error) {
+	runModel, err := sqlcgen.New(tx).GetPreparedDeckRunForUpdate(ctx, sqlcgen.GetPreparedDeckRunForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, ID: params.RunID})
+	if err != nil {
+		return domain.PreparedDeckRun{}, domain.PreparedDeckBatchChunk{}, missing(err)
+	}
+	run := preparedDeckRunFromModel(runModel)
+	if run.State != domain.PreparedDeckRunTranslating || (run.TranslationState != domain.PreparedDeckTranslationPending && run.TranslationState != domain.PreparedDeckTranslationRunning) {
+		return domain.PreparedDeckRun{}, domain.PreparedDeckBatchChunk{}, ErrPreparedDeckClaimLost
+	}
+	chunkModel, err := sqlcgen.New(tx).GetPreparedDeckBatchChunkForUpdate(ctx, sqlcgen.GetPreparedDeckBatchChunkForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, ID: params.ChunkID})
+	if err != nil {
+		return domain.PreparedDeckRun{}, domain.PreparedDeckBatchChunk{}, missing(err)
+	}
+	chunk := preparedDeckBatchChunkFromModel(chunkModel)
+	if chunk.State != domain.PreparedDeckBatchReconciling || chunk.ReconciliationGeneration != params.ReconciliationGeneration || chunk.ReconciliationClaimToken != params.ClaimToken {
+		return domain.PreparedDeckRun{}, domain.PreparedDeckBatchChunk{}, ErrPreparedDeckClaimLost
+	}
+	return run, chunk, nil
+}
+
+func reconcilePreparedDeckBatchOutcomes(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, run domain.PreparedDeckRun, chunk domain.PreparedDeckBatchChunk) (map[int]struct{}, error) {
+	members, err := loadPreparedDeckBatchMembers(ctx, tx, params)
+	if err != nil {
+		return nil, err
+	}
+	if len(members) != chunk.RequestCount || len(params.Items) != len(members) || params.Chunk.CompletedCount+params.Chunk.FailedCount+params.Chunk.ExpiredCount > chunk.RequestCount {
+		return nil, ErrPreparedDeckIdentity
+	}
+	memberByOrdinal := make(map[int]preparedDeckBatchMember, len(members))
+	for _, member := range members {
+		memberByOrdinal[member.Ordinal] = member
+	}
+	seen := make(map[int]struct{}, len(params.Items))
+	retryOrdinals := make(map[int]struct{})
+	for _, item := range params.Items {
+		member, ok := memberByOrdinal[item.Ordinal]
+		if !ok {
+			return nil, ErrPreparedDeckIdentity
+		}
+		if _, duplicate := seen[item.Ordinal]; duplicate {
+			return nil, ErrPreparedDeckIdentity
+		}
+		seen[item.Ordinal] = struct{}{}
+		retry, err := reconcilePreparedDeckBatchItem(ctx, tx, params, run, chunk, member, item)
+		if err != nil {
+			return nil, err
+		}
+		if retry {
+			retryOrdinals[item.Ordinal] = struct{}{}
+		}
+	}
+	if len(seen) != len(members) {
+		return nil, ErrPreparedDeckIdentity
+	}
+	return retryOrdinals, nil
+}
+
+func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, run domain.PreparedDeckRun, chunk domain.PreparedDeckBatchChunk, member preparedDeckBatchMember, item PreparedDeckBatchItemReconciliation) (bool, error) {
+	if item.State != domain.PreparedDeckOutcomeCompleted && item.State != domain.PreparedDeckOutcomePending && item.State != domain.PreparedDeckOutcomeFailed {
+		return false, ErrInvalidTransition
+	}
+	if item.State == domain.PreparedDeckOutcomeFailed && strings.TrimSpace(item.ErrorClass) == "" {
+		return false, ErrInvalidTransition
+	}
+	if err := validateBoundedError(item.ErrorClass, item.ErrorCode); err != nil {
+		return false, err
+	}
+	outcomeModel, err := sqlcgen.New(tx).GetPreparedDeckTranslationOutcomeForUpdate(ctx, sqlcgen.GetPreparedDeckTranslationOutcomeForUpdateParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal})
+	if err != nil {
+		return false, missing(err)
+	}
+	outcome := preparedDeckOutcomeFromModel(outcomeModel)
+	if outcome.State == domain.PreparedDeckOutcomeCompleted || outcome.State == domain.PreparedDeckOutcomeFailed || outcome.State == domain.PreparedDeckOutcomeCancelled {
+		return false, nil
+	}
+	if outcome.State != domain.PreparedDeckOutcomePending && outcome.State != domain.PreparedDeckOutcomeRunning {
+		return false, ErrPreparedDeckIdentity
+	}
+	if item.State == domain.PreparedDeckOutcomePending && chunk.Generation >= run.MaxBatchGenerations {
+		return false, ErrInvalidTransition
+	}
+	if err := persistPreparedDeckBatchCache(ctx, tx, member, item); err != nil {
+		return false, err
+	}
+	var terminalAt *time.Time
+	if item.State != domain.PreparedDeckOutcomePending {
+		terminal := time.Now().UTC()
+		terminalAt = &terminal
+	}
+	if err := updatePreparedDeckBatchOutcome(ctx, tx, params, chunk, item, terminalAt); err != nil {
+		return false, err
+	}
+	return item.State == domain.PreparedDeckOutcomePending, nil
+}
+
+func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member preparedDeckBatchMember, item PreparedDeckBatchItemReconciliation) error {
+	if item.State != domain.PreparedDeckOutcomeCompleted {
+		if item.CacheEntry != nil {
+			return ErrPreparedDeckIdentity
+		}
+		return nil
+	}
+	if item.CacheEntry == nil || item.CacheEntry.CacheKey != member.Key || item.CacheEntry.CachedAt.IsZero() {
+		return ErrPreparedDeckIdentity
+	}
+	entry := item.CacheEntry
+	selection, err := marshalSenseSelection(entry.SenseSelection)
+	if err != nil {
+		return err
+	}
+	if err = sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
+		return err
+	}
+	// The cache is immutable and first-writer-wins. Read the committed row so
+	// the finalizer consumes the trusted value when another run won the race.
+	_, err = sqlcgen.New(tx).EnrichmentCacheLookup(ctx, sqlcgen.EnrichmentCacheLookupParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion})
+	return err
+}
+
+func updatePreparedDeckBatchOutcome(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, chunk domain.PreparedDeckBatchChunk, item PreparedDeckBatchItemReconciliation, terminalAt *time.Time) error {
+	return sqlcgen.New(tx).UpdatePreparedDeckOutcomeFromBatch(ctx, sqlcgen.UpdatePreparedDeckOutcomeFromBatchParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal, State: string(item.State), ProviderAttemptCount: chunk.Generation, TerminalAt: pgTimeArgPtr(terminalAt), ErrorClass: item.ErrorClass, ErrorCode: item.ErrorCode})
+}
+
+func completePreparedDeckBatchChunk(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) (domain.PreparedDeckBatchChunk, error) {
+	model, err := sqlcgen.New(tx).CompletePreparedDeckBatchChunk(ctx, sqlcgen.CompletePreparedDeckBatchChunkParams{Owner: params.OwnerID, Preparation: params.PreparationID, Run: params.RunID, ID: params.ChunkID, ProviderStatus: textArg(params.Chunk.ProviderStatus), OutputFileID: params.Chunk.OutputFileID, ErrorFileID: params.Chunk.ErrorFileID, CompletedCount: params.Chunk.CompletedCount, FailedCount: params.Chunk.FailedCount, ExpiredCount: params.Chunk.ExpiredCount, InputTokens: params.Chunk.InputTokens, OutputTokens: params.Chunk.OutputTokens, ErrorClass: params.Chunk.ErrorClass, ErrorCode: params.Chunk.ErrorCode, ProviderCompletedAt: pgTimeArgPtr(params.Chunk.ProviderCompletedAt)})
+	if err != nil {
+		return domain.PreparedDeckBatchChunk{}, missing(err)
+	}
+	return preparedDeckBatchChunkFromModel(model), nil
 }
 
 func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) ([]preparedDeckBatchMember, error) {
