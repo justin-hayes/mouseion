@@ -27,6 +27,7 @@ func TestMergeSelectionCandidatesRejectsInvalidMinimumOccurrences(t *testing.T) 
 
 func TestCanonicalizeSelectedSentenceGroupsKeepsOnlyAffectedIdentities(t *testing.T) {
 	profile := canonicalization.GermanPost1996()
+	require.Equal(t, "aufstehen", profile.Canonical("aufstehen"))
 	rows := []selectedSentenceRow{
 		{corpusID: "second", lemma: "hass", upos: "NOUN"},
 		{corpusID: "first", lemma: "haß", upos: "NOUN"},
