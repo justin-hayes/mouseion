@@ -18,9 +18,7 @@ func (s *PostgresStore) ListBookOccurrencesByLemma(ctx context.Context, owner, b
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListBookOccurrencesByLemmaRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListBookOccurrencesByLemmaAndDependency returns Book occurrences matching a
@@ -33,9 +31,7 @@ func (s *PostgresStore) ListBookOccurrencesByLemmaAndDependency(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListBookOccurrencesByLemmaAndDependencyRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListBookOccurrencesBySurface returns occurrences in a Book's current
@@ -48,9 +44,7 @@ func (s *PostgresStore) ListBookOccurrencesBySurface(ctx context.Context, owner,
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListBookOccurrencesBySurfaceRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListBookOccurrencesBySurfaceAndDependency returns Book occurrences matching
@@ -63,9 +57,7 @@ func (s *PostgresStore) ListBookOccurrencesBySurfaceAndDependency(ctx context.Co
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListBookOccurrencesBySurfaceAndDependencyRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListBookDependentsByGovernorLemma returns Book occurrences attached to a
@@ -78,9 +70,7 @@ func (s *PostgresStore) ListBookDependentsByGovernorLemma(ctx context.Context, o
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListBookDependentsByGovernorLemmaRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListStudyLanguageOccurrencesByLemma returns occurrences across all active
@@ -93,9 +83,7 @@ func (s *PostgresStore) ListStudyLanguageOccurrencesByLemma(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageOccurrencesByLemmaRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListStudyLanguageOccurrencesByLemmaAndDependency returns occurrences across
@@ -108,9 +96,7 @@ func (s *PostgresStore) ListStudyLanguageOccurrencesByLemmaAndDependency(ctx con
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageOccurrencesByLemmaAndDependencyRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListStudyLanguageOccurrencesBySurface returns occurrences across all active
@@ -123,9 +109,7 @@ func (s *PostgresStore) ListStudyLanguageOccurrencesBySurface(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageOccurrencesBySurfaceRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListStudyLanguageOccurrencesBySurfaceAndDependency returns occurrences across
@@ -138,9 +122,7 @@ func (s *PostgresStore) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx c
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageOccurrencesBySurfaceAndDependencyRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 // ListStudyLanguageDependentsByGovernorLemma returns occurrences across current
@@ -153,9 +135,7 @@ func (s *PostgresStore) ListStudyLanguageDependentsByGovernorLemma(ctx context.C
 	if err != nil {
 		return nil, err
 	}
-	return mapConcordanceRows(rows, func(row sqlcgen.ListStudyLanguageDependentsByGovernorLemmaRow) domain.ConcordanceOccurrence {
-		return concordanceOccurrenceFromFields(row.Surface, row.CanonicalLemma, row.Upos, row.Dependency, row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText, row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset, row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset, row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID, row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder, row.SentenceOrdinal, row.TokenOrdinal, int(row.BookPosition.Int32), row.BookPosition.Valid)
-	}), nil
+	return mapConcordanceRows(rows), nil
 }
 
 func concordanceOccurrenceFromFields(
@@ -186,10 +166,34 @@ func concordanceOccurrenceFromFields(
 	}
 }
 
-func mapConcordanceRows[T any](rows []T, mapRow func(T) domain.ConcordanceOccurrence) []domain.ConcordanceOccurrence {
+type concordanceSQLRow interface {
+	sqlcgen.ListBookOccurrencesByLemmaRow |
+		sqlcgen.ListBookOccurrencesByLemmaAndDependencyRow |
+		sqlcgen.ListBookOccurrencesBySurfaceRow |
+		sqlcgen.ListBookOccurrencesBySurfaceAndDependencyRow |
+		sqlcgen.ListBookDependentsByGovernorLemmaRow |
+		sqlcgen.ListStudyLanguageOccurrencesByLemmaRow |
+		sqlcgen.ListStudyLanguageOccurrencesByLemmaAndDependencyRow |
+		sqlcgen.ListStudyLanguageOccurrencesBySurfaceRow |
+		sqlcgen.ListStudyLanguageOccurrencesBySurfaceAndDependencyRow |
+		sqlcgen.ListStudyLanguageDependentsByGovernorLemmaRow
+}
+
+func mapConcordanceRows[T concordanceSQLRow](rows []T) []domain.ConcordanceOccurrence {
 	occurrences := make([]domain.ConcordanceOccurrence, 0, len(rows))
 	for _, row := range rows {
-		occurrences = append(occurrences, mapRow(row))
+		commonRow := sqlcgen.ListBookOccurrencesByLemmaRow(row)
+		occurrences = append(occurrences, concordanceOccurrenceFromFields(
+			commonRow.Surface, commonRow.CanonicalLemma, commonRow.Upos, commonRow.Dependency,
+			commonRow.HeadOrdinal, pgText(commonRow.HeadSurface), commonRow.SentenceText,
+			commonRow.SentenceStartOffset, commonRow.SentenceEndOffset,
+			commonRow.UnitStartOffset, commonRow.UnitEndOffset,
+			commonRow.BookStartOffset, commonRow.BookEndOffset,
+			commonRow.BookID, commonRow.BookTitle, commonRow.SourceMaterialID,
+			commonRow.AnalysisRunID, commonRow.CorpusID, commonRow.UnitID,
+			commonRow.ChapterTitle, commonRow.UnitOrder, commonRow.SentenceOrdinal,
+			commonRow.TokenOrdinal, int(commonRow.BookPosition.Int32), commonRow.BookPosition.Valid,
+		))
 	}
 	return occurrences
 }
