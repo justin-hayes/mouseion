@@ -24,7 +24,7 @@ func TestAddToReadingJourneyRejectsBookWithoutChosenLanguage(t *testing.T) {
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	assert.ErrorIs(t, err, ErrBookLanguageRequired)
+	assert.ErrorIs(t, err, ErrBookLanguageRequired) //nolint:testifylint // Rejection and unchanged-Journey verification are independent expectations.
 	unchanged, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, unchanged.Entries, "unknown-language add changed Journey")

@@ -70,9 +70,9 @@ func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
 	bob, err := store.CreateUserWithPassword(ctx, "bob", bobHash, false)
 	require.NoError(t, err)
 	err = auth.AuthorizeOwner(alice, bob.ID)
-	assert.Error(t, err, "cross-user owner check allowed")
+	assert.Error(t, err, "cross-user owner check allowed") //nolint:testifylint // Authorization and login failures are independent security checks.
 	_, err = s.Login(ctx, "alice", "wrong")
-	assert.Error(t, err, "wrong password logged in")
+	assert.Error(t, err, "wrong password logged in") //nolint:testifylint // Wrong-password rejection is independent of the successful login below.
 	w := request(t, h, "POST", "/login", `{"username":"alice","password":"alice-password"}`, nil)
 	assert.Equal(t, http.StatusNoContent, w.Code, "login status=%d body=%s", w.Code, w.Body.String())
 	cookies := w.Result().Cookies()

@@ -31,7 +31,7 @@ func TestLifecyclePersistsAcrossCorporaAndIsolatesUsers(t *testing.T) {
 	require.NoError(t, err)
 	// Rediscovery from another corpus is represented by requesting candidate and is suppressed.
 	_, err = lifecycle.Transition(ctx, alice.ID, id, Candidate)
-	assert.Error(t, err, "ignored item implicitly returned as candidate")
+	assert.Error(t, err, "ignored item implicitly returned as candidate") //nolint:testifylint // Rejection and the independent owner-state checks both need to run.
 	_, err = lifecycle.Transition(ctx, bob.ID, id, Candidate)
 	require.NoError(t, err)
 	aliceState, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "Haus", "NOUN")

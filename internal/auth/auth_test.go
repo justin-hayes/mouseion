@@ -106,9 +106,9 @@ func TestCreateFirstAccountValidatesAndEstablishesSession(t *testing.T) {
 	store := newMemoryStore()
 	service := New(store, time.Hour)
 	_, _, err := service.CreateFirstAccount(ctx, " ", "password")
-	assert.ErrorIs(t, err, ErrInvalidUsername)
+	assert.ErrorIs(t, err, ErrInvalidUsername) //nolint:testifylint // Independent validation case; the following call tests a different input.
 	_, _, err = service.CreateFirstAccount(ctx, "alice", "short")
-	assert.ErrorIs(t, err, ErrInvalidPassword)
+	assert.ErrorIs(t, err, ErrInvalidPassword) //nolint:testifylint // Independent validation case; later assertions cover successful creation.
 	u, token, err := service.CreateFirstAccount(ctx, " alice ", "password")
 	require.NoError(t, err)
 	assert.Equal(t, "alice", u.Username)

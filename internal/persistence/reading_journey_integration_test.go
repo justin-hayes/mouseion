@@ -79,9 +79,9 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	require.NoError(t, repeatErr)
 	assert.Equal(t, revision, repeatedRevision, "repeated add")
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", aliceExtra.ID, 0)
-	assert.ErrorIs(t, err, ErrJourneyStale)
+	assert.ErrorIs(t, err, ErrJourneyStale) //nolint:testifylint // Stale revision rejection is independent of the cross-owner case.
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", bobQueued.ID, revision)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner journey rejection is independently asserted.
 
 	revision, err = store.RemoveFromReadingJourney(ctx, alice.ID, "de", queuedEarly.ID, revision)
 	require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), revision, "move low clamp")
 	_, err = store.MoveReadingJourneyEntry(ctx, alice.ID, "de", bobQueued.ID, 1, revision)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner move rejection and the unchanged-journey lookup are independent.
 	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assertJourneyEntries(t, journey, alice.ID, []string{aliceExtra.ID, shared.ID})
@@ -183,7 +183,7 @@ func TestReadingJourneyLanguageIsolationAndLazyLifecycle(t *testing.T) {
 	assert.Zero(t, itJourney.Revision, "initial Italian Journey")
 	assert.Equal(t, "it", itJourney.Language, "initial Italian Journey")
 	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", unknown.ID, 0)
-	assert.ErrorIs(t, err, ErrBookLanguageRequired)
+	assert.ErrorIs(t, err, ErrBookLanguageRequired) //nolint:testifylint // Rejection and materialized-row verification are independent expectations.
 	var journeyRows int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_journeys WHERE owner_id=$1`, owner.ID).Scan(&journeyRows)
 	require.NoError(t, err)

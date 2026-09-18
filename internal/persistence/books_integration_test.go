@@ -148,7 +148,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, bookID, otherBookID, "cross-owner acquisition reused a Book")
 	_, err = store.GetBook(ctx, alice.ID, otherBookID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner lookup is independent of the following owner-scoped link.
 	err = store.LinkSourceToBook(ctx, bob.ID, otherBookID, otherSource.ID)
 	require.NoError(t, err)
 
@@ -157,13 +157,13 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	err = store.AddBookAlias(ctx, alice.ID, bookID, domain.AliasStrongBibliographic, "isbn", "978-conflict")
 	require.NoError(t, err)
 	err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, domain.AliasStrongBibliographic, "isbn", "978-conflict")
-	assert.ErrorIs(t, err, ErrAliasConflict)
+	assert.ErrorIs(t, err, ErrAliasConflict) //nolint:testifylint // Conflict rejection and alias resolution are independent assertions.
 	resolved, found, err := store.ResolveBookByAlias(ctx, alice.ID, "isbn", "978-conflict")
 	require.NoError(t, err)
 	assert.True(t, found, "alias was reassigned")
 	assert.Equal(t, bookID, resolved.ID, "alias was reassigned")
 	err = store.LinkSourceToBook(ctx, alice.ID, secondBook.ID, first.ID)
-	assert.ErrorIs(t, err, ErrSourceBookConflict)
+	assert.ErrorIs(t, err, ErrSourceBookConflict) //nolint:testifylint // Conflict rejection is independent of the later membership lifecycle.
 
 	err = store.RemoveBookFromMyBooks(ctx, alice.ID, bookID)
 	require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	assert.False(t, found, "connectionless acquisition source alias was persisted")
 
 	err = store.AddBookAlias(ctx, alice.ID, secondBook.ID, "invalid", "failure", "must-not-commit")
-	assert.Error(t, err, "invalid alias was accepted")
+	assert.Error(t, err, "invalid alias was accepted") //nolint:testifylint // Rejection and the rollback query are independent assertions.
 	var invalidAliases int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='must-not-commit'`, alice.ID).Scan(&invalidAliases)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestGetBookDetailResolvesBookAndSourceIDsWithinOwner(t *testing.T) {
 		assert.Equal(t, domain.BookAcquiredUnassessed, detail.EvidenceState(), "detail id=%q", id)
 	}
 	_, err = store.GetBookDetail(ctx, bob.ID, bookID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner detail lookup is independent of the missing-ID lookup.
 	_, err = store.GetBookDetail(ctx, alice.ID, "missing")
 	assert.ErrorIs(t, err, ErrNotFound)
 }

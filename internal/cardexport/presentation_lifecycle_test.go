@@ -314,7 +314,7 @@ func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T)
 	wrongKey := work[0].CacheKey
 	wrongKey.ProviderVersion = "other"
 	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: wrongKey}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
-	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	assert.ErrorIs(t, err, cardexport.ErrInvalidInput) //nolint:testifylint // Independent malformed-key case; the next case checks another provenance failure.
 
 	wrongRecordKey := work[0].CacheKey
 	wrongRecordKey.Provider = "other"

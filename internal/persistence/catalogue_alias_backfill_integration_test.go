@@ -38,7 +38,7 @@ func TestCatalogueAliasBackfillPersistenceIsScopedAndIdempotent(t *testing.T) {
 	require.Len(t, aliases, 1)
 	assert.Equal(t, "legacy-entry", aliases[0].Value)
 	err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, bobConnection.ID)
-	assert.ErrorIs(t, err, ErrAliasConflict)
+	assert.ErrorIs(t, err, ErrAliasConflict) //nolint:testifylint // Rejected cross-owner assignment and the valid assignment are independent cases.
 	err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, aliceConnection.ID)
 	require.NoError(t, err)
 	err = store.SetCatalogueEntryAliasConnection(ctx, alice.ID, aliases[0].ID, aliceConnection.ID)

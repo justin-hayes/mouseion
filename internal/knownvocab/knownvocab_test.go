@@ -155,7 +155,7 @@ func TestImportRequiresOwnerLanguageAndSupportedProfile(t *testing.T) {
 	service := NewService(newMemoryStore())
 	for _, tc := range []struct{ owner, language string }{{"", "de"}, {"alice", ""}} {
 		_, err := service.Import(context.Background(), tc.owner, tc.language, strings.NewReader("Haus\n"))
-		assert.ErrorIs(t, err, ErrInvalidInput, "Import(%q, %q)", tc.owner, tc.language)
+		assert.ErrorIs(t, err, ErrInvalidInput, "Import(%q, %q)", tc.owner, tc.language) //nolint:testifylint // Each invalid owner/language pair is an independent table case.
 	}
 	got, err := service.Import(context.Background(), "alice", "zz", strings.NewReader("word\n"))
 	require.NoError(t, err)

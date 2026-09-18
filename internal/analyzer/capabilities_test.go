@@ -137,7 +137,7 @@ func TestCachedCapabilityProviderDoesNotCancelSharedLookup(t *testing.T) {
 	<-lookupStarted
 	cancelLeader()
 	leaderErr := <-leaderResult
-	assert.ErrorIs(t, leaderErr, context.Canceled, "leader error = %v, want context canceled", leaderErr)
+	assert.ErrorIs(t, leaderErr, context.Canceled, "leader error = %v, want context canceled", leaderErr) //nolint:testifylint // Leader cancellation and waiter recovery are independent outcomes.
 
 	waiterResult := make(chan Capabilities, 1)
 	waiterError := make(chan error, 1)

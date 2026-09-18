@@ -67,35 +67,35 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 	otherAliceBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice second goal book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
 	_, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", otherAliceBook.ID)
-	assert.ErrorIs(t, err, ErrGoalExists)
+	assert.ErrorIs(t, err, ErrGoalExists) //nolint:testifylint // Duplicate-goal rejection is independent of later eligibility cases.
 
 	noDeckBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol reading-only book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
 	_, err = store.CreatePrimaryGoal(ctx, carol.ID, "de", noDeckBook.ID)
-	assert.ErrorIs(t, err, ErrGoalIneligible)
+	assert.ErrorIs(t, err, ErrGoalIneligible) //nolint:testifylint // Eligibility rejection is an independent goal case.
 	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, carol.ID, "de", noDeckBook.ID)
 	require.NoError(t, err)
 	_, err = store.CreatePrimaryGoal(ctx, carol.ID, "de", bobBook.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner goal rejection is independently asserted.
 
 	changed, err := store.ChangePrimaryGoal(ctx, carol.ID, "de", otherAliceBook.ID, noDeckBook.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
 	assert.Equal(t, domain.PrimaryGoal{}, changed, "cross-owner change goal")
 	replacementBook, replacementSource, _ := createJourneyFixture(t, ctx, store, carol.ID, "goal-replacement")
 	makeJourneyMemberAnalyzed(t, ctx, store, replacementBook, replacementSource)
 	_, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, "stale-book")
-	assert.ErrorIs(t, err, ErrGoalStale)
+	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
 	changed, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, noDeckBook.ID)
 	require.NoError(t, err)
 	assert.Equal(t, replacementBook.ID, changed.BookID, "valid change goal")
 	err = store.ClearPrimaryGoal(ctx, carol.ID, "de", noDeckBook.ID)
-	assert.ErrorIs(t, err, ErrGoalStale)
+	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale clear rejection is independent of the valid clear.
 	err = store.ClearPrimaryGoal(ctx, carol.ID, "de", replacementBook.ID)
 	require.NoError(t, err, "valid clear")
 	err = store.ClearPrimaryGoal(ctx, carol.ID, "de", replacementBook.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Repeated clear rejection is an independent idempotency case.
 	err = store.ClearPrimaryGoal(ctx, bob.ID, "de", aliceBook.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner clear rejection is independent of the final owner lookup.
 	goal, err = store.GetPrimaryGoal(ctx, bob.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, domain.PrimaryGoal{}, goal, "cross-owner get goal")
@@ -128,7 +128,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	require.NotNil(t, repeated.Goal.ReadingFinishedAt, "idempotent finish")
 	assert.True(t, repeated.Goal.ReadingFinishedAt.Equal(finishedAt), "idempotent finish")
 	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", "stale-book")
-	assert.ErrorIs(t, err, ErrGoalStale)
+	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale finish rejection is independent of the replacement eligibility case.
 
 	replacement, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Next book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
