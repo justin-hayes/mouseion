@@ -25,8 +25,15 @@ linters:
     - canonicalheader
     - recvcheck
     - noctx
+    - dupl
+    - interfacebloat
+    - gocognit
 
   settings:
+    gocognit:
+      min-complexity: 70
+    interfacebloat:
+      max: 10
     errcheck:
       check-blank: true
       check-type-assertions: true
@@ -40,6 +47,10 @@ linters:
   exclusions:
     generated: strict
     warn-unused: true
+    rules:
+      - path: _test\.go
+        linters:
+          - gocognit
 
 issues:
   max-issues-per-linter: 0
