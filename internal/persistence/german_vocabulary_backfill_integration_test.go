@@ -68,6 +68,68 @@ func TestBackfillGermanVocabularyMergesMutableIdentityProjections(t *testing.T) 
 	assert.Zero(t, second.Merged)
 }
 
+func TestBackfillGermanVocabularyReconcilesSelectedExampleSentences(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "german-backfill-sentences", false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "sentences", Title: "Sentences", MediaType: "text/plain", ContentHash: "sentences-hash", Content: []byte("Haß"), FullText: "Haß"})
+	require.NoError(t, err)
+	err = store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: "sentences-artifact", Language: "de", SchemaVersion: "1", NormalizationProfile: "test", NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1"}, nil)
+	require.NoError(t, err)
+	corpus, err := store.PutCorpus(ctx, owner.ID, source.ID, "sentences-artifact")
+	require.NoError(t, err)
+	oldExample, err := store.PutExampleSentence(ctx, owner.ID, corpus.ID, "old", "Haß", []byte(`{"source":"old"}`))
+	require.NoError(t, err)
+	modernExample, err := store.PutExampleSentence(ctx, owner.ID, corpus.ID, "modern", "Hass", []byte(`{"source":"modern"}`))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE example_sentences SET language='de',canonical_lemma=$2,upos='NOUN',selection_rank=2,selection_score=3,selection_reasons='["old"]',is_chosen=false WHERE owner_id=$1 AND id=$3`, owner.ID, "haß", oldExample.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE example_sentences SET language='de',canonical_lemma=$2,upos='NOUN',selection_rank=1,selection_score=8,selection_reasons='["modern"]',is_chosen=true WHERE owner_id=$1 AND id=$3`, owner.ID, "hass", modernExample.ID)
+	require.NoError(t, err)
+
+	report, err := store.BackfillGermanVocabulary(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Updated)
+	assert.Equal(t, 1, report.Merged)
+	var rows []struct {
+		ID      string
+		Lemma   string
+		Rank    int
+		Score   int
+		Reasons []byte
+		Chosen  bool
+	}
+	queryRows, err := store.Pool().Query(ctx, `SELECT id::text, canonical_lemma, selection_rank, selection_score, selection_reasons, is_chosen FROM example_sentences WHERE owner_id=$1 AND corpus_id=$2 ORDER BY selection_rank`, owner.ID, corpus.ID)
+	require.NoError(t, err)
+	defer queryRows.Close()
+	for queryRows.Next() {
+		var row struct {
+			ID      string
+			Lemma   string
+			Rank    int
+			Score   int
+			Reasons []byte
+			Chosen  bool
+		}
+		require.NoError(t, queryRows.Scan(&row.ID, &row.Lemma, &row.Rank, &row.Score, &row.Reasons, &row.Chosen))
+		rows = append(rows, row)
+	}
+	require.NoError(t, queryRows.Err())
+	require.Len(t, rows, 2)
+	assert.Equal(t, []int{1, 2}, []int{rows[0].Rank, rows[1].Rank})
+	assert.Equal(t, []string{"hass", "hass"}, []string{rows[0].Lemma, rows[1].Lemma})
+	assert.Equal(t, []int{8, 3}, []int{rows[0].Score, rows[1].Score})
+	assert.Equal(t, [][]byte{[]byte(`["modern"]`), []byte(`["old"]`)}, [][]byte{rows[0].Reasons, rows[1].Reasons})
+	assert.True(t, rows[0].Chosen)
+	assert.False(t, rows[1].Chosen)
+
+	second, err := store.BackfillGermanVocabulary(ctx)
+	require.NoError(t, err)
+	assert.Zero(t, second.Updated)
+	assert.Zero(t, second.Merged)
+}
+
 func TestBackfillGermanVocabularyRollsBackCuratedConflict(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
