@@ -261,13 +261,36 @@ func extractNavigation(f *zip.File, base string, labels, landmarks map[string][]
 	if err != nil {
 		return err
 	}
+	collector := navigationCollector{
+		base:      base,
+		labels:    labels,
+		landmarks: landmarks,
+	}
+	return traverseNavigation(data, &collector)
+}
+
+type navigationCollector struct {
+	base      string
+	labels    map[string][]string
+	landmarks map[string][]string
+	navs      []navigationScope
+	anchor    *navigationAnchor
+}
+
+type navigationScope struct {
+	types []string
+}
+
+type navigationAnchor struct {
+	href     string
+	types    []string
+	navTypes []string
+	depth    int
+	label    strings.Builder
+}
+
+func traverseNavigation(data []byte, collector *navigationCollector) error {
 	d := xml.NewDecoder(strings.NewReader(xhtmlEntityReplacer.Replace(string(data))))
-	var navTypes []string
-	var navDepth int
-	var anchorDepth int
-	var href string
-	var anchorTypes []string
-	var label strings.Builder
 	for {
 		tok, err := d.Token()
 		if errors.Is(err, io.EOF) {
@@ -276,53 +299,69 @@ func extractNavigation(f *zip.File, base string, labels, landmarks map[string][]
 		if err != nil {
 			return err
 		}
-		switch v := tok.(type) {
-		case xml.StartElement:
-			switch strings.ToLower(v.Name.Local) {
-			case "nav":
-				if navDepth == 0 {
-					navTypes = strings.Fields(attribute(v.Attr, "type"))
-				}
-				navDepth++
-			case "a":
-				if navDepth > 0 && anchorDepth == 0 {
-					href = attribute(v.Attr, "href")
-					anchorTypes = strings.Fields(attribute(v.Attr, "type"))
-					label.Reset()
-				}
-				if navDepth > 0 {
-					anchorDepth++
-				}
-			default:
-				if anchorDepth > 0 {
-					anchorDepth++
-				}
-			}
-		case xml.CharData:
-			if anchorDepth > 0 {
-				label.Write([]byte(v))
-			}
-		case xml.EndElement:
-			if anchorDepth > 0 {
-				anchorDepth--
-				if anchorDepth == 0 {
-					resolved, resolveErr := resolveResourcePath(base, href)
-					if resolveErr == nil {
-						if text := cleanSpace(label.String()); text != "" {
-							labels[resolved] = append(labels[resolved], text)
-						}
-						if containsWord(navTypes, "landmarks") {
-							landmarks[resolved] = append(landmarks[resolved], anchorTypes...)
-						}
-					}
-				}
-			} else if strings.EqualFold(v.Name.Local, "nav") && navDepth > 0 {
-				navDepth--
-				if navDepth == 0 {
-					navTypes = nil
-				}
-			}
+		collector.visit(tok)
+	}
+}
+
+func (c *navigationCollector) visit(tok xml.Token) {
+	switch value := tok.(type) {
+	case xml.StartElement:
+		c.start(value)
+	case xml.CharData:
+		if c.anchor != nil {
+			c.anchor.label.WriteString(string(value))
 		}
+	case xml.EndElement:
+		c.end(value)
+	}
+}
+
+func (c *navigationCollector) start(element xml.StartElement) {
+	name := strings.ToLower(element.Name.Local)
+	if name == "nav" {
+		c.navs = append(c.navs, navigationScope{types: strings.Fields(attribute(element.Attr, "type"))})
+	}
+	if c.anchor != nil {
+		c.anchor.depth++
+		return
+	}
+	if name != "a" || len(c.navs) == 0 {
+		return
+	}
+	navTypes := c.navs[len(c.navs)-1].types
+	c.anchor = &navigationAnchor{
+		href:     attribute(element.Attr, "href"),
+		types:    strings.Fields(attribute(element.Attr, "type")),
+		navTypes: append([]string{}, navTypes...),
+		depth:    1,
+	}
+}
+
+func (c *navigationCollector) end(element xml.EndElement) {
+	if c.anchor != nil {
+		c.anchor.depth--
+		if c.anchor.depth == 0 {
+			c.collectAnchor()
+			c.anchor = nil
+		}
+		return
+	}
+	if strings.EqualFold(element.Name.Local, "nav") && len(c.navs) > 0 {
+		c.navs = c.navs[:len(c.navs)-1]
+	}
+}
+
+func (c *navigationCollector) collectAnchor() {
+	anchor := c.anchor
+	resource, err := resolveResourcePath(c.base, anchor.href)
+	if err != nil {
+		return
+	}
+	if label := cleanSpace(anchor.label.String()); label != "" {
+		c.labels[resource] = append(c.labels[resource], label)
+	}
+	if containsWord(anchor.navTypes, "landmarks") {
+		c.landmarks[resource] = append(c.landmarks[resource], anchor.types...)
 	}
 }
 

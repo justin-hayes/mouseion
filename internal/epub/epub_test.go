@@ -179,6 +179,30 @@ func TestExtractUnitTitleFallbackAndMalformedOptionalNavigation(t *testing.T) {
 	assert.NotNil(t, unit.LandmarkTypes)
 }
 
+func TestExtractNavigationCollectsNestedEntriesAndMetadata(t *testing.T) {
+	f := xhtmlFile(t, `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body>
+	<nav epub:type="toc"><ol><li><a href="../Text/first.xhtml#start"> First <span>Part</span> </a><ol><li><a href="../Text/second.xhtml">Nested Entry</a></li></ol></li></ol></nav>
+	<nav epub:type="landmarks"><a epub:type="bodymatter chapter" href="../Text/first.xhtml#start">Begin</a></nav>
+	</body></html>`)
+	labels := map[string][]string{}
+	landmarks := map[string][]string{}
+
+	require.NoError(t, extractNavigation(f, "OPS/Navigation", labels, landmarks))
+	assert.Equal(t, map[string][]string{
+		"OPS/Text/first.xhtml":  {"First Part", "Begin"},
+		"OPS/Text/second.xhtml": {"Nested Entry"},
+	}, labels)
+	assert.Equal(t, map[string][]string{
+		"OPS/Text/first.xhtml": {"bodymatter", "chapter"},
+	}, landmarks)
+}
+
+func TestExtractNavigationRejectsMalformedDocument(t *testing.T) {
+	f := xhtmlFile(t, `<html><body><nav><a href="chapter.xhtml">broken`)
+	err := extractNavigation(f, "OPS", map[string][]string{}, map[string][]string{})
+	assert.Error(t, err)
+}
+
 func TestExtractRejectsMalformedManifestAndSpineReferences(t *testing.T) {
 	tests := []struct {
 		name     string
