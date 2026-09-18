@@ -29,9 +29,9 @@ type Entry struct {
 }
 
 type Rejection struct {
-	Row      int
-	Original string
-	Error    string
+	Row      int    `json:"Row"`
+	Original string `json:"Original"`
+	Error    string `json:"Error"`
 }
 
 type ParseResult struct {

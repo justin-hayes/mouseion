@@ -113,7 +113,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
 	assert.Equal(t, "/library?q=Dampf", legacy.Header().Get("Location"))
 	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
-	htmxRequest.Header.Set("HX-Request", "true")
+	htmxRequest.Header.Set("Hx-Request", "true")
 	for _, cookie := range cookies {
 		htmxRequest.AddCookie(cookie)
 	}

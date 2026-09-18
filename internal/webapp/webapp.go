@@ -290,7 +290,7 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther) //nolint:gosec // SafeReturnPath rejects external redirect destinations.
 }
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
-func isHTMX(r *http.Request) bool      { return r.Header.Get("HX-Request") == "true" }
+func isHTMX(r *http.Request) bool      { return r.Header.Get("Hx-Request") == "true" }
 
 func fail(w http.ResponseWriter, err error) {
 	log.Printf("mouseion: %v", err)

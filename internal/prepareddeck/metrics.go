@@ -32,9 +32,13 @@ const (
 // the prepared-deck observability contract. IDs and source-derived data have
 // no fields here and therefore cannot become metric labels accidentally.
 type BatchMetric struct {
-	Mode                                     string
-	Name, Phase, State, ErrorClass, Provider string
-	Value                                    float64
+	Mode       string  `json:"Mode"`
+	Name       string  `json:"Name"`
+	Phase      string  `json:"Phase"`
+	State      string  `json:"State"`
+	ErrorClass string  `json:"ErrorClass"`
+	Provider   string  `json:"Provider"`
+	Value      float64 `json:"Value"`
 }
 
 type batchMetricKey struct {
@@ -72,9 +76,13 @@ func (c *MetricsCollector) ObserveBatch(metric BatchMetric) {
 }
 
 type BatchMetricSample struct {
-	Mode                                     string
-	Name, Phase, State, ErrorClass, Provider string
-	Value                                    float64
+	Mode       string  `json:"Mode"`
+	Name       string  `json:"Name"`
+	Phase      string  `json:"Phase"`
+	State      string  `json:"State"`
+	ErrorClass string  `json:"ErrorClass"`
+	Provider   string  `json:"Provider"`
+	Value      float64 `json:"Value"`
 }
 
 func (c *MetricsCollector) Snapshot() []BatchMetricSample {

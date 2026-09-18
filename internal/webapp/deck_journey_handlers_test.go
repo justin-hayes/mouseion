@@ -122,7 +122,7 @@ func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T)
 	form := url.Values{"csrf_token": {csrf}, "expected_revision": {"8"}, "deck_preparation_id": {"prep-1"}}
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/journey/books/book-1/add", strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.Header.Set("HX-Request", "true")
+	r.Header.Set("Hx-Request", "true")
 	r.AddCookie(&http.Cookie{Name: csrfCookie, Value: csrf, HttpOnly: true, SameSite: http.SameSiteLaxMode}) //nolint:gosec // test cookie mirrors the local CSRF cookie contract.
 	r.SetPathValue("id", "book-1")
 	recorder := httptest.NewRecorder()
@@ -223,7 +223,7 @@ func (a *journeyIntentAnalysis) SubmitAnalysis(context.Context, string, string) 
 	a.calls++
 	return analysis.Handle{ID: int64(a.calls), DisplayNumber: int64(a.calls)}, nil
 }
-func (journeyIntentAnalysis) Get(context.Context, string, int64) (analysis.Status, error) {
+func (*journeyIntentAnalysis) Get(context.Context, string, int64) (analysis.Status, error) {
 	return analysis.Status{}, nil
 }
 

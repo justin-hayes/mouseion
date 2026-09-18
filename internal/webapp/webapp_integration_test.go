@@ -481,7 +481,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	form := moveForm(csrf, hiddenInputValue(t, page.Body.String(), "expected_revision"))
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/journey/entries/"+third.ID+"/move-earlier", strings.NewReader(form.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("HX-Request", "true")
+	request.Header.Set("Hx-Request", "true")
 	for _, cookie := range aliceCookies {
 		request.AddCookie(cookie)
 	}

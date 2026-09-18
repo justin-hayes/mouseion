@@ -94,7 +94,7 @@ func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
 			Message struct {
 				Content string `json:"content"`
 			} `json:"message"`
-		}
+		} `json:"choices"`
 		Usage TranslationUsage `json:"usage"`
 	}{Choices: []struct {
 		Message struct {

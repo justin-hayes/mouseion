@@ -116,7 +116,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Import failed: "+err.Error())
 		return
 	}
-	if r.Header.Get("HX-Request") == "true" {
+	if r.Header.Get("Hx-Request") == "true" {
 		render(w, r, KnownVocabImportStatus(knownvocab.Status{ID: handle.ID, Language: language, State: rivertype.JobStateAvailable}))
 		return
 	}
@@ -150,7 +150,7 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 			return
 		}
 	}
-	if r.Header.Get("HX-Request") == "true" {
+	if r.Header.Get("Hx-Request") == "true" {
 		render(w, r, KnownVocabResult(language, result, known, message))
 		return
 	}
