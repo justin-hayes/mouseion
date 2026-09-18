@@ -89,7 +89,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		"9":  {Entries: []opds.Entry{testEntry("italian-entry", "Not ready")}},
 		"10": {Entries: []opds.Entry{testEntry("french-entry", "French title")}},
 	}}
-	worker := &Worker{Store: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
+	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: alice.ID, ConnectionID: connection.ID}}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err := store.ListMyBooks(ctx, alice.ID)
@@ -195,7 +195,7 @@ func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T
 		"7": {Entries: []opds.Entry{testEntry("same-entry", "First catalog title")}},
 	}, connectionFeedTitles: map[string]string{first.ID: "First catalog title", second.ID: "Second catalog title"}}
 	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
-	worker := &Worker{Store: store, Reader: reader, Capabilities: capabilities}
+	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: capabilities}
 	for _, connection := range []domain.OpdsConnection{first, second} {
 		require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
 	}
@@ -227,7 +227,7 @@ func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.PutSupportedLanguage(ctx, "de", "German")
 	require.NoError(t, err)
-	worker := &Worker{Store: store, Reader: &fakeReader{err: errors.New("opds: HTTP 401 Unauthorized: super-secret")}, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
+	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: &fakeReader{err: errors.New("opds: HTTP 401 Unauthorized: super-secret")}, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}
 	err = worker.Work(ctx, job)
 	require.Error(t, err)
@@ -250,7 +250,7 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Status catalog", URL: "https://catalog.example/opds"})
 	require.NoError(t, err)
 	require.NoError(t, store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner.ID, ConnectionID: connection.ID, State: domain.CatalogueSyncSyncing}))
-	service := NewService(store, nil, nil, nil)
+	service := NewService(StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}, nil, nil, nil)
 	statuses, err := service.ListCatalogueSyncStatuses(ctx, owner.ID)
 	require.NoError(t, err)
 	require.Len(t, statuses, 1)

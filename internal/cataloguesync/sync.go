@@ -93,21 +93,44 @@ type AliasBackfillResult struct {
 	Updated  int
 }
 
-type connectionStore interface {
-	GetBook(context.Context, string, string) (domain.Book, error)
-	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
-	ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error)
-	SetCatalogueEntryAliasConnection(context.Context, string, string, string) error
+// ConnectionStore contains only the owner-scoped connection lookups used by
+// catalogue sync scheduling and feed access.
+type ConnectionStore interface {
 	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
 	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
 	OpdsConnectionExists(context.Context, string, string) (bool, error)
 	ListAllOpdsConnectionIDs(context.Context) ([]domain.OpdsConnection, error)
+}
+
+// CatalogueStore contains the book and metadata reconciliation operations used
+// by catalogue sync. It deliberately excludes connection and status concerns.
+type CatalogueStore interface {
+	GetBook(context.Context, string, string) (domain.Book, error)
+	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
 	ReconcileCatalogueEntry(context.Context, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
+}
+
+// CatalogueAliasStore contains the explicit legacy alias backfill operations.
+type CatalogueAliasStore interface {
+	ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error)
+	SetCatalogueEntryAliasConnection(context.Context, string, string, string) error
+}
+
+// CatalogueSyncStatusStore contains the durable sync status operations.
+type CatalogueSyncStatusStore interface {
 	SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error
 	GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error)
 	ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
+}
+
+type StoreDependencies struct {
+	Connections ConnectionStore
+	Catalogue   CatalogueStore
+	Aliases     CatalogueAliasStore
+	Statuses    CatalogueSyncStatusStore
+	Pool        *pgxpool.Pool
 }
 
 type catalogueReader interface {
@@ -117,7 +140,10 @@ type catalogueReader interface {
 }
 
 type Service struct {
-	store        connectionStore
+	connections  ConnectionStore
+	catalogue    CatalogueStore
+	aliases      CatalogueAliasStore
+	statuses     CatalogueSyncStatusStore
 	pool         *pgxpool.Pool
 	client       *river.Client[pgx.Tx]
 	reader       catalogueReader
@@ -126,12 +152,8 @@ type Service struct {
 	periodicIDs  map[string]struct{}
 }
 
-func NewService(store *persistence.PostgresStore, client *river.Client[pgx.Tx], reader catalogueReader, capabilities analyzer.CapabilityProvider) *Service {
-	var pool *pgxpool.Pool
-	if store != nil {
-		pool = store.Pool()
-	}
-	return &Service{store: store, pool: pool, client: client, reader: reader, capabilities: capabilities, periodicIDs: make(map[string]struct{})}
+func NewService(deps StoreDependencies, client *river.Client[pgx.Tx], reader catalogueReader, capabilities analyzer.CapabilityProvider) *Service {
+	return &Service{connections: deps.Connections, catalogue: deps.Catalogue, aliases: deps.Aliases, statuses: deps.Statuses, pool: deps.Pool, client: client, reader: reader, capabilities: capabilities, periodicIDs: make(map[string]struct{})}
 }
 
 // BackfillCatalogueEntryAliases resolves each legacy catalogue-entry alias
@@ -140,10 +162,10 @@ func NewService(store *persistence.PostgresStore, client *river.Client[pgx.Tx], 
 // The operation is explicit so an operator can run it after the expand
 // migration and retry it after correcting catalogue data or credentials.
 func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackfillResult, error) {
-	if s == nil || s.store == nil || s.reader == nil {
+	if s == nil || s.aliases == nil || s.connections == nil || s.reader == nil {
 		return AliasBackfillResult{}, errors.New("catalogue alias backfill service is unavailable")
 	}
-	aliases, err := s.store.ListUnscopedCatalogueEntryAliases(ctx)
+	aliases, err := s.aliases.ListUnscopedCatalogueEntryAliases(ctx)
 	if err != nil {
 		return AliasBackfillResult{}, fmt.Errorf("list unscoped catalogue aliases: %w", err)
 	}
@@ -153,7 +175,7 @@ func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackf
 			continue
 		}
 		result.Examined++
-		connections, err := s.store.ListOpdsConnections(ctx, alias.OwnerID)
+		connections, err := s.connections.ListOpdsConnections(ctx, alias.OwnerID)
 		if err != nil {
 			return result, fmt.Errorf("list connections for alias %s: %w", alias.ID, err)
 		}
@@ -189,7 +211,7 @@ func (s *Service) BackfillCatalogueEntryAliases(ctx context.Context) (AliasBackf
 		for connectionID = range matches {
 			break
 		}
-		if err := s.store.SetCatalogueEntryAliasConnection(ctx, alias.OwnerID, alias.ID, connectionID); err != nil {
+		if err := s.aliases.SetCatalogueEntryAliasConnection(ctx, alias.OwnerID, alias.ID, connectionID); err != nil {
 			return result, fmt.Errorf("assign connection %s to alias %s: %w", connectionID, alias.ID, err)
 		}
 		result.Updated++
@@ -210,10 +232,10 @@ func insertOpts() *river.InsertOpts {
 // Enqueue submits the same SyncArgs used by periodic jobs. The status is moved
 // to syncing only after River has accepted a viable owner-scoped job.
 func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Handle, error) {
-	if s == nil || s.store == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" {
+	if s == nil || s.connections == nil || s.statuses == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" {
 		return Handle{}, ErrNotFound
 	}
-	exists, err := s.store.OpdsConnectionExists(ctx, owner, connectionID)
+	exists, err := s.connections.OpdsConnectionExists(ctx, owner, connectionID)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -227,7 +249,7 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 	if inserted == nil || inserted.Job == nil {
 		return Handle{}, errors.New("catalogue sync enqueue returned no River job")
 	}
-	if err = s.store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing}); err != nil {
+	if err = s.statuses.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return Handle{}, fmt.Errorf("record catalogue sync status: %w", err)
 	}
 	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
@@ -236,7 +258,7 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 // RegisterConnection adds one in-memory River periodic job. The constructor
 // performs no I/O and therefore cannot leak credentials or block the leader.
 func (s *Service) RegisterConnection(_ context.Context, owner, connectionID string) error {
-	if s == nil || s.store == nil || s.client == nil {
+	if s == nil || s.connections == nil || s.client == nil {
 		return errors.New("catalogue sync service is unavailable")
 	}
 	if strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" {
@@ -285,17 +307,17 @@ func (s *Service) UnregisterConnection(owner, connectionID string) error {
 // recorded entry through the existing catalogue reader, and applies the same
 // metadata-only reconciliation used by catalogue sync.
 func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (RefreshResult, error) {
-	if s == nil || s.store == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+	if s == nil || s.catalogue == nil || s.connections == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
 		return RefreshResult{}, ErrNotFound
 	}
-	book, err := s.store.GetBook(ctx, owner, bookID)
+	book, err := s.catalogue.GetBook(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return RefreshResult{}, ErrNotFound
 	}
 	if err != nil {
 		return RefreshResult{Failed: true}, err
 	}
-	alias, err := s.store.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	alias, err := s.catalogue.GetBookCatalogEntryAlias(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return RefreshResult{}, ErrNotFound
 	}
@@ -305,14 +327,14 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 	if alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
 		return RefreshResult{}, ErrNotFound
 	}
-	connection, err := s.store.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return RefreshResult{Book: book, Failed: true}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
 	}
 	if err != nil {
 		return RefreshResult{Book: book, Failed: true}, err
 	}
-	supported, err := s.store.ListSupportedLanguages(ctx)
+	supported, err := s.catalogue.ListSupportedLanguages(ctx)
 	if err != nil {
 		return RefreshResult{Book: book, Failed: true}, err
 	}
@@ -343,7 +365,7 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 				continue
 			}
 			entryLanguage := languageTag(scope)
-			reconciled, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, entryLanguage)
+			reconciled, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, entryLanguage)
 			if reconcileErr != nil {
 				return RefreshResult{Book: book, Failed: true}, reconcileErr
 			}
@@ -357,17 +379,17 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 // The alias is stable across catalog feed changes, while the download Href is
 // looked up again immediately before acquisition.
 func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (AcquisitionTarget, error) {
-	if s == nil || s.store == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
+	if s == nil || s.catalogue == nil || s.connections == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
 		return AcquisitionTarget{}, ErrNotFound
 	}
-	book, err := s.store.GetBook(ctx, owner, bookID)
+	book, err := s.catalogue.GetBook(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return AcquisitionTarget{}, ErrNotFound
 	}
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
-	alias, err := s.store.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	alias, err := s.catalogue.GetBookCatalogEntryAlias(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return AcquisitionTarget{}, ErrNotFound
 	}
@@ -377,14 +399,14 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 	if strings.TrimSpace(alias.Value) == "" {
 		return AcquisitionTarget{}, ErrNotFound
 	}
-	connection, err := s.store.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return AcquisitionTarget{}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
 	}
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
-	supported, err := s.store.ListSupportedLanguages(ctx)
+	supported, err := s.catalogue.ListSupportedLanguages(ctx)
 	if err != nil {
 		return AcquisitionTarget{}, err
 	}
@@ -418,10 +440,10 @@ func (s *Service) FindAcquisitionTarget(ctx context.Context, owner, bookID strin
 // uses the repository's owner-scoped credential path only to enumerate rows;
 // no credential is copied into the periodic constructor or River args.
 func (s *Service) RegisterAll(ctx context.Context) error {
-	if s == nil || s.store == nil {
+	if s == nil || s.connections == nil {
 		return errors.New("catalogue sync service is unavailable")
 	}
-	connections, err := s.store.ListAllOpdsConnectionIDs(ctx)
+	connections, err := s.connections.ListAllOpdsConnectionIDs(ctx)
 	if err != nil {
 		return err
 	}
@@ -437,10 +459,10 @@ func (s *Service) RegisterAll(ctx context.Context) error {
 // A worker or process can disappear after the durable row is marked syncing;
 // that row must not permanently disable the Sync now action.
 func (s *Service) ListCatalogueSyncStatuses(ctx context.Context, owner string) ([]domain.CatalogueSyncStatus, error) {
-	if s == nil || s.pool == nil || s.store == nil || strings.TrimSpace(owner) == "" {
+	if s == nil || s.pool == nil || s.statuses == nil || strings.TrimSpace(owner) == "" {
 		return nil, nil
 	}
-	statuses, err := s.store.ListCatalogueSyncStatuses(ctx, owner)
+	statuses, err := s.statuses.ListCatalogueSyncStatuses(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -481,14 +503,14 @@ func (s *Service) liveJobExists(ctx context.Context, owner, connectionID string)
 }
 
 func (s *Service) reconcileDurableStatus(ctx context.Context, owner, connectionID string, state domain.CatalogueSyncState) domain.CatalogueSyncState {
-	if state != domain.CatalogueSyncSyncing || s.store == nil {
+	if state != domain.CatalogueSyncSyncing || s.statuses == nil {
 		return state
 	}
 	live, err := s.liveJobExists(ctx, owner, connectionID)
 	if err != nil || live {
 		return state
 	}
-	durable, err := s.store.GetCatalogueSyncStatus(ctx, owner, connectionID)
+	durable, err := s.statuses.GetCatalogueSyncStatus(ctx, owner, connectionID)
 	if err != nil {
 		return state
 	}
@@ -499,7 +521,7 @@ func (s *Service) reconcileDurableStatus(ctx context.Context, owner, connectionI
 		durable.State = domain.CatalogueSyncFailed
 		durable.LastError = statusCancelledReason
 	}
-	if err = s.store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
+	if err = s.statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
 		return state
 	}
 	return durable.State
@@ -622,7 +644,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 	if _, err = s.client.JobCancel(ctx, id); err != nil {
 		return Status{}, fmt.Errorf("cancel catalogue sync job: %w", err)
 	}
-	durable, durableErr := s.store.GetCatalogueSyncStatus(ctx, owner, status.ConnectionID)
+	durable, durableErr := s.statuses.GetCatalogueSyncStatus(ctx, owner, status.ConnectionID)
 	if durableErr != nil && !errors.Is(durableErr, persistence.ErrNotFound) {
 		return Status{}, durableErr
 	}
@@ -632,7 +654,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 	} else {
 		durable = domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: status.ConnectionID, State: domain.CatalogueSyncFailed, LastError: statusCancelledReason}
 	}
-	if err = s.store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
+	if err = s.statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), durable); err != nil {
 		return Status{}, err
 	}
 	return s.Get(ctx, owner, id)
@@ -722,14 +744,14 @@ func riverError(pool *pgxpool.Pool, ctx context.Context, id int64, owner string)
 }
 
 func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
-	connection, err := s.store.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
+	connection, err := s.connections.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return 0, nil
 	}
 	if err != nil {
 		return 0, errors.New("catalog connection could not be loaded")
 	}
-	if err = s.store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
+	if err = s.statuses.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSyncing}); err != nil {
 		return 0, err
 	}
 	capabilities, err := s.capabilities.GetCapabilities(ctx)
@@ -737,7 +759,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 		return 0, errors.New("NLP language readiness could not be checked")
 	}
 	readyLanguages := analyzer.ReadySupportedLanguages(capabilities)
-	if err = s.store.SyncSupportedLanguages(ctx, readyLanguages); err != nil {
+	if err = s.catalogue.SyncSupportedLanguages(ctx, readyLanguages); err != nil {
 		return 0, errors.New("NLP language reference could not be updated")
 	}
 	languages, err := s.reader.Languages(ctx, args.OwnerID, args.ConnectionID)
@@ -757,7 +779,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 			if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
 				continue
 			}
-			if result, reconcileErr := s.store.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entryLanguage); reconcileErr != nil {
+			if result, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entryLanguage); reconcileErr != nil {
 				if firstConflict == nil {
 					firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, reconcileErr)
 				}
@@ -793,18 +815,20 @@ func safeSyncError(err error, connection domain.OpdsConnection) error {
 
 type Worker struct {
 	river.WorkerDefaults[SyncArgs]
-	Store        *persistence.PostgresStore
+	Connections  ConnectionStore
+	Catalogue    CatalogueStore
+	Statuses     CatalogueSyncStatusStore
 	Reader       catalogueReader
 	Capabilities analyzer.CapabilityProvider
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr error) {
-	if w == nil || w.Store == nil || w.Reader == nil || w.Capabilities == nil || job == nil {
+	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Statuses == nil || w.Reader == nil || w.Capabilities == nil || job == nil {
 		return errors.New("catalogue sync worker is unavailable")
 	}
-	service := &Service{store: w.Store, reader: w.Reader, capabilities: w.Capabilities}
+	service := &Service{connections: w.Connections, catalogue: w.Catalogue, statuses: w.Statuses, reader: w.Reader, capabilities: w.Capabilities}
 	args := job.Args
-	connection, loadErr := w.Store.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
+	connection, loadErr := w.Connections.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
 	if errors.Is(loadErr, persistence.ErrNotFound) {
 		return nil
 	}
@@ -813,13 +837,13 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 	}
 	upserted, workErr := service.work(ctx, args)
 	if workErr == nil {
-		if err := w.Store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSynced, LastSyncedAt: timePtr(time.Now()), LastUpsertedCount: upserted}); err != nil {
+		if err := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSynced, LastSyncedAt: timePtr(time.Now()), LastUpsertedCount: upserted}); err != nil {
 			return err
 		}
 		return nil
 	}
 	safe := safeSyncError(workErr, connection)
-	if statusErr := w.Store.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()}); statusErr != nil {
+	if statusErr := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()}); statusErr != nil {
 		return errors.Join(safe, fmt.Errorf("record catalogue sync failure: %w", statusErr))
 	}
 	return safe
@@ -827,6 +851,6 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 
 func timePtr(value time.Time) *time.Time { return &value }
 
-func AddWorker(workers *river.Workers, store *persistence.PostgresStore, reader catalogueReader, capabilities analyzer.CapabilityProvider) {
-	river.AddWorker(workers, &Worker{Store: store, Reader: reader, Capabilities: capabilities})
+func AddWorker(workers *river.Workers, deps StoreDependencies, reader catalogueReader, capabilities analyzer.CapabilityProvider) {
+	river.AddWorker(workers, &Worker{Connections: deps.Connections, Catalogue: deps.Catalogue, Statuses: deps.Statuses, Reader: reader, Capabilities: capabilities})
 }

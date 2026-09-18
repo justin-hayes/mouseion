@@ -193,7 +193,7 @@ func (r *refreshReader) BrowseLanguageUnfiltered(ctx context.Context, owner, con
 }
 
 func newRefreshService(store *refreshStore, reader catalogueReader) *Service {
-	return &Service{store: store, reader: reader}
+	return NewService(StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store}, nil, reader, nil)
 }
 
 type backfillReader struct {
