@@ -266,7 +266,7 @@ func extractNavigation(f *zip.File, base string, labels, landmarks map[string][]
 		labels:    labels,
 		landmarks: landmarks,
 	}
-	return traverseNavigation(data, collector.visit)
+	return traverseNavigation(data, &collector)
 }
 
 type navigationCollector struct {
@@ -289,7 +289,7 @@ type navigationAnchor struct {
 	label    strings.Builder
 }
 
-func traverseNavigation(data []byte, visit func(xml.Token) error) error {
+func traverseNavigation(data []byte, collector *navigationCollector) error {
 	d := xml.NewDecoder(strings.NewReader(xhtmlEntityReplacer.Replace(string(data))))
 	for {
 		tok, err := d.Token()
@@ -299,13 +299,11 @@ func traverseNavigation(data []byte, visit func(xml.Token) error) error {
 		if err != nil {
 			return err
 		}
-		if err := visit(tok); err != nil {
-			return err
-		}
+		collector.visit(tok)
 	}
 }
 
-func (c *navigationCollector) visit(tok xml.Token) error {
+func (c *navigationCollector) visit(tok xml.Token) {
 	switch value := tok.(type) {
 	case xml.StartElement:
 		c.start(value)
@@ -316,7 +314,6 @@ func (c *navigationCollector) visit(tok xml.Token) error {
 	case xml.EndElement:
 		c.end(value)
 	}
-	return nil
 }
 
 func (c *navigationCollector) start(element xml.StartElement) {
