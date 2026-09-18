@@ -33,7 +33,8 @@ func run() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, store.Close()) }()
-	service := cataloguesync.NewService(store, nil, opds.NewService(store, nil, nil), nil)
+	deps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
+	service := cataloguesync.NewService(deps, nil, opds.NewService(store, nil, nil), nil)
 	result, err := service.BackfillCatalogueEntryAliases(context.Background())
 	if err != nil {
 		return err

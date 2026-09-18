@@ -134,10 +134,11 @@ func run() (err error) {
 		}
 	}
 	batchMetrics := prepareddeck.NewMetricsCollector()
+	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
-	cataloguesync.AddWorker(workers, store, opdsService, capabilities)
+	cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -170,7 +171,7 @@ func run() (err error) {
 	} else {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
-	catalogueSyncService := cataloguesync.NewService(store, riverClient, opdsService, capabilities)
+	catalogueSyncService := cataloguesync.NewService(catalogueSyncDeps, riverClient, opdsService, capabilities)
 	if err = catalogueSyncService.RegisterAll(ctx); err != nil {
 		return err
 	}
