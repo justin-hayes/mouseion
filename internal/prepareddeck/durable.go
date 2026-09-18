@@ -175,53 +175,79 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	for i := range result.Chunks {
-		chunk := &result.Chunks[i]
-		inserted, insertErr := c.client.InsertTx(ctx, tx, BatchSubmitJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, ChunkID: chunk.ID, Generation: chunk.Generation}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
-		if insertErr != nil {
-			return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("enqueue Batch chunk %d: %w", chunk.ChunkIndex, insertErr)
-		}
-		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-			return persistence.FreezePreparedDeckRunResult{}, errors.New("River did not return a live Batch submission job")
-		}
-		chunk.SubmissionJobID = inserted.Job.ID
-		chunk.SubmissionGeneration = chunk.Generation
-		if err = c.store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, chunk.ID, chunk.Generation, inserted.Job.ID); err != nil {
-			return persistence.FreezePreparedDeckRunResult{}, err
-		}
+	if err = c.insertBatchSubmissionJobsTx(ctx, tx, request, &result); err != nil {
+		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	if result.Run.ExecutionMode == domain.PreparedDeckExecutionStandard {
-		for _, ordinal := range result.PendingOrdinals {
-			args := StandardTranslationJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, Ordinal: ordinal, Generation: 0}
-			inserted, insertErr := c.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: TranslationQueue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
-			if insertErr != nil {
-				return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("enqueue standard translation ordinal %d: %w", ordinal, insertErr)
-			}
-			if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-				return persistence.FreezePreparedDeckRunResult{}, errors.New("River did not return a live standard translation job")
-			}
-			if err = c.store.SetPreparedDeckTranslationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, ordinal, 0, inserted.Job.ID); err != nil {
-				return persistence.FreezePreparedDeckRunResult{}, err
-			}
-		}
+	if err = c.insertStandardTranslationJobsTx(ctx, tx, request, &result); err != nil {
+		return persistence.FreezePreparedDeckRunResult{}, err
 	}
-	if result.NeedsFinalizer {
-		inserted, insertErr := c.client.InsertTx(ctx, tx, FinalizeJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, Generation: result.Run.FinalizationDispatchGeneration}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
-		if insertErr != nil {
-			return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("enqueue prepared-deck finalizer: %w", insertErr)
-		}
-		if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-			return persistence.FreezePreparedDeckRunResult{}, errors.New("River did not return a live finalizer job")
-		}
-		if err = c.store.SetPreparedDeckFinalizationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, result.Run.FinalizationDispatchGeneration, inserted.Job.ID); err != nil {
-			return persistence.FreezePreparedDeckRunResult{}, err
-		}
-		result.Run.FinalizationJobID = inserted.Job.ID
+	if err = c.insertFinalizerJobTx(ctx, tx, request, &result); err != nil {
+		return persistence.FreezePreparedDeckRunResult{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, err
 	}
 	return result, nil
+}
+
+func insertLivePreparationJobTx(ctx context.Context, tx pgx.Tx, client riverClient, args river.JobArgs, queue, kind string) (int64, error) {
+	inserted, err := client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+	if err != nil {
+		return 0, err
+	}
+	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
+		return 0, fmt.Errorf("River did not return a live %s job", kind)
+	}
+	return inserted.Job.ID, nil
+}
+
+func (c *DurableCoordinator) insertBatchSubmissionJobsTx(ctx context.Context, tx pgx.Tx, request DurableFreezeRequest, result *persistence.FreezePreparedDeckRunResult) error {
+	for index := range result.Chunks {
+		chunk := &result.Chunks[index]
+		jobID, err := insertLivePreparationJobTx(ctx, tx, c.client, BatchSubmitJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, ChunkID: chunk.ID, Generation: chunk.Generation}, Queue, "Batch submission")
+		if err != nil {
+			return fmt.Errorf("enqueue Batch chunk %d: %w", chunk.ChunkIndex, err)
+		}
+		chunk.SubmissionJobID = jobID
+		chunk.SubmissionGeneration = chunk.Generation
+		if err = c.store.SetPreparedDeckBatchSubmissionJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, chunk.ID, chunk.Generation, jobID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *DurableCoordinator) insertStandardTranslationJobsTx(ctx context.Context, tx pgx.Tx, request DurableFreezeRequest, result *persistence.FreezePreparedDeckRunResult) error {
+	if result.Run.ExecutionMode != domain.PreparedDeckExecutionStandard {
+		return nil
+	}
+	for _, ordinal := range result.PendingOrdinals {
+		args := StandardTranslationJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, Ordinal: ordinal, Generation: 0}
+		jobID, err := insertLivePreparationJobTx(ctx, tx, c.client, args, TranslationQueue, "standard translation")
+		if err != nil {
+			return fmt.Errorf("enqueue standard translation ordinal %d: %w", ordinal, err)
+		}
+		if err = c.store.SetPreparedDeckTranslationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, ordinal, 0, jobID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *DurableCoordinator) insertFinalizerJobTx(ctx context.Context, tx pgx.Tx, request DurableFreezeRequest, result *persistence.FreezePreparedDeckRunResult) error {
+	if !result.NeedsFinalizer {
+		return nil
+	}
+	args := FinalizeJobArgs{OwnerID: request.OwnerID, PreparationID: request.PreparationID, RunID: result.Run.ID, Generation: result.Run.FinalizationDispatchGeneration}
+	jobID, err := insertLivePreparationJobTx(ctx, tx, c.client, args, Queue, "finalizer")
+	if err != nil {
+		return fmt.Errorf("enqueue prepared-deck finalizer: %w", err)
+	}
+	if err = c.store.SetPreparedDeckFinalizationJobTx(ctx, tx, request.OwnerID, request.PreparationID, result.Run.ID, result.Run.FinalizationDispatchGeneration, jobID); err != nil {
+		return err
+	}
+	result.Run.FinalizationJobID = jobID
+	return nil
 }
 
 type durableFinalizerStore interface {
