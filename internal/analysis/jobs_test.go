@@ -33,6 +33,7 @@ func TestRequireDependencyParsing(t *testing.T) {
 
 	outage := analyzertest.CapabilityProvider{Err: errors.New("NLP unavailable")}
 	err = requireDependencyParsing(context.Background(), outage, "de")
+	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
 	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", safeAnalysisError(err))
 }
