@@ -167,7 +167,7 @@ func TestJourneyEntryRequiresCurrentCompletedMemberAnalysis(t *testing.T) {
 				journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de", Revision: 4, Entries: []domain.ReadingJourneyEntry{{BookID: bookID}}},
 			}
 			handler := requireHandler(t, h)
-			handler.services.Store = store
+			handler.services.Store = storeDependencies(store)
 
 			response := journeyEntryRequest(t, h, "/journey/"+bookID, cookies)
 			assert.Equal(t, http.StatusNotFound, response.Code)
@@ -206,7 +206,7 @@ func TestJourneyEntryRequiresMembershipAndOwnerScopedBook(t *testing.T) {
 				journey: test.journey,
 				missing: test.missing,
 			}
-			requireHandler(t, h).services.Store = store
+			requireHandler(t, h).services.Store = storeDependencies(store)
 
 			response := journeyEntryRequest(t, h, "/journey/"+test.bookID, cookies)
 			assert.Equal(t, http.StatusNotFound, response.Code)
@@ -232,7 +232,7 @@ func TestAnalysisCompatibilityRouteRequiresJourneyMembership(t *testing.T) {
 		},
 		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de"},
 	}
-	requireHandler(t, h).services.Store = store
+	requireHandler(t, h).services.Store = storeDependencies(store)
 
 	response := journeyEntryRequest(t, h, "/books/"+bookID+"/analyses/run-"+bookID, cookies)
 	assert.Equal(t, http.StatusNotFound, response.Code)
@@ -257,7 +257,7 @@ func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de", Entries: []domain.ReadingJourneyEntry{{BookID: "stale-book"}}},
 	}
 	handler := requireHandler(t, h)
-	handler.services.Store = store
+	handler.services.Store = storeDependencies(store)
 	handler.services.Analysis = analysisService
 
 	response := goalRequest(t, h, "/journey/books/stale-book/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)

@@ -277,7 +277,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 	// membership and the Primary Goal are keyed by books.id, so every action
 	// identity is resolved to its canonical book first. A source material with
 	// no book identity cannot join the Journey, so no action is offered.
-	resolved, ok, err := h.services.Store.ResolveJourneyBookID(ctx, owner, bookID)
+	resolved, ok, err := h.services.Store.Journey.ResolveJourneyBookID(ctx, owner, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -286,11 +286,11 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 	}
 	bookID = resolved
 	language, _ := activeStudyLanguageForContext(ctx)
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -309,7 +309,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 }
 
 func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparationID, bookID string, expectedRevision int64) (deckJourneyActionView, error) {
-	resolved, ok, err := h.services.Store.ResolveJourneyBookID(ctx, owner, bookID)
+	resolved, ok, err := h.services.Store.Journey.ResolveJourneyBookID(ctx, owner, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -327,7 +327,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 	if action.State == deckJourneyGoal {
 		return action, nil
 	}
-	if _, err = h.services.Store.AddToReadingJourney(ctx, owner, language, bookID, expectedRevision); err != nil {
+	if _, err = h.services.Store.Journey.AddToReadingJourney(ctx, owner, language, bookID, expectedRevision); err != nil {
 		log.Print("mouseion: add book to Reading Journey failed")
 		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 		if refreshErr != nil {
@@ -351,7 +351,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 	if action.State == deckJourneyNotMember && h.services.Analysis != nil {
 		handle, target, title, acquisitionFailed, analysisErr := h.ensureJourneyAnalysis(ctx, owner, bookID)
 		if analysisErr != nil {
-			refreshed.Error = journeyAnalysisError(ctx, h.services.Store, owner, bookID, title, target, acquisitionFailed, analysisErr)
+			refreshed.Error = journeyAnalysisError(ctx, h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
 		} else {
 			refreshed.Message = fmt.Sprintf("Book added to Reading Journey. Analysis job #%d submitted.", handle.DisplayNumber)
 		}
@@ -368,7 +368,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 }
 
 func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID string) (analysis.Handle, cataloguesync.AcquisitionTarget, string, bool, error) {
-	detail, err := h.services.Store.GetBookDetail(ctx, owner, bookID)
+	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
 		return analysis.Handle{}, cataloguesync.AcquisitionTarget{}, "", false, err
 	}
@@ -380,7 +380,7 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 		if err != nil {
 			return analysis.Handle{}, target, detail.Book.Title, true, err
 		}
-		detail, err = h.services.Store.GetBookDetail(ctx, owner, bookID)
+		detail, err = h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
 		if err != nil {
 			return analysis.Handle{}, target, detail.Book.Title, true, err
 		}
@@ -392,9 +392,9 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 	return handle, target, detail.Book.Title, false, err
 }
 
-func journeyAnalysisError(ctx context.Context, store Store, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
+func journeyAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
-		return "Book added to Reading Journey, but " + journeyAcquisitionError(ctx, store, owner, bookID, title, target, err) + ". The Journey entry is retained; assessment is unavailable until the current EPUB can be acquired."
+		return "Book added to Reading Journey, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The Journey entry is retained; assessment is unavailable until the current EPUB can be acquired."
 	}
 	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
 		return "Book added to Reading Journey, but the current source has no usable EPUB units. The Journey entry is retained; assessment is unavailable."
@@ -404,11 +404,11 @@ func journeyAnalysisError(ctx context.Context, store Store, owner, bookID, title
 
 func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -439,11 +439,11 @@ func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, boo
 }
 
 func (h *Handler) annotateBookWithJourneyLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 	}
 	handle, target, title, acquisitionFailed, err := h.ensureJourneyAnalysis(r.Context(), u.ID, detail.Book.ID)
 	if err != nil {
-		message := journeyAnalysisError(r.Context(), h.services.Store, u.ID, detail.Book.ID, title, target, acquisitionFailed, err)
+		message := journeyAnalysisError(r.Context(), h.services.Store.Catalog, u.ID, detail.Book.ID, title, target, acquisitionFailed, err)
 		redirect(w, r, "/journey?error="+url.QueryEscape(message))
 		return
 	}
@@ -570,15 +570,15 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return journeyPageView{}, err
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(ctx, owner, language)
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return journeyPageView{}, err
 	}
-	books, err := h.services.Store.ListSourceMaterials(ctx, owner)
+	books, err := h.services.Store.Books.ListSourceMaterials(ctx, owner)
 	if err != nil {
 		return journeyPageView{}, err
 	}
@@ -586,7 +586,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
-	if reader, ok := h.services.Store.(interface {
+	if reader, ok := h.services.Store.Books.(interface {
 		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	}); ok {
 		if myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner); readErr == nil {
@@ -657,7 +657,7 @@ func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByI
 	}
 	// Goal and Journey membership are allowed to exist before acquisition. Keep
 	// that identity visible instead of silently dropping it from the surface.
-	book, err := h.services.Store.GetBook(ctx, owner, bookID)
+	book, err := h.services.Store.Books.GetBook(ctx, owner, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}, BookID: bookID}, nil

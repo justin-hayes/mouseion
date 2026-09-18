@@ -305,7 +305,7 @@ func preparationReturnURL(action deckJourneyActionView) string {
 }
 
 func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckJourneyActionView) (string, error) {
-	detail, err := h.services.Store.GetBookDetail(ctx, owner, action.BookID)
+	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, action.BookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			return "", nil

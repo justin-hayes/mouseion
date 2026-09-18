@@ -16,7 +16,7 @@ import (
 
 func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	c, e := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
+	c, e := h.services.Store.Catalog.ListOpdsConnections(r.Context(), u.ID)
 	if e != nil {
 		fail(w, e)
 		return
@@ -33,7 +33,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		for _, status := range items {
 			statuses[status.ConnectionID] = status
 		}
-	} else if reader, ok := h.services.Store.(interface {
+	} else if reader, ok := h.services.Store.Catalog.(interface {
 		ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
 	}); ok {
 		items, statusErr := reader.ListCatalogueSyncStatuses(r.Context(), u.ID)
@@ -94,7 +94,7 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
 		return
 	}
-	created, e := h.services.Store.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: r.FormValue("password")})
+	created, e := h.services.Store.Catalog.CreateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: r.FormValue("password")})
 	if e != nil {
 		fail(w, e)
 		return
@@ -116,7 +116,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	current, e := h.services.Store.GetOpdsConnection(r.Context(), u.ID, r.PathValue("id"))
+	current, e := h.services.Store.Catalog.GetOpdsConnection(r.Context(), u.ID, r.PathValue("id"))
 	if e != nil {
 		http.NotFound(w, r)
 		return
@@ -134,7 +134,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "catalog URL must use HTTP or HTTPS", http.StatusBadRequest)
 		return
 	}
-	_, e = h.services.Store.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: password})
+	_, e = h.services.Store.Catalog.UpdateOpdsConnection(r.Context(), u.ID, domain.OpdsConnection{ID: current.ID, Name: strings.TrimSpace(r.FormValue("name")), URL: connectionURL, Username: r.FormValue("username"), Password: password})
 	if e != nil {
 		fail(w, e)
 		return
@@ -146,7 +146,7 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	if e := h.services.Store.DeleteOpdsConnection(r.Context(), u.ID, r.PathValue("id")); e != nil {
+	if e := h.services.Store.Catalog.DeleteOpdsConnection(r.Context(), u.ID, r.PathValue("id")); e != nil {
 		if errors.Is(e, persistence.ErrNotFound) {
 			http.NotFound(w, r)
 			return

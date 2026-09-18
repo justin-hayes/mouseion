@@ -22,12 +22,12 @@ func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	languages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	knownLanguages, err := h.services.Store.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -38,7 +38,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	var known []domain.KnownVocabulary
 	if language != "" {
-		known, err = h.services.Store.ListKnownVocabulary(r.Context(), u.ID, language)
+		known, err = h.services.Store.StudyLanguages.ListKnownVocabulary(r.Context(), u.ID, language)
 		if err != nil {
 			fail(w, err)
 			return
@@ -90,7 +90,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language before importing.")
 		return
 	}
-	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
+	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -144,7 +144,7 @@ func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request)
 func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
 	if known == nil && language != "" {
 		var err error
-		known, err = h.services.Store.ListKnownVocabulary(r.Context(), user(r).ID, language)
+		known, err = h.services.Store.StudyLanguages.ListKnownVocabulary(r.Context(), user(r).ID, language)
 		if err != nil {
 			fail(w, err)
 			return
@@ -155,12 +155,12 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	u := user(r)
-	studyLanguages, err := h.services.Store.ListStudyLanguages(r.Context(), u.ID)
+	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	knownLanguages, err := h.services.Store.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return

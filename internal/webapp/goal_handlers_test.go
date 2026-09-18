@@ -123,7 +123,7 @@ func goalFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, *fi
 	t.Setenv("MOUSEION_SECRET", "goal-unit-test-secret-0123456789")
 	store := fixtures.NewStore()
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
 	initialCSRFCookie := cookieByName(t, loginPage.Result().Cookies(), csrfCookie)

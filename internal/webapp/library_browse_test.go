@@ -84,7 +84,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 		Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
 		Total: 26, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: "de", Count: 26}},
 	}}
-	handler.services.Store = store
+	handler.services.Store = storeDependencies(store)
 
 	request := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
@@ -151,7 +151,7 @@ func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.
 		},
 		Total: 2, ScopeTotal: 2, AllCount: 2, Counts: []persistence.LanguageCount{{Tag: "de", Count: 2}},
 	}}
-	handler.services.Store = store
+	handler.services.Store = storeDependencies(store)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
