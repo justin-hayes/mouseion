@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -113,8 +114,15 @@ const (
 )
 
 type Service struct {
-	pool   *pgxpool.Pool
-	client *river.Client[pgx.Tx]
+	pool        *pgxpool.Pool
+	client      riverClient
+	findLiveJob func(context.Context, string, string) (int64, error)
+}
+
+type riverClient interface {
+	InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
+	JobGet(context.Context, int64) (*rivertype.JobRow, error)
+	JobCancel(context.Context, int64) (*rivertype.JobRow, error)
 }
 
 func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, runID string, failOrphaned bool) (int64, error) {
@@ -154,8 +162,10 @@ func (s *Service) ensureAttemptTx(ctx context.Context, tx pgx.Tx, args JobArgs, 
 	return inserted.Job.ID, nil
 }
 
-func NewService(pool *pgxpool.Pool, client *river.Client[pgx.Tx]) *Service {
-	return &Service{pool: pool, client: client}
+func NewService(pool *pgxpool.Pool, client riverClient) *Service {
+	service := &Service{pool: pool, client: client}
+	service.findLiveJob = service.liveJobID
+	return service
 }
 
 // SubmitAnalysis atomically records one snapshot-bound analysis run and inserts
@@ -442,9 +452,15 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 			return Status{}, txErr
 		}
 		defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-		_, txErr = tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
+		updated, txErr := tx.Exec(ctx, `UPDATE analysis_runs SET state='cancelled',last_error='',updated_at=now(),completed_at=now() WHERE owner_id=$1 AND id=$2 AND state IN ('queued','running')`, owner, status.RunID)
 		if txErr != nil {
 			return Status{}, txErr
+		}
+		if updated.RowsAffected() == 0 {
+			if txErr = tx.Commit(ctx); txErr != nil {
+				return Status{}, txErr
+			}
+			return s.Get(ctx, owner, id)
 		}
 		_, txErr = tx.Exec(ctx, `UPDATE analysis_run_attempts SET state='cancelled',finalized_at=now() WHERE run_id=$1 AND state IN ('queued','running')`, status.RunID)
 		if txErr != nil {
@@ -453,21 +469,35 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (result St
 		if txErr = tx.Commit(ctx); txErr != nil {
 			return Status{}, txErr
 		}
-		jobID, queryErr := s.liveJobID(ctx, owner, status.RunID)
-		if queryErr != nil && !errors.Is(queryErr, pgx.ErrNoRows) {
-			return Status{}, fmt.Errorf("find analysis job to cancel: %w", queryErr)
+		// Durable cancellation commits before River cleanup. The cancelled run
+		// and attempt fence any worker that races with best-effort cleanup.
+		cleanupErr := cleanupCancelledAnalysis(ctx, owner, status.RunID, s.findLiveJob, s.client.JobCancel)
+		if cleanupErr != nil {
+			log.Printf("analysis cancellation cleanup failed: owner=%s run_id=%s: %v", owner, status.RunID, cleanupErr)
 		}
-		if queryErr == nil {
-			if _, cancelErr := s.client.JobCancel(ctx, jobID); cancelErr != nil {
-				return Status{}, fmt.Errorf("cancel analysis job: %w", cancelErr)
-			}
-		}
-		return s.Get(ctx, owner, id)
+		status.State = rivertype.JobStateCancelled
+		status.LogicalState = "cancelled"
+		status.Error = ""
+		return status, nil
 	}
 	if _, err := s.client.JobCancel(ctx, id); err != nil {
 		return Status{}, fmt.Errorf("cancel analysis job: %w", err)
 	}
 	return s.Get(ctx, owner, id)
+}
+
+func cleanupCancelledAnalysis(ctx context.Context, owner, runID string, findLiveJob func(context.Context, string, string) (int64, error), cancelJob func(context.Context, int64) (*rivertype.JobRow, error)) error {
+	jobID, err := findLiveJob(ctx, owner, runID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("find analysis job to cancel: %w", err)
+	}
+	if _, err = cancelJob(ctx, jobID); err != nil {
+		return fmt.Errorf("cancel analysis job: %w", err)
+	}
+	return nil
 }
 
 // Retry starts a new execution attempt for a failed or cancelled snapshot run.

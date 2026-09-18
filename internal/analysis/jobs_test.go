@@ -5,8 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -118,4 +120,35 @@ func TestSnapshotAnalysisUsesDeclaredMainTextSelection(t *testing.T) {
 	})
 	assert.Equal(t, snapshotConfigIdentity, snapshotConfigIdentityFor(noOp))
 	assert.False(t, noOp.Applies)
+}
+
+func TestCleanupCancelledAnalysisTreatsMissingLiveJobAsSuccess(t *testing.T) {
+	cancelled := false
+	err := cleanupCancelledAnalysis(context.Background(), "owner", "run", func(context.Context, string, string) (int64, error) {
+		return 0, pgx.ErrNoRows
+	}, func(context.Context, int64) (*rivertype.JobRow, error) {
+		cancelled = true
+		return &rivertype.JobRow{}, nil
+	})
+
+	require.NoError(t, err)
+	assert.False(t, cancelled)
+}
+
+func TestCleanupCancelledAnalysisReportsPostCommitFailures(t *testing.T) {
+	lookupErr := errors.New("River lookup unavailable")
+	err := cleanupCancelledAnalysis(context.Background(), "owner", "run", func(context.Context, string, string) (int64, error) {
+		return 0, lookupErr
+	}, func(context.Context, int64) (*rivertype.JobRow, error) {
+		return nil, errors.New("should not cancel")
+	})
+	require.ErrorIs(t, err, lookupErr)
+
+	cancelErr := errors.New("River cancellation unavailable")
+	err = cleanupCancelledAnalysis(context.Background(), "owner", "run", func(context.Context, string, string) (int64, error) {
+		return 42, nil
+	}, func(context.Context, int64) (*rivertype.JobRow, error) {
+		return nil, cancelErr
+	})
+	require.ErrorIs(t, err, cancelErr)
 }
