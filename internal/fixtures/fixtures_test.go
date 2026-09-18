@@ -28,7 +28,7 @@ func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
 	assert.Equal(t, 1, journey.Entries[0].Position, "reordered journey=%+v", journey.Entries)
 	assert.Equal(t, 2, journey.Entries[1].Position, "reordered journey=%+v", journey.Entries)
 	_, err = store.MoveReadingJourneyEntry(ctx, OwnerID, "it", "fixture-empty", 1, revision-1)
-	assert.ErrorIs(t, err, persistence.ErrJourneyStale, "stale move error=%v", err)
+	assert.ErrorIs(t, err, persistence.ErrJourneyStale, "stale move error=%v", err) //nolint:testifylint // Stale-write classification and the following clamped move are independent.
 	unchanged, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 0, revision)
 	require.NoError(t, err, "clamped move revision=%d err=%v", unchanged, err)
 	assert.Equal(t, revision, unchanged, "clamped move revision=%d err=%v", unchanged, err)
@@ -63,7 +63,7 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	require.NotNil(t, detail.Acquired, "acquired detail=%+v err=%v", detail, err)
 	assert.Equal(t, domain.BookAnalyzed, detail.EvidenceState(), "acquired detail=%+v err=%v", detail, err)
 	_, err = store.GetBookDetail(ctx, "other-owner", BookID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner detail error=%v", err)
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner detail error=%v", err) //nolint:testifylint // Cross-owner and unknown-detail lookups are independent cases.
 	_, err = store.GetBookDetail(ctx, OwnerID, "unknown")
 	assert.ErrorIs(t, err, persistence.ErrNotFound, "unknown detail error=%v", err)
 }
@@ -367,7 +367,7 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 
 	store.aliases[0].ConnectionID = "fixture-failed-connection"
 	_, err = sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
-	assert.ErrorIs(t, err, cataloguesync.ErrNotFound, "wrong connection acquisition error=%v", err)
+	assert.ErrorIs(t, err, cataloguesync.ErrNotFound, "wrong connection acquisition error=%v", err) //nolint:testifylint // Acquisition failure and refresh result are independent checks.
 	result, err = sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
 	require.NoError(t, err, "wrong connection refresh=%+v err=%v", result, err)
 	assert.True(t, result.Missing, "wrong connection refresh=%+v err=%v", result, err)
@@ -380,7 +380,7 @@ func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
 	journey, err := store.GetReadingJourney(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, OwnerID, "de", "fixture-metadata-only", journey.Revision)
-	assert.ErrorIs(t, err, persistence.ErrBookLanguageRequired, "unknown-language Journey add error=%v", err)
+	assert.ErrorIs(t, err, persistence.ErrBookLanguageRequired, "unknown-language Journey add error=%v", err) //nolint:testifylint // Rejection and unchanged-Journey lookup are independent expectations.
 	unchanged, err := store.GetReadingJourney(ctx, OwnerID, "de")
 	require.NoError(t, err, "unknown-language add changed Journey=%+v err=%v", unchanged, err)
 	assert.Equal(t, journey.Revision, unchanged.Revision, "unknown-language add changed Journey=%+v err=%v", unchanged, err)

@@ -38,7 +38,7 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	assert.Equal(t, result.Book.FullText, got.FullText)
 	assert.Contains(t, got.FullText, "Bibliographie.")
 	_, err = store.GetExtractedUnits(ctx, bob.ID, result.Source.ID)
-	assert.ErrorIs(t, err, ErrExtractedUnitsUnavailable, "bob read alice units")
+	assert.ErrorIs(t, err, ErrExtractedUnitsUnavailable, "bob read alice units") //nolint:testifylint // Independent owner-isolation check; reimport behavior follows.
 	second, err := NewService(store).Import(ctx, alice.ID, "de", fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
 	require.NoError(t, err)
 	assert.Equal(t, result.Source.ID, second.Source.ID)
@@ -69,13 +69,13 @@ func TestImportPostgresOwnerIsolationHistoryAndDeletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, snapshotID, replacementSnapshotID)
 	_, err = admin.Exec(ctx, `INSERT INTO source_material_units(owner_id,source_material_id,snapshot_id,unit_id,unit_order,spine_index,title,title_source,text,start_offset,end_offset,package_path,manifest_id,source_href,resolved_href,media_type,linear) SELECT $1,source_material_id,snapshot_id,'cross-owner',99,99,'x','heading','x',0,1,'x','x','x','x','application/xhtml+xml',true FROM source_material_unit_snapshots WHERE owner_id=$2 AND source_material_id=$3`, bob.ID, alice.ID, result.Source.ID)
-	assert.Error(t, err, "cross-owner unit insert succeeded")
+	assert.Error(t, err, "cross-owner unit insert succeeded") //nolint:testifylint // Independent database-boundary check; the source lookup is separate.
 	_, err = store.GetSourceMaterial(ctx, bob.ID, result.Source.ID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "bob read alice source")
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "bob read alice source") //nolint:testifylint // Independent owner-isolation check; legacy-source behavior follows.
 	legacy, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: alice.ID, Language: "de", SourceIdentifier: "legacy-epub", Title: "Legacy", MediaType: MediaType(), ContentHash: "sha256:legacy", Content: []byte("retained epub"), FullText: "Legacy full text."})
 	require.NoError(t, err)
 	_, err = store.GetExtractedUnits(ctx, alice.ID, legacy.ID)
-	assert.ErrorIs(t, err, ErrExtractedUnitsUnavailable, "legacy source units")
+	assert.ErrorIs(t, err, ErrExtractedUnitsUnavailable, "legacy source units") //nolint:testifylint // Independent legacy compatibility check; history is asserted afterward.
 	var historyCount int
 	err = admin.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='epub.import' AND status='complete' AND details->>'source_material_id'=$2`, alice.ID, result.Source.ID).Scan(&historyCount)
 	require.NoError(t, err)

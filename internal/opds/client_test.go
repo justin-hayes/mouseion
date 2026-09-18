@@ -299,9 +299,9 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 	require.NoError(t, err)
 	assert.True(t, customRedirectCalled, "custom CheckRedirect was not called")
 	_, err = opdsClient.ListPage(context.Background(), catalog.URL+"/external-redirect")
-	assert.Error(t, err, "external redirect was followed")
+	assert.Error(t, err, "external redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
 	_, err = opdsClient.Download(context.Background(), catalog.URL+"/download-redirect")
-	assert.Error(t, err, "external download redirect was followed")
+	assert.Error(t, err, "external download redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
 	assert.False(t, externalHit, "external redirect target was fetched")
 }
 
@@ -318,7 +318,7 @@ func TestHTTPSRedirectCannotDowngradeCatalogRequest(t *testing.T) {
 		}, nil
 	})}, Auth{Username: "reader", Password: "secret", Origin: "https://catalog.example"})
 	_, err := client.ListPage(context.Background(), "https://catalog.example/redirect")
-	assert.Error(t, err, "HTTPS downgrade was followed")
+	assert.Error(t, err, "HTTPS downgrade was followed") //nolint:testifylint // The request-count assertion independently verifies no downgrade was followed.
 	require.Len(t, requests, 1)
 	assert.Equal(t, "https://catalog.example/redirect", requests[0])
 }
@@ -352,15 +352,15 @@ func TestDiscoveredCatalogTargetsAreValidatedBeforeFetching(t *testing.T) {
 
 	client := NewClient(catalog.Client(), Auth{})
 	_, err := client.List(context.Background(), catalog.URL+"/next-root")
-	assert.Error(t, err, "external rel-next target was followed")
+	assert.Error(t, err, "external rel-next target was followed") //nolint:testifylint // Each discovered-target validation is an independent request case.
 	_, err = NewClient(catalog.Client(), Auth{Origin: catalog.URL}).ListPage(context.Background(), external.URL+"/direct-page")
-	assert.Error(t, err, "external direct pagination target was fetched")
+	assert.Error(t, err, "external direct pagination target was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
 	_, err = client.Search(context.Background(), catalog.URL+"/search-root", "book")
-	assert.Error(t, err, "external rel-search target was fetched")
+	assert.Error(t, err, "external rel-search target was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
 	_, err = client.Search(context.Background(), catalog.URL+"/description-root", "book")
-	assert.Error(t, err, "external OpenSearch description was fetched")
+	assert.Error(t, err, "external OpenSearch description was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
 	_, err = client.Search(context.Background(), catalog.URL+"/expanded-root", "book")
-	assert.Error(t, err, "external expanded search template was fetched")
+	assert.Error(t, err, "external expanded search template was fetched") //nolint:testifylint // Each discovered-target validation is an independent request case.
 	assert.False(t, externalHit, "external discovered target was reached")
 }
 

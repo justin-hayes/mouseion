@@ -20,7 +20,7 @@ func TestOpenIndexRejectsDirectory(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, index)
-	assert.ErrorIs(t, err, ErrInvalidIndex)
+	require.ErrorIs(t, err, ErrInvalidIndex)
 	assert.False(t, errors.Is(err, fs.ErrNotExist), "a directory is a misconfiguration, not an absent index")
 	assert.Contains(t, err.Error(), "directory")
 }
@@ -32,7 +32,7 @@ func TestOpenIndexMissingPathIsNotExist(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, index)
-	assert.ErrorIs(t, err, ErrInvalidIndex)
+	assert.ErrorIs(t, err, ErrInvalidIndex) //nolint:testifylint // Invalid-index and missing-file classifications are independently asserted.
 	assert.ErrorIs(t, err, fs.ErrNotExist)
 }
 
@@ -85,7 +85,7 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.Equal(t, "case", result.Plural)
 
 	_, err = index.db.ExecContext(t.Context(), `INSERT INTO metadata VALUES ('unexpected', 'write')`)
-	assert.Error(t, err)
+	assert.Error(t, err) //nolint:testifylint // Read-only write rejection and the following lookup are independent checks.
 
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "nicht-im-index", UPOS: "NOUN"})
 	require.NoError(t, err)

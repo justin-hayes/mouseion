@@ -31,18 +31,18 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	assert.Equal(t, created.ID, repeated.ID, "idempotent create")
 	assert.Equal(t, created.Filename, repeated.Filename, "idempotent create")
 	_, err = store.GetDeckPreparation(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner isolation is checked independently from the transition cases below.
 	_, err = store.DownloadDeckPreparation(ctx, alice.ID, created.ID)
-	assert.ErrorIs(t, err, ErrInvalidTransition)
+	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Invalid download and owner-isolation cases are independent.
 	_, err = store.DownloadDeckPreparation(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner isolation is an independent transition boundary check.
 
 	claimed, err := store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationPreparing, claimed.State, "claim")
 	assert.NotNil(t, claimed.StartedAt, "claim")
 	_, err = store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
-	assert.ErrorIs(t, err, ErrInvalidTransition)
+	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Repeated claim is an independent lifecycle rejection case.
 	readyInput := domain.DeckPreparation{Artifact: []byte("apkg"), Filename: "book.apkg", DeckName: "Mouseion::de::Book", TotalCards: 4, CardsWithEnglish: 3, CardsWithContextualSentenceTranslations: 2, QualityOmissions: 1}
 	ready, err := store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput)
 	require.NoError(t, err)
@@ -61,9 +61,9 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	changed := readyInput
 	changed.Artifact = []byte("different")
 	_, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, changed)
-	assert.ErrorIs(t, err, ErrImmutable)
+	assert.ErrorIs(t, err, ErrImmutable) //nolint:testifylint // Immutable update rejection and invalid retry are independent lifecycle cases.
 	_, err = store.RetryDeckPreparation(ctx, alice.ID, created.ID)
-	assert.ErrorIs(t, err, ErrInvalidTransition)
+	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Immutable update rejection and invalid retry are independent lifecycle cases.
 
 	failed := createPreparation(t, ctx, store, alice.ID, source.ID, "failed-hash")
 	_, err = store.ClaimDeckPreparation(ctx, alice.ID, failed.ID)
@@ -109,7 +109,7 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 	}
 	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Missing")}, Completeness: cardexport.Completeness{TotalCards: 2}}
 	_, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad)
-	assert.ErrorIs(t, err, ErrNotFound, "expected rollback error")
+	assert.ErrorIs(t, err, ErrNotFound, "expected rollback error") //nolint:testifylint // The following queries independently verify rollback completeness.
 	var cards, generated int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
 	require.NoError(t, err)
@@ -173,7 +173,7 @@ func TestBookVocabularyStudyReservesReleasesAndGraduatesSnapshot(t *testing.T) {
 	_, err = store.CompleteDeckPreparation(ctx, owner.ID, second.ID, domain.DeckPreparation{Artifact: []byte("study-apkg-2"), Filename: "study-2.apkg", DeckName: "Study 2", TotalCards: 1})
 	require.NoError(t, err)
 	_, err = store.StartDeckVocabularyStudy(ctx, owner.ID, second.ID)
-	assert.ErrorIs(t, err, ErrActiveVocabularyStudy)
+	assert.ErrorIs(t, err, ErrActiveVocabularyStudy) //nolint:testifylint // Active-study rejection is independent of the release and graduation flow.
 	released, err := store.ReleaseDeckVocabularyStudy(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.Nil(t, released.StudyingAt, "release")

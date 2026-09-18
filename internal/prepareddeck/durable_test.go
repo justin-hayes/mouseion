@@ -167,7 +167,7 @@ func TestDurableFinalizerDoesNotPublishRenderFailure(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
 	renderer := &finalizerRendererStub{err: renderErr}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	assert.ErrorIs(t, err, renderErr)
+	assert.ErrorIs(t, err, renderErr) //nolint:testifylint // Error propagation and durable failure side effects are independently asserted.
 	assert.Zero(t, store.completeCalls)
 	assert.Equal(t, 1, store.failCalls)
 }
@@ -179,7 +179,7 @@ func TestDurableFinalizerFailsRestoreFailure(t *testing.T) {
 
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
 
-	assert.ErrorIs(t, err, restoreErr)
+	assert.ErrorIs(t, err, restoreErr) //nolint:testifylint // Error propagation and durable failure side effects are independently asserted.
 	assert.Equal(t, 1, store.failCalls)
 	assert.Zero(t, store.completeCalls)
 }
@@ -188,7 +188,7 @@ func TestDurableFinalizerFailsRunForPresentationValidationError(t *testing.T) {
 	store := &finalizerStoreStub{run: domain.PreparedDeckRun{State: domain.PreparedDeckRunFinalizing}}
 	renderer := &finalizerRendererStub{err: cardexport.ErrInvalidInput}
 	_, err := (&DurableFinalizer{Store: store, Renderer: renderer}).Finalize(context.Background(), "owner", "preparation", "run", 0)
-	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	assert.ErrorIs(t, err, cardexport.ErrInvalidInput) //nolint:testifylint // Error classification and durable failure side effects are independent.
 	assert.Equal(t, 1, store.failCalls)
 	assert.Zero(t, store.completeCalls)
 }
@@ -306,7 +306,7 @@ func TestDurableRerendererDoesNotRenderRetiredPreparation(t *testing.T) {
 
 	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 2)
 
-	assert.ErrorIs(t, err, persistence.ErrInvalidTransition)
+	assert.ErrorIs(t, err, persistence.ErrInvalidTransition) //nolint:testifylint // Rejection and no-render side effects are independent expectations.
 	assert.Zero(t, renderer.calls)
 	assert.Zero(t, store.loadCalls)
 	assert.Zero(t, store.supersedeCalls)
@@ -350,7 +350,7 @@ func TestDurableRerendererReportsMissingLegacyInputWithoutPublishing(t *testing.
 
 	_, err := (&DurableRerenderer{Store: store, Renderer: renderer}).Rerender(context.Background(), "owner", "preparation", "run", 1)
 
-	assert.ErrorIs(t, err, ErrRequiresRepreparation)
+	assert.ErrorIs(t, err, ErrRequiresRepreparation) //nolint:testifylint // Missing-input classification and no-publish side effects are independent.
 	assert.Equal(t, 1, store.corpusCalls)
 	assert.Zero(t, renderer.calls)
 	assert.Zero(t, store.supersedeCalls)

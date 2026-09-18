@@ -58,14 +58,14 @@ func TestOpdsConnectionCRUDEncryptionAndOwnerIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, listed)
 	_, err = store.GetOpdsConnection(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner-isolation, update, delete, and post-delete checks are independent.
 	created.Name = "Updated"
 	created.URL = "https://books.example/new-opds"
 	created.Password = "new-password"
 	_, err = store.UpdateOpdsConnection(ctx, bob.ID, created)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner-isolation, update, delete, and post-delete checks are independent.
 	err = store.DeleteOpdsConnection(ctx, bob.ID, created.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner-isolation, update, delete, and post-delete checks are independent.
 	updated, err := store.UpdateOpdsConnection(ctx, alice.ID, created)
 	require.NoError(t, err)
 	assert.Equal(t, "Updated", updated.Name)

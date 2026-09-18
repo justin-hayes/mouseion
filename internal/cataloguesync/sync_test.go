@@ -293,9 +293,9 @@ func TestRefreshEntryOutcomesAreOwnerScopedAndMetadataOnly(t *testing.T) {
 			reader := &refreshReader{feed: tc.feed, err: tc.readerErr, browseErr: tc.browseErr}
 			result, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
 			if tc.readerErr != nil {
-				assert.ErrorIs(t, err, tc.readerErr)
+				assert.ErrorIs(t, err, tc.readerErr) //nolint:testifylint // Error classification and result flags are independent table expectations.
 			} else if tc.browseErr != nil {
-				assert.ErrorIs(t, err, tc.browseErr)
+				assert.ErrorIs(t, err, tc.browseErr) //nolint:testifylint // Error classification and result flags are independent table expectations.
 			} else {
 				require.NoError(t, err)
 			}
@@ -315,7 +315,7 @@ func TestRefreshEntryRejectsCrossOwnerBookWithoutReadingCatalogue(t *testing.T) 
 	store := &refreshStore{book: domain.Book{ID: "book-1", OwnerID: "alice"}, alias: domain.BookAlias{BookID: "book-1", Value: "entry-1"}}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "should not read"}}}}
 	_, err := newRefreshService(store, reader).RefreshEntry(context.Background(), "bob", "book-1")
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Error and reader-call count are independent boundary expectations.
 	assert.Equal(t, 0, reader.reads, "cross-owner refresh catalogue reads")
 }
 
@@ -400,9 +400,9 @@ func TestRefreshAndAcquisitionReportMissingAliasConnection(t *testing.T) {
 	}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{{ID: "entry-1", Title: "Wrong connection"}}}}
 	_, refreshErr := newRefreshService(store, reader).RefreshEntry(context.Background(), "alice", "book-1")
-	assert.ErrorIs(t, refreshErr, ErrConnectionNotFound)
+	assert.ErrorIs(t, refreshErr, ErrConnectionNotFound) //nolint:testifylint // Refresh and acquisition probe independent missing-connection behavior.
 	assert.Empty(t, reader.connections)
 	_, acquisitionErr := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
-	assert.ErrorIs(t, acquisitionErr, ErrConnectionNotFound)
+	assert.ErrorIs(t, acquisitionErr, ErrConnectionNotFound) //nolint:testifylint // Acquisition is an independent missing-connection behavior check.
 	assert.Empty(t, reader.connections)
 }

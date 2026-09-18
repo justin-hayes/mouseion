@@ -82,7 +82,7 @@ func TestPolledBatchAcceptsUnavailableCountsUntilResultReconciliation(t *testing
 	completed := base
 	completed.Status = enrichment.BatchStatusCompleted
 	completed.RequestCounts = enrichment.BatchRequestCounts{Total: chunk.RequestCount, Completed: chunk.RequestCount}
-	assert.NoError(t, validatePolledBatch(chunk, completed), "completed Batch with exact counts was rejected")
+	assert.NoError(t, validatePolledBatch(chunk, completed), "completed Batch with exact counts was rejected") //nolint:testifylint // This is an independent validation case after the table cases.
 	completed.RequestCounts = enrichment.BatchRequestCounts{Total: chunk.RequestCount + 1, Completed: chunk.RequestCount + 1}
 	assert.Error(t, validatePolledBatch(chunk, completed), "contradictory completed Batch count was accepted")
 }

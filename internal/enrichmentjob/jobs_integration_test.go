@@ -40,7 +40,7 @@ func TestRiverEnrichmentLifecycleCacheProgressAndOwnership(t *testing.T) {
 	handle, err := service.SubmitEnrichment(ctx, "11111111-1111-1111-1111-111111111111", candidates)
 	require.NoError(t, err)
 	_, err = service.Get(ctx, "22222222-2222-2222-2222-222222222222", handle.ID)
-	assert.ErrorIs(t, err, ErrNotFound, "cross-owner get")
+	assert.ErrorIs(t, err, ErrNotFound, "cross-owner get") //nolint:testifylint // Independent owner-isolation check; the owner-scoped job is polled next.
 	var status Status
 	for {
 		status, err = service.Get(ctx, "11111111-1111-1111-1111-111111111111", handle.ID)

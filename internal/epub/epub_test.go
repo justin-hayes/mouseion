@@ -77,7 +77,7 @@ func TestMainTextFixtureExtractsLinearAncillaryUnitsAndLandmarks(t *testing.T) {
 func TestPhaseOneInvalidFixture(t *testing.T) {
 	_, err := Extract(fixtureDirectory(t, "testfixtures/invalid-missing-spine-reference"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrInvalidEPUB)
+	require.ErrorIs(t, err, ErrInvalidEPUB)
 	assert.Contains(t, err.Error(), "spine references missing manifest item absent")
 }
 
@@ -227,7 +227,7 @@ func TestExtractRejectsMalformedManifestAndSpineReferences(t *testing.T) {
 func TestExtractMalformedEPUB(t *testing.T) {
 	_, err := Extract([]byte("not a zip"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrInvalidEPUB)
+	require.ErrorIs(t, err, ErrInvalidEPUB)
 	assert.Contains(t, err.Error(), "open ZIP container")
 }
 

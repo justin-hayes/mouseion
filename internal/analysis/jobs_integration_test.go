@@ -406,9 +406,9 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	assert.Equal(t, handle.ID, duplicate.ID, "dedup IDs differ")
 	assert.Equal(t, handle.DisplayNumber, duplicate.DisplayNumber, "dedup display numbers differ")
 	_, err = service.Get(ctx, bob.ID, handle.ID)
-	assert.ErrorIs(t, err, ErrNotFound, "cross-owner get")
+	assert.ErrorIs(t, err, ErrNotFound, "cross-owner get") //nolint:testifylint // Independent owner-boundary check; later operations exercise separate paths.
 	_, err = service.Cancel(ctx, bob.ID, handle.ID)
-	assert.ErrorIs(t, err, ErrNotFound, "cross-owner cancel")
+	assert.ErrorIs(t, err, ErrNotFound, "cross-owner cancel") //nolint:testifylint // Independent owner-boundary check; later operations exercise separate paths.
 	status, err := service.Wait(ctx, alice.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, status.State)
@@ -437,7 +437,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCandidateCount))
 	assert.Equal(t, 1, bobCandidateCount)
 	_, err = service.Result(ctx, bob.ID, handle.ID)
-	assert.ErrorIs(t, err, ErrNotFound, "cross-owner result")
+	assert.ErrorIs(t, err, ErrNotFound, "cross-owner result") //nolint:testifylint // Independent owner-boundary check; later operations exercise separate paths.
 
 	legacyEPUB, err := putAnalysisSource(ctx, store, alice.ID, "legacy-epub-job", "Legacy EPUB", "Legacy complete text.", "sha256:legacy-epub-job")
 	require.NoError(t, err)

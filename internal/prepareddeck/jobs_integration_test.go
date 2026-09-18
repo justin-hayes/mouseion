@@ -84,9 +84,9 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	assert.Equal(t, handle.Preparation.ID, exact.ID)
 	assert.Equal(t, analysisHandle.RunID, exact.AnalysisRunID)
 	_, err = service.GetForAnalysis(ctx, other.ID, source.ID, analysisHandle.RunID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner exact preparation lookup")
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner exact preparation lookup") //nolint:testifylint // Cross-owner lookup is independent of the concurrent submission exercise.
 	_, err = service.GetForAnalysis(ctx, owner.ID, other.ID, analysisHandle.RunID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-book exact preparation lookup")
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-book exact preparation lookup") //nolint:testifylint // Cross-book lookup is independent of the concurrent submission exercise.
 	var submissions sync.WaitGroup
 	results := make(chan Handle, 8)
 	errorsCh := make(chan error, 8)
@@ -106,7 +106,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	close(results)
 	close(errorsCh)
 	for submitErr := range errorsCh {
-		assert.NoError(t, submitErr, "concurrent submit")
+		assert.NoError(t, submitErr, "concurrent submit") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
 	}
 	for result := range results {
 		assert.Equal(t, handle.Preparation.ID, result.Preparation.ID)
@@ -116,7 +116,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (JobArgs{}).Kind(), handle.Preparation.ID).Scan(&jobCount))
 	assert.Equal(t, 1, jobCount, "duplicate jobs")
 	_, err = service.Get(ctx, other.ID, handle.Preparation.ID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner get")
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner get") //nolint:testifylint // Cross-owner lookup is independent of the cancellation and retry checks.
 	cancelled, err := service.Cancel(ctx, owner.ID, handle.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
@@ -143,7 +143,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	close(retryResults)
 	close(retryErrors)
 	for retryErr := range retryErrors {
-		assert.NoError(t, retryErr, "concurrent retry")
+		assert.NoError(t, retryErr, "concurrent retry") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
 	}
 	for result := range retryResults {
 		assert.Equal(t, handle.Preparation.ID, result.Preparation.ID)
@@ -226,7 +226,7 @@ func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
 	failing := &failingRiverClient{err: errors.New("River unavailable")}
 	service := &Service{pool: store.Pool(), client: failing, store: store}
 	_, err = service.Submit(ctx, owner.ID, source.ID, false)
-	assert.Error(t, err, "expected initial enqueue failure")
+	assert.Error(t, err, "expected initial enqueue failure") //nolint:testifylint // Error classification and the rollback query are independent expectations.
 	var count int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&count))
 	assert.Zero(t, count, "initial enqueue left preparations")

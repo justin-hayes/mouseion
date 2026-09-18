@@ -125,9 +125,9 @@ func TestActivatingNewVersionDoesNotMutatePriorResult(t *testing.T) {
 func TestRegistryErrors(t *testing.T) {
 	registry := NewRegistry()
 	_, err := registry.For("it")
-	assert.ErrorIs(t, err, ErrUnsupportedLanguage)
+	assert.ErrorIs(t, err, ErrUnsupportedLanguage) //nolint:testifylint // Independent registry error case; the next lookup is a separate case.
 	_, err = registry.Lookup("de", "99")
-	assert.ErrorIs(t, err, ErrProfileNotFound)
+	assert.ErrorIs(t, err, ErrProfileNotFound) //nolint:testifylint // Independent registry error case; the following registration remains meaningful.
 	require.NoError(t, registry.Register(GermanPost1996(), true))
 	assert.ErrorIs(t, registry.Register(GermanPost1996(), false), ErrDuplicateProfile)
 }

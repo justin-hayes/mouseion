@@ -112,7 +112,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		}
 		return result, changedTx.Commit(ctx)
 	}()
-	assert.ErrorIs(t, changedModeErr, ErrImmutable)
+	assert.ErrorIs(t, changedModeErr, ErrImmutable) //nolint:testifylint // Changed-mode rejection and the changed-target case are independent.
 	assert.False(t, changedModeResult.Existing, "changed execution mode")
 	changedTarget := params
 	changedTarget.Config.TargetLanguage = "de"
@@ -128,14 +128,14 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 		}
 		return result, changedTx.Commit(ctx)
 	}()
-	assert.Error(t, changedTargetErr, "changed target")
+	assert.Error(t, changedTargetErr, "changed target") //nolint:testifylint // Changed-target rejection is independently checked before state inspection.
 	assert.False(t, changedTargetResult.Existing, "changed target")
 	current, getErr := store.GetDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, getErr)
 	assert.Equal(t, domain.DeckPreparationPreparing, current.State)
 	assert.Equal(t, result.Run.ID, current.CurrentRunID)
 	_, getErr = store.GetPreparedDeckRun(ctx, other.ID, preparation.ID, result.Run.ID)
-	assert.ErrorIs(t, getErr, ErrNotFound)
+	assert.ErrorIs(t, getErr, ErrNotFound) //nolint:testifylint // Cross-owner run lookup is independent of the owner-scoped projection load.
 
 	loaded, loadedDigest, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, preparation.ID, result.Run.ID)
 	require.NoError(t, err)
@@ -169,11 +169,11 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.True(t, records[1].Found)
 	assert.Equal(t, "tree", records[1].Entry.Translation)
 	_, _, err = store.LoadPreparedDeckStorageProjection(ctx, other.ID, preparation.ID, result.Run.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner projection lookup is independent of the record lookup.
 	_, err = store.LoadPreparedDeckStoredRecords(ctx, other.ID, preparation.ID, result.Run.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner record lookup is independently asserted.
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_manifests SET deck_name='mutated' WHERE run_id=$1`, result.Run.ID)
-	assert.Error(t, err, "immutable manifest update succeeded")
+	assert.Error(t, err, "immutable manifest update succeeded") //nolint:testifylint // Database immutability rejection and subsequent batch setup are independent.
 	jobTx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	err = store.SetPreparedDeckBatchSubmissionJobTx(ctx, jobTx, owner.ID, preparation.ID, result.Run.ID, result.Chunks[0].ID, 1, 9001)
@@ -271,7 +271,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	changed := artifact
 	changed.APKG = []byte("different")
 	_, err = store.CompletePreparedDeckRun(ctx, owner.ID, preparation.ID, result.Run.ID, finalizationToken, changed)
-	assert.ErrorIs(t, err, ErrImmutable)
+	assert.ErrorIs(t, err, ErrImmutable) //nolint:testifylint // Immutable completion rejection is independent of the following count queries.
 	var cards, generated int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
 	require.NoError(t, err)
@@ -405,7 +405,7 @@ func TestDurablePreparedDeckCancellationFencesClaimsAndRetryCreatesNewRun(t *tes
 		Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "completed", CompletedCount: 1},
 		Items: []PreparedDeckBatchItemReconciliation{{Ordinal: 0, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &lateEntry}},
 	}, nil, nil)
-	assert.ErrorIs(t, err, ErrPreparedDeckClaimLost)
+	assert.ErrorIs(t, err, ErrPreparedDeckClaimLost) //nolint:testifylint // Claim-loss classification is independent of the later recovery assertions.
 	_, found, cacheErr := store.Get(ctx, key)
 	require.NoError(t, cacheErr)
 	assert.False(t, found, "late cancelled result reached cache")
@@ -526,7 +526,7 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	assert.Equal(t, 1, secondResult.Run.FailedCount, "second reconciliation")
 	assert.Equal(t, 1, finalizerCount, "second reconciliation")
 	_, err = store.ReconcilePreparedDeckBatch(ctx, PreparedDeckBatchReconcileParams{OwnerID: owner.ID, PreparationID: preparation.ID, RunID: frozen.Run.ID, ChunkID: second.ID, ClaimToken: secondToken, Chunk: PreparedDeckBatchReconciliationUpdate{State: domain.PreparedDeckBatchCompleted, ProviderStatus: "completed"}}, nil, nil)
-	assert.ErrorIs(t, err, ErrPreparedDeckClaimLost)
+	assert.ErrorIs(t, err, ErrPreparedDeckClaimLost) //nolint:testifylint // Claim-loss classification is independent of the later recovery assertions.
 	work, err := store.ListPreparedDeckRecoveryWork(ctx, 100)
 	require.NoError(t, err)
 	foundFinalizer := false

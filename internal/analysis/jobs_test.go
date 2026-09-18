@@ -16,7 +16,7 @@ func TestRequireDependencyParsing(t *testing.T) {
 		Language: "de-DE", SupportedFeatures: []string{"tokenize", analyzer.FeatureDepparse}, Ready: true,
 	}}}}
 
-	assert.NoError(t, requireDependencyParsing(context.Background(), provider, "de"))
+	assert.NoError(t, requireDependencyParsing(context.Background(), provider, "de")) //nolint:testifylint // Independent capability case; the test continues with other provider states.
 
 	missing := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
 		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
@@ -29,11 +29,11 @@ func TestRequireDependencyParsing(t *testing.T) {
 		Degraded:  true,
 		Languages: []analyzer.LanguageCapability{{Language: "de", SupportedFeatures: []string{analyzer.FeatureDepparse}}},
 	}}
-	assert.NoError(t, requireDependencyParsing(context.Background(), degraded, "de"))
+	assert.NoError(t, requireDependencyParsing(context.Background(), degraded, "de")) //nolint:testifylint // Independent capability case; the test continues with other provider states.
 
 	outage := analyzertest.CapabilityProvider{Err: errors.New("NLP unavailable")}
 	err = requireDependencyParsing(context.Background(), outage, "de")
-	assert.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
+	require.NotErrorIs(t, err, ErrDependencyParsingUnavailable)
 	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", safeAnalysisError(err))
 }
 

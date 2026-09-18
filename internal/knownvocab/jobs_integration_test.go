@@ -44,7 +44,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	handle, err := service.Submit(ctx, alice.ID, "de", "Daß\nHaus\nbad\tNOPE\n")
 	require.NoError(t, err)
 	_, err = service.Get(ctx, bob.ID, handle.ID)
-	assert.ErrorIs(t, err, ErrJobNotFound, "cross-owner status")
+	assert.ErrorIs(t, err, ErrJobNotFound, "cross-owner status") //nolint:testifylint // Independent owner-isolation check; the owner-scoped job is polled next.
 	status := waitKnownVocabJob(t, ctx, service, alice.ID, handle.ID)
 	assert.Equal(t, rivertype.JobStateCompleted, status.State)
 	assert.Equal(t, 2, status.Imported)
@@ -71,7 +71,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	// A forged retry without its owner-scoped history handle is rejected before writes.
 	forged := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: 999999}, Args: JobArgs{OwnerID: alice.ID, Language: "de", FileContents: "neu"}}
 	err = (&Worker{Pool: store.Pool()}).Work(ctx, forged)
-	assert.ErrorIs(t, err, ErrJobNotFound, "forged work")
+	assert.ErrorIs(t, err, ErrJobNotFound, "forged work") //nolint:testifylint // Independent forged-job check; the following query verifies no writes.
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, alice.ID).Scan(&knownRows))
 	assert.Equal(t, 3, knownRows)
 }

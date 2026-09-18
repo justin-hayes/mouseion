@@ -50,7 +50,7 @@ func TestLifecycleForwardReversibleAndIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, store.history, 3, "idempotent transition wrote history")
 	_, err = lifecycle.Transition(ctx, "alice", id, Candidate)
-	assert.ErrorIs(t, err, ErrInvalidTransition, "implicit reopen")
+	assert.ErrorIs(t, err, ErrInvalidTransition, "implicit reopen") //nolint:testifylint // Rejection and the reset behavior are independent lifecycle checks.
 	got, err := lifecycle.Reset(ctx, "alice", id)
 	require.NoError(t, err)
 	assert.Equal(t, string(Candidate), got.State)
@@ -61,7 +61,7 @@ func TestLifecycleForwardReversibleAndIdempotent(t *testing.T) {
 	_, err = lifecycle.Transition(ctx, "alice", id, Known)
 	require.NoError(t, err)
 	_, err = lifecycle.Transition(ctx, "alice", id, Candidate)
-	assert.ErrorIs(t, err, ErrInvalidTransition, "implicit known reset")
+	assert.ErrorIs(t, err, ErrInvalidTransition, "implicit known reset") //nolint:testifylint // Rejection and the explicit reset behavior are independent checks.
 	_, err = lifecycle.Reset(ctx, "alice", id)
 	require.NoError(t, err)
 }
@@ -71,9 +71,9 @@ func TestLifecycleRejectsInvalidTransitionsAndIdentity(t *testing.T) {
 	lifecycle := NewLifecycle(newMemoryStore())
 	id := Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}
 	_, err := lifecycle.Transition(ctx, "alice", id, Accepted)
-	assert.ErrorIs(t, err, ErrInvalidTransition, "new accepted")
+	assert.ErrorIs(t, err, ErrInvalidTransition, "new accepted") //nolint:testifylint // Each invalid transition is an independent lifecycle case.
 	_, err = lifecycle.Reset(ctx, "alice", id)
-	assert.ErrorIs(t, err, ErrInvalidTransition, "reset missing")
+	assert.ErrorIs(t, err, ErrInvalidTransition, "reset missing") //nolint:testifylint // Each invalid transition is an independent lifecycle case.
 	_, err = lifecycle.Transition(ctx, "", id, Candidate)
 	assert.ErrorIs(t, err, ErrInvalidTransition, "empty owner")
 }

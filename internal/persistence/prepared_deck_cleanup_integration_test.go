@@ -51,7 +51,7 @@ func TestPreparedDeckBatchCleanupIsOwnerScopedAndIndependentOfOutcome(t *testing
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_batch_chunks SET state='completed',input_file_id='file-input',output_file_id='file-output',error_file_id='file-error',completed_count=1 WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND id=$4`, owner.ID, preparation.ID, frozen.Run.ID, chunkID)
 	require.NoError(t, err)
 	_, err = store.GetDeckPreparationStatus(ctx, other.ID, preparation.ID)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner status lookup is independent of the cleanup lifecycle below.
 	claimToken := uuid.NewString()
 	claimed, err := store.ClaimPreparedDeckBatchCleanup(ctx, owner.ID, preparation.ID, frozen.Run.ID, chunkID, claimToken, time.Now().UTC().Add(time.Minute))
 	require.NoError(t, err)

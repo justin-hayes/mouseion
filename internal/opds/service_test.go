@@ -103,7 +103,7 @@ func TestBrowsePageRejectsTargetOutsideOwnerCatalogOrigin(t *testing.T) {
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL + "/opds"}}
 	service := NewService(store, &importerStub{}, server.Client())
 	_, err := service.BrowsePage(context.Background(), "owner", "connection", "https://evil.example/metadata")
-	assert.Error(t, err, "external browse target accepted")
+	assert.Error(t, err, "external browse target accepted") //nolint:testifylint // Error and request-side-effect checks are independent.
 	assert.False(t, requested, "external browse target reached HTTP client")
 }
 
@@ -123,7 +123,7 @@ func TestBrowseRejectsExternalEagerPaginationTarget(t *testing.T) {
 	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: catalog.URL}}
 	service := NewService(store, &importerStub{}, catalog.Client())
 	_, err := service.Browse(context.Background(), "owner", "connection", "")
-	assert.Error(t, err, "external eager pagination target was followed")
+	assert.Error(t, err, "external eager pagination target was followed") //nolint:testifylint // Error and request-side-effect checks are independent.
 	assert.False(t, externalHit, "external eager pagination target was reached")
 }
 

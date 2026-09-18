@@ -64,7 +64,7 @@ func TestBuildRouteComparisonViewMarksEmptyProjectionUnavailable(t *testing.T) {
 
 func TestJourneyRouteComparisonSoftensProviderFailureAndEmptyResult(t *testing.T) {
 	failed, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{err: errors.New("projection failed")}, "owner-1", "de", nil)
-	assert.Error(t, err)
+	assert.Error(t, err) //nolint:testifylint // Error and nil-result checks independently document the softened provider failure.
 	assert.Nil(t, failed)
 	empty, err := journeyRouteComparison(context.Background(), testJourneyProjectionProvider{}, "owner-1", "de", nil)
 	require.NoError(t, err)

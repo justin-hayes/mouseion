@@ -28,6 +28,7 @@ linters:
     - dupl
     - interfacebloat
     - gocognit
+    - testifylint
 
   settings:
     gocognit:
@@ -43,6 +44,11 @@ linters:
     staticcheck:
       checks:
         - SA*
+    testifylint:
+      disable-all: true
+      enable:
+        - error-nil
+        - require-error
 
   exclusions:
     generated: strict
