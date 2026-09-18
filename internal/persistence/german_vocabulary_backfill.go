@@ -632,6 +632,13 @@ type selectedSentenceRow struct {
 	createdAt                 time.Time
 }
 
+type selectedSentenceGroup struct {
+	corpusID, canonicalLemma, upos string
+	rows                           []selectedSentenceRow
+}
+
+type selectedSentenceGroupKey struct{ corpusID, canonicalLemma, upos string }
+
 func germanCuratedConflict(ctx context.Context, tx pgx.Tx, owner string, profile canonicalization.Profile) (*GermanVocabularyBackfillConflict, error) {
 	rows, err := tx.Query(ctx, `SELECT canonical_lemma, upos FROM curated_sentences WHERE owner_id=$1 AND language='de'`, owner)
 	if err != nil {
@@ -706,58 +713,103 @@ func backfillExampleSentences(ctx context.Context, tx pgx.Tx, owner string, prof
 	if err != nil {
 		return 0, 0, err
 	}
-	affected := germanAffected(rows, func(row selectedSentenceRow) string { return row.lemma }, profile)
+	groups := canonicalizeSelectedSentenceGroups(rows, profile)
 	var updated, merged int
-	for target := range affected {
-		uposSet := map[string]bool{}
-		for _, row := range rows {
-			if row.lemma == target || profile.Canonical(row.lemma) == target {
-				uposSet[row.upos] = true
-			}
+	for _, group := range groups {
+		reconciled := reconcileSelectedSentenceGroup(group)
+		groupUpdated, groupMerged, err := persistSelectedSentenceGroup(ctx, tx, owner, reconciled)
+		if err != nil {
+			return updated, merged, err
 		}
-		for upos := range uposSet {
-			corpora := map[string][]selectedSentenceRow{}
-			for _, row := range rows {
-				if row.upos == upos && (row.lemma == target || profile.Canonical(row.lemma) == target) {
-					corpora[row.corpusID] = append(corpora[row.corpusID], row)
-				}
-			}
-			for _, group := range corpora {
-				sort.Slice(group, func(i, j int) bool {
-					if group[i].selectionRank != group[j].selectionRank {
-						return group[i].selectionRank < group[j].selectionRank
-					}
-					if !group[i].createdAt.Equal(group[j].createdAt) {
-						return group[i].createdAt.Before(group[j].createdAt)
-					}
-					return group[i].id < group[j].id
-				})
-				chosen := -1
-				for i, row := range group {
-					if row.isChosen {
-						chosen = i
-						break
-					}
-				}
-				for _, row := range group {
-					if _, err = tx.Exec(ctx, `UPDATE example_sentences SET language=NULL, canonical_lemma=NULL, upos=NULL, selection_rank=NULL, selection_score=NULL, selection_reasons=NULL, is_chosen=false WHERE owner_id=$1 AND id=$2`, owner, row.id); err != nil {
-						return updated, merged, err
-					}
-				}
-				for i, row := range group {
-					isChosen := chosen == i
-					if _, err = tx.Exec(ctx, `UPDATE example_sentences SET language='de', canonical_lemma=$3, upos=$4, selection_rank=$5, selection_score=$6, selection_reasons=$7, is_chosen=$8 WHERE owner_id=$1 AND id=$2`, owner, row.id, target, upos, i+1, row.selectionScore, row.selectionReasons, isChosen); err != nil {
-						return updated, merged, err
-					}
-					if row.lemma != target {
-						updated++
-					}
-				}
-				merged += len(group) - 1
-			}
-		}
+		updated += groupUpdated
+		merged += groupMerged
 	}
 	return updated, merged, nil
+}
+
+func canonicalizeSelectedSentenceGroups(rows []selectedSentenceRow, profile canonicalization.Profile) []selectedSentenceGroup {
+	affected := make(map[backfillIdentity]bool)
+	for _, row := range rows {
+		canonicalLemma := profile.Canonical(row.lemma)
+		if canonicalLemma != row.lemma {
+			affected[backfillIdentity{lemma: canonicalLemma, upos: row.upos}] = true
+		}
+	}
+
+	groups := make(map[selectedSentenceGroupKey]*selectedSentenceGroup)
+	for _, row := range rows {
+		canonicalLemma := profile.Canonical(row.lemma)
+		key := backfillIdentity{lemma: canonicalLemma, upos: row.upos}
+		if !affected[key] {
+			continue
+		}
+		groupKey := selectedSentenceGroupKey{corpusID: row.corpusID, canonicalLemma: canonicalLemma, upos: row.upos}
+		group, ok := groups[groupKey]
+		if !ok {
+			group = &selectedSentenceGroup{corpusID: row.corpusID, canonicalLemma: canonicalLemma, upos: row.upos}
+			groups[groupKey] = group
+		}
+		group.rows = append(group.rows, row)
+	}
+
+	result := make([]selectedSentenceGroup, 0, len(groups))
+	for _, group := range groups {
+		result = append(result, *group)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].canonicalLemma != result[j].canonicalLemma {
+			return result[i].canonicalLemma < result[j].canonicalLemma
+		}
+		if result[i].upos != result[j].upos {
+			return result[i].upos < result[j].upos
+		}
+		return result[i].corpusID < result[j].corpusID
+	})
+	return result
+}
+
+func reconcileSelectedSentenceGroup(group selectedSentenceGroup) selectedSentenceGroup {
+	sort.Slice(group.rows, func(i, j int) bool {
+		if group.rows[i].selectionRank != group.rows[j].selectionRank {
+			return group.rows[i].selectionRank < group.rows[j].selectionRank
+		}
+		if !group.rows[i].createdAt.Equal(group.rows[j].createdAt) {
+			return group.rows[i].createdAt.Before(group.rows[j].createdAt)
+		}
+		return group.rows[i].id < group.rows[j].id
+	})
+
+	chosen := -1
+	for i, row := range group.rows {
+		if row.isChosen {
+			chosen = i
+			break
+		}
+	}
+	for i := range group.rows {
+		group.rows[i].selectionRank = i + 1
+		group.rows[i].isChosen = chosen == i
+	}
+	return group
+}
+
+func persistSelectedSentenceGroup(ctx context.Context, tx pgx.Tx, owner string, group selectedSentenceGroup) (int, int, error) {
+	for _, row := range group.rows {
+		if _, err := tx.Exec(ctx, `UPDATE example_sentences SET language=NULL, canonical_lemma=NULL, upos=NULL, selection_rank=NULL, selection_score=NULL, selection_reasons=NULL, is_chosen=false WHERE owner_id=$1 AND id=$2`, owner, row.id); err != nil {
+			return 0, 0, err
+		}
+	}
+
+	updated := 0
+	for _, row := range group.rows {
+		if _, err := tx.Exec(ctx, `UPDATE example_sentences SET language='de', canonical_lemma=$3, upos=$4, selection_rank=$5, selection_score=$6, selection_reasons=$7, is_chosen=$8 WHERE owner_id=$1 AND id=$2`, owner, row.id, group.canonicalLemma, group.upos, row.selectionRank, row.selectionScore, row.selectionReasons, row.isChosen); err != nil {
+			return updated, 0, err
+		}
+		if row.lemma != group.canonicalLemma {
+			updated++
+		}
+	}
+	return updated, len(group.rows) - 1, nil
 }
 
 func querySelectedSentences(ctx context.Context, tx pgx.Tx, owner string) ([]selectedSentenceRow, error) {
