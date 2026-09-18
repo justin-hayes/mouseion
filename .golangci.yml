@@ -21,6 +21,9 @@ linters:
     - gosec
     - staticcheck
     - exhaustive
+    - musttag
+    - canonicalheader
+    - recvcheck
 
   settings:
     errcheck:

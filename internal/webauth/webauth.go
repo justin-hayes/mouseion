@@ -72,7 +72,7 @@ func unauthenticated(w http.ResponseWriter, r *http.Request) {
 }
 
 func isNavigation(r *http.Request) bool {
-	if r.Method != http.MethodGet || r.Header.Get("HX-Request") == "true" {
+	if r.Method != http.MethodGet || r.Header.Get("Hx-Request") == "true" {
 		return false
 	}
 	if mode := r.Header.Get("Sec-Fetch-Mode"); mode != "" {

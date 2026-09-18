@@ -35,7 +35,7 @@ func (plannerDictionary) Lookup(context.Context, enrichment.LexicalLookupRequest
 	return enrichment.LexicalEntry{Senses: []enrichment.LexicalSense{{Gloss: "house"}}}, true, nil
 }
 
-func (s inputFactsStore) LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error) {
+func (s *inputFactsStore) LoadPreparedDeckInputFactsTx(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.PreparedDeckInputFacts, error) {
 	facts := s.facts
 	for _, fact := range s.candidateFacts {
 		facts.Candidates = append(facts.Candidates, fact.Candidate)

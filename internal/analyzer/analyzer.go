@@ -55,14 +55,14 @@ type Sentence struct {
 // part-of-speech tag. Dependency is the basic Universal Dependencies relation
 // and Head is the 0-based ordinal of the token's head within its sentence.
 type Token struct {
-	Surface        string
-	RawLemma       string
-	CanonicalLemma string
-	UPOS           string
-	Dependency     string
-	Head           uint32
-	Morphology     map[string]string
-	Location       SourceLocation
+	Surface        string            `json:"Surface"`
+	RawLemma       string            `json:"RawLemma"`
+	CanonicalLemma string            `json:"CanonicalLemma"`
+	UPOS           string            `json:"UPOS"`
+	Dependency     string            `json:"Dependency"`
+	Head           uint32            `json:"Head"`
+	Morphology     map[string]string `json:"Morphology"`
+	Location       SourceLocation    `json:"Location"`
 }
 
 // SourceDocumentMetadata describes a source referenced by SourceLocation.
@@ -90,9 +90,9 @@ type NormalizationProfile struct {
 // SourceLocation is a reproducible half-open span [StartOffset, EndOffset) in
 // Unicode code points within a source document's extracted text.
 type SourceLocation struct {
-	SourceDocumentID string
-	Chapter          string
-	Section          string
-	StartOffset      uint64
-	EndOffset        uint64
+	SourceDocumentID string `json:"SourceDocumentID"`
+	Chapter          string `json:"Chapter"`
+	Section          string `json:"Section"`
+	StartOffset      uint64 `json:"StartOffset"`
+	EndOffset        uint64 `json:"EndOffset"`
 }

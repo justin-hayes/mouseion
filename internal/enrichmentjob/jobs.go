@@ -120,7 +120,10 @@ func (s *Service) Get(ctx context.Context, owner string, id int64) (Status, erro
 	if row.Kind != (JobArgs{}).Kind() || json.Unmarshal(row.EncodedArgs, &args) != nil || args.OwnerID != owner {
 		return Status{}, ErrNotFound
 	}
-	var progress struct{ Completed, Total int64 }
+	var progress struct {
+		Completed int64 `json:"completed"`
+		Total     int64 `json:"total"`
+	}
 	if len(row.Metadata) > 0 {
 		if err := json.Unmarshal(row.Metadata, &progress); err != nil {
 			return Status{}, fmt.Errorf("decode enrichment progress: %w", err)
@@ -176,7 +179,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if progress == nil {
 		progress = w.updateProgress
 	}
-	var prior struct{ Completed int }
+	var prior struct {
+		Completed int `json:"completed"`
+	}
 	if len(job.Metadata) > 0 {
 		if err := json.Unmarshal(job.Metadata, &prior); err != nil {
 			return fmt.Errorf("decode enrichment progress: %w", err)

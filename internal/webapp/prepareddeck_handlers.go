@@ -220,7 +220,7 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	if r.Header.Get("HX-Request") == "true" {
+	if r.Header.Get("Hx-Request") == "true" {
 		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, journeyAction))
 		return
 	}
@@ -337,7 +337,7 @@ func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/vnd.anki")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": p.Filename}))
 	w.Header().Set("X-Mouseion-Deck-Name", p.DeckName)
-	w.Header().Set("X-Mouseion-Analysis-Run-ID", p.AnalysisRunID)
+	w.Header().Set("X-Mouseion-Analysis-Run-Id", p.AnalysisRunID)
 	w.Header().Set("X-Mouseion-Cards-Total", strconv.Itoa(p.TotalCards))
 	w.Header().Set("X-Mouseion-Cards-With-English", strconv.Itoa(p.CardsWithEnglish))
 	w.Header().Set("X-Mouseion-Cards-With-English-Sentence", strconv.Itoa(p.CardsWithContextualSentenceTranslations))
