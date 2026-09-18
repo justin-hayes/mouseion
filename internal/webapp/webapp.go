@@ -324,6 +324,9 @@ func fail(w http.ResponseWriter, err error) {
 func renderStatus(w http.ResponseWriter, r *http.Request, status int, component interface {
 	Render(context.Context, io.Writer) error
 }) {
+	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	if err := component.Render(r.Context(), w); err != nil {
