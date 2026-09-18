@@ -12,12 +12,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +43,7 @@ func putAnalysisSourceWithUnits(ctx context.Context, store *persistence.Postgres
 
 func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
@@ -431,6 +434,10 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	require.NotNil(t, corpus.Statistics.TextProfile)
 	assert.Equal(t, int64(2), corpus.Statistics.TextProfile.SentenceCount)
 	assert.Equal(t, float64(1), corpus.Statistics.TextProfile.MedianSentenceTokenCount)
+	completedStatus, err := service.Cancel(ctx, alice.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, completedStatus.State)
+	assert.Equal(t, "completed", completedStatus.LogicalState)
 	var candidateCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID).Scan(&candidateCount))
 	assert.Equal(t, 1, candidateCount)
@@ -510,6 +517,80 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	changedStatus, err := service.Wait(ctx, alice.ID, changed.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, changedStatus.State)
+}
+
+type failingAnalysisCancellationClient struct {
+	*river.Client[pgx.Tx]
+	err error
+}
+
+func (c *failingAnalysisCancellationClient) JobCancel(context.Context, int64) (*rivertype.JobRow, error) {
+	return nil, c.err
+}
+
+func TestAnalysisCancellationKeepsDurableStateWhenRiverCleanupFails(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &Worker{})
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Queues:  map[string]river.QueueConfig{Queue: {MaxWorkers: 1}},
+		Workers: workers,
+	})
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis River client", func() error {
+		return riverClient.Stop(context.Background())
+	})
+	owner, err := store.CreateUser(ctx, "analysis-cancel-cleanup", false)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		findLiveJob func(context.Context, string, string) (int64, error)
+		clientErr   error
+	}{
+		{
+			name: "live job lookup",
+			findLiveJob: func(context.Context, string, string) (int64, error) {
+				return 0, errors.New("River lookup unavailable")
+			},
+		},
+		{
+			name:      "River cancellation",
+			clientErr: errors.New("River cancellation unavailable"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			source, sourceErr := putAnalysisSource(ctx, store, owner.ID, "cancel-"+test.name, "Cancel", "cancel", "sha256:cancel-"+test.name)
+			require.NoError(t, sourceErr)
+			service := NewService(store.Pool(), riverClient)
+			handle, submitErr := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+			require.NoError(t, submitErr)
+			if test.findLiveJob != nil {
+				service.findLiveJob = test.findLiveJob
+			}
+			if test.clientErr != nil {
+				service.client = &failingAnalysisCancellationClient{Client: riverClient, err: test.clientErr}
+			}
+
+			status, cancelErr := service.Cancel(ctx, owner.ID, handle.ID)
+			require.NoError(t, cancelErr)
+			assert.Equal(t, rivertype.JobStateCancelled, status.State)
+			assert.Equal(t, "cancelled", status.LogicalState)
+
+			var runState, attemptState string
+			require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,a.state FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &attemptState))
+			assert.Equal(t, "cancelled", runState)
+			assert.Equal(t, "cancelled", attemptState)
+		})
+	}
 }
 
 func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
