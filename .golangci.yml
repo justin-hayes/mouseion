@@ -24,6 +24,7 @@ linters:
     - musttag
     - canonicalheader
     - recvcheck
+    - noctx
 
   settings:
     errcheck:
