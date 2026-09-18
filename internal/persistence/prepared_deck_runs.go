@@ -117,7 +117,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	if err := validatePreparedDeckManifestShape(params.Projection, params.OwnerID, freezeState.Filename); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	work, err := classifyPreparedDeckManifest(ctx, tx, params.Projection)
+	manifestWork, err := classifyPreparedDeckManifest(ctx, tx, params.Projection)
 	if err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
@@ -125,7 +125,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		return FreezePreparedDeckRunResult{}, err
 	}
 	if config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) {
-		if err = validateChunkPlans(params.Chunks, config, work.pending); err != nil {
+		if err = validateChunkPlans(params.Chunks, config, manifestWork.pending); err != nil {
 			return FreezePreparedDeckRunResult{}, err
 		}
 	} else if len(params.Chunks) != 0 {
@@ -144,19 +144,19 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 	}
 	runState, translationState := domain.PreparedDeckRunTranslating, domain.PreparedDeckTranslationPending
 	var translationCompletedAt *time.Time
-	if len(work.pending) == 0 {
+	if len(manifestWork.pending) == 0 {
 		runState, translationState = domain.PreparedDeckRunFinalizing, domain.PreparedDeckTranslationCompleted
 		completedAt := time.Now().UTC()
 		translationCompletedAt = &completedAt
 	}
 	selectedCount, acceptedCount, omittedCount := params.Projection.Counts()
-	if err = insertPreparedDeckRunRow(ctx, tx, params, config, runID, runNumber, runState, translationState, acceptedCount, work.completedCount, translationCompletedAt); err != nil {
+	if err = insertPreparedDeckRunRow(ctx, tx, params, config, runID, runNumber, runState, translationState, acceptedCount, manifestWork.completedCount, translationCompletedAt); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	if err = insertPreparedDeckManifestRow(ctx, tx, params, runID, digest, selectedCount, acceptedCount, omittedCount); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
-	if err = insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, runID, work.pending); err != nil {
+	if err = insertPreparedDeckManifestItems(ctx, tx, params, config, candidateDigests, runID, manifestWork.pending); err != nil {
 		return FreezePreparedDeckRunResult{}, err
 	}
 	chunks, err := insertPreparedDeckChunkPlans(ctx, tx, params, candidateDigests, runID)
@@ -167,7 +167,7 @@ func (s *PostgresStore) FreezePreparedDeckRunTx(ctx context.Context, tx pgx.Tx, 
 		return FreezePreparedDeckRunResult{}, err
 	}
 	run, err := getPreparedDeckRun(ctx, tx, params.OwnerID, params.PreparationID, runID)
-	pendingOrdinals := preparedDeckPendingOrdinals(params.Projection.Items, work.pending)
+	pendingOrdinals := preparedDeckPendingOrdinals(params.Projection.Items, manifestWork.pending)
 	return FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, PendingOrdinals: pendingOrdinals, NeedsFinalizer: runState == domain.PreparedDeckRunFinalizing}, err
 }
 
@@ -193,14 +193,14 @@ type preparedDeckManifestWork struct {
 }
 
 func classifyPreparedDeckManifest(ctx context.Context, tx pgx.Tx, projection cardexport.StorageProjection) (preparedDeckManifestWork, error) {
-	work := preparedDeckManifestWork{pending: make(map[int]cardexport.ManifestItem)}
+	manifestWork := preparedDeckManifestWork{pending: make(map[int]cardexport.ManifestItem)}
 	q := sqlcgen.New(tx)
 	for _, item := range projection.Items {
 		if item.Disposition != cardexport.ManifestAccepted {
 			continue
 		}
 		if item.CacheKey == nil {
-			work.completedCount++
+			manifestWork.completedCount++
 			continue
 		}
 		key := item.CacheKey
@@ -209,12 +209,12 @@ func classifyPreparedDeckManifest(ctx context.Context, tx pgx.Tx, projection car
 			return preparedDeckManifestWork{}, err
 		}
 		if found {
-			work.completedCount++
+			manifestWork.completedCount++
 			continue
 		}
-		work.pending[item.Ordinal] = item
+		manifestWork.pending[item.Ordinal] = item
 	}
-	return work, nil
+	return manifestWork, nil
 }
 
 func validatePreparedDeckManifestShape(projection cardexport.StorageProjection, owner, filename string) error {
