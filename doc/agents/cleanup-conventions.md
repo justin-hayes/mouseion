@@ -33,10 +33,14 @@ reason must be clear at the call site. Cleanup that affects database isolation,
 durable jobs, generated artifacts, or process lifecycle is consequential and
 must use the checked pattern.
 
-## Lint rollout
+## Lint policy
 
-`errcheck` remains disabled until the cleanup migrations are complete. The
-three migrations are intentionally separate so the default `errcheck` gate can
-be enabled without a baseline or broad exclusions. After default findings are
-clean, review blank assignments separately; an explicit discard is not a way to
-avoid deciding whether an error matters.
+`errcheck` is an enforced gate in `.golangci.yml`, run by `make lint-go` and
+therefore by `make lint`. It checks production and test code, including
+integration-tagged source. The configuration also checks blank assignments and
+type assertions, so every discarded result or unchecked assertion must be
+audited rather than used to avoid deciding whether an error matters.
+
+The gate does not replace the cleanup policy above: preserve output-finalization
+errors, propagate actionable shutdown errors, retain unexpected rollback errors
+after commit, and keep only narrowly justified best-effort cleanup suppressed.
