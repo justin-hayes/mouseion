@@ -12,7 +12,7 @@ import (
 )
 
 func (h *Handler) attachVocabularyStudyPreparation(ctx context.Context, owner string, book domain.SourceMaterialSummary, preparation domain.DeckPreparation) (domain.DeckPreparation, error) {
-	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
+	reader, ok := h.services.Store.Books.(VocabularyStudyPreparationReader)
 	if ok && preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted {
 		active, err := reader.GetActiveDeckVocabularyStudy(ctx, owner, book.Source.ID)
 		if err == nil {
@@ -22,7 +22,7 @@ func (h *Handler) attachVocabularyStudyPreparation(ctx context.Context, owner st
 		}
 	}
 	if preparation.State == domain.DeckPreparationReady {
-		if counter, ok := h.services.Store.(VocabularyStudyStore); ok {
+		if counter, ok := h.services.Store.Books.(VocabularyStudyStore); ok {
 			count, err := counter.CountDeckPreparationVocabularyToGraduate(ctx, owner, preparation.ID)
 			if err != nil {
 				return domain.DeckPreparation{}, err
@@ -39,7 +39,7 @@ func (h *Handler) currentVocabularyStudyPreparation(ctx context.Context, owner s
 		//nolint:nilnil // nil preparation is the explicit absence contract.
 		return nil, nil
 	}
-	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
+	reader, ok := h.services.Store.Books.(VocabularyStudyPreparationReader)
 	if !ok {
 		// Stores without vocabulary-study support have no preparation to attach.
 		//nolint:nilnil // nil preparation is the explicit absence contract.
@@ -88,7 +88,7 @@ func (h *Handler) bookVocabularyStudyPreparation(w http.ResponseWriter, r *http.
 		http.NotFound(w, r)
 		return domain.DeckPreparation{}, false
 	}
-	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
+	reader, ok := h.services.Store.Books.(VocabularyStudyPreparationReader)
 	if !ok {
 		http.NotFound(w, r)
 		return domain.DeckPreparation{}, false
@@ -125,7 +125,7 @@ func (h *Handler) startBookVocabularyStudy(w http.ResponseWriter, r *http.Reques
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	store, ok := h.services.Store.(VocabularyStudyStore)
+	store, ok := h.services.Store.Books.(VocabularyStudyStore)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -163,7 +163,7 @@ func (h *Handler) confirmBookVocabularyReview(w http.ResponseWriter, r *http.Req
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	store, ok := h.services.Store.(VocabularyStudyStore)
+	store, ok := h.services.Store.Books.(VocabularyStudyStore)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -193,7 +193,7 @@ func (h *Handler) releaseBookVocabularyStudy(w http.ResponseWriter, r *http.Requ
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	store, ok := h.services.Store.(VocabularyStudyStore)
+	store, ok := h.services.Store.Books.(VocabularyStudyStore)
 	if !ok {
 		http.NotFound(w, r)
 		return

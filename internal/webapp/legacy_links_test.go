@@ -14,7 +14,7 @@ import (
 )
 
 func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testing.T) {
-	h := &Handler{services: Services{Store: fixtures.NewStore()}}
+	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
 	tests := []struct {
 		name     string
 		owner    string
@@ -36,7 +36,7 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 }
 
 func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
-	h := &Handler{services: Services{Store: fixtures.NewStore()}}
+	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
 	urls, err := h.journeyEntryURLs(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
 	require.NoError(t, err)
 

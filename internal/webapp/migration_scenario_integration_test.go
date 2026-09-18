@@ -46,7 +46,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		{Language: "it", DisplayName: "Italian", Ready: true},
 	}}}
 	h := New(Services{
-		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store,
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		Analysis: fixtures.Analysis{}, AnalysisInsights: analysisinsights.NewService(store), Capabilities: capabilities,
 		SessionLifetime: time.Hour,
 	})

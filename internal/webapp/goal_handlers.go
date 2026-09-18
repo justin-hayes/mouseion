@@ -27,7 +27,7 @@ const (
 )
 
 func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) string {
-	books, err := h.services.Store.ListSourceMaterials(ctx, owner)
+	books, err := h.services.Store.Books.ListSourceMaterials(ctx, owner)
 	if err == nil {
 		for _, book := range books {
 			if book.Source.ID == bookID {
@@ -35,7 +35,7 @@ func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) strin
 			}
 		}
 	}
-	if book, err := h.services.Store.GetBook(ctx, owner, bookID); err == nil && strings.TrimSpace(book.Title) != "" {
+	if book, err := h.services.Store.Books.GetBook(ctx, owner, bookID); err == nil && strings.TrimSpace(book.Title) != "" {
 		return book.Title
 	}
 	return bookID
@@ -86,7 +86,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if language == "" {
-		if _, bookErr := h.services.Store.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
+		if _, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
 			h.respondGoal(w, r, "", goalUnavailableMessage, "")
 			return
 		} else if bookErr != nil {
@@ -97,7 +97,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	current, err := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
+	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -121,9 +121,9 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			h.respondGoal(w, r, "", goalStaleMessage, "")
 			return
 		}
-		_, err = h.services.Store.CreatePrimaryGoal(r.Context(), owner, language, bookID)
+		_, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
 		if errors.Is(err, persistence.ErrGoalExists) {
-			latest, readErr := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
+			latest, readErr := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
 			if readErr != nil {
 				fail(w, readErr)
 				return
@@ -148,13 +148,13 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		_, err = h.services.Store.ChangePrimaryGoal(r.Context(), owner, language, bookID, expectedBookID)
+		_, err = h.services.Store.Goals.ChangePrimaryGoal(r.Context(), owner, language, bookID, expectedBookID)
 		if errors.Is(err, persistence.ErrGoalStale) {
 			h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
 			return
 		}
 		if errors.Is(err, persistence.ErrNotFound) {
-			if _, bookErr := h.services.Store.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
+			if _, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
 				h.respondGoal(w, r, "", goalUnavailableMessage, current.BookID)
 				return
 			} else if bookErr != nil {
@@ -188,7 +188,7 @@ func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	current, err := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
+	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -205,7 +205,7 @@ func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
 		return
 	}
-	err = h.services.Store.ClearPrimaryGoal(r.Context(), owner, language, expectedBookID)
+	err = h.services.Store.Goals.ClearPrimaryGoal(r.Context(), owner, language, expectedBookID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return

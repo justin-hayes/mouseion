@@ -33,42 +33,66 @@ const (
 	maxRequestBody = 4 << 20
 )
 
-type Store interface {
-	PutSupportedLanguage(context.Context, string, string) (domain.SupportedLanguage, error)
-	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
+// StudyLanguageStore provides the active study-language and vocabulary
+// language settings consumed by the shell and vocabulary surfaces.
+type StudyLanguageStore interface {
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	GetStoredActiveStudyLanguage(context.Context, string) (string, error)
 	SetActiveStudyLanguage(context.Context, string, string) error
 	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)
-	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
-	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
-	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
-	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
-	DeleteOpdsConnection(context.Context, string, string) error
-	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
-	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	GetSourceMaterial(context.Context, string, string) (domain.SourceMaterial, error)
-	GetExtractedUnitSnapshot(context.Context, string, string) (string, domain.ExtractedUnits, error)
-	ListMyBooks(context.Context, string) ([]domain.Book, error)
+}
+
+// BookStore provides the owner-scoped book reads and My Books membership
+// operations shared by the library, Reading Journey, and Primary Goal surfaces.
+type BookStore interface {
 	GetBook(context.Context, string, string) (domain.Book, error)
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
-	AddBookToMyBooks(context.Context, string, string) error
+	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 	RemoveBookFromMyBooks(context.Context, string, string) error
-	ResolveBookByAlias(context.Context, string, string, string) (domain.Book, bool, error)
-	AddBookAlias(context.Context, string, string, string, string, string) error
-	LinkSourceToBook(context.Context, string, string, string) error
-	ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error)
+}
+
+// JourneyStore provides Reading Journey membership and ordering.
+type JourneyStore interface {
 	GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error)
 	ResolveJourneyBookID(context.Context, string, string) (string, bool, error)
 	AddToReadingJourney(context.Context, string, string, string, int64) (int64, error)
 	RemoveFromReadingJourney(context.Context, string, string, string, int64) (int64, error)
 	MoveReadingJourneyEntry(context.Context, string, string, string, int, int64) (int64, error)
+}
+
+// GoalStore provides the Primary Goal lifecycle.
+type GoalStore interface {
 	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
 	CreatePrimaryGoal(context.Context, string, string, string) (domain.PrimaryGoal, error)
 	ChangePrimaryGoal(context.Context, string, string, string, string) (domain.PrimaryGoal, error)
 	ClearPrimaryGoal(context.Context, string, string, string) error
+}
+
+// CatalogStore provides owner-scoped OPDS connection management.
+type CatalogStore interface {
+	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
+	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
+	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
+	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
+	DeleteOpdsConnection(context.Context, string, string) error
+}
+
+// AnalysisJobStore provides the analysis job list shown by the jobs surface.
+type AnalysisJobStore interface {
+	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
+}
+
+// StoreDependencies groups the focused persistence capabilities consumed by the
+// web application. Production supplies one persistence store to every field.
+type StoreDependencies struct {
+	StudyLanguages StudyLanguageStore
+	Books          BookStore
+	Journey        JourneyStore
+	Goals          GoalStore
+	Catalog        CatalogStore
+	AnalysisJobs   AnalysisJobStore
 }
 
 type csrfFailureContextKey struct{}
@@ -135,7 +159,7 @@ type VocabularyStudyPreparationReader interface {
 type Services struct {
 	Auth             *auth.Service
 	WebAuth          *webauth.Handler
-	Store            Store
+	Store            StoreDependencies
 	OPDS             OPDS
 	Analysis         Analysis
 	AnalysisInsights AnalysisInsights

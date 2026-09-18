@@ -15,7 +15,7 @@ func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID 
 	if sourceID == "" {
 		return "", nil
 	}
-	detail, err := h.services.Store.GetBookDetail(ctx, owner, sourceID)
+	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, sourceID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return "", nil
 	}
@@ -29,7 +29,7 @@ func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID 
 	if language == "" {
 		language = detail.Acquired.Source.Language
 	}
-	journey, err := h.services.Store.GetReadingJourney(ctx, owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
 	if err != nil {
 		return "", err
 	}

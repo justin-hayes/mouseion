@@ -20,7 +20,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		return
 	}
 	owner := user(r).ID
-	bookID, ok, err := h.services.Store.ResolveJourneyBookID(r.Context(), owner, r.PathValue("id"))
+	bookID, ok, err := h.services.Store.Journey.ResolveJourneyBookID(r.Context(), owner, r.PathValue("id"))
 	if err != nil {
 		fail(w, err)
 		return
@@ -29,7 +29,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		http.NotFound(w, r)
 		return
 	}
-	detail, err := h.services.Store.GetBookDetail(r.Context(), owner, bookID)
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -43,7 +43,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		http.NotFound(w, r)
 		return
 	}
-	if _, err = h.services.Store.RemoveFromReadingJourney(r.Context(), owner, language, bookID, expectedRevision); err != nil {
+	if _, err = h.services.Store.Journey.RemoveFromReadingJourney(r.Context(), owner, language, bookID, expectedRevision); err != nil {
 		if errors.Is(err, persistence.ErrJourneyStale) {
 			redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
 			return
@@ -52,7 +52,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		return
 	}
 	title := bookID
-	if book, bookErr := h.services.Store.GetBook(r.Context(), owner, bookID); bookErr == nil && strings.TrimSpace(book.Title) != "" {
+	if book, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); bookErr == nil && strings.TrimSpace(book.Title) != "" {
 		title = book.Title
 	}
 	redirect(w, r, "/journey?message="+url.QueryEscape(title+" removed from Reading Journey. Analysis and acquired content were retained."))

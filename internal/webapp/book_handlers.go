@@ -82,7 +82,7 @@ func (h *Handler) renderBookPage(w http.ResponseWriter, r *http.Request, u domai
 }
 
 func (h *Handler) vocabularyStudyHistory(ctx context.Context, owner, sourceMaterialID string, current *domain.DeckPreparation) ([]domain.DeckPreparation, error) {
-	reader, ok := h.services.Store.(VocabularyStudyPreparationReader)
+	reader, ok := h.services.Store.Books.(VocabularyStudyPreparationReader)
 	if !ok {
 		return nil, nil
 	}
@@ -109,7 +109,7 @@ func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id s
 		http.NotFound(w, r)
 		return domain.MyBook{}, false
 	}
-	detail, err := h.services.Store.GetBookDetail(r.Context(), owner, id)
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, id)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, false
@@ -126,7 +126,7 @@ type catalogueAliasReader interface {
 }
 
 func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string) (bool, error) {
-	reader, ok := h.services.Store.(catalogueAliasReader)
+	reader, ok := h.services.Store.Catalog.(catalogueAliasReader)
 	if !ok {
 		return false, nil
 	}
@@ -143,7 +143,7 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 	if strings.TrimSpace(alias.ConnectionID) == "" {
 		return false, nil
 	}
-	_, err = h.services.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	_, err = h.services.Store.Catalog.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return false, nil
 	}
@@ -330,7 +330,7 @@ func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookI
 	return target, err
 }
 
-func journeyAcquisitionError(ctx context.Context, store Store, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
+func journeyAcquisitionError(ctx context.Context, catalog CatalogStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
 	connectionName, entryTitle := "catalog connection", "this book"
 	if strings.TrimSpace(target.Entry.Title) != "" {
 		entryTitle = target.Entry.Title
@@ -340,9 +340,9 @@ func journeyAcquisitionError(ctx context.Context, store Store, owner, bookID, bo
 	if strings.TrimSpace(target.ConnectionID) != "" {
 		connectionName = target.ConnectionID
 	}
-	if provider, ok := store.(catalogueAliasReader); ok {
+	if provider, ok := catalog.(catalogueAliasReader); ok {
 		if alias, aliasErr := provider.GetBookCatalogEntryAlias(ctx, owner, bookID); aliasErr == nil {
-			if connection, connectionErr := store.GetOpdsConnection(ctx, owner, alias.ConnectionID); connectionErr == nil {
+			if connection, connectionErr := catalog.GetOpdsConnection(ctx, owner, alias.ConnectionID); connectionErr == nil {
 				if strings.TrimSpace(connection.Name) != "" {
 					connectionName = connection.Name
 				}

@@ -185,7 +185,7 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Capabilities: readyGerman(), SessionLifetime: time.Hour})
 
 	page := perform(t, h, "GET", "/login", nil, nil)
 	assert.Equal(t, http.StatusOK, page.Code)
@@ -239,7 +239,7 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "German library book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	known := &recordingKnownVocab{service: knownvocab.NewService(store)}
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, KnownVocab: known, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), KnownVocab: known, SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 
 	imported := multipartUpload(t, h, "/vocabulary/import?language=it", cookies, map[string]string{"csrf_token": csrf, "language": "it"}, "Haus\n")
@@ -281,7 +281,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	}
 	recorder := &recordingAnalysis{}
 	h := New(Services{
-		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store,
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		OPDS:     opds.NewService(store, epub.NewService(store), catalog.Client()),
 		Analysis: recorder, CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
 	})
@@ -337,7 +337,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	createAccount(t, ctx, store, "alice", "alice-password", false)
 	createAccount(t, ctx, store, "bob", "bob-password", false)
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 
@@ -432,7 +432,7 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	}
 	_, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", goal.ID)
 	require.NoError(t, err)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	aliceCookies, csrf := loginCookies(t, h, alice.Username, "alice-password")
 	bobCookies, _ := loginCookies(t, h, bob.Username, "bob-password")
 	page := perform(t, h, "GET", "/journey", nil, aliceCookies)

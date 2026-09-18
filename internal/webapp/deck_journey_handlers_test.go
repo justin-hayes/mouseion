@@ -20,7 +20,8 @@ import (
 )
 
 type deckJourneyActionStore struct {
-	Store
+	JourneyStore
+	GoalStore
 	journey                domain.ReadingJourney
 	goal                   domain.PrimaryGoal
 	addErr                 error
@@ -103,7 +104,7 @@ func TestAddBookToReadingJourneyHandlesIdempotentStaleAndErrorStates(t *testing.
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			h := &Handler{services: Services{Store: &test.store}}
+			h := &Handler{services: Services{Store: StoreDependencies{Journey: &test.store, Goals: &test.store}}}
 			action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "book-1", 4)
 			require.NoError(t, err)
 			assert.Equal(t, test.wantState, action.State)
@@ -117,7 +118,7 @@ func TestAddBookToReadingJourneyHandlesIdempotentStaleAndErrorStates(t *testing.
 
 func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T) {
 	store := &deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 9}, addErr: persistence.ErrJourneyStale}
-	h := &Handler{services: Services{Store: store, SessionLifetime: 0}}
+	h := &Handler{services: Services{Store: StoreDependencies{Journey: store, Goals: store}, SessionLifetime: 0}}
 	csrf := strings.Repeat("c", 32)
 	form := url.Values{"csrf_token": {csrf}, "expected_revision": {"8"}, "deck_preparation_id": {"prep-1"}}
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/journey/books/book-1/add", strings.NewReader(form.Encode()))
@@ -135,7 +136,7 @@ func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T)
 
 func TestAddBookToReadingJourneyDoesNotMutatePrimaryGoal(t *testing.T) {
 	store := &deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 2}, goal: domain.PrimaryGoal{BookID: "book-1"}}
-	h := &Handler{services: Services{Store: store}}
+	h := &Handler{services: Services{Store: StoreDependencies{Journey: store, Goals: store}}}
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "book-1", 2)
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyGoal, action.State)
@@ -147,7 +148,7 @@ func TestDeckJourneyActionResolvesSourceMaterialToBook(t *testing.T) {
 		journey:                domain.ReadingJourney{Revision: 4, Entries: []domain.ReadingJourneyEntry{{BookID: "book-x", Position: 1}}},
 		bookIDBySourceMaterial: map[string]string{"source-1": "book-x"},
 	}
-	h := &Handler{services: Services{Store: store}}
+	h := &Handler{services: Services{Store: StoreDependencies{Journey: store, Goals: store}}}
 	action, err := h.deckJourneyAction(context.Background(), "owner-1", "prep-1", "source-1")
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyMember, action.State)
@@ -160,7 +161,7 @@ func TestAddBookToReadingJourneyUsesResolvedBookIdentity(t *testing.T) {
 		journey:                domain.ReadingJourney{Revision: 3},
 		bookIDBySourceMaterial: map[string]string{"source-1": "book-1"},
 	}
-	h := &Handler{services: Services{Store: store}}
+	h := &Handler{services: Services{Store: StoreDependencies{Journey: store, Goals: store}}}
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "prep-1", "source-1", 3)
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyMember, action.State)
@@ -175,7 +176,7 @@ func TestSourceMaterialWithoutBookIdentityOffersNoJourneyAction(t *testing.T) {
 		journey:        domain.ReadingJourney{Revision: 4},
 		noBookIdentity: map[string]bool{"source-orphan": true},
 	}
-	h := &Handler{services: Services{Store: store}}
+	h := &Handler{services: Services{Store: StoreDependencies{Journey: store, Goals: store}}}
 	action, err := h.deckJourneyAction(context.Background(), "owner-1", "prep-1", "source-orphan")
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyUnknown, action.State)
@@ -188,6 +189,7 @@ func TestSourceMaterialWithoutBookIdentityOffersNoJourneyAction(t *testing.T) {
 
 type journeyIntentStore struct {
 	*deckJourneyActionStore
+	BookStore
 	detail domain.MyBook
 }
 
@@ -235,7 +237,7 @@ func TestAddingJourneyMemberEnsuresAcquisitionAndAnalysisOnce(t *testing.T) {
 	analysisService := &journeyIntentAnalysis{}
 	store.detail.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: opds.EPUBMediaType, ContentRevisionID: "revision-1", ContentSnapshotID: "snapshot-1"}}
 	h := &Handler{services: Services{
-		Store:         store,
+		Store:         StoreDependencies{Books: store, Journey: store, Goals: store},
 		Analysis:      analysisService,
 		CatalogueSync: journeyIntentCatalogue{},
 	}}
@@ -258,7 +260,7 @@ func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailabl
 		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", OwnerID: "owner-1", Title: "Unavailable book"}},
 	}
 	h := &Handler{services: Services{
-		Store:         store,
+		Store:         StoreDependencies{Books: store, Journey: store, Goals: store},
 		Analysis:      &journeyIntentAnalysis{},
 		CatalogueSync: journeyIntentCatalogue{err: cataloguesync.ErrNotFound},
 	}}
@@ -278,7 +280,7 @@ func TestAddingMetadataOnlyBookAcquiresAndSubmitsAnalysis(t *testing.T) {
 	analysisService := &journeyIntentAnalysis{}
 	acquired := false
 	h := &Handler{services: Services{
-		Store:         store,
+		Store:         StoreDependencies{Books: store, Journey: store, Goals: store},
 		Analysis:      analysisService,
 		CatalogueSync: journeyIntentCatalogue{target: cataloguesync.AcquisitionTarget{ConnectionID: "catalogue-1", Language: "de"}},
 		OPDS: journeyIntentOPDS{acquire: func() {

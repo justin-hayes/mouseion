@@ -125,7 +125,7 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	h := New(Services{
 		Auth:             authService,
 		WebAuth:          webauth.New(authService, false, time.Hour),
-		Store:            store,
+		Store:            storeDependencies(store),
 		OPDS:             opdsService,
 		Analysis:         analysis.NewService(store.Pool(), analysisClient),
 		AnalysisInsights: analysisinsights.NewService(store),

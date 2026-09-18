@@ -44,12 +44,12 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	owner := user(r).ID
 	language, _ := activeStudyLanguageForContext(r.Context())
 	bookID := r.PathValue("id")
-	journey, err := h.services.Store.GetReadingJourney(r.Context(), owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	goal, err := h.services.Store.GetPrimaryGoal(r.Context(), owner, language)
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -73,14 +73,14 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	if memberIndex == -1 {
 		// Distinguish an owned book removed from the Journey from a foreign or
 		// unknown book. Both checks remain scoped to the authenticated owner.
-		if _, bookErr := h.services.Store.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
+		if _, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
 			http.NotFound(w, r)
 			return
 		} else if bookErr != nil {
 			fail(w, bookErr)
 			return
 		}
-		_, err = h.services.Store.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, 1, expectedRevision)
+		_, err = h.services.Store.Journey.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, 1, expectedRevision)
 		if errors.Is(err, persistence.ErrJourneyStale) {
 			redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
 			return
@@ -109,7 +109,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	// A boundary request passes the current position through the store so the
 	// revision is still checked. The store returns the same revision for this
 	// deterministic no-op, which is announced without changing the order.
-	newRevision, err := h.services.Store.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, newPosition, expectedRevision)
+	newRevision, err := h.services.Store.Journey.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, newPosition, expectedRevision)
 	if errors.Is(err, persistence.ErrJourneyStale) {
 		redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
 		return

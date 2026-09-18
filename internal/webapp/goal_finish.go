@@ -38,7 +38,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	finisher, ok := h.services.Store.(primaryGoalFinisher)
+	finisher, ok := h.services.Store.Goals.(primaryGoalFinisher)
 	if !ok {
 		h.respondGoal(w, r, "", "Reading finish is not available. No changes were made; review Reading Journey and try again.", "")
 		return

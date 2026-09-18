@@ -40,7 +40,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	readingOnly := newBook(alice, "Reading-only integration book")
 	replacement := newBook(alice, "Replacement integration book")
 
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: store, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, alice.Username, "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 

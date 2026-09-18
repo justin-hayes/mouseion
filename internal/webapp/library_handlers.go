@@ -16,7 +16,7 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
-	goal, goalErr := h.services.Store.GetPrimaryGoal(r.Context(), u.ID, activeLanguage)
+	goal, goalErr := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, activeLanguage)
 	if goalErr != nil {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
 		return
@@ -33,7 +33,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	var books []domain.MyBook
 	var err error
 	var browse MyBooksBrowseState
-	if reader, ok := h.services.Store.(interface {
+	if reader, ok := h.services.Store.Books.(interface {
 		ListMyBooksBrowse(context.Context, string, string, string, int, int) (persistence.MyBooksBrowseResult, error)
 	}); ok {
 		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, myBooksPageOffset(page), myBooksPageSize)
@@ -73,7 +73,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, myBooksURL(query, lastPage, needsLanguage), http.StatusSeeOther)
 			return
 		}
-	} else if reader, ok := h.services.Store.(interface {
+	} else if reader, ok := h.services.Store.Books.(interface {
 		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	}); ok {
 		books, err = reader.ListMyBooksWithEvidence(r.Context(), u.ID)
@@ -81,7 +81,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		// Compatibility for lightweight stores used by older web tests. The
 		// production PostgresStore always supplies the complete read model.
 		var acquired []domain.SourceMaterialSummary
-		acquired, err = h.services.Store.ListSourceMaterials(r.Context(), u.ID)
+		acquired, err = h.services.Store.Books.ListSourceMaterials(r.Context(), u.ID)
 		for _, source := range acquired {
 			books = append(books, domain.MyBook{Book: domain.Book{ID: source.Source.ID, OwnerID: source.Source.OwnerID, Title: canonicalBookTitle(source), LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
 		}
@@ -100,7 +100,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	browse.RefreshableBookIDs = refreshableBookIDs
-	connections, err := h.services.Store.ListOpdsConnections(r.Context(), u.ID)
+	connections, err := h.services.Store.Catalog.ListOpdsConnections(r.Context(), u.ID)
 	if err != nil {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
@@ -130,7 +130,7 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	u := user(r)
-	if err := h.services.Store.RemoveBookFromMyBooks(r.Context(), u.ID, r.PathValue("id")); err != nil {
+	if err := h.services.Store.Books.RemoveBookFromMyBooks(r.Context(), u.ID, r.PathValue("id")); err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.NotFound(w, r)
 			return
