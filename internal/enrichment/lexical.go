@@ -225,7 +225,7 @@ func senseWords(sense LexicalSense) map[string]bool {
 	}
 	words := make(map[string]bool)
 	for _, value := range values {
-		for _, field := range strings.Fields(value) {
+		for field := range strings.FieldsSeq(value) {
 			if word := normalizeWord(field); word != "" {
 				words[word] = true
 			}
@@ -264,7 +264,7 @@ func isContextWord(word string) bool {
 
 func sensePhrase(value string) []string {
 	var words []string
-	for _, field := range strings.Fields(value) {
+	for field := range strings.FieldsSeq(value) {
 		if word := normalizeWord(field); word != "" {
 			words = append(words, word)
 		}
@@ -277,7 +277,7 @@ func containsPhrase(sentence string, phrase []string) bool {
 		return false
 	}
 	var words []string
-	for _, field := range strings.Fields(sentence) {
+	for field := range strings.FieldsSeq(sentence) {
 		if word := normalizeWord(field); word != "" {
 			words = append(words, word)
 		}

@@ -80,7 +80,7 @@ func validTranslationResponse(request enrichment.TranslationRequest) enrichment.
 	}
 }
 
-func (p *barrierTranslationProvider) stats() (calls, max int) {
+func (p *barrierTranslationProvider) stats() (calls, maxInFlight int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.calls, p.max
@@ -182,9 +182,9 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 	require.NoError(t, client.Start(ctx))
 	testutil.Cleanup(t, "River client", func() error { return client.Stop(context.Background()) })
 	outcomes := waitStandardOutcomes(t, ctx, run, len(run.keys))
-	calls, max := provider.stats()
-	assert.Equal(t, len(run.keys), calls, "provider calls=%d max_in_flight=%d", calls, max)
-	assert.LessOrEqual(t, max, 2, "provider max_in_flight")
+	calls, maxInFlight := provider.stats()
+	assert.Equal(t, len(run.keys), calls, "provider calls=%d max_in_flight=%d", calls, maxInFlight)
+	assert.LessOrEqual(t, maxInFlight, 2, "provider max_in_flight")
 	for i, outcome := range outcomes {
 		assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcome.State)
 		assert.Equal(t, 1, outcome.ProviderCallCount)

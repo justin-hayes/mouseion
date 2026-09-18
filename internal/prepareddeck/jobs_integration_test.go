@@ -90,7 +90,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	var submissions sync.WaitGroup
 	results := make(chan Handle, 8)
 	errorsCh := make(chan error, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		submissions.Add(1)
 		go func(consent bool) {
 			defer submissions.Done()
@@ -127,7 +127,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	var retries sync.WaitGroup
 	retryResults := make(chan Handle, 8)
 	retryErrors := make(chan error, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		retries.Add(1)
 		go func(consent bool) {
 			defer retries.Done()

@@ -99,7 +99,7 @@ func myBooksResultsHeading(browse MyBooksBrowseState) string {
 		if browse.Query != "" {
 			return fmt.Sprintf("My Books in %s matching “%s”", language, browse.Query)
 		}
-		return fmt.Sprintf("My Books in %s", language)
+		return "My Books in " + language
 	}
 	if browse.Query != "" {
 		return fmt.Sprintf("My Books matching “%s”", browse.Query)
@@ -114,7 +114,7 @@ func myBooksPageHeading(browse MyBooksBrowseState) string {
 	if browse.Language == "" {
 		return "My Books"
 	}
-	return fmt.Sprintf("My Books in %s", myBooksLanguageName(browse))
+	return "My Books in " + myBooksLanguageName(browse)
 }
 
 func myBooksLanguageName(browse MyBooksBrowseState) string {

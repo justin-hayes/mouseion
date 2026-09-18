@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -375,12 +376,7 @@ func attribute(attrs []xml.Attr, name string) string {
 }
 
 func containsWord(words []string, word string) bool {
-	for _, value := range words {
-		if value == word {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(words, word)
 }
 
 func readFile(f *zip.File) (data []byte, err error) {
@@ -495,12 +491,7 @@ func firstNonBlank(v []string) string {
 	return ""
 }
 func hasWord(s, word string) bool {
-	for _, v := range strings.Fields(s) {
-		if v == word {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strings.Fields(s), word)
 }
 func invalid(message string, err error) error {
 	if err == nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -260,7 +261,7 @@ func (w *BatchSubmitWorker) findExistingBatch(ctx context.Context, metadata map[
 	var match *enrichment.Batch
 	var after string
 	recentAfter := w.now().Add(-7 * 24 * time.Hour).Unix()
-	for page := 0; page < 1000; page++ {
+	for range 1000 {
 		list, err := w.Provider.ListBatches(ctx, enrichment.ListBatchesRequest{After: after, Limit: 100})
 		if err != nil {
 			return nil, errors.New("provider Batch listing failed")
@@ -303,7 +304,7 @@ func submissionBatchItems(deck cardexport.FrozenDeck, ordinals []int, outcomes m
 }
 
 func batchMetadata(runID, chunkID string, generation int) map[string]string {
-	return map[string]string{"mouseion_run": runID, "mouseion_chunk": chunkID, "mouseion_generation": fmt.Sprintf("%d", generation)}
+	return map[string]string{"mouseion_run": runID, "mouseion_chunk": chunkID, "mouseion_generation": strconv.Itoa(generation)}
 }
 
 func metadataMatches(got, want map[string]string) bool {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -246,8 +247,8 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	ctx := context.Background()
 	journey, err := store.GetReadingJourney(ctx, fixtures.OwnerID, "it")
 	require.NoError(t, err)
-	for i := len(journey.Entries) - 1; i >= 0; i-- {
-		_, err = store.RemoveFromReadingJourney(ctx, fixtures.OwnerID, "it", journey.Entries[i].BookID, journey.Revision)
+	for _, v := range slices.Backward(journey.Entries) {
+		_, err = store.RemoveFromReadingJourney(ctx, fixtures.OwnerID, "it", v.BookID, journey.Revision)
 		require.NoError(t, err)
 		journey, err = store.GetReadingJourney(ctx, fixtures.OwnerID, "it")
 		require.NoError(t, err)

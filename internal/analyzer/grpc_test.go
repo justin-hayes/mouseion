@@ -33,7 +33,7 @@ func (s *analyzerService) GetCapabilities(context.Context, *mouseionv1.GetCapabi
 
 func (s *analyzerService) Analyze(_ context.Context, request *mouseionv1.AnalyzeRequest) (*mouseionv1.NormalizedCorpus, error) {
 	if !proto.Equal(request, s.want) {
-		return nil, &requestMismatch{got: request}
+		return nil, &requestMismatchError{got: request}
 	}
 	return &mouseionv1.NormalizedCorpus{
 		SchemaVersion: "1.1.0",
@@ -53,9 +53,9 @@ func (s *analyzerService) Analyze(_ context.Context, request *mouseionv1.Analyze
 	}, nil
 }
 
-type requestMismatch struct{ got *mouseionv1.AnalyzeRequest }
+type requestMismatchError struct{ got *mouseionv1.AnalyzeRequest }
 
-func (e *requestMismatch) Error() string { return "unexpected request: " + e.got.String() }
+func (e *requestMismatchError) Error() string { return "unexpected request: " + e.got.String() }
 
 func TestGRPCAnalyzerRoundTrip(t *testing.T) {
 	listener := bufconn.Listen(1024 * 1024)

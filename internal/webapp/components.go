@@ -3,6 +3,7 @@ package webapp
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,14 +100,14 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	view := catalogueSyncConnectionView{HasStatus: found}
 	if !found {
 		view.State = "Never synced"
-		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalog languages; it does not download EPUB content.", connection.Name)
+		view.Message = connection.Name + " has never synced. Sync now reconciles ready non-English catalog languages; it does not download EPUB content."
 		return view
 	}
 	switch status.State {
 	case domain.CatalogueSyncSyncing:
 		view.State = "Syncing"
 		view.Syncing = true
-		view.Message = fmt.Sprintf("%s is syncing metadata. Existing Books remain available while Mouseion reconciles bibliographic entries.", connection.Name)
+		view.Message = connection.Name + " is syncing metadata. Existing Books remain available while Mouseion reconciles bibliographic entries."
 	case domain.CatalogueSyncSynced:
 		view.State = "Last synced"
 		if status.LastSyncedAt != nil && !status.LastSyncedAt.IsZero() {
@@ -122,11 +123,11 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 	case domain.CatalogueSyncFailed:
 		view.State = "Sync failed"
 		view.Failed = true
-		view.Message = fmt.Sprintf("%s sync failed. Existing Books remain unchanged and available.", connection.Name)
+		view.Message = connection.Name + " sync failed. Existing Books remain unchanged and available."
 		view.Error = status.LastError
 	default:
 		view.State = "Never synced"
-		view.Message = fmt.Sprintf("%s has never synced. Sync now reconciles ready non-English catalog languages; it does not download EPUB content.", connection.Name)
+		view.Message = connection.Name + " has never synced. Sync now reconciles ready non-English catalog languages; it does not download EPUB content."
 	}
 	return view
 }
@@ -407,7 +408,7 @@ func feedbackAttributes(kind FeedbackKind) templ.Attributes {
 	return nil
 }
 
-func boolString(value bool) string { return fmt.Sprintf("%t", value) }
+func boolString(value bool) string { return strconv.FormatBool(value) }
 
 func deckPreparationAttributes(preparation domain.DeckPreparation) templ.Attributes {
 	attributes := templ.Attributes{"data-deck-preparation": "true", "data-workflow": "deck preparation"}
@@ -638,8 +639,8 @@ func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
 	return []StatItem{
 		{Label: "current-known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage))},
 		{Label: "reserved projected coverage", Value: fmt.Sprintf("%.1f%%", reservedCoveragePercent(coverage))},
-		{Label: "analyzable tokens", Value: fmt.Sprintf("%d", coverage.AnalyzableTokenCount)},
-		{Label: "distinct lemmas", Value: fmt.Sprintf("%d", coverage.DistinctLemmaCount)},
+		{Label: "analyzable tokens", Value: strconv.FormatInt(coverage.AnalyzableTokenCount, 10)},
+		{Label: "distinct lemmas", Value: strconv.FormatInt(coverage.DistinctLemmaCount, 10)},
 	}
 }
 
@@ -651,7 +652,7 @@ func thresholdStatItems(thresholds []domain.CoverageThreshold) []StatItem {
 	items := make([]StatItem, 0, len(thresholds))
 	for _, threshold := range thresholds {
 		if threshold.Reachable {
-			items = append(items, StatItem{Label: fmt.Sprintf("lemmas for %d%% of analyzed text", threshold.TargetPercent), Value: fmt.Sprintf("%d", threshold.LemmaCount)})
+			items = append(items, StatItem{Label: fmt.Sprintf("lemmas for %d%% of analyzed text", threshold.TargetPercent), Value: strconv.FormatInt(threshold.LemmaCount, 10)})
 			continue
 		}
 		items = append(items, StatItem{Label: fmt.Sprintf("%d%% of analyzed text cannot be reached with deck-eligible vocabulary", threshold.TargetPercent), Value: "Unavailable"})

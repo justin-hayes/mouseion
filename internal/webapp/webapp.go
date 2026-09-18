@@ -269,7 +269,7 @@ func render(w http.ResponseWriter, r *http.Request, component interface {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := component.Render(r.Context(), w); err != nil {
-		http.Error(w, "unable to render page", 500)
+		http.Error(w, "unable to render page", http.StatusInternalServerError)
 	}
 }
 func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {

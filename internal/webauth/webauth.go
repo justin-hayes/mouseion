@@ -78,7 +78,7 @@ func isNavigation(r *http.Request) bool {
 	if mode := r.Header.Get("Sec-Fetch-Mode"); mode != "" {
 		return mode == "navigate"
 	}
-	for _, accepted := range strings.Split(r.Header.Get("Accept"), ",") {
+	for accepted := range strings.SplitSeq(r.Header.Get("Accept"), ",") {
 		if strings.TrimSpace(strings.SplitN(accepted, ";", 2)[0]) == "text/html" {
 			return true
 		}

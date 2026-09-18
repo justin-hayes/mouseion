@@ -5,6 +5,7 @@ package analysis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -50,7 +51,7 @@ func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) 
 	source, err := putAnalysisSource(ctx, store, owner.ID, "depparse-source", "Dependency parsing", "Hallo Berlin.", "sha256:depparse-missing")
 	require.NoError(t, err)
 	fake := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
-		return analyzer.Result{}, fmt.Errorf("Analyze should not be called")
+		return analyzer.Result{}, errors.New("Analyze should not be called")
 	}}
 	capabilities := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
 		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
@@ -372,7 +373,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	)
 	fake := &analyzertest.Fake{AnalyzeFunc: func(analyzeCtx context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		if req.Document.Text == "fail" {
-			return analyzer.Result{}, fmt.Errorf("stanza failed")
+			return analyzer.Result{}, errors.New("stanza failed")
 		}
 		if req.Document.Text == "cancel" {
 			<-analyzeCtx.Done()

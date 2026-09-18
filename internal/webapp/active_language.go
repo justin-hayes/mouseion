@@ -157,8 +157,8 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 		return "/"
 	}
 	legacyJourneyURL := ""
-	if strings.HasPrefix(u.Path, "/books/") {
-		bookID := strings.TrimPrefix(u.Path, "/books/")
+	if after, ok := strings.CutPrefix(u.Path, "/books/"); ok {
+		bookID := after
 		if bookID != "" && !strings.Contains(bookID, "/") {
 			legacyJourneyURL = journeyEntryURL(bookID)
 		}

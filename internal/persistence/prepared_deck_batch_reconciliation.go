@@ -242,7 +242,7 @@ func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params Prepare
 	}
 	var members []preparedDeckBatchMember
 	for _, row := range rows {
-		member := preparedDeckBatchMember{Ordinal: int(row.Ordinal), Key: enrichment.CacheKey{Language: row.Language, TargetLanguage: row.TargetLanguage, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Provider: row.Provider, ProviderVersion: row.ProviderVersion, DictionaryProviderVersion: row.DictionaryProviderVersion, SentenceHash: row.SentenceHash}}
+		member := preparedDeckBatchMember{Ordinal: row.Ordinal, Key: enrichment.CacheKey{Language: row.Language, TargetLanguage: row.TargetLanguage, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Provider: row.Provider, ProviderVersion: row.ProviderVersion, DictionaryProviderVersion: row.DictionaryProviderVersion, SentenceHash: row.SentenceHash}}
 		if member.Key.Provider == "" || member.Key.ProviderVersion == "" || member.Key.TargetLanguage == "" {
 			return nil, ErrPreparedDeckIdentity
 		}

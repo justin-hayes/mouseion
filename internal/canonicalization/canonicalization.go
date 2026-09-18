@@ -51,11 +51,11 @@ func NewRegistry() *Registry {
 // older versions remain addressable through Lookup for reproducibility.
 func (r *Registry) Register(profile Profile, active bool) error {
 	if profile == nil || strings.TrimSpace(profile.Name()) == "" || strings.TrimSpace(profile.Version()) == "" {
-		return fmt.Errorf("canonicalization: profile name and version are required")
+		return errors.New("canonicalization: profile name and version are required")
 	}
 	language := normalizeLanguage(profile.Language())
 	if language == "" {
-		return fmt.Errorf("canonicalization: profile language is required")
+		return errors.New("canonicalization: profile language is required")
 	}
 	key := profileKey{language, profile.Version()}
 	r.mu.Lock()

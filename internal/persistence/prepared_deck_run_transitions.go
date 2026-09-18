@@ -543,7 +543,7 @@ func (s *PostgresStore) ListPreparedDeckRecoveryWork(ctx context.Context, limit 
 	for _, row := range rows {
 		work = append(work, domain.PreparedDeckRecoveryWork{
 			OwnerID: row.OOwnerID, PreparationID: row.OPreparationID, RunID: row.ORunID, ChunkID: row.ChunkID,
-			Ordinal: int(row.Ordinal), Generation: int(row.Generation), Kind: row.Kind, LeaseExpired: row.LeaseExpired,
+			Ordinal: row.Ordinal, Generation: row.Generation, Kind: row.Kind, LeaseExpired: row.LeaseExpired,
 		})
 	}
 	return work, nil

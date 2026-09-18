@@ -40,7 +40,7 @@ func (s *PostgresStore) GetReadingJourney(ctx context.Context, owner, language s
 	for _, member := range members {
 		entry := domain.ReadingJourneyEntry{OwnerID: owner, Language: language}
 		entry.BookID = member.BookID
-		entry.Position = int(member.Position)
+		entry.Position = member.Position
 		entry.CreatedAt = member.CreatedAt
 		journey.Entries = append(journey.Entries, entry)
 	}
@@ -80,7 +80,7 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 		return rollback(err)
 	}
 	for _, row := range rows {
-		members = append(members, readingJourneyMembership{bookID: row.BookID, position: int(row.Position), createdAt: row.CreatedAt})
+		members = append(members, readingJourneyMembership{bookID: row.BookID, position: row.Position, createdAt: row.CreatedAt})
 	}
 	return tx, revision, members, true, cleanupRows > 0, nil
 }
@@ -169,7 +169,7 @@ func visibleReadingJourneyMembers(members []readingJourneyMembership, memberInde
 func restoreReadingJourneyGoal(visible []readingJourneyMembership, goalIndex int, goalBookID string) []readingJourneyMembership {
 	members := make([]readingJourneyMembership, 0, len(visible)+1)
 	visibleIndex := 0
-	for index := 0; index < len(visible)+1; index++ {
+	for index := range len(visible) + 1 {
 		if index == goalIndex {
 			members = append(members, readingJourneyMembership{bookID: goalBookID})
 			continue

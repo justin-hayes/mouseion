@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"strings"
 
@@ -433,9 +434,7 @@ func cloneTokens(tokens []analyzer.Token) []analyzer.Token {
 		cloned[i] = token
 		if token.Morphology != nil {
 			morphology := make(map[string]string, len(token.Morphology))
-			for key, value := range token.Morphology {
-				morphology[key] = value
-			}
+			maps.Copy(morphology, token.Morphology)
 			cloned[i].Morphology = morphology
 		}
 	}

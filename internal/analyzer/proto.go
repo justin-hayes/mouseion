@@ -1,7 +1,9 @@
 package analyzer
 
 import (
+	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
@@ -58,7 +60,7 @@ func ToProto(result Result) *mouseionv1.NormalizedCorpus {
 // project-owned analyzer types.
 func FromProto(corpus *mouseionv1.NormalizedCorpus) (Result, error) {
 	if corpus == nil {
-		return Result{}, fmt.Errorf("convert normalized corpus: nil corpus")
+		return Result{}, errors.New("convert normalized corpus: nil corpus")
 	}
 
 	result := Result{SchemaVersion: corpus.GetSchemaVersion(), Language: corpus.GetLanguage()}
@@ -145,8 +147,6 @@ func cloneMap(values map[string]string) map[string]string {
 		return nil
 	}
 	clone := make(map[string]string, len(values))
-	for key, value := range values {
-		clone[key] = value
-	}
+	maps.Copy(clone, values)
 	return clone
 }

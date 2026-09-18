@@ -3,11 +3,13 @@ package enrichment
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -111,9 +113,9 @@ func TranslationItemID(input TranslationRequest) string {
 	// Hashing the sentence keeps distinct contextual items distinct without
 	// placing the sentence itself in provider-visible identity.
 	sentenceDigest := sha256.Sum256([]byte(input.ExampleSentence))
-	canonical := strings.Join([]string{input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, fmt.Sprintf("%x", sentenceDigest)}, "\x00")
+	canonical := strings.Join([]string{input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, hex.EncodeToString(sentenceDigest[:])}, "\x00")
 	digest := sha256.Sum256([]byte(canonical))
-	return "translation-item-" + fmt.Sprintf("%x", digest[:16])
+	return "translation-item-" + hex.EncodeToString(digest[:16])
 }
 
 func translationTargetLanguage(input TranslationRequest) string {
@@ -326,12 +328,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 }
 
 func hasWarning(warnings []string, want string) bool {
-	for _, warning := range warnings {
-		if warning == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(warnings, want)
 }
 
 func decodeSenseOrder(raw json.RawMessage) ([]int, string) {

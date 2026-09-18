@@ -130,7 +130,7 @@ func TestReadingJourneyBackfillAndPersistence(t *testing.T) {
 	results := make(chan readingJourneyMoveResult, 2)
 	var wait sync.WaitGroup
 	wait.Add(2)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		go func() {
 			defer wait.Done()
 			result, moveErr := store.MoveReadingJourneyEntry(ctx, alice.ID, "de", aliceExtra.ID, 2, journeyRevision)

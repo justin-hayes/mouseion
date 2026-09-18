@@ -142,14 +142,14 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 }
 
 func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTranslationJobArgs, token string, attempt int, class, code string) (err error) {
-	base, max := w.Config.StandardRetryBaseDelay, w.Config.StandardRetryMaxDelay
+	base, maxDelay := w.Config.StandardRetryBaseDelay, w.Config.StandardRetryMaxDelay
 	if base <= 0 {
 		base = DefaultStandardRetryBaseDelay
 	}
-	if max <= 0 {
-		max = DefaultStandardRetryMaxDelay
+	if maxDelay <= 0 {
+		maxDelay = DefaultStandardRetryMaxDelay
 	}
-	delay := standardRetryDelay(PreparedDeckConfig{StandardRetryBaseDelay: base, StandardRetryMaxDelay: max}, attempt)
+	delay := standardRetryDelay(PreparedDeckConfig{StandardRetryBaseDelay: base, StandardRetryMaxDelay: maxDelay}, attempt)
 	jitter := w.Jitter
 	if jitter == nil {
 		jitter = func(d time.Duration) time.Duration { return time.Duration(float64(d) * (0.8 + rand.Float64()*0.4)) } //nolint:gosec // retry jitter is not security-sensitive randomness.
@@ -184,21 +184,21 @@ func (w *StandardTranslationWorker) retry(ctx context.Context, args StandardTran
 }
 
 func standardRetryDelay(config PreparedDeckConfig, attempt int) time.Duration {
-	delay, max := config.StandardRetryBaseDelay, config.StandardRetryMaxDelay
+	delay, maxDelay := config.StandardRetryBaseDelay, config.StandardRetryMaxDelay
 	if delay <= 0 {
 		delay = DefaultStandardRetryBaseDelay
 	}
-	if max <= 0 {
-		max = DefaultStandardRetryMaxDelay
+	if maxDelay <= 0 {
+		maxDelay = DefaultStandardRetryMaxDelay
 	}
 	for i := 1; i < attempt; i++ {
-		if delay >= max/2 {
-			return max
+		if delay >= maxDelay/2 {
+			return maxDelay
 		}
 		delay *= 2
 	}
-	if delay > max {
-		return max
+	if delay > maxDelay {
+		return maxDelay
 	}
 	return delay
 }
@@ -242,7 +242,7 @@ func (w *StandardTranslationWorker) finalizer(ctx context.Context, tx pgx.Tx, ru
 		return err
 	}
 	if inserted == nil || inserted.Job == nil || !isLivePreparationJobState(inserted.Job.State) {
-		return fmt.Errorf("River did not return a finalizer job")
+		return errors.New("River did not return a finalizer job")
 	}
 	return w.Store.SetPreparedDeckFinalizationJobTx(ctx, tx, run.OwnerID, run.PreparationID, run.ID, run.FinalizationDispatchGeneration, inserted.Job.ID)
 }
