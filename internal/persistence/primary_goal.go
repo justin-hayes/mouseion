@@ -82,8 +82,31 @@ type ReadingFinishResult struct {
 	Completion domain.ReadingCompletion
 }
 
-func readingCompletionFromValues(ownerID, language, bookID string, completedAt time.Time) domain.ReadingCompletion {
-	return domain.ReadingCompletion{OwnerID: ownerID, Language: language, BookID: bookID, CompletedAt: completedAt}
+func readingCompletionFromValues(ownerID, language, bookID string, completedAt time.Time, snapshotID string, snapshotCount, eligibleCount, graduatedCount, alreadyKnownCount int) domain.ReadingCompletion {
+	return domain.ReadingCompletion{
+		OwnerID: ownerID, Language: language, BookID: bookID, CompletedAt: completedAt,
+		GoalSnapshotID: snapshotID, SnapshotVocabularyCount: snapshotCount,
+		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
+		AlreadyKnownVocabularyCount: alreadyKnownCount,
+	}
+}
+
+// CountPrimaryGoalVocabularyToGraduate reports the currently eligible frozen
+// identities. It is deliberately read-only so the confirmation can state the
+// exact modeled consequence before the learner accepts completion.
+func (s *PostgresStore) CountPrimaryGoalVocabularyToGraduate(ctx context.Context, owner, language string) (int, error) {
+	goal, err := s.GetPrimaryGoal(ctx, owner, language)
+	if err != nil {
+		return 0, err
+	}
+	if !goal.IsActive() || goal.SnapshotID == "" {
+		return 0, nil
+	}
+	counts, err := s.queries().CountPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.CountPrimaryGoalSnapshotVocabularyParams{Owner: owner, Snapshot: goal.SnapshotID})
+	if err != nil {
+		return 0, err
+	}
+	return counts.EligibleCount, nil
 }
 
 // GetPrimaryGoal returns the owner's current Goal in one study language. No
@@ -252,9 +275,9 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	return result, nil
 }
 
-// RecordReadingFinishedPrimaryGoal atomically appends the reading completion,
-// removes the Book from the active Journey, and clears the current Goal.
-// Vocabulary graduation is not part of this reading transition.
+// RecordReadingFinishedPrimaryGoal atomically records completion, graduates the
+// frozen snapshot, removes the Book from the active Journey, and clears the
+// current Goal. The entire learner-state transition is one transaction.
 func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (result ReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
@@ -279,7 +302,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		if err = tx.Commit(ctx); err != nil {
 			return ReadingFinishResult{}, err
 		}
-		return ReadingFinishResult{Completion: readingCompletionFromValues(row.OwnerID, row.Language, row.BookID, row.CompletedAt)}, nil
+		return ReadingFinishResult{Completion: readingCompletionFromValues(row.OwnerID, row.Language, row.BookID, row.CompletedAt, row.GoalSnapshotID, row.SnapshotVocabularyCount, row.EligibleVocabularyCount, row.GraduatedVocabularyCount, row.AlreadyKnownVocabularyCount)}, nil
 	}
 	if err != nil {
 		return ReadingFinishResult{}, err
@@ -287,10 +310,21 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	if current.GBookID != expectedBookID {
 		return ReadingFinishResult{}, ErrGoalStale
 	}
+	counts := sqlcgen.CountPrimaryGoalSnapshotVocabularyRow{}
+	if current.SnapshotID != "" {
+		counts, err = q.CountPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.CountPrimaryGoalSnapshotVocabularyParams{Owner: owner, Snapshot: current.SnapshotID})
+		if err != nil {
+			return ReadingFinishResult{}, err
+		}
+	}
 	completedAt := time.Now().UTC()
 	completionRow, insertErr := q.InsertReadingCompletion(ctx, sqlcgen.InsertReadingCompletionParams{
 		Owner: owner, Language: language, Book: expectedBookID, CompletedAt: completedAt,
+		GoalSnapshot: current.SnapshotID, SnapshotVocabularyCount: counts.SnapshotCount,
+		EligibleVocabularyCount: counts.EligibleCount, GraduatedVocabularyCount: 0,
+		AlreadyKnownVocabularyCount: counts.SnapshotCount - counts.EligibleCount,
 	})
+	inserted := insertErr == nil
 	if errors.Is(insertErr, pgx.ErrNoRows) {
 		existing, getErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: expectedBookID})
 		if getErr != nil {
@@ -298,10 +332,30 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		}
 		completionRow = sqlcgen.InsertReadingCompletionRow{
 			OwnerID: existing.OwnerID, Language: existing.Language, BookID: existing.BookID, CompletedAt: existing.CompletedAt,
+			GoalSnapshotID: existing.GoalSnapshotID, SnapshotVocabularyCount: existing.SnapshotVocabularyCount,
+			EligibleVocabularyCount: existing.EligibleVocabularyCount, GraduatedVocabularyCount: existing.GraduatedVocabularyCount,
+			AlreadyKnownVocabularyCount: existing.AlreadyKnownVocabularyCount,
 		}
 	}
 	if insertErr != nil {
 		return ReadingFinishResult{}, insertErr
+	}
+	graduatedCount := completionRow.GraduatedVocabularyCount
+	alreadyKnownCount := completionRow.AlreadyKnownVocabularyCount
+	if inserted && current.SnapshotID != "" {
+		graduatedCount, err = q.GraduatePrimaryGoalSnapshotVocabulary(ctx, sqlcgen.GraduatePrimaryGoalSnapshotVocabularyParams{
+			Owner: owner, Snapshot: current.SnapshotID, CompletedAt: completedAt,
+		})
+		if err != nil {
+			return ReadingFinishResult{}, err
+		}
+		if err = q.UpdateReadingCompletionOutcome(ctx, sqlcgen.UpdateReadingCompletionOutcomeParams{
+			Owner: owner, Language: language, Book: expectedBookID,
+			GraduatedVocabularyCount: graduatedCount, AlreadyKnownVocabularyCount: counts.SnapshotCount - graduatedCount,
+		}); err != nil {
+			return ReadingFinishResult{}, err
+		}
+		alreadyKnownCount = counts.SnapshotCount - graduatedCount
 	}
 	if err = removeCompletedGoalFromJourney(ctx, q, owner, language, expectedBookID); err != nil {
 		return ReadingFinishResult{}, err
@@ -315,7 +369,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	if err = tx.Commit(ctx); err != nil {
 		return ReadingFinishResult{}, err
 	}
-	return ReadingFinishResult{Completion: readingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt)}, nil
+	return ReadingFinishResult{Completion: readingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt, completionRow.GoalSnapshotID, completionRow.SnapshotVocabularyCount, completionRow.EligibleVocabularyCount, graduatedCount, alreadyKnownCount)}, nil
 }
 
 func lockReadingJourneyForCompletion(ctx context.Context, q *sqlcgen.Queries, owner, language string) error {

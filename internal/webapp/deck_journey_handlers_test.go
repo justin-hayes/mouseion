@@ -53,6 +53,10 @@ func (s *deckJourneyActionStore) GetPrimaryGoal(context.Context, string, string)
 	return s.goal, nil
 }
 
+func (s *deckJourneyActionStore) CountPrimaryGoalVocabularyToGraduate(context.Context, string, string) (int, error) {
+	return 0, nil
+}
+
 func (s *deckJourneyActionStore) AddToReadingJourney(_ context.Context, _ string, _ string, bookID string, expectedRevision int64) (int64, error) {
 	s.adds++
 	if s.addErr != nil {

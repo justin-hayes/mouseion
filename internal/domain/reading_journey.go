@@ -25,10 +25,15 @@ type ReadingJourney struct {
 // ReadingCompletion is the durable fact that an owner finished a Book in a
 // study language.
 type ReadingCompletion struct {
-	OwnerID     string
-	Language    string
-	BookID      string
-	CompletedAt time.Time
+	OwnerID                     string
+	Language                    string
+	BookID                      string
+	CompletedAt                 time.Time
+	GoalSnapshotID              string
+	SnapshotVocabularyCount     int
+	EligibleVocabularyCount     int
+	GraduatedVocabularyCount    int
+	AlreadyKnownVocabularyCount int
 }
 
 // Validate checks each entry for non-empty identity and position >= 1.

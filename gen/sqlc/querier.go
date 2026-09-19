@@ -45,6 +45,7 @@ type Querier interface {
 	CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
 	CountPreparedDeckRunOutcomeStates(ctx context.Context, arg CountPreparedDeckRunOutcomeStatesParams) (CountPreparedDeckRunOutcomeStatesRow, error)
+	CountPrimaryGoalSnapshotVocabulary(ctx context.Context, arg CountPrimaryGoalSnapshotVocabularyParams) (CountPrimaryGoalSnapshotVocabularyRow, error)
 	CreateDeckPreparation(ctx context.Context, arg CreateDeckPreparationParams) (DeckPreparation, error)
 	CreateFirstUserAndSession(ctx context.Context, arg CreateFirstUserAndSessionParams) (CreateFirstUserAndSessionRow, error)
 	// OPDS connection queries. Credential decryption stays in Go; these queries
@@ -158,6 +159,7 @@ type Querier interface {
 	GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error)
 	GetVocabularyStateForUpdate(ctx context.Context, arg GetVocabularyStateForUpdateParams) (string, error)
 	GraduateDeckPreparationVocabularyStates(ctx context.Context, arg GraduateDeckPreparationVocabularyStatesParams) error
+	GraduatePrimaryGoalSnapshotVocabulary(ctx context.Context, arg GraduatePrimaryGoalSnapshotVocabularyParams) (int, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
 	// states, known vocabulary, generated vocabulary, example/curated sentences,
@@ -331,6 +333,7 @@ type Querier interface {
 	UpdateOpdsConnection(ctx context.Context, arg UpdateOpdsConnectionParams) (UpdateOpdsConnectionRow, error)
 	UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) error
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
+	UpdateReadingCompletionOutcome(ctx context.Context, arg UpdateReadingCompletionOutcomeParams) error
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)

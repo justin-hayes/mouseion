@@ -1,0 +1,33 @@
+ALTER TABLE public.known_vocabulary
+    DROP CONSTRAINT known_vocabulary_completion_provenance_consistent,
+    DROP CONSTRAINT known_vocabulary_generated_source_fkey,
+    DROP CONSTRAINT known_vocabulary_generated_deck_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_deck_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_snapshot_content_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_revision_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_corpus_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_analysis_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_source_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_snapshot_fkey,
+    DROP CONSTRAINT known_vocabulary_completion_book_fkey,
+    DROP COLUMN generated_first_at,
+    DROP COLUMN generated_first_source_material_id,
+    DROP COLUMN generated_first_deck_id,
+    DROP COLUMN completion_deck_preparation_id,
+    DROP COLUMN completion_corpus_id,
+    DROP COLUMN completion_content_snapshot_id,
+    DROP COLUMN completion_content_revision_id,
+    DROP COLUMN completion_analysis_run_id,
+    DROP COLUMN completion_source_material_id,
+    DROP COLUMN completion_goal_snapshot_id,
+    DROP COLUMN completion_at,
+    DROP COLUMN completion_book_id;
+
+ALTER TABLE public.reading_history
+    DROP CONSTRAINT reading_history_vocabulary_counts_nonnegative,
+    DROP CONSTRAINT reading_history_goal_snapshot_fkey,
+    DROP COLUMN already_known_vocabulary_count,
+    DROP COLUMN graduated_vocabulary_count,
+    DROP COLUMN eligible_vocabulary_count,
+    DROP COLUMN snapshot_vocabulary_count,
+    DROP COLUMN goal_snapshot_id;

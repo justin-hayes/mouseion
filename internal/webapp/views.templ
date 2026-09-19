@@ -447,7 +447,7 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 		<ol class="finish-outcome" aria-label="Reading finish outcome">
 			<li>
 				<h2>Reading finished</h2>
-				<p>{ outcome.BookTitle } is recorded as finished reading. Reading completion and vocabulary graduation are independent facts: reading this Book does not graduate its vocabulary; only confirmed review of its prepared deck can do that.</p>
+				<p>{ outcome.BookTitle } is recorded as finished reading. Completion accepts the frozen vocabulary consequence of this Primary Goal; it does not claim verified per-card mastery.</p>
 			</li>
 			<li>
 				<h2>Vocabulary transition</h2>
@@ -463,9 +463,9 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 						<section class="finish-evidence" aria-labelledby={ "finish-evidence-" + journeyBookID(item.Book) }>
 							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ canonicalBookTitle(item.Book.Book) }</h3>
 							if item.Changed {
-								<p><strong>Before:</strong> { item.BeforeLabel }; current coverage { item.BeforeCurrent }; conditional-projected coverage { item.BeforeProjected }.</p>
+							<p><strong>Before:</strong> { item.BeforeLabel }; current coverage { item.BeforeCurrent }; projected coverage { item.BeforeProjected }.</p>
 							}
-							<p><strong>Now — { item.AfterLabel }:</strong> current coverage { item.AfterCurrent }; conditional-projected coverage { item.AfterProjected }.</p>
+							<p><strong>Now — { item.AfterLabel }:</strong> current coverage { item.AfterCurrent }; projected coverage { item.AfterProjected }.</p>
 						</section>
 					}
 				}
@@ -563,7 +563,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		</div>
 	} else {
 		<div class="goal-card__actions">
-			@Confirmation("Mark reading finished", "Record the reading achievement. Vocabulary is changed only when the associated prepared deck has been reviewed.", StatusNeutral) {
+				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
 				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit">Mark reading finished</button></form>
 			}
 		<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
