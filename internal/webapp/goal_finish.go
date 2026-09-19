@@ -76,7 +76,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 
 	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
-		BookTitle:          finishBookTitle(before, result.Goal.BookID),
+		BookTitle:          h.finishBookTitle(r.Context(), owner, before, result.Completion.BookID),
 		ResidualVocabulary: h.activeVocabularyStudyCount(r.Context(), owner, before),
 		Journey:            after,
 	}
@@ -105,11 +105,11 @@ func (h *Handler) activeVocabularyStudyCount(ctx context.Context, owner string, 
 	return preparation.VocabularyCount
 }
 
-func finishBookTitle(before journeyPageView, bookID string) string {
+func (h *Handler) finishBookTitle(ctx context.Context, owner string, before journeyPageView, bookID string) string {
 	if before.Goal != nil && journeyBookID(*before.Goal) == bookID {
 		return canonicalBookTitle(before.Goal.Book)
 	}
-	return bookID
+	return h.goalBookTitle(ctx, owner, bookID)
 }
 
 func finishEvidence(before, after journeyPageView) []finishEvidenceView {

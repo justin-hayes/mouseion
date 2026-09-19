@@ -1,0 +1,2 @@
+-- The backfill is intentionally irreversible: deleting copied history would
+-- destroy the evidence it was introduced to preserve.

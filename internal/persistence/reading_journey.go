@@ -85,11 +85,12 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 	return tx, revision, members, true, cleanupRows > 0, nil
 }
 
-func rewriteReadingJourneyPositions(ctx context.Context, tx pgx.Tx, owner, language string, members []readingJourneyMembership) error {
+func rewriteReadingJourneyPositions(ctx context.Context, q interface {
+	UpsertReadingJourneyMemberPosition(context.Context, sqlcgen.UpsertReadingJourneyMemberPositionParams) error
+}, owner, language string, members []readingJourneyMembership) error {
 	// UPSERT: a member removed from the slice was already deleted by the
 	// caller, so it is not re-inserted here; a freshly appended member (Add)
 	// is inserted; all other members are re-positioned to stay contiguous.
-	q := sqlcgen.New(tx)
 	for position, member := range members {
 		if err := q.UpsertReadingJourneyMemberPosition(ctx, sqlcgen.UpsertReadingJourneyMemberPositionParams{
 			Owner: owner, Language: language, Book: member.bookID, Position: position + 1,
@@ -201,7 +202,7 @@ func moveReadingJourneyMembers(members []readingJourneyMembership, memberIndex i
 }
 
 func (s *PostgresStore) commitReadingJourneyMove(ctx context.Context, tx pgx.Tx, owner, language string, members []readingJourneyMembership) (int64, error) {
-	if err := rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
+	if err := rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
 		return 0, err
 	}
 	revision, err := bumpReadingJourneyRevision(ctx, tx, owner, language)
@@ -231,6 +232,13 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return 0, err
 	}
+	completed, err := sqlcgen.New(tx).ReadingCompletionExists(ctx, sqlcgen.ReadingCompletionExistsParams{Owner: owner, Language: language, Book: bookID})
+	if err != nil {
+		return 0, err
+	}
+	if completed {
+		return 0, ErrReadingAlreadyCompleted
+	}
 	book, err := sqlcgen.New(tx).GetBookLanguageState(ctx, sqlcgen.GetBookLanguageStateParams{Owner: owner, Book: bookID})
 	if err != nil {
 		return 0, err
@@ -241,7 +249,7 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	for _, member := range members {
 		if member.bookID == bookID {
 			if cleaned {
-				if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
+				if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
 					return 0, err
 				}
 				if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
@@ -256,7 +264,7 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 		}
 	}
 	members = append(members, readingJourneyMembership{bookID: bookID})
-	if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
+	if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
 		return 0, err
 	}
 	if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
@@ -339,7 +347,7 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 				return 0, nil
 			}
 			if cleaned {
-				if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
+				if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
 					return 0, err
 				}
 				if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
@@ -360,7 +368,7 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 		return 0, err
 	}
 	members = append(members[:memberIndex], members[memberIndex+1:]...)
-	if err = rewriteReadingJourneyPositions(ctx, tx, owner, language, members); err != nil {
+	if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
 		return 0, err
 	}
 	derived, err := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})

@@ -23,18 +23,16 @@ const (
 // Analysis, deck preparation, reading progress, and vocabulary work are
 // independent of the Goal and may not exist yet.
 type PrimaryGoal struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt *time.Time
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-// IsActive reports whether this Goal still represents the owner's current
-// commitment rather than a completed reading.
+// IsActive reports whether this row represents the owner's current commitment.
 func (g PrimaryGoal) IsActive() bool {
-	return g.BookID != "" && g.ReadingFinishedAt == nil
+	return g.BookID != ""
 }
 
 // GoalEligibility classifies whether the summary can be promoted to a

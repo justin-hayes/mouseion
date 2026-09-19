@@ -74,6 +74,10 @@ func fixtureGoalKey(owner, language string) string {
 	return fixtureJourneyKey(owner, language)
 }
 
+func fixtureReadingHistoryKey(owner, language, bookID string) string {
+	return fixtureGoalKey(owner, language) + "\x00" + bookID
+}
+
 type Store struct {
 	mu                   sync.Mutex
 	books                []domain.SourceMaterialSummary
@@ -88,6 +92,7 @@ type Store struct {
 	myBooks              []domain.MyBook
 	readingJourneys      map[string]domain.ReadingJourney
 	primaryGoals         map[string]domain.PrimaryGoal
+	readingHistory       map[string]domain.ReadingCompletion
 	syncStatuses         []domain.CatalogueSyncStatus
 	storedActiveLanguage *string
 	mostRecentLanguage   string
@@ -173,6 +178,7 @@ func NewStore() *Store {
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
+		readingHistory:       make(map[string]domain.ReadingCompletion),
 		storedActiveLanguage: &initialActiveLanguage,
 		mostRecentLanguage:   "it",
 	}
@@ -899,10 +905,13 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, language, bookID s
 	if !s.fixtureBookExists(owner, bookID) {
 		return 0, errNotFound
 	}
+	bookID = s.fixtureBookID(owner, bookID)
+	if _, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, bookID)]; completed {
+		return 0, persistence.ErrReadingAlreadyCompleted
+	}
 	if !s.fixtureBookHasChosenLanguage(owner, bookID) || s.fixtureBookLanguage(owner, bookID) != language {
 		return 0, persistence.ErrBookLanguageRequired
 	}
-	bookID = s.fixtureBookID(owner, bookID)
 	for _, entry := range journey.Entries {
 		if entry.BookID == bookID {
 			return journey.Revision, nil
@@ -1073,18 +1082,7 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID str
 	bookID = s.fixtureBookID(owner, bookID)
 	key := fixtureGoalKey(owner, language)
 	if _, ok := s.primaryGoals[key]; ok {
-		goal := s.primaryGoals[key]
-		if goal.ReadingFinishedAt == nil {
-			return domain.PrimaryGoal{}, persistence.ErrGoalExists
-		}
-		if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
-			return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
-		}
-		goal.BookID = bookID
-		goal.ReadingFinishedAt = nil
-		goal.UpdatedAt = time.Now()
-		s.primaryGoals[key] = goal
-		return goal, nil
+		return domain.PrimaryGoal{}, persistence.ErrGoalExists
 	}
 	if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
@@ -1114,7 +1112,6 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, ex
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}
 	goal.BookID = bookID
-	goal.ReadingFinishedAt = nil
 	goal.UpdatedAt = time.Now()
 	s.primaryGoals[key] = goal
 	return goal, nil
@@ -1129,6 +1126,9 @@ func (s *Store) fixturePrimaryGoalEligible(owner, language, bookID string) bool 
 	for _, entry := range journey.Entries {
 		if entry.BookID != bookID {
 			continue
+		}
+		if _, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, bookID)]; completed {
+			return false
 		}
 		for _, book := range s.books {
 			if s.fixtureBookID(owner, book.Source.ID) == bookID && normalizeFixtureLanguage(book.Source.Language) == language && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {
@@ -1150,15 +1150,12 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, language, expectedBoo
 	if goal.BookID != expectedBookID {
 		return persistence.ErrGoalStale
 	}
-	if goal.ReadingFinishedAt != nil {
-		return persistence.ErrNotFound
-	}
 	delete(s.primaryGoals, key)
 	return nil
 }
 
-// RecordReadingFinishedPrimaryGoal records only the reading fact used by the
-// webapp.
+// RecordReadingFinishedPrimaryGoal records the reading fact and clears the
+// active Goal and Journey membership.
 func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.ReadingFinishResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1166,18 +1163,45 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 	key := fixtureGoalKey(owner, language)
 	goal, ok := s.primaryGoals[key]
 	if !ok {
-		return persistence.ReadingFinishResult{}, persistence.ErrNotFound
+		completion, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)]
+		if !completed {
+			return persistence.ReadingFinishResult{}, persistence.ErrNotFound
+		}
+		return persistence.ReadingFinishResult{Completion: completion}, nil
 	}
 	if goal.BookID != expectedBookID {
 		return persistence.ReadingFinishResult{}, persistence.ErrGoalStale
 	}
-	if goal.ReadingFinishedAt == nil {
-		now := time.Now()
-		goal.ReadingFinishedAt = &now
-		goal.UpdatedAt = now
-		s.primaryGoals[key] = goal
+	now := time.Now()
+	completion := domain.ReadingCompletion{OwnerID: owner, Language: language, BookID: expectedBookID, CompletedAt: now}
+	if existing, exists := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)]; exists {
+		completion = existing
+	} else {
+		s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)] = completion
 	}
-	return persistence.ReadingFinishResult{Goal: goal}, nil
+	journeyKey := fixtureJourneyKey(owner, language)
+	journey, journeyExists := s.readingJourneys[journeyKey]
+	if journeyExists {
+		for index, entry := range journey.Entries {
+			if entry.BookID != expectedBookID {
+				continue
+			}
+			journey.Entries = append(journey.Entries[:index], journey.Entries[index+1:]...)
+			for position := range journey.Entries {
+				journey.Entries[position].Position = position + 1
+			}
+			journey.Revision++
+			journey.UpdatedAt = now
+			if len(journey.Entries) == 0 && !s.fixtureLanguageDerived(owner, language) {
+				delete(s.readingJourneys, journeyKey)
+			} else {
+				s.readingJourneys[journeyKey] = journey
+			}
+			break
+		}
+	}
+	delete(s.primaryGoals, key)
+	return persistence.ReadingFinishResult{Completion: completion}, nil
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
@@ -1419,7 +1443,7 @@ func (insights Insights) JourneyProjection(ctx context.Context, owner, language 
 			if !ok {
 				book = domain.JourneyRouteBook{BookID: entry.BookID, IncomparableReason: "unavailable: no fixture evidence"}
 			}
-			if goal.BookID != "" && goal.ReadingFinishedAt == nil && goal.BookID == entry.BookID {
+			if goal.BookID != "" && goal.BookID == entry.BookID {
 				book.Fixed = true
 			}
 			book.Position = position + 1

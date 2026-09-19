@@ -22,6 +22,15 @@ type ReadingJourney struct {
 	Entries   []ReadingJourneyEntry // ordered by (position, created_at, book_id)
 }
 
+// ReadingCompletion is the durable fact that an owner finished a Book in a
+// study language.
+type ReadingCompletion struct {
+	OwnerID     string
+	Language    string
+	BookID      string
+	CompletedAt time.Time
+}
+
 // Validate checks each entry for non-empty identity and position >= 1.
 func (r ReadingJourney) Validate() error {
 	if strings.TrimSpace(r.OwnerID) == "" {

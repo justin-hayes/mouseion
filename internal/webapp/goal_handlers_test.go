@@ -289,15 +289,18 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	}
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.NotNil(t, goal.ReadingFinishedAt, "finished Goal=%+v", goal)
-	goal, err = store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
+	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, fixtures.BookID, goal.BookID)
+	for _, entry := range journey.Entries {
+		assert.NotEqual(t, fixtures.BookID, entry.BookID, "finished Book remained in Journey")
+	}
 	repeated := goalRequest(t, h, "/goal/finish", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
+	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
 }
 
 func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
@@ -311,7 +314,7 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.Nil(t, goal.ReadingFinishedAt, "rejected finish changed Goal=%+v", goal)
+	assert.Equal(t, fixtures.BookID, goal.BookID, "rejected finish changed Goal=%+v", goal)
 }
 
 func TestPrimaryGoalFinishOutcomeShowsConditionalVocabularyEvidence(t *testing.T) {

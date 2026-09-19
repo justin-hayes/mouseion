@@ -185,14 +185,13 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	projectionAfter, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, projectionAfter.ConditionalAdvisoryOrder)
-	assert.Len(t, projectionAfter.LearnerOrder, len(learnerOrderBefore))
+	assert.Len(t, projectionAfter.LearnerOrder, len(learnerOrderBefore)-1)
 	for i, item := range projectionAfter.LearnerOrder {
-		assert.Equal(t, learnerOrderBefore[i], item.BookID, "index %d", i)
+		assert.Equal(t, secondBook.ID, item.BookID, "index %d", i)
 	}
 	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, book.ID, goal.BookID)
-	assert.NotNil(t, goal.ReadingFinishedAt)
+	assert.Empty(t, goal.BookID)
 
 	// Failed analysis retry and prepared-deck retry remain explicit operations.
 	failedJob := perform(t, h, http.MethodPost, "/jobs/43/retry", url.Values{"csrf_token": {csrf}}, aliceCookies)

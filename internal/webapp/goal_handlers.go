@@ -113,10 +113,6 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !currentActive {
-		if current.ReadingFinishedAt != nil && expectedBookID != "" && expectedBookID != current.BookID {
-			h.respondGoal(w, r, "", goalStaleMessage, "")
-			return
-		}
 		if expectedBookID != "" {
 			h.respondGoal(w, r, "", goalStaleMessage, "")
 			return
