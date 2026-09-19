@@ -1,6 +1,6 @@
 # ADR 0051: Reading journeys and primary goals are one per language
 
-Status: **Accepted; forecast and reservation semantics amended by ADR 0072** · Date: 2026-09-07 · Author: Justin + opencode
+Status: **Accepted; route comparison, forecast, and reservation semantics amended by ADR 0072** · Date: 2026-09-07 · Author: Justin + opencode
 
 ## Context
 
