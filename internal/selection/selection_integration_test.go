@@ -45,7 +45,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	svc := NewService(store)
 	got, err := svc.Select(ctx, alice.ID, corpus, DefaultConfig("book-a"))
 	require.NoError(t, err)
-	assert.Len(t, got, 2)
+	assert.Len(t, got, 3)
 	got, err = svc.Select(ctx, bob.ID, corpus, DefaultConfig("book-b"))
 	require.NoError(t, err)
 	assert.Len(t, got, 4)
@@ -54,7 +54,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	require.NoError(t, err)
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCount)
 	require.NoError(t, err)
-	assert.Equal(t, 2, aliceCount)
+	assert.Equal(t, 3, aliceCount)
 	assert.Equal(t, 4, bobCount)
 	var occurrences int
 	var forms, refs, provenance []byte

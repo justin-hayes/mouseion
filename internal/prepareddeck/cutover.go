@@ -14,6 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river"
 )
 
@@ -47,33 +48,9 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
 	}
 	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
-	known := make(map[string]map[string]bool)
-	generated := make(map[string]map[string]bool)
-	reserved := make(map[string]map[string]bool)
-	for _, word := range facts.Known {
-		if known[word.Language] == nil {
-			known[word.Language] = make(map[string]bool)
-		}
-		known[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
-	}
-	for _, word := range facts.Generated {
-		if generated[word.Language] == nil {
-			generated[word.Language] = make(map[string]bool)
-		}
-		// Explicit provenance for this source remains eligible on a repeat.
-		if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != preparation.SourceMaterialID {
-			generated[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
-		}
-	}
-	for _, word := range facts.Reserved {
-		if reserved[word.Language] == nil {
-			reserved[word.Language] = make(map[string]bool)
-		}
-		reserved[word.Language][word.CanonicalLemma+"\x00"+word.UPOS] = true
-	}
+	eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
 	for _, candidate := range facts.Candidates {
-		identity := candidate.CanonicalLemma + "\x00" + candidate.UPOS
-		if known[candidate.Language][identity] || known[candidate.Language][candidate.CanonicalLemma+"\x00"] || generated[candidate.Language][identity] || reserved[candidate.Language][identity] || candidate.OccurrenceCount < defaultDeckMinOccurrences {
+		if !eligibility.Allows(candidate, defaultDeckMinOccurrences) {
 			continue
 		}
 		selected = append(selected, candidate)

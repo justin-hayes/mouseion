@@ -165,11 +165,30 @@ func TestOwnerScopedExclusions(t *testing.T) {
 	svc := NewService(store)
 	alice, err := svc.Select(context.Background(), "alice", corpus, DefaultConfig("a"))
 	require.NoError(t, err)
-	require.Len(t, alice, 1)
+	require.Len(t, alice, 2)
 	assert.Equal(t, "generated", alice[0].Identity.CanonicalLemma)
+	assert.Equal(t, "ignored", alice[1].Identity.CanonicalLemma)
 	bob, err := svc.Select(context.Background(), "bob", corpus, DefaultConfig("b"))
 	require.NoError(t, err)
 	assert.Len(t, bob, 4)
+}
+
+func TestEligibilityUsesKnownWildcardAndLanguageScopedReservations(t *testing.T) {
+	eligibility := NewEligibility(
+		[]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "wissen", UPOS: ""}},
+		[]domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "reserviert", UPOS: "NOUN"}},
+	)
+	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "wissen", UPOS: "VERB", OccurrenceCount: 3}, 3))
+	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "it", CanonicalLemma: "wissen", UPOS: "VERB", OccurrenceCount: 3}, 3))
+	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "reserviert", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "reserviert", UPOS: "VERB", OccurrenceCount: 3}, 3))
+	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "it", CanonicalLemma: "reserviert", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	overlap := NewEligibility(
+		[]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN"}},
+		[]domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN"}},
+	)
+	assert.False(t, overlap.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "häufig", UPOS: "NOUN", OccurrenceCount: 2}, 3))
 }
 
 func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {

@@ -66,6 +66,14 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET studying_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID)
 	require.NoError(t, err)
+	readProvenance := func(lemma string) [3]string {
+		t.Helper()
+		var provenance [3]string
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT first_deck_id::text, first_source_material_id::text, first_generated_at::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma=$2`, owner.ID, lemma).Scan(&provenance[0], &provenance[1], &provenance[2]))
+		return provenance
+	}
+	generatedOtherBefore := readProvenance("generated-other")
+	generatedSameBefore := readProvenance("generated-same")
 
 	assembler := NewInputAssembler(store)
 	local := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: "standard"})
@@ -88,8 +96,8 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	assert.NotEqual(t, localDigest, standardDigest, "external provider identity is part of the frozen plan")
 	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), standardPlan.Config.ExecutionMode)
 	assert.Equal(t, string(domain.PreparedDeckExecutionBatch), batchPlan.Config.ExecutionMode)
-	require.Len(t, localPlan.Projection.Items, 2)
-	require.Len(t, standardPlan.Projection.Items, 2)
+	require.Len(t, localPlan.Projection.Items, 3)
+	require.Len(t, standardPlan.Projection.Items, 3)
 	assert.Nil(t, localPlan.Projection.Items[0].CacheKey)
 	require.NotNil(t, standardPlan.Projection.Items[0].CacheKey)
 	assert.Equal(t, "dictionary-v1", standardPlan.Projection.Items[0].Entry.DictionaryProviderVersion)
@@ -98,9 +106,12 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	assert.Equal(t, standardPlan.Config.Provider, standardPlan.Projection.Items[0].CacheKey.Provider)
 	assert.Equal(t, standardPlan.Config.ProviderVersion, standardPlan.Projection.Items[0].CacheKey.ProviderVersion)
 	assert.Empty(t, standardPlan.Chunks)
-	assert.Len(t, batchPlan.Chunks, 2)
+	assert.Len(t, batchPlan.Chunks, 3)
 	assert.Equal(t, []int{0}, batchPlan.Chunks[0].Ordinals)
 	assert.Equal(t, []int{1}, batchPlan.Chunks[1].Ordinals)
+	assert.Equal(t, []int{2}, batchPlan.Chunks[2].Ordinals)
+	assert.Equal(t, generatedOtherBefore, readProvenance("generated-other"), "historical provenance changed")
+	assert.Equal(t, generatedSameBefore, readProvenance("generated-same"), "historical provenance changed")
 
 	counted := &countingPlanner{planner: local}
 	workers := river.NewWorkers()

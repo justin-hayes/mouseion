@@ -177,10 +177,11 @@ func TestInputAssemblerSelectsRecurringUnknownVocabularyFromFacts(t *testing.T) 
 		return persistence.PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: projection.Sentences}
 	}
 	book := "book"
+	otherBook := "other-book"
 	facts := persistence.PreparedDeckInputFacts{
 		DeckName:  "Book",
 		Known:     []domain.KnownVocabulary{{Language: "de", CanonicalLemma: "known", UPOS: "NOUN"}},
-		Generated: []domain.GeneratedVocabulary{{Language: "de", CanonicalLemma: "generated", UPOS: "NOUN", FirstSourceMaterialID: &book}},
+		Generated: []domain.GeneratedVocabulary{{Language: "de", CanonicalLemma: "generated", UPOS: "NOUN", FirstSourceMaterialID: &otherBook}},
 		Reserved:  []domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "reserved", UPOS: "NOUN"}},
 	}
 

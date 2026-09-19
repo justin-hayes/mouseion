@@ -28,7 +28,7 @@ type PreparedDeckInputFacts struct {
 	DeckName   string
 	Candidates []domain.SelectionCandidate
 	Known      []domain.KnownVocabulary
-	Generated  []domain.GeneratedVocabulary
+	Generated  []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
 	Reserved   []domain.DeckPreparationVocabulary
 }
 
