@@ -4,6 +4,7 @@ package fixtures
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -1569,7 +1570,7 @@ type Insights struct {
 
 func (insights Insights) JourneyForecast(ctx context.Context, owner, language string) (domain.JourneyForecast, error) {
 	if insights.JourneyStore == nil {
-		return domain.JourneyForecast{}, fmt.Errorf("fixture Journey store is unavailable")
+		return domain.JourneyForecast{}, errors.New("fixture Journey store is unavailable")
 	}
 	return analysisinsights.NewService(insights.JourneyStore).JourneyForecast(ctx, owner, language)
 }
