@@ -5,6 +5,9 @@ A learner connects their own OPDS catalog, syncs books into a personal
 library, analyzes each Book according to its declared EPUB structure, and prepares
 Anki recognition decks from unknown vocabulary.
 
+The current Goal, vocabulary, and Reading Journey contract is recorded in
+[ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+
 ## Language
 
 **Study language**:

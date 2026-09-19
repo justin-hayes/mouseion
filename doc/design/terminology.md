@@ -91,10 +91,10 @@ page.
 | **Add to Reading Journey** | Express reading intent for a book: include it in the provisional sequence and automatically acquire and analyze it (ensure-once) so it can be weighed against other candidates. | Queue for learning, schedule book |
 | **Remove from Reading Journey** | Remove provisional membership without deleting the book from My Books. | Delete book, abandon campaign |
 
-Learner order always remains the active order unless the learner explicitly
-adopts an alternative. Recalculation after reordering uses neutral language:
-**Moving this book here changes the modeled preparation across the remaining
-Journey by …** Never style a preference change as an error or warning.
+Learner order is the only active order. Recalculation after reordering uses
+neutral language: **Moving this book here changes the modeled on-arrival
+coverage for later Books.** Never style a preference change as an error or
+warning.
 
 ## Reading, preparation, and vocabulary
 

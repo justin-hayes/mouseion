@@ -92,8 +92,8 @@ same acquisition and ensure-once analysis. Re-adding a removed Book reuses
 current completed or in-flight work; reordering has no analysis side effect.
 
 When acquisition cannot currently resolve, the Journey membership remains. The
-Book stays in its learner-chosen position with unavailable/incomparable evidence
-and an actionable recovery path; it is not treated as a failed membership.
+Book stays in its learner-chosen position with unavailable evidence and an
+actionable recovery path; it is not treated as a failed membership.
 
 Changed EPUB content creates a new current revision, but does not trigger a
 background watcher. The learner expresses intent again to refresh evidence.
@@ -109,7 +109,7 @@ background watcher. The learner expresses intent again to refresh evidence.
 | Acquiring or analyzing | Disable duplicate submission and announce durable acquisition/analysis progress. | View status |
 | Analysis complete | Show current evidence and the optional deck action. | Inspect analysis or prepare deck |
 | Stale current content | Explain that existing evidence is for an older revision. | Re-analyze from the Journey card |
-| Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable/incomparable. | Retry or check catalog connection |
+| Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable. | Retry or check catalog connection |
 
 ## Navigation and responsive rules
 

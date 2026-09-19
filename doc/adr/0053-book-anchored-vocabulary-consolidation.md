@@ -1,6 +1,6 @@
 # ADR 0053: Book-anchored vocabulary consolidation — the learning campaign dissolves into the Book
 
-Status: **Accepted** · Date: 2026-09-09 · Author: Justin + Hermes · Learner-facing analysis-action wording superseded by [ADR 0054](0054-retire-standalone-analysis-action.md)
+Status: **Superseded by ADR 0072** · Date: 2026-09-09 · Author: Justin + Hermes · Learner-facing analysis-action wording superseded by [ADR 0054](0054-retire-standalone-analysis-action.md)
 
 Mouseion currently models reading and vocabulary acquisition as two parallel
 tracks joined by an internal **learning campaign** object. This decision

@@ -1,6 +1,6 @@
 # ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition
 
-Status: **Accepted** · Date: 2026-08-31 · Author: Justin + Hermes
+Status: **Accepted; conflicting vocabulary-transition semantics superseded by ADR 0072** · Date: 2026-08-31 · Author: Justin + Hermes
 
 Supersedes the learner-facing completion and vocabulary-graduation semantics of
 [ADR 0027](0027-learning-campaigns.md) and amends its support after reading

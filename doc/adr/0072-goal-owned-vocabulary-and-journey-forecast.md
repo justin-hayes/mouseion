@@ -74,7 +74,7 @@ serialized with the existing optimistic-concurrency rules.
 **Choose.** Choosing a Goal atomically creates the active Goal and its frozen
 snapshot. An empty recurring-vocabulary result is valid: the Goal remains
 active, its snapshot is empty, and completion may add zero identities. Local
-prepared-deck production may start from the same snapshot, but no external
+prepared-deck production starts from the same snapshot, but no external
 translation consent is implied. A queued, failed, cancelled, or otherwise
 unavailable deck artifact does not remove or alter the Goal or snapshot.
 

@@ -1,6 +1,8 @@
 # Screen inventory
 
-Status: **Canonical shipped learner-facing screen inventory.** It includes the
+Status: **Canonical learner-facing screen contract.** The ADR 0072 Goal and
+forecast changes below are target behavior for the follow-on implementation; the
+existing shipped surfaces remain until that work lands. It includes the
 one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
@@ -142,11 +144,10 @@ When the Primary Goal is completed:
 
 Do not say the Journey is complete, automatically choose another Goal, call a
 book optimal, or claim vocabulary gains when the transition has not occurred.
-The single-active Campaign remains internal reservation state and secondary
-history/operations. ADR 0036 governs the independent reading outcome and
-justified vocabulary transition shown by this surface. Goals are one per study
-language (ADR 0051): finishing a Goal in the active language does not touch
-other languages' Goals.
+Legacy Campaign records remain historical provenance only. ADR 0072 governs the
+Goal-owned snapshot, completion transition, and forecast shown by this surface.
+Goals are one per study language (ADR 0051): finishing a Goal in the active
+language does not touch other languages' Goals.
 
 ## Active study language, derived study languages, and known vocabulary
 
@@ -160,7 +161,8 @@ active study language; its per-page language picker is removed in favour of the
 shell-level switcher. Known-vocabulary-only languages (no current chosen-language
 Book) remain selectable there as read-only "no books" entries; import stays
 limited to the derived study-language set. Changing a Book's language state does
-not remove books, analyses, prepared artifacts, vocabulary-study history, or
+not remove books, analyses, prepared artifacts, or historical vocabulary
+provenance,
 known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
 learner-facing screen.
 

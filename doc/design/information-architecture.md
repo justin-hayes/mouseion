@@ -1,6 +1,8 @@
 # Information architecture
 
-Status: **Canonical shipped learner-facing architecture.** This document follows
+Status: **Canonical learner-facing architecture contract.** ADR 0072 records the
+target Goal and forecast changes for follow-on implementation; existing shipped
+surfaces remain until that work lands. This document follows
 the one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
@@ -102,7 +104,7 @@ The Journey:
   [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md) fixes
   the snapshot, forecast, lower-bound, and invalidation rules;
 - responds to changes with neutral recalculation, not warnings;
-- keeps unassessed or incomparable books visible without inventing readiness.
+  - keeps unassessed or otherwise untrustworthy books visible without inventing readiness.
 
 The first provisional book is a natural candidate for a future Primary Goal,
 not an automatic commitment or recommendation.
@@ -202,7 +204,7 @@ My Books remains the sole browse surface and its rows own the Reading Journey
 acquisition-and-analysis intent. The upstream catalog browser is retired.
 
 Primary Goal is never a separate top-level destination. Analysis jobs, deck
-preparation, and per-Book vocabulary-study history are supporting surfaces.
+preparation, and historical artifact provenance are supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
@@ -332,9 +334,10 @@ an earlier Book cannot contribute trustworthy modeled vocabulary. Aggregate
 threshold detail remains on the individual Journey entry; the overview leads
 with books and the consequence of the learner's order.
 
-Unassessed or incomparable books stay in the Journey at the learner's chosen
-position. Mouseion explains the evidence gap and excludes them from totals
-rather than moving or demoting them silently.
+Unassessed or otherwise untrustworthy books stay in the Journey at the
+learner's chosen position. Mouseion explains the evidence gap, gives no
+fabricated coverage, and labels downstream forecasts as lower bounds when an
+earlier contribution is unavailable rather than moving or demoting books.
 
 ## Primary Goal completion and Where next?
 
@@ -425,8 +428,8 @@ active language; import is always eligible there. Import eligibility remains
 limited to the derived study-language set, and known-vocabulary-only languages
 stay selectable in the switcher as read-only "no books" entries. Catalog
 metadata changes do not delete known-vocabulary rows, books, analyses, decks, or
-vocabulary-study history. Journey and Goal relationships remain independent of
-vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0036,
+artifact provenance. Journey and Goal relationships remain independent of
+vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0072,
 ADR 0050, ADR 0051, and ADR 0056.
 
 <a id="contract-changes-requiring-planneradr-work"></a>

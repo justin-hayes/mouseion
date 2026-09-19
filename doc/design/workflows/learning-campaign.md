@@ -89,9 +89,10 @@ Primary Goal is anchored before the provisional sequence. It is not draggable
 into an ordinary later position. Changing or clearing it is an explicit Goal
 decision, not an incidental reorder.
 
-Unassessed and incomparable books retain the learner's chosen position. Mouseion
-names the evidence gap and excludes those books from numerical comparison
-rather than moving them silently.
+Unassessed and otherwise untrustworthy books retain the learner's chosen
+position. Mouseion names the evidence gap, gives no fabricated coverage, and
+labels downstream values as lower bounds when an earlier contribution is
+unavailable.
 
 ## 2. Read the Journey forecast
 
@@ -134,7 +135,7 @@ canonical.
 Journey screen. It promotes a Journey member whose current analysis completed
 successfully and freezes its exact recurring-vocabulary snapshot. Selection does
 not start or re-run analysis, claim reading has begun, or mark vocabulary Known.
-Local deck production may begin from that same snapshot, but artifact readiness
+Local deck production starts from that same snapshot, but artifact readiness
 or failure does not change the Goal.
 
 The Primary Goal region leads with:
@@ -249,8 +250,8 @@ or a completed plan.
   state that updated evidence is unavailable, and provide a retry. Never roll
   back the preference silently.
 - **Changing or clearing a Goal:** state what happens to reading history,
-  prepared artifacts, vocabulary reservation, and unfinished work according to
-  ADR 0036; do not invent different consequences in a generic confirmation.
+  snapshot, prepared artifacts, and language-scoped reservation according to
+  ADR 0072; do not invent different consequences in a generic confirmation.
 - **Historical graduated or released vocabulary study:** keep a Book's past
   decks understandable as reading/preparation/vocabulary-transition history
   without restoring a separate plan as principal navigation.

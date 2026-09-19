@@ -1,6 +1,6 @@
 # ADR 0037: Cross-book vocabulary projection and advisory Journey ordering
 
-Status: **Accepted** · Date: 2026-08-31 · Author: Justin + Hermes
+Status: **Superseded by ADR 0072** · Date: 2026-08-31 · Author: Justin + Hermes
 
 Defines the reproducible cross-book projection and route-comparison objective that
 [ADR 0034](0034-reading-journey-identity-ordering.md) deliberately deferred

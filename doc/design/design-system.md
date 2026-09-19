@@ -1,6 +1,6 @@
 # Design system
 
-Status: **Foundation and shipped learner-facing experience documented**
+Status: **Foundation and learner-facing contract documented**
 
 Mouseion's design system is a semantic layer above native HTML and Pico CSS. It
 supports a server-rendered, HTMX-enhanced product whose visual character is a
@@ -212,9 +212,9 @@ scrollable data table must label and contain its own overflow.
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence
   dashboard.
-- Vocabulary-study start, review confirmation, and release retain distinct
-  consequential confirmations on the Journey entry; Primary Goal behavior is
-  defined by ADR 0036.
+- Goal choice, Goal clearing/changing, and completion retain distinct
+  consequential confirmations on the Journey entry; Goal snapshot and forecast
+  behavior is defined by ADR 0072.
 - Vocabulary is canonical for known vocabulary; study languages are derived from
   chosen-language Books rather than maintained on a Settings route.
 - Loading, empty, error, disabled, success, degraded, historical, and
@@ -240,11 +240,11 @@ The first rollout is complete and preserved as history in
 frozen My Books / Reading Journey / Primary Goal architecture.
 
 Current implementation adoption covers My Books (`/library`), Journey entry and
-scope review, Reading Journey (`/journey`), Goal snapshot and artifact context,
-analysis jobs, and known-vocabulary management. The shipped patterns preserve
-bibliographic book identity, the one Primary Goal per language, a fluid Journey
-order, explicit forecast stages, evidence deltas, and the Where next? outcome.
-Do not disguise those contracts as mere component renames.
+scope review, Reading Journey (`/journey`), analysis jobs, and known-vocabulary
+management. The accepted target patterns preserve bibliographic book identity,
+the one Primary Goal per language, a fluid Journey order, explicit forecast
+stages, evidence deltas, and the Where next? outcome. Do not disguise those
+contracts as mere component renames.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,

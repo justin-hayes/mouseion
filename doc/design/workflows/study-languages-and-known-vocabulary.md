@@ -103,7 +103,7 @@ The current product supports additive import but not learner-facing removal of
 individual known-vocabulary entries. Vocabulary must not imply that changing a
 Book's language deletes vocabulary or that a completed vocabulary transition
 can be undone. A future removal/correction workflow requires an explicit product
-contract for provenance, wildcard entries, Book vocabulary-study graduation, and
+contract for provenance, wildcard entries, Goal snapshot acceptance, and
 coverage recalculation.
 
 ## Screen hierarchy

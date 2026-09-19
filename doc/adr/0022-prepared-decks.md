@@ -1,6 +1,6 @@
 # ADR 0022: Asynchronous deck preparation and durable APKG artifacts
 
-Status: **Accepted** · Date: 2026-08-24 · Author: Justin + Hermes
+Status: **Accepted; generated-vocabulary eligibility amended by ADR 0072** · Date: 2026-08-24 · Author: Justin + Hermes
 
 ## Context
 
@@ -32,10 +32,7 @@ The download endpoint is a pure read: it performs no provider calls, candidate s
 - Deck preparation can be retried and observed independently of browser downloads.
 - External translation latency is removed from the download request.
 - Prepared artifacts consume database storage and require retention/cleanup policy in a later operational enhancement.
-- A preparation that succeeds records generated-vocabulary provenance even if the
-  user never downloads the file. Under [ADR 0072](0072-goal-owned-vocabulary-and-journey-forecast.md),
-  that provenance is neither Known nor Reserved and does not exclude an identity
-  from a later Goal.
+- A preparation that succeeds is considered assigned vocabulary even if the user never downloads the file; this preserves the rule that a generated deck assignment excludes future decks.
 - Owner isolation, CSRF protection, title-derived filenames, and the `Mouseion::<language>::<book title>` hierarchy remain mandatory.
 
 ## Alternatives rejected
