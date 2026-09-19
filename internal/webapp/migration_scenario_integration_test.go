@@ -104,10 +104,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	// using the same generated source/deck provenance.
 	_, err = store.Pool().Exec(ctx, `UPDATE generated_vocabulary SET upos='VERB' WHERE owner_id=$1 AND canonical_lemma='graduated'`, alice.ID)
 	require.NoError(t, err)
-	// Vocabulary study is book-anchored on the prepared deck.
-	_, err = store.StartDeckVocabularyStudy(ctx, alice.ID, preparation.ID)
+	// Preserve an unconfirmed legacy preparation while the Goal-owned model is
+	// exercised. Completion must not silently graduate or release this history.
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET studying_at=now() WHERE owner_id=$1 AND id=$2`, alice.ID, preparation.ID)
 	require.NoError(t, err)
-
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, journey.Revision)
@@ -186,6 +186,11 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.GraduatedVocabularyCount)
 	assert.Equal(t, 0, completion.Completion.AlreadyKnownVocabularyCount)
+	legacyPreparation, err := store.GetDeckPreparation(ctx, alice.ID, preparation.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, legacyPreparation.StudyingAt, "legacy preparation was silently graduated")
+	assert.Nil(t, legacyPreparation.ReleasedAt, "legacy preparation was silently released")
+	assert.Nil(t, legacyPreparation.GraduatedAt, "legacy preparation was silently graduated")
 	forecastAfter, err := analysisinsights.NewService(store).JourneyForecast(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, forecastAfter.Entries, len(learnerOrderBefore)-1)

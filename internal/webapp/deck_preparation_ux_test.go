@@ -33,7 +33,7 @@ func TestBookPageProvidesCurrentNativeDeckPreparationForm(t *testing.T) {
 		`name="external_translation_consent"`,
 		"English translation is optional",
 		"sends each selected lemma and its example sentence",
-		"does not start vocabulary study",
+		"Preparation records provenance; Goal completion determines what becomes known.",
 		"data-deck-preparation",
 	} {
 		assert.True(t, strings.Contains(html, want), "exact result missing %q: %s", want, html)

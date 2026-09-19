@@ -243,10 +243,9 @@ func (s *PostgresStore) ListDeckPreparationVocabulary(ctx context.Context, owner
 }
 
 // ListReservedVocabulary returns the vocabulary currently reserved by the
-// owner's book-anchored study: the snapshotted vocabulary of every studying
-// deck that has not yet graduated, scoped to one language. Reserved vocabulary
-// is neither counted as known nor eligible for another deck until the study is
-// resolved.
+// owner's active Goal snapshot, scoped to one language. Reserved vocabulary is
+// neither counted as known nor eligible for another deck until the Goal is
+// changed, cleared, or completed.
 func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
 	rows, err := s.queries().ListReservedDeckVocabulary(ctx, sqlcgen.ListReservedDeckVocabularyParams{Owner: owner, Language: language})
 	if err != nil {
@@ -261,139 +260,6 @@ func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, langu
 		})
 	}
 	return result, nil
-}
-
-// CountDeckPreparationVocabularyToGraduate supports the consequential review
-// confirmation without making the count authoritative for the transaction.
-func (s *PostgresStore) CountDeckPreparationVocabularyToGraduate(ctx context.Context, owner, preparationID string) (int, error) {
-	count, err := s.queries().CountDeckPreparationVocabularyToGraduate(ctx, sqlcgen.CountDeckPreparationVocabularyToGraduateParams{Owner: owner, Preparation: preparationID})
-	if err != nil {
-		return 0, err
-	}
-	return checked.IntFromInt64(count)
-}
-
-// StartDeckVocabularyStudy reserves one ready, non-empty deck for its owner.
-// The partial unique index enforces the owner-wide lease atomically.
-func (s *PostgresStore) StartDeckVocabularyStudy(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	q := sqlcgen.New(tx)
-	currentModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
-	if err != nil {
-		return domain.DeckPreparation{}, missing(err)
-	}
-	current := deckPreparationFromModel(currentModel)
-	if current.State != domain.DeckPreparationReady || current.TotalCards == 0 || current.GraduatedAt != nil || current.ReviewedAt != nil {
-		return domain.DeckPreparation{}, ErrInvalidTransition
-	}
-	if current.StudyingAt != nil {
-		return current, tx.Commit(ctx)
-	}
-	snapshotCount, err := q.CountDeckPreparationVocabulary(ctx, sqlcgen.CountDeckPreparationVocabularyParams{Owner: owner, Preparation: preparationID})
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	if snapshotCount == 0 {
-		// Ready rows created before the snapshot write can be repaired from their
-		// immutable generated-vocabulary provenance on first study.
-		if err = q.RepairDeckPreparationVocabulary(ctx, sqlcgen.RepairDeckPreparationVocabularyParams{Preparation: preparationID, Owner: owner, SourceMaterial: uuidArg(current.SourceMaterialID)}); err != nil {
-			return domain.DeckPreparation{}, err
-		}
-		snapshotCount, err = q.CountDeckPreparationVocabulary(ctx, sqlcgen.CountDeckPreparationVocabularyParams{Owner: owner, Preparation: preparationID})
-		if err != nil {
-			return domain.DeckPreparation{}, err
-		}
-	}
-	if snapshotCount == 0 {
-		return domain.DeckPreparation{}, ErrInvalidTransition
-	}
-	updatedModel, err := q.StartDeckVocabularyStudy(ctx, sqlcgen.StartDeckVocabularyStudyParams{Owner: owner, Preparation: preparationID})
-	err = missing(err)
-	updated := deckPreparationFromModel(updatedModel)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	return updated, nil
-}
-
-// ConfirmDeckVocabularyReview graduates exactly the snapshot linked to this
-// prepared deck and records the review in one transaction.
-func (s *PostgresStore) ConfirmDeckVocabularyReview(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	q := sqlcgen.New(tx)
-	currentModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
-	if err != nil {
-		return domain.DeckPreparation{}, missing(err)
-	}
-	current := deckPreparationFromModel(currentModel)
-	if current.GraduatedAt != nil {
-		return current, tx.Commit(ctx)
-	}
-	if current.StudyingAt == nil {
-		return domain.DeckPreparation{}, ErrInvalidTransition
-	}
-	if err = q.GraduateDeckPreparationVocabularyStates(ctx, sqlcgen.GraduateDeckPreparationVocabularyStatesParams{Owner: owner, Preparation: preparationID}); err != nil {
-		return domain.DeckPreparation{}, fmt.Errorf("graduate deck vocabulary state: %w", err)
-	}
-	if err = q.RecordGraduatedDeckVocabulary(ctx, sqlcgen.RecordGraduatedDeckVocabularyParams{Owner: owner, Preparation: preparationID}); err != nil {
-		return domain.DeckPreparation{}, fmt.Errorf("record graduated deck vocabulary: %w", err)
-	}
-	if err = q.MarkDeckPreparationVocabularyGraduated(ctx, sqlcgen.MarkDeckPreparationVocabularyGraduatedParams{Owner: owner, Preparation: preparationID}); err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	updatedModel, err := q.ConfirmDeckVocabularyReview(ctx, sqlcgen.ConfirmDeckVocabularyReviewParams{Owner: owner, Preparation: preparationID})
-	err = missing(err)
-	updated := deckPreparationFromModel(updatedModel)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	return updated, nil
-}
-
-// ReleaseDeckVocabularyStudy releases an unfinished reservation without
-// deleting its immutable snapshot or generated provenance.
-func (s *PostgresStore) ReleaseDeckVocabularyStudy(ctx context.Context, owner, preparationID string) (result domain.DeckPreparation, err error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	q := sqlcgen.New(tx)
-	currentModel, err := q.GetDeckPreparationForUpdate(ctx, sqlcgen.GetDeckPreparationForUpdateParams{Owner: owner, ID: preparationID})
-	if err != nil {
-		return domain.DeckPreparation{}, missing(err)
-	}
-	current := deckPreparationFromModel(currentModel)
-	if current.GraduatedAt != nil || current.ReviewedAt != nil {
-		return domain.DeckPreparation{}, ErrInvalidTransition
-	}
-	if current.StudyingAt == nil {
-		return current, tx.Commit(ctx)
-	}
-	updatedModel, err := q.ReleaseDeckVocabularyStudy(ctx, sqlcgen.ReleaseDeckVocabularyStudyParams{Owner: owner, Preparation: preparationID})
-	err = missing(err)
-	updated := deckPreparationFromModel(updatedModel)
-	if err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.DeckPreparation{}, err
-	}
-	return updated, nil
 }
 
 // CreateDeckPreparation creates the current preparation for a Book. A new
@@ -630,11 +496,6 @@ func (s *PostgresStore) MarkPreparedDeckRequiresRepreparation(ctx context.Contex
 // lookup from selecting the wrong analysis.
 func (s *PostgresStore) GetDeckPreparationForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
 	model, err := s.queries().GetDeckPreparationForAnalysis(ctx, sqlcgen.GetDeckPreparationForAnalysisParams{Owner: owner, SourceMaterial: sourceMaterialID, AnalysisRun: uuidArg(analysisRunID)})
-	return deckPreparationFromModel(model), missing(err)
-}
-
-func (s *PostgresStore) GetActiveDeckVocabularyStudy(ctx context.Context, owner, sourceMaterialID string) (domain.DeckPreparation, error) {
-	model, err := s.queries().GetActiveDeckVocabularyStudy(ctx, sqlcgen.GetActiveDeckVocabularyStudyParams{Owner: owner, SourceMaterial: sourceMaterialID})
 	return deckPreparationFromModel(model), missing(err)
 }
 

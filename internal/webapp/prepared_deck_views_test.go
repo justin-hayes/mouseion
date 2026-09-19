@@ -28,7 +28,7 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 		"outside Mouseion",
 		"configured translation provider",
 		"Without consent",
-		"does not start vocabulary study",
+		"Preparation records provenance; Goal completion determines what becomes known.",
 	} {
 		assert.True(t, strings.Contains(html, want), "exact result missing deck contract %q: %s", want, html)
 	}
@@ -156,73 +156,24 @@ func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 	}
 }
 
-func TestBookVocabularyStudyRendersReachableTransitions(t *testing.T) {
-	tests := []struct {
-		name        string
-		preparation domain.DeckPreparation
-		want        []string
-		unwanted    []string
-	}{
-		{
-			name:        "ready",
-			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2},
-			want:        []string{"Ready to study", "Start vocabulary study", "vocabulary for review", "Study this Book's vocabulary", `action="/journey/books/book-1/vocabulary-study"`},
-			unwanted:    []string{"Confirm deck review", "Release study"},
-		},
-		{
-			name:        "studying",
-			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2, StudyingAt: studyTimePtr()},
-			want:        []string{"Studying", "reserved", "not counted as known", "Confirm deck review", "Release study", `action="/journey/books/book-1/vocabulary-study/confirm"`, `action="/journey/books/book-1/vocabulary-study/release"`, "consequential transition"},
-		},
-		{
-			name:        "reviewed",
-			preparation: domain.DeckPreparation{ID: "prep-study", State: domain.DeckPreparationReady, TotalCards: 2, ReviewedAt: studyTimePtr(), GraduatedAt: studyTimePtr()},
-			want:        []string{"Reviewed and graduated", "Vocabulary graduated"},
-			unwanted:    []string{"Study this Book's vocabulary", "Confirm deck review", "Release study"},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var output bytes.Buffer
-			require.NoError(t, BookVocabularyStudy("book-1", "csrf", test.preparation).Render(context.Background(), &output))
-			html := output.String()
-			for _, want := range test.want {
-				assert.True(t, strings.Contains(html, want), "study view missing %q: %s", want, html)
-			}
-			for _, unwanted := range test.unwanted {
-				assert.False(t, strings.Contains(html, unwanted), "study view contains %q: %s", unwanted, html)
-			}
-		})
-	}
-}
-
-func TestBookPageRendersVocabularyStudyHistoryAlongsideCurrentStudy(t *testing.T) {
+func TestBookPageRendersHistoricalPreparedDecksWithoutStudyActions(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Language: "de"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-history"}
 	now := time.Date(2026, time.September, 10, 9, 0, 0, 0, time.UTC)
 	page := journeyBookPageOptions(book)
-	page.VocabularyStudyHistory = []domain.DeckPreparation{{
-		ID: "old-study", DeckName: "Mouseion::de::Old deck", State: domain.DeckPreparationReady, TotalCards: 2, ReleasedAt: &now,
-	}}
-	current := domain.DeckPreparation{ID: "current-study", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2, StudyingAt: &now}
+	page.DeckPreparationHistory = []domain.DeckPreparation{
+		{ID: "old-study", DeckName: "Mouseion::de::Old deck", State: domain.DeckPreparationReady, TotalCards: 2, ReleasedAt: &now},
+		{ID: "old-prepared", DeckName: "Mouseion::de::Prepared deck", State: domain.DeckPreparationReady, TotalCards: 1},
+	}
+	current := domain.DeckPreparation{ID: "current-deck", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2}
 	var output bytes.Buffer
 	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, &current, emptyDeckJourneyAction()).Render(context.Background(), &output))
 	html := output.String()
-	for _, want := range []string{"This Book's vocabulary study", "Studying", "This Book's vocabulary-study history", "Mouseion::de::Old deck", "Released", "2026-09-10 09:00 UTC", `href="/deck-preparations/old-study/download"`} {
+	for _, want := range []string{"Historical prepared decks", "Mouseion::de::Old deck", "Mouseion::de::Prepared deck", "Legacy release timestamp", "2026-09-10 09:00 UTC", `href="/deck-preparations/old-study/download"`} {
 		assert.True(t, strings.Contains(html, want), "Book page missing %q: %s", want, html)
 	}
-}
-
-func TestEmptyReadyDeckDoesNotOfferVocabularyStudy(t *testing.T) {
-	var output bytes.Buffer
-	preparation := domain.DeckPreparation{ID: "prep-empty", State: domain.DeckPreparationReady}
-	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-empty", Language: "de"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-empty", CorpusID: "corpus-empty"}
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), &preparation, emptyDeckJourneyAction()).Render(context.Background(), &output))
-	assert.False(t, strings.Contains(output.String(), "Study this Book's vocabulary"), "empty deck offered a study action: %s", output.String())
-}
-
-func studyTimePtr() *time.Time {
-	now := time.Now()
-	return &now
+	for _, unwanted := range []string{"This Book's vocabulary study", "Study this Book's vocabulary", "Confirm deck review", "Release study", "/vocabulary-study"} {
+		assert.NotContains(t, html, unwanted)
+	}
 }
 
 func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {

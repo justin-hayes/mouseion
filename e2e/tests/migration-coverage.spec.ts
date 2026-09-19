@@ -43,7 +43,8 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.locator('#provisional-journey-status')).toHaveAttribute('aria-live', 'polite');
     await expectPostFormsCarryCSRF(page);
     await page.goto('/journey/fixture-book');
-    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toBeVisible();
+    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Study this Book's vocabulary|Confirm deck review|Release study/ })).toHaveCount(0);
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {

@@ -69,7 +69,7 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
-  test('dense analysis, vocabulary study, errors, and import surfaces expose realistic content', async ({ page }) => {
+  test('dense analysis, deck provenance, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
     await page.goto('/journey/fixture-book');
     await expect(page.locator('.stat-group__value').filter({ hasText: '37.0%' })).toBeVisible();
@@ -79,7 +79,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/jobs');
     await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(18);
     await page.goto('/journey/fixture-book');
-    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toBeVisible();
+    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();

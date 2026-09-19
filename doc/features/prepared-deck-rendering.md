@@ -30,7 +30,8 @@ re-selection, dictionary re-resolution, or provider translation.
 Make rendering a pure function of a frozen deck specification, an exact
 enrichment overlay, and a versioned presentation contract; and let a stale deck
 be regenerated from its specification by a background job, replacing its
-artifact in place without touching study state.
+artifact in place without changing Goal-owned vocabulary or historical
+provenance state.
 
 ## The seam
 
@@ -92,9 +93,10 @@ fall back to re-preparation when an input is missing.
 A deck whose artifact has been superseded is presented as having an updated
 version available; the learner re-downloads and re-imports it into Anki. The
 Anki note type, model id, and note GUID are unchanged, so re-import updates the
-existing notes in place rather than forking a parallel deck. Study state is
-untouched: graduation and reserved vocabulary reference vocabulary identity and
-the deck-snapshot, not card bytes.
+existing notes in place rather than forking a parallel deck. Goal vocabulary
+state is untouched: current reservation and graduation reference vocabulary
+identity and the Goal snapshot, not card bytes. Historical prepared deck
+timestamps remain available for provenance.
 
 ## Scope and projections
 
@@ -108,7 +110,7 @@ the deck-snapshot, not card bytes.
 - Re-running analysis, selection, dictionary resolution, or provider
   translation during a re-render.
 - Changing a deck's vocabulary identity, representative sentence, ordering, or
-  study state.
+  Goal-owned vocabulary state.
 - Persisting or serving the TSV.
 - Backfilling corpus coordinates for manifests created before this feature.
 

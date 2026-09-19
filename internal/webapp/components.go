@@ -156,7 +156,7 @@ type bookPageOptions struct {
 	Navigation             NavigationContext
 	ShowJourneyRemoval     bool
 	Journey                bookPageJourneyState
-	VocabularyStudyHistory []domain.DeckPreparation
+	DeckPreparationHistory []domain.DeckPreparation
 }
 
 func journeyBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
@@ -513,43 +513,6 @@ func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
 
 func deckPreparationHasNewerRevision(preparation domain.DeckPreparation) bool {
 	return preparation.State == domain.DeckPreparationReady && preparation.DeckRevision > 1 && !deckPreparationEmpty(preparation) && preparation.Error != domain.DeckPreparationRequiresRepreparationError
-}
-
-func bookFeedbackKind(message string) FeedbackKind {
-	if strings.HasPrefix(message, "Study action blocked:") {
-		return FeedbackError
-	}
-	return FeedbackSuccess
-}
-
-func vocabularyStudyLabel(preparation domain.DeckPreparation) string {
-	switch preparation.VocabularyStudyStatus() {
-	case domain.VocabularyStudyNotStarted:
-		return "Ready to study"
-	case domain.VocabularyStudyStudying:
-		return "Studying"
-	case domain.VocabularyStudyReviewed:
-		return "Reviewed and graduated"
-	case domain.VocabularyStudyReleased:
-		return "Released"
-	default: // Unknown derived status uses the initial-state label.
-		return "Ready to study"
-	}
-}
-
-func vocabularyStudyTone(preparation domain.DeckPreparation) StatusTone {
-	switch preparation.VocabularyStudyStatus() {
-	case domain.VocabularyStudyNotStarted:
-		return StatusNeutral
-	case domain.VocabularyStudyStudying:
-		return StatusInfo
-	case domain.VocabularyStudyReviewed:
-		return StatusSuccess
-	case domain.VocabularyStudyReleased:
-		return StatusWarning
-	default: // Unknown derived status uses the neutral presentation.
-		return StatusNeutral
-	}
 }
 
 func jobStatusAttributes(id int64, running bool) templ.Attributes {

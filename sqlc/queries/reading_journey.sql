@@ -251,23 +251,6 @@ UPDATE primary_goal_snapshots
 SET released_at = COALESCE(released_at, now())
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('snapshot');
 
--- name: ReleaseDeckStudiesForPrimaryGoalSnapshot :exec
-UPDATE deck_preparations p
-SET studying_at = NULL, released_at = COALESCE(p.released_at, now()), updated_at = now()
-FROM primary_goal_snapshots s
-WHERE s.owner_id = sqlc.arg('owner') AND s.id = sqlc.arg('snapshot')
-  AND p.owner_id = s.owner_id AND p.book_id = s.book_id
-  AND (p.goal_snapshot_id = s.id OR (
-       p.source_material_id = s.source_material_id
-       AND (p.analysis_run_id = s.analysis_run_id OR p.analysis_run_id IS NULL)
-  ))
-  AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
-  AND EXISTS (
-      SELECT 1 FROM deck_preparation_vocabulary dv
-      WHERE dv.owner_id = p.owner_id AND dv.deck_preparation_id = p.id
-        AND dv.language = s.language AND dv.graduated_at IS NULL
-  );
-
 -- name: ReleasePrimaryGoalSnapshotsForBook :exec
 UPDATE primary_goal_snapshots s
 SET released_at = COALESCE(s.released_at, now())

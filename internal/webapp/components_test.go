@@ -168,12 +168,12 @@ func TestActionAndConfirmationPatterns(t *testing.T) {
 		`<button>Retry</button>`,
 	)
 
-	confirmation := renderPattern(t, Confirmation("Release study", "The prepared deck remains available.", StatusDanger), `<form><button>Confirm release</button></form>`)
+	confirmation := renderPattern(t, Confirmation("Remove connection", "The catalog connection can be added again later.", StatusDanger), `<form><button>Confirm removal</button></form>`)
 	requireMarkup(t, confirmation,
 		`<details class="confirmation confirmation--danger">`,
-		`<summary>Release study</summary>`,
+		`<summary>Remove connection</summary>`,
 		`class="confirmation__body"`,
-		`Confirm release`,
+		`Confirm removal`,
 	)
 }
 

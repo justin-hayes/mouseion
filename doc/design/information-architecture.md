@@ -134,9 +134,10 @@ ordinary facts needed to serve the current undertaking:
 - current evidence and explicitly conditional projections;
 - the next available learner decision.
 
-It does not erase the distinction between reading, deck review, vocabulary
-knowledge, analysis provenance, or prepared artifacts. It also does not make
-later Journey books committed.
+It keeps reading, Goal-owned vocabulary transitions, analysis provenance, and
+prepared artifacts distinct. Historical deck and graduation provenance remains
+available without creating a separate study workflow, and later Journey books
+are not committed.
 
 ## Supporting product objects
 

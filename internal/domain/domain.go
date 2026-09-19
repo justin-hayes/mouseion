@@ -72,28 +72,6 @@ type PreparedDeckRerenderWork struct {
 	PresentationVersion           int
 }
 
-type VocabularyStudyStatus string
-
-const (
-	VocabularyStudyNotStarted VocabularyStudyStatus = "not_started"
-	VocabularyStudyStudying   VocabularyStudyStatus = "studying"
-	VocabularyStudyReviewed   VocabularyStudyStatus = "reviewed"
-	VocabularyStudyReleased   VocabularyStudyStatus = "released"
-)
-
-func (p DeckPreparation) VocabularyStudyStatus() VocabularyStudyStatus {
-	switch {
-	case p.GraduatedAt != nil:
-		return VocabularyStudyReviewed
-	case p.StudyingAt != nil:
-		return VocabularyStudyStudying
-	case p.ReleasedAt != nil:
-		return VocabularyStudyReleased
-	default:
-		return VocabularyStudyNotStarted
-	}
-}
-
 type DeckPreparationVocabulary struct {
 	OwnerID, DeckPreparationID, Language, CanonicalLemma, UPOS string
 	GeneratedAt                                                time.Time

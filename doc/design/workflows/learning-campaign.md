@@ -252,9 +252,9 @@ or a completed plan.
 - **Changing or clearing a Goal:** state what happens to reading history,
   snapshot, prepared artifacts, and language-scoped reservation according to
   ADR 0072; do not invent different consequences in a generic confirmation.
-- **Historical graduated or released vocabulary study:** keep a Book's past
+- **Historical graduated or released vocabulary state:** keep a Book's past
   decks understandable as reading/preparation/vocabulary-transition history
-  without restoring a separate plan as principal navigation.
+  without restoring a separate manual-study plan as principal navigation.
 
 ## State model
 

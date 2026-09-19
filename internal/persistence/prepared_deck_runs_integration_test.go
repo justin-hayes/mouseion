@@ -281,7 +281,7 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, 2, generated, "published cards")
 }
 
-func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(t *testing.T) {
+func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingProvenance(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "rerender-owner", false)
@@ -311,9 +311,6 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	_, err = store.CompletePreparedDeckRun(ctx, owner.ID, preparation.ID, result.Run.ID, claimToken, artifact)
 	require.NoError(t, err)
-	started, err := store.StartDeckVocabularyStudy(ctx, owner.ID, preparation.ID)
-	require.NoError(t, err)
-
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET presentation_version=0 WHERE owner_id=$1 AND id=$2`, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparation_runs SET presentation_version=0 WHERE owner_id=$1 AND preparation_id=$2 AND id=$3`, owner.ID, preparation.ID, result.Run.ID)
@@ -331,7 +328,7 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingStudy(
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated.DeckRevision)
 	assert.Equal(t, cardexport.PresentationVersion, updated.PresentationVersion)
-	assert.Equal(t, started.StudyingAt, updated.StudyingAt)
+	assert.Equal(t, preparation.ID, updated.ID)
 	var front string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT front FROM cards WHERE owner_id=$1`, owner.ID).Scan(&front))
 	assert.NotEqual(t, "stale projection", front)
