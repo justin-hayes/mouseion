@@ -46,6 +46,9 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
 	}
 	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
+	if preparation.GoalSnapshotID != "" && !facts.GoalSnapshotActive {
+		return nil, "", fmt.Errorf("prepareddeck: Goal snapshot %q is unavailable", preparation.GoalSnapshotID)
+	}
 	if facts.GoalSnapshotActive {
 		selected = append(selected, facts.GoalSnapshot...)
 	} else {

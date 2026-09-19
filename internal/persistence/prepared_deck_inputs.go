@@ -59,6 +59,11 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		if snapshotErr != nil {
 			return PreparedDeckInputFacts{}, snapshotErr
 		}
+	} else if preparation.GoalSnapshotID != "" {
+		if errors.Is(snapshotErr, pgx.ErrNoRows) {
+			return PreparedDeckInputFacts{}, fmt.Errorf("prepared deck Goal snapshot %q is unavailable: %w", preparation.GoalSnapshotID, ErrNotFound)
+		}
+		return PreparedDeckInputFacts{}, snapshotErr
 	} else if !errors.Is(snapshotErr, pgx.ErrNoRows) {
 		return PreparedDeckInputFacts{}, snapshotErr
 	}

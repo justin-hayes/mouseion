@@ -239,6 +239,30 @@ func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyTha
 	assert.Equal(t, BookID, deGoal.BookID, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
 }
 
+func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	goal, err := store.GetPrimaryGoal(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, 2, goal.SnapshotSize)
+	preparation, err := store.GetDeckPreparationForGoalSnapshot(ctx, OwnerID, goal.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
+
+	emptyGoal, err := store.GetPrimaryGoal(ctx, OwnerID, "it")
+	require.NoError(t, err)
+	assert.Zero(t, emptyGoal.SnapshotSize)
+	_, err = store.GetDeckPreparationForGoalSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
+	require.ErrorIs(t, err, persistence.ErrNotFound)
+
+	handle, err := (PreparedDeck{Store: store}).SubmitForGoal(ctx, OwnerID, ResultRunID, "fresh-goal-snapshot")
+	require.NoError(t, err)
+	assert.Equal(t, "fresh-goal-snapshot", handle.Preparation.GoalSnapshotID)
+	preparation, err = store.GetDeckPreparationForGoalSnapshot(ctx, OwnerID, "fresh-goal-snapshot")
+	require.NoError(t, err)
+	assert.Equal(t, handle.Preparation.ID, preparation.ID)
+}
+
 func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()

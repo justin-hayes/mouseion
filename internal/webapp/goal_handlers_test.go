@@ -134,7 +134,7 @@ func goalFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, *fi
 	t.Setenv("MOUSEION_SECRET", "goal-unit-test-secret-0123456789")
 	store := fixtures.NewStore()
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: fixtures.PreparedDeck{Store: store}, SessionLifetime: time.Hour})
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
 	initialCSRFCookie := cookieByName(t, loginPage.Result().Cookies(), csrfCookie)
@@ -196,6 +196,25 @@ func TestGoalMutationRoutesAreIdempotent(t *testing.T) {
 	clearedAgain := goalRequest(t, h, "/goal/clear", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {""}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
 	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+Primary+Goal+was+set"), "idempotent clear location=%q", clearedAgain.Header().Get("Location"))
+}
+
+func TestGoalSelectionBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	store.SetGoalSnapshotVocabulary("fixture-goal-de-fixture-route-match", []domain.DeckPreparationVocabulary{{OwnerID: fixtures.OwnerID, Language: "de", CanonicalLemma: "snapshot-word", UPOS: "NOUN"}})
+
+	cleared := goalRequest(t, h, "/goal/clear", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}}, cookies)
+	require.Equal(t, http.StatusSeeOther, cleared.Code)
+	chosen := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {""}, "external_translation_consent": {"on"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, chosen.Code)
+
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	preparation, err := store.GetDeckPreparationForGoalSnapshot(context.Background(), fixtures.OwnerID, goal.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
+	assert.Equal(t, goal.AnalysisRunID, preparation.AnalysisRunID)
 }
 
 func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {

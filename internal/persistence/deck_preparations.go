@@ -499,6 +499,13 @@ func (s *PostgresStore) GetDeckPreparationForAnalysis(ctx context.Context, owner
 	return deckPreparationFromModel(model), missing(err)
 }
 
+// GetDeckPreparationForGoalSnapshot returns the current, owner-scoped
+// preparation bound to one exact immutable Goal snapshot.
+func (s *PostgresStore) GetDeckPreparationForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+	model, err := s.queries().GetDeckPreparationForGoalSnapshot(ctx, sqlcgen.GetDeckPreparationForGoalSnapshotParams{Owner: owner, GoalSnapshot: uuidArg(snapshotID)})
+	return deckPreparationFromModel(model), missing(err)
+}
+
 // ListDeckPreparationsForSourceMaterial returns the owner's preparation history
 // for one Book's acquired source, including released and graduated studies.
 func (s *PostgresStore) ListDeckPreparationsForSourceMaterial(ctx context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {

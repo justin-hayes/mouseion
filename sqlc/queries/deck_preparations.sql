@@ -39,6 +39,21 @@ WHERE owner_id = sqlc.arg('owner')
   AND analysis_run_id = sqlc.arg('analysis_run')
   AND (book_id IS NULL OR retired_at IS NULL);
 
+-- name: GetDeckPreparationForGoalSnapshot :one
+SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
+       content_hash, total_cards, cards_with_english,
+       cards_with_contextual_sentence_translations, quality_omissions, error,
+       created_at, updated_at, started_at, completed_at, analysis_run_id,
+       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
+FROM deck_preparations
+WHERE owner_id = sqlc.arg('owner')
+  AND goal_snapshot_id = sqlc.arg('goal_snapshot')
+  AND retired_at IS NULL
+ORDER BY updated_at DESC, id DESC
+LIMIT 1;
+
 -- name: ListDeckPreparationsForSourceMaterial :many
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,

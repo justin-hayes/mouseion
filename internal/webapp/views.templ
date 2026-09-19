@@ -498,6 +498,17 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		}
 	}
 	@JourneyEvidence(item, csrf)
+	if primary && item.GoalSnapshotSize > 0 {
+		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
+			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Goal deck preparation</h4>
+			if item.GoalPreparation != nil {
+				@GoalDeckPreparationStatus(csrf, journeyBookID(item), *item.GoalPreparation)
+			} else if item.GoalDeckUnavailable {
+				<p role="note" aria-live="polite"><strong>Deck preparation unavailable.</strong> The Goal and its frozen snapshot are still preserved.</p>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">Retry deck preparation</button></form>
+			}
+		</section>
+	}
 	</div>
 	if !primary {
 		<div class="journey-book__controls" aria-label={ "Reorder "+canonicalBookTitle(item.Book) }>
@@ -528,6 +539,30 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	}
 	</article>
 }
+
+templ GoalDeckPreparationStatus(csrf, bookID string, preparation domain.DeckPreparation) {
+	<p><strong>{ deckPreparationTitle(preparation) }.</strong> { deckPreparationSummary(preparation) }</p>
+	if preparation.State == domain.DeckPreparationReady {
+		if deckPreparationEmpty(preparation) {
+			<p>No cards were created from this snapshot.</p>
+		} else if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+			@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
+			<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">Re-prepare Goal deck</button></form>
+		} else {
+			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download Goal deck</a>
+		}
+	} else if deckPreparationActive(preparation) {
+		<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
+	} else {
+		if preparation.State == domain.DeckPreparationFailed {
+			@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
+		} else if preparation.State == domain.DeckPreparationCancelled {
+			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact Goal snapshot when ready.")
+		}
+		<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">Retry Goal deck</button></form>
+	}
+}
+
 templ JourneyEvidence(item journeyBookView, csrf string) {
 	if journeyEvidenceState(item) != "current" {
 		<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
