@@ -28,17 +28,17 @@ counts before applying learner vocabulary state.
 explicitly known analyzable occurrences / total analyzable occurrences
 ```
 
-Explicit known vocabulary is language-scoped. A `(lemma, UPOS)` entry matches
+Known vocabulary is language-scoped. A `(lemma, UPOS)` entry matches
 only that identity; an entry whose UPOS is empty is a lemma wildcard and matches
-all UPOS for that lemma. Generated vocabulary is never counted as explicitly
-known.
+all UPOS for that lemma. Generated vocabulary is provenance and is never counted
+as Known; it does not exclude a later Goal snapshot.
 
 **Threshold investment** uses the same full analyzable-token denominator as
-known-token coverage. Remove explicitly known identities and owner-scoped
-generated identities from other books from the learn-next candidates. Generated
-records with unknown provenance are excluded conservatively; records first
-generated for the current book remain eligible for idempotent repeat exports.
-The remaining occurrences are the eligible unknown-token pool.
+known-token coverage. Remove Known identities and active Goal-derived Reserved
+identities in the relevant study language from the learn-next candidates.
+Generated records, including records with unknown provenance, remain eligible
+because generation is not learner state. The remaining occurrences are the
+eligible unknown-token pool.
 
 For target `T`, order eligible identities by descending book-local occurrence
 count, breaking equal-count ties lexicographically by `(language, canonical
@@ -52,22 +52,22 @@ lemma, UPOS)`. Select the shortest prefix for which:
 The result is an identity count and occurrence count, not a claim that the
 learner knows those words. Integer comparison is authoritative; rounded display
 percentages do not affect selection. If all eligible identities cannot meet the
-comparison because generated or otherwise excluded occurrences remain unknown,
+comparison because otherwise excluded occurrences remain unknown,
 the target is explicitly unreachable and no lemma count is presented. Initial
 targets are 95, 97, and 99. The deck-generation path no longer selects to a
 coverage target: it selects every eligible unknown identity appearing at least
 `N` times (default three) under ADR 0048; its count can therefore differ from an
-insight threshold with the same numeric label. The cross-book route comparison
-reuses this exact per-book coverage, denominator, and integer semantics as the
-named lexical property it optimizes; it introduces no new denominator or
-composite — see [ADR 0037](0037-cross-book-projection-advisory-ordering.md).
+insight threshold with the same numeric label. The Journey forecast reuses this
+exact per-book coverage, denominator, and integer semantics in the learner's
+stored order; it introduces no new denominator or composite — see [ADR 0072](0072-goal-owned-vocabulary-and-journey-forecast.md).
 
 ## Consequences
 
 - Current coverage, projections, and insight thresholds share the full
   analyzable-token denominator.
-- Known, generated, eligible unknown, and selected vocabulary remain distinct
-  categories, so generated cards do not inflate mastery.
+- Known, Reserved, generated provenance, eligible unknown, and selected
+  vocabulary remain distinct categories, so generated cards do not inflate
+  modeled knowledge or suppress later selection.
 - Equal-frequency corpora produce stable results independent of database row
   order.
 - The deck output is not presented as a whole-book insight threshold: deck
@@ -98,6 +98,4 @@ composite — see [ADR 0037](0037-cross-book-projection-advisory-ordering.md).
 
 - [Analysis Insights feature](../features/analysis-insights.md)
 - [ADR 0017: Replace frequency-based ranking with coverage-based selection](0017-coverage-based-selection.md)
-- [ADR 0019: Explicit generated-vocabulary exclusion policy](0019-generated-vocabulary-exclusion.md)
-- [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](0036-primary-goal-justified-graduation.md) — defines the single justified path by which identity graduates into the `known_vocabulary` that feeds this metric's numerator; the denominator, integer comparison, and threshold selection here are unchanged.
-- [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](0037-cross-book-projection-advisory-ordering.md) — the route comparison over Reading Journey books that reuses this metric as its named lexical property.
+- [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](0072-goal-owned-vocabulary-and-journey-forecast.md) — current Goal, vocabulary, and Journey forecast contract; the denominator and integer comparison here are unchanged.

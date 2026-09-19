@@ -142,9 +142,9 @@ Use when peer content and actions no longer fit comfortably side by side.
 - page headings, bibliographic rows, Primary Goal summary, Journey controls, and
   sticky scope summaries stack vertically;
 - book identity remains before relationship, evidence, and action;
-- Journey move controls remain adjacent to their book, and side-by-side route
-  alternatives become two complete stacked lists;
-- vocabulary-study form actions become full width;
+- Journey move controls remain adjacent to their book, and labeled forecast
+  values stack in document order;
+- Goal and completion form actions become full width;
 - floated secondary actions return to document flow;
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.
@@ -199,11 +199,11 @@ scrollable data table must label and contain its own overflow.
   what the learner ought to read.
 - Reading Journey has one learner-controlled order, later books are provisional,
   and no Journey completion/progress model is shown.
-- A vocabulary-efficient alternative is optional comparative evidence over the
-  same learner-selected books. Manual order changes receive neutral
-  recalculation, not warning or correction.
-- Current knowledge, conditional projection, reading completion, preparation,
-  and vocabulary transition remain visibly distinct.
+- The learner's order is the only active order. Current, after-Goal, and
+  on-arrival coverage explain its modeled consequences; manual order changes
+  receive neutral recalculation, not warning or correction.
+- Modeled Known vocabulary, Reserved vocabulary, conditional forecast, reading
+  completion, preparation, and artifact state remain visibly distinct.
 - Operational analysis status and the Journey entry's single current analysis are
   separate surfaces. Run-specific result URLs redirect to the Journey entry for
   members or return 404 otherwise; deck preparation follows its retained
@@ -240,11 +240,11 @@ The first rollout is complete and preserved as history in
 frozen My Books / Reading Journey / Primary Goal architecture.
 
 Current implementation adoption covers My Books (`/library`), Journey entry and
-scope review, Reading Journey (`/journey`), per-Book vocabulary-study history,
-analysis jobs, and known-vocabulary management. The shipped
-patterns preserve bibliographic book identity, the one Primary Goal, a fluid
-Journey order, route comparison, explicit evidence deltas, and the Where next?
-outcome. Do not disguise those contracts as mere component renames.
+scope review, Reading Journey (`/journey`), Goal snapshot and artifact context,
+analysis jobs, and known-vocabulary management. The shipped patterns preserve
+bibliographic book identity, the one Primary Goal per language, a fluid Journey
+order, explicit forecast stages, evidence deltas, and the Where next? outcome.
+Do not disguise those contracts as mere component renames.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,

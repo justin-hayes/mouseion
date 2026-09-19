@@ -51,9 +51,8 @@ and surface a material conflict rather than silently choosing one.
   the core current-analysis-to-deck lifecycle, including explicit refresh and
   Reading Journey's ensure-once analysis trigger.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — the
-  learner-facing Reading Journey and Primary Goal workflow, with explicit
-  boundaries around the retired Campaign contract and current Book vocabulary
-  study.
+  learner-facing Reading Journey and Primary Goal workflow, with Goal-owned
+  vocabulary snapshots and sequential on-arrival forecast semantics.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
   — study-language ownership, capability degradation, and vocabulary import.
 

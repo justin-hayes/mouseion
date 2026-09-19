@@ -25,8 +25,9 @@ coverage claim.
 
 The frequency floor is applied at deck-pool time over persisted occurrence
 counts. It changes no analysis-time filters: proper names, the POS allowlist,
-known/generated/active-campaign exclusions (ADR 0019), and the sentence quality
-gates are unchanged. Cards remain ordered by first encounter in the text.
+Known and active Goal-derived Reserved eligibility (ADR 0072), and the sentence
+quality gates are unchanged. Generated history is provenance, not an exclusion.
+Cards remain ordered by first encounter in the text.
 
 ## Rationale
 
@@ -65,4 +66,5 @@ gates are unchanged. Cards remain ordered by first encounter in the text.
 
 - [ADR 0017: Replace frequency-based ranking with coverage-based selection](0017-coverage-based-selection.md)
 - [ADR 0025: Analysis coverage and threshold metric contract](0025-analysis-coverage-threshold-metrics.md)
+- [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](0072-goal-owned-vocabulary-and-journey-forecast.md)
 - [Terminology](../design/terminology.md)

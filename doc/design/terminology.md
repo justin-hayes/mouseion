@@ -4,9 +4,11 @@ Status: **Canonical learner-facing design language.** Analysis terms follow the
 shipped one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent trigger in
-[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Terms that remain
-historical or internal are identified explicitly; they must not become active
-learner-facing navigation or plan labels.
+[ADR 0049](../adr/0049-reading-intent-triggers-analysis.md). Goal-owned
+vocabulary and Journey forecast terms follow
+[ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md). Terms that
+remain historical or internal are identified explicitly; they must not become
+active learner-facing navigation or plan labels.
 
 Use these terms consistently in navigation, headings, actions, status messages,
 future feature documents, and tests. Backend names may remain in code, APIs,
@@ -18,8 +20,8 @@ language without a product reason.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
-| **Reading Journey** | A fluid, provisional order of learner-selected books they currently imagine reading. Membership and later order are reversible; adding a book expresses reading intent and automatically acquires and analyzes it (ensure-once) so it can be weighed against other candidates. | Learning queue, backlog, curriculum, plan, roadmap |
-| **Primary Goal** | The one book the learner currently intends to finish, when one exists. It is embedded in Reading Journey, not a separate destination, and is a promotion of an analyzed Journey member. | Active campaign, target destination, current project |
+| **Reading Journey** | A fluid, provisional order of learner-selected books they currently imagine reading. Membership and later order are reversible; adding a book expresses reading intent and automatically acquires and analyzes it (ensure-once) so its current and on-arrival coverage can be understood. | Learning queue, backlog, curriculum, plan, roadmap |
+| **Primary Goal** | The one book the learner currently intends to finish, when one exists. It is embedded in Reading Journey, owns one frozen vocabulary snapshot for its study language, and is a promotion of an analyzed Journey member. | Active campaign, target destination, current project |
 | **Where next?** | The choice after a Primary Goal is finished or when no Goal exists. It invites selection or reconsideration without urgency or automatic advancement. | Start next, continue plan, complete Journey |
 
 Only the Primary Goal carries commitment. Reading Journey membership carries
@@ -81,10 +83,11 @@ page.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Your order** | The learner's current, canonical order of books in Reading Journey. | Manual preference, assigned order |
-| **Vocabulary-efficient alternative** | An optional order of the same learner-selected books, optimized only for an explicitly stated lexical property and assumptions. | Best route, optimal Journey, recommended order |
-| **Modeled additional vocabulary identities** | Exact lemma-identity preparation counts under named threshold, scope, sequence, and transition assumptions. | Total coverage mapped, effort score, cost without a unit |
+| **On-arrival coverage** | Coverage modeled from current Known vocabulary, the active Goal snapshot, and trustworthy recurring-vocabulary identities contributed by earlier Books in the learner's own order. | Best route, optimal Journey, recommended order |
+| **Lower-bound forecast** | An on-arrival value calculated without an unavailable or untrustworthy earlier contribution; it is a useful floor, not a complete prediction. | Zero coverage, exact forecast |
+| **Modeled additional vocabulary identities** | Exact lemma-identity preparation counts under a named scope and transition assumption, retained for individual analysis evidence rather than Journey route ranking. | Total coverage mapped, effort score, cost without a unit |
 | **Move earlier / Move later** | Visible keyboard-operable controls for reordering. Drag may supplement them. | Fix order, improve route |
-| **Choose as Primary Goal** | Promote one analyzed Reading Journey member to the current commitment, from the Reading Journey screen. Requires a successfully completed current analysis and does not start analysis. | Begin optimal text, promote milestone |
+| **Choose as Primary Goal** | Promote one analyzed Reading Journey member to the current commitment, from the Reading Journey screen. Requires a successfully completed current analysis, freezes its recurring-vocabulary snapshot, and does not start analysis. | Begin optimal text, promote milestone |
 | **Add to Reading Journey** | Express reading intent for a book: include it in the provisional sequence and automatically acquire and analyze it (ensure-once) so it can be weighed against other candidates. | Queue for learning, schedule book |
 | **Remove from Reading Journey** | Remove provisional membership without deleting the book from My Books. | Delete book, abandon campaign |
 
@@ -101,28 +104,32 @@ Journey by …** Never style a preference change as an error or warning.
 | **Reading finished** | The learner has recorded finishing the book. This does not imply vocabulary knowledge. | Completed when the completed fact is unclear |
 | **Vocabulary work in progress** | Preparation or review activity remains incomplete. | Nearly mastered |
 | **Vocabulary work complete** | The product's accepted review condition has been recorded; any resulting knowledge transition must still be stated explicitly. | Mastered |
-| **Known vocabulary** | Lemmas explicitly imported/marked known or graduated through an accepted transition. | Generated vocabulary, mastered vocabulary |
-| **Reserved vocabulary** | Lemmas reserved by an unfinished Book vocabulary study but not counted as known. | Known, learned |
-| **Generated vocabulary** | Immutable provenance that a lemma was assigned to a deck. | Known vocabulary |
+| **Known vocabulary** | Modeled learner knowledge: lemmas explicitly imported or accepted when a Primary Goal is completed. It does not claim verified mastery. | Generated vocabulary, mastered vocabulary |
+| **Reserved vocabulary** | Lemmas in the immutable snapshot owned by the active Primary Goal, excluded from selection in that study language but not counted as Known. | Known, learned, studied vocabulary |
+| **Goal vocabulary snapshot** | The exact recurring-vocabulary identity set frozen from the Goal's current analysis, with analysis, source, and selection provenance. | Deck contents, generated vocabulary |
+| **Generated vocabulary** | Immutable provenance that an identity was assigned to a prepared deck; it is neither Known nor Reserved and is not a later selection exclusion. | Known vocabulary, reserved vocabulary |
 | **Graduated vocabulary** | Vocabulary promoted to known through the accepted consequential transition. | Automatically mastered |
-| **Unknown vocabulary** | Eligible analyzed lemmas not currently known or reserved by an unfinished Book vocabulary study. | Difficult words |
+| **Unknown vocabulary** | Eligible analyzed lemmas not currently Known or Reserved by an active Primary Goal in that study language. | Difficult words |
 | **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed book; the pool a prepared deck selects, labeled **Deck vocabulary** in preparation. | Rare words, difficult words |
 
 Do not use **mastered** as a synonym for generated, assigned, exported, merely
 reviewed, or encountered while reading. Reading history, preparation state,
 and vocabulary knowledge remain independent facts.
 
-ADR 0036 supersedes the learner-facing completion and graduation semantics of
-ADR 0027. The canonical experience presents reading-finished and deck-reviewed
-as independent facts, and only the justified transition graduates vocabulary.
-Do not imply that **Reading finished** alone changes known vocabulary.
+ADR 0072 supersedes the conflicting learner-facing completion and graduation
+semantics of ADRs 0036 and 0053. Completing a Primary Goal records durable
+reading completion and accepts its frozen snapshot into modeled Known vocabulary
+as one idempotent transition. Deck readiness or review is not required, and the
+interface must not imply verified mastery.
 
 ## Coverage and projection
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Current coverage** | Coverage from current known vocabulary under the accepted metric contract. | Reading level |
-| **Projected coverage** | A clearly labeled hypothetical result after a named vocabulary transition. | Coverage when the condition is omitted |
+| **Current coverage** | Coverage from current Known vocabulary under the accepted metric contract. | Reading level |
+| **After-Goal coverage** | Coverage after adding the active Goal's Reserved snapshot to current Known vocabulary; with no Goal it equals current coverage. | Coverage when the condition is omitted |
+| **On-arrival coverage** | Coverage from the vocabulary modeled as available when the learner reaches a Book in their chosen order. | Recommended route, guaranteed outcome |
+| **Projected coverage** | A clearly labeled hypothetical result after a named vocabulary transition; on-arrival coverage is the Journey-specific form. | Coverage when the condition is omitted |
 | **Coverage threshold** | A planning marker derived from token-weighted coverage, such as 95%, 97%, or 99%. | Difficulty score, readiness rank |
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |
@@ -131,8 +138,9 @@ Do not imply that **Reading finished** alone changes known vocabulary.
 Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
 a literary judgment or claim that the learner can or cannot read a book.
-Prepared decks select recurring vocabulary and make no coverage claim; coverage
-thresholds remain whole-book planning markers.
+Prepared decks and Goal snapshots select recurring vocabulary and make no
+coverage claim; coverage thresholds remain whole-book planning markers on the
+individual Journey entry, not Journey ordering inputs.
 
 **Language view** and **language corpus view** were the names used for the panel
 proposed by [ADR 0042](../adr/0042-derived-language-corpus-view.md). That panel is

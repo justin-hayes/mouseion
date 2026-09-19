@@ -62,7 +62,7 @@ to finish one of them. A single mixed pool contradicts that.
 
 - [ADR 0034: One implicit Reading Journey with learner-canonical ordering and campaign-queue migration](0034-reading-journey-identity-ordering.md)
 - [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](0036-primary-goal-justified-graduation.md)
-- [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](0037-cross-book-projection-advisory-ordering.md)
+- [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](0072-goal-owned-vocabulary-and-journey-forecast.md)
 - [ADR 0049: Reading intent triggers analysis](0049-reading-intent-triggers-analysis.md)
 - [ADR 0050: The app works in one active study language at a time](0050-active-study-language.md)
 - [Feature: Language Mode](../features/language-mode.md)

@@ -50,9 +50,9 @@ the new language on language-scoped screens and updates the stored mode
 elsewhere; it never auto-switches on navigation or sync.
 
 The shipped application routes `/` to `/library` and serves Reading Journey at
-`/journey`. The Journey entry at `/journey/{bookID}` owns the current Book
-vocabulary-study state and its per-Book study history; no parallel learner-facing
-queue, campaign, or plan is exposed.
+`/journey`. The Journey entry at `/journey/{bookID}` owns current analysis and
+Goal snapshot context; historical deck and campaign records remain supporting
+provenance. No parallel learner-facing queue, campaign, or plan is exposed.
 
 ## Authentication
 
@@ -114,28 +114,29 @@ metadata refresh never invalidates or re-triggers analysis.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Reading Journey | Shipped `GET /journey` | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current or conditional preparation evidence — all for the active study language's Journey. | Primary Goal/book context, route comparison, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unassessed/incomparable book, acquisition unavailable, recalculating, recalculation failure, stale evidence, long content, narrow viewport |
-| Route comparison and reorder preview | Embedded in Reading Journey | Compare **Your order** with an optional **Vocabulary-efficient alternative**, keep or adopt either, or make a manual change, within the active language's Journey. | Updated Reading Journey | No comparable evidence, partial comparison, alternative available, manual preview, adopted change, neutral recalculation, failed recalculation |
-| Primary Goal outcome / Where next? | Embedded shipped transitional state in Reading Journey | Understand what finishing the book actually changed and choose whether or where to commit next, for the active language's Goal. | Choose as Primary Goal, reorder, My Books, continue vocabulary work, or no new Goal | Reading finished plus justified vocabulary transition, reading finished while vocabulary work remains, changed books, unchanged current evidence, no remaining Journey book, no next choice; one Goal per language, other languages' Goals unaffected |
-| Book vocabulary-study history | Secondary section on the Journey entry at `/journey/{bookID}` | Review prior vocabulary studies for the Book while preserving each prepared deck's provenance. | Book or Journey context | Empty history, studying, reviewed, released, unavailable artifact |
+| Reading Journey | Shipped `GET /journey` | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current, after-Goal, and on-arrival evidence for the active language. | Primary Goal/book context, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unavailable evidence, recalculating, recalculation failure, stale evidence, lower-bound forecast, long content, narrow viewport |
+| Journey forecast and reorder preview | Embedded in Reading Journey | See the three labeled coverage meanings in **Your order** and make a manual change within the active language's Journey. | Updated Reading Journey | No Goal, active Goal snapshot, unavailable predecessor, lower-bound forecast, neutral recalculation, failed recalculation |
+| Primary Goal outcome / Where next? | Embedded shipped transitional state in Reading Journey | Understand the exact modeled vocabulary and reading changes from completing the Goal, then choose whether or where to commit next. | Choose as Primary Goal, reorder, My Books, or no new Goal | Goal completion with non-empty or empty snapshot, changed forecasts, lower-bound evidence, no remaining Journey book, no next choice; one Goal per language, other languages' Goals unaffected |
+| Historical artifact context | Supporting section on the Journey entry at `/journey/{bookID}` | Inspect prepared-deck and legacy provenance without creating a separate learner workflow. | Book or Journey context | Empty history, preparing, ready, failed artifact, historical provenance |
 
 The Reading Journey is an ordered semantic list. The Primary Goal is anchored
-above the provisional books. The learner's order remains canonical. A
-vocabulary-efficient alternative contains only learner-selected books and is
-clearly conditional evidence, never a recommendation about what to read.
+above the provisional books. The learner's order remains canonical. Current,
+after-Goal, and on-arrival coverage are clearly labeled evidence; unavailable
+predecessors make downstream values lower bounds rather than fabricated zeros.
 
 Visible **Move earlier** and **Move later** controls are required. Drag may
 enhance them. Reordering retains focus, announces the new position, and reports
-recalculation in a scoped live region. On narrow screens, alternatives stack
-without changing order or hiding authors and evidence labels.
+forecast recalculation in a scoped live region. On narrow screens, labeled
+forecast values stack without changing order or hiding authors and evidence.
 
 ### Goal outcome semantics
 
-When reading is finished:
+When the Primary Goal is completed:
 
 1. acknowledge **Reading finished** and end the book's current Primary Goal role;
-2. state the justified vocabulary transition or that vocabulary work remains;
-3. recalculate later books only from actual known vocabulary;
+2. state the exact number of frozen snapshot identities added to modeled Known
+   vocabulary, including zero for an empty snapshot;
+3. recalculate later forecasts from actual modeled state;
 4. show precise changed or unchanged evidence;
 5. ask **Where next?** without creating another Goal.
 

@@ -52,7 +52,11 @@ Candidate **selection** (a word becomes a candidate if it meets *at least one* o
 - belongs to an active priority list (including learner-defined lists), **or**
 - is above a global-frequency percentile cutoff (v1 default: top 5%) from the admin-loaded DWDS dataset.
 
-Candidates are filtered before ranking: exclude **known** and **ignored** vocabulary and previously **generated** items (per ADR 0002 per-user state). Default to **content words** (noun, verb, adjective, adverb); exclude **proper nouns** (UPOS `PROPN`/NER) and **function words**, both togglable.
+Candidates are filtered before ranking: exclude **Known** and, for the active
+study language, **Reserved** vocabulary. Previously **generated** items remain
+provenance rather than an exclusion under [ADR 0072](0072-goal-owned-vocabulary-and-journey-forecast.md).
+Default to **content words** (noun, verb, adjective, adverb); exclude **proper
+nouns** (UPOS `PROPN`/NER) and **function words**, both togglable.
 
 **Ranking score** — a deterministic weighted blend weighted toward *global* frequency:
 
