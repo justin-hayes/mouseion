@@ -1725,6 +1725,15 @@ func (q *Queries) PutVocabularyState(ctx context.Context, arg PutVocabularyState
 
 const reservedVocabularyExists = `-- name: ReservedVocabularyExists :one
 SELECT EXISTS(
+  SELECT 1
+  FROM primary_goal_snapshots ps
+  JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
+  JOIN primary_goal_snapshot_vocabulary pv
+    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
+  WHERE ps.owner_id = $1 AND ps.language = $2
+    AND ps.released_at IS NULL AND pv.language = $2
+    AND pv.canonical_lemma = $3 AND pv.upos = $4
+  UNION ALL
   SELECT 1 FROM deck_preparation_vocabulary dv
   JOIN deck_preparations p ON p.owner_id = dv.owner_id AND p.id = dv.deck_preparation_id
   WHERE dv.owner_id = $1 AND dv.language = $2 AND dv.canonical_lemma = $3 AND dv.upos = $4

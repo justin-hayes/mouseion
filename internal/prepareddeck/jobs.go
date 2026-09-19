@@ -13,7 +13,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -122,6 +124,16 @@ func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *rive
 // River job in one transaction. The analysis run and content hash in the job
 // freeze the immutable input used by all retries.
 func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent bool) (result Handle, err error) {
+	return s.submit(ctx, owner, analysisID, consent, "")
+}
+
+// SubmitForGoal starts a fresh local preparation so an existing ready deck
+// cannot bypass the Goal's newly frozen snapshot.
+func (s *Service) SubmitForGoal(ctx context.Context, owner, analysisID, snapshotID string) (result Handle, err error) {
+	return s.submit(ctx, owner, analysisID, false, snapshotID)
+}
+
+func (s *Service) submit(ctx context.Context, owner, analysisID string, consent bool, goalSnapshotID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -137,7 +149,19 @@ func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent 
 	source := analysis.Source
 	deckName := cardexport.DeckName(source.Language, source.Title)
 	filename := cardexport.DownloadFilename(source.Title)
-	p, created, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
+	if goalSnapshotID != "" {
+		bookID, bookErr := sqlcBookForSource(ctx, tx, owner, source.ID)
+		if bookErr != nil {
+			return Handle{}, bookErr
+		}
+		if bookID == "" {
+			return Handle{}, ErrAnalysisUnavailable
+		}
+		if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
+			return Handle{}, err
+		}
+	}
+	p, created, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, GoalSnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
 	if err != nil {
 		return Handle{}, err
 	}
@@ -159,6 +183,22 @@ func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent 
 		return Handle{}, err
 	}
 	return Handle{Preparation: p, JobID: jobID}, nil
+}
+
+func sqlcBookForSource(ctx context.Context, tx pgx.Tx, owner, sourceMaterialID string) (string, error) {
+	bookID, err := sqlcgen.New(tx).GetSourceMaterialBookForUpdate(ctx, sqlcgen.GetSourceMaterialBookForUpdateParams{OwnerID: owner, ID: sourceMaterialID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", persistence.ErrNotFound
+	}
+	return bookID, err
+}
+
+func sqlcRetireDeckPreparationsForBook(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
+	parsed, err := uuid.Parse(bookID)
+	if err != nil {
+		return fmt.Errorf("invalid Goal book identity: %w", err)
+	}
+	return sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: owner, Book: pgtype.UUID{Bytes: parsed, Valid: true}})
 }
 
 type completedAnalysis struct {

@@ -23,11 +23,16 @@ const (
 // Analysis, deck preparation, reading progress, and vocabulary work are
 // independent of the Goal and may not exist yet.
 type PrimaryGoal struct {
-	OwnerID   string
-	Language  string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	OwnerID, Language, BookID string
+	SnapshotID                string
+	SourceMaterialID          string
+	AnalysisRunID             string
+	ContentRevisionID         string
+	ContentSnapshotID         string
+	CorpusID                  string
+	SnapshotSize              int
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 // IsActive reports whether this row represents the owner's current commitment.

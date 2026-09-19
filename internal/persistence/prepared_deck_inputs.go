@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -25,11 +26,13 @@ type PreparedDeckCandidateFacts struct {
 // prepared-deck planner. Vocabulary slices are intentionally unclassified;
 // the planner owns recurring-vocabulary selection and exclusion.
 type PreparedDeckInputFacts struct {
-	DeckName   string
-	Candidates []domain.SelectionCandidate
-	Known      []domain.KnownVocabulary
-	Generated  []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
-	Reserved   []domain.DeckPreparationVocabulary
+	DeckName           string
+	Candidates         []domain.SelectionCandidate
+	GoalSnapshotActive bool
+	GoalSnapshot       []domain.SelectionCandidate
+	Known              []domain.KnownVocabulary
+	Generated          []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
+	Reserved           []domain.DeckPreparationVocabulary
 }
 
 // LoadPreparedDeckInputFactsTx reads candidate and vocabulary facts through
@@ -50,6 +53,15 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		languages[canonicalization.NormalizeLanguage(candidate.Language)] = struct{}{}
 	}
 	result := PreparedDeckInputFacts{DeckName: deckName, Candidates: candidates}
+	if snapshot, snapshotErr := q.GetActivePrimaryGoalSnapshotForPreparation(ctx, sqlcgen.GetActivePrimaryGoalSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
+		result.GoalSnapshotActive = true
+		result.GoalSnapshot, snapshotErr = listPrimaryGoalSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
+		if snapshotErr != nil {
+			return PreparedDeckInputFacts{}, snapshotErr
+		}
+	} else if !errors.Is(snapshotErr, pgx.ErrNoRows) {
+		return PreparedDeckInputFacts{}, snapshotErr
+	}
 	for language := range languages {
 		known, knownErr := listKnownVocabulary(ctx, tx, preparation.OwnerID, language)
 		if knownErr != nil {
@@ -203,7 +215,11 @@ func listReservedVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language
 	}
 	result := make([]domain.DeckPreparationVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, deckPreparationVocabularyFromModel(row))
+		result = append(result, domain.DeckPreparationVocabulary{
+			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
+			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
+		})
 	}
 	return result, nil
 }

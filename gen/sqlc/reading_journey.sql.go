@@ -8,6 +8,8 @@ package sqlc
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bookExists = `-- name: BookExists :one
@@ -50,27 +52,34 @@ func (q *Queries) BumpReadingJourneyRevision(ctx context.Context, arg BumpReadin
 
 const changePrimaryGoalBook = `-- name: ChangePrimaryGoalBook :one
 UPDATE primary_goals
-SET book_id = $1, updated_at = now()
-WHERE owner_id = $2 AND language = $3
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at
+SET book_id = $1, snapshot_id = $2, updated_at = now()
+WHERE owner_id = $3 AND language = $4
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at, snapshot_id::text
 `
 
 type ChangePrimaryGoalBookParams struct {
 	Book     string
+	Snapshot pgtype.UUID
 	Owner    string
 	Language string
 }
 
 type ChangePrimaryGoalBookRow struct {
-	OwnerID   string
-	Language  string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	OwnerID    string
+	Language   string
+	BookID     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	SnapshotID string
 }
 
 func (q *Queries) ChangePrimaryGoalBook(ctx context.Context, arg ChangePrimaryGoalBookParams) (ChangePrimaryGoalBookRow, error) {
-	row := q.db.QueryRow(ctx, changePrimaryGoalBook, arg.Book, arg.Owner, arg.Language)
+	row := q.db.QueryRow(ctx, changePrimaryGoalBook,
+		arg.Book,
+		arg.Snapshot,
+		arg.Owner,
+		arg.Language,
+	)
 	var i ChangePrimaryGoalBookRow
 	err := row.Scan(
 		&i.OwnerID,
@@ -78,6 +87,74 @@ func (q *Queries) ChangePrimaryGoalBook(ctx context.Context, arg ChangePrimaryGo
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SnapshotID,
+	)
+	return i, err
+}
+
+const createPrimaryGoalSnapshot = `-- name: CreatePrimaryGoalSnapshot :one
+INSERT INTO primary_goal_snapshots(
+    owner_id, language, book_id, source_material_id, analysis_run_id,
+    content_revision_id, content_snapshot_id, corpus_id
+)
+VALUES ($1, $2, $3,
+        $4, $5,
+        $6, $7, $8)
+RETURNING id::text, owner_id::text, language, book_id::text,
+          source_material_id::text, analysis_run_id::text,
+          content_revision_id::text, content_snapshot_id::text, corpus_id::text,
+          created_at, released_at
+`
+
+type CreatePrimaryGoalSnapshotParams struct {
+	Owner           string
+	Language        string
+	Book            string
+	SourceMaterial  string
+	AnalysisRun     string
+	ContentRevision string
+	ContentSnapshot string
+	Corpus          string
+}
+
+type CreatePrimaryGoalSnapshotRow struct {
+	ID                string
+	OwnerID           string
+	Language          string
+	BookID            string
+	SourceMaterialID  string
+	AnalysisRunID     string
+	ContentRevisionID string
+	ContentSnapshotID string
+	CorpusID          string
+	CreatedAt         time.Time
+	ReleasedAt        pgtype.Timestamptz
+}
+
+func (q *Queries) CreatePrimaryGoalSnapshot(ctx context.Context, arg CreatePrimaryGoalSnapshotParams) (CreatePrimaryGoalSnapshotRow, error) {
+	row := q.db.QueryRow(ctx, createPrimaryGoalSnapshot,
+		arg.Owner,
+		arg.Language,
+		arg.Book,
+		arg.SourceMaterial,
+		arg.AnalysisRun,
+		arg.ContentRevision,
+		arg.ContentSnapshot,
+		arg.Corpus,
+	)
+	var i CreatePrimaryGoalSnapshotRow
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.SourceMaterialID,
+		&i.AnalysisRunID,
+		&i.ContentRevisionID,
+		&i.ContentSnapshotID,
+		&i.CorpusID,
+		&i.CreatedAt,
+		&i.ReleasedAt,
 	)
 	return i, err
 }
@@ -195,6 +272,56 @@ func (q *Queries) DerivedJourneyBooksExist(ctx context.Context, arg DerivedJourn
 	return exists, err
 }
 
+const getActivePrimaryGoalSnapshotForPreparation = `-- name: GetActivePrimaryGoalSnapshotForPreparation :one
+SELECT s.id::text, s.owner_id::text, s.language, s.book_id::text,
+       s.source_material_id::text, s.analysis_run_id::text,
+       s.content_revision_id::text, s.content_snapshot_id::text, s.corpus_id::text,
+       s.created_at, s.released_at
+FROM primary_goal_snapshots s
+JOIN deck_preparations p ON p.owner_id = s.owner_id AND p.goal_snapshot_id = s.id
+WHERE p.owner_id = $1 AND p.id = $2
+  AND p.source_material_id = s.source_material_id
+  AND p.analysis_run_id = s.analysis_run_id
+`
+
+type GetActivePrimaryGoalSnapshotForPreparationParams struct {
+	Owner       string
+	Preparation string
+}
+
+type GetActivePrimaryGoalSnapshotForPreparationRow struct {
+	SID                string
+	SOwnerID           string
+	Language           string
+	SBookID            string
+	SSourceMaterialID  string
+	SAnalysisRunID     string
+	SContentRevisionID string
+	SContentSnapshotID string
+	SCorpusID          string
+	CreatedAt          time.Time
+	ReleasedAt         pgtype.Timestamptz
+}
+
+func (q *Queries) GetActivePrimaryGoalSnapshotForPreparation(ctx context.Context, arg GetActivePrimaryGoalSnapshotForPreparationParams) (GetActivePrimaryGoalSnapshotForPreparationRow, error) {
+	row := q.db.QueryRow(ctx, getActivePrimaryGoalSnapshotForPreparation, arg.Owner, arg.Preparation)
+	var i GetActivePrimaryGoalSnapshotForPreparationRow
+	err := row.Scan(
+		&i.SID,
+		&i.SOwnerID,
+		&i.Language,
+		&i.SBookID,
+		&i.SSourceMaterialID,
+		&i.SAnalysisRunID,
+		&i.SContentRevisionID,
+		&i.SContentSnapshotID,
+		&i.SCorpusID,
+		&i.CreatedAt,
+		&i.ReleasedAt,
+	)
+	return i, err
+}
+
 const getBookLanguageState = `-- name: GetBookLanguageState :one
 SELECT language_state, COALESCE(language_tag, '') AS language_tag
 FROM books
@@ -219,9 +346,16 @@ func (q *Queries) GetBookLanguageState(ctx context.Context, arg GetBookLanguageS
 }
 
 const getPrimaryGoal = `-- name: GetPrimaryGoal :one
-SELECT owner_id::text, language, book_id::text, created_at, updated_at
-FROM primary_goals
-WHERE owner_id = $1 AND language = $2
+SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
+       COALESCE(s.id::text, '')::text AS snapshot_id,
+       COALESCE(s.source_material_id::text, '')::text AS source_material_id,
+       COALESCE(s.analysis_run_id::text, '')::text AS analysis_run_id,
+       COALESCE(s.content_revision_id::text, '')::text AS content_revision_id,
+       COALESCE(s.content_snapshot_id::text, '')::text AS content_snapshot_id,
+       COALESCE(s.corpus_id::text, '')::text AS corpus_id
+FROM primary_goals g
+LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snapshot_id
+WHERE g.owner_id = $1 AND g.language = $2
 `
 
 type GetPrimaryGoalParams struct {
@@ -230,22 +364,34 @@ type GetPrimaryGoalParams struct {
 }
 
 type GetPrimaryGoalRow struct {
-	OwnerID   string
-	Language  string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	GOwnerID          string
+	Language          string
+	GBookID           string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	SnapshotID        string
+	SourceMaterialID  string
+	AnalysisRunID     string
+	ContentRevisionID string
+	ContentSnapshotID string
+	CorpusID          string
 }
 
 func (q *Queries) GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error) {
 	row := q.db.QueryRow(ctx, getPrimaryGoal, arg.Owner, arg.Language)
 	var i GetPrimaryGoalRow
 	err := row.Scan(
-		&i.OwnerID,
+		&i.GOwnerID,
 		&i.Language,
-		&i.BookID,
+		&i.GBookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SnapshotID,
+		&i.SourceMaterialID,
+		&i.AnalysisRunID,
+		&i.ContentRevisionID,
+		&i.ContentSnapshotID,
+		&i.CorpusID,
 	)
 	return i, err
 }
@@ -268,11 +414,68 @@ func (q *Queries) GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBo
 	return book_id, err
 }
 
+const getPrimaryGoalCandidateIdentity = `-- name: GetPrimaryGoalCandidateIdentity :one
+SELECT ca.source_material_id::text, ca.analysis_run_id::text,
+       ca.content_revision_id::text, ca.snapshot_id::text, ca.corpus_id::text
+FROM reading_journey_membership jm
+JOIN books b ON b.owner_id = jm.owner_id AND b.id = jm.book_id
+JOIN source_materials s ON s.owner_id = jm.owner_id AND s.book_id = jm.book_id
+JOIN current_analysis_identity ca
+  ON ca.owner_id = jm.owner_id AND ca.book_id = jm.book_id
+ AND ca.source_material_id = s.id
+WHERE jm.owner_id = $1
+  AND jm.language = $2
+  AND jm.book_id = $3
+  AND b.language_state = 'chosen'
+  AND b.language_tag = $2
+  AND lower(s.media_type) = 'application/epub+zip'
+  AND NOT EXISTS (
+    SELECT 1 FROM reading_history h
+    WHERE h.owner_id = jm.owner_id
+      AND h.language = jm.language
+      AND h.book_id = jm.book_id
+  )
+`
+
+type GetPrimaryGoalCandidateIdentityParams struct {
+	Owner    string
+	Language string
+	Book     string
+}
+
+type GetPrimaryGoalCandidateIdentityRow struct {
+	CaSourceMaterialID  string
+	CaAnalysisRunID     string
+	CaContentRevisionID string
+	CaSnapshotID        string
+	CaCorpusID          string
+}
+
+func (q *Queries) GetPrimaryGoalCandidateIdentity(ctx context.Context, arg GetPrimaryGoalCandidateIdentityParams) (GetPrimaryGoalCandidateIdentityRow, error) {
+	row := q.db.QueryRow(ctx, getPrimaryGoalCandidateIdentity, arg.Owner, arg.Language, arg.Book)
+	var i GetPrimaryGoalCandidateIdentityRow
+	err := row.Scan(
+		&i.CaSourceMaterialID,
+		&i.CaAnalysisRunID,
+		&i.CaContentRevisionID,
+		&i.CaSnapshotID,
+		&i.CaCorpusID,
+	)
+	return i, err
+}
+
 const getPrimaryGoalForUpdate = `-- name: GetPrimaryGoalForUpdate :one
-SELECT owner_id::text, language, book_id::text, created_at, updated_at
-FROM primary_goals
-WHERE owner_id = $1 AND language = $2
-FOR UPDATE
+SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
+       COALESCE(s.id::text, '')::text AS snapshot_id,
+       COALESCE(s.source_material_id::text, '')::text AS source_material_id,
+       COALESCE(s.analysis_run_id::text, '')::text AS analysis_run_id,
+       COALESCE(s.content_revision_id::text, '')::text AS content_revision_id,
+       COALESCE(s.content_snapshot_id::text, '')::text AS content_snapshot_id,
+       COALESCE(s.corpus_id::text, '')::text AS corpus_id
+FROM primary_goals g
+LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snapshot_id
+WHERE g.owner_id = $1 AND g.language = $2
+FOR UPDATE OF g
 `
 
 type GetPrimaryGoalForUpdateParams struct {
@@ -281,22 +484,34 @@ type GetPrimaryGoalForUpdateParams struct {
 }
 
 type GetPrimaryGoalForUpdateRow struct {
-	OwnerID   string
-	Language  string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	GOwnerID          string
+	Language          string
+	GBookID           string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	SnapshotID        string
+	SourceMaterialID  string
+	AnalysisRunID     string
+	ContentRevisionID string
+	ContentSnapshotID string
+	CorpusID          string
 }
 
 func (q *Queries) GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error) {
 	row := q.db.QueryRow(ctx, getPrimaryGoalForUpdate, arg.Owner, arg.Language)
 	var i GetPrimaryGoalForUpdateRow
 	err := row.Scan(
-		&i.OwnerID,
+		&i.GOwnerID,
 		&i.Language,
-		&i.BookID,
+		&i.GBookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SnapshotID,
+		&i.SourceMaterialID,
+		&i.AnalysisRunID,
+		&i.ContentRevisionID,
+		&i.ContentSnapshotID,
+		&i.CorpusID,
 	)
 	return i, err
 }
@@ -381,28 +596,35 @@ func (q *Queries) GetReadingJourneyRevisionForUpdate(ctx context.Context, arg Ge
 }
 
 const insertPrimaryGoal = `-- name: InsertPrimaryGoal :one
-INSERT INTO primary_goals(owner_id, language, book_id)
-VALUES ($1, $2, $3)
+INSERT INTO primary_goals(owner_id, language, book_id, snapshot_id)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (owner_id, language) DO NOTHING
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at, snapshot_id::text
 `
 
 type InsertPrimaryGoalParams struct {
 	Owner    string
 	Language string
 	Book     string
+	Snapshot pgtype.UUID
 }
 
 type InsertPrimaryGoalRow struct {
-	OwnerID   string
-	Language  string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	OwnerID    string
+	Language   string
+	BookID     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	SnapshotID string
 }
 
 func (q *Queries) InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error) {
-	row := q.db.QueryRow(ctx, insertPrimaryGoal, arg.Owner, arg.Language, arg.Book)
+	row := q.db.QueryRow(ctx, insertPrimaryGoal,
+		arg.Owner,
+		arg.Language,
+		arg.Book,
+		arg.Snapshot,
+	)
 	var i InsertPrimaryGoalRow
 	err := row.Scan(
 		&i.OwnerID,
@@ -410,8 +632,53 @@ func (q *Queries) InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalPa
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SnapshotID,
 	)
 	return i, err
+}
+
+const insertPrimaryGoalSnapshotVocabulary = `-- name: InsertPrimaryGoalSnapshotVocabulary :exec
+INSERT INTO primary_goal_snapshot_vocabulary(
+    owner_id, snapshot_id, corpus_id, language, canonical_lemma, upos,
+    occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
+)
+VALUES ($1, $2, $3, $4,
+        $5, $6, $7,
+        $8, $9, $10,
+        $11, $12)
+`
+
+type InsertPrimaryGoalSnapshotVocabularyParams struct {
+	Owner                string
+	Snapshot             string
+	Corpus               string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int
+	ObservedForms        []byte
+	EligibleSentenceRefs []byte
+	Provenance           []byte
+	FirstEncounter       int64
+	SelectedAt           time.Time
+}
+
+func (q *Queries) InsertPrimaryGoalSnapshotVocabulary(ctx context.Context, arg InsertPrimaryGoalSnapshotVocabularyParams) error {
+	_, err := q.db.Exec(ctx, insertPrimaryGoalSnapshotVocabulary,
+		arg.Owner,
+		arg.Snapshot,
+		arg.Corpus,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.OccurrenceCount,
+		arg.ObservedForms,
+		arg.EligibleSentenceRefs,
+		arg.Provenance,
+		arg.FirstEncounter,
+		arg.SelectedAt,
+	)
+	return err
 }
 
 const insertReadingCompletion = `-- name: InsertReadingCompletion :one
@@ -497,6 +764,159 @@ func (q *Queries) ListAllReadingJourneyMembersForUpdate(ctx context.Context, arg
 	for rows.Next() {
 		var i ListAllReadingJourneyMembersForUpdateRow
 		if err := rows.Scan(&i.BookID, &i.Position, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPrimaryGoalSnapshotCandidates = `-- name: ListPrimaryGoalSnapshotCandidates :many
+SELECT sc.owner_id::text AS owner_id,
+       sc.corpus_id, sc.language, sc.canonical_lemma, sc.upos,
+       sc.occurrence_count, sc.observed_forms, sc.eligible_sentence_refs,
+       sc.provenance, sc.selected_at,
+       COALESCE(first_seen.start_offset, 9223372036854775807::bigint)::bigint AS first_encounter
+FROM selection_candidates sc
+LEFT JOIN LATERAL (
+  SELECT MIN(COALESCE(ref->'location'->>'start_offset', ref->'location'->>'StartOffset', ref->'Location'->>'StartOffset')::bigint) AS start_offset
+  FROM jsonb_array_elements(sc.eligible_sentence_refs) ref
+) first_seen ON true
+WHERE sc.owner_id = $1
+  AND sc.corpus_id = $2
+  AND sc.language = $3
+  AND sc.occurrence_count >= 3
+  AND NOT EXISTS (
+    SELECT 1 FROM known_vocabulary kv
+    WHERE kv.owner_id = sc.owner_id AND kv.language = sc.language
+      AND kv.canonical_lemma = sc.canonical_lemma
+      AND (kv.upos = sc.upos OR kv.upos = '')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM vocabulary_states vs
+    WHERE vs.owner_id = sc.owner_id AND vs.language = sc.language
+      AND vs.canonical_lemma = sc.canonical_lemma AND vs.upos = sc.upos
+      AND vs.state = 'known'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM primary_goal_snapshots ps
+    JOIN primary_goal_snapshot_vocabulary pv
+      ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
+    WHERE ps.owner_id = sc.owner_id AND ps.released_at IS NULL
+      AND pv.language = sc.language
+      AND pv.canonical_lemma = sc.canonical_lemma
+      AND pv.upos = sc.upos
+  )
+ORDER BY sc.language, sc.canonical_lemma, sc.upos
+`
+
+type ListPrimaryGoalSnapshotCandidatesParams struct {
+	Owner    string
+	Corpus   string
+	Language string
+}
+
+type ListPrimaryGoalSnapshotCandidatesRow struct {
+	OwnerID              string
+	CorpusID             string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int
+	ObservedForms        []byte
+	EligibleSentenceRefs []byte
+	Provenance           []byte
+	SelectedAt           time.Time
+	FirstEncounter       int64
+}
+
+func (q *Queries) ListPrimaryGoalSnapshotCandidates(ctx context.Context, arg ListPrimaryGoalSnapshotCandidatesParams) ([]ListPrimaryGoalSnapshotCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listPrimaryGoalSnapshotCandidates, arg.Owner, arg.Corpus, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPrimaryGoalSnapshotCandidatesRow{}
+	for rows.Next() {
+		var i ListPrimaryGoalSnapshotCandidatesRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.CorpusID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.OccurrenceCount,
+			&i.ObservedForms,
+			&i.EligibleSentenceRefs,
+			&i.Provenance,
+			&i.SelectedAt,
+			&i.FirstEncounter,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPrimaryGoalSnapshotVocabulary = `-- name: ListPrimaryGoalSnapshotVocabulary :many
+SELECT owner_id::text, snapshot_id::text, corpus_id, language, canonical_lemma, upos,
+       occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
+FROM primary_goal_snapshot_vocabulary
+WHERE owner_id = $1 AND snapshot_id = $2
+ORDER BY language, canonical_lemma, upos
+`
+
+type ListPrimaryGoalSnapshotVocabularyParams struct {
+	Owner    string
+	Snapshot string
+}
+
+type ListPrimaryGoalSnapshotVocabularyRow struct {
+	OwnerID              string
+	SnapshotID           string
+	CorpusID             string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int
+	ObservedForms        []byte
+	EligibleSentenceRefs []byte
+	Provenance           []byte
+	FirstEncounter       int64
+	SelectedAt           time.Time
+}
+
+func (q *Queries) ListPrimaryGoalSnapshotVocabulary(ctx context.Context, arg ListPrimaryGoalSnapshotVocabularyParams) ([]ListPrimaryGoalSnapshotVocabularyRow, error) {
+	rows, err := q.db.Query(ctx, listPrimaryGoalSnapshotVocabulary, arg.Owner, arg.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPrimaryGoalSnapshotVocabularyRow{}
+	for rows.Next() {
+		var i ListPrimaryGoalSnapshotVocabularyRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.SnapshotID,
+			&i.CorpusID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.OccurrenceCount,
+			&i.ObservedForms,
+			&i.EligibleSentenceRefs,
+			&i.Provenance,
+			&i.FirstEncounter,
+			&i.SelectedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -650,6 +1070,106 @@ func (q *Queries) ReadingCompletionExists(ctx context.Context, arg ReadingComple
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const releaseDeckStudiesForPrimaryGoalSnapshot = `-- name: ReleaseDeckStudiesForPrimaryGoalSnapshot :exec
+UPDATE deck_preparations p
+SET studying_at = NULL, released_at = COALESCE(p.released_at, now()), updated_at = now()
+FROM primary_goal_snapshots s
+WHERE s.owner_id = $1 AND s.id = $2
+  AND p.owner_id = s.owner_id AND p.book_id = s.book_id
+  AND p.source_material_id = s.source_material_id
+  AND p.analysis_run_id = s.analysis_run_id
+  AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
+  AND EXISTS (
+      SELECT 1 FROM deck_preparation_vocabulary dv
+      WHERE dv.owner_id = p.owner_id AND dv.deck_preparation_id = p.id
+        AND dv.language = s.language AND dv.graduated_at IS NULL
+  )
+`
+
+type ReleaseDeckStudiesForPrimaryGoalSnapshotParams struct {
+	Owner    string
+	Snapshot string
+}
+
+func (q *Queries) ReleaseDeckStudiesForPrimaryGoalSnapshot(ctx context.Context, arg ReleaseDeckStudiesForPrimaryGoalSnapshotParams) error {
+	_, err := q.db.Exec(ctx, releaseDeckStudiesForPrimaryGoalSnapshot, arg.Owner, arg.Snapshot)
+	return err
+}
+
+const releasePrimaryGoalSnapshot = `-- name: ReleasePrimaryGoalSnapshot :exec
+UPDATE primary_goal_snapshots
+SET released_at = COALESCE(released_at, now())
+WHERE owner_id = $1 AND id = $2
+`
+
+type ReleasePrimaryGoalSnapshotParams struct {
+	Owner    string
+	Snapshot string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshot, arg.Owner, arg.Snapshot)
+	return err
+}
+
+const releasePrimaryGoalSnapshotsExceptLanguage = `-- name: ReleasePrimaryGoalSnapshotsExceptLanguage :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = $1 AND g.book_id = $2
+  AND g.language <> $3
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
+`
+
+type ReleasePrimaryGoalSnapshotsExceptLanguageParams struct {
+	Owner    string
+	Book     string
+	Language string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsExceptLanguage, arg.Owner, arg.Book, arg.Language)
+	return err
+}
+
+const releasePrimaryGoalSnapshotsForAllLanguages = `-- name: ReleasePrimaryGoalSnapshotsForAllLanguages :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = $1 AND g.book_id = $2
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
+`
+
+type ReleasePrimaryGoalSnapshotsForAllLanguagesParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshotsForAllLanguages(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForAllLanguagesParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsForAllLanguages, arg.Owner, arg.Book)
+	return err
+}
+
+const releasePrimaryGoalSnapshotsForBook = `-- name: ReleasePrimaryGoalSnapshotsForBook :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = $1 AND g.book_id = $2
+  AND g.language = $3
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
+`
+
+type ReleasePrimaryGoalSnapshotsForBookParams struct {
+	Owner    string
+	Book     string
+	Language string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshotsForBook(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForBookParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsForBook, arg.Owner, arg.Book, arg.Language)
+	return err
 }
 
 const resolveJourneyLinkedBook = `-- name: ResolveJourneyLinkedBook :one

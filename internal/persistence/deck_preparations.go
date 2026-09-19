@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -234,7 +233,11 @@ func (s *PostgresStore) ListDeckPreparationVocabulary(ctx context.Context, owner
 	}
 	result := make([]domain.DeckPreparationVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, deckPreparationVocabularyFromModel(row))
+		result = append(result, domain.DeckPreparationVocabulary{
+			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
+			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
+		})
 	}
 	return result, nil
 }
@@ -251,7 +254,11 @@ func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, langu
 	}
 	result := make([]domain.DeckPreparationVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, deckPreparationVocabularyFromModel(row))
+		result = append(result, domain.DeckPreparationVocabulary{
+			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
+			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
+		})
 	}
 	return result, nil
 }
@@ -308,9 +315,6 @@ func (s *PostgresStore) StartDeckVocabularyStudy(ctx context.Context, owner, pre
 	err = missing(err)
 	updated := deckPreparationFromModel(updatedModel)
 	if err != nil {
-		if isConstraint(err, "deck_preparations_one_studying_per_owner") {
-			return domain.DeckPreparation{}, ErrActiveVocabularyStudy
-		}
 		return domain.DeckPreparation{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -392,11 +396,6 @@ func (s *PostgresStore) ReleaseDeckVocabularyStudy(ctx context.Context, owner, p
 	return updated, nil
 }
 
-func isConstraint(err error, name string) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.ConstraintName == name
-}
-
 // CreateDeckPreparation creates the current preparation for a Book. A new
 // analysis retires the prior current row, while retries of the same analysis
 // return its existing row. Unlinked legacy sources retain their old identity.
@@ -447,7 +446,7 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 		if err = sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
 			return domain.DeckPreparation{}, false, err
 		}
-		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), GoalSnapshot: nullableUUIDArg(p.GoalSnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
 		return deckPreparationFromModel(model), true, err
 	}
 
@@ -465,7 +464,7 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 	if !errors.Is(err, ErrNotFound) {
 		return domain.DeckPreparation{}, false, err
 	}
-	model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+	model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: nullableUUIDArg(p.AnalysisRunID), GoalSnapshot: nullableUUIDArg(p.GoalSnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
 	return deckPreparationFromModel(model), true, err
 }
 

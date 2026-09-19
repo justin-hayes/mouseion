@@ -364,6 +364,9 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 	if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: owner, Language: language, Book: bookID}); err != nil {
 		return 0, err
 	}
+	if err = q.ReleasePrimaryGoalSnapshotsForBook(ctx, sqlcgen.ReleasePrimaryGoalSnapshotsForBookParams{Owner: owner, Language: language, Book: bookID}); err != nil {
+		return 0, err
+	}
 	if err = q.DeletePrimaryGoalForBook(ctx, sqlcgen.DeletePrimaryGoalForBookParams{Owner: owner, Language: language, Book: bookID}); err != nil {
 		return 0, err
 	}

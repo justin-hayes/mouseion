@@ -50,6 +50,7 @@ type Querier interface {
 	// OPDS connection queries. Credential decryption stays in Go; these queries
 	// own the row iteration and RETURNING composition.
 	CreateOpdsConnection(ctx context.Context, arg CreateOpdsConnectionParams) (CreateOpdsConnectionRow, error)
+	CreatePrimaryGoalSnapshot(ctx context.Context, arg CreatePrimaryGoalSnapshotParams) (CreatePrimaryGoalSnapshotRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
@@ -83,6 +84,7 @@ type Querier interface {
 	FinishPreparedDeckBatchSubmission(ctx context.Context, arg FinishPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiveDeckVocabularyStudyParams) (DeckPreparation, error)
+	GetActivePrimaryGoalSnapshotForPreparation(ctx context.Context, arg GetActivePrimaryGoalSnapshotForPreparationParams) (GetActivePrimaryGoalSnapshotForPreparationRow, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
 	GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error)
 	GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) (GetBookByAliasRow, error)
@@ -133,6 +135,7 @@ type Querier interface {
 	GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error)
 	GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error)
 	GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBookIDParams) (string, error)
+	GetPrimaryGoalCandidateIdentity(ctx context.Context, arg GetPrimaryGoalCandidateIdentityParams) (GetPrimaryGoalCandidateIdentityRow, error)
 	GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
 	// Reading Journey and Primary Goal queries. Current analysis eligibility comes
@@ -174,6 +177,7 @@ type Querier interface {
 	InsertPreparedDeckRun(ctx context.Context, arg InsertPreparedDeckRunParams) error
 	InsertPreparedDeckTranslationOutcome(ctx context.Context, arg InsertPreparedDeckTranslationOutcomeParams) error
 	InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error)
+	InsertPrimaryGoalSnapshotVocabulary(ctx context.Context, arg InsertPrimaryGoalSnapshotVocabularyParams) error
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error
 	InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error)
@@ -224,9 +228,11 @@ type Querier interface {
 	ListPreparedDeckRecoveryWork(ctx context.Context, limit int32) ([]ListPreparedDeckRecoveryWorkRow, error)
 	ListPreparedDeckStuckBatches(ctx context.Context, arg ListPreparedDeckStuckBatchesParams) ([]ListPreparedDeckStuckBatchesRow, error)
 	ListPreparedDeckTranslationOutcomes(ctx context.Context, arg ListPreparedDeckTranslationOutcomesParams) ([]DeckPreparationTranslationOutcome, error)
+	ListPrimaryGoalSnapshotCandidates(ctx context.Context, arg ListPrimaryGoalSnapshotCandidatesParams) ([]ListPrimaryGoalSnapshotCandidatesRow, error)
+	ListPrimaryGoalSnapshotVocabulary(ctx context.Context, arg ListPrimaryGoalSnapshotVocabularyParams) ([]ListPrimaryGoalSnapshotVocabularyRow, error)
 	ListReadingJourneyMembers(ctx context.Context, arg ListReadingJourneyMembersParams) ([]ListReadingJourneyMembersRow, error)
 	ListReadingJourneyMembersForUpdate(ctx context.Context, arg ListReadingJourneyMembersForUpdateParams) ([]ListReadingJourneyMembersForUpdateRow, error)
-	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]DeckPreparationVocabulary, error)
+	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
 	ListSelectedSentences(ctx context.Context, arg ListSelectedSentencesParams) ([]ListSelectedSentencesRow, error)
@@ -280,7 +286,12 @@ type Querier interface {
 	RecordGraduatedDeckVocabulary(ctx context.Context, arg RecordGraduatedDeckVocabularyParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
+	ReleaseDeckStudiesForPrimaryGoalSnapshot(ctx context.Context, arg ReleaseDeckStudiesForPrimaryGoalSnapshotParams) error
 	ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDeckVocabularyStudyParams) (DeckPreparation, error)
+	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
+	ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error
+	ReleasePrimaryGoalSnapshotsForAllLanguages(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForAllLanguagesParams) error
+	ReleasePrimaryGoalSnapshotsForBook(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForBookParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	RepairDeckPreparationVocabulary(ctx context.Context, arg RepairDeckPreparationVocabularyParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)

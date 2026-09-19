@@ -1,0 +1,4 @@
+-- This is intentionally a no-op. Snapshot and release history are durable
+-- provenance; do not run a destructive inverse in production. Recovery from a
+-- mistaken migration is by restoring a pre-migration backup and rerunning the
+-- forward migration after the cause is corrected.

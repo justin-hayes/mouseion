@@ -175,8 +175,8 @@ func NewStore() *Store {
 			},
 		},
 		primaryGoals: map[string]domain.PrimaryGoal{
-			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
 		readingHistory:       make(map[string]domain.ReadingCompletion),
 		storedActiveLanguage: &initialActiveLanguage,
@@ -560,16 +560,36 @@ func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) (
 	return result, nil
 }
 
-// reservedDeckVocabularyLocked returns the vocabulary of the owner's studying,
-// not-yet-graduated decks, scoped to one language. Callers hold s.mu.
+// reservedDeckVocabularyLocked returns Goal-owned snapshot vocabulary and keeps
+// the old studying-deck projection for legacy fixture scenarios. Callers hold
+// s.mu.
 func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.DeckPreparationVocabulary {
 	var result []domain.DeckPreparationVocabulary
+	seen := make(map[string]struct{})
+	goal := s.primaryGoals[fixtureGoalKey(owner, language)]
+	if goal.IsActive() && goal.SourceMaterialID != "" {
+		for _, preparation := range s.preps {
+			if preparation.OwnerID != owner || preparation.SourceMaterialID != goal.SourceMaterialID || preparation.AnalysisRunID != goal.AnalysisRunID {
+				continue
+			}
+			for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
+				if item.Language == language {
+					item.GraduatedAt = nil
+					result = append(result, item)
+					seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
+				}
+			}
+		}
+	}
 	for _, preparation := range s.preps {
 		if preparation.OwnerID != owner || preparation.StudyingAt == nil || preparation.GraduatedAt != nil {
 			continue
 		}
 		for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
 			if item.Language == language && item.GraduatedAt == nil {
+				if _, exists := seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS]; exists {
+					continue
+				}
 				result = append(result, item)
 			}
 		}
@@ -611,11 +631,6 @@ func (s *Store) StartDeckVocabularyStudy(_ context.Context, owner, preparationID
 		}
 		if preparation.StudyingAt != nil {
 			return *preparation, nil
-		}
-		for _, other := range s.preps {
-			if other.OwnerID == owner && other.StudyingAt != nil && other.GraduatedAt == nil {
-				return domain.DeckPreparation{}, persistence.ErrActiveVocabularyStudy
-			}
 		}
 		now := time.Now()
 		preparation.StudyingAt, preparation.ReleasedAt = &now, nil
@@ -1088,6 +1103,7 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID str
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}
 	now := time.Now()
+	goal = s.fixtureGoalFromBook(owner, language, bookID, now)
 	goal.CreatedAt, goal.UpdatedAt = now, now
 	s.primaryGoals[key] = goal
 	return goal, nil
@@ -1111,10 +1127,26 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, ex
 	if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}
-	goal.BookID = bookID
+	goal = s.fixtureGoalFromBook(owner, language, bookID, goal.CreatedAt)
 	goal.UpdatedAt = time.Now()
 	s.primaryGoals[key] = goal
 	return goal, nil
+}
+
+func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt time.Time) domain.PrimaryGoal {
+	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID, SnapshotID: "fixture-goal-" + language + "-" + bookID, CreatedAt: createdAt}
+	for _, book := range s.books {
+		if book.Source.OwnerID != owner || s.fixtureBookID(owner, book.Source.ID) != bookID {
+			continue
+		}
+		goal.SourceMaterialID = book.Source.ID
+		goal.AnalysisRunID = book.AnalysisRunID
+		goal.ContentRevisionID = book.Source.ContentRevisionID
+		goal.ContentSnapshotID = book.Source.ContentSnapshotID
+		goal.CorpusID = book.CorpusID
+		break
+	}
+	return goal
 }
 
 func (s *Store) fixturePrimaryGoalEligible(owner, language, bookID string) bool {
