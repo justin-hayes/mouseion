@@ -142,7 +142,7 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 			return nil, fmt.Errorf("get state: %w", err)
 		}
-		if err == nil && (state.State == "known" || state.State == "ignored") {
+		if err == nil && state.State == "known" {
 			continue
 		}
 		known, err := s.store.IsKnownVocabularyIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)

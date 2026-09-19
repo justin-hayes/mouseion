@@ -88,8 +88,8 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	assert.NotEqual(t, localDigest, standardDigest, "external provider identity is part of the frozen plan")
 	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), standardPlan.Config.ExecutionMode)
 	assert.Equal(t, string(domain.PreparedDeckExecutionBatch), batchPlan.Config.ExecutionMode)
-	require.Len(t, localPlan.Projection.Items, 2)
-	require.Len(t, standardPlan.Projection.Items, 2)
+	require.Len(t, localPlan.Projection.Items, 3)
+	require.Len(t, standardPlan.Projection.Items, 3)
 	assert.Nil(t, localPlan.Projection.Items[0].CacheKey)
 	require.NotNil(t, standardPlan.Projection.Items[0].CacheKey)
 	assert.Equal(t, "dictionary-v1", standardPlan.Projection.Items[0].Entry.DictionaryProviderVersion)
@@ -98,9 +98,15 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	assert.Equal(t, standardPlan.Config.Provider, standardPlan.Projection.Items[0].CacheKey.Provider)
 	assert.Equal(t, standardPlan.Config.ProviderVersion, standardPlan.Projection.Items[0].CacheKey.ProviderVersion)
 	assert.Empty(t, standardPlan.Chunks)
-	assert.Len(t, batchPlan.Chunks, 2)
+	assert.Len(t, batchPlan.Chunks, 3)
 	assert.Equal(t, []int{0}, batchPlan.Chunks[0].Ordinals)
 	assert.Equal(t, []int{1}, batchPlan.Chunks[1].Ordinals)
+	assert.Equal(t, []int{2}, batchPlan.Chunks[2].Ordinals)
+	var generatedOtherSource, generatedSameSource string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT first_source_material_id::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='generated-other'`, owner.ID).Scan(&generatedOtherSource))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT first_source_material_id::text FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='generated-same'`, owner.ID).Scan(&generatedSameSource))
+	assert.Equal(t, otherSource.ID, generatedOtherSource, "historical provenance changed")
+	assert.Equal(t, source.ID, generatedSameSource, "historical provenance changed")
 
 	counted := &countingPlanner{planner: local}
 	workers := river.NewWorkers()

@@ -107,7 +107,7 @@ func Migrate(databaseURL string) (err error) {
 func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 func (s *PostgresStore) Close() error                   { s.pool.Close(); return nil }
 
-// PutSelectionCandidate atomically respects current suppression decisions,
+// PutSelectionCandidate atomically respects current learner-state exclusions,
 // creates an initial candidate state, and records corpus-specific provenance.
 // The generated state is legacy bookkeeping; generated_vocabulary is the
 // authoritative generated-history source used by coverage export.
@@ -122,7 +122,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		if err != nil && !stateMissing {
 			return err
 		}
-		if !stateMissing && (state == "known" || state == "ignored") {
+		if !stateMissing && state == "known" {
 			return nil
 		}
 		known, err := q.KnownVocabularyExists(ctx, sqlcgen.KnownVocabularyExistsParams{
