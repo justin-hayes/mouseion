@@ -171,6 +171,15 @@ func (s *Service) forecastEvidence(ctx context.Context, owner, language, bookID 
 	return input, ""
 }
 
+func corpusLanguageMatches(input domain.AnalysisCorpusVocabulary, language string) bool {
+	for _, lemma := range input.Lemmas {
+		if lemma.Language != language {
+			return false
+		}
+	}
+	return true
+}
+
 func forecastCoverage(input domain.AnalysisCorpusVocabulary, known map[selection.Identity]struct{}) *domain.JourneyForecastCoverage {
 	result := &domain.JourneyForecastCoverage{AnalyzableTokenCount: input.Statistics.AnalyzableTokenCount}
 	for _, lemma := range input.Lemmas {

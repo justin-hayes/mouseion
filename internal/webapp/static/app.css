@@ -1112,7 +1112,16 @@ progress {
   display: grid;
   gap: 0;
   min-width: 0;
+  margin: 0;
+  padding-inline-start: var(--mouseion-space-5);
+  list-style-position: outside;
   border-top: 2px solid var(--mouseion-color-text);
+}
+
+.journey-list > li {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .journey-book {
@@ -1177,19 +1186,9 @@ progress {
   box-shadow: none;
 }
 
-.journey-comparison {
-  max-width: var(--mouseion-width-data);
-  margin-top: var(--mouseion-space-7);
-  border-left: 1px solid var(--mouseion-color-border);
-  padding-left: clamp(var(--mouseion-space-4), 4vw, var(--mouseion-space-7));
-}
-
-.journey-comparison > h2 {
-  max-width: 28ch;
-}
-
-.journey-comparison details {
-  margin-top: var(--mouseion-space-5);
+.journey-coverage-note {
+  max-width: var(--mouseion-width-reading);
+  margin-bottom: var(--mouseion-space-6);
   border-block: 1px solid var(--mouseion-color-border);
   padding-block: var(--mouseion-space-4);
 }
@@ -1366,9 +1365,14 @@ progress {
 
   .site-header__navigation {
     display: grid;
-    grid-template-columns: auto auto auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--mouseion-space-1) var(--mouseion-space-2);
     font-size: 0.875rem;
+  }
+
+  .site-nav__link {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .site-header__account {
@@ -1384,6 +1388,9 @@ progress {
 
   .site-header__session button {
     min-height: 44px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .page-header,
@@ -1508,8 +1515,8 @@ progress {
     position: static;
   }
 
-  .journey-comparison {
-    padding-left: var(--mouseion-space-4);
+  .journey-coverage-note {
+    margin-bottom: var(--mouseion-space-5);
   }
 
   .vocabulary-language-picker {

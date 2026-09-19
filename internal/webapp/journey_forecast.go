@@ -31,17 +31,17 @@ func sameForecastCoverage(left, right *domain.JourneyForecastCoverage) bool {
 
 func journeyForecastAfterGoalLabel(entry domain.JourneyForecastEntry) string {
 	if sameForecastCoverage(entry.AfterGoal, entry.Current) {
-		return "same as current (" + journeyForecastCoverageLabel(entry.Current) + ")"
+		return "same as current"
 	}
 	return journeyForecastCoverageLabel(entry.AfterGoal)
 }
 
 func journeyForecastOnArrivalLabel(entry domain.JourneyForecastEntry) string {
 	if sameForecastCoverage(entry.OnArrival, entry.Current) {
-		return "same as current (" + journeyForecastCoverageLabel(entry.Current) + ")"
+		return "same as current"
 	}
 	if sameForecastCoverage(entry.OnArrival, entry.AfterGoal) {
-		return "same as after Goal (" + journeyForecastCoverageLabel(entry.AfterGoal) + ")"
+		return "same as after Goal"
 	}
 	return journeyForecastCoverageLabel(entry.OnArrival)
 }
