@@ -48,12 +48,16 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
 	}
 	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
-	eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
-	for _, candidate := range facts.Candidates {
-		if !eligibility.Allows(candidate, defaultDeckMinOccurrences) {
-			continue
+	if facts.GoalSnapshotActive {
+		selected = append(selected, facts.GoalSnapshot...)
+	} else {
+		eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
+		for _, candidate := range facts.Candidates {
+			if !eligibility.Allows(candidate, defaultDeckMinOccurrences) {
+				continue
+			}
+			selected = append(selected, candidate)
 		}
-		selected = append(selected, candidate)
 	}
 	selectedFacts, err := a.Store.LoadPreparedDeckCandidateFactsTx(ctx, tx, preparation, selected)
 	if err != nil {

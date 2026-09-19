@@ -586,11 +586,41 @@ type OpdsConnection struct {
 }
 
 type PrimaryGoal struct {
-	OwnerID   string
-	BookID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Language  string
+	OwnerID    string
+	BookID     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Language   string
+	SnapshotID pgtype.UUID
+}
+
+type PrimaryGoalSnapshot struct {
+	ID                string
+	OwnerID           string
+	Language          string
+	BookID            string
+	SourceMaterialID  string
+	AnalysisRunID     string
+	ContentRevisionID string
+	ContentSnapshotID string
+	CorpusID          string
+	CreatedAt         time.Time
+	ReleasedAt        pgtype.Timestamptz
+}
+
+type PrimaryGoalSnapshotVocabulary struct {
+	OwnerID              string
+	SnapshotID           string
+	CorpusID             string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	OccurrenceCount      int
+	ObservedForms        []byte
+	EligibleSentenceRefs []byte
+	Provenance           []byte
+	FirstEncounter       int64
+	SelectedAt           time.Time
 }
 
 type ProcessingHistory struct {

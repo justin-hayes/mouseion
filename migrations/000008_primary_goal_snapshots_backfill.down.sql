@@ -1,0 +1,2 @@
+-- The backfill is intentionally not reversed. Snapshot and release history
+-- are durable provenance; restoring a production backup is the safe rollback.

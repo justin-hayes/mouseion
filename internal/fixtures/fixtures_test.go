@@ -386,13 +386,13 @@ func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
 	assert.Equal(t, journey.Revision, unchanged.Revision, "unknown-language add changed Journey=%+v err=%v", unchanged, err)
 }
 
-func TestFixtureReservedVocabularyFollowsDeckStudyLifecycle(t *testing.T) {
+func TestFixtureReservedVocabularyFollowsPrimaryGoalSnapshot(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
 	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err, "reserved before study=%+v err=%v", reserved, err)
-	assert.Empty(t, reserved, "reserved before study=%+v err=%v", reserved, err)
+	assert.Len(t, reserved, 2, "reserved from active Goal=%+v err=%v", reserved, err)
 	_, err = store.StartDeckVocabularyStudy(ctx, OwnerID, PrepID)
 	require.NoError(t, err)
 	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
@@ -408,7 +408,12 @@ func TestFixtureReservedVocabularyFollowsDeckStudyLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	released, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err, "reserved after review=%+v err=%v", released, err)
-	assert.Empty(t, released, "reserved after review=%+v err=%v", released, err)
+	assert.Len(t, released, 2, "active Goal snapshot survived deck review=%+v err=%v", released, err)
+	err = store.ClearPrimaryGoal(ctx, OwnerID, "de", BookID)
+	require.NoError(t, err)
+	released, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, released, "reserved after Goal clear=%+v err=%v", released, err)
 }
 
 func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {

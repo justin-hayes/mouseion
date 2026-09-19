@@ -38,13 +38,13 @@ func (s DeckPreparationState) CanTransitionTo(next DeckPreparationState) bool {
 }
 
 type DeckPreparation struct {
-	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, Filename, DeckName, ContentHash, Error string
-	State                                                                                              DeckPreparationState
-	Artifact                                                                                           []byte
-	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss      int
-	QualityOmissions                                                                                   int
-	RenderInputVersion, PresentationVersion, DeckRevision                                              int
-	VocabularyCount                                                                                    int
+	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, BookID, Filename, DeckName, ContentHash, Error string
+	State                                                                                                      DeckPreparationState
+	Artifact                                                                                                   []byte
+	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss              int
+	QualityOmissions                                                                                           int
+	RenderInputVersion, PresentationVersion, DeckRevision                                                      int
+	VocabularyCount                                                                                            int
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.

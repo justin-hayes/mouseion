@@ -177,7 +177,8 @@ func vocabularyStateFromFields(id, ownerID, language, canonicalLemma, upos, stat
 func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparation {
 	return domain.DeckPreparation{
 		ID: row.ID, OwnerID: row.OwnerID, SourceMaterialID: row.SourceMaterialID,
-		State: domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
+		BookID: uuidString(row.BookID),
+		State:  domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
 		DeckName: row.DeckName, ContentHash: row.ContentHash, TotalCards: row.TotalCards,
 		CardsWithEnglish: row.CardsWithEnglish, CardsWithContextualSentenceTranslations: row.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: row.CardsWithFallbackGloss,
 		QualityOmissions: row.QualityOmissions, Error: row.Error, CreatedAt: row.CreatedAt,
@@ -188,14 +189,6 @@ func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparatio
 		StudyingAt: pgTimePtr(row.StudyingAt), ReviewedAt: pgTimePtr(row.ReviewedAt),
 		GraduatedAt: pgTimePtr(row.GraduatedAt), ReleasedAt: pgTimePtr(row.ReleasedAt),
 		RetiredAt: pgTimePtr(row.RetiredAt),
-	}
-}
-
-func deckPreparationVocabularyFromModel(row sqlcgen.DeckPreparationVocabulary) domain.DeckPreparationVocabulary {
-	return domain.DeckPreparationVocabulary{
-		OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
-		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
-		GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
 	}
 }
 

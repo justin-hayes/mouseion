@@ -234,7 +234,11 @@ func (s *PostgresStore) ListDeckPreparationVocabulary(ctx context.Context, owner
 	}
 	result := make([]domain.DeckPreparationVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, deckPreparationVocabularyFromModel(row))
+		result = append(result, domain.DeckPreparationVocabulary{
+			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
+			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
+		})
 	}
 	return result, nil
 }
@@ -251,7 +255,11 @@ func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, langu
 	}
 	result := make([]domain.DeckPreparationVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, deckPreparationVocabularyFromModel(row))
+		result = append(result, domain.DeckPreparationVocabulary{
+			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
+			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
+			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
+		})
 	}
 	return result, nil
 }

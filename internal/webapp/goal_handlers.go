@@ -3,10 +3,12 @@ package webapp
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -97,6 +99,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
+	var selectedGoal domain.PrimaryGoal
 	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
@@ -117,7 +120,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			h.respondGoal(w, r, "", goalStaleMessage, "")
 			return
 		}
-		_, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
+		selectedGoal, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
 		if errors.Is(err, persistence.ErrGoalExists) {
 			latest, readErr := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
 			if readErr != nil {
@@ -144,7 +147,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		_, err = h.services.Store.Goals.ChangePrimaryGoal(r.Context(), owner, language, bookID, expectedBookID)
+		selectedGoal, err = h.services.Store.Goals.ChangePrimaryGoal(r.Context(), owner, language, bookID, expectedBookID)
 		if errors.Is(err, persistence.ErrGoalStale) {
 			h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
 			return
@@ -167,6 +170,11 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fail(w, err)
 			return
+		}
+	}
+	if selectedGoal.AnalysisRunID != "" && h.services.PreparedDeck != nil {
+		if _, prepareErr := h.services.PreparedDeck.Submit(r.Context(), owner, selectedGoal.AnalysisRunID, false); prepareErr != nil {
+			log.Printf("primary goal deck preparation owner=%s language=%s book=%s: %v", owner, language, selectedGoal.BookID, prepareErr)
 		}
 	}
 	message := title + " is your Primary Goal."
