@@ -35,6 +35,7 @@ type journeyBookView struct {
 	StatisticsUnavailable  bool
 	Forecast               *domain.JourneyForecastEntry
 	ForecastHasGoal        bool
+	ForecastUnavailable    bool
 }
 
 func journeyBookClass(primary bool) string {
@@ -654,6 +655,10 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	for i := range view.Provisional {
 		view.Provisional[i].CanMoveEarlier = i > 0
 		view.Provisional[i].CanMoveLater = i < len(view.Provisional)-1
+		view.Provisional[i].ForecastHasGoal = goal.IsActive()
+	}
+	if view.Goal != nil {
+		view.Goal.ForecastHasGoal = goal.IsActive()
 	}
 	// A reorder must never announce success when the forecast capability is
 	// absent or returns an incomplete read model. Unavailable evidence is still
@@ -686,6 +691,16 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 					break
 				}
 			}
+		}
+	}
+	if view.ForecastUnavailable {
+		if view.Goal != nil {
+			view.Goal.Forecast = nil
+			view.Goal.ForecastUnavailable = true
+		}
+		for i := range view.Provisional {
+			view.Provisional[i].Forecast = nil
+			view.Provisional[i].ForecastUnavailable = true
 		}
 	}
 

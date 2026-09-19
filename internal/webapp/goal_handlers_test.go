@@ -347,6 +347,7 @@ func TestJourneyReorderForecastFailureDoesNotUndoSavedOrder(t *testing.T) {
 	require.Equal(t, http.StatusOK, moved.Code)
 	assert.Contains(t, moved.Body.String(), "saved order remains in place")
 	assert.Contains(t, moved.Body.String(), `href="/journey">Retry forecast</a>`)
+	assert.Contains(t, moved.Body.String(), "On arrival in this order:</strong> unavailable")
 	assertJourneyOrder(t, moved.Body.String(), "fixture-route-differs", "fixture-route-match")
 }
 
