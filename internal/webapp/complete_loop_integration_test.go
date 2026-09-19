@@ -212,11 +212,15 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NotEmpty(t, detail.Acquired.CorpusID, "completed current analysis=%+v", detail.Acquired)
 
 	chosen := perform(t, h, http.MethodPost, "/goal/books/"+bookID, url.Values{
-		"csrf_token":            {csrf},
-		"expected_goal_book_id": {""},
+		"csrf_token":                   {csrf},
+		"expected_goal_book_id":        {""},
+		"external_translation_consent": {"on"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, chosen.Code)
 	assert.Contains(t, chosen.Header().Get("Location"), "/journey")
+	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	require.NotEmpty(t, goal.SnapshotID)
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
 		preparations, listErr := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
@@ -238,6 +242,11 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	if preparation.TotalCards != 1 || preparation.CurrentRunID == "" {
 		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error)
 	}
+	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
+	var consent bool
+	err = store.Pool().QueryRow(ctx, `SELECT COALESCE((args->>'external_translation_consent')::boolean, false) FROM river_job WHERE args->>'preparation_id'=$1 ORDER BY id DESC LIMIT 1`, preparation.ID).Scan(&consent)
+	require.NoError(t, err)
+	assert.False(t, consent)
 
 	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, preparation.SourceMaterialID)
 	require.NoError(t, err)
@@ -280,7 +289,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, resurrected.Code)
 	assert.Contains(t, resurrected.Header().Get("Location"), "error=")
-	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	goal, err = store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
 }

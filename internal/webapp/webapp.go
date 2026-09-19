@@ -135,11 +135,15 @@ type ExternalEnrichment interface {
 }
 type PreparedDeck interface {
 	Submit(context.Context, string, string, bool) (prepareddeck.Handle, error)
+	SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
 	Get(context.Context, string, string) (domain.DeckPreparation, error)
 	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
 	Retry(context.Context, string, string, bool) (prepareddeck.Handle, error)
 	Rerender(context.Context, string, string) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
+}
+type PreparedDeckForGoalSnapshot interface {
+	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 }
 type PreparedDeckForAnalysis interface {
 	GetForAnalysis(context.Context, string, string, string) (domain.DeckPreparation, error)
@@ -192,6 +196,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /journey", h.user(http.HandlerFunc(h.journey)))
 	h.mux.Handle("GET /journey/{bookID}", h.user(http.HandlerFunc(h.journeyEntry)))
 	h.mux.Handle("POST /goal/books/{id}", h.user(http.HandlerFunc(h.choosePrimaryGoal)))
+	h.mux.Handle("POST /goal/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryPrimaryGoalDeck)))
 	h.mux.Handle("POST /goal/clear", h.user(http.HandlerFunc(h.clearPrimaryGoal)))
 	h.mux.Handle("POST /goal/finish", h.user(http.HandlerFunc(h.finishPrimaryGoal)))
 	h.mux.Handle("POST /journey/books/{id}/add", h.user(http.HandlerFunc(h.addDeckBookToJourney)))

@@ -133,14 +133,19 @@ as the closing action.
 
 ### 5. Prepare and download a deck
 
-**Learner decision:** Do I want Mouseion to create study material from this
-completed analysis, and do I consent to optional external sentence translation?
+For a manual preparation from a Journey entry, the learner decides whether to
+create study material and whether to consent to optional external sentence
+translation. Selecting a Primary Goal is different: Mouseion automatically
+prepares local study material from that Goal's immutable vocabulary snapshot;
+Goal selection never grants external translation consent.
 
 Deck preparation is asynchronous, owner-scoped, and tied to one immutable
-completed analysis. The workflow reports durable progress, supports cancellation
-and actionable retry, and publishes a ready APKG whose artifact may later be
-superseded in place by a newer deck revision. Download is a pure read and serves
-the current artifact.
+completed analysis or one immutable Goal snapshot. The workflow reports durable
+progress, supports cancellation and actionable retry, and publishes a ready APKG
+whose artifact may later be superseded in place by a newer deck revision.
+Download is a pure read and serves the current artifact. Empty Goal snapshots
+remain valid Goals and do not require a deck artifact; failed or unavailable
+Goal artifacts remain visible without clearing the Goal or its snapshot.
 
 The interface must answer:
 
@@ -180,8 +185,9 @@ The interface must answer:
   failure recovery;
 - completed analysis jobs expose **View analysis result**, opening `/journey/{bookID}`
   directly or through the run-specific compatibility redirect;
-- deck preparation is submitted from the Journey entry after its
-  warning-only note and retained insights;
+- manual deck preparation is submitted from the Journey entry after its
+  warning-only note and retained insights; Primary Goal selection submits a
+  local preparation from the exact frozen Goal snapshot;
 - do not list analysis history on the Journey entry; `GET /jobs` remains the
   operational history surface; and
 - a newly completed rerun replaces the book's current learner-facing analysis

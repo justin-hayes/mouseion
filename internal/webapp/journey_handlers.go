@@ -27,6 +27,9 @@ type journeyBookView struct {
 	GoalReadingOnly        bool
 	GoalUnassessed         bool
 	GoalVocabularyEligible int
+	GoalSnapshotSize       int
+	GoalPreparation        *domain.DeckPreparation
+	GoalDeckUnavailable    bool
 	CanMoveEarlier         bool
 	CanMoveLater           bool
 	CanChooseGoal          bool
@@ -642,6 +645,23 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, err
 		}
 		book.GoalReadingOnly = book.GoalVocabularyEligible == 0
+		book.GoalSnapshotSize = goal.SnapshotSize
+		if goal.SnapshotSize > 0 {
+			book.GoalDeckUnavailable = true
+			if reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot); ok {
+				preparation, preparationErr := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
+				switch {
+				case preparationErr == nil:
+					book.GoalPreparation = &preparation
+					book.GoalDeckUnavailable = false
+				case errors.Is(preparationErr, persistence.ErrNotFound):
+					// The Goal remains visible while an unavailable artifact is
+					// retried through the exact snapshot identity.
+				default:
+					log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, goal.SnapshotID, preparationErr)
+				}
+			}
+		}
 		view.Goal = &book
 	}
 	for _, entry := range journey.Entries {

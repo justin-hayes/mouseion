@@ -39,6 +39,21 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 	assert.NotContains(t, html, "advisory order")
 }
 
+func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
+	goal := testJourneyBook("goal", "Goal book", "analyzed")
+	goal.GoalSnapshotSize = 2
+	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", GoalSnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	assert.Contains(t, html, "Goal deck preparation")
+	assert.Contains(t, html, "Retry Goal deck")
+	assert.Contains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
+	goalCardStart := strings.Index(html, `id="journey-book-goal"`)
+	goalCardEnd := strings.Index(html[goalCardStart:], "</article>")
+	require.GreaterOrEqual(t, goalCardStart, 0)
+	require.Greater(t, goalCardEnd, 0)
+	assert.NotContains(t, html[goalCardStart:goalCardStart+goalCardEnd], "external_translation_consent")
+}
+
 func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
 	book := testJourneyBook("canonical-book", "Acquisition title", "ready")
 	book.Book.BookTitle = "Catalogue title"

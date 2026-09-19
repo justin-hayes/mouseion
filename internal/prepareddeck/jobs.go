@@ -130,6 +130,9 @@ func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent 
 // SubmitForGoal starts a fresh local preparation so an existing ready deck
 // cannot bypass the Goal's newly frozen snapshot.
 func (s *Service) SubmitForGoal(ctx context.Context, owner, analysisID, snapshotID string) (result Handle, err error) {
+	if strings.TrimSpace(snapshotID) == "" {
+		return Handle{}, ErrInvalidInput
+	}
 	return s.submit(ctx, owner, analysisID, false, snapshotID)
 }
 
@@ -157,6 +160,9 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 		if bookID == "" {
 			return Handle{}, ErrAnalysisUnavailable
 		}
+		if snapshotErr := validateGoalSnapshot(ctx, tx, owner, goalSnapshotID, source.ID, analysis.RunID); snapshotErr != nil {
+			return Handle{}, snapshotErr
+		}
 		if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
 			return Handle{}, err
 		}
@@ -183,6 +189,23 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 		return Handle{}, err
 	}
 	return Handle{Preparation: p, JobID: jobID}, nil
+}
+
+func validateGoalSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID, sourceMaterialID, analysisRunID string) error {
+	var valid bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM primary_goal_snapshots
+		WHERE owner_id=$1 AND id=$2::uuid
+		  AND source_material_id=$3::uuid AND analysis_run_id=$4::uuid
+		  AND released_at IS NULL
+	)`, owner, snapshotID, sourceMaterialID, analysisRunID).Scan(&valid)
+	if err != nil {
+		return fmt.Errorf("%w: Goal snapshot is unavailable", ErrAnalysisUnavailable)
+	}
+	if !valid {
+		return fmt.Errorf("%w: Goal snapshot does not match the completed analysis", ErrAnalysisUnavailable)
+	}
+	return nil
 }
 
 func sqlcBookForSource(ctx context.Context, tx pgx.Tx, owner, sourceMaterialID string) (string, error) {
@@ -274,6 +297,19 @@ func (s *Service) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, a
 		return domain.DeckPreparation{}, ErrInvalidInput
 	}
 	p, err := s.store.GetDeckPreparationForAnalysis(ctx, owner, sourceMaterialID, analysisRunID)
+	if err != nil {
+		return p, err
+	}
+	return s.Get(ctx, owner, p.ID)
+}
+
+// GetForGoalSnapshot returns the preparation bound to one exact Goal snapshot.
+// It never substitutes a manual or newer preparation for that snapshot.
+func (s *Service) GetForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(snapshotID) == "" {
+		return domain.DeckPreparation{}, ErrInvalidInput
+	}
+	p, err := s.store.GetDeckPreparationForGoalSnapshot(ctx, owner, snapshotID)
 	if err != nil {
 		return p, err
 	}
@@ -438,6 +474,14 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 	}
 	if err != nil {
 		return Handle{}, err
+	}
+	if p.RetiredAt != nil {
+		return Handle{}, persistence.ErrInvalidTransition
+	}
+	if p.GoalSnapshotID != "" {
+		// Goal preparation is always local; consent cannot be introduced by a
+		// retry form or a direct API request.
+		consent = false
 	}
 	if p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
 		previousState := p.State

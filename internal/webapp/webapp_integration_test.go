@@ -98,6 +98,12 @@ func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID stri
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 }
+func (r *recordingPreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
+	r.consent = false
+	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, GoalSnapshotID: snapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	r.preparations[p.ID] = p
+	return prepareddeck.Handle{Preparation: p, JobID: 94}, nil
+}
 func (r *recordingPreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
 	p, ok := r.preparations[id]
 	if !ok || p.OwnerID != owner {

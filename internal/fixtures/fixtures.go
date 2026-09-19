@@ -136,7 +136,7 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
 		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
+			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, GoalSnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
 		deckVocabulary: []domain.DeckPreparationVocabulary{
@@ -191,6 +191,14 @@ func NewStore() *Store {
 		storedActiveLanguage: &initialActiveLanguage,
 		mostRecentLanguage:   "it",
 	}
+}
+
+// SetGoalSnapshotVocabulary lets acceptance tests add a deterministic frozen
+// snapshot without exposing the fixture store's internal maps.
+func (s *Store) SetGoalSnapshotVocabulary(snapshotID string, vocabulary []domain.DeckPreparationVocabulary) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.goalSnapshotVocabulary[snapshotID] = append([]domain.DeckPreparationVocabulary(nil), vocabulary...)
 }
 
 func (s *Store) GetStoredActiveStudyLanguage(_ context.Context, owner string) (string, error) {
@@ -729,6 +737,18 @@ func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMa
 	return domain.DeckPreparation{}, errNotFound
 }
 
+func (s *Store) GetDeckPreparationForGoalSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, preparation := range s.preps {
+		if preparation.OwnerID == owner && preparation.GoalSnapshotID == snapshotID && preparation.RetiredAt == nil {
+			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
+			return preparation, nil
+		}
+	}
+	return domain.DeckPreparation{}, errNotFound
+}
+
 func (s *Store) ListDeckPreparationsForSourceMaterial(_ context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1142,6 +1162,7 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, ex
 
 func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt time.Time) domain.PrimaryGoal {
 	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID, SnapshotID: "fixture-goal-" + language + "-" + bookID, CreatedAt: createdAt}
+	goal.SnapshotSize = len(s.goalSnapshotVocabulary[goal.SnapshotID])
 	for _, book := range s.books {
 		if book.Source.OwnerID != owner || s.fixtureBookID(owner, book.Source.ID) != bookID {
 			continue
@@ -1507,6 +1528,24 @@ func (PreparedDeck) Submit(_ context.Context, owner, analysisID string, _ bool) 
 	}
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
+func (p PreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
+	sourceMaterialID := SourceID
+	if analysisID == "fixture-route-match-run" {
+		sourceMaterialID = routeMatchBookID
+	}
+	preparation := domain.DeckPreparation{ID: "fixture-goal-preparation-" + snapshotID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, GoalSnapshotID: snapshotID, State: domain.DeckPreparationQueued}
+	if p.Store != nil {
+		p.Store.mu.Lock()
+		defer p.Store.mu.Unlock()
+		for _, existing := range p.Store.preps {
+			if existing.OwnerID == owner && existing.GoalSnapshotID == snapshotID && existing.RetiredAt == nil {
+				return prepareddeck.Handle{Preparation: existing, JobID: 9}, nil
+			}
+		}
+		p.Store.preps = append(p.Store.preps, preparation)
+	}
+	return prepareddeck.Handle{Preparation: preparation, JobID: 9}, nil
+}
 func fixturePreparationFor(owner, id string) domain.DeckPreparation {
 	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
 	switch id {
@@ -1538,6 +1577,12 @@ func (p PreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPrepa
 func (p PreparedDeck) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
 	if p.Store != nil {
 		return p.Store.GetDeckPreparationForAnalysis(ctx, owner, sourceMaterialID, analysisRunID)
+	}
+	return fixturePreparationFor(owner, PrepID), nil
+}
+func (p PreparedDeck) GetForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+	if p.Store != nil {
+		return p.Store.GetDeckPreparationForGoalSnapshot(ctx, owner, snapshotID)
 	}
 	return fixturePreparationFor(owner, PrepID), nil
 }

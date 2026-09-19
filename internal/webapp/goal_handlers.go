@@ -10,7 +10,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 // goalSectionView is the server-truth fragment returned after an HTMX Goal
@@ -27,6 +26,8 @@ const (
 	goalUnavailableMessage      = "This book is not available in My Books."
 	goalIneligibleMessage       = "This book must be an active Reading Journey member with a successfully completed current analysis before it can become a Primary Goal."
 	goalLanguageRequiredMessage = "Choose a study language before setting a Primary Goal."
+	goalDeckRetryMessage        = "Deck preparation retry queued."
+	goalDeckUnavailableMessage  = "The Goal deck is unavailable. The Primary Goal and its frozen snapshot remain unchanged; retry preparation when ready."
 )
 
 func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) string {
@@ -174,20 +175,48 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if selectedGoal.AnalysisRunID != "" && selectedGoal.SnapshotSize > 0 && h.services.PreparedDeck != nil {
-		var prepareErr error
-		if goalDeck, ok := h.services.PreparedDeck.(interface {
-			SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
-		}); ok {
-			_, prepareErr = goalDeck.SubmitForGoal(r.Context(), owner, selectedGoal.AnalysisRunID, selectedGoal.SnapshotID)
-		} else {
-			_, prepareErr = h.services.PreparedDeck.Submit(r.Context(), owner, selectedGoal.AnalysisRunID, false)
-		}
+		_, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selectedGoal.AnalysisRunID, selectedGoal.SnapshotID)
 		if prepareErr != nil {
 			log.Printf("primary goal deck preparation owner=%s language=%s book=%s: %v", owner, language, selectedGoal.BookID, prepareErr)
 		}
 	}
 	message := title + " is your Primary Goal."
 	h.respondGoal(w, r, message, "", bookID)
+}
+
+func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if language == "" {
+		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
+		return
+	}
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !goal.IsActive() || goal.BookID != strings.TrimSpace(r.PathValue("id")) {
+		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+		return
+	}
+	if goal.SnapshotSize == 0 {
+		h.respondGoal(w, r, "No deck is required for this empty Goal snapshot.", "", goal.BookID)
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
+		return
+	}
+	if _, err = h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, goal.AnalysisRunID, goal.SnapshotID); err != nil {
+		log.Printf("primary goal deck retry owner=%s language=%s book=%s: %v", owner, language, goal.BookID, err)
+		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
+		return
+	}
+	h.respondGoal(w, r, goalDeckRetryMessage, "", goal.BookID)
 }
 
 func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {

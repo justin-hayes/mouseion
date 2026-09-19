@@ -27,8 +27,11 @@ test.describe('Primary Goal selection', () => {
     // The goal card always offers a Clear form (directly, or via the
     // residual-work confirmation when an active campaign still reserves
     // vocabulary). It never offers to re-choose itself.
-    await expect(goal.locator('form[action="/goal/clear"]')).toHaveCount(1);
-    await expect(goal.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+     await expect(goal.locator('form[action="/goal/clear"]')).toHaveCount(1);
+     await expect(goal.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+     await expect(goal).toContainText('Goal deck preparation');
+     await expect(goal).toContainText('Deck ready');
+     await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     const provisional = page.locator('#provisional-journey-list .journey-list > li');
     // Membership can grow across the shared fixture suite (e.g. a deck-flow test
