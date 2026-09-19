@@ -112,12 +112,12 @@ FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
 -- name: GetPrimaryGoal :one
-SELECT owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+SELECT owner_id::text, language, book_id::text, created_at, updated_at
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
 -- name: GetPrimaryGoalForUpdate :one
-SELECT owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+SELECT owner_id::text, language, book_id::text, created_at, updated_at
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
 FOR UPDATE;
@@ -126,31 +126,38 @@ FOR UPDATE;
 INSERT INTO primary_goals(owner_id, language, book_id)
 VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'))
 ON CONFLICT (owner_id, language) DO NOTHING
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at;
-
--- name: ReactivatePrimaryGoal :one
-UPDATE primary_goals
-SET book_id = sqlc.arg('book'), reading_finished_at = NULL, updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-  AND language = sqlc.arg('language')
-  AND reading_finished_at IS NOT NULL
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at;
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at;
 
 -- name: ChangePrimaryGoalBook :one
 UPDATE primary_goals
-SET book_id = sqlc.arg('book'), reading_finished_at = NULL, updated_at = now()
+SET book_id = sqlc.arg('book'), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at;
-
--- name: FinishPrimaryGoalReading :one
-UPDATE primary_goals
-SET reading_finished_at = now(), updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at;
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at;
 
 -- name: DeletePrimaryGoal :exec
 DELETE FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
+
+-- name: GetReadingCompletion :one
+SELECT owner_id::text, language, book_id::text, completed_at
+FROM reading_history
+WHERE owner_id = sqlc.arg('owner')
+  AND language = sqlc.arg('language')
+  AND book_id = sqlc.arg('book');
+
+-- name: InsertReadingCompletion :one
+INSERT INTO reading_history(owner_id, language, book_id, completed_at)
+VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('completed_at'))
+ON CONFLICT (owner_id, language, book_id) DO NOTHING
+RETURNING owner_id::text, language, book_id::text, completed_at;
+
+-- name: ReadingCompletionExists :one
+SELECT EXISTS(
+  SELECT 1 FROM reading_history
+  WHERE owner_id = sqlc.arg('owner')
+    AND language = sqlc.arg('language')
+    AND book_id = sqlc.arg('book')
+);
 
 -- name: PrimaryGoalCandidateEligible :one
 SELECT EXISTS(
@@ -170,4 +177,10 @@ SELECT EXISTS(
     AND b.language_state = 'chosen'
     AND b.language_tag = sqlc.arg('language')
     AND lower(s.media_type) = 'application/epub+zip'
+    AND NOT EXISTS (
+      SELECT 1 FROM reading_history h
+      WHERE h.owner_id = jm.owner_id
+        AND h.language = jm.language
+        AND h.book_id = jm.book_id
+    )
 );

@@ -82,7 +82,6 @@ type Querier interface {
 	FinishPreparedDeckBatchReconciliation(ctx context.Context, arg FinishPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckBatchSubmission(ctx context.Context, arg FinishPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
-	FinishPrimaryGoalReading(ctx context.Context, arg FinishPrimaryGoalReadingParams) (FinishPrimaryGoalReadingRow, error)
 	GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiveDeckVocabularyStudyParams) (DeckPreparation, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
 	GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error)
@@ -135,6 +134,7 @@ type Querier interface {
 	GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error)
 	GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBookIDParams) (string, error)
 	GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error)
+	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
 	// Reading Journey and Primary Goal queries. Current analysis eligibility comes
 	// from the current_analysis_identity view so the identity chain is not
 	// duplicated in application SQL.
@@ -176,6 +176,7 @@ type Querier interface {
 	InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error)
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error
+	InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error)
 	InsertReadingJourneyIfAbsent(ctx context.Context, arg InsertReadingJourneyIfAbsentParams) error
 	InsertSelectedSentence(ctx context.Context, arg InsertSelectedSentenceParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
@@ -274,7 +275,7 @@ type Querier interface {
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
 	PutVocabularyState(ctx context.Context, arg PutVocabularyStateParams) (PutVocabularyStateRow, error)
-	ReactivatePrimaryGoal(ctx context.Context, arg ReactivatePrimaryGoalParams) (ReactivatePrimaryGoalRow, error)
+	ReadingCompletionExists(ctx context.Context, arg ReadingCompletionExistsParams) (bool, error)
 	RecordGraduatedDeckVocabulary(ctx context.Context, arg RecordGraduatedDeckVocabularyParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)

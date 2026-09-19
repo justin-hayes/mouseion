@@ -586,12 +586,11 @@ type OpdsConnection struct {
 }
 
 type PrimaryGoal struct {
-	OwnerID           string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
-	Language          string
+	OwnerID   string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Language  string
 }
 
 type ProcessingHistory struct {
@@ -603,6 +602,13 @@ type ProcessingHistory struct {
 	Details     []byte
 	StartedAt   time.Time
 	CompletedAt pgtype.Timestamptz
+}
+
+type ReadingHistory struct {
+	OwnerID     string
+	Language    string
+	BookID      string
+	CompletedAt time.Time
 }
 
 type ReadingJourney struct {

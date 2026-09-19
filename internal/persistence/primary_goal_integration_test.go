@@ -5,6 +5,7 @@ package persistence
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -109,29 +110,69 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 
 	owner, err := store.CreateUser(ctx, "goal-finish", false)
 	require.NoError(t, err)
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Finish this book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	book, _, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish")
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `
+CREATE FUNCTION test_reading_completion_failure() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced reading completion failure'; END; $$;
+CREATE TRIGGER test_reading_completion_failure
+BEFORE DELETE ON reading_journey_membership
+FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
+	require.NoError(t, err)
+	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.Error(t, err)
+	var historyCount int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
+	require.NoError(t, err)
+	assert.Zero(t, historyCount, "failed completion left durable history")
+	goalAfterRollback, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, book.ID, goalAfterRollback.BookID, "failed completion cleared Goal")
+	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_reading_completion_failure ON reading_journey_membership; DROP FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
 
 	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	require.NotNil(t, result.Goal.ReadingFinishedAt, "reading-only finish")
-	finishedAt := *result.Goal.ReadingFinishedAt
+	assert.Equal(t, book.ID, result.Completion.BookID, "reading completion")
 	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	require.NotNil(t, persisted.ReadingFinishedAt, "persisted finish")
-	assert.True(t, persisted.ReadingFinishedAt.Equal(finishedAt), "persisted finish")
+	assert.Empty(t, persisted.BookID, "completed Goal cleared")
+	var historyBook, historyLanguage string
+	var completedAt time.Time
+	err = store.Pool().QueryRow(ctx, `SELECT book_id::text, language, completed_at FROM reading_history WHERE owner_id=$1`, owner.ID).Scan(&historyBook, &historyLanguage, &completedAt)
+	require.NoError(t, err)
+	assert.Equal(t, book.ID, historyBook)
+	assert.Equal(t, "de", historyLanguage)
+	assert.False(t, completedAt.IsZero())
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.NotContains(t, journeyBookIDs(journey), book.ID, "completed Book removed from Journey")
 
 	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	require.NotNil(t, repeated.Goal.ReadingFinishedAt, "idempotent finish")
-	assert.True(t, repeated.Goal.ReadingFinishedAt.Equal(finishedAt), "idempotent finish")
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", "stale-book")
-	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale finish rejection is independent of the replacement eligibility case.
+	assert.Equal(t, result.Completion, repeated.Completion, "idempotent finish")
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
+	require.ErrorIs(t, err, ErrReadingAlreadyCompleted)
+	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", "00000000-0000-0000-0000-000000000000")
+	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // A stale identity has no matching active Goal or completion.
 
 	replacement, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Next book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
 	_, err = store.CreatePrimaryGoal(ctx, owner.ID, "de", replacement.ID)
 	assert.ErrorIs(t, err, ErrGoalIneligible)
+}
+
+func journeyBookIDs(journey domain.ReadingJourney) []string {
+	ids := make([]string, 0, len(journey.Entries))
+	for _, entry := range journey.Entries {
+		ids = append(ids, entry.BookID)
+	}
+	return ids
 }

@@ -76,7 +76,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 
 	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
-		BookTitle:          finishBookTitle(before, result.Goal.BookID),
+		BookTitle:          finishBookTitle(before, result.Completion.BookID),
 		ResidualVocabulary: h.activeVocabularyStudyCount(r.Context(), owner, before),
 		Journey:            after,
 	}

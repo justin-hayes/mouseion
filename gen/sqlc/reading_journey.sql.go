@@ -8,8 +8,6 @@ package sqlc
 import (
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bookExists = `-- name: BookExists :one
@@ -52,9 +50,9 @@ func (q *Queries) BumpReadingJourneyRevision(ctx context.Context, arg BumpReadin
 
 const changePrimaryGoalBook = `-- name: ChangePrimaryGoalBook :one
 UPDATE primary_goals
-SET book_id = $1, reading_finished_at = NULL, updated_at = now()
+SET book_id = $1, updated_at = now()
 WHERE owner_id = $2 AND language = $3
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at
 `
 
 type ChangePrimaryGoalBookParams struct {
@@ -64,12 +62,11 @@ type ChangePrimaryGoalBookParams struct {
 }
 
 type ChangePrimaryGoalBookRow struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) ChangePrimaryGoalBook(ctx context.Context, arg ChangePrimaryGoalBookParams) (ChangePrimaryGoalBookRow, error) {
@@ -81,7 +78,6 @@ func (q *Queries) ChangePrimaryGoalBook(ctx context.Context, arg ChangePrimaryGo
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ReadingFinishedAt,
 	)
 	return i, err
 }
@@ -199,41 +195,6 @@ func (q *Queries) DerivedJourneyBooksExist(ctx context.Context, arg DerivedJourn
 	return exists, err
 }
 
-const finishPrimaryGoalReading = `-- name: FinishPrimaryGoalReading :one
-UPDATE primary_goals
-SET reading_finished_at = now(), updated_at = now()
-WHERE owner_id = $1 AND language = $2
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
-`
-
-type FinishPrimaryGoalReadingParams struct {
-	Owner    string
-	Language string
-}
-
-type FinishPrimaryGoalReadingRow struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
-}
-
-func (q *Queries) FinishPrimaryGoalReading(ctx context.Context, arg FinishPrimaryGoalReadingParams) (FinishPrimaryGoalReadingRow, error) {
-	row := q.db.QueryRow(ctx, finishPrimaryGoalReading, arg.Owner, arg.Language)
-	var i FinishPrimaryGoalReadingRow
-	err := row.Scan(
-		&i.OwnerID,
-		&i.Language,
-		&i.BookID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ReadingFinishedAt,
-	)
-	return i, err
-}
-
 const getBookLanguageState = `-- name: GetBookLanguageState :one
 SELECT language_state, COALESCE(language_tag, '') AS language_tag
 FROM books
@@ -258,7 +219,7 @@ func (q *Queries) GetBookLanguageState(ctx context.Context, arg GetBookLanguageS
 }
 
 const getPrimaryGoal = `-- name: GetPrimaryGoal :one
-SELECT owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+SELECT owner_id::text, language, book_id::text, created_at, updated_at
 FROM primary_goals
 WHERE owner_id = $1 AND language = $2
 `
@@ -269,12 +230,11 @@ type GetPrimaryGoalParams struct {
 }
 
 type GetPrimaryGoalRow struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error) {
@@ -286,7 +246,6 @@ func (q *Queries) GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) 
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ReadingFinishedAt,
 	)
 	return i, err
 }
@@ -310,7 +269,7 @@ func (q *Queries) GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBo
 }
 
 const getPrimaryGoalForUpdate = `-- name: GetPrimaryGoalForUpdate :one
-SELECT owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+SELECT owner_id::text, language, book_id::text, created_at, updated_at
 FROM primary_goals
 WHERE owner_id = $1 AND language = $2
 FOR UPDATE
@@ -322,12 +281,11 @@ type GetPrimaryGoalForUpdateParams struct {
 }
 
 type GetPrimaryGoalForUpdateRow struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error) {
@@ -339,7 +297,39 @@ func (q *Queries) GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoa
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const getReadingCompletion = `-- name: GetReadingCompletion :one
+SELECT owner_id::text, language, book_id::text, completed_at
+FROM reading_history
+WHERE owner_id = $1
+  AND language = $2
+  AND book_id = $3
+`
+
+type GetReadingCompletionParams struct {
+	Owner    string
+	Language string
+	Book     string
+}
+
+type GetReadingCompletionRow struct {
+	OwnerID     string
+	Language    string
+	BookID      string
+	CompletedAt time.Time
+}
+
+func (q *Queries) GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error) {
+	row := q.db.QueryRow(ctx, getReadingCompletion, arg.Owner, arg.Language, arg.Book)
+	var i GetReadingCompletionRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CompletedAt,
 	)
 	return i, err
 }
@@ -394,7 +384,7 @@ const insertPrimaryGoal = `-- name: InsertPrimaryGoal :one
 INSERT INTO primary_goals(owner_id, language, book_id)
 VALUES ($1, $2, $3)
 ON CONFLICT (owner_id, language) DO NOTHING
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at
 `
 
 type InsertPrimaryGoalParams struct {
@@ -404,12 +394,11 @@ type InsertPrimaryGoalParams struct {
 }
 
 type InsertPrimaryGoalRow struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error) {
@@ -421,7 +410,44 @@ func (q *Queries) InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalPa
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ReadingFinishedAt,
+	)
+	return i, err
+}
+
+const insertReadingCompletion = `-- name: InsertReadingCompletion :one
+INSERT INTO reading_history(owner_id, language, book_id, completed_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (owner_id, language, book_id) DO NOTHING
+RETURNING owner_id::text, language, book_id::text, completed_at
+`
+
+type InsertReadingCompletionParams struct {
+	Owner       string
+	Language    string
+	Book        string
+	CompletedAt time.Time
+}
+
+type InsertReadingCompletionRow struct {
+	OwnerID     string
+	Language    string
+	BookID      string
+	CompletedAt time.Time
+}
+
+func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error) {
+	row := q.db.QueryRow(ctx, insertReadingCompletion,
+		arg.Owner,
+		arg.Language,
+		arg.Book,
+		arg.CompletedAt,
+	)
+	var i InsertReadingCompletionRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CompletedAt,
 	)
 	return i, err
 }
@@ -543,6 +569,12 @@ SELECT EXISTS(
     AND b.language_state = 'chosen'
     AND b.language_tag = $2
     AND lower(s.media_type) = 'application/epub+zip'
+    AND NOT EXISTS (
+      SELECT 1 FROM reading_history h
+      WHERE h.owner_id = jm.owner_id
+        AND h.language = jm.language
+        AND h.book_id = jm.book_id
+    )
 )
 `
 
@@ -559,42 +591,26 @@ func (q *Queries) PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryG
 	return exists, err
 }
 
-const reactivatePrimaryGoal = `-- name: ReactivatePrimaryGoal :one
-UPDATE primary_goals
-SET book_id = $1, reading_finished_at = NULL, updated_at = now()
-WHERE owner_id = $2
-  AND language = $3
-  AND reading_finished_at IS NOT NULL
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, reading_finished_at
+const readingCompletionExists = `-- name: ReadingCompletionExists :one
+SELECT EXISTS(
+  SELECT 1 FROM reading_history
+  WHERE owner_id = $1
+    AND language = $2
+    AND book_id = $3
+)
 `
 
-type ReactivatePrimaryGoalParams struct {
-	Book     string
+type ReadingCompletionExistsParams struct {
 	Owner    string
 	Language string
+	Book     string
 }
 
-type ReactivatePrimaryGoalRow struct {
-	OwnerID           string
-	Language          string
-	BookID            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ReadingFinishedAt pgtype.Timestamptz
-}
-
-func (q *Queries) ReactivatePrimaryGoal(ctx context.Context, arg ReactivatePrimaryGoalParams) (ReactivatePrimaryGoalRow, error) {
-	row := q.db.QueryRow(ctx, reactivatePrimaryGoal, arg.Book, arg.Owner, arg.Language)
-	var i ReactivatePrimaryGoalRow
-	err := row.Scan(
-		&i.OwnerID,
-		&i.Language,
-		&i.BookID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ReadingFinishedAt,
-	)
-	return i, err
+func (q *Queries) ReadingCompletionExists(ctx context.Context, arg ReadingCompletionExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, readingCompletionExists, arg.Owner, arg.Language, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const resolveJourneyLinkedBook = `-- name: ResolveJourneyLinkedBook :one

@@ -6,23 +6,26 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
-func primaryGoalFromValues(ownerID, language, bookID string, createdAt, updatedAt time.Time, readingFinishedAt pgtype.Timestamptz) domain.PrimaryGoal {
+func primaryGoalFromValues(ownerID, language, bookID string, createdAt, updatedAt time.Time) domain.PrimaryGoal {
 	return domain.PrimaryGoal{
 		OwnerID: ownerID, Language: language, BookID: bookID,
-		CreatedAt: createdAt, UpdatedAt: updatedAt, ReadingFinishedAt: pgTimePtr(readingFinishedAt),
+		CreatedAt: createdAt, UpdatedAt: updatedAt,
 	}
 }
 
-// ReadingFinishResult is the webapp-facing result of recording reading
+// ReadingFinishResult is the webapp-facing result of recording reading.
 type ReadingFinishResult struct {
-	Goal domain.PrimaryGoal
+	Completion domain.ReadingCompletion
+}
+
+func readingCompletionFromValues(ownerID, language, bookID string, completedAt time.Time) domain.ReadingCompletion {
+	return domain.ReadingCompletion{OwnerID: ownerID, Language: language, BookID: bookID, CompletedAt: completedAt}
 }
 
 // GetPrimaryGoal returns the owner's current Goal in one study language. No
@@ -39,7 +42,7 @@ func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language stri
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt, row.ReadingFinishedAt), nil
+	return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt), nil
 }
 
 // CreatePrimaryGoal creates the owner's current Goal for an analyzed Reading
@@ -60,8 +63,8 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
-	if err == nil && !current.ReadingFinishedAt.Valid {
+	_, err = q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	if err == nil {
 		return domain.PrimaryGoal{}, ErrGoalExists
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -96,19 +99,12 @@ func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language,
 func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) (domain.PrimaryGoal, error) {
 	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: owner, Language: language, Book: bookID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		reactivated, err := q.ReactivatePrimaryGoal(ctx, sqlcgen.ReactivatePrimaryGoalParams{Owner: owner, Language: language, Book: bookID})
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.PrimaryGoal{}, ErrGoalExists
-		}
-		if err != nil {
-			return domain.PrimaryGoal{}, err
-		}
-		return primaryGoalFromValues(reactivated.OwnerID, reactivated.Language, reactivated.BookID, reactivated.CreatedAt, reactivated.UpdatedAt, reactivated.ReadingFinishedAt), nil
+		return domain.PrimaryGoal{}, ErrGoalExists
 	}
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt, row.ReadingFinishedAt), nil
+	return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt), nil
 }
 
 // ChangePrimaryGoal changes the language's Goal only when expectedBookID still
@@ -148,12 +144,12 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	if err = tx.Commit(ctx); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt, row.ReadingFinishedAt), nil
+	return primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt), nil
 }
 
-// RecordReadingFinishedPrimaryGoal records only the reading-finished fact for
-// the current Goal. Vocabulary graduation is not part of this reading
-// transition.
+// RecordReadingFinishedPrimaryGoal atomically appends the reading completion,
+// removes the Book from the active Journey, and clears the current Goal.
+// Vocabulary graduation is not part of this reading transition.
 func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (result ReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
@@ -165,26 +161,91 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ReadingFinishResult{}, ErrNotFound
+		row, completionErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: expectedBookID})
+		if errors.Is(completionErr, pgx.ErrNoRows) {
+			return ReadingFinishResult{}, ErrNotFound
+		}
+		if completionErr != nil {
+			return ReadingFinishResult{}, completionErr
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return ReadingFinishResult{}, err
+		}
+		return ReadingFinishResult{Completion: readingCompletionFromValues(row.OwnerID, row.Language, row.BookID, row.CompletedAt)}, nil
 	}
 	if err != nil {
 		return ReadingFinishResult{}, err
 	}
-	goal := primaryGoalFromValues(current.OwnerID, current.Language, current.BookID, current.CreatedAt, current.UpdatedAt, current.ReadingFinishedAt)
-	if goal.BookID != expectedBookID {
+	if current.BookID != expectedBookID {
 		return ReadingFinishResult{}, ErrGoalStale
 	}
-	if goal.ReadingFinishedAt == nil {
-		row, finishErr := q.FinishPrimaryGoalReading(ctx, sqlcgen.FinishPrimaryGoalReadingParams{Owner: owner, Language: language})
-		if finishErr != nil {
-			return ReadingFinishResult{}, finishErr
+	completedAt := time.Now().UTC()
+	completionRow, insertErr := q.InsertReadingCompletion(ctx, sqlcgen.InsertReadingCompletionParams{
+		Owner: owner, Language: language, Book: expectedBookID, CompletedAt: completedAt,
+	})
+	if errors.Is(insertErr, pgx.ErrNoRows) {
+		existing, getErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: expectedBookID})
+		if getErr != nil {
+			return ReadingFinishResult{}, getErr
 		}
-		goal = primaryGoalFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt, row.ReadingFinishedAt)
+		completionRow = sqlcgen.InsertReadingCompletionRow{
+			OwnerID: existing.OwnerID, Language: existing.Language, BookID: existing.BookID, CompletedAt: existing.CompletedAt,
+		}
+	}
+	if insertErr != nil {
+		return ReadingFinishResult{}, insertErr
+	}
+	if err = removeCompletedGoalFromJourney(ctx, q, owner, language, expectedBookID); err != nil {
+		return ReadingFinishResult{}, err
+	}
+	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: owner, Language: language}); err != nil {
+		return ReadingFinishResult{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return ReadingFinishResult{}, err
 	}
-	return ReadingFinishResult{Goal: goal}, nil
+	return ReadingFinishResult{Completion: readingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt)}, nil
+}
+
+func removeCompletedGoalFromJourney(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) error {
+	_, err := q.GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: owner, Language: language})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	members, err := q.ListReadingJourneyMembersForUpdate(ctx, sqlcgen.ListReadingJourneyMembersForUpdateParams{Owner: owner, Language: language})
+	if err != nil {
+		return err
+	}
+	memberIndex := -1
+	journeyMembers := make([]readingJourneyMembership, 0, len(members))
+	for _, member := range members {
+		journeyMembers = append(journeyMembers, readingJourneyMembership{bookID: member.BookID, position: member.Position, createdAt: member.CreatedAt})
+		if member.BookID == bookID {
+			memberIndex = len(journeyMembers) - 1
+		}
+	}
+	if memberIndex < 0 {
+		return nil
+	}
+	if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: owner, Language: language, Book: bookID}); err != nil {
+		return err
+	}
+	journeyMembers = append(journeyMembers[:memberIndex], journeyMembers[memberIndex+1:]...)
+	if err = rewriteReadingJourneyPositions(ctx, q, owner, language, journeyMembers); err != nil {
+		return err
+	}
+	derived, err := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})
+	if err != nil {
+		return err
+	}
+	if len(journeyMembers) == 0 && !derived {
+		return q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: owner, Language: language})
+	}
+	_, err = q.BumpReadingJourneyRevision(ctx, sqlcgen.BumpReadingJourneyRevisionParams{Owner: owner, Language: language})
+	return err
 }
 
 // ClearPrimaryGoal removes the language's Goal only when expectedBookID still
@@ -206,9 +267,6 @@ func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, e
 	}
 	if current.BookID != expectedBookID {
 		return ErrGoalStale
-	}
-	if current.ReadingFinishedAt.Valid {
-		return ErrNotFound
 	}
 	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: owner, Language: language}); err != nil {
 		return err

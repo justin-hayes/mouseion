@@ -2,7 +2,6 @@ package domain
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -54,11 +53,9 @@ func TestMyBookEvidenceDerivationDelegatesToAcquiredSummary(t *testing.T) {
 }
 
 func TestPrimaryGoalIsActive(t *testing.T) {
-	finished := nowForEvidenceTest()
 	for name, goal := range map[string]PrimaryGoal{
-		"active":   {BookID: "book"},
-		"empty":    {},
-		"finished": {BookID: "book", ReadingFinishedAt: &finished},
+		"active": {BookID: "book"},
+		"empty":  {},
 	} {
 		want := name == "active"
 		assert.Equal(t, want, goal.IsActive(), "%s IsActive() = %t, want %t", name, goal.IsActive(), want)
@@ -94,8 +91,4 @@ func withAnalysis(source SourceMaterialSummary, status, state, run, corpus strin
 	source.AnalysisRunID = run
 	source.CorpusID = corpus
 	return source
-}
-
-func nowForEvidenceTest() (now time.Time) {
-	return time.Unix(1, 0)
 }
