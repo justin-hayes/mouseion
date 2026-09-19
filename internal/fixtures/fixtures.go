@@ -4,6 +4,7 @@ package fixtures
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -408,6 +410,58 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.myBooksForOwner(owner), nil
+}
+
+// GetAnalysisCorpusVocabulary provides deterministic corpus facts for the
+// forecast provider. The shared recurring identity makes sequential changes
+// visible in browser smoke tests without involving a real analyzer.
+func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusID string) (domain.AnalysisCorpusVocabulary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var source domain.SourceMaterialSummary
+	for _, book := range s.books {
+		if book.CorpusID == corpusID {
+			source = book
+			break
+		}
+	}
+	if source.CorpusID == "" {
+		return domain.AnalysisCorpusVocabulary{}, errNotFound
+	}
+	knownTokens := fixtureForecastKnownTokens(corpusID)
+	sharedTokens := int64(5)
+	if knownTokens+sharedTokens > 100 {
+		sharedTokens = max(100-knownTokens, 0)
+	}
+	lemmas := []domain.LemmaOccurrence{}
+	if knownTokens > 0 {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: source.Source.Language, CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: knownTokens})
+	}
+	if sharedTokens > 0 {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: source.Source.Language, CanonicalLemma: "fixture-recurring", UPOS: "NOUN", OccurrenceCount: sharedTokens})
+	}
+	if remaining := 100 - knownTokens - sharedTokens; remaining > 0 {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: source.Source.Language, CanonicalLemma: "fixture-" + corpusID, UPOS: "NOUN", OccurrenceCount: remaining})
+	}
+	return domain.AnalysisCorpusVocabulary{
+		CorpusID: corpusID, SourceMaterialID: source.Source.ID, AnalysisRunID: source.AnalysisRunID,
+		Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: int64(len(lemmas))}, Lemmas: lemmas,
+	}, nil
+}
+
+func fixtureForecastKnownTokens(corpusID string) int64 {
+	switch corpusID {
+	case "fixture-corpus", "fixture-route-match-corpus":
+		return 90
+	case "fixture-route-differs-corpus":
+		return 20
+	case "fixture-route-tie-a-corpus", "fixture-route-tie-b-corpus":
+		return 50
+	case "fixture-italian-goal-corpus":
+		return 60
+	default:
+		return 0
+	}
 }
 
 func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBook, error) {
@@ -1133,6 +1187,20 @@ func (s *Store) GetPrimaryGoal(_ context.Context, owner, language string) (domai
 	}
 	return goal, nil
 }
+
+func (s *Store) ListPrimaryGoalSnapshotVocabulary(_ context.Context, owner, snapshotID string) ([]domain.SelectionCandidate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal, found := s.goalSnapshotVocabulary[snapshotID]
+	if !found {
+		return nil, nil
+	}
+	result := make([]domain.SelectionCandidate, 0, len(goal))
+	for _, item := range goal {
+		result = append(result, domain.SelectionCandidate{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS})
+	}
+	return result, nil
+}
 func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1498,6 +1566,13 @@ func (Analysis) GetCompletedAnalysis(_ context.Context, _ string, sourceMaterial
 
 type Insights struct {
 	JourneyStore *Store
+}
+
+func (insights Insights) JourneyForecast(ctx context.Context, owner, language string) (domain.JourneyForecast, error) {
+	if insights.JourneyStore == nil {
+		return domain.JourneyForecast{}, errors.New("fixture Journey store is unavailable")
+	}
+	return analysisinsights.NewService(insights.JourneyStore).JourneyForecast(ctx, owner, language)
 }
 
 // JourneyProjection returns a stable fixture projection with enough variation

@@ -27,8 +27,6 @@ type preparedDeckFactStore interface {
 	LoadPreparedDeckCandidateFactsTx(context.Context, pgx.Tx, domain.DeckPreparation, []domain.SelectionCandidate) ([]persistence.PreparedDeckCandidateFacts, error)
 }
 
-const defaultDeckMinOccurrences = 3
-
 // InputAssembler applies recurring-vocabulary selection to transaction-scoped
 // persistence facts and returns the projections consumed by Presentation.
 type InputAssembler struct {
@@ -53,7 +51,7 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	} else {
 		eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
 		for _, candidate := range facts.Candidates {
-			if !eligibility.Allows(candidate, defaultDeckMinOccurrences) {
+			if !eligibility.Allows(candidate, selection.DefaultRecurringMinOccurrences) {
 				continue
 			}
 			selected = append(selected, candidate)

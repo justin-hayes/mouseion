@@ -22,6 +22,34 @@ type ReadingJourney struct {
 	Entries   []ReadingJourneyEntry // ordered by (position, created_at, book_id)
 }
 
+// JourneyForecastCoverage is the exact, presentation-independent coverage
+// result for one Journey stage.
+type JourneyForecastCoverage struct {
+	KnownTokenCount      int64
+	AnalyzableTokenCount int64
+}
+
+type JourneyForecastEntry struct {
+	BookID            string
+	SourceMaterialID  string
+	Language          string
+	CorpusID          string
+	Position          int
+	Current           *JourneyForecastCoverage
+	AfterGoal         *JourneyForecastCoverage
+	OnArrival         *JourneyForecastCoverage
+	LowerBound        bool
+	UnavailableReason string
+}
+
+// JourneyForecast is an on-demand read model. It is never persisted.
+type JourneyForecast struct {
+	OwnerID  string
+	Language string
+	Goal     *PrimaryGoal
+	Entries  []JourneyForecastEntry
+}
+
 // ReadingCompletion is the durable fact that an owner finished a Book in a
 // study language.
 type ReadingCompletion struct {

@@ -2,6 +2,8 @@ package selection
 
 import "github.com/justin-hayes/mouseion/internal/domain"
 
+const DefaultRecurringMinOccurrences = 3
+
 // Eligibility contains the learner-state exclusions shared by recurring-
 // vocabulary selectors. Generated vocabulary is deliberately absent: it is
 // provenance, not learner state.

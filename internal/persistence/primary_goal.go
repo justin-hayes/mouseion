@@ -130,6 +130,15 @@ func (s *PostgresStore) GetPrimaryGoal(ctx context.Context, owner, language stri
 	return primaryGoalFromRow(row, snapshotSize), nil
 }
 
+// ListPrimaryGoalSnapshotVocabulary reads one immutable Goal snapshot without
+// changing any learner state.
+func (s *PostgresStore) ListPrimaryGoalSnapshotVocabulary(ctx context.Context, owner, snapshotID string) ([]domain.SelectionCandidate, error) {
+	if snapshotID == "" {
+		return nil, nil
+	}
+	return listPrimaryGoalSnapshotVocabulary(ctx, s.queries(), owner, snapshotID)
+}
+
 func snapshotSizeForGoal(ctx context.Context, q *sqlcgen.Queries, snapshotID, owner string) (int, error) {
 	if snapshotID == "" {
 		return 0, nil

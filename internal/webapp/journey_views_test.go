@@ -92,6 +92,30 @@ func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
 	assert.Equal(t, "80.0% projected coverage; 75.0% after the top 2 deck-eligible lemmas", journeyProjectedCoverage(item))
 }
 
+func TestJourneyPageRendersSequentialForecastMeaningsAndLowerBound(t *testing.T) {
+	item := testJourneyBook("forecast", "Forecast book", "analyzed")
+	item.Forecast = &domain.JourneyForecastEntry{
+		BookID:     "forecast",
+		Current:    &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
+		AfterGoal:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		OnArrival:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		LowerBound: true,
+	}
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	for _, want := range []string{
+		`aria-label="Journey coverage forecast"`,
+		"Current coverage:",
+		"After-Goal coverage (no active Goal):",
+		"On arrival in this order:",
+		"40.0% (40 of 100 analyzable tokens)",
+		"60.0% (60 of 100 analyzable tokens)",
+		"Lower bound:",
+	} {
+		assert.Contains(t, html, want)
+	}
+	assert.Contains(t, html, "same as after Goal")
+}
+
 func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
 	item := testJourneyBook("analyzed", "Analyzed book", "analyzed")
 	item.Book.Source.MediaType = "application/epub+zip"
