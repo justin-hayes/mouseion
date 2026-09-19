@@ -492,9 +492,9 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	if primary && item.GoalReadingOnly {
 		@StatusBadge("Reading-only Goal", StatusInfo)
 		if item.GoalUnassessed {
-			<p>No analysis or deck exists yet, so Mouseion cannot assess this book's vocabulary. This Goal stands on its own; nothing is prepared automatically.</p>
+			<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Goal. Reading directly is the current path.</p>
 		} else {
-			<p>Analysis evidence exists, but no deck has been prepared. Reading directly is the current path; a deck never prepares automatically.</p>
+			<p>Analysis evidence exists, but this Goal has no deck-eligible vocabulary. Reading directly is the current path.</p>
 		}
 	}
 	@JourneyEvidence(item, csrf)
@@ -586,7 +586,7 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(action.Status, action.Tone)) {
 	}
 	if message != "" {
-		@Feedback(bookFeedbackKind(message), "", message)
+		@Feedback(FeedbackSuccess, "", message)
 	}
 	@NextActionSummary(action)
 	if page.Journey.Goal {
@@ -642,7 +642,7 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 	}
 	if book.AnalysisStatus == "analyzed" && bookHasCompletedAnalysis(book) {
 		<section aria-labelledby="deck-preparation-heading"><h2 id="deck-preparation-heading">Deck preparation</h2>
-			<p>Prepare vocabulary from this book's exact current analysis and EPUB snapshot. It does not start vocabulary study or mark anything as known.</p>
+			<p>Prepare vocabulary from this book's exact current analysis and EPUB snapshot. Preparation records provenance; Goal completion determines what becomes known.</p>
 			if preparation != nil {
 				@DeckPreparationStatus(csrf, *preparation, "", journeyAction)
 			} else {
@@ -658,55 +658,34 @@ templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMater
 			}
 		</section>
 	}
-	if preparation != nil && preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(*preparation) {
-		@BookVocabularyStudy(journeyMembershipBookID(book), csrf, *preparation)
-	}
-	if len(page.VocabularyStudyHistory) > 0 {
-		@BookVocabularyStudyHistory(page.VocabularyStudyHistory)
+	if len(page.DeckPreparationHistory) > 0 {
+		@BookDeckHistory(page.DeckPreparationHistory)
 	}
 }
 
 }
 
-templ BookVocabularyStudy(bookID string, csrf string, preparation domain.DeckPreparation) {
-	<section aria-labelledby="vocabulary-study-heading" class="book-vocabulary-study">
-		<h2 id="vocabulary-study-heading">This Book's vocabulary study</h2>
-		<p>@StatusBadge(vocabularyStudyLabel(preparation), vocabularyStudyTone(preparation))</p>
-		if preparation.VocabularyCount > 0 {
-			<p>{ fmt.Sprintf("%d vocabulary identities are linked to this deck's immutable snapshot.", preparation.VocabularyCount) }</p>
-		}
-		if preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted || preparation.VocabularyStudyStatus() == domain.VocabularyStudyReleased {
-			if preparation.VocabularyStudyStatus() == domain.VocabularyStudyReleased {
-				<p>This study was released. Its provenance remains recorded and the vocabulary is eligible again.</p>
-			}
-			@Confirmation("Start vocabulary study", "Reserve this deck's vocabulary for review. It will not count as known until you confirm the reviewed deck.", StatusNeutral) {
-				<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Study this Book's vocabulary</button></form>
-			}
-		} else if preparation.VocabularyStudyStatus() == domain.VocabularyStudyStudying {
-			<p>The deck's vocabulary is reserved while you review it elsewhere; reserved vocabulary is not counted as known.</p>
-			@Confirmation("Confirm deck review", "This is a consequential transition: confirm only after reviewing this prepared deck. The snapshotted vocabulary will graduate into known vocabulary.", StatusNeutral) {
-				<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study/confirm") }><input type="hidden" name="csrf_token" value={ csrf }/><button>Confirm deck review</button></form>
-			}
-			@Confirmation("Release study", "Release the reservation without deleting the deck or its vocabulary provenance. The vocabulary can be selected again later.", StatusDanger) {
-				<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(bookID)+"/vocabulary-study/release") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline">Release study</button></form>
-			}
-		} else {
-			<p>Reviewed { completedAtLabel(preparation.ReviewedAt) }. Vocabulary graduated { completedAtLabel(preparation.GraduatedAt) }.</p>
-		}
-	</section>
-}
-
-templ BookVocabularyStudyHistory(preparations []domain.DeckPreparation) {
-	<section aria-labelledby="vocabulary-study-history-heading" class="book-vocabulary-study-history">
-		<h2 id="vocabulary-study-history-heading">This Book's vocabulary-study history</h2>
-		<p>Past vocabulary studies remain attached to the Book and their deck provenance is preserved.</p>
+templ BookDeckHistory(preparations []domain.DeckPreparation) {
+	<section aria-labelledby="deck-preparation-history-heading" class="book-deck-preparation-history">
+		<h2 id="deck-preparation-history-heading">Historical prepared decks</h2>
+		<p>Earlier prepared decks remain attached to the Book with their vocabulary and completion provenance.</p>
 		<ul>
 			for _, preparation := range preparations {
-				<li><strong>{ preparation.DeckName }</strong> · @StatusBadge(vocabularyStudyLabel(preparation), vocabularyStudyTone(preparation))
+				<li><strong>{ preparation.DeckName }</strong> · Prepared deck
+					if preparation.StudyingAt != nil {
+						<span> Legacy study timestamp: { preparation.StudyingAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+					}
 					if preparation.ReviewedAt != nil {
-						<span> Reviewed { preparation.ReviewedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
-					} else if preparation.ReleasedAt != nil {
-						<span> Released { preparation.ReleasedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+						<span> Legacy review timestamp: { preparation.ReviewedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+					}
+					if preparation.GraduatedAt != nil {
+						<span> Graduation timestamp: { preparation.GraduatedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+					}
+					if preparation.ReleasedAt != nil {
+						<span> Legacy release timestamp: { preparation.ReleasedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
+					}
+					if preparation.RetiredAt != nil {
+						<span> Retired timestamp: { preparation.RetiredAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
 					}
 					if preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(preparation) {
 						<a download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>

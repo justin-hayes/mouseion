@@ -59,7 +59,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 	unassessed.GoalReadingOnly = true
 	unassessed.GoalUnassessed = true
 	readingOnlyHTML := renderGoalSection(t, &unassessed, "", "", "reading-only")
-	for _, want := range []string{"Reading-only Goal", "No analysis or deck exists yet", "stands on its own", "nothing is prepared automatically"} {
+	for _, want := range []string{"Reading-only Goal", "No analysis or deck-eligible vocabulary exists yet", "Reading directly is the current path"} {
 		assert.True(t, strings.Contains(readingOnlyHTML, want), "unassessed Goal missing %q: %s", want, readingOnlyHTML)
 	}
 
@@ -67,7 +67,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 	assessed.GoalReadingOnly = true
 	assessed.GoalUnassessed = false
 	assessedHTML := renderGoalSection(t, &assessed, "", "", "assessed")
-	assert.True(t, strings.Contains(assessedHTML, "Analysis evidence exists, but no deck has been prepared"), "assessed reading-only copy missing: %s", assessedHTML)
+	assert.True(t, strings.Contains(assessedHTML, "Analysis evidence exists, but this Goal has no deck-eligible vocabulary"), "assessed reading-only copy missing: %s", assessedHTML)
 
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goalHTML := renderGoalSection(t, &goal, "", "", "goal")

@@ -35,7 +35,6 @@ var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for
 var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
-var ErrActiveVocabularyStudy = errors.New("persistence: owner already has a vocabulary study in progress")
 var ErrJourneyStale = errors.New("persistence: reading journey state is stale")
 var ErrGoalExists = errors.New("persistence: primary goal already exists")
 
@@ -165,7 +164,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 }
 
 // IsReservedVocabulary reports whether an identity belongs to the owner's
-// currently studied, not-yet-graduated deck.
+// active Goal snapshot.
 func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
 	return s.queries().ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
 		OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos,

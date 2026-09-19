@@ -58,7 +58,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Nil(t, metadataView.Acquired)
 	assert.Equal(t, domain.BookNotAcquired, metadataView.EvidenceState())
 
-	book, source, corpus, preparation := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "primary", "Migrated primary goal", []domain.LemmaOccurrence{
+	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "primary", "Migrated primary goal", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3},
 		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3},
@@ -104,10 +104,6 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	// using the same generated source/deck provenance.
 	_, err = store.Pool().Exec(ctx, `UPDATE generated_vocabulary SET upos='VERB' WHERE owner_id=$1 AND canonical_lemma='graduated'`, alice.ID)
 	require.NoError(t, err)
-	// Vocabulary study is book-anchored on the prepared deck.
-	_, err = store.StartDeckVocabularyStudy(ctx, alice.ID, preparation.ID)
-	require.NoError(t, err)
-
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", book.ID, journey.Revision)

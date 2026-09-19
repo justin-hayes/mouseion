@@ -172,7 +172,7 @@ normalized-corpus runs and prepared-deck manifests are not rewritten.
 German and Italian are the deployment-supported analysis languages. The
 Italian vertical is covered deterministically from capability discovery and
 learner selection through Stanza fixture consumption, content-word filtering,
-coverage thresholds, prepared-deck/vocabulary-study eligibility, and the generated
+coverage thresholds, Goal-owned reservation eligibility, and the generated
 `Mouseion::it::<book title>` APKG. These tests also assert account isolation and
 keep the German regression suite intact. See the [language-support feature
 contract](doc/features/language-support.md) for the supported path and model

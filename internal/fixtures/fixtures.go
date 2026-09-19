@@ -621,9 +621,8 @@ func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) (
 	return result, nil
 }
 
-// reservedDeckVocabularyLocked returns Goal-owned snapshot vocabulary and keeps
-// the old studying-deck projection for legacy fixture scenarios. Callers hold
-// s.mu.
+// reservedDeckVocabularyLocked returns the active Goal's frozen vocabulary.
+// Callers hold s.mu.
 func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.DeckPreparationVocabulary {
 	var result []domain.DeckPreparationVocabulary
 	seen := make(map[string]struct{})
@@ -651,19 +650,6 @@ func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.De
 					result = append(result, item)
 					seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
 				}
-			}
-		}
-	}
-	for _, preparation := range s.preps {
-		if preparation.OwnerID != owner || preparation.StudyingAt == nil || preparation.GraduatedAt != nil {
-			continue
-		}
-		for _, item := range s.deckVocabularyFor(owner, preparation.ID) {
-			if item.Language == language && item.GraduatedAt == nil {
-				if _, exists := seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS]; exists {
-					continue
-				}
-				result = append(result, item)
 			}
 		}
 	}
@@ -702,97 +688,12 @@ func (s *Store) goalSnapshotVocabularyLocked(owner, language string) []domain.De
 }
 
 // ListReservedVocabulary returns the vocabulary currently reserved by the
-// owner's book-anchored study: studying decks that have not yet graduated,
-// scoped to one language. It is the read seam used by the coverage service.
+// owner's active Goal snapshot, scoped to one language. It is the read seam
+// used by the coverage service.
 func (s *Store) ListReservedVocabulary(_ context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.reservedDeckVocabularyLocked(owner, language), nil
-}
-
-func (s *Store) CountDeckPreparationVocabularyToGraduate(_ context.Context, owner, preparationID string) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	count := 0
-	for _, item := range s.deckVocabulary {
-		if item.OwnerID == owner && item.DeckPreparationID == preparationID && item.GraduatedAt == nil && !fixtureKnown(s.known, item.Language, item.CanonicalLemma, item.UPOS) {
-			count++
-		}
-	}
-	return count, nil
-}
-
-func (s *Store) StartDeckVocabularyStudy(_ context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.preps {
-		if s.preps[i].OwnerID != owner || s.preps[i].ID != preparationID {
-			continue
-		}
-		preparation := &s.preps[i]
-		if preparation.State != domain.DeckPreparationReady || preparation.TotalCards == 0 || len(s.deckVocabularyFor(owner, preparationID)) == 0 || preparation.GraduatedAt != nil || preparation.ReviewedAt != nil {
-			return domain.DeckPreparation{}, persistence.ErrInvalidTransition
-		}
-		if preparation.StudyingAt != nil {
-			return *preparation, nil
-		}
-		now := time.Now()
-		preparation.StudyingAt, preparation.ReleasedAt = &now, nil
-		return *preparation, nil
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-
-func (s *Store) ConfirmDeckVocabularyReview(_ context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.preps {
-		if s.preps[i].OwnerID != owner || s.preps[i].ID != preparationID {
-			continue
-		}
-		preparation := &s.preps[i]
-		if preparation.GraduatedAt != nil {
-			return *preparation, nil
-		}
-		if preparation.StudyingAt == nil {
-			return domain.DeckPreparation{}, persistence.ErrInvalidTransition
-		}
-		now := time.Now()
-		preparation.StudyingAt, preparation.ReviewedAt, preparation.GraduatedAt, preparation.ReleasedAt = nil, &now, &now, nil
-		for i := range s.deckVocabulary {
-			item := &s.deckVocabulary[i]
-			if item.OwnerID != owner || item.DeckPreparationID != preparationID {
-				continue
-			}
-			item.GraduatedAt = &now
-			if !fixtureKnown(s.known, item.Language, item.CanonicalLemma, item.UPOS) {
-				s.known = append(s.known, domain.KnownVocabulary{ID: "fixture-study-known-" + item.CanonicalLemma, OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, Provenance: "Graduated from reviewed deck", CreatedAt: now})
-			}
-		}
-		return *preparation, nil
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-
-func (s *Store) ReleaseDeckVocabularyStudy(_ context.Context, owner, preparationID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.preps {
-		if s.preps[i].OwnerID != owner || s.preps[i].ID != preparationID {
-			continue
-		}
-		preparation := &s.preps[i]
-		if preparation.GraduatedAt != nil || preparation.ReviewedAt != nil {
-			return domain.DeckPreparation{}, persistence.ErrInvalidTransition
-		}
-		if preparation.StudyingAt == nil {
-			return *preparation, nil
-		}
-		now := time.Now()
-		preparation.StudyingAt, preparation.ReleasedAt = nil, &now
-		return *preparation, nil
-	}
-	return domain.DeckPreparation{}, errNotFound
 }
 
 func (s *Store) deckVocabularyFor(owner, preparationID string) []domain.DeckPreparationVocabulary {
@@ -821,18 +722,6 @@ func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMa
 	defer s.mu.Unlock()
 	for _, preparation := range s.preps {
 		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.AnalysisRunID == analysisRunID {
-			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
-			return preparation, nil
-		}
-	}
-	return domain.DeckPreparation{}, errNotFound
-}
-
-func (s *Store) GetActiveDeckVocabularyStudy(_ context.Context, owner, sourceMaterialID string) (domain.DeckPreparation, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, preparation := range s.preps {
-		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.StudyingAt != nil && preparation.GraduatedAt == nil {
 			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
 			return preparation, nil
 		}

@@ -1,4 +1,4 @@
--- Deck-preparation lifecycle and book-anchored vocabulary-study queries.
+-- Deck-preparation lifecycle and Goal-owned vocabulary queries.
 -- Domain guards stay in the repository; these statements own the SQL shape,
 -- row mapping, and RETURNING clauses.
 
@@ -38,22 +38,6 @@ WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
   AND analysis_run_id = sqlc.arg('analysis_run')
   AND (book_id IS NULL OR retired_at IS NULL);
-
--- name: GetActiveDeckVocabularyStudy :one
-SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
-       content_hash, total_cards, cards_with_english,
-       cards_with_contextual_sentence_translations, quality_omissions, error,
-       created_at, updated_at, started_at, completed_at, analysis_run_id,
-       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
-FROM deck_preparations
-WHERE owner_id = sqlc.arg('owner')
-  AND source_material_id = sqlc.arg('source_material')
-  AND studying_at IS NOT NULL
-  AND graduated_at IS NULL
-ORDER BY studying_at DESC
-LIMIT 1;
 
 -- name: ListDeckPreparationsForSourceMaterial :many
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
@@ -280,106 +264,7 @@ JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
 JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
 WHERE ps.owner_id = sqlc.arg('owner') AND ps.language = sqlc.arg('language')
   AND ps.released_at IS NULL AND pv.language = sqlc.arg('language')
-UNION
-SELECT dv.owner_id, dv.deck_preparation_id, dv.language, dv.canonical_lemma, dv.upos, dv.generated_at, dv.graduated_at
-FROM deck_preparation_vocabulary dv
-JOIN deck_preparations p ON p.owner_id = dv.owner_id AND p.id = dv.deck_preparation_id
-WHERE dv.owner_id = sqlc.arg('owner') AND dv.language = sqlc.arg('language')
-  AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL AND dv.graduated_at IS NULL
 ORDER BY canonical_lemma, upos;
-
--- name: CountDeckPreparationVocabularyToGraduate :one
-SELECT count(*)
-FROM deck_preparation_vocabulary dv
-WHERE dv.owner_id = sqlc.arg('owner') AND dv.deck_preparation_id = sqlc.arg('preparation')
-  AND dv.graduated_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = dv.owner_id AND kv.language = dv.language
-      AND kv.canonical_lemma = dv.canonical_lemma
-      AND (kv.upos = dv.upos OR kv.upos = '')
-  );
-
--- name: CountDeckPreparationVocabulary :one
-SELECT count(*)
-FROM deck_preparation_vocabulary
-WHERE owner_id = sqlc.arg('owner') AND deck_preparation_id = sqlc.arg('preparation');
-
--- name: RepairDeckPreparationVocabulary :exec
-INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at)
-SELECT gv.owner_id, sqlc.arg('preparation'), gv.language, gv.canonical_lemma, gv.upos, gv.first_generated_at
-FROM generated_vocabulary gv
-WHERE gv.owner_id = sqlc.arg('owner') AND gv.first_source_material_id = sqlc.arg('source_material')
-ON CONFLICT DO NOTHING;
-
--- name: StartDeckVocabularyStudy :one
-UPDATE deck_preparations
-SET studying_at = now(), released_at = NULL, updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation') AND studying_at IS NULL
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id;
-
--- name: GraduateDeckPreparationVocabularyStates :exec
-INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-SELECT dv.owner_id, dv.language, dv.canonical_lemma, dv.upos, 'known'
-FROM deck_preparation_vocabulary dv
-WHERE dv.owner_id = sqlc.arg('owner') AND dv.deck_preparation_id = sqlc.arg('preparation')
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = dv.owner_id AND kv.language = dv.language
-      AND kv.canonical_lemma = dv.canonical_lemma
-      AND (kv.upos = dv.upos OR kv.upos = '')
-  )
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE
-SET state = 'known', updated_at = now();
-
--- name: RecordGraduatedDeckVocabulary :exec
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos)
-SELECT dv.owner_id, dv.language, dv.canonical_lemma, dv.upos
-FROM deck_preparation_vocabulary dv
-WHERE dv.owner_id = sqlc.arg('owner') AND dv.deck_preparation_id = sqlc.arg('preparation')
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = dv.owner_id AND kv.language = dv.language
-      AND kv.canonical_lemma = dv.canonical_lemma
-      AND (kv.upos = dv.upos OR kv.upos = '')
-  )
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING;
-
--- name: MarkDeckPreparationVocabularyGraduated :exec
-UPDATE deck_preparation_vocabulary
-SET graduated_at = COALESCE(graduated_at, now())
-WHERE owner_id = sqlc.arg('owner') AND deck_preparation_id = sqlc.arg('preparation');
-
--- name: ConfirmDeckVocabularyReview :one
-UPDATE deck_preparations
-SET studying_at = NULL, reviewed_at = COALESCE(reviewed_at, now()),
-    graduated_at = COALESCE(graduated_at, now()), released_at = NULL, updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation')
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id;
-
--- name: ReleaseDeckVocabularyStudy :one
-UPDATE deck_preparations
-SET studying_at = NULL, released_at = now(), updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('preparation') AND studying_at IS NOT NULL
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id;
 
 -- name: InsertGeneratedVocabulary :exec
 INSERT INTO generated_vocabulary(owner_id, language, canonical_lemma, upos, first_deck_id, first_source_material_id)

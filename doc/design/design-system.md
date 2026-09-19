@@ -235,7 +235,7 @@ asynchronous progress, responsive tables, and consequential confirmation.
 
 The first rollout is complete and preserved as history in
 [`roadmap.md`](roadmap.md): it shipped the component layer across the existing
-  book/result/deck journey and extended it to acquisition, vocabulary study,
+  book/result/deck journey and extended it to acquisition, Goal completion,
   Settings, operational recovery, and quality gates. The roadmap does not plan the
 frozen My Books / Reading Journey / Primary Goal architecture.
 

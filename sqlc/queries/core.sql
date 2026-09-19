@@ -295,11 +295,6 @@ SELECT EXISTS(
   WHERE ps.owner_id = $1 AND ps.language = $2
     AND ps.released_at IS NULL AND pv.language = $2
     AND pv.canonical_lemma = $3 AND pv.upos = $4
-  UNION ALL
-  SELECT 1 FROM deck_preparation_vocabulary dv
-  JOIN deck_preparations p ON p.owner_id = dv.owner_id AND p.id = dv.deck_preparation_id
-  WHERE dv.owner_id = $1 AND dv.language = $2 AND dv.canonical_lemma = $3 AND dv.upos = $4
-    AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
 );
 
 -- name: ListUnattachedGeneratedVocabulary :many

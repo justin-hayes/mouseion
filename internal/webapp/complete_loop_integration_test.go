@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -51,7 +50,7 @@ func (completeLoopTranslationProvider) Translate(context.Context, enrichment.Tra
 	}, nil
 }
 
-func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
+func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "complete-learner-loop-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -212,24 +211,22 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 	require.NotEmpty(t, detail.Acquired.AnalysisRunID, "completed current analysis=%+v", detail.Acquired)
 	require.NotEmpty(t, detail.Acquired.CorpusID, "completed current analysis=%+v", detail.Acquired)
 
-	journeyPage := perform(t, h, http.MethodGet, "/journey/"+bookID, nil, cookies)
-	assert.Equal(t, http.StatusOK, journeyPage.Code)
-	assert.True(t, strings.Contains(journeyPage.Body.String(), "Prepare deck"), "completed Journey entry body=%s", journeyPage.Body.String())
-	prepared := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/deck/preparations", url.Values{
-		"csrf_token":                   {csrf},
-		"external_translation_consent": {"on"},
+	chosen := perform(t, h, http.MethodPost, "/goal/books/"+bookID, url.Values{
+		"csrf_token":            {csrf},
+		"expected_goal_book_id": {""},
 	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, prepared.Code)
-	preparationID := strings.TrimSuffix(strings.TrimPrefix(prepared.Header().Get("Location"), "/deck-preparations/"), "/status")
-	require.NotEmpty(t, preparationID, "unexpected preparation location=%q", prepared.Header().Get("Location"))
-	require.NotEqual(t, prepared.Header().Get("Location"), preparationID, "unexpected preparation location=%q", prepared.Header().Get("Location"))
+	assert.Equal(t, http.StatusSeeOther, chosen.Code)
+	assert.Contains(t, chosen.Header().Get("Location"), "/journey")
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
-		var getErr error
-		preparation, getErr = store.GetDeckPreparation(ctx, owner.ID, preparationID)
-		if getErr != nil {
-			return false, getErr.Error()
+		preparations, listErr := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
+		if listErr != nil {
+			return false, listErr.Error()
 		}
+		if len(preparations) == 0 {
+			return false, "Goal preparation has not been created"
+		}
+		preparation = preparations[0]
 		if preparation.State != domain.DeckPreparationReady {
 			if preparation.State == domain.DeckPreparationFailed {
 				return true, ""
@@ -242,51 +239,50 @@ func TestCompleteLearnerLoopFromOnboardingToConfirmedGraduation(t *testing.T) {
 		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error)
 	}
 
-	// Repeating the same request must reuse the current Book deck rather than
-	// creating a competing current preparation.
-	repeated := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/deck/preparations", url.Values{
-		"csrf_token":                   {csrf},
-		"external_translation_consent": {"on"},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, repeated.Code)
-	assert.Equal(t, prepared.Header().Get("Location"), repeated.Header().Get("Location"))
 	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, preparation.SourceMaterialID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(preparations))
 
-	started := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/vocabulary-study", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, started.Code)
-	preparation, err = store.GetDeckPreparation(ctx, owner.ID, preparationID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.VocabularyStudyStudying, preparation.VocabularyStudyStatus())
 	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), reservedCoverage.KnownTokenCount)
 	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount)
-	confirmed := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/vocabulary-study/confirm", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, confirmed.Code)
-	assert.True(t, strings.Contains(confirmed.Header().Get("Location"), "graduated+to+known"), "confirm vocabulary study location=%q body=%s", confirmed.Header().Get("Location"), confirmed.Body.String())
+	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{
+		"csrf_token":            {csrf},
+		"expected_goal_book_id": {bookID},
+	}, cookies)
+	assert.Equal(t, http.StatusOK, finished.Code)
+	assert.Contains(t, finished.Body.String(), "Reading finished")
 
-	preparation, err = store.GetDeckPreparation(ctx, owner.ID, preparationID)
-	require.NoError(t, err)
-	assert.NotNil(t, preparation.GraduatedAt)
-	assert.NotNil(t, preparation.ReviewedAt)
-	snapshot, err := store.ListDeckPreparationVocabulary(ctx, owner.ID, preparationID)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(snapshot))
-	assert.Equal(t, "de", snapshot[0].Language)
-	assert.Equal(t, "haus", snapshot[0].CanonicalLemma)
-	assert.Equal(t, "NOUN", snapshot[0].UPOS)
-	assert.NotNil(t, snapshot[0].GraduatedAt)
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(known))
 	assert.Equal(t, "haus", known[0].CanonicalLemma)
 	assert.Equal(t, "NOUN", known[0].UPOS)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	for _, entry := range journey.Entries {
+		assert.NotEqual(t, bookID, entry.BookID, "completed Goal remained in Journey")
+	}
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), coverage.KnownTokenCount)
 	assert.Equal(t, int64(0), coverage.ReservedTokenCount)
+	var historyCount int
+	var historyBookID string
+	err = store.Pool().QueryRow(ctx, `SELECT count(*), max(book_id::text) FROM reading_history WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&historyCount, &historyBookID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, historyCount)
+	assert.Equal(t, bookID, historyBookID)
+	resurrected := perform(t, h, http.MethodPost, "/goal/books/"+bookID, url.Values{
+		"csrf_token":            {csrf},
+		"expected_goal_book_id": {""},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, resurrected.Code)
+	assert.Contains(t, resurrected.Header().Get("Location"), "error=")
+	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, goal.BookID)
 }
 
 func completeLoopAnalysis(ctx context.Context, request analyzer.AnalyzeRequest) (analyzer.Result, error) {

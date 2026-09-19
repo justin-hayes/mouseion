@@ -214,37 +214,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     }
   });
 
-  test('vocabulary-study confirmation supports keyboard focus and review', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
-    await signIn(page, true);
-    await page.getByLabel('Study language').selectOption('de');
-    await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/journey/fixture-book');
-    const study = page.locator('.book-vocabulary-study');
-    const startConfirmation = study.locator('details').filter({ hasText: 'Start vocabulary study' }).first();
-    const startSummary = startConfirmation.locator('summary');
-    await startSummary.focus();
-    await expect(startSummary).toBeFocused();
-    await startSummary.press('Enter');
-    await expect(startConfirmation).toHaveAttribute('open', '');
-    const start = startConfirmation.getByRole('button', { name: 'Study this Book\'s vocabulary' });
-    await start.focus();
-    await expect(start).toBeFocused();
-    await start.press('Enter');
-    await expect(page).toHaveURL(/\/journey\/fixture-book\?message=/);
-    await expect(page.getByText(/Study this Book's vocabulary started/)).toBeVisible();
-    const confirmation = page.locator('.book-vocabulary-study details').filter({ hasText: 'Confirm deck review' }).first();
-    const summary = confirmation.locator('summary');
-    await summary.focus();
-    await expect(summary).toBeFocused();
-    await summary.press('Enter');
-    await expect(confirmation).toHaveAttribute('open', '');
-    await confirmation.getByRole('button', { name: 'Confirm deck review' }).press('Enter');
-    await expect(page).toHaveURL(/\/journey\/fixture-book\?message=/);
-    await expect(page.getByText(/Deck review confirmed/)).toBeVisible();
-  });
-
   test('known-vocabulary import works with enhancement disabled and enabled', async ({ page }) => {
     for (const disabled of [true, false]) {
       await signIn(page, disabled);

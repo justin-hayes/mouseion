@@ -641,10 +641,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		if err != nil {
 			return journeyPageView{}, err
 		}
-		book.GoalReadingOnly = true
-		if preparation, preparationErr := h.currentVocabularyStudyPreparation(ctx, owner, book.Book, true); preparationErr == nil && preparation != nil && preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(*preparation) {
-			book.GoalReadingOnly = false
-		}
+		book.GoalReadingOnly = book.GoalVocabularyEligible == 0
 		view.Goal = &book
 	}
 	for _, entry := range journey.Entries {

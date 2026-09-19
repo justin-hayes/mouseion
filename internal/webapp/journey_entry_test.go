@@ -70,46 +70,6 @@ func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
 	response = journeyEntryRequest(t, h, "/journey/fixture-book", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.True(t, strings.Contains(response.Body.String(), `action="/journey/books/fixture-book/remove"`), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
-	assert.True(t, strings.Contains(response.Body.String(), "This Book's vocabulary study"), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
-	assert.True(t, strings.Contains(response.Body.String(), "Study this Book's vocabulary"), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
-}
-
-func TestJourneyEntryBookVocabularyStudyReachesGraduation(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
-	start := goalRequest(t, h, "/journey/books/fixture-book/vocabulary-study", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, start.Code)
-	assert.True(t, strings.Contains(start.Header().Get("Location"), "/journey/fixture-book?message="), "start study location=%q", start.Header().Get("Location"))
-	preparation, err := store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.VocabularyStudyStudying, preparation.VocabularyStudyStatus())
-	confirm := goalRequest(t, h, "/journey/books/fixture-book/vocabulary-study/confirm", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, confirm.Code)
-	assert.True(t, strings.Contains(confirm.Header().Get("Location"), "graduated+to+known"), "confirm study location=%q", confirm.Header().Get("Location"))
-	preparation, err = store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.VocabularyStudyReviewed, preparation.VocabularyStudyStatus())
-	assert.NotNil(t, preparation.GraduatedAt, "reviewed preparation=%+v", preparation)
-	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	for _, item := range known {
-		if item.CanonicalLemma == "gehen" && item.Provenance == "Graduated from reviewed deck" {
-			return
-		}
-	}
-	require.FailNow(t, "graduated fixture vocabulary missing: %+v", known)
-}
-
-func TestJourneyEntryBookVocabularyStudyStartIsIdempotent(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
-	path := "/journey/books/fixture-book/vocabulary-study"
-	start := goalRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, start.Code)
-	start = goalRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, start.Code)
-	assert.True(t, strings.Contains(start.Header().Get("Location"), "already+in+progress"), "repeat start location=%q", start.Header().Get("Location"))
-	preparation, err := store.GetDeckPreparationForAnalysis(context.Background(), fixtures.OwnerID, fixtures.SourceID, fixtures.ResultRunID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.VocabularyStudyStudying, preparation.VocabularyStudyStatus())
 }
 
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {

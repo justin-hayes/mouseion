@@ -2,7 +2,6 @@ package domain
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -54,12 +53,4 @@ func TestTerminalLifecycleStatesRejectCrossTransitions(t *testing.T) {
 			assert.False(t, tt.got, "terminal lifecycle state accepted a cross-transition")
 		})
 	}
-}
-
-func TestVocabularyStudyStatusPrioritizesTerminalFacts(t *testing.T) {
-	now := time.Now()
-	assert.Equal(t, VocabularyStudyNotStarted, (DeckPreparation{}).VocabularyStudyStatus())
-	assert.Equal(t, VocabularyStudyReleased, (DeckPreparation{ReleasedAt: &now}).VocabularyStudyStatus())
-	assert.Equal(t, VocabularyStudyStudying, (DeckPreparation{StudyingAt: &now}).VocabularyStudyStatus())
-	assert.Equal(t, VocabularyStudyReviewed, (DeckPreparation{StudyingAt: &now, GraduatedAt: &now}).VocabularyStudyStatus())
 }

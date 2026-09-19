@@ -192,9 +192,10 @@ test.describe('authenticated learner smoke', () => {
      await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
      await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
-    await expect(page.getByText('Route evidence pending').first()).toBeVisible();
-    await page.goto('/journey/fixture-book');
-    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toBeVisible();
+     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
+     await page.goto('/journey/fixture-book');
+     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
+     await expect(page.getByRole('button', { name: /Study this Book's vocabulary|Confirm deck review|Release study/ })).toHaveCount(0);
     await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);

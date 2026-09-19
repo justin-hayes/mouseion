@@ -88,7 +88,8 @@ _Avoid_: particle verb, prefix verb.
 An Anki recognition deck built asynchronously from the recurring vocabulary of
 one exact completed analysis of a Book and that analysis's EPUB snapshot. The
 ready deck is downloaded and studied in the learner's own Anki; preparation
-itself never starts vocabulary study and never marks vocabulary known.
+does not mark vocabulary Known. Goal completion owns the vocabulary transition,
+while historical deck and graduation provenance remains readable.
 _Avoid_: study plan, in-app review deck.
 
 **Deck specification**:

@@ -239,106 +239,6 @@ func (q *Queries) CompleteDeckPreparation(ctx context.Context, arg CompleteDeckP
 	return i, err
 }
 
-const confirmDeckVocabularyReview = `-- name: ConfirmDeckVocabularyReview :one
-UPDATE deck_preparations
-SET studying_at = NULL, reviewed_at = COALESCE(reviewed_at, now()),
-    graduated_at = COALESCE(graduated_at, now()), released_at = NULL, updated_at = now()
-WHERE owner_id = $1 AND id = $2
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id
-`
-
-type ConfirmDeckVocabularyReviewParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) ConfirmDeckVocabularyReview(ctx context.Context, arg ConfirmDeckVocabularyReviewParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, confirmDeckVocabularyReview, arg.Owner, arg.Preparation)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-		&i.CardsWithFallbackGloss,
-		&i.RenderInputVersion,
-		&i.PresentationVersion,
-		&i.DeckRevision,
-		&i.GoalSnapshotID,
-	)
-	return i, err
-}
-
-const countDeckPreparationVocabulary = `-- name: CountDeckPreparationVocabulary :one
-SELECT count(*)
-FROM deck_preparation_vocabulary
-WHERE owner_id = $1 AND deck_preparation_id = $2
-`
-
-type CountDeckPreparationVocabularyParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) CountDeckPreparationVocabulary(ctx context.Context, arg CountDeckPreparationVocabularyParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countDeckPreparationVocabulary, arg.Owner, arg.Preparation)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countDeckPreparationVocabularyToGraduate = `-- name: CountDeckPreparationVocabularyToGraduate :one
-SELECT count(*)
-FROM deck_preparation_vocabulary dv
-WHERE dv.owner_id = $1 AND dv.deck_preparation_id = $2
-  AND dv.graduated_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = dv.owner_id AND kv.language = dv.language
-      AND kv.canonical_lemma = dv.canonical_lemma
-      AND (kv.upos = dv.upos OR kv.upos = '')
-  )
-`
-
-type CountDeckPreparationVocabularyToGraduateParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) CountDeckPreparationVocabularyToGraduate(ctx context.Context, arg CountDeckPreparationVocabularyToGraduateParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countDeckPreparationVocabularyToGraduate, arg.Owner, arg.Preparation)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createDeckPreparation = `-- name: CreateDeckPreparation :one
 INSERT INTO deck_preparations(owner_id, source_material_id, book_id, analysis_run_id, goal_snapshot_id, filename, deck_name, content_hash)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -480,66 +380,6 @@ func (q *Queries) DownloadDeckPreparation(ctx context.Context, arg DownloadDeckP
 	return i, err
 }
 
-const getActiveDeckVocabularyStudy = `-- name: GetActiveDeckVocabularyStudy :one
-SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
-       content_hash, total_cards, cards_with_english,
-       cards_with_contextual_sentence_translations, quality_omissions, error,
-       created_at, updated_at, started_at, completed_at, analysis_run_id,
-       current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-          presentation_version, deck_revision, goal_snapshot_id
-FROM deck_preparations
-WHERE owner_id = $1
-  AND source_material_id = $2
-  AND studying_at IS NOT NULL
-  AND graduated_at IS NULL
-ORDER BY studying_at DESC
-LIMIT 1
-`
-
-type GetActiveDeckVocabularyStudyParams struct {
-	Owner          string
-	SourceMaterial string
-}
-
-func (q *Queries) GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiveDeckVocabularyStudyParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, getActiveDeckVocabularyStudy, arg.Owner, arg.SourceMaterial)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-		&i.CardsWithFallbackGloss,
-		&i.RenderInputVersion,
-		&i.PresentationVersion,
-		&i.DeckRevision,
-		&i.GoalSnapshotID,
-	)
-	return i, err
-}
-
 const getDeckPreparation = `-- name: GetDeckPreparation :one
 
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
@@ -558,7 +398,7 @@ type GetDeckPreparationParams struct {
 	ID    string
 }
 
-// Deck-preparation lifecycle and book-anchored vocabulary-study queries.
+// Deck-preparation lifecycle and Goal-owned vocabulary queries.
 // Domain guards stay in the repository; these statements own the SQL shape,
 // row mapping, and RETURNING clauses.
 func (q *Queries) GetDeckPreparation(ctx context.Context, arg GetDeckPreparationParams) (DeckPreparation, error) {
@@ -949,31 +789,6 @@ func (q *Queries) GetUnretiredDeckPreparationBySourceHash(ctx context.Context, a
 	return i, err
 }
 
-const graduateDeckPreparationVocabularyStates = `-- name: GraduateDeckPreparationVocabularyStates :exec
-INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-SELECT dv.owner_id, dv.language, dv.canonical_lemma, dv.upos, 'known'
-FROM deck_preparation_vocabulary dv
-WHERE dv.owner_id = $1 AND dv.deck_preparation_id = $2
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = dv.owner_id AND kv.language = dv.language
-      AND kv.canonical_lemma = dv.canonical_lemma
-      AND (kv.upos = dv.upos OR kv.upos = '')
-  )
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE
-SET state = 'known', updated_at = now()
-`
-
-type GraduateDeckPreparationVocabularyStatesParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) GraduateDeckPreparationVocabularyStates(ctx context.Context, arg GraduateDeckPreparationVocabularyStatesParams) error {
-	_, err := q.db.Exec(ctx, graduateDeckPreparationVocabularyStates, arg.Owner, arg.Preparation)
-	return err
-}
-
 const insertDeckPreparationHistory = `-- name: InsertDeckPreparationHistory :exec
 INSERT INTO processing_history(owner_id, operation, status, details, completed_at)
 VALUES ($1, 'prepared_deck', $2, $3, now())
@@ -1135,12 +950,6 @@ JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
 JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
 WHERE ps.owner_id = $1 AND ps.language = $2
   AND ps.released_at IS NULL AND pv.language = $2
-UNION
-SELECT dv.owner_id, dv.deck_preparation_id, dv.language, dv.canonical_lemma, dv.upos, dv.generated_at, dv.graduated_at
-FROM deck_preparation_vocabulary dv
-JOIN deck_preparations p ON p.owner_id = dv.owner_id AND p.id = dv.deck_preparation_id
-WHERE dv.owner_id = $1 AND dv.language = $2
-  AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL AND dv.graduated_at IS NULL
 ORDER BY canonical_lemma, upos
 `
 
@@ -1246,22 +1055,6 @@ func (q *Queries) ListStalePreparedDecks(ctx context.Context, arg ListStalePrepa
 	return items, nil
 }
 
-const markDeckPreparationVocabularyGraduated = `-- name: MarkDeckPreparationVocabularyGraduated :exec
-UPDATE deck_preparation_vocabulary
-SET graduated_at = COALESCE(graduated_at, now())
-WHERE owner_id = $1 AND deck_preparation_id = $2
-`
-
-type MarkDeckPreparationVocabularyGraduatedParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error {
-	_, err := q.db.Exec(ctx, markDeckPreparationVocabularyGraduated, arg.Owner, arg.Preparation)
-	return err
-}
-
 const markPreparedDeckRequiresRepreparation = `-- name: MarkPreparedDeckRequiresRepreparation :exec
 UPDATE deck_preparations
 SET error = $1, updated_at = now()
@@ -1317,105 +1110,6 @@ func (q *Queries) PutPreparedDeckCard(ctx context.Context, arg PutPreparedDeckCa
 	return err
 }
 
-const recordGraduatedDeckVocabulary = `-- name: RecordGraduatedDeckVocabulary :exec
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos)
-SELECT dv.owner_id, dv.language, dv.canonical_lemma, dv.upos
-FROM deck_preparation_vocabulary dv
-WHERE dv.owner_id = $1 AND dv.deck_preparation_id = $2
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = dv.owner_id AND kv.language = dv.language
-      AND kv.canonical_lemma = dv.canonical_lemma
-      AND (kv.upos = dv.upos OR kv.upos = '')
-  )
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO NOTHING
-`
-
-type RecordGraduatedDeckVocabularyParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) RecordGraduatedDeckVocabulary(ctx context.Context, arg RecordGraduatedDeckVocabularyParams) error {
-	_, err := q.db.Exec(ctx, recordGraduatedDeckVocabulary, arg.Owner, arg.Preparation)
-	return err
-}
-
-const releaseDeckVocabularyStudy = `-- name: ReleaseDeckVocabularyStudy :one
-UPDATE deck_preparations
-SET studying_at = NULL, released_at = now(), updated_at = now()
-WHERE owner_id = $1 AND id = $2 AND studying_at IS NOT NULL
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id
-`
-
-type ReleaseDeckVocabularyStudyParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDeckVocabularyStudyParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, releaseDeckVocabularyStudy, arg.Owner, arg.Preparation)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-		&i.CardsWithFallbackGloss,
-		&i.RenderInputVersion,
-		&i.PresentationVersion,
-		&i.DeckRevision,
-		&i.GoalSnapshotID,
-	)
-	return i, err
-}
-
-const repairDeckPreparationVocabulary = `-- name: RepairDeckPreparationVocabulary :exec
-INSERT INTO deck_preparation_vocabulary(owner_id, deck_preparation_id, language, canonical_lemma, upos, generated_at)
-SELECT gv.owner_id, $1, gv.language, gv.canonical_lemma, gv.upos, gv.first_generated_at
-FROM generated_vocabulary gv
-WHERE gv.owner_id = $2 AND gv.first_source_material_id = $3
-ON CONFLICT DO NOTHING
-`
-
-type RepairDeckPreparationVocabularyParams struct {
-	Preparation    string
-	Owner          string
-	SourceMaterial pgtype.UUID
-}
-
-func (q *Queries) RepairDeckPreparationVocabulary(ctx context.Context, arg RepairDeckPreparationVocabularyParams) error {
-	_, err := q.db.Exec(ctx, repairDeckPreparationVocabulary, arg.Preparation, arg.Owner, arg.SourceMaterial)
-	return err
-}
-
 const retireDeckPreparationsForBook = `-- name: RetireDeckPreparationsForBook :exec
 UPDATE deck_preparations
 SET retired_at = now(), updated_at = now()
@@ -1454,62 +1148,6 @@ func (q *Queries) SetVocabularyStateGenerated(ctx context.Context, arg SetVocabu
 		arg.Upos,
 	)
 	return err
-}
-
-const startDeckVocabularyStudy = `-- name: StartDeckVocabularyStudy :one
-UPDATE deck_preparations
-SET studying_at = now(), released_at = NULL, updated_at = now()
-WHERE owner_id = $1 AND id = $2 AND studying_at IS NULL
-RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
-          content_hash, total_cards, cards_with_english,
-          cards_with_contextual_sentence_translations, quality_omissions, error,
-          created_at, updated_at, started_at, completed_at, analysis_run_id,
-          current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision, goal_snapshot_id
-`
-
-type StartDeckVocabularyStudyParams struct {
-	Owner       string
-	Preparation string
-}
-
-func (q *Queries) StartDeckVocabularyStudy(ctx context.Context, arg StartDeckVocabularyStudyParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, startDeckVocabularyStudy, arg.Owner, arg.Preparation)
-	var i DeckPreparation
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.SourceMaterialID,
-		&i.State,
-		&i.Artifact,
-		&i.Filename,
-		&i.DeckName,
-		&i.ContentHash,
-		&i.TotalCards,
-		&i.CardsWithEnglish,
-		&i.CardsWithContextualSentenceTranslations,
-		&i.QualityOmissions,
-		&i.Error,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.AnalysisRunID,
-		&i.CurrentRunID,
-		&i.StudyingAt,
-		&i.ReviewedAt,
-		&i.GraduatedAt,
-		&i.ReleasedAt,
-		&i.BookID,
-		&i.RetiredAt,
-		&i.CardsWithFallbackGloss,
-		&i.RenderInputVersion,
-		&i.PresentationVersion,
-		&i.DeckRevision,
-		&i.GoalSnapshotID,
-	)
-	return i, err
 }
 
 const supersedePreparedDeckArtifact = `-- name: SupersedePreparedDeckArtifact :one

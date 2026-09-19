@@ -36,10 +36,7 @@ type Querier interface {
 	CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error)
 	CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error)
 	CompletePreparedDeckRun(ctx context.Context, arg CompletePreparedDeckRunParams) (DeckPreparationRun, error)
-	ConfirmDeckVocabularyReview(ctx context.Context, arg ConfirmDeckVocabularyReviewParams) (DeckPreparation, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
-	CountDeckPreparationVocabulary(ctx context.Context, arg CountDeckPreparationVocabularyParams) (int64, error)
-	CountDeckPreparationVocabularyToGraduate(ctx context.Context, arg CountDeckPreparationVocabularyToGraduateParams) (int64, error)
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
 	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error)
@@ -84,7 +81,6 @@ type Querier interface {
 	FinishPreparedDeckBatchReconciliation(ctx context.Context, arg FinishPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckBatchSubmission(ctx context.Context, arg FinishPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
-	GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiveDeckVocabularyStudyParams) (DeckPreparation, error)
 	GetActivePrimaryGoalSnapshotForPreparation(ctx context.Context, arg GetActivePrimaryGoalSnapshotForPreparationParams) (GetActivePrimaryGoalSnapshotForPreparationRow, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
 	GetBookAliasConnection(ctx context.Context, arg GetBookAliasConnectionParams) (string, error)
@@ -105,7 +101,7 @@ type Querier interface {
 	GetCurrentExtractedUnitSnapshot(ctx context.Context, arg GetCurrentExtractedUnitSnapshotParams) (GetCurrentExtractedUnitSnapshotRow, error)
 	GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentPreparedDeckRunParams) (DeckPreparationRun, error)
 	GetCurrentSourceMaterialContent(ctx context.Context, arg GetCurrentSourceMaterialContentParams) (GetCurrentSourceMaterialContentRow, error)
-	// Deck-preparation lifecycle and book-anchored vocabulary-study queries.
+	// Deck-preparation lifecycle and Goal-owned vocabulary queries.
 	// Domain guards stay in the repository; these statements own the SQL shape,
 	// row mapping, and RETURNING clauses.
 	GetDeckPreparation(ctx context.Context, arg GetDeckPreparationParams) (DeckPreparation, error)
@@ -158,7 +154,6 @@ type Querier interface {
 	GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error)
 	GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error)
 	GetVocabularyStateForUpdate(ctx context.Context, arg GetVocabularyStateForUpdateParams) (string, error)
-	GraduateDeckPreparationVocabularyStates(ctx context.Context, arg GraduateDeckPreparationVocabularyStatesParams) error
 	GraduatePrimaryGoalSnapshotVocabulary(ctx context.Context, arg GraduatePrimaryGoalSnapshotVocabularyParams) (int, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
@@ -259,7 +254,6 @@ type Querier interface {
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
-	MarkDeckPreparationVocabularyGraduated(ctx context.Context, arg MarkDeckPreparationVocabularyGraduatedParams) error
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
 	NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error)
@@ -285,17 +279,13 @@ type Querier interface {
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
 	PutVocabularyState(ctx context.Context, arg PutVocabularyStateParams) (PutVocabularyStateRow, error)
 	ReadingCompletionExists(ctx context.Context, arg ReadingCompletionExistsParams) (bool, error)
-	RecordGraduatedDeckVocabulary(ctx context.Context, arg RecordGraduatedDeckVocabularyParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
-	ReleaseDeckStudiesForPrimaryGoalSnapshot(ctx context.Context, arg ReleaseDeckStudiesForPrimaryGoalSnapshotParams) error
-	ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDeckVocabularyStudyParams) (DeckPreparation, error)
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
 	ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error
 	ReleasePrimaryGoalSnapshotsForAllLanguages(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForAllLanguagesParams) error
 	ReleasePrimaryGoalSnapshotsForBook(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForBookParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
-	RepairDeckPreparationVocabulary(ctx context.Context, arg RepairDeckPreparationVocabularyParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error)
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
@@ -319,7 +309,6 @@ type Querier interface {
 	SetSourceMaterialBook(ctx context.Context, arg SetSourceMaterialBookParams) error
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
 	SetVocabularyStateGenerated(ctx context.Context, arg SetVocabularyStateGeneratedParams) error
-	StartDeckVocabularyStudy(ctx context.Context, arg StartDeckVocabularyStudyParams) (DeckPreparation, error)
 	// Fenced prepared-deck transitions. The domain rules (claim-token validation,
 	// expected-state WHERE guards, bounded-error validation, lost-claim rechecks)
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING

@@ -345,27 +345,17 @@ func TestFixtureReservedVocabularyFollowsPrimaryGoalSnapshot(t *testing.T) {
 	store := NewStore()
 
 	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "reserved before study=%+v err=%v", reserved, err)
-	assert.Len(t, reserved, 2, "reserved from active Goal=%+v err=%v", reserved, err)
-	_, err = store.StartDeckVocabularyStudy(ctx, OwnerID, PrepID)
-	require.NoError(t, err)
-	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "reserved during study=%+v err=%v", reserved, err)
-	require.Len(t, reserved, 2, "reserved during study=%+v err=%v", reserved, err)
+	require.NoError(t, err, "reserved from active Goal=%+v err=%v", reserved, err)
+	require.Len(t, reserved, 2, "reserved from active Goal=%+v err=%v", reserved, err)
 	got := map[string]bool{}
 	for _, item := range reserved {
 		got[item.CanonicalLemma] = true
 	}
 	assert.True(t, got["gehen"], "reserved identities=%v", got)
 	assert.True(t, got["Weg"], "reserved identities=%v", got)
-	_, err = store.ConfirmDeckVocabularyReview(ctx, OwnerID, PrepID)
-	require.NoError(t, err)
-	released, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "reserved after review=%+v err=%v", released, err)
-	assert.Len(t, released, 2, "active Goal snapshot survived deck review=%+v err=%v", released, err)
 	err = store.ClearPrimaryGoal(ctx, OwnerID, "de", BookID)
 	require.NoError(t, err)
-	released, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
+	released, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, released, "reserved after Goal clear=%+v err=%v", released, err)
 }

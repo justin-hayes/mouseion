@@ -63,26 +63,18 @@ func (h *Handler) renderBookPage(w http.ResponseWriter, r *http.Request, u domai
 	if !ok {
 		return false
 	}
-	if preparation == nil {
-		var studyErr error
-		preparation, studyErr = h.currentVocabularyStudyPreparation(r.Context(), u.ID, summary, false)
-		if studyErr != nil {
-			fail(w, studyErr)
-			return false
-		}
-	}
-	history, historyErr := h.vocabularyStudyHistory(r.Context(), u.ID, summary.Source.ID, preparation)
+	history, historyErr := h.deckPreparationHistory(r.Context(), u.ID, summary.Source.ID, preparation)
 	if historyErr != nil {
 		fail(w, historyErr)
 		return false
 	}
-	page.VocabularyStudyHistory = history
+	page.DeckPreparationHistory = history
 	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, message, page, preparation, journeyAction))
 	return true
 }
 
-func (h *Handler) vocabularyStudyHistory(ctx context.Context, owner, sourceMaterialID string, current *domain.DeckPreparation) ([]domain.DeckPreparation, error) {
-	reader, ok := h.services.Store.Books.(VocabularyStudyPreparationReader)
+func (h *Handler) deckPreparationHistory(ctx context.Context, owner, sourceMaterialID string, current *domain.DeckPreparation) ([]domain.DeckPreparation, error) {
+	reader, ok := h.services.Store.Books.(DeckPreparationHistoryReader)
 	if !ok {
 		return nil, nil
 	}
@@ -96,7 +88,7 @@ func (h *Handler) vocabularyStudyHistory(ctx context.Context, owner, sourceMater
 	}
 	history := make([]domain.DeckPreparation, 0, len(preparations))
 	for _, preparation := range preparations {
-		if preparation.ID == currentID || preparation.VocabularyStudyStatus() == domain.VocabularyStudyNotStarted {
+		if preparation.ID == currentID {
 			continue
 		}
 		history = append(history, preparation)
@@ -297,11 +289,6 @@ func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request,
 	}
 	if err != nil {
 		handlePreparationError(w, r, err)
-		return nil, journeyAction, false
-	}
-	preparation, err = h.attachVocabularyStudyPreparation(r.Context(), owner, book, preparation)
-	if err != nil {
-		fail(w, err)
 		return nil, journeyAction, false
 	}
 	if preparation.State == domain.DeckPreparationReady {
