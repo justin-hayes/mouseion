@@ -71,6 +71,9 @@ func releasePrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, 
 	if snapshotID == "" {
 		return nil
 	}
+	if err := q.ReleaseDeckStudiesForPrimaryGoalSnapshot(ctx, sqlcgen.ReleaseDeckStudiesForPrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID}); err != nil {
+		return err
+	}
 	return q.ReleasePrimaryGoalSnapshot(ctx, sqlcgen.ReleasePrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID})
 }
 

@@ -4,6 +4,10 @@
 ALTER TABLE public.primary_goals
     ADD COLUMN snapshot_id uuid;
 
+-- Goal-owned reservations no longer need an owner-wide manual-study lease.
+-- Legacy study rows remain historical and are released by Goal transitions.
+DROP INDEX IF EXISTS public.deck_preparations_one_studying_per_owner;
+
 ALTER TABLE public.deck_preparations
     ADD COLUMN goal_snapshot_id uuid;
 

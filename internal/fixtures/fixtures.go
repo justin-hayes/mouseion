@@ -632,11 +632,6 @@ func (s *Store) StartDeckVocabularyStudy(_ context.Context, owner, preparationID
 		if preparation.StudyingAt != nil {
 			return *preparation, nil
 		}
-		for _, other := range s.preps {
-			if other.OwnerID == owner && other.StudyingAt != nil && other.GraduatedAt == nil {
-				return domain.DeckPreparation{}, persistence.ErrActiveVocabularyStudy
-			}
-		}
 		now := time.Now()
 		preparation.StudyingAt, preparation.ReleasedAt = &now, nil
 		return *preparation, nil

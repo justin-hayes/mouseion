@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -316,9 +315,6 @@ func (s *PostgresStore) StartDeckVocabularyStudy(ctx context.Context, owner, pre
 	err = missing(err)
 	updated := deckPreparationFromModel(updatedModel)
 	if err != nil {
-		if isConstraint(err, "deck_preparations_one_studying_per_owner") {
-			return domain.DeckPreparation{}, ErrActiveVocabularyStudy
-		}
 		return domain.DeckPreparation{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -398,11 +394,6 @@ func (s *PostgresStore) ReleaseDeckVocabularyStudy(ctx context.Context, owner, p
 		return domain.DeckPreparation{}, err
 	}
 	return updated, nil
-}
-
-func isConstraint(err error, name string) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.ConstraintName == name
 }
 
 // CreateDeckPreparation creates the current preparation for a Book. A new

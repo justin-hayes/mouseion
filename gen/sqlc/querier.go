@@ -286,6 +286,7 @@ type Querier interface {
 	RecordGraduatedDeckVocabulary(ctx context.Context, arg RecordGraduatedDeckVocabularyParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
+	ReleaseDeckStudiesForPrimaryGoalSnapshot(ctx context.Context, arg ReleaseDeckStudiesForPrimaryGoalSnapshotParams) error
 	ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDeckVocabularyStudyParams) (DeckPreparation, error)
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
 	ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error
