@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -408,6 +409,58 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.myBooksForOwner(owner), nil
+}
+
+// GetAnalysisCorpusVocabulary provides deterministic corpus facts for the
+// forecast provider. The shared recurring identity makes sequential changes
+// visible in browser smoke tests without involving a real analyzer.
+func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusID string) (domain.AnalysisCorpusVocabulary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var source domain.SourceMaterialSummary
+	for _, book := range s.books {
+		if book.CorpusID == corpusID {
+			source = book
+			break
+		}
+	}
+	if source.CorpusID == "" {
+		return domain.AnalysisCorpusVocabulary{}, errNotFound
+	}
+	knownTokens := fixtureForecastKnownTokens(corpusID)
+	sharedTokens := int64(5)
+	if knownTokens+sharedTokens > 100 {
+		sharedTokens = max(100-knownTokens, 0)
+	}
+	lemmas := []domain.LemmaOccurrence{}
+	if knownTokens > 0 {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: source.Source.Language, CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: knownTokens})
+	}
+	if sharedTokens > 0 {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: source.Source.Language, CanonicalLemma: "fixture-recurring", UPOS: "NOUN", OccurrenceCount: sharedTokens})
+	}
+	if remaining := 100 - knownTokens - sharedTokens; remaining > 0 {
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: source.Source.Language, CanonicalLemma: "fixture-" + corpusID, UPOS: "NOUN", OccurrenceCount: remaining})
+	}
+	return domain.AnalysisCorpusVocabulary{
+		CorpusID: corpusID, SourceMaterialID: source.Source.ID, AnalysisRunID: source.AnalysisRunID,
+		Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: int64(len(lemmas))}, Lemmas: lemmas,
+	}, nil
+}
+
+func fixtureForecastKnownTokens(corpusID string) int64 {
+	switch corpusID {
+	case "fixture-corpus", "fixture-route-match-corpus":
+		return 90
+	case "fixture-route-differs-corpus":
+		return 20
+	case "fixture-route-tie-a-corpus", "fixture-route-tie-b-corpus":
+		return 50
+	case "fixture-italian-goal-corpus":
+		return 60
+	default:
+		return 0
+	}
 }
 
 func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBook, error) {
@@ -1515,42 +1568,10 @@ type Insights struct {
 }
 
 func (insights Insights) JourneyForecast(ctx context.Context, owner, language string) (domain.JourneyForecast, error) {
-	projection, err := insights.JourneyProjection(ctx, owner, language)
-	if err != nil {
-		return domain.JourneyForecast{}, err
+	if insights.JourneyStore == nil {
+		return domain.JourneyForecast{}, fmt.Errorf("fixture Journey store is unavailable")
 	}
-	result := domain.JourneyForecast{OwnerID: owner, Language: language}
-	if insights.JourneyStore != nil {
-		goal, goalErr := insights.JourneyStore.GetPrimaryGoal(ctx, owner, language)
-		if goalErr != nil {
-			return domain.JourneyForecast{}, goalErr
-		}
-		if goal.IsActive() {
-			result.Goal = &goal
-		}
-	}
-	lowerBound := false
-	for _, book := range projection.LearnerOrder {
-		entry := domain.JourneyForecastEntry{BookID: book.BookID, SourceMaterialID: book.SourceMaterialID, Language: book.Language, CorpusID: book.CorpusID, Position: book.Position}
-		if !book.Comparable || book.Coverage == nil {
-			entry.UnavailableReason = book.IncomparableReason
-			if entry.UnavailableReason == "" {
-				entry.UnavailableReason = "unavailable: fixture evidence is not comparable"
-			}
-			lowerBound = true
-		} else {
-			entry.Current = &domain.JourneyForecastCoverage{KnownTokenCount: book.Coverage.KnownTokenCount, AnalyzableTokenCount: book.Coverage.AnalyzableTokenCount}
-			entry.OnArrival = entry.Current
-			if book.ConditionalCoverage != nil {
-				entry.AfterGoal = &domain.JourneyForecastCoverage{KnownTokenCount: book.ConditionalCoverage.KnownTokenCount + book.ConditionalCoverage.ReservedTokenCount, AnalyzableTokenCount: book.ConditionalCoverage.AnalyzableTokenCount}
-			} else {
-				entry.AfterGoal = entry.Current
-			}
-		}
-		entry.LowerBound = lowerBound
-		result.Entries = append(result.Entries, entry)
-	}
-	return result, nil
+	return analysisinsights.NewService(insights.JourneyStore).JourneyForecast(ctx, owner, language)
 }
 
 // JourneyProjection returns a stable fixture projection with enough variation

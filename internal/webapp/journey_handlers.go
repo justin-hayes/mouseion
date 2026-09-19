@@ -34,6 +34,7 @@ type journeyBookView struct {
 	Coverage               *domain.AnalysisCoverage
 	StatisticsUnavailable  bool
 	Forecast               *domain.JourneyForecastEntry
+	ForecastHasGoal        bool
 }
 
 func journeyBookClass(primary bool) string {
@@ -148,7 +149,7 @@ func journeyEvidenceLabel(item journeyBookView) string {
 func journeyEvidenceDescription(item journeyBookView) string {
 	switch journeyEvidenceState(item) {
 	case "stale":
-		return "Current and projected coverage are unavailable until this book's analysis is reviewed."
+		return "Current and Journey forecast coverage are unavailable until this book's analysis is reviewed."
 	case "unassessed":
 		return "Current EPUB content is available, but no completed analysis has produced evidence for this book yet."
 	case "unavailable":
@@ -225,12 +226,13 @@ func journeyProjectionText(coverage domain.AnalysisCoverage) string {
 }
 
 type journeyPageView struct {
-	Language        string
-	LanguageLabel   string
-	Goal            *journeyBookView
-	Provisional     []journeyBookView
-	Revision        int64
-	RouteComparison *routeComparisonView
+	Language            string
+	LanguageLabel       string
+	Goal                *journeyBookView
+	Provisional         []journeyBookView
+	Revision            int64
+	RouteComparison     *routeComparisonView
+	ForecastUnavailable bool
 }
 
 func journeyPageTitle(journey journeyPageView) string {
@@ -657,6 +659,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		forecast, forecastErr := provider.JourneyForecast(ctx, owner, language)
 		if forecastErr != nil {
 			log.Printf("mouseion: Journey forecast unavailable for owner %s: %v", owner, forecastErr)
+			view.ForecastUnavailable = true
 		} else {
 			forecastByBook := make(map[string]*domain.JourneyForecastEntry, len(forecast.Entries))
 			for i := range forecast.Entries {
@@ -664,9 +667,11 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			}
 			if view.Goal != nil {
 				view.Goal.Forecast = forecastByBook[view.Goal.BookID]
+				view.Goal.ForecastHasGoal = forecast.Goal != nil
 			}
 			for i := range view.Provisional {
 				view.Provisional[i].Forecast = forecastByBook[view.Provisional[i].BookID]
+				view.Provisional[i].ForecastHasGoal = forecast.Goal != nil
 			}
 		}
 	}

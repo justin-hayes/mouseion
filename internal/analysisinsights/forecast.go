@@ -113,9 +113,6 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 			lowerBound = true
 			entry.LowerBound = lowerBound
 			result.Entries = append(result.Entries, entry)
-			if goal.IsActive() && journeyEntry.BookID == goal.BookID {
-				accumulated = cloneForecastVocabulary(goalKnown)
-			}
 			continue
 		}
 
@@ -165,7 +162,7 @@ func (s *Service) forecastEvidence(ctx context.Context, owner, language, bookID 
 	if input.SourceMaterialID != acquired.Source.ID {
 		return domain.AnalysisCorpusVocabulary{}, "stale: corpus does not represent the current source"
 	}
-	if input.AnalysisRunID != "" && input.AnalysisRunID != acquired.AnalysisRunID {
+	if input.AnalysisRunID == "" || input.AnalysisRunID != acquired.AnalysisRunID {
 		return domain.AnalysisCorpusVocabulary{}, "stale: corpus does not represent the current analysis run"
 	}
 	if !corpusLanguageMatches(input, language) {

@@ -27,7 +27,7 @@ func forecastBook(id, language, corpus string) domain.MyBook {
 
 func forecastInput(source, corpus, language string, count int64, lemmas ...domain.LemmaOccurrence) domain.AnalysisCorpusVocabulary {
 	return domain.AnalysisCorpusVocabulary{
-		CorpusID: corpus, SourceMaterialID: source,
+		CorpusID: corpus, SourceMaterialID: source, AnalysisRunID: "run-" + source,
 		Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: count, DistinctLemmaCount: int64(len(lemmas))},
 		Lemmas:     lemmas,
 	}
@@ -112,4 +112,30 @@ func TestJourneyForecastKeepsLanguageIntegrityAndEmptyGoalSnapshot(t *testing.T)
 	result, err = NewService(store).JourneyForecast(context.Background(), "alice", "de")
 	require.NoError(t, err)
 	assert.Equal(t, result.Entries[0].Current, result.Entries[0].AfterGoal, "an empty snapshot adds no transition")
+	incomplete := store.corpora["corpus"]
+	incomplete.AnalysisRunID = ""
+	store.corpora["corpus"] = incomplete
+	result, err = NewService(store).JourneyForecast(context.Background(), "alice", "de")
+	require.NoError(t, err)
+	assert.Contains(t, result.Entries[0].UnavailableReason, "analysis run")
+}
+
+func TestJourneyForecastDoesNotModelAnUnavailableGoal(t *testing.T) {
+	store := &forecastSnapshotStore{routeStore: &routeStore{
+		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "goal", Position: 1}, {BookID: "next", Position: 2}}},
+		goal:    domain.PrimaryGoal{OwnerID: "alice", Language: "de", BookID: "goal", SnapshotID: "snapshot"},
+		books: []domain.MyBook{
+			{Book: domain.Book{ID: "goal", OwnerID: "alice"}, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "goal-source", Language: "de"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisRunID: "failed-run", CorpusID: "failed-corpus"}},
+			forecastBook("next", "de", "c-next"),
+		},
+		corpora: map[string]domain.AnalysisCorpusVocabulary{
+			"c-next": forecastInput("next", "c-next", "de", 4, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "goal-word", UPOS: "VERB", OccurrenceCount: 4}),
+		},
+	}, snapshot: []domain.SelectionCandidate{{Language: "de", CanonicalLemma: "goal-word", UPOS: "VERB"}}}
+
+	result, err := NewService(store).JourneyForecast(context.Background(), "alice", "de")
+	require.NoError(t, err)
+	require.Len(t, result.Entries, 2)
+	assert.NotEmpty(t, result.Entries[0].UnavailableReason)
+	assert.Equal(t, int64(0), result.Entries[1].OnArrival.KnownTokenCount, "an unavailable Goal contributes no frozen or modeled vocabulary")
 }

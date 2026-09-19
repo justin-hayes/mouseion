@@ -105,7 +105,7 @@ func TestJourneyPageRendersSequentialForecastMeaningsAndLowerBound(t *testing.T)
 	for _, want := range []string{
 		`aria-label="Journey coverage forecast"`,
 		"Current coverage:",
-		"After accepting this Goal:",
+		"After-Goal coverage (no active Goal):",
 		"On arrival in this order:",
 		"40.0% (40 of 100 analyzable tokens)",
 		"60.0% (60 of 100 analyzable tokens)",
