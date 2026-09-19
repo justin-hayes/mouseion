@@ -137,17 +137,21 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 			break
 		}
 	}
+	forecastMessage := "Coverage forecast recalculated for the saved order."
+	if view.ForecastUnavailable {
+		forecastMessage = "Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey."
+	}
 	if !isHTMX(r) {
-		message := title + " moved."
+		message := title + " moved. " + forecastMessage
 		if newRevision == journey.Revision {
-			message = title + " did not move."
+			message = title + " did not move. " + forecastMessage
 		}
 		redirect(w, r, "/journey?message="+url.QueryEscape(message))
 		return
 	}
-	status := "Moved " + title + " to provisional position " + strconv.Itoa(position) + ". Current evidence is shown for the updated order."
+	status := "Moved " + title + " to provisional position " + strconv.Itoa(position) + ". " + forecastMessage
 	if newRevision == journey.Revision {
-		status = title + " did not move and remains at provisional position " + strconv.Itoa(position) + ". Current evidence is unchanged."
+		status = title + " did not move and remains at provisional position " + strconv.Itoa(position) + ". " + forecastMessage
 	}
 	render(w, r, JourneyProvisionalList(view, h.csrf(w, r), bookID, status))
 }

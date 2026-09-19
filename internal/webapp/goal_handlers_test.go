@@ -3,11 +3,13 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type journeyForecastFailureInsights struct {
+	fixtures.Insights
+}
+
+func (journeyForecastFailureInsights) JourneyForecast(context.Context, string, string) (domain.JourneyForecast, error) {
+	return domain.JourneyForecast{}, errors.New("forecast provider unavailable")
+}
 
 func renderGoalSection(t *testing.T, goal *journeyBookView, message, pageError, focusBookID string) string {
 	t.Helper()
@@ -267,6 +277,131 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 		assert.True(t, strings.Contains(body, want), "empty Italian Journey page missing %q: %s", want, body)
 	}
 	assert.False(t, strings.Contains(body, `id="journey-book-fixture-empty"`) || strings.Contains(body, `id="journey-book-fixture-edge-content"`), "empty Italian Journey page exposed a member: %s", body)
+}
+
+func TestJourneyReorderRecalculatesForecastWithoutChangingVocabularyState(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
+	ctx := context.Background()
+
+	knownBefore, err := store.ListKnownVocabulary(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	reservedBefore, err := store.ListReservedVocabulary(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	goalBefore, err := store.GetPrimaryGoal(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+
+	page := performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	require.Equal(t, http.StatusOK, page.Code)
+	revision := journeyHiddenInputValue(t, page.Body.String(), "expected_revision")
+	before := page.Body.String()
+
+	moved := performJourneyRequest(t, h, http.MethodPost, "/journey/entries/fixture-route-differs/move-earlier", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {revision},
+	}, cookies, false)
+	require.Equal(t, http.StatusSeeOther, moved.Code)
+	assert.Contains(t, moved.Header().Get("Location"), "Coverage+forecast+recalculated")
+
+	page = performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	require.Equal(t, http.StatusOK, page.Code)
+	after := page.Body.String()
+	assertJourneyOrder(t, after, "fixture-route-differs", "fixture-route-match")
+	assert.Contains(t, after, "Current coverage:")
+	assert.Contains(t, after, "After accepting the active Goal:")
+	assert.Contains(t, after, "On arrival in this order:")
+	assert.NotEqual(t, journeyCardForecast(t, before, "fixture-route-match"), journeyCardForecast(t, after, "fixture-route-match"), "downstream forecast did not change after reorder")
+
+	journey, err := store.GetReadingJourney(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	moveRevision := strconv.FormatInt(journey.Revision, 10)
+	htmx := performJourneyRequest(t, h, http.MethodPost, "/journey/entries/fixture-route-differs/move-later", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {moveRevision},
+	}, cookies, true)
+	require.Equal(t, http.StatusOK, htmx.Code)
+	assert.Contains(t, htmx.Body.String(), "Coverage forecast recalculated for the saved order.")
+	assertJourneyOrder(t, htmx.Body.String(), "fixture-route-match", "fixture-route-differs")
+
+	knownAfter, err := store.ListKnownVocabulary(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	reservedAfter, err := store.ListReservedVocabulary(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	goalAfter, err := store.GetPrimaryGoal(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, knownBefore, knownAfter)
+	assert.Equal(t, reservedBefore, reservedAfter)
+	assert.Equal(t, goalBefore, goalAfter)
+}
+
+func TestJourneyReorderForecastFailureDoesNotUndoSavedOrder(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.AnalysisInsights = journeyForecastFailureInsights{Insights: fixtures.Insights{JourneyStore: store}}
+	page := performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	require.Equal(t, http.StatusOK, page.Code)
+	revision := journeyHiddenInputValue(t, page.Body.String(), "expected_revision")
+
+	moved := performJourneyRequest(t, h, http.MethodPost, "/journey/entries/fixture-route-differs/move-earlier", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {revision},
+	}, cookies, true)
+	require.Equal(t, http.StatusOK, moved.Code)
+	assert.Contains(t, moved.Body.String(), "saved order remains in place")
+	assert.Contains(t, moved.Body.String(), `href="/journey">Retry forecast</a>`)
+	assert.Contains(t, moved.Body.String(), "On arrival in this order:</strong> unavailable")
+	assertJourneyOrder(t, moved.Body.String(), "fixture-route-differs", "fixture-route-match")
+}
+
+func performJourneyRequest(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie, htmx bool) *httptest.ResponseRecorder {
+	t.Helper()
+	var body *strings.Reader
+	if form == nil {
+		body = strings.NewReader("")
+	} else {
+		body = strings.NewReader(form.Encode())
+	}
+	request := httptest.NewRequestWithContext(t.Context(), method, path, body)
+	if form != nil {
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if htmx {
+		request.Header.Set("Hx-Request", "true")
+	}
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	h.ServeHTTP(response, request)
+	return response
+}
+
+func assertJourneyOrder(t *testing.T, html string, first, second string) {
+	t.Helper()
+	firstIndex := strings.Index(html, `id="journey-book-`+first+`" tabindex`)
+	secondIndex := strings.Index(html, `id="journey-book-`+second+`" tabindex`)
+	require.GreaterOrEqual(t, firstIndex, 0, "first Journey book %q missing: %s", first, html)
+	require.GreaterOrEqual(t, secondIndex, 0, "second Journey book %q missing: %s", second, html)
+	assert.Less(t, firstIndex, secondIndex, "Journey order did not place %q before %q: %s", first, second, html)
+}
+
+func journeyHiddenInputValue(t *testing.T, html, name string) string {
+	t.Helper()
+	match := regexp.MustCompile(`name="` + regexp.QuoteMeta(name) + `" value="([^"]+)"`).FindStringSubmatch(html)
+	require.Len(t, match, 2, "hidden input %q missing: %s", name, html)
+	return match[1]
+}
+
+func journeyCardForecast(t *testing.T, html, bookID string) string {
+	t.Helper()
+	start := strings.Index(html, `id="journey-book-`+bookID+`"`)
+	require.GreaterOrEqual(t, start, 0, "Journey book %q missing: %s", bookID, html)
+	end := strings.Index(html[start:], "</article>")
+	require.GreaterOrEqual(t, end, 0, "Journey book %q did not close: %s", bookID, html[start:])
+	card := html[start : start+end]
+	forecastStart := strings.Index(card, `aria-label="Journey coverage forecast"`)
+	require.GreaterOrEqual(t, forecastStart, 0, "Journey book %q has no forecast: %s", bookID, card)
+	forecastEnd := strings.Index(card[forecastStart:], "</section>")
+	require.GreaterOrEqual(t, forecastEnd, 0, "Journey book %q forecast did not close: %s", bookID, card[forecastStart:])
+	return card[forecastStart : forecastStart+forecastEnd]
 }
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {

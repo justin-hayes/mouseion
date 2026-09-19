@@ -35,6 +35,7 @@ type journeyBookView struct {
 	StatisticsUnavailable  bool
 	Forecast               *domain.JourneyForecastEntry
 	ForecastHasGoal        bool
+	ForecastUnavailable    bool
 }
 
 func journeyBookClass(primary bool) string {
@@ -654,12 +655,19 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	for i := range view.Provisional {
 		view.Provisional[i].CanMoveEarlier = i > 0
 		view.Provisional[i].CanMoveLater = i < len(view.Provisional)-1
+		view.Provisional[i].ForecastHasGoal = goal.IsActive()
 	}
+	if view.Goal != nil {
+		view.Goal.ForecastHasGoal = goal.IsActive()
+	}
+	// A reorder must never announce success when the forecast capability is
+	// absent or returns an incomplete read model. Unavailable evidence is still
+	// a valid forecast entry; a missing Journey member is not.
+	view.ForecastUnavailable = view.Goal != nil || len(view.Provisional) > 0
 	if provider, ok := h.services.AnalysisInsights.(journeyForecastProvider); ok {
 		forecast, forecastErr := provider.JourneyForecast(ctx, owner, language)
 		if forecastErr != nil {
 			log.Printf("mouseion: Journey forecast unavailable for owner %s: %v", owner, forecastErr)
-			view.ForecastUnavailable = true
 		} else {
 			forecastByBook := make(map[string]*domain.JourneyForecastEntry, len(forecast.Entries))
 			for i := range forecast.Entries {
@@ -667,12 +675,33 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			}
 			if view.Goal != nil {
 				view.Goal.Forecast = forecastByBook[view.Goal.BookID]
-				view.Goal.ForecastHasGoal = forecast.Goal != nil
 			}
 			for i := range view.Provisional {
 				view.Provisional[i].Forecast = forecastByBook[view.Provisional[i].BookID]
-				view.Provisional[i].ForecastHasGoal = forecast.Goal != nil
 			}
+			view.ForecastUnavailable = false
+			if goal.IsActive() && forecast.Goal == nil {
+				view.ForecastUnavailable = true
+			}
+			if view.Goal != nil && view.Goal.Forecast == nil {
+				view.ForecastUnavailable = true
+			}
+			for i := range view.Provisional {
+				if view.Provisional[i].Forecast == nil {
+					view.ForecastUnavailable = true
+					break
+				}
+			}
+		}
+	}
+	if view.ForecastUnavailable {
+		if view.Goal != nil {
+			view.Goal.Forecast = nil
+			view.Goal.ForecastUnavailable = true
+		}
+		for i := range view.Provisional {
+			view.Provisional[i].Forecast = nil
+			view.Provisional[i].ForecastUnavailable = true
 		}
 	}
 

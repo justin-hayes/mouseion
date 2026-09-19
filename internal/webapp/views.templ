@@ -120,10 +120,11 @@ document.addEventListener('htmx:afterSwap', function (evt) {
     if (!region) return;
     var focusID = region.getAttribute('data-focus-id');
     if (!focusID) return;
-    var source = evt.detail && evt.detail.elt;
-	if (source && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
-      region.removeAttribute('data-focus-id');
-      return;
+			var source = evt.detail && evt.detail.elt;
+			var targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id);
+			if (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
+			  region.removeAttribute('data-focus-id');
+			  return;
     }
     var focusTarget = document.getElementById(focusID);
     if (focusTarget) focusTarget.focus();
@@ -495,7 +496,7 @@ templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusM
 	<div id="provisional-journey-list" data-focus-id={ journeyBookAnchorID(focusBookID) }>
 		<p id="provisional-journey-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ statusMessage }</p>
 		if journey.ForecastUnavailable {
-			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your order is unchanged; try again when analyzed evidence is available.</p>
+			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/journey">Retry forecast</a>.</p>
 		}
 		if len(journey.Provisional) == 0 {
 			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.") {
@@ -604,6 +605,16 @@ templ JourneyEvidence(item journeyBookView, csrf string) {
 			} else if item.Forecast.LowerBound {
 				<p role="note"><strong>Lower bound:</strong> an earlier Journey book has unavailable evidence, so this on-arrival value excludes any vocabulary it might contribute.</p>
 			}
+		</section>
+	} else if item.ForecastUnavailable {
+		<section aria-label="Journey coverage forecast">
+			<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
+			if item.ForecastHasGoal {
+				<p><strong>After accepting the active Goal:</strong> unavailable</p>
+			} else {
+				<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
+			}
+			<p><strong>On arrival in this order:</strong> unavailable</p>
 		</section>
 	} else {
 		<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>

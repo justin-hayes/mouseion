@@ -84,6 +84,20 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(goalLink).toBeFocused();
   });
 
+  test('reordering a Journey recalculates downstream forecast coverage', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
+    await signIn(page, true);
+    await page.goto('/journey');
+    const downstream = page.locator('#journey-book-fixture-route-match');
+    const before = await downstream.getByRole('region', { name: 'Journey coverage forecast' }).innerText();
+    await page.locator('#journey-book-fixture-route-differs').getByRole('button', { name: /Move .* earlier/ }).press('Enter');
+    await expect(page).toHaveURL(/\/journey\?message=/);
+    await expect(page.getByText(/Coverage forecast recalculated for the saved order/)).toBeVisible();
+    const after = await page.locator('#journey-book-fixture-route-match').getByRole('region', { name: 'Journey coverage forecast' }).innerText();
+    expect(after).not.toBe(before);
+    await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival in this order:');
+  });
+
   test('unassessed books have no detail page or standalone analysis action', async ({ page }) => {
     await signIn(page);
     const response = await page.goto('/books/fixture-empty');
