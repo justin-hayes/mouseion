@@ -10,6 +10,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 // goalSectionView is the server-truth fragment returned after an HTMX Goal
@@ -172,8 +173,16 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if selectedGoal.AnalysisRunID != "" && h.services.PreparedDeck != nil {
-		if _, prepareErr := h.services.PreparedDeck.Submit(r.Context(), owner, selectedGoal.AnalysisRunID, false); prepareErr != nil {
+	if selectedGoal.AnalysisRunID != "" && selectedGoal.SnapshotSize > 0 && h.services.PreparedDeck != nil {
+		var prepareErr error
+		if goalDeck, ok := h.services.PreparedDeck.(interface {
+			SubmitForGoal(context.Context, string, string) (prepareddeck.Handle, error)
+		}); ok {
+			_, prepareErr = goalDeck.SubmitForGoal(r.Context(), owner, selectedGoal.AnalysisRunID)
+		} else {
+			_, prepareErr = h.services.PreparedDeck.Submit(r.Context(), owner, selectedGoal.AnalysisRunID, false)
+		}
+		if prepareErr != nil {
 			log.Printf("primary goal deck preparation owner=%s language=%s book=%s: %v", owner, language, selectedGoal.BookID, prepareErr)
 		}
 	}

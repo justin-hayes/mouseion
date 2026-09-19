@@ -5,6 +5,15 @@
 -- are released without graduation; their deck and generated-vocabulary
 -- history remain intact. The migration runner executes this transactionally,
 -- so retrying the migration is the recovery path after failure.
+-- Ownership and observation belong to the release operator. Observe migration
+-- completion, snapshot counts, and released legacy-study counts in the
+-- migration log before enabling new Goal selection. Expected impact is one
+-- snapshot header per active Goal with trustworthy current analysis, one row
+-- per adopted or eligible identity, and release timestamps on only unmatched
+-- active studies. Failure detection is a non-zero migration result or any
+-- post-migration count that violates those expectations; rollback/recovery is
+-- restoring the pre-migration backup and rerunning after correction, not
+-- manually editing partially migrated rows.
 WITH matching_goals AS (
     SELECT DISTINCT ON (g.owner_id, g.language)
            g.owner_id, g.language, g.book_id,
@@ -135,4 +144,9 @@ WHERE p.studying_at IS NOT NULL
         AND p.source_material_id = ca.source_material_id
         AND p.analysis_run_id = ca.analysis_run_id
         AND g.snapshot_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM public.deck_preparation_vocabulary dv
+            WHERE dv.owner_id = p.owner_id AND dv.deck_preparation_id = p.id
+              AND dv.language = g.language AND dv.graduated_at IS NULL
+        )
   );
