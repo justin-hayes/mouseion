@@ -120,10 +120,11 @@ document.addEventListener('htmx:afterSwap', function (evt) {
     if (!region) return;
     var focusID = region.getAttribute('data-focus-id');
     if (!focusID) return;
-    var source = evt.detail && evt.detail.elt;
-	if (source && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
-      region.removeAttribute('data-focus-id');
-      return;
+			var source = evt.detail && evt.detail.elt;
+			var targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id);
+			if (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
+			  region.removeAttribute('data-focus-id');
+			  return;
     }
     var focusTarget = document.getElementById(focusID);
     if (focusTarget) focusTarget.focus();

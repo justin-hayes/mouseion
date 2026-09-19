@@ -675,13 +675,14 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			}
 			if view.Goal != nil {
 				view.Goal.Forecast = forecastByBook[view.Goal.BookID]
-				view.Goal.ForecastHasGoal = forecast.Goal != nil
 			}
 			for i := range view.Provisional {
 				view.Provisional[i].Forecast = forecastByBook[view.Provisional[i].BookID]
-				view.Provisional[i].ForecastHasGoal = forecast.Goal != nil
 			}
 			view.ForecastUnavailable = false
+			if goal.IsActive() && forecast.Goal == nil {
+				view.ForecastUnavailable = true
+			}
 			if view.Goal != nil && view.Goal.Forecast == nil {
 				view.ForecastUnavailable = true
 			}
