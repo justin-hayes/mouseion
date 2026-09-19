@@ -495,7 +495,7 @@ templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusM
 	<div id="provisional-journey-list" data-focus-id={ journeyBookAnchorID(focusBookID) }>
 		<p id="provisional-journey-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ statusMessage }</p>
 		if journey.ForecastUnavailable {
-			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your order is unchanged; try again when analyzed evidence is available.</p>
+			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/journey">Retry forecast</a>.</p>
 		}
 		if len(journey.Provisional) == 0 {
 			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.") {
