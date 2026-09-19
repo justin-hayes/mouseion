@@ -79,23 +79,24 @@ func fixtureReadingHistoryKey(owner, language, bookID string) string {
 }
 
 type Store struct {
-	mu                   sync.Mutex
-	books                []domain.SourceMaterialSummary
-	jobs                 []domain.AnalysisJob
-	supported            []domain.SupportedLanguage
-	connections          []domain.OpdsConnection
-	aliases              []domain.BookAlias
-	preps                []domain.DeckPreparation
-	deckVocabulary       []domain.DeckPreparationVocabulary
-	known                []domain.KnownVocabulary
-	legacyGenerated      []domain.GeneratedVocabulary
-	myBooks              []domain.MyBook
-	readingJourneys      map[string]domain.ReadingJourney
-	primaryGoals         map[string]domain.PrimaryGoal
-	readingHistory       map[string]domain.ReadingCompletion
-	syncStatuses         []domain.CatalogueSyncStatus
-	storedActiveLanguage *string
-	mostRecentLanguage   string
+	mu                     sync.Mutex
+	books                  []domain.SourceMaterialSummary
+	jobs                   []domain.AnalysisJob
+	supported              []domain.SupportedLanguage
+	connections            []domain.OpdsConnection
+	aliases                []domain.BookAlias
+	preps                  []domain.DeckPreparation
+	deckVocabulary         []domain.DeckPreparationVocabulary
+	known                  []domain.KnownVocabulary
+	goalSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
+	legacyGenerated        []domain.GeneratedVocabulary
+	myBooks                []domain.MyBook
+	readingJourneys        map[string]domain.ReadingJourney
+	primaryGoals           map[string]domain.PrimaryGoal
+	readingHistory         map[string]domain.ReadingCompletion
+	syncStatuses           []domain.CatalogueSyncStatus
+	storedActiveLanguage   *string
+	mostRecentLanguage     string
 }
 
 func NewStore() *Store {
@@ -177,6 +178,12 @@ func NewStore() *Store {
 		primaryGoals: map[string]domain.PrimaryGoal{
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+		},
+		goalSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{
+			"fixture-de-goal-snapshot": {
+				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
+				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
+			},
 		},
 		readingHistory:       make(map[string]domain.ReadingCompletion),
 		storedActiveLanguage: &initialActiveLanguage,
@@ -567,7 +574,19 @@ func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.De
 	var result []domain.DeckPreparationVocabulary
 	seen := make(map[string]struct{})
 	goal := s.primaryGoals[fixtureGoalKey(owner, language)]
-	if goal.IsActive() && goal.SourceMaterialID != "" {
+	hasSnapshot := false
+	if goal.IsActive() && goal.SnapshotID != "" {
+		snapshot, snapshotExists := s.goalSnapshotVocabulary[goal.SnapshotID]
+		hasSnapshot = snapshotExists
+		for _, item := range snapshot {
+			if item.Language == language {
+				item.GraduatedAt = nil
+				result = append(result, item)
+				seen[item.Language+"\x00"+item.CanonicalLemma+"\x00"+item.UPOS] = struct{}{}
+			}
+		}
+	}
+	if !hasSnapshot && goal.IsActive() && goal.SourceMaterialID != "" {
 		for _, preparation := range s.preps {
 			if preparation.OwnerID != owner || preparation.SourceMaterialID != goal.SourceMaterialID || preparation.AnalysisRunID != goal.AnalysisRunID {
 				continue
@@ -592,6 +611,37 @@ func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.De
 				}
 				result = append(result, item)
 			}
+		}
+	}
+	return result
+}
+
+func (s *Store) CountPrimaryGoalVocabularyToGraduate(_ context.Context, owner, language string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := 0
+	for _, item := range s.goalSnapshotVocabularyLocked(owner, language) {
+		if !fixtureKnown(s.known, item.Language, item.CanonicalLemma, item.UPOS) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *Store) goalSnapshotVocabularyLocked(owner, language string) []domain.DeckPreparationVocabulary {
+	goal := s.primaryGoals[fixtureGoalKey(owner, language)]
+	if !goal.IsActive() || goal.SnapshotID == "" {
+		return nil
+	}
+	snapshot, exists := s.goalSnapshotVocabulary[goal.SnapshotID]
+	if !exists {
+		return nil
+	}
+	result := make([]domain.DeckPreparationVocabulary, 0, len(snapshot))
+	for _, item := range snapshot {
+		if item.Language == language {
+			item.GraduatedAt = nil
+			result = append(result, item)
 		}
 	}
 	return result
@@ -1205,11 +1255,45 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 		return persistence.ReadingFinishResult{}, persistence.ErrGoalStale
 	}
 	now := time.Now()
-	completion := domain.ReadingCompletion{OwnerID: owner, Language: language, BookID: expectedBookID, CompletedAt: now}
+	snapshot := s.goalSnapshotVocabularyLocked(owner, language)
+	snapshotCount := len(snapshot)
+	eligibleCount := 0
+	graduatedCount := 0
+	for _, item := range snapshot {
+		if fixtureKnown(s.known, item.Language, item.CanonicalLemma, item.UPOS) {
+			continue
+		}
+		eligibleCount++
+		graduatedCount++
+		s.known = append(s.known, domain.KnownVocabulary{
+			OwnerID: owner, Language: language, CanonicalLemma: item.CanonicalLemma,
+			UPOS: item.UPOS, Provenance: "Accepted on Primary Goal completion", CreatedAt: now,
+		})
+	}
+	completion := domain.ReadingCompletion{
+		OwnerID: owner, Language: language, BookID: expectedBookID, CompletedAt: now,
+		GoalSnapshotID: goal.SnapshotID, SnapshotVocabularyCount: snapshotCount,
+		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
+		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount,
+	}
 	if existing, exists := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)]; exists {
 		completion = existing
 	} else {
 		s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)] = completion
+	}
+	for index := range s.preps {
+		preparation := &s.preps[index]
+		if preparation.OwnerID != owner || preparation.GraduatedAt != nil || preparation.StudyingAt == nil {
+			continue
+		}
+		matchesSnapshot := preparation.GoalSnapshotID != "" && preparation.GoalSnapshotID == goal.SnapshotID
+		matchesLegacyIdentity := preparation.SourceMaterialID == goal.SourceMaterialID && preparation.AnalysisRunID == goal.AnalysisRunID
+		if !matchesSnapshot && !matchesLegacyIdentity {
+			continue
+		}
+		preparation.StudyingAt = nil
+		preparation.ReleasedAt = &now
+		preparation.UpdatedAt = now
 	}
 	journeyKey := fixtureJourneyKey(owner, language)
 	journey, journeyExists := s.readingJourneys[journeyKey]

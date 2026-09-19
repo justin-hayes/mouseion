@@ -278,11 +278,11 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	for _, want := range []string{
 		"Reading finished",
 		"Vocabulary transition",
-		"No vocabulary was added to known vocabulary",
+		"newly accepted identities were added",
 		"Reading Journey recalculated",
 		"Where next?",
 		"No new Primary Goal has been selected",
-		"conditional-projected coverage",
+		"projected coverage",
 		"Choose another book from Reading Journey",
 	} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
@@ -295,6 +295,15 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	for _, entry := range journey.Entries {
 		assert.NotEqual(t, fixtures.BookID, entry.BookID, "finished Book remained in Journey")
 	}
+	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	graduated := 0
+	for _, item := range known {
+		if item.Provenance == "Accepted on Primary Goal completion" {
+			graduated++
+		}
+	}
+	assert.Equal(t, 2, graduated)
 	repeated := goalRequest(t, h, "/goal/finish", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
@@ -317,11 +326,11 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	assert.Equal(t, fixtures.BookID, goal.BookID, "rejected finish changed Goal=%+v", goal)
 }
 
-func TestPrimaryGoalFinishOutcomeShowsConditionalVocabularyEvidence(t *testing.T) {
-	residual := primaryGoalFinishView{BookTitle: "Reading-only book", ResidualVocabulary: 2}
+func TestPrimaryGoalFinishOutcomeShowsStructuredVocabularyCounts(t *testing.T) {
+	residual := primaryGoalFinishView{BookTitle: "Reading-only book", EligibleVocabularyCount: 2, GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
 	var output bytes.Buffer
 	require.NoError(t, PrimaryGoalFinish(residual, "csrf").Render(context.Background(), &output))
-	for _, want := range []string{"No vocabulary was added to known vocabulary", "future effect is conditional", "No new Primary Goal has been selected"} {
+	for _, want := range []string{"2 newly accepted identities were added", "modeled vocabulary consequence", "No new Primary Goal has been selected"} {
 		assert.True(t, strings.Contains(output.String(), want), "residual outcome missing %q: %s", want, output.String())
 	}
 }

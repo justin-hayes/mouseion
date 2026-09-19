@@ -525,12 +525,24 @@ type GeneratedVocabulary struct {
 }
 
 type KnownVocabulary struct {
-	ID             string
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	CreatedAt      time.Time
+	ID                             string
+	OwnerID                        string
+	Language                       string
+	CanonicalLemma                 string
+	Upos                           string
+	CreatedAt                      time.Time
+	CompletionBookID               pgtype.UUID
+	CompletionAt                   pgtype.Timestamptz
+	CompletionGoalSnapshotID       pgtype.UUID
+	CompletionSourceMaterialID     pgtype.UUID
+	CompletionAnalysisRunID        pgtype.UUID
+	CompletionContentRevisionID    pgtype.UUID
+	CompletionContentSnapshotID    pgtype.UUID
+	CompletionCorpusID             pgtype.UUID
+	CompletionDeckPreparationID    pgtype.UUID
+	GeneratedFirstDeckID           pgtype.UUID
+	GeneratedFirstSourceMaterialID pgtype.UUID
+	GeneratedFirstAt               pgtype.Timestamptz
 }
 
 type MyBooksEvidence struct {
@@ -636,10 +648,15 @@ type ProcessingHistory struct {
 }
 
 type ReadingHistory struct {
-	OwnerID     string
-	Language    string
-	BookID      string
-	CompletedAt time.Time
+	OwnerID                     string
+	Language                    string
+	BookID                      string
+	CompletedAt                 time.Time
+	GoalSnapshotID              pgtype.UUID
+	SnapshotVocabularyCount     int
+	EligibleVocabularyCount     int
+	GraduatedVocabularyCount    int
+	AlreadyKnownVocabularyCount int
 }
 
 type ReadingJourney struct {

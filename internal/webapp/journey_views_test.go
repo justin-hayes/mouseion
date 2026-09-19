@@ -89,7 +89,7 @@ func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
 		Projections:          []domain.CoverageProjection{{TopLemmaCount: 2, ProjectedTokenCount: 75}},
 	}
 	assert.Equal(t, "50.0%", journeyCurrentCoverage(item))
-	assert.Equal(t, "80.0% if reserved vocabulary graduates; 75.0% after the top 2 deck-eligible lemmas", journeyProjectedCoverage(item))
+	assert.Equal(t, "80.0% projected coverage; 75.0% after the top 2 deck-eligible lemmas", journeyProjectedCoverage(item))
 }
 
 func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {

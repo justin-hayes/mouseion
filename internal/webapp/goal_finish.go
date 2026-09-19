@@ -3,11 +3,11 @@ package webapp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -27,11 +27,14 @@ type finishEvidenceView struct {
 }
 
 type primaryGoalFinishView struct {
-	BookTitle          string
-	ResidualVocabulary int
-	Evidence           []finishEvidenceView
-	Journey            journeyPageView
-	Error              string
+	BookTitle                string
+	SnapshotVocabularyCount  int
+	EligibleVocabularyCount  int
+	GraduatedVocabularyCount int
+	AlreadyKnownCount        int
+	Evidence                 []finishEvidenceView
+	Journey                  journeyPageView
+	Error                    string
 }
 
 func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +79,12 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 
 	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
-		BookTitle:          h.finishBookTitle(r.Context(), owner, before, result.Completion.BookID),
-		ResidualVocabulary: h.activeVocabularyStudyCount(r.Context(), owner, before),
-		Journey:            after,
+		BookTitle:                h.finishBookTitle(r.Context(), owner, before, result.Completion.BookID),
+		SnapshotVocabularyCount:  result.Completion.SnapshotVocabularyCount,
+		EligibleVocabularyCount:  result.Completion.EligibleVocabularyCount,
+		GraduatedVocabularyCount: result.Completion.GraduatedVocabularyCount,
+		AlreadyKnownCount:        result.Completion.AlreadyKnownVocabularyCount,
+		Journey:                  after,
 	}
 	if afterErr != nil {
 		outcome.Error = "Reading finished was saved, but the recalculated Journey evidence is temporarily unavailable. Return to Reading Journey and try again."
@@ -92,17 +98,6 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, PrimaryGoalFinishPage(user(r), h.csrf(w, r), outcome))
-}
-
-func (h *Handler) activeVocabularyStudyCount(ctx context.Context, owner string, journey journeyPageView) int {
-	if journey.Goal == nil {
-		return 0
-	}
-	preparation, err := h.currentVocabularyStudyPreparation(ctx, owner, journey.Goal.Book, false)
-	if err != nil || preparation == nil || preparation.VocabularyStudyStatus() != domain.VocabularyStudyStudying {
-		return 0
-	}
-	return preparation.VocabularyCount
 }
 
 func (h *Handler) finishBookTitle(ctx context.Context, owner string, before journeyPageView, bookID string) string {
@@ -143,10 +138,11 @@ func finishEvidence(before, after journeyPageView) []finishEvidenceView {
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {
-	if outcome.ResidualVocabulary > 0 {
-		return "No vocabulary was added to known vocabulary. Vocabulary work remains reserved, pending confirmed deck review; any future effect is conditional."
-	}
-	return "No vocabulary was added to known vocabulary. Reading finished is a reading record, not evidence of vocabulary knowledge."
+	return fmt.Sprintf("%d frozen Reserved identities were currently eligible to become Known vocabulary; %d newly accepted identities were added. %d identities were already Known. This is a modeled vocabulary consequence, not verified per-card mastery.", outcome.EligibleVocabularyCount, outcome.GraduatedVocabularyCount, outcome.AlreadyKnownCount)
+}
+
+func goalCompletionConfirmationText(item journeyBookView) string {
+	return fmt.Sprintf("Record the reading achievement and accept %d currently eligible frozen Reserved identities into Known vocabulary. This is a modeled vocabulary consequence, not verified per-card mastery.", item.GoalVocabularyEligible)
 }
 
 func finishOutcomeWhereNextURL(item journeyBookView) string {

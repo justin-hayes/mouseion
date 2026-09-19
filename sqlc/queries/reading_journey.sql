@@ -257,8 +257,10 @@ SET studying_at = NULL, released_at = COALESCE(p.released_at, now()), updated_at
 FROM primary_goal_snapshots s
 WHERE s.owner_id = sqlc.arg('owner') AND s.id = sqlc.arg('snapshot')
   AND p.owner_id = s.owner_id AND p.book_id = s.book_id
-  AND p.source_material_id = s.source_material_id
-  AND p.analysis_run_id = s.analysis_run_id
+  AND (p.goal_snapshot_id = s.id OR (
+       p.source_material_id = s.source_material_id
+       AND (p.analysis_run_id = s.analysis_run_id OR p.analysis_run_id IS NULL)
+  ))
   AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
   AND EXISTS (
       SELECT 1 FROM deck_preparation_vocabulary dv
@@ -306,17 +308,123 @@ DELETE FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
 -- name: GetReadingCompletion :one
-SELECT owner_id::text, language, book_id::text, completed_at
+SELECT owner_id::text, language, book_id::text, completed_at,
+       COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
+       snapshot_vocabulary_count, eligible_vocabulary_count,
+       graduated_vocabulary_count, already_known_vocabulary_count
 FROM reading_history
 WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
   AND book_id = sqlc.arg('book');
 
 -- name: InsertReadingCompletion :one
-INSERT INTO reading_history(owner_id, language, book_id, completed_at)
-VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('completed_at'))
+INSERT INTO reading_history(
+    owner_id, language, book_id, completed_at, goal_snapshot_id,
+    snapshot_vocabulary_count, eligible_vocabulary_count,
+    graduated_vocabulary_count, already_known_vocabulary_count
+)
+VALUES (
+    sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('completed_at'),
+    NULLIF(sqlc.arg('goal_snapshot'), '')::uuid,
+    sqlc.arg('snapshot_vocabulary_count'), sqlc.arg('eligible_vocabulary_count'),
+    sqlc.arg('graduated_vocabulary_count'), sqlc.arg('already_known_vocabulary_count')
+)
 ON CONFLICT (owner_id, language, book_id) DO NOTHING
-RETURNING owner_id::text, language, book_id::text, completed_at;
+RETURNING owner_id::text, language, book_id::text, completed_at,
+          COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
+          snapshot_vocabulary_count, eligible_vocabulary_count,
+          graduated_vocabulary_count, already_known_vocabulary_count;
+
+-- name: CountPrimaryGoalSnapshotVocabulary :one
+SELECT count(*)::int AS snapshot_count,
+       count(*) FILTER (WHERE NOT EXISTS (
+           SELECT 1 FROM known_vocabulary kv
+           WHERE kv.owner_id = pv.owner_id
+             AND kv.language = pv.language
+             AND kv.canonical_lemma = pv.canonical_lemma
+             AND (kv.upos = pv.upos OR kv.upos = '')
+       ))::int AS eligible_count
+FROM primary_goal_snapshot_vocabulary pv
+WHERE pv.owner_id = sqlc.arg('owner')
+  AND pv.snapshot_id = sqlc.arg('snapshot');
+
+-- name: GraduatePrimaryGoalSnapshotVocabulary :one
+WITH eligible AS (
+    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos,
+           s.book_id, s.source_material_id, s.analysis_run_id,
+           s.content_revision_id, s.content_snapshot_id, s.corpus_id,
+           s.id AS snapshot_id, sqlc.arg('completed_at')::timestamptz AS completed_at,
+           preparation.id AS deck_preparation_id,
+           generated.first_deck_id, generated.first_source_material_id,
+           generated.first_generated_at
+    FROM primary_goal_snapshot_vocabulary pv
+    JOIN primary_goal_snapshots s
+      ON s.owner_id = pv.owner_id AND s.id = pv.snapshot_id
+    LEFT JOIN LATERAL (
+        SELECT p.id
+        FROM deck_preparations p
+        WHERE p.owner_id = s.owner_id
+          AND p.book_id = s.book_id
+          AND (p.goal_snapshot_id = s.id OR (
+               p.source_material_id = s.source_material_id
+               AND (p.analysis_run_id = s.analysis_run_id OR p.analysis_run_id IS NULL)
+          ))
+        ORDER BY p.created_at DESC, p.id DESC
+        LIMIT 1
+    ) preparation ON true
+    LEFT JOIN LATERAL (
+        SELECT gv.first_deck_id, gv.first_source_material_id, gv.first_generated_at
+        FROM generated_vocabulary gv
+        WHERE gv.owner_id = pv.owner_id
+          AND gv.language = pv.language
+          AND gv.canonical_lemma = pv.canonical_lemma
+          AND gv.upos = pv.upos
+        ORDER BY gv.first_generated_at, gv.first_deck_id
+        LIMIT 1
+    ) generated ON true
+    WHERE pv.owner_id = sqlc.arg('owner')
+      AND pv.snapshot_id = sqlc.arg('snapshot')
+      AND NOT EXISTS (
+          SELECT 1 FROM known_vocabulary kv
+          WHERE kv.owner_id = pv.owner_id
+            AND kv.language = pv.language
+            AND kv.canonical_lemma = pv.canonical_lemma
+            AND (kv.upos = pv.upos OR kv.upos = '')
+      )
+), inserted AS (
+    INSERT INTO known_vocabulary(
+        owner_id, language, canonical_lemma, upos,
+        completion_book_id, completion_at, completion_goal_snapshot_id,
+        completion_source_material_id, completion_analysis_run_id,
+        completion_content_revision_id, completion_content_snapshot_id,
+        completion_corpus_id, completion_deck_preparation_id,
+        generated_first_deck_id, generated_first_source_material_id,
+        generated_first_at
+    )
+    SELECT owner_id, language, canonical_lemma, upos,
+           book_id, completed_at, snapshot_id, source_material_id, analysis_run_id,
+           content_revision_id, content_snapshot_id, corpus_id, deck_preparation_id,
+           first_deck_id, first_source_material_id, first_generated_at
+    FROM eligible
+    ON CONFLICT DO NOTHING
+    RETURNING owner_id, language, canonical_lemma, upos
+), states AS (
+    INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
+    SELECT owner_id, language, canonical_lemma, upos, 'known'
+    FROM inserted
+    ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE
+    SET state = 'known', updated_at = now()
+    RETURNING id
+)
+SELECT count(*)::int AS graduated_count FROM inserted;
+
+-- name: UpdateReadingCompletionOutcome :exec
+UPDATE reading_history
+SET graduated_vocabulary_count = sqlc.arg('graduated_vocabulary_count'),
+    already_known_vocabulary_count = sqlc.arg('already_known_vocabulary_count')
+WHERE owner_id = sqlc.arg('owner')
+  AND language = sqlc.arg('language')
+  AND book_id = sqlc.arg('book');
 
 -- name: ReadingCompletionExists :one
 SELECT EXISTS(

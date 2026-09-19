@@ -65,6 +65,7 @@ type JourneyStore interface {
 // GoalStore provides the Primary Goal lifecycle.
 type GoalStore interface {
 	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
+	CountPrimaryGoalVocabularyToGraduate(context.Context, string, string) (int, error)
 	CreatePrimaryGoal(context.Context, string, string, string) (domain.PrimaryGoal, error)
 	ChangePrimaryGoal(context.Context, string, string, string, string) (domain.PrimaryGoal, error)
 	ClearPrimaryGoal(context.Context, string, string, string) error

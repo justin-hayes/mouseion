@@ -19,19 +19,20 @@ import (
 )
 
 type journeyBookView struct {
-	Book                  domain.SourceMaterialSummary
-	BookID                string
-	Position              int
-	JourneyRevision       int64
-	PrimaryGoal           bool
-	GoalReadingOnly       bool
-	GoalUnassessed        bool
-	CanMoveEarlier        bool
-	CanMoveLater          bool
-	CanChooseGoal         bool
-	GoalEligibilityReason string
-	Coverage              *domain.AnalysisCoverage
-	StatisticsUnavailable bool
+	Book                   domain.SourceMaterialSummary
+	BookID                 string
+	Position               int
+	JourneyRevision        int64
+	PrimaryGoal            bool
+	GoalReadingOnly        bool
+	GoalUnassessed         bool
+	GoalVocabularyEligible int
+	CanMoveEarlier         bool
+	CanMoveLater           bool
+	CanChooseGoal          bool
+	GoalEligibilityReason  string
+	Coverage               *domain.AnalysisCoverage
+	StatisticsUnavailable  bool
 }
 
 func journeyBookClass(primary bool) string {
@@ -212,7 +213,7 @@ func journeyProjectedCoverage(item journeyBookView) string {
 	if item.Coverage == nil {
 		return "unavailable"
 	}
-	return fmt.Sprintf("%.1f%% if reserved vocabulary graduates; %s", reservedCoveragePercent(*item.Coverage), journeyProjectionText(*item.Coverage))
+	return fmt.Sprintf("%.1f%% projected coverage; %s", reservedCoveragePercent(*item.Coverage), journeyProjectionText(*item.Coverage))
 }
 
 func journeyProjectionText(coverage domain.AnalysisCoverage) string {
@@ -619,6 +620,10 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, err
 		}
 		book.GoalUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
+		book.GoalVocabularyEligible, err = h.services.Store.Goals.CountPrimaryGoalVocabularyToGraduate(ctx, owner, language)
+		if err != nil {
+			return journeyPageView{}, err
+		}
 		book.GoalReadingOnly = true
 		if preparation, preparationErr := h.currentVocabularyStudyPreparation(ctx, owner, book.Book, true); preparationErr == nil && preparation != nil && preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(*preparation) {
 			book.GoalReadingOnly = false

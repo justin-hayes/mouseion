@@ -52,7 +52,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toBeVisible();
   });
 
-  test('separates reading achievement from graduation and preserves provenance labels', async ({ page }) => {
+  test('states the completion consequence and preserves provenance labels', async ({ page }) => {
     await page.goto('/journey');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
@@ -61,7 +61,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(disclosure.locator('summary')).toBeFocused();
     await disclosure.locator('summary').press('Enter');
     await expect(goal).toContainText('Record the reading achievement');
-    await expect(goal).toContainText('Vocabulary is changed only when the associated prepared deck has been reviewed');
+    await expect(goal).toContainText(/accept \d+ currently eligible frozen Reserved identities into Known vocabulary/);
     await expect(goal.locator('form[action="/goal/finish"] input[name="csrf_token"]')).toHaveCount(1);
     await expect(goal.locator('form[action="/goal/finish"] input[name="expected_goal_book_id"]')).toHaveCount(1);
 

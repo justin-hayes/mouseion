@@ -60,8 +60,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	book, source, corpus, preparation := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "primary", "Migrated primary goal", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3},
 		{Language: "de", CanonicalLemma: "legacy", UPOS: "ADJ", OccurrenceCount: 1},
 	})
 	require.NoError(t, store.LinkSourceToBook(ctx, alice.ID, book.ID, source.ID))
@@ -70,6 +70,13 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, source.ID, metadataView.Acquired.Source.ID)
 	assert.NotEmpty(t, metadataView.Acquired.CorpusID)
 	assert.Equal(t, domain.LanguageChosen, metadataView.Book.LanguageState)
+	for _, candidate := range []domain.SelectionCandidate{
+		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
+		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
+	} {
+		_, err = store.PutSelectionCandidate(ctx, candidate)
+		require.NoError(t, err)
+	}
 
 	secondBook, secondSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "later", "Later Journey book", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
@@ -115,7 +122,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), beforeCoverage.KnownTokenCount)
-	assert.Equal(t, int64(2), beforeCoverage.ReservedTokenCount)
+	assert.Equal(t, int64(6), beforeCoverage.ReservedTokenCount)
 	projectionBefore, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, projectionBefore.LearnerOrder, 2)
@@ -143,30 +150,22 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {book.ID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
-	for _, want := range []string{"Reading finished", "No vocabulary was added to known vocabulary", "Where next?", "No new Primary Goal has been selected"} {
+	for _, want := range []string{"Reading finished", "newly accepted identities were added", "Where next?", "No new Primary Goal has been selected"} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, reserved, 2)
+	assert.Empty(t, reserved)
 	knownAfterReading, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, knownAfterReading, 1)
-
-	// Graduation is book-anchored: the studying deck's review is confirmed so
-	// its reservation is released and coverage stops counting it as reserved.
-	_, err = store.ConfirmDeckVocabularyReview(ctx, alice.ID, preparation.ID)
-	require.NoError(t, err)
-	known, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Len(t, known, 3)
+	assert.Len(t, knownAfterReading, 3)
 	provenance := map[string]string{}
-	for _, item := range known {
+	for _, item := range knownAfterReading {
 		provenance[item.CanonicalLemma] = item.Provenance
 	}
 	assert.Equal(t, "Explicitly recorded", provenance["Haus"])
-	assert.Equal(t, "Graduated from reviewed deck", provenance["residual"])
-	assert.Equal(t, "Graduated from reviewed deck", provenance["graduated"])
+	assert.Equal(t, "Accepted on Primary Goal completion", provenance["residual"])
+	assert.Equal(t, "Accepted on Primary Goal completion", provenance["graduated"])
 	assert.Empty(t, provenance["legacy"])
 	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
@@ -177,11 +176,17 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.True(t, legacyFound)
 	knownAgain, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, knownAgain, len(known))
+	assert.Len(t, knownAgain, len(knownAfterReading))
 	afterCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), afterCoverage.KnownTokenCount)
+	assert.Equal(t, int64(7), afterCoverage.KnownTokenCount)
 	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
+	completion, err := store.RecordReadingFinishedPrimaryGoal(ctx, alice.ID, "de", book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, completion.Completion.SnapshotVocabularyCount)
+	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
+	assert.Equal(t, 2, completion.Completion.GraduatedVocabularyCount)
+	assert.Equal(t, 0, completion.Completion.AlreadyKnownVocabularyCount)
 	projectionAfter, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, projectionAfter.ConditionalAdvisoryOrder)
