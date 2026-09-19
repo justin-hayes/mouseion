@@ -135,9 +135,6 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 	out := make([]Candidate, 0)
 	for _, id := range ids {
 		a := aggs[id]
-		if a.count < cfg.MinOccurrences {
-			continue
-		}
 		state, err := s.store.GetVocabularyStateByIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
 		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 			return nil, fmt.Errorf("get state: %w", err)
@@ -149,14 +146,11 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 		if err != nil {
 			return nil, fmt.Errorf("get known vocabulary: %w", err)
 		}
-		if known {
-			continue
-		}
 		reserved, err := s.store.IsReservedVocabulary(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
 		if err != nil {
 			return nil, fmt.Errorf("get reserved vocabulary: %w", err)
 		}
-		if reserved {
+		if !allowsIdentity(a.count, cfg.MinOccurrences, known, reserved) {
 			continue
 		}
 		forms := make([]string, 0, len(a.forms))

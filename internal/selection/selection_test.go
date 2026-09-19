@@ -182,6 +182,12 @@ func TestEligibilityUsesKnownWildcardAndLanguageScopedReservations(t *testing.T)
 	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "it", CanonicalLemma: "wissen", UPOS: "VERB", OccurrenceCount: 3}, 3))
 	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "reserviert", UPOS: "NOUN", OccurrenceCount: 3}, 3))
 	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "reserviert", UPOS: "VERB", OccurrenceCount: 3}, 3))
+	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "it", CanonicalLemma: "reserviert", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	overlap := NewEligibility(
+		[]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN"}},
+		[]domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN"}},
+	)
+	assert.False(t, overlap.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN", OccurrenceCount: 3}, 3))
 	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "häufig", UPOS: "NOUN", OccurrenceCount: 2}, 3))
 }
 

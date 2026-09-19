@@ -28,18 +28,23 @@ func NewEligibility(known []domain.KnownVocabulary, reserved []domain.DeckPrepar
 // exclusions. An empty Known UPOS is the lemma wildcard; reservations remain
 // exact lemma-plus-UPOS identities.
 func (e Eligibility) Allows(candidate domain.SelectionCandidate, minOccurrences int) bool {
-	if minOccurrences < 1 || candidate.OccurrenceCount < minOccurrences {
-		return false
-	}
 	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS}
+	return allowsIdentity(candidate.OccurrenceCount, minOccurrences, e.knownContains(identity), e.reservedContains(identity))
+}
+
+func (e Eligibility) knownContains(identity Identity) bool {
 	if _, ok := e.known[identity]; ok {
-		return false
+		return true
 	}
-	if _, ok := e.known[Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma}]; ok {
-		return false
-	}
-	if _, ok := e.reserved[identity]; ok {
-		return false
-	}
-	return true
+	_, ok := e.known[Identity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma}]
+	return ok
+}
+
+func (e Eligibility) reservedContains(identity Identity) bool {
+	_, ok := e.reserved[identity]
+	return ok
+}
+
+func allowsIdentity(occurrenceCount, minOccurrences int, known, reserved bool) bool {
+	return minOccurrences >= 1 && occurrenceCount >= minOccurrences && !known && !reserved
 }
