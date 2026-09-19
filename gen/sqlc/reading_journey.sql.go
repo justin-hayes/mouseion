@@ -278,12 +278,10 @@ SELECT s.id::text, s.owner_id::text, s.language, s.book_id::text,
        s.content_revision_id::text, s.content_snapshot_id::text, s.corpus_id::text,
        s.created_at, s.released_at
 FROM primary_goal_snapshots s
-JOIN primary_goals g ON g.owner_id = s.owner_id AND g.snapshot_id = s.id
-JOIN deck_preparations p ON p.owner_id = g.owner_id AND p.book_id = g.book_id
+JOIN deck_preparations p ON p.owner_id = s.owner_id AND p.goal_snapshot_id = s.id
 WHERE p.owner_id = $1 AND p.id = $2
   AND p.source_material_id = s.source_material_id
   AND p.analysis_run_id = s.analysis_run_id
-  AND s.released_at IS NULL
 `
 
 type GetActivePrimaryGoalSnapshotForPreparationParams struct {
@@ -1087,6 +1085,64 @@ type ReleasePrimaryGoalSnapshotParams struct {
 
 func (q *Queries) ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error {
 	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshot, arg.Owner, arg.Snapshot)
+	return err
+}
+
+const releasePrimaryGoalSnapshotsExceptLanguage = `-- name: ReleasePrimaryGoalSnapshotsExceptLanguage :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = $1 AND g.book_id = $2
+  AND g.language <> $3
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
+`
+
+type ReleasePrimaryGoalSnapshotsExceptLanguageParams struct {
+	Owner    string
+	Book     string
+	Language string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsExceptLanguage, arg.Owner, arg.Book, arg.Language)
+	return err
+}
+
+const releasePrimaryGoalSnapshotsForAllLanguages = `-- name: ReleasePrimaryGoalSnapshotsForAllLanguages :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = $1 AND g.book_id = $2
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
+`
+
+type ReleasePrimaryGoalSnapshotsForAllLanguagesParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshotsForAllLanguages(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForAllLanguagesParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsForAllLanguages, arg.Owner, arg.Book)
+	return err
+}
+
+const releasePrimaryGoalSnapshotsForBook = `-- name: ReleasePrimaryGoalSnapshotsForBook :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = $1 AND g.book_id = $2
+  AND g.language = $3
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
+`
+
+type ReleasePrimaryGoalSnapshotsForBookParams struct {
+	Owner    string
+	Book     string
+	Language string
+}
+
+func (q *Queries) ReleasePrimaryGoalSnapshotsForBook(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForBookParams) error {
+	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsForBook, arg.Owner, arg.Book, arg.Language)
 	return err
 }
 

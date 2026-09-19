@@ -292,7 +292,13 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 		}
 		updated = domain.Book(row)
 		if languageState == domain.LanguageChosen {
+			if err := q.ReleasePrimaryGoalSnapshotsExceptLanguage(ctx, sqlcgen.ReleasePrimaryGoalSnapshotsExceptLanguageParams{Owner: owner, Book: bookID, Language: languageTag}); err != nil {
+				return err
+			}
 			return q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: owner, BookID: bookID, Language: languageTag})
+		}
+		if err := q.ReleasePrimaryGoalSnapshotsForAllLanguages(ctx, sqlcgen.ReleasePrimaryGoalSnapshotsForAllLanguagesParams{Owner: owner, Book: bookID}); err != nil {
+			return err
 		}
 		return q.DeleteBookGoals(ctx, sqlcgen.DeleteBookGoalsParams{OwnerID: owner, BookID: bookID})
 	})

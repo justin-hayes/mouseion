@@ -176,9 +176,9 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	if selectedGoal.AnalysisRunID != "" && selectedGoal.SnapshotSize > 0 && h.services.PreparedDeck != nil {
 		var prepareErr error
 		if goalDeck, ok := h.services.PreparedDeck.(interface {
-			SubmitForGoal(context.Context, string, string) (prepareddeck.Handle, error)
+			SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
 		}); ok {
-			_, prepareErr = goalDeck.SubmitForGoal(r.Context(), owner, selectedGoal.AnalysisRunID)
+			_, prepareErr = goalDeck.SubmitForGoal(r.Context(), owner, selectedGoal.AnalysisRunID, selectedGoal.SnapshotID)
 		} else {
 			_, prepareErr = h.services.PreparedDeck.Submit(r.Context(), owner, selectedGoal.AnalysisRunID, false)
 		}

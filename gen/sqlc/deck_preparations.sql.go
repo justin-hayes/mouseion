@@ -49,8 +49,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision
+            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+             presentation_version, deck_revision, goal_snapshot_id
 `
 
 type CancelDeckPreparationParams struct {
@@ -91,6 +91,7 @@ func (q *Queries) CancelDeckPreparation(ctx context.Context, arg CancelDeckPrepa
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -105,7 +106,7 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-           presentation_version, deck_revision
+           presentation_version, deck_revision, goal_snapshot_id
 `
 
 type ClaimDeckPreparationParams struct {
@@ -146,6 +147,7 @@ func (q *Queries) ClaimDeckPreparation(ctx context.Context, arg ClaimDeckPrepara
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -167,8 +169,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-           presentation_version, deck_revision
+             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id
 `
 
 type CompleteDeckPreparationParams struct {
@@ -232,6 +234,7 @@ func (q *Queries) CompleteDeckPreparation(ctx context.Context, arg CompleteDeckP
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -246,8 +249,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision
+             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id
 `
 
 type ConfirmDeckVocabularyReviewParams struct {
@@ -288,6 +291,7 @@ func (q *Queries) ConfirmDeckVocabularyReview(ctx context.Context, arg ConfirmDe
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -336,15 +340,15 @@ func (q *Queries) CountDeckPreparationVocabularyToGraduate(ctx context.Context, 
 }
 
 const createDeckPreparation = `-- name: CreateDeckPreparation :one
-INSERT INTO deck_preparations(owner_id, source_material_id, book_id, analysis_run_id, filename, deck_name, content_hash)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO deck_preparations(owner_id, source_material_id, book_id, analysis_run_id, goal_snapshot_id, filename, deck_name, content_hash)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision
+        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+        presentation_version, deck_revision, goal_snapshot_id
 `
 
 type CreateDeckPreparationParams struct {
@@ -352,6 +356,7 @@ type CreateDeckPreparationParams struct {
 	SourceMaterial string
 	BookID         pgtype.UUID
 	AnalysisRun    pgtype.UUID
+	GoalSnapshot   pgtype.UUID
 	Filename       string
 	DeckName       string
 	ContentHash    string
@@ -363,6 +368,7 @@ func (q *Queries) CreateDeckPreparation(ctx context.Context, arg CreateDeckPrepa
 		arg.SourceMaterial,
 		arg.BookID,
 		arg.AnalysisRun,
+		arg.GoalSnapshot,
 		arg.Filename,
 		arg.DeckName,
 		arg.ContentHash,
@@ -398,6 +404,7 @@ func (q *Queries) CreateDeckPreparation(ctx context.Context, arg CreateDeckPrepa
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -424,8 +431,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        cards_with_contextual_sentence_translations, quality_omissions, error,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1 AND id = $2 AND state = 'ready'
 `
@@ -468,6 +475,7 @@ func (q *Queries) DownloadDeckPreparation(ctx context.Context, arg DownloadDeckP
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -478,8 +486,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        cards_with_contextual_sentence_translations, quality_omissions, error,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
@@ -527,6 +535,7 @@ func (q *Queries) GetActiveDeckVocabularyStudy(ctx context.Context, arg GetActiv
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -538,8 +547,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        cards_with_contextual_sentence_translations, quality_omissions, error,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1 AND id = $2
 `
@@ -585,6 +594,7 @@ func (q *Queries) GetDeckPreparation(ctx context.Context, arg GetDeckPreparation
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -596,7 +606,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
@@ -642,6 +652,7 @@ func (q *Queries) GetDeckPreparationBySourceAnalysis(ctx context.Context, arg Ge
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -653,7 +664,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
@@ -700,6 +711,7 @@ func (q *Queries) GetDeckPreparationBySourceHashWithoutAnalysis(ctx context.Cont
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -710,8 +722,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        cards_with_contextual_sentence_translations, quality_omissions, error,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
@@ -758,6 +770,7 @@ func (q *Queries) GetDeckPreparationForAnalysis(ctx context.Context, arg GetDeck
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -768,8 +781,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        cards_with_contextual_sentence_translations, quality_omissions, error,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1 AND id = $2
 FOR UPDATE
@@ -813,6 +826,7 @@ func (q *Queries) GetDeckPreparationForUpdate(ctx context.Context, arg GetDeckPr
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -824,7 +838,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
@@ -871,6 +885,7 @@ func (q *Queries) GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Contex
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -882,7 +897,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
@@ -929,6 +944,7 @@ func (q *Queries) GetUnretiredDeckPreparationBySourceHash(ctx context.Context, a
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -1049,8 +1065,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        cards_with_contextual_sentence_translations, quality_omissions, error,
        created_at, updated_at, started_at, completed_at, analysis_run_id,
        current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-        book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-         presentation_version, deck_revision
+         book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+          presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = $1 AND source_material_id = $2
 ORDER BY COALESCE(completed_at, created_at) DESC, id
@@ -1100,6 +1116,7 @@ func (q *Queries) ListDeckPreparationsForSourceMaterial(ctx context.Context, arg
 			&i.RenderInputVersion,
 			&i.PresentationVersion,
 			&i.DeckRevision,
+			&i.GoalSnapshotID,
 		); err != nil {
 			return nil, err
 		}
@@ -1333,8 +1350,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision
+             book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id
 `
 
 type ReleaseDeckVocabularyStudyParams struct {
@@ -1375,6 +1392,7 @@ func (q *Queries) ReleaseDeckVocabularyStudy(ctx context.Context, arg ReleaseDec
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -1447,8 +1465,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-            presentation_version, deck_revision
+            book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id
 `
 
 type StartDeckVocabularyStudyParams struct {
@@ -1489,6 +1507,7 @@ func (q *Queries) StartDeckVocabularyStudy(ctx context.Context, arg StartDeckVoc
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -1520,7 +1539,7 @@ RETURNING p.id, p.owner_id, p.source_material_id, p.state, p.artifact, p.filenam
           p.created_at, p.updated_at, p.started_at, p.completed_at, p.analysis_run_id,
           p.current_run_id, p.studying_at, p.reviewed_at, p.graduated_at, p.released_at,
           p.book_id, p.retired_at, p.cards_with_fallback_gloss, p.render_input_version,
-          p.presentation_version, p.deck_revision
+           p.presentation_version, p.deck_revision, p.goal_snapshot_id
 `
 
 type SupersedePreparedDeckArtifactParams struct {
@@ -1584,6 +1603,7 @@ func (q *Queries) SupersedePreparedDeckArtifact(ctx context.Context, arg Superse
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }
@@ -1602,8 +1622,8 @@ RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name
           cards_with_contextual_sentence_translations, quality_omissions, error,
           created_at, updated_at, started_at, completed_at, analysis_run_id,
           current_run_id, studying_at, reviewed_at, graduated_at, released_at,
-           book_id, retired_at, cards_with_fallback_gloss, render_input_version,
-           presentation_version, deck_revision
+              book_id, retired_at, cards_with_fallback_gloss, render_input_version,
+            presentation_version, deck_revision, goal_snapshot_id
 `
 
 type TransitionDeckPreparationParams struct {
@@ -1653,6 +1673,7 @@ func (q *Queries) TransitionDeckPreparation(ctx context.Context, arg TransitionD
 		&i.RenderInputVersion,
 		&i.PresentationVersion,
 		&i.DeckRevision,
+		&i.GoalSnapshotID,
 	)
 	return i, err
 }

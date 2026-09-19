@@ -4,6 +4,9 @@
 ALTER TABLE public.primary_goals
     ADD COLUMN snapshot_id uuid;
 
+ALTER TABLE public.deck_preparations
+    ADD COLUMN goal_snapshot_id uuid;
+
 CREATE TABLE public.primary_goal_snapshots (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     owner_id uuid NOT NULL,
@@ -45,3 +48,6 @@ CREATE TABLE public.primary_goal_snapshot_vocabulary (
 
 ALTER TABLE public.primary_goals
     ADD CONSTRAINT primary_goals_snapshot_fkey FOREIGN KEY (owner_id, snapshot_id) REFERENCES public.primary_goal_snapshots(owner_id, id);
+
+ALTER TABLE public.deck_preparations
+    ADD CONSTRAINT deck_preparations_goal_snapshot_fkey FOREIGN KEY (owner_id, goal_snapshot_id) REFERENCES public.primary_goal_snapshots(owner_id, id);

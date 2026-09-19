@@ -257,6 +257,7 @@ type DeckPreparation struct {
 	RenderInputVersion                      int
 	PresentationVersion                     int
 	DeckRevision                            int
+	GoalSnapshotID                          pgtype.UUID
 }
 
 type DeckPreparationBatchChunk struct {

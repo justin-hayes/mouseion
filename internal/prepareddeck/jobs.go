@@ -124,16 +124,16 @@ func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *rive
 // River job in one transaction. The analysis run and content hash in the job
 // freeze the immutable input used by all retries.
 func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent bool) (result Handle, err error) {
-	return s.submit(ctx, owner, analysisID, consent, false)
+	return s.submit(ctx, owner, analysisID, consent, "")
 }
 
 // SubmitForGoal starts a fresh local preparation so an existing ready deck
 // cannot bypass the Goal's newly frozen snapshot.
-func (s *Service) SubmitForGoal(ctx context.Context, owner, analysisID string) (result Handle, err error) {
-	return s.submit(ctx, owner, analysisID, false, true)
+func (s *Service) SubmitForGoal(ctx context.Context, owner, analysisID, snapshotID string) (result Handle, err error) {
+	return s.submit(ctx, owner, analysisID, false, snapshotID)
 }
 
-func (s *Service) submit(ctx context.Context, owner, analysisID string, consent, goalSnapshot bool) (result Handle, err error) {
+func (s *Service) submit(ctx context.Context, owner, analysisID string, consent bool, goalSnapshotID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -149,7 +149,7 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent,
 	source := analysis.Source
 	deckName := cardexport.DeckName(source.Language, source.Title)
 	filename := cardexport.DownloadFilename(source.Title)
-	if goalSnapshot {
+	if goalSnapshotID != "" {
 		bookID, bookErr := sqlcBookForSource(ctx, tx, owner, source.ID)
 		if bookErr != nil {
 			return Handle{}, bookErr
@@ -161,7 +161,7 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent,
 			return Handle{}, err
 		}
 	}
-	p, created, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
+	p, created, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, GoalSnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
 	if err != nil {
 		return Handle{}, err
 	}

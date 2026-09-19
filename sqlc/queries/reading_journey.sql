@@ -240,17 +240,39 @@ SELECT s.id::text, s.owner_id::text, s.language, s.book_id::text,
        s.content_revision_id::text, s.content_snapshot_id::text, s.corpus_id::text,
        s.created_at, s.released_at
 FROM primary_goal_snapshots s
-JOIN primary_goals g ON g.owner_id = s.owner_id AND g.snapshot_id = s.id
-JOIN deck_preparations p ON p.owner_id = g.owner_id AND p.book_id = g.book_id
+JOIN deck_preparations p ON p.owner_id = s.owner_id AND p.goal_snapshot_id = s.id
 WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('preparation')
   AND p.source_material_id = s.source_material_id
   AND p.analysis_run_id = s.analysis_run_id
-  AND s.released_at IS NULL;
+;
 
 -- name: ReleasePrimaryGoalSnapshot :exec
 UPDATE primary_goal_snapshots
 SET released_at = COALESCE(released_at, now())
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('snapshot');
+
+-- name: ReleasePrimaryGoalSnapshotsForBook :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = sqlc.arg('owner') AND g.book_id = sqlc.arg('book')
+  AND g.language = sqlc.arg('language')
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id;
+
+-- name: ReleasePrimaryGoalSnapshotsExceptLanguage :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = sqlc.arg('owner') AND g.book_id = sqlc.arg('book')
+  AND g.language <> sqlc.arg('language')
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id;
+
+-- name: ReleasePrimaryGoalSnapshotsForAllLanguages :exec
+UPDATE primary_goal_snapshots s
+SET released_at = COALESCE(s.released_at, now())
+FROM primary_goals g
+WHERE g.owner_id = sqlc.arg('owner') AND g.book_id = sqlc.arg('book')
+  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id;
 
 -- name: InsertPrimaryGoal :one
 INSERT INTO primary_goals(owner_id, language, book_id, snapshot_id)
