@@ -68,52 +68,6 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	assert.ErrorIs(t, err, persistence.ErrNotFound, "unknown detail error=%v", err)
 }
 
-func TestFixtureJourneyProjectionCoversComparisonStatesDeterministically(t *testing.T) {
-	store := NewStore()
-	result, err := (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
-	require.NoError(t, err)
-	wantLearner := []string{BookID, "fixture-failed", routeMatchBookID, routeDiffersBookID, routeTieABookID, routeTieBBookID, routeUnavailableBookID}
-	wantAdvisory := []string{BookID, "fixture-failed", routeMatchBookID, routeTieABookID, routeTieBBookID, routeDiffersBookID, routeUnavailableBookID}
-	require.Len(t, result.LearnerOrder, len(wantLearner))
-	for i, want := range wantLearner {
-		assert.Equal(t, want, result.LearnerOrder[i].BookID, "learner order[%d]=%q, want %q", i, result.LearnerOrder[i].BookID, want)
-	}
-	require.Len(t, result.AdvisoryOrder, len(wantAdvisory))
-	for i, want := range wantAdvisory {
-		assert.Equal(t, want, result.AdvisoryOrder[i].BookID, "advisory order[%d]=%q, want %q", i, result.AdvisoryOrder[i].BookID, want)
-	}
-	assert.Equal(t, 4, result.ComparableCount, "comparison counts=%d/%d", result.ComparableCount, result.IncomparableCount)
-	assert.Equal(t, 3, result.IncomparableCount, "comparison counts=%d/%d", result.ComparableCount, result.IncomparableCount)
-	require.Len(t, result.AdvisoryOrder, 7)
-	assert.Nil(t, result.AdvisoryOrder[0].Rank, "incomparable ranks=%+v", result.AdvisoryOrder)
-	assert.Nil(t, result.AdvisoryOrder[6].Rank, "incomparable ranks=%+v", result.AdvisoryOrder)
-	require.NotNil(t, result.AdvisoryOrder[3].Coverage)
-	require.NotNil(t, result.AdvisoryOrder[4].Coverage)
-	assert.Equal(t, result.AdvisoryOrder[3].Coverage.KnownTokenCount, result.AdvisoryOrder[4].Coverage.KnownTokenCount, "tie coverage=%+v", result.AdvisoryOrder)
-	require.Len(t, result.ConditionalAdvisoryOrder, len(result.AdvisoryOrder), "conditional order=%+v", result.ConditionalAdvisoryOrder)
-	assert.Equal(t, routeDiffersBookID, result.ConditionalAdvisoryOrder[2].BookID, "conditional order did not differ=%+v", result.ConditionalAdvisoryOrder)
-
-	journey, err := store.GetReadingJourney(context.Background(), OwnerID, "de")
-	require.NoError(t, err)
-	_, err = store.MoveReadingJourneyEntry(context.Background(), OwnerID, "de", routeDiffersBookID, 1, journey.Revision)
-	require.NoError(t, err)
-	result, err = (Insights{JourneyStore: store}).JourneyProjection(context.Background(), OwnerID, "de")
-	require.NoError(t, err, "projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
-	require.Len(t, result.LearnerOrder, len(wantLearner))
-	assert.Equal(t, routeDiffersBookID, result.LearnerOrder[1].BookID, "projection did not follow canonical fixture order=%+v err=%v", result.LearnerOrder, err)
-}
-
-func TestFixtureItalianJourneyProjectionUsesItalianEvidenceIdentity(t *testing.T) {
-	result, err := (Insights{JourneyStore: NewStore()}).JourneyProjection(context.Background(), OwnerID, "it")
-	require.NoError(t, err)
-	assert.Equal(t, "it", result.Language, "Italian projection language=%q", result.Language)
-	require.Len(t, result.LearnerOrder, 3, "Italian projection order=%+v", result.LearnerOrder)
-	for _, book := range result.LearnerOrder {
-		assert.Equal(t, "it", book.Language, "Italian projection book=%+v", book)
-		assert.NotContains(t, book.IncomparableReason, "different study language", "Italian projection retained cross-language reason=%q", book.IncomparableReason)
-	}
-}
-
 func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
 	store := NewStore()
 	store.supported = []domain.SupportedLanguage{{Language: " DE ", DisplayName: "German"}}

@@ -30,7 +30,7 @@ test.describe('Primary Goal selection', () => {
     await expect(goal.locator('form[action="/goal/clear"]')).toHaveCount(1);
     await expect(goal.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
 
-    const provisional = page.locator('#provisional-journey-list .journey-list > article');
+    const provisional = page.locator('#provisional-journey-list .journey-list > li');
     // Membership can grow across the shared fixture suite (e.g. a deck-flow test
     // adds a book), so assert structurally instead of by exact count.
     await expect(provisional.first()).toBeVisible();

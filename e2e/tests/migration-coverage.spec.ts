@@ -30,22 +30,16 @@ test.describe('migration and epistemic regression coverage', () => {
     await expectPostFormsCarryCSRF(page);
   });
 
-  test('shows current versus conditional Journey evidence without changing learner order', async ({ page }) => {
+  test('shows one learner order and concise forecast evidence', async ({ page }) => {
     await page.goto('/journey');
     await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
-    await expect(page.locator('#provisional-journey-heading')).toHaveText('Provisional Journey');
+    await expect(page.locator('#provisional-journey-heading')).toHaveText('Your order');
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
-    // The advisory comparison is inside a collapsed disclosure; open it before
-    // asserting its current and conditional projected evidence.
-    await page.getByText('Show vocabulary-efficient alternative (optional comparison)').click();
-    await expect(page.getByText(/current known-token coverage/i).first()).toBeVisible();
-    await expect(page.getByText(/separate conditional projected variant/i)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Your order (canonical)', exact: true })).toBeVisible();
-    const tableRegion = page.locator('.table-region[aria-label="Current advisory order table"]');
-    await expect(tableRegion).toBeVisible();
-    await tableRegion.focus();
-    await expect(tableRegion).toBeFocused();
+    await expect(page.getByText('How coverage is shown', { exact: true })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Your order' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Journey coverage forecast' }).first()).toBeVisible();
+    await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
+    await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.locator('#provisional-journey-status')).toHaveAttribute('aria-live', 'polite');
     await expectPostFormsCarryCSRF(page);
     await page.goto('/journey/fixture-book');

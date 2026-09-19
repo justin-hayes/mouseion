@@ -68,12 +68,12 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
     await expect(page.locator('#journey-book-fixture-empty')).toBeVisible();
     await expect(page.locator('#journey-book-fixture-book')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
+     await expect(page.getByRole('heading', { name: 'Your order', exact: true })).toBeVisible();
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
     await expect(page).toHaveURL(/\/journey$/);
     await expect(page.getByRole('heading', { name: 'Reading Journey in fr', exact: true })).toBeVisible();
-    await expect(page.locator('#provisional-journey-list .journey-list > article')).toHaveCount(0);
+     await expect(page.locator('#provisional-journey-list .journey-list > li')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Browse My Books' })).toBeVisible();
     await page.getByLabel('Study language').selectOption('de');
     await expect(page).toHaveURL(/\/journey$/);
@@ -183,18 +183,14 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/journey');
     await expect(page.getByRole('heading', { name: /reading journey/i })).toBeVisible();
     await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
-    await expect(page.locator('#provisional-journey-heading')).toHaveText('Provisional Journey');
+     await expect(page.locator('#provisional-journey-heading')).toHaveText('Your order');
     await expect(page.locator('#campaign-operations-heading')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start learning' })).toHaveCount(0);
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
-    await expect(page.getByText('Provisional — your order').first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: /compare your order with a vocabulary-efficient alternative/i })).toBeVisible();
-    await page.getByText('Show vocabulary-efficient alternative (optional comparison)').click();
-    // Earlier smoke cases may add fixture books to the Journey. Keep this
-    // assertion structural so the comparison remains stable as that state
-    // grows.
-    await expect(page.getByText(/\d+ comparable, \d+ incomparable/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Your order (canonical)', exact: true })).toBeVisible();
+     await expect(page.getByText('Your order', { exact: true }).first()).toBeVisible();
+     await expect(page.getByText('How coverage is shown', { exact: true })).toBeVisible();
+     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
+     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
     await page.goto('/journey/fixture-book');

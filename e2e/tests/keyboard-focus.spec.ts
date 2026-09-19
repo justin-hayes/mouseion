@@ -193,14 +193,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const edge = page.locator('#journey-book-fixture-edge-content');
     await edge.getByRole('button', { name: /Move .* earlier/ }).press('Enter');
     await expect(page).toHaveURL(/\/journey\?message=/);
-    const reordered = page.locator('#provisional-journey-list .journey-list > article');
+    const reordered = page.locator('#provisional-journey-list .journey-list > li > article');
     await expect(reordered.first()).toHaveAttribute('id', 'journey-book-fixture-edge-content');
 
     await page.unroute('**/static/vendor/htmx-*.js');
     await page.goto('/journey');
     const empty = page.locator('#journey-book-fixture-empty');
     await empty.getByRole('button', { name: /Move .* earlier/ }).press('Enter');
-    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* provisional position/);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* position .* in Your order/);
     await expect(page.locator('#journey-book-fixture-empty')).toBeFocused();
     await expect(reordered.first()).toHaveAttribute('id', 'journey-book-fixture-empty');
 

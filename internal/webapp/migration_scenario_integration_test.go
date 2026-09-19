@@ -123,11 +123,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), beforeCoverage.KnownTokenCount)
 	assert.Equal(t, int64(6), beforeCoverage.ReservedTokenCount)
-	projectionBefore, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
+	forecastBefore, err := analysisinsights.NewService(store).JourneyForecast(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, projectionBefore.LearnerOrder, 2)
-	assert.Len(t, projectionBefore.ConditionalAdvisoryOrder, 2)
-	learnerOrderBefore := []string{projectionBefore.LearnerOrder[0].BookID, projectionBefore.LearnerOrder[1].BookID}
+	assert.Len(t, forecastBefore.Entries, 2)
+	learnerOrderBefore := []string{forecastBefore.Entries[0].BookID, forecastBefore.Entries[1].BookID}
 
 	// Stale writes, missing CSRF, cross-owner references, and invalid progress
 	// are rejected without changing the accepted state.
@@ -187,11 +186,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.GraduatedVocabularyCount)
 	assert.Equal(t, 0, completion.Completion.AlreadyKnownVocabularyCount)
-	projectionAfter, err := analysisinsights.NewService(store).JourneyProjection(ctx, alice.ID, "de")
+	forecastAfter, err := analysisinsights.NewService(store).JourneyForecast(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Empty(t, projectionAfter.ConditionalAdvisoryOrder)
-	assert.Len(t, projectionAfter.LearnerOrder, len(learnerOrderBefore)-1)
-	for i, item := range projectionAfter.LearnerOrder {
+	assert.Len(t, forecastAfter.Entries, len(learnerOrderBefore)-1)
+	for i, item := range forecastAfter.Entries {
 		assert.Equal(t, secondBook.ID, item.BookID, "index %d", i)
 	}
 	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")

@@ -117,16 +117,20 @@ func goalSectionFocusID(bookID string) string {
 }
 
 func journeyEvidenceState(item journeyBookView) string {
+	status := strings.ToLower(strings.TrimSpace(item.Book.AnalysisStatus))
+	if strings.Contains(status, "failed") {
+		return "failed"
+	}
 	switch item.Book.EvidenceState() {
 	case domain.BookStale:
 		return "stale"
 	case domain.BookAcquiredUnassessed:
-		return "unassessed"
+		return "incomplete"
 	case domain.BookNotAcquired, domain.BookUnavailable:
 		return "unavailable"
 	case domain.BookAnalyzed:
 		if item.StatisticsUnavailable || item.Coverage == nil {
-			return "unavailable"
+			return "incomplete"
 		}
 		return "current"
 	default: // Unknown evidence states are not treated as current.
@@ -138,25 +142,29 @@ func journeyEvidenceLabel(item journeyBookView) string {
 	switch journeyEvidenceState(item) {
 	case "stale":
 		return "Stale evidence"
-	case "unassessed":
-		return "Not yet assessed"
+	case "incomplete":
+		return "Incomplete evidence"
+	case "failed":
+		return "Analysis failed"
 	case "unavailable":
-		return "Coverage unavailable"
+		return "Evidence unavailable"
 	default:
-		return "Current evidence"
+		return ""
 	}
 }
 
 func journeyEvidenceDescription(item journeyBookView) string {
 	switch journeyEvidenceState(item) {
 	case "stale":
-		return "Current and Journey forecast coverage are unavailable until this book's analysis is reviewed."
-	case "unassessed":
-		return "Current EPUB content is available, but no completed analysis has produced evidence for this book yet."
+		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
+	case "incomplete":
+		return "A completed analysis has not produced usable coverage for this book yet."
+	case "failed":
+		return "The last analysis failed. Retry analysis to produce current evidence."
 	case "unavailable":
-		return "This book is not currently assessed or its statistics are unavailable."
+		return "Current book content is unavailable, so coverage cannot be calculated."
 	default:
-		return "Coverage is based on the current analyzed evidence."
+		return ""
 	}
 }
 
@@ -173,7 +181,18 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		}
 	}
 	action := bookLifecycleActionFor(item.Book)
-	if action.Status == "Analysis not started" {
+	if journeyEvidenceState(item) == "failed" || journeyEvidenceState(item) == "incomplete" {
+		action.Status = "Analysis incomplete"
+		action.Description = journeyEvidenceDescription(item)
+		action.Label = "Retry analysis"
+		action.URL = journeyReanalyzeURL(bookID)
+		action.Submit = true
+		action.Tone = StatusWarning
+		if journeyEvidenceState(item) == "failed" {
+			action.Status = "Analysis failed"
+			action.Tone = StatusDanger
+		}
+	} else if action.Status == "Analysis not started" {
 		action.Label = "Retry analysis"
 		action.URL = journeyReanalyzeURL(bookID)
 		action.Submit = true
@@ -232,7 +251,6 @@ type journeyPageView struct {
 	Goal                *journeyBookView
 	Provisional         []journeyBookView
 	Revision            int64
-	RouteComparison     *routeComparisonView
 	ForecastUnavailable bool
 }
 
@@ -515,7 +533,20 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember || (detail.Acquired != nil && detail.Acquired.EvidenceState() != domain.BookStale && detail.Acquired.EvidenceState() != domain.BookUnavailable && detail.Acquired.EvidenceState() != domain.BookAcquiredUnassessed) {
+	if !detail.JourneyMember || detail.Acquired == nil {
+		http.NotFound(w, r)
+		return
+	}
+	recoverable := detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
+	if detail.Acquired.EvidenceState() == domain.BookAnalyzed {
+		item := journeyBookView{Book: *detail.Acquired, BookID: detail.Book.ID}
+		if evidenceErr := h.addJourneyEvidence(r.Context(), u.ID, &item); evidenceErr != nil {
+			fail(w, evidenceErr)
+			return
+		}
+		recoverable = journeyEvidenceState(item) == "incomplete"
+	}
+	if !recoverable {
 		http.NotFound(w, r)
 		return
 	}
@@ -550,24 +581,6 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, err)
 		return
-	}
-	if h.services.AnalysisInsights != nil && (len(view.Provisional) >= 2 || view.Goal != nil) {
-		if provider, ok := h.services.AnalysisInsights.(journeyProjectionProvider); ok {
-			titles := make(map[string]string)
-			if view.Goal != nil {
-				titles[view.Goal.Book.Source.ID] = canonicalBookTitle(view.Goal.Book)
-			}
-			for _, item := range view.Provisional {
-				titles[item.Book.Source.ID] = canonicalBookTitle(item.Book)
-			}
-			comparison, projectionErr := journeyRouteComparison(r.Context(), provider, u.ID, language, titles)
-			if projectionErr != nil {
-				log.Printf("mouseion: Journey comparison unavailable for owner %s: %v", u.ID, projectionErr)
-				view.RouteComparison = &routeComparisonView{ComparisonUnavailable: true}
-			} else {
-				view.RouteComparison = comparison
-			}
-		}
 	}
 	view.Language = language
 	view.LanguageLabel = languageLabel

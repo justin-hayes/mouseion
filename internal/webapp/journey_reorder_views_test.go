@@ -42,7 +42,7 @@ func TestJourneyForecastFailureKeepsSavedOrderActionable(t *testing.T) {
 		ForecastUnavailable: true,
 		Provisional:         []journeyBookView{testJourneyBook("first", "First provisional book", "ready")},
 	}
-	html := renderJourney(t, view, "Moved First provisional book to provisional position 1. Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey.", "")
+	html := renderJourney(t, view, "Moved First provisional book to position 1 in Your order. Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey.", "")
 	assert.Contains(t, html, "saved order remains in place")
 	assert.Contains(t, html, `href="/journey">Retry forecast</a>`)
 }

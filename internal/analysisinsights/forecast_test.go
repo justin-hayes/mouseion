@@ -120,7 +120,7 @@ func TestJourneyForecastKeepsLanguageIntegrityAndEmptyGoalSnapshot(t *testing.T)
 	assert.Contains(t, result.Entries[0].UnavailableReason, "analysis run")
 }
 
-func TestJourneyForecastDoesNotModelAnUnavailableGoal(t *testing.T) {
+func TestJourneyForecastModelsAnUnavailableGoalSnapshot(t *testing.T) {
 	store := &forecastSnapshotStore{routeStore: &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "goal", Position: 1}, {BookID: "next", Position: 2}}},
 		goal:    domain.PrimaryGoal{OwnerID: "alice", Language: "de", BookID: "goal", SnapshotID: "snapshot"},
@@ -137,5 +137,23 @@ func TestJourneyForecastDoesNotModelAnUnavailableGoal(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Entries, 2)
 	assert.NotEmpty(t, result.Entries[0].UnavailableReason)
-	assert.Equal(t, int64(0), result.Entries[1].OnArrival.KnownTokenCount, "an unavailable Goal contributes no frozen or modeled vocabulary")
+	assert.Equal(t, int64(4), result.Entries[1].OnArrival.KnownTokenCount, "an unavailable Goal still contributes its frozen snapshot")
+}
+
+func TestJourneyForecastAnchorsGoalBeforePersistedLaterPosition(t *testing.T) {
+	store := &forecastSnapshotStore{routeStore: &routeStore{
+		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "next", Position: 1}, {BookID: "goal", Position: 2}}},
+		goal:    domain.PrimaryGoal{OwnerID: "alice", Language: "de", BookID: "goal", SnapshotID: "snapshot"},
+		books:   []domain.MyBook{forecastBook("next", "de", "c-next"), forecastBook("goal", "de", "c-goal")},
+		corpora: map[string]domain.AnalysisCorpusVocabulary{
+			"c-next": forecastInput("next", "c-next", "de", 4, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "goal-word", UPOS: "VERB", OccurrenceCount: 4}),
+			"c-goal": forecastInput("goal", "c-goal", "de", 4, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "goal-word", UPOS: "VERB", OccurrenceCount: 4}),
+		},
+	}, snapshot: []domain.SelectionCandidate{{OwnerID: "alice", Language: "de", CanonicalLemma: "goal-word", UPOS: "VERB"}}}
+
+	result, err := NewService(store).JourneyForecast(context.Background(), "alice", "de")
+	require.NoError(t, err)
+	require.Len(t, result.Entries, 2)
+	assert.Equal(t, "goal", result.Entries[0].BookID)
+	assert.Equal(t, int64(4), result.Entries[1].OnArrival.KnownTokenCount, "the anchored Goal snapshot precedes later persisted positions")
 }

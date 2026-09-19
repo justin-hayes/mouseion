@@ -126,6 +126,15 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
+  test('Journey titles and actions remain reachable at 200 percent text size', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/journey');
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expect(page.getByRole('heading', { name: 'Your order', exact: true })).toBeVisible();
+    await expect(page.locator('.journey-book__controls').first()).toBeVisible();
+    await expectNoPageOverflow(page);
+  });
+
   test('semantic status text, readable measures, and live theme tokens meet contrast targets', async ({ page }) => {
     await signIn(page);
     await page.goto('/books/fixture-book/analyses/fixture-run');

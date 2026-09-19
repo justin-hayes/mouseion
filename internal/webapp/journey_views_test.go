@@ -30,10 +30,13 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 	}
 	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: provisional}, "", "")
 	goalIndex := strings.Index(html, "Goal book")
-	provisionalIndex := strings.Index(html, "Provisional Journey")
+	provisionalIndex := strings.Index(html, `id="provisional-journey-heading"`)
 	firstIndex := strings.Index(html, "First provisional book")
 	secondIndex := strings.Index(html, "Second provisional book")
 	assert.True(t, goalIndex >= 0 && provisionalIndex >= 0 && firstIndex >= 0 && secondIndex >= 0 && goalIndex <= provisionalIndex && firstIndex <= secondIndex, "journey order was not goal-first and learner-ordered: goal=%d provisional=%d first=%d second=%d", goalIndex, provisionalIndex, firstIndex, secondIndex)
+	assert.Contains(t, html, `<ol class="journey-list" aria-label="Your order">`)
+	assert.NotContains(t, html, "vocabulary-efficient")
+	assert.NotContains(t, html, "advisory order")
 }
 
 func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
@@ -61,7 +64,7 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	unassessed.Book.Source.ContentRevisionID = "revision"
 	unassessed.Book.Source.ContentSnapshotID = "snapshot"
 	action = journeyAnalysisAction(unassessed)
-	assert.Equal(t, "Analysis not started", action.Status)
+	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
 	assert.Equal(t, "/journey/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
@@ -114,6 +117,66 @@ func TestJourneyPageRendersSequentialForecastMeaningsAndLowerBound(t *testing.T)
 		assert.Contains(t, html, want)
 	}
 	assert.Contains(t, html, "same as after Goal")
+	assert.NotContains(t, html, "same as after Goal (60.0%")
+}
+
+func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
+	item := testJourneyBook("healthy", "Healthy book", "analyzed")
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	item.Book.Source.ContentSnapshotID = "snapshot"
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run"
+	item.Book.CorpusID = "corpus"
+	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
+	item.Forecast = &domain.JourneyForecastEntry{Current: &domain.JourneyForecastCoverage{KnownTokenCount: 5, AnalyzableTokenCount: 10}}
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	assert.NotContains(t, html, "Current evidence")
+	assert.NotContains(t, html, "Assessment:")
+	assert.NotContains(t, html, "Analysis result ready")
+	assert.Contains(t, html, "Current coverage:")
+}
+
+func TestJourneyExceptionalEvidenceNamesStateAndRecovery(t *testing.T) {
+	tests := []struct {
+		name, status, wantState, wantLabel, wantAction string
+	}{
+		{name: "stale", status: "stale", wantState: "stale", wantLabel: "Stale evidence", wantAction: "Re-analyze"},
+		{name: "unavailable", status: "", wantState: "unavailable", wantLabel: "Evidence unavailable", wantAction: "Retry acquisition"},
+		{name: "incomplete", status: "not analyzed", wantState: "incomplete", wantLabel: "Incomplete evidence", wantAction: "Retry analysis"},
+		{name: "failed", status: "analysis failed", wantState: "failed", wantLabel: "Analysis failed", wantAction: "Retry analysis"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := testJourneyBook(tt.name, tt.name, tt.status)
+			if tt.name != "unavailable" {
+				item.Book.Source.MediaType = "application/epub+zip"
+				item.Book.Source.ContentRevisionID = "revision"
+				item.Book.Source.ContentSnapshotID = "snapshot"
+			}
+			assert.Equal(t, tt.wantState, journeyEvidenceState(item))
+			html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+			assert.Contains(t, html, tt.wantLabel)
+			assert.Contains(t, html, tt.wantAction)
+		})
+	}
+}
+
+func TestJourneyIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
+	item := testJourneyBook("incomplete", "Incomplete analyzed book", "analyzed")
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	item.Book.Source.ContentSnapshotID = "snapshot"
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run"
+	item.Book.CorpusID = "corpus"
+	item.StatisticsUnavailable = true
+
+	action := journeyAnalysisAction(item)
+	assert.Equal(t, "Analysis incomplete", action.Status)
+	assert.Equal(t, "Retry analysis", action.Label)
+	assert.Equal(t, "/journey/books/incomplete/reanalyze", action.URL)
+	assert.True(t, action.Submit)
 }
 
 func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {

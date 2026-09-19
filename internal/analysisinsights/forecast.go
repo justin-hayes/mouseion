@@ -78,10 +78,22 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 	}
 	goalKnown := unionForecastVocabulary(known, goalVocabulary)
 	goalInJourney := false
+	var goalEntry domain.ReadingJourneyEntry
 	for _, entry := range journey.Entries {
 		if goal.IsActive() && entry.BookID == goal.BookID {
 			goalInJourney = true
+			goalEntry = entry
 			break
+		}
+	}
+	orderedEntries := journey.Entries
+	if goalInJourney {
+		orderedEntries = make([]domain.ReadingJourneyEntry, 0, len(journey.Entries))
+		orderedEntries = append(orderedEntries, goalEntry)
+		for _, entry := range journey.Entries {
+			if entry.BookID != goal.BookID {
+				orderedEntries = append(orderedEntries, entry)
+			}
 		}
 	}
 	accumulated := cloneForecastVocabulary(known)
@@ -95,7 +107,7 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 		result.Goal = &goalCopy
 	}
 	lowerBound := false
-	for i, journeyEntry := range journey.Entries {
+	for i, journeyEntry := range orderedEntries {
 		position := journeyEntry.Position
 		if position < 1 {
 			position = i + 1
@@ -110,9 +122,14 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 		input, reason := s.forecastEvidence(ctx, owner, language, journeyEntry.BookID, byBook)
 		if reason != "" {
 			entry.UnavailableReason = reason
-			lowerBound = true
+			if !goal.IsActive() || journeyEntry.BookID != goal.BookID {
+				lowerBound = true
+			}
 			entry.LowerBound = lowerBound
 			result.Entries = append(result.Entries, entry)
+			if goal.IsActive() && journeyEntry.BookID == goal.BookID {
+				accumulated = cloneForecastVocabulary(goalKnown)
+			}
 			continue
 		}
 
@@ -169,6 +186,15 @@ func (s *Service) forecastEvidence(ctx context.Context, owner, language, bookID 
 		return domain.AnalysisCorpusVocabulary{}, "stale: corpus evidence is not modeled in the Journey language"
 	}
 	return input, ""
+}
+
+func corpusLanguageMatches(input domain.AnalysisCorpusVocabulary, language string) bool {
+	for _, lemma := range input.Lemmas {
+		if lemma.Language != language {
+			return false
+		}
+	}
+	return true
 }
 
 func forecastCoverage(input domain.AnalysisCorpusVocabulary, known map[selection.Identity]struct{}) *domain.JourneyForecastCoverage {
