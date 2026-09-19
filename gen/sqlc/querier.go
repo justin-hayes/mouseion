@@ -194,6 +194,7 @@ type Querier interface {
 	// string stitching.
 	ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error)
 	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
+	ListAllReadingJourneyMembersForUpdate(ctx context.Context, arg ListAllReadingJourneyMembersForUpdateParams) ([]ListAllReadingJourneyMembersForUpdateRow, error)
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)

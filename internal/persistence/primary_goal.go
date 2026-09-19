@@ -226,7 +226,7 @@ func removeCompletedGoalFromJourney(ctx context.Context, q *sqlcgen.Queries, own
 	if err != nil {
 		return err
 	}
-	members, err := q.ListReadingJourneyMembersForUpdate(ctx, sqlcgen.ListReadingJourneyMembersForUpdateParams{Owner: owner, Language: language})
+	members, err := q.ListAllReadingJourneyMembersForUpdate(ctx, sqlcgen.ListAllReadingJourneyMembersForUpdateParams{Owner: owner, Language: language})
 	if err != nil {
 		return err
 	}

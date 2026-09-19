@@ -46,6 +46,13 @@ WHERE m.owner_id = sqlc.arg('owner') AND m.language = sqlc.arg('language')::text
 ORDER BY m.position, m.created_at, m.book_id
 FOR UPDATE;
 
+-- name: ListAllReadingJourneyMembersForUpdate :many
+SELECT book_id::text AS book_id, position, created_at
+FROM reading_journey_membership
+WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
+ORDER BY position, created_at, book_id
+FOR UPDATE;
+
 -- name: UpsertReadingJourneyMemberPosition :exec
 INSERT INTO reading_journey_membership(owner_id, language, book_id, position)
 VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('position'))

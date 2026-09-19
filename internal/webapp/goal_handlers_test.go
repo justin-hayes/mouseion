@@ -300,6 +300,7 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusOK, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
+	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
 }
 
 func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {

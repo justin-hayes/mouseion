@@ -44,7 +44,10 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "Haus", "NOUN")
 	require.NoError(t, err)
 
-	moveApplicationMigrations(t, databaseURL, 3)
+	moveApplicationMigrations(t, databaseURL, 2)
+	forceApplicationMigration(t, databaseURL, 4)
+	moveApplicationMigrations(t, databaseURL, 1)
+	moveApplicationMigrations(t, databaseURL, 1)
 	var historyCount int
 	var migratedAt time.Time
 	err = pool.QueryRow(ctx, `SELECT count(*), max(completed_at) FROM reading_history WHERE owner_id=$1`, owner.ID).Scan(&historyCount, &migratedAt)
@@ -75,6 +78,19 @@ func moveApplicationMigrations(t *testing.T, databaseURL string, steps int) {
 	migrator, err := migrate.NewWithSourceInstance("iofs", source, databaseURL)
 	require.NoError(t, err)
 	err = migrator.Steps(steps)
+	sourceErr, databaseErr := migrator.Close()
+	require.NoError(t, err)
+	require.NoError(t, sourceErr)
+	require.NoError(t, databaseErr)
+}
+
+func forceApplicationMigration(t *testing.T, databaseURL string, version int) {
+	t.Helper()
+	source, err := iofs.New(migrations.FS, ".")
+	require.NoError(t, err)
+	migrator, err := migrate.NewWithSourceInstance("iofs", source, databaseURL)
+	require.NoError(t, err)
+	err = migrator.Force(version)
 	sourceErr, databaseErr := migrator.Close()
 	require.NoError(t, err)
 	require.NoError(t, sourceErr)

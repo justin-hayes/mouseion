@@ -468,6 +468,45 @@ func (q *Queries) InsertReadingJourneyIfAbsent(ctx context.Context, arg InsertRe
 	return err
 }
 
+const listAllReadingJourneyMembersForUpdate = `-- name: ListAllReadingJourneyMembersForUpdate :many
+SELECT book_id::text AS book_id, position, created_at
+FROM reading_journey_membership
+WHERE owner_id = $1 AND language = $2
+ORDER BY position, created_at, book_id
+FOR UPDATE
+`
+
+type ListAllReadingJourneyMembersForUpdateParams struct {
+	Owner    string
+	Language string
+}
+
+type ListAllReadingJourneyMembersForUpdateRow struct {
+	BookID    string
+	Position  int
+	CreatedAt time.Time
+}
+
+func (q *Queries) ListAllReadingJourneyMembersForUpdate(ctx context.Context, arg ListAllReadingJourneyMembersForUpdateParams) ([]ListAllReadingJourneyMembersForUpdateRow, error) {
+	rows, err := q.db.Query(ctx, listAllReadingJourneyMembersForUpdate, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllReadingJourneyMembersForUpdateRow{}
+	for rows.Next() {
+		var i ListAllReadingJourneyMembersForUpdateRow
+		if err := rows.Scan(&i.BookID, &i.Position, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReadingJourneyMembers = `-- name: ListReadingJourneyMembers :many
 SELECT m.book_id::text AS book_id, m.position, m.created_at
 FROM reading_journey_membership m

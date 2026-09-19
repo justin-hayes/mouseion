@@ -7,7 +7,9 @@
 -- one transaction, so row locks and all three state changes roll back
 -- together on failure. Do not run it as an ad-hoc partial script; recovery is
 -- to retry the migration, and rollback is to restore the database backup
--- because the copied history is intentionally retained.
+-- because the copied history is intentionally retained. Ownership is with the
+-- release operator; expected impact is one history row and one membership
+-- removal per legacy finished Goal, with no vocabulary writes.
 INSERT INTO public.reading_history(owner_id, language, book_id, completed_at)
 SELECT owner_id, language, book_id, reading_finished_at
 FROM public.primary_goals
