@@ -64,7 +64,7 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	unassessed.Book.Source.ContentRevisionID = "revision"
 	unassessed.Book.Source.ContentSnapshotID = "snapshot"
 	action = journeyAnalysisAction(unassessed)
-	assert.Equal(t, "Analysis not started", action.Status)
+	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
 	assert.Equal(t, "/journey/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
@@ -160,6 +160,23 @@ func TestJourneyExceptionalEvidenceNamesStateAndRecovery(t *testing.T) {
 			assert.Contains(t, html, tt.wantAction)
 		})
 	}
+}
+
+func TestJourneyIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
+	item := testJourneyBook("incomplete", "Incomplete analyzed book", "analyzed")
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	item.Book.Source.ContentSnapshotID = "snapshot"
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run"
+	item.Book.CorpusID = "corpus"
+	item.StatisticsUnavailable = true
+
+	action := journeyAnalysisAction(item)
+	assert.Equal(t, "Analysis incomplete", action.Status)
+	assert.Equal(t, "Retry analysis", action.Label)
+	assert.Equal(t, "/journey/books/incomplete/reanalyze", action.URL)
+	assert.True(t, action.Submit)
 }
 
 func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {

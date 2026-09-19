@@ -181,13 +181,17 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		}
 	}
 	action := bookLifecycleActionFor(item.Book)
-	if journeyEvidenceState(item) == "failed" {
-		action.Status = "Analysis failed"
-		action.Description = "The last analysis failed. Retry analysis to produce current evidence."
+	if journeyEvidenceState(item) == "failed" || journeyEvidenceState(item) == "incomplete" {
+		action.Status = "Analysis incomplete"
+		action.Description = journeyEvidenceDescription(item)
 		action.Label = "Retry analysis"
 		action.URL = journeyReanalyzeURL(bookID)
 		action.Submit = true
-		action.Tone = StatusDanger
+		action.Tone = StatusWarning
+		if journeyEvidenceState(item) == "failed" {
+			action.Status = "Analysis failed"
+			action.Tone = StatusDanger
+		}
 	} else if action.Status == "Analysis not started" {
 		action.Label = "Retry analysis"
 		action.URL = journeyReanalyzeURL(bookID)
@@ -529,7 +533,20 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember || (detail.Acquired != nil && detail.Acquired.EvidenceState() != domain.BookStale && detail.Acquired.EvidenceState() != domain.BookUnavailable && detail.Acquired.EvidenceState() != domain.BookAcquiredUnassessed) {
+	if !detail.JourneyMember || detail.Acquired == nil {
+		http.NotFound(w, r)
+		return
+	}
+	recoverable := detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
+	if detail.Acquired.EvidenceState() == domain.BookAnalyzed {
+		item := journeyBookView{Book: *detail.Acquired, BookID: detail.Book.ID}
+		if evidenceErr := h.addJourneyEvidence(r.Context(), u.ID, &item); evidenceErr != nil {
+			fail(w, evidenceErr)
+			return
+		}
+		recoverable = journeyEvidenceState(item) == "incomplete"
+	}
+	if !recoverable {
 		http.NotFound(w, r)
 		return
 	}
