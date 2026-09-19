@@ -63,7 +63,7 @@ labels use **Language** and the language's own name, never **Mode** or
 ### Reading Journey (`/journey`)
 
 - Shows only the active language's Journey: its order, its Primary Goal, its
-  route comparison. A heading names the language.
+  current, after-Goal, and on-arrival forecast. A heading names the language.
 - One Goal per language; completing or clearing a Goal does not affect other
   languages' Goals.
 - An empty Journey in the active language offers a path to browse that

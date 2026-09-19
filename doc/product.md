@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes declared main text when EPUB structure identifies it and otherwise analyzes the complete snapshot as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, vocabulary study (per Book), and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes declared main text when EPUB structure identifies it and otherwise analyzes the complete snapshot as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, Goal snapshots, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 

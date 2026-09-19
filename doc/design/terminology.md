@@ -103,12 +103,12 @@ warning.
 | **Reading in progress** | The learner has recorded that they are reading the book. | Learning in progress when only reading is meant |
 | **Reading finished** | The learner has recorded finishing the book. This does not imply vocabulary knowledge. | Completed when the completed fact is unclear |
 | **Vocabulary work in progress** | Preparation or review activity remains incomplete. | Nearly mastered |
-| **Vocabulary work complete** | The product's accepted review condition has been recorded; any resulting knowledge transition must still be stated explicitly. | Mastered |
+| **Vocabulary work complete** | The learner has accepted Primary Goal completion and its frozen snapshot has entered modeled Known vocabulary. This does not claim verified mastery. | Mastered, deck reviewed |
 | **Known vocabulary** | Modeled learner knowledge: lemmas explicitly imported or accepted when a Primary Goal is completed. It does not claim verified mastery. | Generated vocabulary, mastered vocabulary |
 | **Reserved vocabulary** | Lemmas in the immutable snapshot owned by the active Primary Goal, excluded from selection in that study language but not counted as Known. | Known, learned, studied vocabulary |
 | **Goal vocabulary snapshot** | The exact recurring-vocabulary identity set frozen from the Goal's current analysis, with analysis, source, and selection provenance. | Deck contents, generated vocabulary |
 | **Generated vocabulary** | Immutable provenance that an identity was assigned to a prepared deck; it is neither Known nor Reserved and is not a later selection exclusion. | Known vocabulary, reserved vocabulary |
-| **Graduated vocabulary** | Vocabulary promoted to known through the accepted consequential transition. | Automatically mastered |
+| **Graduated vocabulary** | Historical name for vocabulary accepted into modeled Known vocabulary through Primary Goal completion. | Automatically mastered |
 | **Unknown vocabulary** | Eligible analyzed lemmas not currently Known or Reserved by an active Primary Goal in that study language. | Difficult words |
 | **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed book; the pool a prepared deck selects, labeled **Deck vocabulary** in preparation. | Rare words, difficult words |
 

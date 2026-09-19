@@ -275,9 +275,10 @@ group summarizes data; explanatory methodology and provenance remain prose or
 details immediately after it.
 
 Do not use `StatGroup` as the hero of My Books, Reading Journey, Primary Goal, or
-Where next? Route totals are supporting evidence after the books and the
-plain-language consequence. Current, prior, projected, and remaining values use
-full labels and units rather than color or a bare signed number.
+Where next? Forecast values are supporting evidence after the books and the
+plain-language consequence. Current, after-Goal, on-arrival, lower-bound, and
+remaining values use full labels and units rather than color or a bare signed
+number.
 
 ### `MetadataList`
 
