@@ -587,8 +587,21 @@ templ JourneyEvidence(item journeyBookView, csrf string) {
 		</div>
 		<p>{ action.Description }</p>
 	}
-	<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
-	<p><strong>Projected coverage:</strong> { journeyProjectedCoverage(item) }</p>
+	if item.Forecast != nil {
+		<section aria-label="Journey coverage forecast">
+			<p><strong>Current coverage:</strong> { journeyForecastCoverageLabel(item.Forecast.Current) }</p>
+			<p><strong>After accepting this Goal:</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
+			<p><strong>On arrival in this order:</strong> { journeyForecastOnArrivalLabel(*item.Forecast) }</p>
+			if item.Forecast.UnavailableReason != "" {
+				<p><strong>Forecast unavailable:</strong> { item.Forecast.UnavailableReason }</p>
+			} else if item.Forecast.LowerBound {
+				<p role="note"><strong>Lower bound:</strong> an earlier Journey book has unavailable evidence, so this on-arrival value excludes any vocabulary it might contribute.</p>
+			}
+		</section>
+	} else {
+		<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
+		<p><strong>Projected coverage:</strong> { journeyProjectedCoverage(item) }</p>
+	}
 }
 
 func journeyEntryAvailable(item journeyBookView) bool {

@@ -1133,6 +1133,20 @@ func (s *Store) GetPrimaryGoal(_ context.Context, owner, language string) (domai
 	}
 	return goal, nil
 }
+
+func (s *Store) ListPrimaryGoalSnapshotVocabulary(_ context.Context, owner, snapshotID string) ([]domain.SelectionCandidate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	goal, found := s.goalSnapshotVocabulary[snapshotID]
+	if !found {
+		return nil, nil
+	}
+	result := make([]domain.SelectionCandidate, 0, len(goal))
+	for _, item := range goal {
+		result = append(result, domain.SelectionCandidate{OwnerID: owner, Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS})
+	}
+	return result, nil
+}
 func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1498,6 +1512,45 @@ func (Analysis) GetCompletedAnalysis(_ context.Context, _ string, sourceMaterial
 
 type Insights struct {
 	JourneyStore *Store
+}
+
+func (insights Insights) JourneyForecast(ctx context.Context, owner, language string) (domain.JourneyForecast, error) {
+	projection, err := insights.JourneyProjection(ctx, owner, language)
+	if err != nil {
+		return domain.JourneyForecast{}, err
+	}
+	result := domain.JourneyForecast{OwnerID: owner, Language: language}
+	if insights.JourneyStore != nil {
+		goal, goalErr := insights.JourneyStore.GetPrimaryGoal(ctx, owner, language)
+		if goalErr != nil {
+			return domain.JourneyForecast{}, goalErr
+		}
+		if goal.IsActive() {
+			result.Goal = &goal
+		}
+	}
+	lowerBound := false
+	for _, book := range projection.LearnerOrder {
+		entry := domain.JourneyForecastEntry{BookID: book.BookID, SourceMaterialID: book.SourceMaterialID, Language: book.Language, CorpusID: book.CorpusID, Position: book.Position}
+		if !book.Comparable || book.Coverage == nil {
+			entry.UnavailableReason = book.IncomparableReason
+			if entry.UnavailableReason == "" {
+				entry.UnavailableReason = "unavailable: fixture evidence is not comparable"
+			}
+			lowerBound = true
+		} else {
+			entry.Current = &domain.JourneyForecastCoverage{KnownTokenCount: book.Coverage.KnownTokenCount, AnalyzableTokenCount: book.Coverage.AnalyzableTokenCount}
+			entry.OnArrival = entry.Current
+			if book.ConditionalCoverage != nil {
+				entry.AfterGoal = &domain.JourneyForecastCoverage{KnownTokenCount: book.ConditionalCoverage.KnownTokenCount + book.ConditionalCoverage.ReservedTokenCount, AnalyzableTokenCount: book.ConditionalCoverage.AnalyzableTokenCount}
+			} else {
+				entry.AfterGoal = entry.Current
+			}
+		}
+		entry.LowerBound = lowerBound
+		result.Entries = append(result.Entries, entry)
+	}
+	return result, nil
 }
 
 // JourneyProjection returns a stable fixture projection with enough variation

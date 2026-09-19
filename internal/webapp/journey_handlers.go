@@ -33,6 +33,7 @@ type journeyBookView struct {
 	GoalEligibilityReason  string
 	Coverage               *domain.AnalysisCoverage
 	StatisticsUnavailable  bool
+	Forecast               *domain.JourneyForecastEntry
 }
 
 func journeyBookClass(primary bool) string {
@@ -651,6 +652,23 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	for i := range view.Provisional {
 		view.Provisional[i].CanMoveEarlier = i > 0
 		view.Provisional[i].CanMoveLater = i < len(view.Provisional)-1
+	}
+	if provider, ok := h.services.AnalysisInsights.(journeyForecastProvider); ok {
+		forecast, forecastErr := provider.JourneyForecast(ctx, owner, language)
+		if forecastErr != nil {
+			log.Printf("mouseion: Journey forecast unavailable for owner %s: %v", owner, forecastErr)
+		} else {
+			forecastByBook := make(map[string]*domain.JourneyForecastEntry, len(forecast.Entries))
+			for i := range forecast.Entries {
+				forecastByBook[forecast.Entries[i].BookID] = &forecast.Entries[i]
+			}
+			if view.Goal != nil {
+				view.Goal.Forecast = forecastByBook[view.Goal.BookID]
+			}
+			for i := range view.Provisional {
+				view.Provisional[i].Forecast = forecastByBook[view.Provisional[i].BookID]
+			}
+		}
 	}
 
 	return view, nil
