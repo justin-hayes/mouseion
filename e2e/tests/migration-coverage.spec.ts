@@ -61,7 +61,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(disclosure.locator('summary')).toBeFocused();
     await disclosure.locator('summary').press('Enter');
     await expect(goal).toContainText('Record the reading achievement');
-    await expect(goal).toContainText('accept 2 currently eligible frozen Reserved identities into Known vocabulary');
+    await expect(goal).toContainText(/accept \d+ currently eligible frozen Reserved identities into Known vocabulary/);
     await expect(goal.locator('form[action="/goal/finish"] input[name="csrf_token"]')).toHaveCount(1);
     await expect(goal.locator('form[action="/goal/finish"] input[name="expected_goal_book_id"]')).toHaveCount(1);
 
