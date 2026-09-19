@@ -1,10 +1,9 @@
 # Reading Journey and Primary Goal workflow
 
-Status: **Canonical shipped learner-facing workflow.** Reading Journey and
-Primary Goal are shipped; vocabulary study is book-anchored and its reservation
-and graduation details are governed by [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md)
-(as re-expressed from ADRs 0027, 0034, and 0036, which the Book-anchored
-decision consolidates). Reading-intent acquisition and analysis are governed by [ADR
+Status: **Canonical learner-facing workflow contract.** Reading Journey and
+Primary Goal are shipped; Goal-owned vocabulary snapshots, per-language
+reservation, completion, and sequential forecast are governed by [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+Reading-intent acquisition and analysis are governed by [ADR
 0049](../../adr/0049-reading-intent-triggers-analysis.md), with the standalone
 action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 Reading Journey and
@@ -12,8 +11,8 @@ Primary Goal are one per study language ([ADR 0051](../../adr/0051-reading-journ
 this workflow describes the active study language's Journey and Goal.
 
 The filename is retained to preserve existing links. **Learning campaign** is
-retired as a learner-facing and internal plan object; a Book's vocabulary study
-and its deck carry the reservation/graduation facts (ADR 0053).
+retired as a learner-facing plan; legacy campaign and deck records remain
+supporting provenance and do not define active reservation or knowledge state.
 
 ## Goal
 
@@ -23,8 +22,9 @@ evidence without surrendering judgment, and return to a changed road ahead after
 finishing the book. How many Goals are active across languages is the learner's
 own discipline, not an enforced invariant.
 
-Only Primary Goal carries commitment. Reading Journey remains provisional even
-when Mouseion can compare a vocabulary-efficient alternative.
+Only Primary Goal carries commitment. Reading Journey remains provisional, and
+its one stored order is explained by current, after-Goal, and on-arrival
+coverage rather than a competing route.
 
 ## Starting state and desired outcome
 
@@ -49,18 +49,19 @@ Goal, or remain between Goals.
 My Books
     -> Add learner-selected books to Reading Journey
     -> Arrange Your order
-    -> Optionally compare a Vocabulary-efficient alternative
+    -> Review current, after-Goal, and on-arrival forecast
     -> Choose one book as Primary Goal
     -> Prepare and read, preserving independent facts
     -> Record Reading finished
-    -> Apply only justified vocabulary transitions
+    -> Accept the Goal snapshot into modeled Known vocabulary
     -> Recalculate remaining Journey from actual state
     -> Where next?
     -> Choose, reorder, add/remove, or remain between Goals
 ```
 
-Acquisition, analysis, deck preparation, Goal choice, reading completion, and
-vocabulary graduation remain distinct transitions. Adding a Book to Reading
+Acquisition, analysis, Goal choice, completion, and deck artifact preparation
+remain distinct transitions. Choosing a Goal freezes its recurring-vocabulary
+snapshot. Adding a Book to Reading
 Journey is the learner-initiated trigger that also acquires its current EPUB and
 ensures whole-book analysis; it does not silently trigger from catalog sync,
 reordering, or any other transition. Goal choice remains a separate explicit
@@ -88,40 +89,40 @@ Primary Goal is anchored before the provisional sequence. It is not draggable
 into an ordinary later position. Changing or clearing it is an explicit Goal
 decision, not an incidental reorder.
 
-Unassessed and incomparable books retain the learner's chosen position. Mouseion
-names the evidence gap and excludes those books from numerical comparison
-rather than moving them silently.
+Unassessed and otherwise untrustworthy books retain the learner's chosen
+position. Mouseion names the evidence gap, gives no fabricated coverage, and
+labels downstream values as lower bounds when an earlier contribution is
+unavailable.
 
-## 2. Compare route evidence
+## 2. Read the Journey forecast
 
-**Learner question:** Would another ordering of these same books change the
-modeled vocabulary preparation?
+**Learner question:** What coverage is true now, what follows from my Goal, and
+what should I expect when I arrive at each Book in my order?
 
-Mouseion may present a **Vocabulary-efficient alternative** beside or after
-**Your order**. The alternative:
+Mouseion presents one **Your order** with three distinct meanings:
 
-- contains only the learner-selected books;
-- optimizes one clearly stated lexical property;
-- names the selected threshold, evidence scope, and transition assumptions;
-- keeps incomparable books visible but outside unsupported totals;
-- never becomes active without explicit learner choice.
+- **Current coverage** uses current Known vocabulary;
+- **After-Goal coverage** adds the active Goal's Reserved snapshot;
+- **On-arrival coverage** adds trustworthy modeled recurring vocabulary from
+  earlier Books in this order.
 
-The hierarchy is:
+An unavailable or stale earlier Book contributes no invented identities. Later
+on-arrival values are labeled **lower bound** when such a predecessor could have
+contributed vocabulary. Reordering recalculates the forecast without changing
+Known vocabulary, Reserved vocabulary, or the active Goal. The hierarchy is:
 
-1. the two book orders, with titles and authors;
-2. the plain-language difference, such as **247 fewer modeled additional
-   vocabulary identities across these books**;
-3. per-book current and conditional effects where they explain the change;
-4. aggregate totals and method as supporting evidence;
-5. peer actions to keep Your order, adopt the alternative, or adjust manually.
+1. the one learner order, with titles and authors;
+2. the three labeled coverage meanings;
+3. lower-bound or unavailable evidence where it changes interpretation;
+4. method and threshold detail on the individual Journey entry.
 
-Do not lead with large totals or describe the alternative as best, optimal,
-recommended, or the correct reading order.
+Do not describe any Book as best, optimal, recommended, or the correct reading
+order.
 
-A manual move produces a neutral preview and recalculation. For example:
+A manual move produces a neutral forecast recalculation. For example:
 
-> Moving this book here adds approximately 63 modeled identities across the
-> remaining Journey under the selected assumptions.
+> Moving this book here changes its on-arrival coverage; later values are
+> recalculated from the new order.
 
 This is information, not a warning. The learner's literary preference remains
 canonical.
@@ -132,16 +133,18 @@ canonical.
 
 **Choose as Primary Goal** is an explicit action available only from the Reading
 Journey screen. It promotes a Journey member whose current analysis completed
-successfully. Selection does not start or re-run analysis, prepare a deck, claim
-reading has begun, or mark vocabulary known.
+successfully and freezes its exact recurring-vocabulary snapshot. Selection does
+not start or re-run analysis, claim reading has begun, or mark vocabulary Known.
+Local deck production starts from that same snapshot, but artifact readiness
+or failure does not change the Goal.
 
 The Primary Goal region leads with:
 
 1. title, author, and relevant edition identity;
 2. the fact that this is the learner's current Goal;
 3. reading state;
-4. preparation/vocabulary-work state;
-5. concise current evidence and clearly conditional projections;
+4. Reserved vocabulary and artifact state;
+5. current, after-Goal, and clearly labeled on-arrival evidence;
 6. one next useful decision, with supporting actions demoted.
 
 An unassessed or unavailable Journey member remains visible in its learner-chosen
@@ -160,13 +163,12 @@ serve the Goal but do not define it. The interface keeps these facts distinct:
 - reading not started, in progress, or finished;
 - analysis absent, queued, failed, stale, or complete;
 - deck absent, preparing, ready, or downloaded;
-- vocabulary work not started, in progress, or complete;
-- vocabulary currently known;
-- vocabulary that would become known only after a justified future transition.
+- Goal snapshot absent, empty, or populated;
+- modeled Known vocabulary and Reserved vocabulary;
+- vocabulary that would become Known only after accepted Goal completion.
 
-A current coverage value and an after-transition projection may appear together
-only when the condition is explicit. Reading progress is never a Journey
-progress percentage.
+Current, after-Goal, and on-arrival coverage may appear together only when each
+condition is explicit. Reading progress is never a Journey progress percentage.
 
 The learner may leave and return while analysis or preparation runs. Operational
 status remains secondary to book identity and current reading purpose.
@@ -176,49 +178,42 @@ status remains secondary to book identity and current reading purpose.
 **Learner question:** What did finishing this book change, and what remains
 unfinished?
 
-Finishing the book is a factual reading achievement, not completion of the
-Journey or proof of vocabulary knowledge. Once reading is finished, the book no
-longer occupies the current Primary Goal role; it remains in My Books and
-history, and any unfinished vocabulary work remains visible as a separate fact.
-No next Goal is created automatically. ADR 0036 defines this role transition and
-keeps any residual vocabulary work explicit.
+Completing the Goal is a factual reading achievement and an acceptance of its
+frozen snapshot into modeled Known vocabulary, not proof of per-card mastery.
+The book no longer occupies the current Primary Goal role; it is removed from
+the active Journey and remains in My Books, history, and provenance. No next Goal
+is created automatically. ADR 0072 defines this atomic transition.
 
 The outcome view uses a restrained, book-led receipt rather than celebration
 chrome.
 
-### Reading finished and vocabulary transition complete
+### Goal completed with a non-empty snapshot
 
-When the accepted conditions justify a vocabulary transition:
+When the Goal has a non-empty frozen snapshot:
 
 1. state **Reading finished**;
-2. name the vocabulary work that completed;
-3. state exactly how many eligible vocabulary identities were added to known;
-4. recalculate the remaining Journey from actual known vocabulary;
-5. show the books whose current preparation evidence changed, with precise old
-   and new labels;
-6. end with **Where next?**
+2. state exactly how many snapshot identities were added to modeled Known
+   vocabulary;
+3. recalculate the remaining Journey forecast from actual state;
+4. show changed or lower-bound forecasts with precise labels;
+5. end with **Where next?**
 
 Old projections are not presented as though they remain current. The new values
 come from actual state after the transition.
 
-### Reading finished while vocabulary work remains
+### Goal completed with an empty snapshot
 
-When the book is finished but the accepted vocabulary transition has not
-occurred:
+When the Goal's frozen snapshot is empty:
 
 1. acknowledge **Reading finished** without qualification;
-2. state **Vocabulary work remains** as a separate fact;
-3. state that no vocabulary from this work has yet been added to known;
-4. keep current values for later books unchanged;
-5. keep any possible future effects explicitly conditional;
-6. return to **Where next?** without claiming readiness gains.
+2. state that zero vocabulary identities were added to modeled Known vocabulary;
+3. state that no deck artifact was required for the empty snapshot;
+4. recalculate the remaining Journey forecast from actual state;
+5. return to **Where next?** without selecting a new Goal.
 
-The reading achievement must not be withheld because vocabulary work remains.
-Conversely, achievement copy must not imply the vocabulary transition happened.
-
-ADR 0036 permits this learner-facing rhythm: reading-finished is independent of
-deck-reviewed, and residual vocabulary work remains explicit until it is
-graduated or released. The UI states those facts separately.
+The reading achievement and modeled vocabulary transition are stated separately.
+Deck artifact readiness or review is not required, and the UI must not imply
+verified mastery.
 
 ## 6. Where next?
 
@@ -255,8 +250,8 @@ or a completed plan.
   state that updated evidence is unavailable, and provide a retry. Never roll
   back the preference silently.
 - **Changing or clearing a Goal:** state what happens to reading history,
-  prepared artifacts, vocabulary reservation, and unfinished work according to
-  ADR 0036; do not invent different consequences in a generic confirmation.
+  snapshot, prepared artifacts, and language-scoped reservation according to
+  ADR 0072; do not invent different consequences in a generic confirmation.
 - **Historical graduated or released vocabulary study:** keep a Book's past
   decks understandable as reading/preparation/vocabulary-transition history
   without restoring a separate plan as principal navigation.
@@ -268,13 +263,13 @@ or a completed plan.
 | No Journey books | Calm explanation; My Books remains the source collection. | Add from My Books |
 | Journey, no Primary Goal | Provisional order and evidence; no failure or idle warning. | Choose a Goal or reorder |
 | Journey member, no current assessment | Keep the Book in place; name missing/unavailable evidence. | Re-analyze or recover acquisition |
-| Primary Goal, current analysis complete | Book and commitment first; show current evidence and independent reading state. | Continue the learner-chosen activity |
-| Primary Goal, reading/preparation active | Independent reading and vocabulary facts; current versus conditional evidence. | Continue the learner-chosen activity |
-| Route comparison available | Your order first; alternative and method secondary. | Keep, adopt, or adjust |
+| Primary Goal, current analysis complete | Book, frozen snapshot, and current/after-Goal evidence first. | Continue the learner-chosen activity |
+| Primary Goal, reading/preparation active | Reading, Reserved vocabulary, artifact, and forecast facts remain distinct. | Continue the learner-chosen activity |
+| Journey forecast available | Your order first; current, after-Goal, and on-arrival meanings are labeled. | Reorder or choose a Goal |
 | Order recalculating | Preserve the accepted order; identify updating evidence. | None |
 | Order recalculation failed | Preserve order and prior trustworthy evidence; explain failure. | Retry |
-| Reading finished; transition complete | Factual outcome, exact justified vocabulary change, actual recalculation. | Where next? |
-| Reading finished; vocabulary remains | Reading achievement, no known-vocabulary change, unchanged current evidence, conditional future effect. | Where next? or continue vocabulary work |
+| Goal completed; non-empty snapshot | Factual outcome, exact modeled Known-vocabulary change, forecast recalculation. | Where next? |
+| Goal completed; empty snapshot | Reading achievement, zero identities added, no artifact required. | Where next? |
 | No remaining Journey book | No completion framing; offer My Books and no-action option. | Choose another book or remain between Goals |
 | Evidence stale/unavailable | Book remains in place; reason and excluded comparison are explicit. | Review or refresh evidence when supported |
 
@@ -286,13 +281,13 @@ or a completed plan.
   keyboard, switch input, and touch. Drag is optional enhancement.
 - After a move, retain focus on the moved book, announce its new position, and
   announce the recalculation result in a scoped polite live region.
-- Route comparison uses headings and ordered lists before any visual connectors.
-  It does not depend on color, relative position, or animation alone.
-- Current, prior, projected, and remaining values use full text labels; `+` and
-  `−` never carry meaning without units and direction.
-- On narrow screens, stack Your order and the alternative while preserving the
-  same comparison sequence. Keep per-book actions adjacent to their book and
-  avoid page-level horizontal scrolling.
+- Forecast uses one ordered list and full text labels before any visual
+  alignment. It does not depend on color, relative position, or animation alone.
+- Current, after-Goal, on-arrival, lower-bound, and remaining values use full
+  text labels; `+` and `−` never carry meaning without units and direction.
+- On narrow screens, stack the labeled forecast values while preserving the same
+  sequence. Keep per-book actions adjacent to their book and avoid page-level
+  horizontal scrolling.
 - Long titles, multiple authors, absent publication years, translated editions,
   and 200% text zoom must not hide order controls or status text.
 - Server-rendered forms provide coherent add, remove, choose, and reorder
@@ -303,36 +298,20 @@ or a completed plan.
 
 This workflow deliberately does not decide:
 
-- how My Books, Reading Journey order, or Primary Goal are persisted (Journey
-  membership and order persistence are decided in
-  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md) and
-  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md));
-- how vocabulary reservation and graduation work (decided in
-  [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md): a Book
-  carries the vocabulary-study facet; its one current deck reserves and, on
-  confirmed review, graduates the Book's snapshotted vocabulary. A Goal never
-  reserves vocabulary itself);
-- whether another Goal can begin while vocabulary work remains (decided in
-  [ADR 0036](../../adr/0036-primary-goal-justified-graduation.md) and re-expressed
-  in [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md): an
-  explicit graduate-or-release resolution, one-study exclusivity preserved,
-  deterministic overlap). One study is exclusive owner-wide, even though Goals
-  may be active in parallel languages under
-  [ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md); whether
-  a per-language vocabulary study is ever warranted remains an open question
-  recorded in ADR 0053;
+- how My Books and Reading Journey order are persisted (Journey membership and
+  order persistence are decided in
+  [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md));
+- how Goal choice, snapshot ownership, reservation, completion, migration, and
+  forecast work (decided in
+  [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md));
 - implementation details beyond the route, interaction, and state contracts
   recorded here and in ADRs.
 
 Journey identity, ownership, ordering, and stale-write behavior are resolved in
 [ADR 0034](../../adr/0034-reading-journey-identity-ordering.md), with per-study-
 language Journey and Goal identity resolved in
-[ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md). Primary Goal
-identity, the single justified graduation transition (reading-finished
-independent of deck-reviewed; snapshot + confirmed review), and new-Goal-with-
-residual-work semantics are resolved in
-[ADR 0036](../../adr/0036-primary-goal-justified-graduation.md) and made
-book-anchored in [ADR 0053](../../adr/0053-book-anchored-vocabulary-consolidation.md).
-Cross-book projection and route/terminology rollout are resolved by ADR 0037 and
-the shipped implementation respectively. The historical Campaign contract
-remains provenance where not superseded by ADR 0053.
+[ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md). Goal
+identity, snapshot ownership, completion acceptance, per-language reservation,
+and sequential forecast are resolved in
+[ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md). The
+historical Campaign contract remains provenance only.

@@ -2,9 +2,10 @@
 
 Status: **Canonical supporting workflow.** Study languages are derived from My
 Books and Vocabulary is the sole learner-facing home for known-vocabulary
-import. Book vocabulary study owns reservation and graduation provenance;
-learner-facing copy uses reading, preparation, and vocabulary-transition facts as
-defined in [`terminology.md`](../terminology.md).
+import. Primary Goals own active snapshots and per-language Reserved vocabulary;
+completion acceptance adds modeled Known vocabulary under [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+Learner-facing copy uses reading, preparation, and forecast facts as defined in
+[`terminology.md`](../terminology.md).
 
 ## Goal
 
@@ -20,7 +21,7 @@ The product behavior is defined primarily by:
 - [Language Support](../../features/language-support.md)
 - [ADR 0023: NLP capabilities](../../adr/0023-nlp-capabilities.md)
 - [ADR 0024: Learner-owned catalogs and no administrator role](../../adr/0024-learner-owned-catalogs-no-admin.md)
-- [ADR 0027: Learning campaigns and vocabulary graduation](../../adr/0027-learning-campaigns.md)
+- [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
 
 ## Canonical destination
 
@@ -45,8 +46,9 @@ Four concepts remain distinct:
 - **Active study language** — the one study language the learner is currently
   working in; a stored context pointing into the derived set that scopes the
   language-dependent surfaces ([ADR 0050](../../adr/0050-active-study-language.md));
-- **Known vocabulary** — owner-scoped lemmas explicitly imported or added
-  through a justified vocabulary transition.
+- **Known vocabulary** — owner-scoped lemmas explicitly imported or accepted
+  through completed-Goal snapshot transition; this is modeled knowledge, not
+  verified mastery.
 
 Derived study languages define which languages may be viewed or imported. The
 active study language selects which one Vocabulary shows, instead of a per-page
@@ -92,16 +94,16 @@ leave and return while durable processing continues.
 ## Vocabulary provenance and correction boundary
 
 The Vocabulary list may contain explicitly imported vocabulary and vocabulary
-added through a justified completed transition. It must not label generated,
-reserved, or unfinished-work vocabulary as known. Where provenance is
-available, the interface may distinguish imported entries from entries added
-through the accepted transition without implying different coverage weight.
+accepted through completed Goal snapshots. It must not label generated or
+Reserved vocabulary as Known. Where provenance is available, the interface may
+distinguish imported entries from completed-Goal entries without implying
+different coverage weight.
 
 The current product supports additive import but not learner-facing removal of
 individual known-vocabulary entries. Vocabulary must not imply that changing a
 Book's language deletes vocabulary or that a completed vocabulary transition
 can be undone. A future removal/correction workflow requires an explicit product
-contract for provenance, wildcard entries, Book vocabulary-study graduation, and
+contract for provenance, wildcard entries, Goal snapshot acceptance, and
 coverage recalculation.
 
 ## Screen hierarchy

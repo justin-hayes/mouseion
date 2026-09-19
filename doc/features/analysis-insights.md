@@ -36,15 +36,14 @@ known analyzable token occurrences / total analyzable token occurrences
 An analyzable token occurrence is an occurrence retained by the existing NLP and
 selection filters: punctuation, proper names, and stop words are outside the
 metric. The denominator is the sum of retained occurrence counts before learner
-vocabulary state is applied. Explicitly known occurrences and vocabulary
-graduated by confirmed deck review contribute to the numerator. Reserved
-vocabulary remains a separate projection and is not counted as known. Released
-study vocabulary is unknown and eligible again.
-Graduation follows the single justified transition in
-[ADR 0036](../adr/0036-primary-goal-justified-graduation.md): only
-`deck_preparation_vocabulary` identities atomically linked to generated
-provenance and confirmed by deck review graduate; reading-finished alone
-graduates nothing.
+vocabulary state is applied. Explicitly imported occurrences and vocabulary
+accepted by completed Primary Goals contribute to the numerator. Reserved
+vocabulary remains a separate projection and is not counted as Known. Generated
+vocabulary is provenance, not an exclusion or knowledge claim. The transition
+follows [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md):
+the active Goal's frozen snapshot is accepted atomically on completion, with set
+semantics and no claim of verified mastery. Deck readiness or review is not a
+precondition.
 
 The underlying calculation retains distinct lemma counts and occurrence counts
 because lemma coverage and token coverage answer different questions. The
@@ -77,10 +76,10 @@ An explicit known-vocabulary entry with no UPOS is a lemma wildcard and covers
 every UPOS for that language. An entry with a UPOS covers only the matching
 lemma+UPOS identity. Previously generated identities may be annotated as
 already assigned, but they remain part of the learner's unknown-to-learn pool.
-The separate deck-generation calculation continues to exclude reserved
-vocabulary according to the Book-anchored study lifecycle in
-[ADR 0053](../adr/0053-book-anchored-vocabulary-consolidation.md), as governed
-by [ADR 0036](../adr/0036-primary-goal-justified-graduation.md).
+The separate deck-generation and Goal-snapshot calculation excludes only
+current Known and active Goal-derived Reserved vocabulary in the relevant study
+language, as governed by ADR 0072. Historical generated rows do not exclude an
+identity from a later selection.
 
 Initial targets:
 
@@ -92,19 +91,18 @@ Initial targets:
 
 The calculation and operational evidence distinguish:
 
-- current known vocabulary, including confirmed deck-review graduates;
-- potential coverage after the reserved study graduates;
+- current Known vocabulary, including completed-Goal additions;
+- potential coverage after the active Goal snapshot is accepted;
 - unknown vocabulary;
-- unattached legacy generated vocabulary during the compatibility transition;
+- generated vocabulary as immutable historical provenance;
 - vocabulary eligible for a new deck.
 
-Generated or reserved vocabulary is not silently reported as known. The
-Journey entry leads only with current known coverage; vocabulary investment and top
-unknowns apply the distinct categories internally. Books later in Reading
-Journey may show current-known coverage and future-book coverage after the
-reserved study graduates. Both values are calculated on demand, so confirming
-or releasing the study changes Journey evidence without a persisted coverage or
-mastery snapshot.
+Generated or reserved vocabulary is not silently reported as Known. The Journey
+entry leads only with current coverage; vocabulary investment and top unknowns
+apply the distinct categories internally. The Journey overview additionally
+shows current, after-Goal, and on-arrival coverage from the learner's own order.
+All values are calculated on demand, so Goal changes, completion, reordering, or
+evidence changes do not leave a persisted coverage or mastery snapshot.
 
 ## Initial presentation
 
@@ -156,22 +154,17 @@ The repository feature document is the product source of truth. Stable metric de
 The lexical contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md),
 and the structural contract in [ADR 0026](../adr/0026-structural-text-profile.md).
 
-## Cross-book projections and advisory Journey ordering
+## Journey forecast
 
-Per-book analysis insights are the technical seed for the Reading Journey route
-comparison. The accepted cross-book contract is recorded in
-[ADR 0037](../adr/0037-cross-book-projection-advisory-ordering.md): the
-vocabulary-efficient alternative to the learner's canonical Journey order
-optimizes exactly one named lexical property — current known-token coverage — using
-a reproducible objective over the learner-selected comparable books and
-fixed-order constraints. It reuses ADR 0025's per-book coverage, denominator, and
-integer comparison without introducing a new aggregate or composite score. Current
-and conditional projected coverage states remain distinct, incomparable books stay
-at the learner's position without a fabricated rank, and the alternative is
-computed on demand and never persisted as stale truth. The learner's canonical
-order is always the active order; the alternative is advisory comparison evidence
-only and never auto-reorders, auto-selects a Primary Goal, or implies literary or
-difficulty judgment.
+The Journey forecast is defined by [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+It uses the learner's one stored order and exposes current, after-Goal, and
+on-arrival coverage. Each trustworthy earlier Book contributes a modeled
+recurring-vocabulary identity set to later Books; overlapping identities count
+once. A stale, unavailable, incomplete, or failed predecessor contributes no
+invented identities, and downstream values are labeled lower bounds. The
+forecast is computed on demand and never persisted as stale truth. Reordering
+never changes learner state beyond the requested order mutation and never
+creates a recommendation or alternative route.
 
 Thresholds, learner coverage, and projections are computed on demand from the
 persisted corpus statistics and current owner-scoped vocabulary state. This

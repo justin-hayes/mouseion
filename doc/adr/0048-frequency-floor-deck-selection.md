@@ -1,6 +1,6 @@
 # ADR 0048: Frequency-floor deck selection
 
-Status: **Accepted** · Date: 2026-09-07 · Author: Justin (via OpenChamber)
+Status: **Accepted; eligibility clause amended by ADR 0072** · Date: 2026-09-07 · Author: Justin (via OpenChamber)
 
 Amends **ADR 0017** (Replace frequency-based ranking with coverage-based
 selection) and the deck-generation clause of **ADR 0025** (Analysis coverage and

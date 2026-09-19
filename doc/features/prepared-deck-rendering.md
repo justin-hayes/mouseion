@@ -123,7 +123,7 @@ the deck-snapshot, not card bytes.
 - An input-stale specification with corpus coordinates recovers the missing
   input; one without them is reported as requiring re-preparation.
 - Re-importing a re-rendered package updates the same Anki notes and does not
-  change vocabulary-study state.
+  change Goal snapshot or Reserved-vocabulary state.
 
 ## References
 

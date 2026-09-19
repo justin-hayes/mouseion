@@ -1,6 +1,6 @@
 # ADR 0025: Analysis coverage and threshold metric contract
 
-Status: **Accepted; graduation-trigger semantics amended by ADR 0027 and ADR 0036; cross-book route comparison extended by ADR 0037; deck-selection clause amended by ADR 0048** · Date: 2026-08-24 · Author: Justin + Codex
+Status: **Accepted; generated-vocabulary eligibility and Journey forecast semantics amended by ADR 0072; deck-selection clause amended by ADR 0048** · Date: 2026-08-24 · Author: Justin + Codex
 
 Clarifies **ADR 0017** (Replace frequency-based ranking with coverage-based
 selection) and **ADR 0019** (Explicit generated-vocabulary exclusion policy).

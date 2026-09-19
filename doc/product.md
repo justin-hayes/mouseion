@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes declared main text when EPUB structure identifies it and otherwise analyzes the complete snapshot as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, generated cards, vocabulary study (per Book), and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes declared main text when EPUB structure identifies it and otherwise analyzes the complete snapshot as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, Goal snapshots, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
@@ -12,11 +12,12 @@ The authenticated shell has exactly four primary destinations: **My Books** at
 the legacy `GET /connections` route permanently redirects there while preserving
 `book_id`, `message`, and `error`. My Books is the sole browse surface for the synced collection,
 and EPUB content is acquired when a Book is added to Reading Journey. The upstream catalog
-browser is retired. `/` redirects to My Books. Vocabulary study is a
-book-anchored facet (see [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md)):
-a Book's prepared-deck actions, vocabulary-study state and history, and
-vocabulary provenance live on the Journey entry, not on a second learner-facing
-plan.
+browser is retired. `/` redirects to My Books. The active vocabulary consequence
+belongs to the Primary Goal (see [ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md)):
+choosing a Goal freezes its recurring-vocabulary snapshot and derives Reserved
+vocabulary from it; completion accepts that snapshot into modeled Known
+vocabulary. Prepared-deck work and historical provenance remain supporting
+artifacts on the Journey entry, not a second learner-facing plan.
 
 Catalogue synchronization status is part of the learner-owned Catalogs surface
 at `/catalogs`, with detailed work under `/jobs`.
@@ -65,13 +66,13 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
 2. **Reading intent** — add a Book to Reading Journey from a My Books row when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it retains Journey membership, acquires the current EPUB when needed, and ensures one analysis for the current content revision, selecting declared main text when safe and otherwise using the complete snapshot. Re-adding and reordering are idempotent and do not create redundant work.
 3. **Analysis and insights** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Journey entry's current analysis for known coverage, vocabulary investment, and deck preparation. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-5. **Deck selection** — classify explicitly known and graduated vocabulary as known, reserve the currently-studied Book's vocabulary without counting it as known, and leave released (abandoned) vocabulary eligible again. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
+5. **Vocabulary selection** — classify imported and completed-Goal vocabulary as modeled Known, exclude the active Goal's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
 6. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 7. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
    encounter in the book.
 
-Generated-deck history and known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its book/deck provenance, but never by itself adds it to `known_vocabulary`. A Book's reserved vocabulary is held aside for study but is not known. Vocabulary graduates to known only through the single justified transition of [ADR 0036](adr/0036-primary-goal-justified-graduation.md) as re-expressed by [ADR 0053](adr/0053-book-anchored-vocabulary-consolidation.md): a Book's deck-snapshotted, provenance-linked vocabulary identity graduates on confirmed deck review; reading-finished alone graduates nothing. Releasing a study makes its vocabulary eligible again unless it is independently known. Re-generating the same book remains safe and does not duplicate cards or provenance.
+Generated-deck history and modeled Known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its Book/deck provenance, but never by itself adds it to Known vocabulary or excludes it from a later Goal. A Goal's frozen snapshot is Reserved in its study language but is not Known. Accepting completion of the Primary Goal adds the snapshot identities to modeled Known vocabulary using set semantics, records reading completion, removes the Book from the active Journey, and clears the Goal. The transition is idempotent and does not claim verified mastery; deck readiness or review is not required. See [ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
 
 ## Current stack
 
@@ -93,7 +94,7 @@ amendments.
 2. [ADR 0002: Multi-user accounts with per-user learning state and admin-managed global resources](adr/0002-multi-user-accounts.md) — gives each learner an isolated account and learner-owned state; its admin/global-resource clauses are superseded by ADR 0024.
 3. [ADR 0003: PostgreSQL as the initial persistence backend](adr/0003-postgresql-persistence.md) — uses PostgreSQL for concurrent multi-user persistence and job infrastructure.
 4. [ADR 0004: Web application as the sole v1 client](adr/0004-web-only-v1-client.md) — makes the web app the v1 interface while preserving shared core boundaries.
-5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity and German normalization; current selection is defined by ADR 0048.
+5. [ADR 0005: Vocabulary identity, normalization, and initial ranking defaults](adr/0005-vocabulary-identity-normalization-ranking.md) — defines vocabulary identity and German normalization; current eligibility follows ADR 0072 and the frequency floor in ADR 0048.
 6. [ADR 0006: Anki export and known-vocabulary import contracts](adr/0006-anki-export-import-contracts.md) — specifies TSV export, note identity, and lemma-list import.
 7. [ADR 0007: Enrichment providers, caching, and privacy policy](adr/0007-enrichment-providers-caching-privacy.md) — keeps most enrichment local and bounds external translation data.
 9. [ADR 0009: Home-lab authentication and corpus-artifact isolation](adr/0009-home-lab-auth-corpus-isolation.md) — defines local accounts, private source artifacts, and Tailscale-only v1 access.
@@ -103,7 +104,6 @@ amendments.
 13. [ADR 0013: Size-based NLP analysis chunking](adr/0013-size-based-nlp-chunking.md) — bounds analysis requests and aggregates chunk results deterministically.
 17. [ADR 0017: Replace frequency-based ranking with coverage-based selection](adr/0017-coverage-based-selection.md) — defines the vocabulary selection basis, with the deck rule amended by ADR 0048.
 18. [ADR 0018: Remove global frequency dataset (DWDS) import](adr/0018-remove-dwds-frequency.md) — supersedes the DWDS import contract; coverage-based selection does not need corpus-frequency data.
-19. [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — distinguishes explicitly known words from generated-deck provenance.
 20. [ADR 0020: Anki package output and Mouseion deck hierarchy](adr/0020-anki-package-output.md) — makes `.apkg` the primary export and standardizes `Mouseion::<language>::<book title>` deck names.
 21. [ADR 0021: Contextual sentence translation cache and privacy](adr/0021-contextual-translation-cache.md) — separates sentence translation from lemma glosses, prevents context collisions, and preserves the external-provider privacy boundary.
 22. [ADR 0022: Asynchronous deck preparation and durable APKG artifacts](adr/0022-prepared-decks.md) — separates preparation from pure download and stores immutable prepared packages durably in PostgreSQL.
@@ -118,8 +118,6 @@ amendments.
 33. [ADR 0033: Deterministic in-memory fixture server driven by Playwright for browser acceptance](adr/0033-browser-acceptance-harness.md) — adds a fixture-driven browser acceptance harness (Go in-memory fixture server + Playwright) as the Phase 6 quality-gate substrate.
 34. [ADR 0034: One implicit Reading Journey with learner-canonical ordering and campaign-queue migration](adr/0034-reading-journey-identity-ordering.md) — makes Reading Journey the owner-scoped, freely reorderable candidate pool.
 35. [ADR 0035: Separate My Books membership from acquired source provenance](adr/0035-my-books-membership-and-source-provenance.md) — models owner-scoped bibliographic membership independently from immutable acquired EPUB evidence and its downstream history.
-36. [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](adr/0036-primary-goal-justified-graduation.md) — defines the single justified graduation path and Primary Goal behavior.
-37. [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — defines the reproducible route-comparison objective (current known-token coverage) for the vocabulary-efficient alternative to the learner's canonical Reading Journey order, with deterministic ordering, current-vs-conditional projection, incomparable-book handling, and on-demand recalculation.
 38. [ADR 0038: Schema-change governance and migration review policy](adr/0038-schema-change-governance.md) — requires accepted product/architecture shape before consequential SQL and defines proportionate additive-field, backfill, staged-rollout, reversion-risk, and destructive-change review gates; its shipped-migration immutability clause is superseded by ADR 0070.
 39. [ADR 0039: Drop retired EPUB classifier schema](adr/0039-drop-retired-epub-classifier-schema.md) — removes dormant classifier tables and scope metadata while preserving reviewed-scope structure and history.
 40. [ADR 0040: One current analysis per book](adr/0040-one-current-analysis-per-book.md) — defines one book-centered learner analysis surface while retaining prior immutable runs as operational audit history; its retired route wording is superseded by ADR 0055.
@@ -133,10 +131,9 @@ amendments.
 50. [ADR 0050: The app works in one active study language at a time](adr/0050-active-study-language.md) — makes the active study language a stored context pointing into the derived set, scopes every language-dependent surface through a shell-level switcher, and removes per-screen pickers and the "All languages" default.
 51. [ADR 0051: Reading journeys and primary goals are one per language](adr/0051-reading-journeys-and-goals-per-language.md) — partitions Reading Journey and Primary Goal identity by study language, with a per-language revision and a split backfill migration.
 52. [ADR 0052: The domain owns evidence classification](adr/0052-domain-owns-evidence-classification.md) — makes the evidence state a single derivation on the domain types read by My Books, the Reading Journey, and corpus/route insights, removes the SQL-assigned `EvidenceState` and its webapp fallback, and keeps goal-eligibility a read-only projection with enforcement at the persistence layer.
-53. [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — dissolves the learning campaign as a separate reservation/plan object and anchors vocabulary-study state onto the Book, making the Book the single unit of the learner loop with independent reading and vocabulary facts; the campaign's dead-end tail (deck study → graduation) becomes a reachable, book-scoped action.
 54. [ADR 0054: Retire the standalone analysis action](adr/0054-retire-standalone-analysis-action.md) — removes the learner-facing analysis trigger and metadata-only Book detail page, making Add to Reading Journey the sole initial acquisition-and-analysis intent; its completed-page route portions are superseded by ADR 0055.
 55. [ADR 0055: Retire the standalone Book detail route](adr/0055-retire-book-detail-route.md) — makes the Journey entry the sole analyzed-Book destination, retires `GET /books/{id}`, constrains exact-analysis compatibility redirects to reachable Journey members, and moves learner-facing refresh/deck mutations to their owning surfaces.
-56. [ADR 0056: Retire the Campaign learner surface](adr/0056-retire-campaign-learner-surface.md) — removes the Campaign queue, history, and operations from the learner-facing application and makes Book vocabulary-study state and history the canonical surface.
+56. [ADR 0056: Retire the Campaign learner surface](adr/0056-retire-campaign-learner-surface.md) — removes the Campaign queue, history, and operations from the learner-facing application; historical campaign records remain supporting provenance under ADR 0072.
 57. [ADR 0057: Retire the Language view panel](adr/0057-retire-language-view-panel.md) — retires the proposed My Books language panel and its read model; per-Book and Journey surfaces remain the evidence contracts.
 58. [ADR 0058: Catalog maintenance is a principal destination](adr/0058-catalog-maintenance-principal-destination.md) — promotes learner-owned catalog connection maintenance to a fourth shell destination at `/catalogs`, retires "Add books" as a term, and standardizes the learner-facing spelling on "catalog".
 59. [ADR 0059: Persisted normalized corpus for future concordance](adr/0059-persisted-normalized-corpus-for-concordance.md) — persists the normalized sentence/token stream at analysis time in owner-scoped tables so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
@@ -152,6 +149,7 @@ amendments.
 69. [ADR 0069: LLM sense selection and fallback gloss](adr/0069-llm-sense-selection-and-fallback-gloss.md) — gives the consented external LLM index-based selection over a frozen candidate sense set plus a fallback gloss when no dictionary sense fits, applied post-freeze as a render overlay and cached with dictionary identity; amends ADR 0007, ADR 0029, and ADR 0064.
 70. [ADR 0070: Reboot migration history and consolidate superseded documentation](adr/0070-migration-and-documentation-reboot.md) — consolidates the pre-baseline migration history into one current-state baseline migration, retires migration-transition tests, cuts over by recreating databases, and reconciles `product.md`, feature docs, and the ADR index to the present state; partially supersedes ADR 0038's immutability clause.
 71. [ADR 0071: Decouple prepared-deck data from presentation](adr/0071-decouple-deck-data-from-presentation.md) — makes the frozen manifest the presentation-independent deck specification, versions render inputs and card presentation separately, and regenerates a ready deck from existing data in place; amends ADR 0030's byte-immutable ready artifact and the roll-forward-only posture of ADR 0067 and ADR 0068.
+72. [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](adr/0072-goal-owned-vocabulary-and-journey-forecast.md) — makes Primary Goal the owner of the active frozen vocabulary snapshot, derives per-language Reserved vocabulary from it, accepts completion as modeled vocabulary knowledge, treats generated rows as provenance, and forecasts coverage in the learner's own order.
 
 ### Superseded or historical decisions
 
@@ -163,6 +161,10 @@ amendments.
 - [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — its default dispatch path is superseded by ADR 0032; Batch remains available for explicit offline work.
 - [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — superseded by ADR 0057.
 - [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — its learner-facing Book-detail route portions are superseded by ADR 0055; the Book identity remains in force.
+- [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](adr/0036-primary-goal-justified-graduation.md) — its conflicting vocabulary-transition and residual-work semantics are superseded by ADR 0072; retained historical provenance remains intact.
+- [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — superseded by ADR 0072's learner-order forecast.
+- [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — superseded by ADR 0072 for reservation, study, and graduation semantics; historical artifacts remain preserved.
+- [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — its generated-vocabulary exclusion semantics are superseded by ADR 0072; provenance distinction remains historical context.
 
 ## Deployment and operations
 

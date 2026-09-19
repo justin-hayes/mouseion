@@ -1,6 +1,6 @@
 # ADR 0022: Asynchronous deck preparation and durable APKG artifacts
 
-Status: **Accepted** · Date: 2026-08-24 · Author: Justin + Hermes
+Status: **Accepted; generated-vocabulary eligibility amended by ADR 0072** · Date: 2026-08-24 · Author: Justin + Hermes
 
 ## Context
 

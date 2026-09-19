@@ -40,7 +40,7 @@ markup.
 | `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Journey entry, Jobs, Vocabulary |
 | `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Journey entry, Reading Journey |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the Journey-entry/Job workflow | Journey entry and analysis status                         |
-| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, book, vocabulary-study surfaces            |
+| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, Goal and artifact surfaces            |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Jobs, Vocabulary                         |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
 | `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Vocabulary           |
@@ -67,10 +67,10 @@ one-pattern/one-Templ-component implementation.
 |---|---|---|---|
 | `BibliographicBookItem` | Keep title, author, and edition identity primary while pairing intent, evidence state, and one contextual action. | Primary Goal, in Journey, outside Journey, reading finished, unassessed, stale/questionable, cannot assess, long/missing metadata | My Books, Reading Journey, Where next? |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. | No evidence, analysis active/failed/complete, reading active/finished, vocabulary work active/complete | Reading Journey, Journey entry, outcome transition |
-| `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, incomparable book, compact viewport | Reading Journey, Where next? |
-| `RouteComparison` | Compare **Your order** with one optional vocabulary-efficient alternative while keeping learner order canonical. | No/partial comparable evidence, alternative available, manual preview, adopted or dismissed | Reading Journey |
-| `EvidenceDelta` | State a current, prior, or conditional value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, stale/unavailable evidence | Journey books, route comparison, Goal outcome |
-| `OutcomeSummary` | Acknowledge the factual reading outcome, justified vocabulary transition or absence, changed books, and the next choice. | Transition complete, vocabulary work remains, no remaining Journey book | Primary Goal outcome / Where next? |
+| `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, unavailable evidence, compact viewport | Reading Journey, Where next? |
+| `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey, Goal outcome |
+| `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books, Goal outcome |
+| `OutcomeSummary` | Acknowledge the factual reading outcome, exact modeled vocabulary change, changed forecasts, and the next choice. | Transition complete, no snapshot identities, no remaining Journey book | Primary Goal outcome / Where next? |
 
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
@@ -101,8 +101,8 @@ itself.
   resource actions belong beside the resource they affect.
 - On book-led surfaces, title, author, and relevant edition identity precede
   intent, evidence, status, and action. Metrics never become a surrogate title.
-- Reading Journey exposes one learner order. Any alternative is labeled and
-  visually secondary rather than blended into the current state.
+- Reading Journey exposes one learner order. Forecast stages explain that order
+  and never become a second route or recommendation.
 - A status badge never replaces a heading, explanatory sentence, progress
   summary, or error message.
 
@@ -153,8 +153,8 @@ At the compact breakpoint:
   order;
 - Journey order remains a semantic list and its per-book move controls stay
   adjacent to the affected book;
-- route alternatives stack as two labeled ordered lists rather than compressing
-  into unreadable columns;
+- labeled forecast values stack in document order rather than compressing into
+  unreadable columns;
 - metadata lists use a single column;
 - buttons remain native controls and may occupy the available width where the
   surrounding workflow requires it.
@@ -212,9 +212,9 @@ intent-triggered ensure-once analysis consequence and owns **Re-analyze** for
 stale members.
 
 On Journey surfaces, `NextAction` must not turn the first provisional book or a
-vocabulary-efficient alternative into a recommendation. Use plain relationship
-copy such as **First in your current order** and learner-controlled actions such
-as **Choose as Primary Goal**.
+forecast value into a recommendation. Use plain relationship copy such as
+**First in your current order** and learner-controlled actions such as **Choose
+as Primary Goal**.
 
 ### `Breadcrumb`
 
@@ -275,9 +275,10 @@ group summarizes data; explanatory methodology and provenance remain prose or
 details immediately after it.
 
 Do not use `StatGroup` as the hero of My Books, Reading Journey, Primary Goal, or
-Where next? Route totals are supporting evidence after the books and the
-plain-language consequence. Current, prior, projected, and remaining values use
-full labels and units rather than color or a bare signed number.
+Where next? Forecast values are supporting evidence after the books and the
+plain-language consequence. Current, after-Goal, on-arrival, lower-bound, and
+remaining values use full labels and units rather than color or a bare signed
+number.
 
 ### `MetadataList`
 
@@ -311,14 +312,15 @@ uses explicit outcome language; generic **Confirm** or **Mark complete** copy is
 insufficient.
 
 Use neutral confirmation for an irreversible positive transition and danger for
-deletion or material abandonment. Vocabulary-study review confirmation must
-state that eligible snapshotted vocabulary becomes known and that the transition
-cannot currently be undone. Study release must state that deck/history remain
-while reservations are released.
+deletion or material abandonment. Goal completion confirmation must state that
+the exact eligible identities in the frozen snapshot become modeled Known
+vocabulary and that the transition cannot currently be undone. Clearing or
+changing a Goal must state that its reservation is released while snapshot,
+deck, and provenance history remain.
 
-The shipped Primary Goal workflow names independent facts: finishing reading,
-completing the justified vocabulary transition, or ending/changing a Goal.
-Confirmations never imply that reading alone adds vocabulary to known.
+The shipped Primary Goal workflow names the accepted completion transition and
+the independent artifact facts. Confirmations must not imply verified mastery or
+that deck readiness is required.
 
 ## Shipped pattern contracts
 
@@ -338,10 +340,11 @@ provenance and secondary actions behind ordinary links or disclosure.
 **Answers:** What one book am I committed to finishing, what is actually true
 about reading and vocabulary work, and what decision is next?
 
-Lead with book identity and Goal role. Present reading, preparation, and
-vocabulary-transition facts independently. Pair current and projected evidence
-only when the condition is written in full. Do not use a destination flag,
-progress trophy, oversized metric, or generic success card.
+Lead with book identity and Goal role. Present reading, Reserved vocabulary,
+artifact, and modeled-vocabulary facts independently. Pair current,
+after-Goal, and on-arrival evidence only when each condition is written in full.
+Do not use a destination flag, progress trophy, oversized metric, or generic
+success card.
 
 ### `JourneyOrder`
 
@@ -354,34 +357,34 @@ Move later buttons with unavailable boundary actions disabled or omitted
 consistently. Removal does not delete the book from My Books. Recalculation must
 not block acknowledging the accepted learner order.
 
-### `RouteComparison`
+### `JourneyForecast`
 
-**Answers:** How does one stated lexical property differ between my order and an
-alternative for these same books?
+**Answers:** What coverage is true now, what follows from the active Goal, and
+what may be available when I arrive at each later Book in my order?
 
-Use two clearly headed ordered lists: **Your order** first and
-**Vocabulary-efficient alternative** second. Lead with order and the
-plain-language consequence. Keep totals and assumptions secondary. Provide
-separate actions to keep, adopt, or manually adjust. On compact screens, stack
-complete lists; do not interleave books or rely on connector lines.
+Use one semantic ordered list. Label **Current coverage**, **After-Goal
+coverage**, and **On-arrival coverage** in full, and keep the active Goal's
+frozen snapshot and any lower-bound condition explicit. An unavailable or stale
+predecessor contributes no invented identities; downstream values are labeled
+as lower bounds. Reordering recalculates forecasts without changing learner
+state or creating another order.
 
 ### `EvidenceDelta`
 
 **Answers:** What value is this, when is it true, and what changed?
 
 Every delta names its measure, unit, basis, and time/condition: for example,
-**164 additional lemma identities to 97% after the recorded vocabulary
-transition**. A signed value alone is invalid. Pair old/new values only when both
-are comparable. When vocabulary work remains, current values stay current and
-future effects remain explicitly conditional.
+**On-arrival coverage: 82% (lower bound; one earlier Book is unavailable)**. A
+signed value alone is invalid. Pair old/new values only when both are
+comparable. Missing evidence remains explicitly unavailable or lower-bound.
 
 ### `OutcomeSummary`
 
-**Answers:** What happened, what changed in known vocabulary and the books ahead,
-and what can I choose now?
+**Answers:** What happened, what changed in modeled Known vocabulary and the
+forecasts ahead, and what can I choose now?
 
-Use this order: factual reading outcome; justified vocabulary transition or its
-absence; changed/unchanged later books; **Where next?** Avoid celebration chrome,
+Use this order: factual reading outcome; exact modeled Known-vocabulary change;
+changed/unchanged later forecasts; **Where next?** Avoid celebration chrome,
 Journey completion language, or an automatically emphasized next book. If no
 book remains, provide My Books and a no-new-Goal path without framing the state
 as failure.

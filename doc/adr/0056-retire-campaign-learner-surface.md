@@ -1,6 +1,6 @@
 # ADR 0056: Retire the Campaign learner surface
 
-Status: **Accepted** · Date: 2026-09-10 · Author: Justin + Hermes
+Status: **Accepted; reservation, completion, and graduation semantics amended by ADR 0072** · Date: 2026-09-10 · Author: Justin + Hermes
 
 This decision supersedes the `/campaigns` compatibility and learner-facing
 history portions of [ADR 0034](0034-reading-journey-identity-ordering.md), while

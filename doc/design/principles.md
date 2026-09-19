@@ -26,14 +26,14 @@ application chrome and analysis metrics.
 ## Learner direction and preparation evidence
 
 Learner desire determines direction; analysis informs preparation. Mouseion may
-show what is currently supported by evidence, what is conditional, and how much
-vocabulary preparation a learner-selected book may require. It must not turn
-low preparation cost into a recommendation about what the learner ought to
-read.
+show what is currently supported by evidence, what is conditional, and how the
+learner's chosen order changes modeled coverage on arrival at later books. It
+must not turn low preparation cost into a recommendation about what the learner
+ought to read.
 
-When Mouseion compares orders within a learner-selected Reading Journey, the
-learner's order remains canonical. A vocabulary-efficient alternative is
-advisory evidence, not a correction, warning, or literary judgment.
+When Mouseion explains a learner-selected Reading Journey, the learner's order
+is the only order. Sequential on-arrival forecast is evidence about the
+consequences of that order, not a correction, warning, or literary judgment.
 
 > **Mouseion can optimize a lexical property of the route. It cannot optimize
 > the learner's reading life.**
@@ -59,10 +59,10 @@ or gamification.
 ## Epistemic honesty
 
 Keep reading history, preparation activity, vocabulary knowledge, and
-conditional projections distinct. Finishing a book does not by itself prove
-that vocabulary became known. After a Primary Goal is finished, show only
-justified vocabulary changes and keep any unfinished effect explicitly
-conditional.
+conditional projections distinct. Finishing a Primary Goal accepts its frozen
+vocabulary snapshot into the product's modeled Known vocabulary. This is a
+learner-state assertion, not proof of per-card mastery. Show the exact modeled
+change and keep any missing or lower-bound forecast explicitly labeled.
 
 Never collapse lexical coverage, structural signals, evidence quality, and
 learner desire into one score. Always identify whether evidence is current,

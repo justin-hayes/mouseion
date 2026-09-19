@@ -1,6 +1,6 @@
 # ADR 0019: Explicit generated-vocabulary exclusion policy
 
-Status: **Accepted** · Date: 2026-08-23 · Author: Justin + Hermes
+Status: **Superseded by ADR 0072** · Date: 2026-08-23 · Author: Justin + Hermes
 
 Amends **ADR 0017** (Replace frequency-based ranking with coverage-based selection).
 
