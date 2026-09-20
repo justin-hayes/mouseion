@@ -549,12 +549,14 @@ SELECT owner_id::text, language, book_id::text, completed_at,
 FROM reading_history
 WHERE owner_id = $1
   AND language = $2
-  AND goal_snapshot_id = NULLIF($3, '')::uuid
+  AND book_id = $3
+  AND goal_snapshot_id IS NOT DISTINCT FROM NULLIF($4, '')::uuid
 `
 
 type GetReadingCompletionParams struct {
 	Owner        string
 	Language     string
+	Book         string
 	GoalSnapshot interface{}
 }
 
@@ -571,7 +573,12 @@ type GetReadingCompletionRow struct {
 }
 
 func (q *Queries) GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error) {
-	row := q.db.QueryRow(ctx, getReadingCompletion, arg.Owner, arg.Language, arg.GoalSnapshot)
+	row := q.db.QueryRow(ctx, getReadingCompletion,
+		arg.Owner,
+		arg.Language,
+		arg.Book,
+		arg.GoalSnapshot,
+	)
 	var i GetReadingCompletionRow
 	err := row.Scan(
 		&i.OwnerID,
@@ -809,13 +816,20 @@ INSERT INTO reading_history(
     snapshot_vocabulary_count, eligible_vocabulary_count,
     graduated_vocabulary_count, already_known_vocabulary_count
 )
-VALUES (
-    $1, $2, $3, $4,
-    NULLIF($5, '')::uuid,
-    $6, $7,
-    $8, $9
-)
-ON CONFLICT (owner_id, language, goal_snapshot_id) DO NOTHING
+SELECT $1, $2, $3, $4,
+       NULLIF($5, '')::uuid,
+       $6, $7,
+       $8, $9
+WHERE NULLIF($5, '') IS NOT NULL
+   OR NOT EXISTS (
+       SELECT 1
+       FROM reading_history
+       WHERE owner_id = $1
+         AND language = $2
+         AND book_id = $3
+         AND goal_snapshot_id IS NULL
+   )
+ON CONFLICT DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
           snapshot_vocabulary_count, eligible_vocabulary_count,
