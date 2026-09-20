@@ -427,6 +427,8 @@ func journeyCardForecast(t *testing.T, html, bookID string) string {
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
 	goalBefore, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
@@ -440,11 +442,19 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 		"Reading Journey recalculated",
 		"Where next?",
 		"No new Primary Goal has been selected",
-		"projected coverage",
+		"After accepting the active Goal:",
+		"Current coverage:",
+		"After-Goal coverage (no active Goal):",
+		"On arrival in this order:",
+		"Forecast unavailable:",
+		"Lower bound:",
 		"Choose another book from Reading Journey",
 	} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
 	}
+	assert.NotContains(t, finished.Body.String(), "projected coverage")
+	assert.Contains(t, finished.Body.String(), "90.0% (90 of 100 analyzable tokens)")
+	assert.Contains(t, finished.Body.String(), "20.0% (20 of 100 analyzable tokens)")
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
@@ -468,6 +478,66 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	assert.Equal(t, http.StatusOK, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
 	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
+}
+
+func TestFinishEvidenceComparesStructuredForecastValues(t *testing.T) {
+	before := journeyPageView{Provisional: []journeyBookView{{
+		BookID: "book",
+		Forecast: &domain.JourneyForecastEntry{
+			Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 3},
+			AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 3},
+			OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 3},
+		},
+	}}}
+	after := journeyPageView{Provisional: []journeyBookView{{
+		BookID: "book",
+		Forecast: &domain.JourneyForecastEntry{
+			Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 6},
+			AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 4, AnalyzableTokenCount: 6},
+			OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 4, AnalyzableTokenCount: 6},
+		},
+	}}}
+
+	evidence := finishEvidence(before, after)
+	require.Len(t, evidence, 1)
+	assert.True(t, evidence[0].Changed, "structured forecast changes must not be hidden by formatted percentage equality")
+}
+
+func TestPrimaryGoalFinishRendersStructuredForecast(t *testing.T) {
+	before := testJourneyBook("book", "Book", "analyzed")
+	before.ForecastHasGoal = true
+	before.Forecast = &domain.JourneyForecastEntry{
+		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
+		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+	}
+	after := before
+	after.ForecastHasGoal = false
+	after.Forecast = &domain.JourneyForecastEntry{
+		Current:    &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		AfterGoal:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		OnArrival:  &domain.JourneyForecastCoverage{KnownTokenCount: 70, AnalyzableTokenCount: 100},
+		LowerBound: true,
+	}
+
+	outcome := primaryGoalFinishView{
+		BookTitle: "Finished book",
+		Evidence:  []finishEvidenceView{{Book: after, Before: before, HasBefore: true, Changed: true}},
+	}
+	var output bytes.Buffer
+	require.NoError(t, PrimaryGoalFinish(outcome, "csrf").Render(context.Background(), &output))
+	html := output.String()
+	for _, want := range []string{
+		"Before completion",
+		"After accepting the active Goal:",
+		"After-Goal coverage (no active Goal):",
+		"40.0% (40 of 100 analyzable tokens)",
+		"60.0% (60 of 100 analyzable tokens)",
+		"Lower bound:",
+	} {
+		assert.Contains(t, html, want)
+	}
+	assert.NotContains(t, html, "projected coverage")
 }
 
 func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {

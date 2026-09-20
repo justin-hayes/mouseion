@@ -235,20 +235,6 @@ func journeyCurrentCoverage(item journeyBookView) string {
 	return fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage))
 }
 
-func journeyProjectedCoverage(item journeyBookView) string {
-	if item.Coverage == nil {
-		return "unavailable"
-	}
-	return fmt.Sprintf("%.1f%% projected coverage; %s", reservedCoveragePercent(*item.Coverage), journeyProjectionText(*item.Coverage))
-}
-
-func journeyProjectionText(coverage domain.AnalysisCoverage) string {
-	if len(coverage.Projections) == 0 {
-		return "unavailable"
-	}
-	return fmt.Sprintf("%.1f%% after the top %d deck-eligible lemmas", projectedCoveragePercent(coverage.Projections[0], coverage.AnalyzableTokenCount), coverage.Projections[0].TopLemmaCount)
-}
-
 type journeyPageView struct {
 	Language            string
 	LanguageLabel       string
