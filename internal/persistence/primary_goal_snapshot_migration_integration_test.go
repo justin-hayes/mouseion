@@ -59,6 +59,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	insertLegacyGeneratedVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy", "NOUN")
 	insertLegacyPreparationVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy", "NOUN")
 	emptyPreparation := insertLegacyPreparation(t, ctx, pool, emptyOwner.ID, emptyBook, emptySource, emptyRun, "empty-artifact")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, emptyOwner.ID, emptyPreparation, "de", "historical-empty", "NOUN")
 
 	// This reservation has the right owner, Book, and current source but the
 	// wrong study language, so it must not be adopted by the German Goal.
@@ -123,47 +124,20 @@ GROUP BY p.id, gv.first_deck_id, gv.first_source_material_id`, matchingOwner.ID,
 	require.NoError(t, err)
 	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyPreparationSnapshot)
 	require.NoError(t, err)
-	assert.Empty(t, emptyPreparationSnapshot, "ambiguous empty preparation was adopted without durable activity evidence")
+	assert.Equal(t, emptySnapshot, emptyPreparationSnapshot, "active empty preparation was not adopted by its Goal")
+	var emptySnapshotSource, emptySnapshotAnalysis string
+	err = pool.QueryRow(ctx, `SELECT source_material_id::text, analysis_run_id::text FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptySnapshot).Scan(&emptySnapshotSource, &emptySnapshotAnalysis)
+	require.NoError(t, err)
+	assert.Equal(t, emptySource, emptySnapshotSource, "active empty Goal used the wrong source provenance")
+	assert.Equal(t, emptyRun, emptySnapshotAnalysis, "active empty Goal used the wrong analysis provenance")
 	var emptyOwnerSnapshotSize, emptyReleased, emptyArtifactCount int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, emptyOwner.ID, emptySnapshot).Scan(&emptyOwnerSnapshotSize)
 	require.NoError(t, err)
 	assert.Zero(t, emptyOwnerSnapshotSize, "empty matching preparation was widened from current candidates")
 	err = pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE released_at IS NOT NULL), count(*) FILTER (WHERE artifact IS NOT NULL) FROM deck_preparations WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyReleased, &emptyArtifactCount)
 	require.NoError(t, err)
-	assert.Equal(t, 1, emptyReleased, "ambiguous empty preparation was not released")
-	assert.Equal(t, 1, emptyArtifactCount, "ambiguous empty preparation artifact was deleted")
-
-	oldSnapshot := uuid.NewString()
-	_, err = pool.Exec(ctx, `
-INSERT INTO primary_goal_snapshots(id, owner_id, language, book_id, source_material_id, analysis_run_id, content_revision_id, content_snapshot_id, corpus_id, released_at)
-SELECT $1, owner_id, language, book_id, source_material_id, analysis_run_id, content_revision_id, content_snapshot_id, corpus_id, now()
-FROM primary_goal_snapshots WHERE owner_id=$2 AND id=$3`, oldSnapshot, emptyOwner.ID, emptySnapshot)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
-INSERT INTO primary_goal_snapshot_vocabulary(owner_id, snapshot_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance)
-VALUES ($1,$2,$3,'de','must-preserve-current-goal','NOUN',1,'{}','[]','{}')`, emptyOwner.ID, emptySnapshot, emptyCorpus)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET goal_snapshot_id=$1, studying_at=NULL, released_at=NULL WHERE owner_id=$2 AND id=$3`, oldSnapshot, emptyOwner.ID, emptyPreparation)
-	require.NoError(t, err)
-	moveApplicationMigrations(t, databaseURL, -1)
-	moveApplicationMigrations(t, databaseURL, 1)
-	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyPreparationSnapshot)
-	require.NoError(t, err)
-	assert.Equal(t, oldSnapshot, emptyPreparationSnapshot, "older preparation binding was rewritten against the current Goal")
-	err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, emptyOwner.ID, emptySnapshot).Scan(&emptyOwnerSnapshotSize)
-	require.NoError(t, err)
-	assert.Equal(t, 1, emptyOwnerSnapshotSize, "current Goal vocabulary was deleted for an older preparation")
-
-	// Simulate an installation that ran 000011 and then cleared the synthetic
-	// activity marker before receiving this forward correction.
-	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET goal_snapshot_id=$1, studying_at=NULL, released_at=NULL WHERE owner_id=$2 AND id=$3`, emptySnapshot, emptyOwner.ID, emptyPreparation)
-	require.NoError(t, err)
-	moveApplicationMigrations(t, databaseURL, -1)
-	moveApplicationMigrations(t, databaseURL, 1)
-	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, ''), count(*) FILTER (WHERE released_at IS NOT NULL) FROM deck_preparations WHERE owner_id=$1 AND id=$2 GROUP BY goal_snapshot_id`, emptyOwner.ID, emptyPreparation).Scan(&emptyPreparationSnapshot, &emptyReleased)
-	require.NoError(t, err)
-	assert.Empty(t, emptyPreparationSnapshot, "already-repaired empty preparation remained bound")
-	assert.Equal(t, 1, emptyReleased, "already-repaired empty preparation was not released")
+	assert.Zero(t, emptyReleased, "active empty preparation was released")
+	assert.Equal(t, 1, emptyArtifactCount, "active empty preparation artifact was deleted")
 
 	var emptySnapshotSize int
 	err = pool.QueryRow(ctx, `
@@ -226,10 +200,23 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	emptyCompletionRetry, err := store.RecordReadingFinishedPrimaryGoal(ctx, emptyOwner.ID, "de", emptyBook, emptySnapshot)
 	require.NoError(t, err)
 	assert.Equal(t, emptyCompletion.Completion, emptyCompletionRetry.Completion, "empty Goal completion retry changed the outcome")
+	assert.Zero(t, emptyCompletion.Completion.SnapshotVocabularyCount, "empty Goal completion invented vocabulary")
+	assert.Zero(t, emptyCompletion.Completion.GraduatedVocabularyCount, "empty Goal completion graduated vocabulary")
 	var emptyHistoryCount int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, emptyOwner.ID, emptyBook).Scan(&emptyHistoryCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, emptyHistoryCount, "empty Goal completion retry duplicated history")
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, emptyOwner.ID).Scan(&knownCount)
+	require.NoError(t, err)
+	assert.Zero(t, knownCount, "empty Goal completion added Known vocabulary")
+	var emptyArtifact []byte
+	var emptyGeneratedCount int
+	err = pool.QueryRow(ctx, `
+SELECT p.artifact, (SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='historical-empty')
+FROM deck_preparations p WHERE p.owner_id=$1 AND p.id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyArtifact, &emptyGeneratedCount)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("empty-artifact"), emptyArtifact, "empty Goal completion removed the deck artifact")
+	assert.Equal(t, 1, emptyGeneratedCount, "empty Goal completion removed generated-vocabulary provenance")
 
 	migratedCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
 	require.NoError(t, err)
@@ -242,7 +229,7 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	assert.Equal(t, 1, migratedHistoryCount, "migrated completion retry duplicated history")
 }
 
-func TestPrimaryGoalSnapshotEmptyPreparationCorrectionIsConservative(t *testing.T) {
+func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -288,6 +275,8 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET studying_at=NULL,released_at=now() WHERE owner_id=$1 AND id=$2`, releasedOwner.ID, releasedPreparation)
 	require.NoError(t, err)
 	foreignPreparation := insertLegacyPreparation(t, ctx, pool, foreignOwner.ID, foreignBook, foreignSource, foreignRun, "empty-foreign-artifact")
+	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET analysis_run_id=NULL WHERE owner_id=$1 AND id=$2`, foreignOwner.ID, foreignPreparation)
+	require.NoError(t, err)
 	languagePreparation := insertLegacyPreparation(t, ctx, pool, languageOwner.ID, languageBook, languageSource, languageRun, "empty-language-artifact")
 
 	for _, candidate := range []struct {
@@ -308,38 +297,71 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	moveApplicationMigrations(t, databaseURL, 7)
 
 	for _, preparation := range []struct {
-		owner string
-		id    string
+		name         string
+		owner        string
+		id           string
+		wantSnapshot string
+		wantStudying bool
+		wantReleased bool
 	}{
-		{activeOwner.ID, activePreparation},
-		{inactiveOwner.ID, inactivePreparation},
-		{releasedOwner.ID, releasedPreparation},
-		{foreignOwner.ID, foreignPreparation},
-		{languageOwner.ID, languagePreparation},
+		{name: "active", owner: activeOwner.ID, id: activePreparation, wantSnapshot: "active", wantStudying: true},
+		{name: "inactive", owner: inactiveOwner.ID, id: inactivePreparation},
+		{name: "released", owner: releasedOwner.ID, id: releasedPreparation, wantReleased: true},
+		{name: "unmatched", owner: foreignOwner.ID, id: foreignPreparation, wantReleased: true},
+		{name: "ambiguous", owner: languageOwner.ID, id: languagePreparation, wantReleased: true},
 	} {
 		var snapshotID string
 		var studyingAt, releasedAt *string
 		err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, ''), studying_at::text, released_at::text FROM deck_preparations WHERE owner_id=$1 AND id=$2`, preparation.owner, preparation.id).Scan(&snapshotID, &studyingAt, &releasedAt)
 		require.NoError(t, err)
-		assert.Empty(t, snapshotID, "empty preparation %s was adopted", preparation.id)
-		assert.Nil(t, studyingAt, "empty preparation %s remained active", preparation.id)
-		assert.NotNil(t, releasedAt, "empty preparation %s was not released", preparation.id)
+		if preparation.wantSnapshot != "" {
+			var goalSnapshot string
+			err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, preparation.owner).Scan(&goalSnapshot)
+			require.NoError(t, err)
+			assert.Equal(t, goalSnapshot, snapshotID, "%s preparation was not adopted", preparation.name)
+		} else {
+			assert.Empty(t, snapshotID, "%s preparation was adopted", preparation.name)
+		}
+		if preparation.wantStudying {
+			assert.NotNil(t, studyingAt, "%s preparation was not active", preparation.name)
+		} else {
+			assert.Nil(t, studyingAt, "%s preparation became active", preparation.name)
+		}
+		if preparation.wantReleased {
+			assert.NotNil(t, releasedAt, "%s preparation was not released", preparation.name)
+		} else {
+			assert.Nil(t, releasedAt, "%s preparation was released", preparation.name)
+		}
 	}
 
-	var activeSnapshotID string
-	err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, activeOwner.ID).Scan(&activeSnapshotID)
-	require.NoError(t, err)
-	var snapshotVocabularyCount int
-	err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, activeOwner.ID, activeSnapshotID).Scan(&snapshotVocabularyCount)
-	require.NoError(t, err)
-	assert.Zero(t, snapshotVocabularyCount, "ambiguous active empty preparation widened the Goal snapshot")
-	var languageSnapshotVocabularyCount int
-	err = pool.QueryRow(ctx, `
+	for _, owner := range []string{activeOwner.ID, inactiveOwner.ID, releasedOwner.ID, foreignOwner.ID, languageOwner.ID} {
+		var snapshotVocabularyCount int
+		err = pool.QueryRow(ctx, `
 SELECT count(*) FROM primary_goal_snapshot_vocabulary v
 JOIN primary_goals g ON g.owner_id=v.owner_id AND g.snapshot_id=v.snapshot_id
-WHERE g.owner_id=$1`, languageOwner.ID).Scan(&languageSnapshotVocabularyCount)
+WHERE g.owner_id=$1`, owner).Scan(&snapshotVocabularyCount)
+		require.NoError(t, err)
+		assert.Zero(t, snapshotVocabularyCount, "empty preparation widened a Goal snapshot for owner %s", owner)
+	}
+	moveApplicationMigrations(t, databaseURL, -3)
+	moveApplicationMigrations(t, databaseURL, 3)
+	var activeSnapshotAfterRetry string
+	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, activeOwner.ID, activePreparation).Scan(&activeSnapshotAfterRetry)
 	require.NoError(t, err)
-	assert.Equal(t, 1, languageSnapshotVocabularyCount, "language-isolated empty preparation changed independent Goal vocabulary")
+	assert.NotEmpty(t, activeSnapshotAfterRetry, "migration retry detached the active empty preparation")
+
+	activeGoal, err := store.GetPrimaryGoal(ctx, activeOwner.ID, "de")
+	require.NoError(t, err)
+	completion, err := store.RecordReadingFinishedPrimaryGoal(ctx, activeOwner.ID, "de", activeBook, activeGoal.SnapshotID)
+	require.NoError(t, err)
+	assert.Zero(t, completion.Completion.SnapshotVocabularyCount, "empty Goal completion invented vocabulary")
+	assert.Zero(t, completion.Completion.GraduatedVocabularyCount, "empty Goal completion graduated vocabulary")
+	known, err := store.ListKnownVocabulary(ctx, activeOwner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, known, "empty Goal completion added Known vocabulary")
+	clearedGoal, err := store.GetPrimaryGoal(ctx, activeOwner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, clearedGoal.BookID, "completed empty Goal remained active")
 }
 
 func insertMigrationAnalysisFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *PostgresStore, owner, language, suffix string) (bookID, sourceID, runID, corpusID string) {

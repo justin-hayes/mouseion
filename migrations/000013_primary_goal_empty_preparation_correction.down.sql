@@ -1,3 +1,1 @@
--- This correction is intentionally not reversed. It removes candidates that
--- an earlier migration fabricated from current analysis, and the original
--- active/inactive distinction cannot be recovered from the remaining rows.
+-- This migration is intentionally a no-op and has no inverse.

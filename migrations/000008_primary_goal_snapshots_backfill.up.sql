@@ -92,23 +92,33 @@ SET goal_snapshot_id = g.snapshot_id, updated_at = now()
 FROM public.primary_goals g
 JOIN public.current_analysis_identity ca
   ON ca.owner_id = g.owner_id AND ca.book_id = g.book_id
+JOIN public.source_materials sm
+  ON sm.owner_id = g.owner_id AND sm.id = ca.source_material_id
 WHERE p.goal_snapshot_id IS NULL
   AND p.owner_id = g.owner_id
   AND p.book_id = g.book_id
   AND p.source_material_id = ca.source_material_id
   AND p.analysis_run_id = ca.analysis_run_id
+  AND sm.language = g.language
   AND p.studying_at IS NOT NULL
   AND p.released_at IS NULL
   AND p.retired_at IS NULL
   AND p.graduated_at IS NULL
   AND g.snapshot_id IS NOT NULL
-  AND EXISTS (
+  AND (
+      SELECT count(*)
+      FROM public.primary_goals g2
+      WHERE g2.owner_id = g.owner_id
+        AND g2.book_id = g.book_id
+        AND g2.snapshot_id IS NOT NULL
+  ) = 1
+  AND NOT EXISTS (
       SELECT 1
       FROM public.deck_preparation_vocabulary dv
       WHERE dv.owner_id = p.owner_id
         AND dv.deck_preparation_id = p.id
-        AND dv.language = g.language
         AND dv.graduated_at IS NULL
+        AND dv.language <> g.language
   );
 
 -- Active Goals without a matching legacy study still receive the current
@@ -134,18 +144,13 @@ WHERE NOT EXISTS (
     SELECT 1 FROM public.primary_goal_snapshot_vocabulary existing
     WHERE existing.owner_id = g.owner_id AND existing.snapshot_id = g.snapshot_id
 )
-  AND NOT EXISTS (
-    SELECT 1
-    FROM public.deck_preparations p
-    JOIN public.deck_preparation_vocabulary dv
-      ON dv.owner_id = p.owner_id AND dv.deck_preparation_id = p.id
-     AND dv.language = g.language AND dv.graduated_at IS NULL
-    WHERE p.owner_id = g.owner_id AND p.book_id = g.book_id
-      AND p.source_material_id = ps.source_material_id
-       AND p.analysis_run_id = ps.analysis_run_id
-       AND p.studying_at IS NOT NULL AND p.released_at IS NULL
+   AND NOT EXISTS (
+     SELECT 1
+     FROM public.deck_preparations p
+     WHERE p.owner_id = g.owner_id AND p.book_id = g.book_id
+       AND p.source_material_id = ps.source_material_id
        AND p.retired_at IS NULL AND p.graduated_at IS NULL
-)
+ )
   AND sc.occurrence_count >= 3
   AND NOT EXISTS (
     SELECT 1 FROM public.known_vocabulary kv
@@ -163,6 +168,7 @@ WHERE NOT EXISTS (
 UPDATE public.deck_preparations p
 SET studying_at = NULL, released_at = COALESCE(released_at, now()), updated_at = now()
 WHERE p.studying_at IS NOT NULL
+  AND p.goal_snapshot_id IS NULL
   AND p.graduated_at IS NULL
   AND NOT EXISTS (
       SELECT 1
