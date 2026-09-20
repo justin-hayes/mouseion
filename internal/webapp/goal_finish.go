@@ -164,6 +164,9 @@ func sameJourneyCoverage(left, right *domain.AnalysisCoverage) bool {
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {
+	if outcome.SnapshotVocabularyCount == 0 {
+		return "0 vocabulary identities were added to modeled Known vocabulary. No deck artifact was required for this empty snapshot."
+	}
 	return fmt.Sprintf("%d frozen Reserved identities were currently eligible to become Known vocabulary; %d newly accepted identities were added. %d identities were already Known. This is a modeled vocabulary consequence, not verified per-card mastery.", outcome.EligibleVocabularyCount, outcome.GraduatedVocabularyCount, outcome.AlreadyKnownCount)
 }
 
