@@ -530,7 +530,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	} else {
 		<div class="goal-card__actions">
 				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
-				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit">Mark reading finished</button></form>
+				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
 			}
 		<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
 			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)

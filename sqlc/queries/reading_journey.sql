@@ -157,13 +157,7 @@ WHERE jm.owner_id = sqlc.arg('owner')
   AND jm.book_id = sqlc.arg('book')
   AND b.language_state = 'chosen'
   AND b.language_tag = sqlc.arg('language')
-  AND lower(s.media_type) = 'application/epub+zip'
-  AND NOT EXISTS (
-    SELECT 1 FROM reading_history h
-    WHERE h.owner_id = jm.owner_id
-      AND h.language = jm.language
-      AND h.book_id = jm.book_id
-  );
+  AND lower(s.media_type) = 'application/epub+zip';
 
 -- name: CreatePrimaryGoalSnapshot :one
 INSERT INTO primary_goal_snapshots(
@@ -298,7 +292,7 @@ SELECT owner_id::text, language, book_id::text, completed_at,
 FROM reading_history
 WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
-  AND book_id = sqlc.arg('book');
+  AND goal_snapshot_id = NULLIF(sqlc.arg('goal_snapshot'), '')::uuid;
 
 -- name: InsertReadingCompletion :one
 INSERT INTO reading_history(
@@ -312,7 +306,7 @@ VALUES (
     sqlc.arg('snapshot_vocabulary_count'), sqlc.arg('eligible_vocabulary_count'),
     sqlc.arg('graduated_vocabulary_count'), sqlc.arg('already_known_vocabulary_count')
 )
-ON CONFLICT (owner_id, language, book_id) DO NOTHING
+ON CONFLICT (owner_id, language, goal_snapshot_id) DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
           snapshot_vocabulary_count, eligible_vocabulary_count,
@@ -407,15 +401,7 @@ SET graduated_vocabulary_count = sqlc.arg('graduated_vocabulary_count'),
     already_known_vocabulary_count = sqlc.arg('already_known_vocabulary_count')
 WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
-  AND book_id = sqlc.arg('book');
-
--- name: ReadingCompletionExists :one
-SELECT EXISTS(
-  SELECT 1 FROM reading_history
-  WHERE owner_id = sqlc.arg('owner')
-    AND language = sqlc.arg('language')
-    AND book_id = sqlc.arg('book')
-);
+  AND goal_snapshot_id = NULLIF(sqlc.arg('goal_snapshot'), '')::uuid;
 
 -- name: PrimaryGoalCandidateEligible :one
 SELECT EXISTS(
@@ -435,10 +421,4 @@ SELECT EXISTS(
     AND b.language_state = 'chosen'
     AND b.language_tag = sqlc.arg('language')
     AND lower(s.media_type) = 'application/epub+zip'
-    AND NOT EXISTS (
-      SELECT 1 FROM reading_history h
-      WHERE h.owner_id = jm.owner_id
-        AND h.language = jm.language
-        AND h.book_id = jm.book_id
-    )
 );

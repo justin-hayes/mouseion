@@ -263,6 +263,30 @@ func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testi
 	assert.Equal(t, handle.Preparation.ID, preparation.ID)
 }
 
+func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	firstGoal, err := store.GetPrimaryGoal(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	first, err := store.RecordReadingFinishedPrimaryGoal(ctx, OwnerID, "de", BookID, firstGoal.SnapshotID)
+	require.NoError(t, err)
+
+	journey, err := store.GetReadingJourney(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, OwnerID, "de", BookID, journey.Revision)
+	require.NoError(t, err)
+	secondGoal, err := store.CreatePrimaryGoal(ctx, OwnerID, "de", BookID)
+	require.NoError(t, err)
+	assert.NotEqual(t, firstGoal.SnapshotID, secondGoal.SnapshotID)
+	second, err := store.RecordReadingFinishedPrimaryGoal(ctx, OwnerID, "de", BookID, secondGoal.SnapshotID)
+	require.NoError(t, err)
+	assert.NotEqual(t, first.Completion.CompletedAt, second.Completion.CompletedAt)
+
+	retry, err := store.RecordReadingFinishedPrimaryGoal(ctx, OwnerID, "de", BookID, firstGoal.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, first.Completion, retry.Completion)
+}
+
 func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()

@@ -12,7 +12,7 @@ import (
 )
 
 type primaryGoalFinisher interface {
-	RecordReadingFinishedPrimaryGoal(context.Context, string, string, string) (persistence.ReadingFinishResult, error)
+	RecordReadingFinishedPrimaryGoal(context.Context, string, string, string, string) (persistence.ReadingFinishResult, error)
 }
 
 type finishEvidenceView struct {
@@ -48,6 +48,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
 		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
@@ -63,7 +64,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID)
+	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return

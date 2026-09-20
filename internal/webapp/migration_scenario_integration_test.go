@@ -116,7 +116,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision)
 	require.NoError(t, err)
-	_, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID)
+	goal, err := store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID)
 	require.NoError(t, err)
 
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
@@ -147,7 +147,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, journeyErr)
 	assert.Empty(t, bobJourney.Entries)
 
-	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {book.ID}}, aliceCookies)
+	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {book.ID}, "expected_goal_snapshot_id": {goal.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{"Reading finished", "newly accepted identities were added", "Where next?", "No new Primary Goal has been selected"} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
@@ -180,7 +180,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(7), afterCoverage.KnownTokenCount)
 	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
-	completion, err := store.RecordReadingFinishedPrimaryGoal(ctx, alice.ID, "de", book.ID)
+	completion, err := store.RecordReadingFinishedPrimaryGoal(ctx, alice.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 2, completion.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
@@ -197,7 +197,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	for i, item := range forecastAfter.Entries {
 		assert.Equal(t, secondBook.ID, item.BookID, "index %d", i)
 	}
-	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
+	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
 

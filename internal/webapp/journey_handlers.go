@@ -27,6 +27,7 @@ type journeyBookView struct {
 	GoalReadingOnly        bool
 	GoalUnassessed         bool
 	GoalVocabularyEligible int
+	GoalSnapshotID         string
 	GoalSnapshotSize       int
 	GoalPreparation        *domain.DeckPreparation
 	GoalDeckUnavailable    bool
@@ -645,6 +646,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, err
 		}
 		book.GoalReadingOnly = book.GoalVocabularyEligible == 0
+		book.GoalSnapshotID = goal.SnapshotID
 		book.GoalSnapshotSize = goal.SnapshotSize
 		if goal.SnapshotSize > 0 {
 			book.GoalDeckUnavailable = true

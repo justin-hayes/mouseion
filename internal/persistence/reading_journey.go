@@ -232,13 +232,6 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return 0, err
 	}
-	completed, err := sqlcgen.New(tx).ReadingCompletionExists(ctx, sqlcgen.ReadingCompletionExistsParams{Owner: owner, Language: language, Book: bookID})
-	if err != nil {
-		return 0, err
-	}
-	if completed {
-		return 0, ErrReadingAlreadyCompleted
-	}
 	book, err := sqlcgen.New(tx).GetBookLanguageState(ctx, sqlcgen.GetBookLanguageStateParams{Owner: owner, Book: bookID})
 	if err != nil {
 		return 0, err

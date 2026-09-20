@@ -94,7 +94,7 @@ CREATE TRIGGER test_goal_graduation_failure
 BEFORE DELETE ON reading_journey_membership
 FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.Error(t, err)
 	var graduatedAfterRollback int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&graduatedAfterRollback)
@@ -106,7 +106,7 @@ FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_goal_graduation_failure ON reading_journey_membership; DROP FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
 
-	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, goal.SnapshotID, result.Completion.GoalSnapshotID)
 	assert.Equal(t, 2, result.Completion.SnapshotVocabularyCount)
@@ -137,7 +137,7 @@ WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&completionBook
 	assert.Equal(t, "Accepted on Primary Goal completion", knownByLemma["bleiben"].Provenance)
 
 	assert.NotEmpty(t, result.Completion.BookID)
-	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, result.Completion, repeated.Completion)
 	reserved, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
@@ -157,7 +157,7 @@ func TestPrimaryGoalCompletionAcceptsEmptySnapshot(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, goal.SnapshotSize)
 
-	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 0, result.Completion.EligibleVocabularyCount)
