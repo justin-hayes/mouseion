@@ -64,7 +64,6 @@ type Querier interface {
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
-	DeleteVocabularyState(ctx context.Context, arg DeleteVocabularyStateParams) (int64, error)
 	DerivedJourneyBooksExist(ctx context.Context, arg DerivedJourneyBooksExistParams) (bool, error)
 	DownloadDeckPreparation(ctx context.Context, arg DownloadDeckPreparationParams) (DeckPreparation, error)
 	EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error)
@@ -152,9 +151,6 @@ type Querier interface {
 	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
-	GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error)
-	GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error)
-	GetVocabularyStateForUpdate(ctx context.Context, arg GetVocabularyStateForUpdateParams) (string, error)
 	GraduatePrimaryGoalSnapshotVocabulary(ctx context.Context, arg GraduatePrimaryGoalSnapshotVocabularyParams) (int, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
@@ -185,7 +181,6 @@ type Querier interface {
 	InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error)
 	InsertSourceMaterialUnit(ctx context.Context, arg InsertSourceMaterialUnitParams) error
 	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
-	InsertVocabularyStateCandidate(ctx context.Context, arg InsertVocabularyStateCandidateParams) error
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
 	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
@@ -278,7 +273,6 @@ type Querier interface {
 	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
-	PutVocabularyState(ctx context.Context, arg PutVocabularyStateParams) (PutVocabularyStateRow, error)
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
@@ -308,7 +302,6 @@ type Querier interface {
 	SetPreparedDeckTranslationJob(ctx context.Context, arg SetPreparedDeckTranslationJobParams) (int64, error)
 	SetSourceMaterialBook(ctx context.Context, arg SetSourceMaterialBookParams) error
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
-	SetVocabularyStateGenerated(ctx context.Context, arg SetVocabularyStateGeneratedParams) error
 	// Fenced prepared-deck transitions. The domain rules (claim-token validation,
 	// expected-state WHERE guards, bounded-error validation, lost-claim rechecks)
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING

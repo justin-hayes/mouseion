@@ -1,3 +1,5 @@
+DROP INDEX public.reading_history_null_snapshot_identity_idx;
+
 ALTER TABLE public.reading_history
     DROP CONSTRAINT reading_history_completion_identity_key,
     DROP CONSTRAINT reading_history_pkey,

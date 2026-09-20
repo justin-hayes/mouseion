@@ -15,7 +15,7 @@ import (
 
 func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 	ctx := context.Background()
-	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "known vocabulary store", store.Close)
@@ -39,12 +39,8 @@ func TestImportPostgresIsolationLifecycleAndIdempotency(t *testing.T) {
 		require.NoError(t, checkErr)
 		assert.False(t, known, "unexpected known for owner=%s language=%s", check.owner, check.language)
 	}
-	state, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "dass", "")
+	var legacyStates int
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM vocabulary_states`).Scan(&legacyStates)
 	require.NoError(t, err)
-	assert.Equal(t, "known", state.State, "exact state")
-	wildcardState, err := store.GetVocabularyStateByIdentity(ctx, alice.ID, "de", "haus", "")
-	require.NoError(t, err)
-	assert.Equal(t, "known", wildcardState.State, "wildcard state")
-	_, err = store.GetVocabularyStateByIdentity(ctx, bob.ID, "de", "dass", "")
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "bob state")
+	assert.Zero(t, legacyStates, "imports must not create legacy lifecycle rows")
 }

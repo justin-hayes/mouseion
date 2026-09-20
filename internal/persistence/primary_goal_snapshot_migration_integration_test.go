@@ -19,7 +19,7 @@ func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -7)
+	moveApplicationMigrations(t, databaseURL, -4)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
@@ -50,6 +50,8 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance) VALUES ($1,$2,'de','must-not-widen','NOUN',5,'[]','[]','{}')`, emptyOwner.ID, emptyCorpus)
 	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','legacy-known-state','ADJ','known')`, matchingOwner.ID)
+	require.NoError(t, err)
 
 	otherPreparation := insertLegacyPreparation(t, ctx, pool, otherOwner.ID, otherBook, otherSource, otherRun, "other-artifact")
 	insertLegacyGeneratedVocabulary(t, ctx, pool, otherOwner.ID, otherPreparation, "de", "other", "NOUN")
@@ -69,7 +71,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	_, err = pool.Exec(ctx, `INSERT INTO processing_history(owner_id, corpus_id, operation, status, details) VALUES ($1,$2,'prepared-deck','completed','{}')`, languageOwner.ID, languageCorpus)
 	require.NoError(t, err)
 
-	moveApplicationMigrations(t, databaseURL, 7)
+	moveApplicationMigrations(t, databaseURL, 4)
 
 	var matchingSnapshot, matchingPreparationSnapshot string
 	err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, matchingOwner.ID).Scan(&matchingSnapshot)
@@ -117,7 +119,11 @@ GROUP BY p.id, gv.first_deck_id, gv.first_source_material_id`, matchingOwner.ID,
 	var knownCount int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, matchingOwner.ID).Scan(&knownCount)
 	require.NoError(t, err)
-	assert.Zero(t, knownCount, "migration graduated vocabulary")
+	assert.Equal(t, 1, knownCount, "legacy Known state was not canonicalized")
+	var canonicalKnownLemma string
+	err = pool.QueryRow(ctx, `SELECT canonical_lemma FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, matchingOwner.ID).Scan(&canonicalKnownLemma)
+	require.NoError(t, err)
+	assert.Equal(t, "legacy-known-state", canonicalKnownLemma)
 
 	var emptySnapshot, emptyPreparationSnapshot string
 	err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, emptyOwner.ID).Scan(&emptySnapshot)
@@ -234,7 +240,7 @@ func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testin
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -7)
+	moveApplicationMigrations(t, databaseURL, -4)
 	activeOwner, err := store.CreateUser(ctx, "snapshot-empty-active", false)
 	require.NoError(t, err)
 	inactiveOwner, err := store.CreateUser(ctx, "snapshot-empty-inactive", false)
@@ -269,15 +275,23 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 
 	activePreparation := insertLegacyPreparation(t, ctx, pool, activeOwner.ID, activeBook, activeSource, activeRun, "empty-active-artifact")
 	inactivePreparation := insertLegacyPreparation(t, ctx, pool, inactiveOwner.ID, inactiveBook, inactiveSource, inactiveRun, "empty-inactive-artifact")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, inactiveOwner.ID, inactivePreparation, "de", "historical-inactive", "NOUN")
+	insertLegacyPreparationVocabulary(t, ctx, pool, inactiveOwner.ID, inactivePreparation, "de", "historical-inactive", "NOUN")
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET studying_at=NULL WHERE owner_id=$1 AND id=$2`, inactiveOwner.ID, inactivePreparation)
 	require.NoError(t, err)
 	releasedPreparation := insertLegacyPreparation(t, ctx, pool, releasedOwner.ID, releasedBook, releasedSource, releasedRun, "empty-released-artifact")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, releasedOwner.ID, releasedPreparation, "de", "historical-released", "NOUN")
+	insertLegacyPreparationVocabulary(t, ctx, pool, releasedOwner.ID, releasedPreparation, "de", "historical-released", "NOUN")
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET studying_at=NULL,released_at=now() WHERE owner_id=$1 AND id=$2`, releasedOwner.ID, releasedPreparation)
 	require.NoError(t, err)
 	foreignPreparation := insertLegacyPreparation(t, ctx, pool, foreignOwner.ID, foreignBook, foreignSource, foreignRun, "empty-foreign-artifact")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, foreignOwner.ID, foreignPreparation, "de", "historical-unmatched", "NOUN")
+	insertLegacyPreparationVocabulary(t, ctx, pool, foreignOwner.ID, foreignPreparation, "de", "historical-unmatched", "NOUN")
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET analysis_run_id=NULL WHERE owner_id=$1 AND id=$2`, foreignOwner.ID, foreignPreparation)
 	require.NoError(t, err)
 	languagePreparation := insertLegacyPreparation(t, ctx, pool, languageOwner.ID, languageBook, languageSource, languageRun, "empty-language-artifact")
+	insertLegacyGeneratedVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "historical-cross-language", "NOUN")
+	insertLegacyPreparationVocabulary(t, ctx, pool, languageOwner.ID, languagePreparation, "it", "historical-cross-language", "NOUN")
 
 	for _, candidate := range []struct {
 		owner  string
@@ -294,7 +308,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 		require.NoError(t, err)
 	}
 
-	moveApplicationMigrations(t, databaseURL, 7)
+	moveApplicationMigrations(t, databaseURL, 4)
 
 	for _, preparation := range []struct {
 		name         string
@@ -334,15 +348,28 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 		}
 	}
 
-	for _, owner := range []string{activeOwner.ID, inactiveOwner.ID, releasedOwner.ID, foreignOwner.ID, languageOwner.ID} {
+	for _, expected := range []struct {
+		owner string
+		count int
+	}{
+		{owner: activeOwner.ID, count: 0},
+		{owner: inactiveOwner.ID, count: 1},
+		{owner: releasedOwner.ID, count: 1},
+		{owner: foreignOwner.ID, count: 1},
+		{owner: languageOwner.ID, count: 1},
+	} {
 		var snapshotVocabularyCount int
 		err = pool.QueryRow(ctx, `
 SELECT count(*) FROM primary_goal_snapshot_vocabulary v
 JOIN primary_goals g ON g.owner_id=v.owner_id AND g.snapshot_id=v.snapshot_id
-WHERE g.owner_id=$1`, owner).Scan(&snapshotVocabularyCount)
+WHERE g.owner_id=$1`, expected.owner).Scan(&snapshotVocabularyCount)
 		require.NoError(t, err)
-		assert.Zero(t, snapshotVocabularyCount, "empty preparation widened a Goal snapshot for owner %s", owner)
+		assert.Equal(t, expected.count, snapshotVocabularyCount, "unexpected Goal snapshot size for owner %s", expected.owner)
 	}
+	var italianSnapshot string
+	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='it'`, languageOwner.ID).Scan(&italianSnapshot)
+	require.NoError(t, err)
+	assert.Empty(t, italianSnapshot, "cross-language Goal received a snapshot from German analysis")
 	moveApplicationMigrations(t, databaseURL, -3)
 	moveApplicationMigrations(t, databaseURL, 3)
 	var activeSnapshotAfterRetry string

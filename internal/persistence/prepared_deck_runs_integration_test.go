@@ -33,11 +33,6 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	for _, lemma := range []string{"haus", "baum"} {
-		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma)
-		require.NoError(t, err)
-	}
-
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: uuid.NewString(), SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "noun", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Morphology: `{"Gender":"Masc"}`, SourceDocument: source.Title, FirstEncounter: 20},
@@ -289,8 +284,6 @@ func TestSupersedePreparedDeckArtifactRerendersCompletedRunWithoutChangingProven
 	source := domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "rerender-book", Title: "Rerender Book", MediaType: "text/plain", ContentHash: "rerender-hash", Content: []byte("Haus"), FullText: "Haus"}
 	err = store.Pool().QueryRow(ctx, `INSERT INTO source_materials(owner_id,language,source_identifier,title,media_type,content_hash,content,full_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id::text`, source.OwnerID, source.Language, source.SourceIdentifier, source.Title, source.MediaType, source.ContentHash, source.Content, source.FullText).Scan(&source.ID)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, owner.ID)
-	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute am Fluss.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1}}, testutil.PresentationProvider{})
@@ -425,10 +418,6 @@ func TestPreparedDeckBatchReconciliationRetainsPartialSuccessAndExhaustsTwoGener
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	for _, lemma := range []string{"haus", "baum"} {
-		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma)
-		require.NoError(t, err)
-	}
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", SourceDocument: source.Title, FirstEncounter: 1},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: source.Title, FirstEncounter: 2},

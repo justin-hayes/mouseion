@@ -164,23 +164,6 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID string) error {
 	return err
 }
 
-const deleteVocabularyState = `-- name: DeleteVocabularyState :execrows
-DELETE FROM vocabulary_states WHERE owner_id = $1 AND id = $2
-`
-
-type DeleteVocabularyStateParams struct {
-	OwnerID string
-	ID      string
-}
-
-func (q *Queries) DeleteVocabularyState(ctx context.Context, arg DeleteVocabularyStateParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteVocabularyState, arg.OwnerID, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const findSourceMaterialForAcquisition = `-- name: FindSourceMaterialForAcquisition :one
 SELECT s.id::text,
        s.owner_id::text,
@@ -595,106 +578,6 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUs
 	return i, err
 }
 
-const getVocabularyState = `-- name: GetVocabularyState :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, state, updated_at
-FROM vocabulary_states WHERE owner_id = $1 AND id = $2
-`
-
-type GetVocabularyStateParams struct {
-	OwnerID string
-	ID      string
-}
-
-type GetVocabularyStateRow struct {
-	ID             string
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	State          string
-	UpdatedAt      time.Time
-}
-
-func (q *Queries) GetVocabularyState(ctx context.Context, arg GetVocabularyStateParams) (GetVocabularyStateRow, error) {
-	row := q.db.QueryRow(ctx, getVocabularyState, arg.OwnerID, arg.ID)
-	var i GetVocabularyStateRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.State,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getVocabularyStateByIdentity = `-- name: GetVocabularyStateByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, state, updated_at
-FROM vocabulary_states WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4
-`
-
-type GetVocabularyStateByIdentityParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-type GetVocabularyStateByIdentityRow struct {
-	ID             string
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	State          string
-	UpdatedAt      time.Time
-}
-
-func (q *Queries) GetVocabularyStateByIdentity(ctx context.Context, arg GetVocabularyStateByIdentityParams) (GetVocabularyStateByIdentityRow, error) {
-	row := q.db.QueryRow(ctx, getVocabularyStateByIdentity,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var i GetVocabularyStateByIdentityRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.State,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getVocabularyStateForUpdate = `-- name: GetVocabularyStateForUpdate :one
-SELECT state FROM vocabulary_states WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 FOR UPDATE
-`
-
-type GetVocabularyStateForUpdateParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) GetVocabularyStateForUpdate(ctx context.Context, arg GetVocabularyStateForUpdateParams) (string, error) {
-	row := q.db.QueryRow(ctx, getVocabularyStateForUpdate,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var state string
-	err := row.Scan(&state)
-	return state, err
-}
-
 const hasUsers = `-- name: HasUsers :one
 
 SELECT EXISTS(SELECT 1 FROM users)
@@ -811,28 +694,6 @@ type InsertSessionParams struct {
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
 	_, err := q.db.Exec(ctx, insertSession, arg.UserID, arg.TokenHash, arg.ExpiresAt)
-	return err
-}
-
-const insertVocabularyStateCandidate = `-- name: InsertVocabularyStateCandidate :exec
-INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-VALUES ($1, $2, $3, $4, 'candidate') ON CONFLICT DO NOTHING
-`
-
-type InsertVocabularyStateCandidateParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) InsertVocabularyStateCandidate(ctx context.Context, arg InsertVocabularyStateCandidateParams) error {
-	_, err := q.db.Exec(ctx, insertVocabularyStateCandidate,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
 	return err
 }
 
@@ -1681,52 +1542,6 @@ ON CONFLICT(language) DO NOTHING
 func (q *Queries) PutSupportedLanguageOrIgnore(ctx context.Context, language string) error {
 	_, err := q.db.Exec(ctx, putSupportedLanguageOrIgnore, language)
 	return err
-}
-
-const putVocabularyState = `-- name: PutVocabularyState :one
-INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE SET state = excluded.state, updated_at = now()
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, state, updated_at
-`
-
-type PutVocabularyStateParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	State          string
-}
-
-type PutVocabularyStateRow struct {
-	ID             string
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	State          string
-	UpdatedAt      time.Time
-}
-
-func (q *Queries) PutVocabularyState(ctx context.Context, arg PutVocabularyStateParams) (PutVocabularyStateRow, error) {
-	row := q.db.QueryRow(ctx, putVocabularyState,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.State,
-	)
-	var i PutVocabularyStateRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.State,
-		&i.UpdatedAt,
-	)
-	return i, err
 }
 
 const reservedVocabularyExists = `-- name: ReservedVocabularyExists :one

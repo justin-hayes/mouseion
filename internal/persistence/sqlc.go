@@ -167,13 +167,6 @@ func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos strin
 	}
 }
 
-func vocabularyStateFromFields(id, ownerID, language, canonicalLemma, upos, state string, updatedAt time.Time) domain.VocabularyState {
-	return domain.VocabularyState{
-		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
-		UPOS: upos, State: state, UpdatedAt: updatedAt,
-	}
-}
-
 func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparation {
 	return domain.DeckPreparation{
 		ID: row.ID, OwnerID: row.OwnerID, SourceMaterialID: row.SourceMaterialID,

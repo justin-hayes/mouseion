@@ -14,7 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
-	"github.com/justin-hayes/mouseion/internal/vocabulary"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -177,9 +176,6 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 			if _, err = tx.Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO NOTHING`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS); err != nil {
 				return fmt.Errorf("upsert known vocabulary row %d: %w", entry.Row, err)
 			}
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,$2,$3,$4,$5) ON CONFLICT(owner_id,language,canonical_lemma,upos) DO UPDATE SET state=excluded.state,updated_at=now()`, a.OwnerID, language, entry.CanonicalLemma, entry.UPOS, string(vocabulary.Known)); err != nil {
-			return fmt.Errorf("set known state row %d: %w", entry.Row, err)
 		}
 		result.Entries = append(result.Entries, entry)
 		if known {

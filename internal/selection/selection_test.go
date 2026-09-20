@@ -6,13 +6,11 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type memoryStore struct {
-	states   map[string]string
 	known    map[string]bool
 	reserved map[string]bool
 	saved    []domain.SelectionCandidate
@@ -20,13 +18,6 @@ type memoryStore struct {
 
 func (m *memoryStore) key(owner, lang, lemma, upos string) string {
 	return owner + "/" + lang + "/" + lemma + "/" + upos
-}
-func (m *memoryStore) GetVocabularyStateByIdentity(_ context.Context, o, l, x, p string) (domain.VocabularyState, error) {
-	v, ok := m.states[m.key(o, l, x, p)]
-	if !ok {
-		return domain.VocabularyState{}, persistence.ErrNotFound
-	}
-	return domain.VocabularyState{State: v}, nil
 }
 func (m *memoryStore) IsKnownVocabularyIdentity(_ context.Context, o, l, x, p string) (bool, error) {
 	return m.known[m.key(o, l, x, p)], nil
@@ -36,7 +27,6 @@ func (m *memoryStore) IsReservedVocabulary(_ context.Context, o, l, x, p string)
 }
 func (m *memoryStore) PutSelectionCandidate(_ context.Context, c domain.SelectionCandidate) (bool, error) {
 	m.saved = append(m.saved, c)
-	m.states[m.key(c.OwnerID, c.Language, c.CanonicalLemma, c.UPOS)] = "candidate"
 	return true, nil
 }
 
@@ -52,7 +42,7 @@ func fixture(tokens ...analyzer.Token) analyzer.Result {
 }
 
 func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
+	store := &memoryStore{known: map[string]bool{}}
 	svc := NewService(store)
 	cfg := DefaultConfig("corpus-1")
 	corpus := fixture(tok("Häuser", "Haus", "NOUN"), tok("Haus", "Haus", "noun"), tok("selten", "selten", "ADJ"), tok("der", "der", "DET"), tok("Berlin", "Berlin", "PROPN"))
@@ -67,7 +57,7 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 }
 
 func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
+	store := &memoryStore{known: map[string]bool{}}
 	corpus := fixture(
 		analyzer.Token{Surface: "steht", CanonicalLemma: "aufstehen", UPOS: "VERB"},
 		analyzer.Token{Surface: "auf", CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt"},
@@ -82,7 +72,7 @@ func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
 	assert.Equal(t, "dort", got[1].Identity.CanonicalLemma)
 }
 
-func TestAnalyzableStatisticsUsesSelectionFiltersBeforeVocabularyState(t *testing.T) {
+func TestAnalyzableStatisticsUsesSelectionFiltersBeforeLearnerExclusions(t *testing.T) {
 	corpus := fixture(
 		tok("Häuser", "Haus", "NOUN"),
 		tok("Haus", "Haus", "noun"),
@@ -115,7 +105,7 @@ func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 			{Surface: "!", CanonicalLemma: "!", UPOS: "PUNCT"},
 		},
 	}}}
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}, reserved: map[string]bool{}}
+	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
 	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("italian-corpus"))
 	require.NoError(t, err)
 	want := []Candidate{
@@ -144,7 +134,7 @@ func TestAnalyzableStatisticsComputesExplainableSentenceProfile(t *testing.T) {
 }
 
 func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
+	store := &memoryStore{known: map[string]bool{}}
 	cfg := DefaultConfig("c")
 	assert.Equal(t, 1, cfg.MinOccurrences, "MinOccurrences=%d, want 1", cfg.MinOccurrences)
 	cfg.AllowedPOS["PROPN"] = true
@@ -156,10 +146,8 @@ func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
 }
 
 func TestOwnerScopedExclusions(t *testing.T) {
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
-	for _, state := range []string{"known", "ignored"} {
-		store.states[store.key("alice", "de", state, "NOUN")] = state
-	}
+	store := &memoryStore{known: map[string]bool{}}
+	store.known[store.key("alice", "de", "known", "NOUN")] = true
 	store.known[store.key("alice", "de", "importiert", "NOUN")] = true
 	corpus := fixture(tok("known", "known", "NOUN"), tok("known", "known", "NOUN"), tok("ignored", "ignored", "NOUN"), tok("ignored", "ignored", "NOUN"), tok("generated", "generated", "NOUN"), tok("generated", "generated", "NOUN"), tok("importiert", "importiert", "NOUN"), tok("importiert", "importiert", "NOUN"))
 	svc := NewService(store)
@@ -191,18 +179,8 @@ func TestEligibilityUsesKnownWildcardAndLanguageScopedReservations(t *testing.T)
 	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "häufig", UPOS: "NOUN", OccurrenceCount: 2}, 3))
 }
 
-func TestLegacyGeneratedStateDoesNotSuppressCandidate(t *testing.T) {
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}}
-	store.states[store.key("alice", "de", "Haus", "NOUN")] = "generated"
-
-	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Haus", "Haus", "NOUN")), DefaultConfig("book"))
-	require.NoError(t, err)
-	assert.Len(t, got, 1)
-	assert.Len(t, store.saved, 1)
-}
-
 func TestReservedVocabularyIsOwnerScoped(t *testing.T) {
-	store := &memoryStore{states: map[string]string{}, known: map[string]bool{}, reserved: map[string]bool{}}
+	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
 	store.reserved[store.key("alice", "de", "Haus", "NOUN")] = true
 	corpus := fixture(tok("Haus", "Haus", "NOUN"))
 

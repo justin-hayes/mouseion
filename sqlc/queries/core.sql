@@ -261,30 +261,6 @@ SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = 
 -- name: KnownVocabularyExists :one
 SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4);
 
--- name: PutVocabularyState :one
-INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE SET state = excluded.state, updated_at = now()
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, state, updated_at;
-
--- name: GetVocabularyState :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, state, updated_at
-FROM vocabulary_states WHERE owner_id = $1 AND id = $2;
-
--- name: GetVocabularyStateByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, state, updated_at
-FROM vocabulary_states WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4;
-
--- name: GetVocabularyStateForUpdate :one
-SELECT state FROM vocabulary_states WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 FOR UPDATE;
-
--- name: InsertVocabularyStateCandidate :exec
-INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-VALUES ($1, $2, $3, $4, 'candidate') ON CONFLICT DO NOTHING;
-
--- name: DeleteVocabularyState :execrows
-DELETE FROM vocabulary_states WHERE owner_id = $1 AND id = $2;
-
 -- name: ReservedVocabularyExists :one
 SELECT EXISTS(
   SELECT 1

@@ -1185,30 +1185,6 @@ func (q *Queries) RetireDeckPreparationsForBook(ctx context.Context, arg RetireD
 	return err
 }
 
-const setVocabularyStateGenerated = `-- name: SetVocabularyStateGenerated :exec
-UPDATE vocabulary_states
-SET state = 'generated', updated_at = now()
-WHERE owner_id = $1 AND language = $2
-  AND canonical_lemma = $3 AND upos = $4
-`
-
-type SetVocabularyStateGeneratedParams struct {
-	Owner          string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) SetVocabularyStateGenerated(ctx context.Context, arg SetVocabularyStateGeneratedParams) error {
-	_, err := q.db.Exec(ctx, setVocabularyStateGenerated,
-		arg.Owner,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	return err
-}
-
 const supersedePreparedDeckArtifact = `-- name: SupersedePreparedDeckArtifact :one
 WITH advanced_run AS (
     UPDATE deck_preparation_runs

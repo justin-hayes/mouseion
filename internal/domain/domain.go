@@ -299,10 +299,6 @@ type GeneratedVocabulary struct {
 	FirstGeneratedAt                        time.Time
 }
 
-type VocabularyState struct {
-	ID, OwnerID, Language, CanonicalLemma, UPOS, State string
-	UpdatedAt                                          time.Time
-}
 type ExampleSentence struct {
 	ID, OwnerID, CorpusID, SentenceKey, Text string
 	Language, CanonicalLemma, UPOS           string

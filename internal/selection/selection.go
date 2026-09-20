@@ -12,13 +12,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lexical"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 var ErrInvalidConfig = errors.New("selection: invalid configuration")
 
 type Store interface {
-	GetVocabularyStateByIdentity(context.Context, string, string, string, string) (domain.VocabularyState, error)
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
 	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
 	PutSelectionCandidate(context.Context, domain.SelectionCandidate) (bool, error)
@@ -135,13 +133,6 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 	out := make([]Candidate, 0)
 	for _, id := range ids {
 		a := aggs[id]
-		state, err := s.store.GetVocabularyStateByIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
-		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
-			return nil, fmt.Errorf("get state: %w", err)
-		}
-		if err == nil && state.State == "known" {
-			continue
-		}
 		known, err := s.store.IsKnownVocabularyIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
 		if err != nil {
 			return nil, fmt.Errorf("get known vocabulary: %w", err)

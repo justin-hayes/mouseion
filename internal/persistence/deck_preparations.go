@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/checked"
@@ -177,17 +176,6 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 	}
 	for _, item := range artifact.Generated {
 		entry, note := item.Input, item.Note
-		var vocabularyState string
-		vocabularyState, err = q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{OwnerID: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS})
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.DeckPreparation{}, ErrNotFound
-		}
-		if err != nil {
-			return domain.DeckPreparation{}, err
-		}
-		if vocabularyState != "candidate" && vocabularyState != "accepted" && vocabularyState != "generated" {
-			return domain.DeckPreparation{}, fmt.Errorf("cardexport: vocabulary state is %s", vocabularyState)
-		}
 		deck, err := q.PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: entry.Language, Name: note.BookTitle})
 		if err != nil {
 			return domain.DeckPreparation{}, err
@@ -201,18 +189,6 @@ func completePreparedDeckTx(ctx context.Context, tx pgx.Tx, owner, id string, ar
 		}
 		if err = q.AttachDeckPreparationVocabulary(ctx, sqlcgen.AttachDeckPreparationVocabularyParams{Preparation: id, Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
 			return domain.DeckPreparation{}, err
-		}
-		if vocabularyState != "generated" {
-			if err = q.SetVocabularyStateGenerated(ctx, sqlcgen.SetVocabularyStateGeneratedParams{Owner: owner, Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS}); err != nil {
-				return domain.DeckPreparation{}, err
-			}
-			details, err := json.Marshal(map[string]string{"language": entry.Language, "canonical_lemma": entry.CanonicalLemma, "upos": entry.UPOS, "from": vocabularyState, "to": "generated"})
-			if err != nil {
-				return domain.DeckPreparation{}, fmt.Errorf("encode vocabulary transition history: %w", err)
-			}
-			if err = q.InsertProcessingHistoryWithoutCorpus(ctx, sqlcgen.InsertProcessingHistoryWithoutCorpusParams{OwnerID: owner, Operation: "vocabulary.transition", Status: "completed", Details: details, CompletedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}); err != nil {
-				return domain.DeckPreparation{}, err
-			}
 		}
 	}
 	readyModel, err := q.CompleteDeckPreparation(ctx, sqlcgen.CompleteDeckPreparationParams{Artifact: artifact.APKG, Filename: artifact.Filename, DeckName: artifact.DeckName, TotalCards: artifact.Completeness.TotalCards, CardsWithEnglish: artifact.Completeness.CardsWithEnglish, CardsWithContextualSentenceTranslations: artifact.Completeness.CardsWithEnglishSentence, CardsWithFallbackGloss: artifact.Completeness.CardsWithFallbackGloss, QualityOmissions: artifact.Completeness.QualityOmitted, RenderInputVersion: renderInputVersion, PresentationVersion: presentationVersion, Owner: owner, ID: id})
