@@ -281,6 +281,10 @@ or a completed plan.
   keyboard, switch input, and touch. Drag is optional enhancement.
 - After a move, retain focus on the moved book, announce its new position, and
   announce the recalculation result in a scoped polite live region.
+- Enhanced reorder keeps that polite live region stable while replacing only the
+  forecast content. It announces recalculation immediately, then announces the
+  saved position and forecast result; failed enhancement leaves a reload/retry
+  action and preserves the native form path.
 - Forecast uses one ordered list and full text labels before any visual
   alignment. It does not depend on color, relative position, or animation alone.
 - Current, after-Goal, on-arrival, lower-bound, and remaining values use full
