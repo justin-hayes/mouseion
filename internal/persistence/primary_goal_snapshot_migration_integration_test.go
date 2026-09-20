@@ -24,6 +24,8 @@ func TestPrimaryGoalSnapshotBackfillMigratesLegacyStudies(t *testing.T) {
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
 	require.NoError(t, err)
+	missingSnapshotOwner, err := store.CreateUser(ctx, "snapshot-migration-missing", false)
+	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "snapshot-migration-other", false)
 	require.NoError(t, err)
 	languageOwner, err := store.CreateUser(ctx, "snapshot-migration-language", false)
@@ -31,6 +33,8 @@ func TestPrimaryGoalSnapshotBackfillMigratesLegacyStudies(t *testing.T) {
 
 	matchingBook, matchingSource, matchingRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "de", "matching")
 	emptyBook, emptySource, emptyRun, emptyCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, emptyOwner.ID, "de", "empty")
+	missingSnapshotBook, err := store.CreateBook(ctx, domain.Book{OwnerID: missingSnapshotOwner.ID, Title: "Migration missing snapshot", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
 	otherBook, otherSource, otherRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, otherOwner.ID, "de", "other")
 	languageBook, languageSource, languageRun, languageCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, languageOwner.ID, "de", "language")
 	italianBook, _, _, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "it", "italian")
@@ -41,7 +45,8 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
   ($1, 'it', $3),
   ($4, 'de', $5),
   ($6, 'de', $7),
-  ($8, 'de', $9)`, matchingOwner.ID, matchingBook, italianBook, otherOwner.ID, otherBook, languageOwner.ID, languageBook, emptyOwner.ID, emptyBook)
+  ($8, 'de', $9),
+  ($10, 'de', $11)`, matchingOwner.ID, matchingBook, italianBook, otherOwner.ID, otherBook, languageOwner.ID, languageBook, emptyOwner.ID, emptyBook, missingSnapshotOwner.ID, missingSnapshotBook.ID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance) VALUES ($1,$2,'de','must-not-widen','NOUN',5,'[]','[]','{}')`, emptyOwner.ID, emptyCorpus)
 	require.NoError(t, err)
@@ -156,6 +161,20 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND corpus_id=$2`, languageOwner.ID, languageCorpus).Scan(&operationalHistoryCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, operationalHistoryCount, "unmatched operational history was deleted")
+
+	var missingSnapshot string
+	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='de'`, missingSnapshotOwner.ID).Scan(&missingSnapshot)
+	require.NoError(t, err)
+	assert.Empty(t, missingSnapshot, "a Goal without current analysis unexpectedly received a snapshot")
+	firstCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	require.NoError(t, err)
+	secondCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	require.NoError(t, err)
+	assert.Equal(t, firstCompletion.Completion, secondCompletion.Completion, "missing-snapshot completion retry changed the outcome")
+	var missingSnapshotHistoryCount int
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, missingSnapshotOwner.ID, missingSnapshotBook.ID).Scan(&missingSnapshotHistoryCount)
+	require.NoError(t, err)
+	assert.Equal(t, 1, missingSnapshotHistoryCount, "missing-snapshot completion retry duplicated history")
 }
 
 func insertMigrationAnalysisFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *PostgresStore, owner, language, suffix string) (bookID, sourceID, runID, corpusID string) {

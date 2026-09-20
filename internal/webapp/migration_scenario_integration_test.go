@@ -200,6 +200,22 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
+	laterGoal := perform(t, h, http.MethodPost, "/goal/books/"+secondBook.ID, url.Values{
+		"csrf_token":            {csrf},
+		"expected_goal_book_id": {""},
+	}, aliceCookies)
+	assert.Equal(t, http.StatusSeeOther, laterGoal.Code)
+	assert.NotContains(t, laterGoal.Header().Get("Location"), "error=")
+	journeyAfterLaterGoal, err := store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	finishedBookStillPresent := false
+	for _, entry := range journeyAfterLaterGoal.Entries {
+		finishedBookStillPresent = finishedBookStillPresent || entry.BookID == book.ID
+	}
+	assert.False(t, finishedBookStillPresent, "choosing a later Goal resurrected the finished Book")
+	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, secondBook.ID, goal.BookID)
 
 	// Failed analysis retry and prepared-deck retry remain explicit operations.
 	failedJob := perform(t, h, http.MethodPost, "/jobs/43/retry", url.Values{"csrf_token": {csrf}}, aliceCookies)
