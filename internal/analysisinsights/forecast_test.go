@@ -69,7 +69,7 @@ func TestJourneyForecastTreatsKnownVocabularyStateAsKnown(t *testing.T) {
 		books:   []domain.MyBook{forecastBook("first", "de", "c-first"), forecastBook("second", "de", "c-second")},
 		corpora: map[string]domain.AnalysisCorpusVocabulary{
 			"c-first":  forecastInput("first", "c-first", "de", 8, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 3}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "wild", UPOS: "NOUN", OccurrenceCount: 3}),
-			"c-second": forecastInput("second", "c-second", "de", 8, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 2}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "wild", UPOS: "VERB", OccurrenceCount: 3}),
+			"c-second": forecastInput("second", "c-second", "de", 8, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 2}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "VERB", OccurrenceCount: 2}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "wild", UPOS: "VERB", OccurrenceCount: 3}),
 		},
 		states: map[string]string{"alice/de/legacy/NOUN": "known"},
 	}, snapshot: nil}
@@ -80,7 +80,7 @@ func TestJourneyForecastTreatsKnownVocabularyStateAsKnown(t *testing.T) {
 	first, second := result.Entries[0], result.Entries[1]
 	assert.Equal(t, int64(3), first.Current.KnownTokenCount, "exact Known vocabulary state must count as known")
 	assert.Equal(t, int64(3), first.OnArrival.KnownTokenCount, "Known vocabulary state must not be projected as recurring vocabulary")
-	assert.Equal(t, int64(2), second.Current.KnownTokenCount, "the exact state must match the same lemma and UPOS")
+	assert.Equal(t, int64(2), second.Current.KnownTokenCount, "the exact state must match the same lemma and UPOS, not another UPOS")
 	assert.Equal(t, int64(2), second.OnArrival.KnownTokenCount, "downstream arrival must retain the state-known identity")
 }
 
