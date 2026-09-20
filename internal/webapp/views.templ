@@ -26,13 +26,27 @@ window.escapeHtml = function (s) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 };
+window.resetJourneyReorder = function (list) {
+  if (!list) return;
+  list.removeAttribute('aria-busy');
+  var status = list.querySelector('#provisional-journey-status');
+  if (status) status.removeAttribute('aria-busy');
+  list.querySelectorAll('button[data-journey-reorder-was-enabled]').forEach(function (button) {
+    button.disabled = false;
+    button.removeAttribute('data-journey-reorder-was-enabled');
+  });
+};
 document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
   if (!target) return;
+  if (target.id === 'provisional-journey-list') {
+    window.resetJourneyReorder(target);
+  }
   var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
   var workflowNode = target.closest && target.closest('[data-workflow]');
   var workflow = workflowNode ? workflowNode.getAttribute('data-workflow') : 'This operation';
-  target.innerHTML = '<article role="alert"><strong>' + window.escapeHtml(workflow) + ' could not be updated:</strong> ' + window.escapeHtml(text) + '<p><small>Review this operation or try again.</small></p></article>';
+  var recovery = target.id === 'provisional-journey-list' ? '<p><a href="/journey">Reload Reading Journey and try again.</a></p>' : '<p><small>Review this operation or try again.</small></p>';
+  target.innerHTML = '<article role="alert"><strong>' + window.escapeHtml(workflow) + ' could not be updated:</strong> ' + window.escapeHtml(text) + recovery + '</article>';
 });
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
@@ -47,6 +61,7 @@ document.addEventListener('submit', function (evt) {
   if (!list) return;
   if (list.getAttribute('aria-busy') === 'true') {
     evt.preventDefault();
+    evt.stopImmediatePropagation();
     return;
   }
   list.setAttribute('aria-busy', 'true');
@@ -55,7 +70,12 @@ document.addEventListener('submit', function (evt) {
     status.textContent = 'Recalculating Reading Journey order...';
     status.setAttribute('aria-busy', 'true');
   }
-  list.querySelectorAll('button[type="submit"]').forEach(function (button) { button.disabled = true; });
+  list.querySelectorAll('form[data-journey-reorder] button[type="submit"]').forEach(function (button) {
+    if (!button.disabled) {
+      button.disabled = true;
+      button.setAttribute('data-journey-reorder-was-enabled', 'true');
+    }
+  });
 });
 document.addEventListener('submit', async function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');

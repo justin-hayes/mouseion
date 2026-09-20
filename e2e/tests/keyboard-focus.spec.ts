@@ -115,7 +115,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('#provisional-journey-list')).toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('#provisional-journey-status')).toHaveText('Recalculating Reading Journey order...');
     await expect(move).toBeDisabled();
-    await expect(book.locator('.journey-book__controls button')).toHaveCount(4);
+    const duplicatePrevented = await move.locator('xpath=ancestor::form').evaluate((form) => {
+      const event = new Event('submit', { bubbles: true, cancelable: true });
+      return !form.dispatchEvent(event) && event.defaultPrevented;
+    });
+    expect(duplicatePrevented).toBeTruthy();
     await expect.poll(() => requests).toBe(1);
     await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
     await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
