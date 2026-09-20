@@ -124,6 +124,16 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
     await expect(page.locator('#provisional-journey-content')).not.toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
+
+    await page.route('**/journey/entries/fixture-route-differs/move-later', async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      await route.fulfill({ response, body: body.replace('Coverage forecast recalculated for the saved order.', 'Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey.') });
+    });
+    await page.locator('#journey-book-fixture-route-differs').getByRole('button', { name: /Move .* later/ }).click();
+    await expect(page.locator('#provisional-journey-status')).toContainText(/saved order remains in place/);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/unavailable/);
+    await expect(page.getByRole('alert')).toHaveCount(0);
   });
 
   test('unassessed books have no detail page or standalone analysis action', async ({ page }) => {
