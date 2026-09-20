@@ -211,7 +211,14 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 		OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
 	})
 	require.NoError(t, err)
+	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
+		OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: "legacy-concurrent", UPOS: "VERB",
+		OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
+	})
+	require.NoError(t, err)
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	_, err = store.PutVocabularyState(ctx, owner.ID, "de", "legacy-concurrent", "VERB", "known")
 	require.NoError(t, err)
 
 	start := make(chan struct{})
@@ -239,6 +246,10 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, known, 1)
+	assert.Equal(t, 2, first.Completion.SnapshotVocabularyCount)
+	assert.Equal(t, 1, first.Completion.EligibleVocabularyCount)
+	assert.Equal(t, 1, first.Completion.GraduatedVocabularyCount)
+	assert.Equal(t, 1, first.Completion.AlreadyKnownVocabularyCount)
 	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, persisted.BookID)
