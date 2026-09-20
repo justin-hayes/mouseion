@@ -17,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,14 @@ type journeyForecastFailureInsights struct {
 
 func (journeyForecastFailureInsights) JourneyForecast(context.Context, string, string) (domain.JourneyForecast, error) {
 	return domain.JourneyForecast{}, errors.New("forecast provider unavailable")
+}
+
+type unavailableGoalPreparedDeck struct {
+	fixtures.PreparedDeck
+}
+
+func (unavailableGoalPreparedDeck) GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
+	return domain.DeckPreparation{}, persistence.ErrNotFound
 }
 
 func renderGoalSection(t *testing.T, goal *journeyBookView, message, pageError, focusBookID string) string {
@@ -273,6 +282,19 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	body = response.Body.String()
 	assert.True(t, strings.Contains(body, "Reading Journey in German") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Journey did not remain isolated after Italian move: %s", body)
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
+}
+
+func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.PreparedDeck = unavailableGoalPreparedDeck{PreparedDeck: fixtures.PreparedDeck{Store: store}}
+
+	page := performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	require.Equal(t, http.StatusOK, page.Code)
+	body := page.Body.String()
+	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
+	assert.Contains(t, body, "Deck preparation unavailable")
+	assert.Contains(t, body, "Retry deck preparation")
 }
 
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
