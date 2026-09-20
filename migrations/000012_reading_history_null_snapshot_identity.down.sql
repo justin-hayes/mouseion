@@ -1,0 +1,1 @@
+DROP INDEX public.reading_history_null_snapshot_identity_idx;

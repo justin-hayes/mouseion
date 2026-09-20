@@ -19,7 +19,7 @@ func TestPrimaryGoalSnapshotBackfillMigratesLegacyStudies(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -5)
+	moveApplicationMigrations(t, databaseURL, -6)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
@@ -63,7 +63,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	_, err = pool.Exec(ctx, `INSERT INTO processing_history(owner_id, corpus_id, operation, status, details) VALUES ($1,$2,'prepared-deck','completed','{}')`, languageOwner.ID, languageCorpus)
 	require.NoError(t, err)
 
-	moveApplicationMigrations(t, databaseURL, 5)
+	moveApplicationMigrations(t, databaseURL, 6)
 
 	var matchingSnapshot, matchingPreparationSnapshot string
 	err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, matchingOwner.ID).Scan(&matchingSnapshot)

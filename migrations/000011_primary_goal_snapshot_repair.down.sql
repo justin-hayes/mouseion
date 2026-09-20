@@ -1,1 +1,2 @@
-DROP INDEX public.reading_history_null_snapshot_identity_idx;
+-- This data repair is not reversed because the widened candidates it removes
+-- cannot be distinguished from later snapshot changes.

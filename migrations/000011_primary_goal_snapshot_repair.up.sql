@@ -1,6 +1,12 @@
 -- Repair the empty-preparation case from the original snapshot backfill. A
 -- preparation with no active vocabulary is still the historical Goal input;
 -- its empty snapshot must not be widened from current candidates.
+-- Ownership is the application migration runner. The repair is transactional
+-- and idempotent: only unbound, completed legacy preparations are selected,
+-- and rerunning it finds no rows after they are bound. The unique-Goal guard
+-- avoids inventing a language association for an empty preparation. Recovery
+-- is a forward fix from backup if the post-migration counts are unexpected;
+-- the down migration does not recreate deleted widened candidates.
 WITH empty_matches AS (
     SELECT p.owner_id, p.id AS preparation_id, g.snapshot_id
     FROM public.deck_preparations p
@@ -10,8 +16,19 @@ WITH empty_matches AS (
       ON ca.owner_id = g.owner_id AND ca.book_id = g.book_id
      AND ca.source_material_id = p.source_material_id
      AND ca.analysis_run_id = p.analysis_run_id
-    WHERE p.goal_snapshot_id IS NULL
+    WHERE g.snapshot_id IS NOT NULL
+      AND p.goal_snapshot_id IS NULL
+      AND p.state = 'ready'
+      AND p.completed_at IS NOT NULL
+      AND p.retired_at IS NULL
       AND p.graduated_at IS NULL
+      AND (
+          SELECT count(*)
+          FROM public.primary_goals g2
+          WHERE g2.owner_id = g.owner_id
+            AND g2.book_id = g.book_id
+            AND g2.snapshot_id IS NOT NULL
+      ) = 1
       AND NOT EXISTS (
           SELECT 1
           FROM public.deck_preparation_vocabulary dv
@@ -34,8 +51,19 @@ WITH empty_matches AS (
       ON ca.owner_id = g.owner_id AND ca.book_id = g.book_id
      AND ca.source_material_id = p.source_material_id
      AND ca.analysis_run_id = p.analysis_run_id
-    WHERE p.goal_snapshot_id IS NULL
+    WHERE g.snapshot_id IS NOT NULL
+      AND p.goal_snapshot_id IS NULL
+      AND p.state = 'ready'
+      AND p.completed_at IS NOT NULL
+      AND p.retired_at IS NULL
       AND p.graduated_at IS NULL
+      AND (
+          SELECT count(*)
+          FROM public.primary_goals g2
+          WHERE g2.owner_id = g.owner_id
+            AND g2.book_id = g.book_id
+            AND g2.snapshot_id IS NOT NULL
+      ) = 1
       AND NOT EXISTS (
           SELECT 1
           FROM public.deck_preparation_vocabulary dv
@@ -52,9 +80,3 @@ SET goal_snapshot_id = m.snapshot_id,
 FROM empty_matches m
 WHERE p.owner_id = m.owner_id
   AND p.id = m.preparation_id;
-
--- NULL snapshot completions need a real identity so concurrent retries cannot
--- create duplicate history rows after the Goal has been removed.
-CREATE UNIQUE INDEX reading_history_null_snapshot_identity_idx
-    ON public.reading_history(owner_id, language, book_id)
-    WHERE goal_snapshot_id IS NULL;
