@@ -24,6 +24,8 @@ func TestPrimaryGoalSnapshotBackfillMigratesLegacyStudies(t *testing.T) {
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
 	require.NoError(t, err)
+	missingSnapshotOwner, err := store.CreateUser(ctx, "snapshot-migration-missing", false)
+	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "snapshot-migration-other", false)
 	require.NoError(t, err)
 	languageOwner, err := store.CreateUser(ctx, "snapshot-migration-language", false)
@@ -31,6 +33,8 @@ func TestPrimaryGoalSnapshotBackfillMigratesLegacyStudies(t *testing.T) {
 
 	matchingBook, matchingSource, matchingRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "de", "matching")
 	emptyBook, emptySource, emptyRun, emptyCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, emptyOwner.ID, "de", "empty")
+	missingSnapshotBook, err := store.CreateBook(ctx, domain.Book{OwnerID: missingSnapshotOwner.ID, Title: "Migration missing snapshot", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
 	otherBook, otherSource, otherRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, otherOwner.ID, "de", "other")
 	languageBook, languageSource, languageRun, languageCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, languageOwner.ID, "de", "language")
 	italianBook, _, _, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "it", "italian")
@@ -41,7 +45,8 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
   ($1, 'it', $3),
   ($4, 'de', $5),
   ($6, 'de', $7),
-  ($8, 'de', $9)`, matchingOwner.ID, matchingBook, italianBook, otherOwner.ID, otherBook, languageOwner.ID, languageBook, emptyOwner.ID, emptyBook)
+  ($8, 'de', $9),
+  ($10, 'de', $11)`, matchingOwner.ID, matchingBook, italianBook, otherOwner.ID, otherBook, languageOwner.ID, languageBook, emptyOwner.ID, emptyBook, missingSnapshotOwner.ID, missingSnapshotBook.ID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance) VALUES ($1,$2,'de','must-not-widen','NOUN',5,'[]','[]','{}')`, emptyOwner.ID, emptyCorpus)
 	require.NoError(t, err)
@@ -88,15 +93,27 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	require.NoError(t, err)
 	assert.Equal(t, "legacy", snapshotLemma)
 
-	var matchingReleased, artifactCount, generatedCount, knownCount int
+	var matchingReleased, artifactCount, generatedCount, preparationVocabularyCount int
+	var matchingArtifact []byte
+	var generatedDeck, generatedSource string
 	err = pool.QueryRow(ctx, `
-SELECT count(*) FILTER (WHERE released_at IS NOT NULL), count(*) FILTER (WHERE artifact IS NOT NULL),
-       (SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='legacy')
-FROM deck_preparations WHERE owner_id=$1 AND id=$2`, matchingOwner.ID, matchingPreparation).Scan(&matchingReleased, &artifactCount, &generatedCount)
+SELECT count(*) FILTER (WHERE p.released_at IS NOT NULL), count(*) FILTER (WHERE p.artifact IS NOT NULL),
+       (SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='legacy'),
+       (SELECT count(*) FROM deck_preparation_vocabulary WHERE owner_id=$1 AND deck_preparation_id=p.id),
+       p.artifact, gv.first_deck_id::text, gv.first_source_material_id::text
+FROM deck_preparations p
+JOIN generated_vocabulary gv ON gv.owner_id=p.owner_id AND gv.canonical_lemma='legacy'
+WHERE p.owner_id=$1 AND p.id=$2
+GROUP BY p.id, gv.first_deck_id, gv.first_source_material_id`, matchingOwner.ID, matchingPreparation).Scan(&matchingReleased, &artifactCount, &generatedCount, &preparationVocabularyCount, &matchingArtifact, &generatedDeck, &generatedSource)
 	require.NoError(t, err)
 	assert.Zero(t, matchingReleased, "matching active reservation was released")
 	assert.Equal(t, 1, artifactCount, "matching deck artifact was not retained")
+	assert.Equal(t, []byte("matching-artifact"), matchingArtifact, "matching deck artifact changed")
 	assert.Equal(t, 1, generatedCount, "matching generated-vocabulary history was not retained")
+	assert.Equal(t, 1, preparationVocabularyCount, "matching preparation vocabulary was not retained")
+	assert.NotEmpty(t, generatedDeck, "matching generated deck provenance was lost")
+	assert.Equal(t, matchingSource, generatedSource, "matching generated source provenance changed")
+	var knownCount int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, matchingOwner.ID).Scan(&knownCount)
 	require.NoError(t, err)
 	assert.Zero(t, knownCount, "migration graduated vocabulary")
@@ -156,6 +173,30 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND corpus_id=$2`, languageOwner.ID, languageCorpus).Scan(&operationalHistoryCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, operationalHistoryCount, "unmatched operational history was deleted")
+
+	var missingSnapshot string
+	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='de'`, missingSnapshotOwner.ID).Scan(&missingSnapshot)
+	require.NoError(t, err)
+	assert.Empty(t, missingSnapshot, "a Goal without current analysis unexpectedly received a snapshot")
+	firstCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	require.NoError(t, err)
+	secondCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	require.NoError(t, err)
+	assert.Equal(t, firstCompletion.Completion, secondCompletion.Completion, "missing-snapshot completion retry changed the outcome")
+	var missingSnapshotHistoryCount int
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, missingSnapshotOwner.ID, missingSnapshotBook.ID).Scan(&missingSnapshotHistoryCount)
+	require.NoError(t, err)
+	assert.Equal(t, 1, missingSnapshotHistoryCount, "missing-snapshot completion retry duplicated history")
+
+	migratedCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
+	require.NoError(t, err)
+	migratedRetry, err := store.RecordReadingFinishedPrimaryGoal(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
+	require.NoError(t, err)
+	assert.Equal(t, migratedCompletion.Completion, migratedRetry.Completion, "migrated completion retry changed the outcome")
+	var migratedHistoryCount int
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, matchingOwner.ID, matchingBook).Scan(&migratedHistoryCount)
+	require.NoError(t, err)
+	assert.Equal(t, 1, migratedHistoryCount, "migrated completion retry duplicated history")
 }
 
 func insertMigrationAnalysisFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *PostgresStore, owner, language, suffix string) (bookID, sourceID, runID, corpusID string) {

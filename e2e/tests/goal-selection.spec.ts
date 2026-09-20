@@ -31,6 +31,7 @@ test.describe('Primary Goal selection', () => {
      await expect(goal.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
      await expect(goal).toContainText('Goal deck preparation');
      await expect(goal).toContainText('Deck ready');
+     await expect(goal.locator('p.metadata')).toContainText('Reserved vocabulary: 2 frozen identities.');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     const provisional = page.locator('#provisional-journey-list .journey-list > li');
