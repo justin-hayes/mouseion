@@ -85,13 +85,14 @@ document.addEventListener('submit', function (evt) {
   if (!form) return;
   var list = form.closest('#provisional-journey-list');
   if (!list) return;
-  if (list.getAttribute('aria-busy') === 'true') {
+  var content = list.querySelector('#provisional-journey-content');
+  if (!content) return;
+  if (content.getAttribute('aria-busy') === 'true') {
     evt.preventDefault();
     evt.stopImmediatePropagation();
     return;
   }
-  var content = list.querySelector('#provisional-journey-content');
-  if (content) content.setAttribute('aria-busy', 'true');
+  content.setAttribute('aria-busy', 'true');
   var status = document.getElementById('provisional-journey-status');
   if (status) {
     status.textContent = 'Recalculating Reading Journey order...';
