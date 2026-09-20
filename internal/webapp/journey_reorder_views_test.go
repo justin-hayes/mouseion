@@ -22,8 +22,10 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 		`id="journey-book-second"`,
 		`name="csrf_token" value="csrf-token"`,
 		`name="expected_revision" value="7"`,
-		`hx-target="#provisional-journey-list"`,
+		`id="provisional-journey-content"`,
+		`hx-target="#provisional-journey-content"`,
 		`hx-swap="outerHTML"`,
+		`data-journey-reorder`,
 		`aria-label="Move First provisional book earlier"`,
 		`aria-label="Move Second provisional book later"`,
 	} {

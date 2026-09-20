@@ -98,6 +98,44 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival in this order:');
   });
 
+  test('enhanced reorder announces recalculation, blocks duplicate activation, and restores focus', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
+    await signIn(page);
+    await page.goto('/journey');
+    const book = page.locator('#journey-book-fixture-route-differs');
+    const move = book.getByRole('button', { name: /Move .* earlier/ });
+    let requests = 0;
+    await page.route('**/journey/entries/fixture-route-differs/move-earlier', async (route) => {
+      requests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
+
+    await move.click();
+    await expect(page.locator('#provisional-journey-content')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#provisional-journey-status')).toHaveText('Recalculating Reading Journey order...');
+    await expect(move).toBeDisabled();
+    const duplicatePrevented = await move.locator('xpath=ancestor::form').evaluate((form) => {
+      const event = new Event('submit', { bubbles: true, cancelable: true });
+      return !form.dispatchEvent(event) && event.defaultPrevented;
+    });
+    expect(duplicatePrevented).toBeTruthy();
+    await expect.poll(() => requests).toBe(1);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
+    await expect(page.locator('#provisional-journey-content')).not.toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
+
+    await page.route('**/journey/entries/fixture-route-differs/move-later', async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      await route.fulfill({ response, body: body.replace('Coverage forecast recalculated for the saved order.', 'Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey.') });
+    });
+    await page.locator('#journey-book-fixture-route-differs').getByRole('button', { name: /Move .* later/ }).click();
+    await expect(page.locator('#provisional-journey-status')).toContainText(/saved order remains in place/);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/unavailable/);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
   test('unassessed books have no detail page or standalone analysis action', async ({ page }) => {
     await signIn(page);
     const response = await page.goto('/books/fixture-empty');
@@ -177,7 +215,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(region).toBeFocused();
   });
 
-  test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page }) => {
+  test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page, browser }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
     const journeyAddSideEffects: string[] = [];
@@ -211,6 +249,25 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       const book = page.locator(`#journey-book-${id}`);
       await expect(book.locator('.journey-book__controls')).toBeVisible();
       expect(await book.locator('.journey-book__controls').evaluate((node) => node.parentElement?.lastElementChild === node)).toBeTruthy();
+    }
+
+    const noJavaScriptContext = await browser.newContext({ baseURL: new URL(page.url()).origin, javaScriptEnabled: false });
+    try {
+      const noJavaScriptPage = await noJavaScriptContext.newPage();
+      let nativeMoveRequest = false;
+      noJavaScriptPage.on('request', (request) => {
+        if (request.url().includes('/journey/entries/') && request.url().includes('/move-')) {
+          nativeMoveRequest = request.headers()['hx-request'] !== 'true';
+        }
+      });
+      await signIn(noJavaScriptPage);
+      await noJavaScriptPage.goto('/journey');
+      await noJavaScriptPage.locator('form[data-journey-reorder] button:not([disabled])').first().press('Enter');
+      await expect(noJavaScriptPage).toHaveURL(/\/journey\?message=/);
+      await expect.poll(() => nativeMoveRequest).toBeTruthy();
+      await expect(noJavaScriptPage.getByRole('heading', { name: /Reading Journey/ }).first()).toBeVisible();
+    } finally {
+      await noJavaScriptContext.close();
     }
   });
 

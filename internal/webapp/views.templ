@@ -26,19 +26,83 @@ window.escapeHtml = function (s) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 };
+window.resetJourneyReorder = function (list) {
+  if (!list) return;
+  list.removeAttribute('aria-busy');
+  var content = list.querySelector('#provisional-journey-content');
+  if (content) content.removeAttribute('aria-busy');
+  var status = list.querySelector('#provisional-journey-status');
+  if (status) status.removeAttribute('aria-busy');
+  list.querySelectorAll('button[data-journey-reorder-was-enabled]').forEach(function (button) {
+    button.disabled = false;
+    button.removeAttribute('data-journey-reorder-was-enabled');
+  });
+};
+window.showJourneyReorderError = function (target, text) {
+  var list = target && target.closest && target.closest('#provisional-journey-list');
+  if (!list) return false;
+  window.resetJourneyReorder(list);
+  var status = list.querySelector('#provisional-journey-status');
+  if (status) {
+    status.textContent = 'Reading Journey order could not be updated. Reload Reading Journey and try again.';
+  }
+  var previousError = target.querySelector('[data-journey-reorder-error]');
+  if (previousError) previousError.remove();
+  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading Journey order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/journey">Reload Reading Journey and try again.</a></p></article>');
+  target.querySelector('[data-journey-reorder-error]').focus();
+  return true;
+};
+window.recoverJourneyReorderRequest = function (source, message) {
+  var targetSelector = source && source.getAttribute('hx-target');
+  var target = targetSelector ? document.querySelector(targetSelector) : null;
+  if (target) window.showJourneyReorderError(target, message);
+};
 document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
   if (!target) return;
   var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
+  if (window.showJourneyReorderError(target, text)) return;
   var workflowNode = target.closest && target.closest('[data-workflow]');
   var workflow = workflowNode ? workflowNode.getAttribute('data-workflow') : 'This operation';
   target.innerHTML = '<article role="alert"><strong>' + window.escapeHtml(workflow) + ' could not be updated:</strong> ' + window.escapeHtml(text) + '<p><small>Review this operation or try again.</small></p></article>';
+});
+document.addEventListener('htmx:sendError', function (evt) {
+  var source = evt.detail && evt.detail.elt;
+  window.recoverJourneyReorderRequest(source, 'The request could not reach the server.');
+});
+document.addEventListener('htmx:timeout', function (evt) {
+  var source = evt.detail && evt.detail.elt;
+  window.recoverJourneyReorderRequest(source, 'The request timed out before the saved order was returned.');
 });
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
   if (!form) return;
   var button = form.querySelector('button[type="submit"]');
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }
+});
+document.addEventListener('submit', function (evt) {
+  var form = evt.target.closest && evt.target.closest('form[data-journey-reorder]');
+  if (!form) return;
+  var list = form.closest('#provisional-journey-list');
+  if (!list) return;
+  var content = list.querySelector('#provisional-journey-content');
+  if (!content) return;
+  if (content.getAttribute('aria-busy') === 'true') {
+    evt.preventDefault();
+    evt.stopImmediatePropagation();
+    return;
+  }
+  content.setAttribute('aria-busy', 'true');
+  var status = document.getElementById('provisional-journey-status');
+  if (status) {
+    status.textContent = 'Recalculating Reading Journey order...';
+  }
+  list.querySelectorAll('form[data-journey-reorder] button[type="submit"]').forEach(function (button) {
+    if (!button.disabled) {
+      button.disabled = true;
+      button.setAttribute('data-journey-reorder-was-enabled', 'true');
+    }
+  });
 });
 document.addEventListener('submit', async function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');
@@ -115,13 +179,20 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
   }
 };
 document.addEventListener('htmx:afterSwap', function (evt) {
-  ['provisional-journey-list', 'primary-goal-section', 'library-results'].forEach(function (id) {
-    var region = document.getElementById(id);
-    if (!region) return;
-    var focusID = region.getAttribute('data-focus-id');
-    if (!focusID) return;
+			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
+			var region = document.getElementById(id);
+			if (!region) return;
+			var focusID = region.getAttribute('data-focus-id');
+			if (!focusID) return;
+			var swappedTarget = evt.detail && evt.detail.target;
+			if (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;
+			if (id === 'provisional-journey-content' && swappedTarget && swappedTarget.id === id) {
+				window.resetJourneyReorder(document.getElementById('provisional-journey-list'));
+			}
 			var source = evt.detail && evt.detail.elt;
-			var targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id);
+			var targetSelector = source && source.getAttribute('hx-target');
+			var target = targetSelector ? document.querySelector(targetSelector) : null;
+			var targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));
 			if (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
 			  region.removeAttribute('data-focus-id');
 			  return;
@@ -452,6 +523,15 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMessage string) {
 	<div id="provisional-journey-list" data-focus-id={ journeyBookAnchorID(focusBookID) }>
 		<p id="provisional-journey-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ statusMessage }</p>
+		@JourneyProvisionalContent(journey, csrf, focusBookID, statusMessage, false)
+	</div>
+}
+
+templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statusMessage string, announce bool) {
+	<div id="provisional-journey-content" data-focus-id={ journeyBookAnchorID(focusBookID) }>
+		if announce && statusMessage != "" {
+			<div hx-swap-oob="innerHTML:#provisional-journey-status">{ statusMessage }</div>
+		}
 		if journey.ForecastUnavailable {
 			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/journey">Retry forecast</a>.</p>
 		}
@@ -519,11 +599,11 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	</div>
 	if !primary {
 		<div class="journey-book__controls" aria-label={ "Reorder "+canonicalBookTitle(item.Book) }>
-			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
 			</form>
-			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
 			</form>

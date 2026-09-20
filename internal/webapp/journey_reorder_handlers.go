@@ -153,7 +153,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	if newRevision == journey.Revision {
 		status = title + " did not move and remains at position " + strconv.Itoa(position) + " in Your order. " + forecastMessage
 	}
-	render(w, r, JourneyProvisionalList(view, h.csrf(w, r), bookID, status))
+	render(w, r, JourneyProvisionalContent(view, h.csrf(w, r), bookID, status, true))
 }
 
 func (h *Handler) redirectJourneyMove(w http.ResponseWriter, r *http.Request, bookID, outcome string) {
