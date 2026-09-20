@@ -257,8 +257,9 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Equal(t, int64(0), reservedCoverage.KnownTokenCount)
 	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount)
 	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{
-		"csrf_token":            {csrf},
-		"expected_goal_book_id": {bookID},
+		"csrf_token":                {csrf},
+		"expected_goal_book_id":     {bookID},
+		"expected_goal_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")

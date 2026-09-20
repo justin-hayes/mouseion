@@ -64,9 +64,6 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if expectedSnapshotID == "" && before.Goal != nil && journeyBookID(*before.Goal) == expectedBookID {
-		expectedSnapshotID = before.Goal.GoalSnapshotID
-	}
 	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")

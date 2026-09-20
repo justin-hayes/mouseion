@@ -934,9 +934,6 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, language, bookID s
 		return 0, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
-	if _, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, bookID)]; completed {
-		return 0, persistence.ErrReadingAlreadyCompleted
-	}
 	if !s.fixtureBookHasChosenLanguage(owner, bookID) || s.fixtureBookLanguage(owner, bookID) != language {
 		return 0, persistence.ErrBookLanguageRequired
 	}
@@ -1161,7 +1158,11 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, ex
 }
 
 func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt time.Time) domain.PrimaryGoal {
-	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID, SnapshotID: "fixture-goal-" + language + "-" + bookID, CreatedAt: createdAt}
+	snapshotID := "fixture-goal-" + language + "-" + bookID
+	for suffix := 2; s.readingHistory[fixtureReadingHistoryKey(owner, language, snapshotID)].BookID != ""; suffix++ {
+		snapshotID = fmt.Sprintf("fixture-goal-%s-%s-%d", language, bookID, suffix)
+	}
+	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID, SnapshotID: snapshotID, CreatedAt: createdAt}
 	goal.SnapshotSize = len(s.goalSnapshotVocabulary[goal.SnapshotID])
 	for _, book := range s.books {
 		if book.Source.OwnerID != owner || s.fixtureBookID(owner, book.Source.ID) != bookID {
@@ -1186,9 +1187,6 @@ func (s *Store) fixturePrimaryGoalEligible(owner, language, bookID string) bool 
 	for _, entry := range journey.Entries {
 		if entry.BookID != bookID {
 			continue
-		}
-		if _, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, bookID)]; completed {
-			return false
 		}
 		for _, book := range s.books {
 			if s.fixtureBookID(owner, book.Source.ID) == bookID && normalizeFixtureLanguage(book.Source.Language) == language && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {

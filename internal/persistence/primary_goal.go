@@ -306,6 +306,9 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		if completionErr != nil {
 			return ReadingFinishResult{}, completionErr
 		}
+		if row.BookID != expectedBookID {
+			return ReadingFinishResult{}, ErrGoalStale
+		}
 		if err = tx.Commit(ctx); err != nil {
 			return ReadingFinishResult{}, err
 		}
