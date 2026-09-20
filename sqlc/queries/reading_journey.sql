@@ -314,7 +314,7 @@ WHERE NULLIF(sqlc.arg('goal_snapshot'), '') IS NOT NULL
          AND book_id = sqlc.arg('book')
          AND goal_snapshot_id IS NULL
    )
-ON CONFLICT (owner_id, language, goal_snapshot_id) DO NOTHING
+ON CONFLICT DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
           snapshot_vocabulary_count, eligible_vocabulary_count,

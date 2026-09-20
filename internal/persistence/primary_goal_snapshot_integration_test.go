@@ -193,8 +193,23 @@ func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id) VALUES ($1, 'de', $2), ($1, 'it', $3), ($4, 'de', $5)`, owner.ID, book.ID, italianBook.ID, otherOwner.ID, otherBook.ID)
 	require.NoError(t, err)
 
-	first, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, "")
-	require.NoError(t, err)
+	start := make(chan struct{})
+	results := make(chan ReadingFinishResult, 2)
+	errors := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			result, finishErr := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, "")
+			results <- result
+			errors <- finishErr
+		}()
+	}
+	close(start)
+	for range 2 {
+		require.NoError(t, <-errors)
+	}
+	first, second := <-results, <-results
+	assert.Equal(t, first.Completion, second.Completion)
 	assert.Empty(t, first.Completion.GoalSnapshotID)
 	assert.Zero(t, first.Completion.SnapshotVocabularyCount)
 	assert.Zero(t, first.Completion.EligibleVocabularyCount)
