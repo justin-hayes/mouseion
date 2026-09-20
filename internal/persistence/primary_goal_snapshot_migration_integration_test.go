@@ -343,6 +343,12 @@ WHERE g.owner_id=$1`, owner).Scan(&snapshotVocabularyCount)
 		require.NoError(t, err)
 		assert.Zero(t, snapshotVocabularyCount, "empty preparation widened a Goal snapshot for owner %s", owner)
 	}
+	moveApplicationMigrations(t, databaseURL, -3)
+	moveApplicationMigrations(t, databaseURL, 3)
+	var activeSnapshotAfterRetry string
+	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, activeOwner.ID, activePreparation).Scan(&activeSnapshotAfterRetry)
+	require.NoError(t, err)
+	assert.NotEmpty(t, activeSnapshotAfterRetry, "migration retry detached the active empty preparation")
 
 	activeGoal, err := store.GetPrimaryGoal(ctx, activeOwner.ID, "de")
 	require.NoError(t, err)
