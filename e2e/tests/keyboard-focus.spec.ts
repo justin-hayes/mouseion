@@ -122,6 +122,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     expect(duplicatePrevented).toBeTruthy();
     await expect.poll(() => requests).toBe(1);
     await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
+    await expect(page.locator('#provisional-journey-list')).not.toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
   });
 
@@ -204,7 +205,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(region).toBeFocused();
   });
 
-  test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page }) => {
+  test('Journey reorder controls work without JavaScript and retain focus with HTMX', async ({ page, browser }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
     await signIn(page, true);
     const journeyAddSideEffects: string[] = [];
@@ -238,6 +239,25 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       const book = page.locator(`#journey-book-${id}`);
       await expect(book.locator('.journey-book__controls')).toBeVisible();
       expect(await book.locator('.journey-book__controls').evaluate((node) => node.parentElement?.lastElementChild === node)).toBeTruthy();
+    }
+
+    const noJavaScriptContext = await browser.newContext({ baseURL: new URL(page.url()).origin, javaScriptEnabled: false });
+    try {
+      const noJavaScriptPage = await noJavaScriptContext.newPage();
+      let nativeMoveRequest = false;
+      noJavaScriptPage.on('request', (request) => {
+        if (request.url().includes('/journey/entries/') && request.url().includes('/move-')) {
+          nativeMoveRequest = request.headers()['hx-request'] !== 'true';
+        }
+      });
+      await signIn(noJavaScriptPage);
+      await noJavaScriptPage.goto('/journey');
+      await noJavaScriptPage.locator('form[data-journey-reorder] button:not([disabled])').first().press('Enter');
+      await expect(noJavaScriptPage).toHaveURL(/\/journey\?message=/);
+      await expect.poll(() => nativeMoveRequest).toBeTruthy();
+      await expect(noJavaScriptPage.getByRole('heading', { name: /Reading Journey/ }).first()).toBeVisible();
+    } finally {
+      await noJavaScriptContext.close();
     }
   });
 

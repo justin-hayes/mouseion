@@ -44,8 +44,16 @@ window.showJourneyReorderError = function (target, text) {
   if (status) {
     status.textContent = 'Reading Journey order could not be updated. Reload Reading Journey and try again.';
   }
-  target.innerHTML = '<article role="alert"><strong>Reading Journey order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/journey">Reload Reading Journey and try again.</a></p></article>';
+  var previousError = target.querySelector('[data-journey-reorder-error]');
+  if (previousError) previousError.remove();
+  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading Journey order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/journey">Reload Reading Journey and try again.</a></p></article>');
+  target.querySelector('[data-journey-reorder-error]').focus();
   return true;
+};
+window.recoverJourneyReorderRequest = function (source, message) {
+  var targetSelector = source && source.getAttribute('hx-target');
+  var target = targetSelector ? document.querySelector(targetSelector) : null;
+  if (target) window.showJourneyReorderError(target, message);
 };
 document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
@@ -58,15 +66,11 @@ document.addEventListener('htmx:responseError', function (evt) {
 });
 document.addEventListener('htmx:sendError', function (evt) {
   var source = evt.detail && evt.detail.elt;
-  var targetSelector = source && source.getAttribute('hx-target');
-  var target = targetSelector ? document.querySelector(targetSelector) : null;
-  if (target) window.showJourneyReorderError(target, 'The request could not reach the server.');
+  window.recoverJourneyReorderRequest(source, 'The request could not reach the server.');
 });
 document.addEventListener('htmx:timeout', function (evt) {
   var source = evt.detail && evt.detail.elt;
-  var targetSelector = source && source.getAttribute('hx-target');
-  var target = targetSelector ? document.querySelector(targetSelector) : null;
-  if (target) window.showJourneyReorderError(target, 'The request timed out before the saved order was returned.');
+  window.recoverJourneyReorderRequest(source, 'The request timed out before the saved order was returned.');
 });
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
@@ -179,6 +183,9 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 			if (!focusID) return;
 			var swappedTarget = evt.detail && evt.detail.target;
 			if (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;
+			if (id === 'provisional-journey-content' && swappedTarget && swappedTarget.id === id) {
+				window.resetJourneyReorder(document.getElementById('provisional-journey-list'));
+			}
 			var source = evt.detail && evt.detail.elt;
 			var targetSelector = source && source.getAttribute('hx-target');
 			var target = targetSelector ? document.querySelector(targetSelector) : null;
