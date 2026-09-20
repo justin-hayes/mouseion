@@ -54,6 +54,7 @@ WITH ambiguous_empty_preparations AS (
             AND dv.deck_preparation_id = p.id
             AND dv.graduated_at IS NULL
       )
+      AND (p.goal_snapshot_id IS NULL OR p.goal_snapshot_id = g.snapshot_id)
       AND p.created_at < ps.created_at
 ),
 deleted_snapshot_vocabulary AS (

@@ -133,6 +133,27 @@ GROUP BY p.id, gv.first_deck_id, gv.first_source_material_id`, matchingOwner.ID,
 	assert.Equal(t, 1, emptyReleased, "ambiguous empty preparation was not released")
 	assert.Equal(t, 1, emptyArtifactCount, "ambiguous empty preparation artifact was deleted")
 
+	oldSnapshot := uuid.NewString()
+	_, err = pool.Exec(ctx, `
+INSERT INTO primary_goal_snapshots(id, owner_id, language, book_id, source_material_id, analysis_run_id, content_revision_id, content_snapshot_id, corpus_id, released_at)
+SELECT $1, owner_id, language, book_id, source_material_id, analysis_run_id, content_revision_id, content_snapshot_id, corpus_id, now()
+FROM primary_goal_snapshots WHERE owner_id=$2 AND id=$3`, oldSnapshot, emptyOwner.ID, emptySnapshot)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+INSERT INTO primary_goal_snapshot_vocabulary(owner_id, snapshot_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance)
+VALUES ($1,$2,$3,'de','must-preserve-current-goal','NOUN',1,'{}','[]','{}')`, emptyOwner.ID, emptySnapshot, emptyCorpus)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET goal_snapshot_id=$1, studying_at=NULL, released_at=NULL WHERE owner_id=$2 AND id=$3`, oldSnapshot, emptyOwner.ID, emptyPreparation)
+	require.NoError(t, err)
+	moveApplicationMigrations(t, databaseURL, -1)
+	moveApplicationMigrations(t, databaseURL, 1)
+	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyPreparationSnapshot)
+	require.NoError(t, err)
+	assert.Equal(t, oldSnapshot, emptyPreparationSnapshot, "older preparation binding was rewritten against the current Goal")
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, emptyOwner.ID, emptySnapshot).Scan(&emptyOwnerSnapshotSize)
+	require.NoError(t, err)
+	assert.Equal(t, 1, emptyOwnerSnapshotSize, "current Goal vocabulary was deleted for an older preparation")
+
 	// Simulate an installation that ran 000011 and then cleared the synthetic
 	// activity marker before receiving this forward correction.
 	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET goal_snapshot_id=$1, studying_at=NULL, released_at=NULL WHERE owner_id=$2 AND id=$3`, emptySnapshot, emptyOwner.ID, emptyPreparation)
