@@ -479,6 +479,7 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	assert.NotContains(t, finished.Body.String(), "projected coverage")
 	assert.Contains(t, finished.Body.String(), "90.0% (90 of 100 analyzable tokens)")
 	assert.Contains(t, finished.Body.String(), "20.0% (20 of 100 analyzable tokens)")
+	assert.NotContains(t, finished.Body.String(), "No deck artifact was required")
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
@@ -579,10 +580,61 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 }
 
 func TestPrimaryGoalFinishOutcomeShowsStructuredVocabularyCounts(t *testing.T) {
-	residual := primaryGoalFinishView{BookTitle: "Reading-only book", EligibleVocabularyCount: 2, GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
+	residual := primaryGoalFinishView{BookTitle: "Reading-only book", SnapshotVocabularyCount: 2, EligibleVocabularyCount: 2, GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
 	var output bytes.Buffer
 	require.NoError(t, PrimaryGoalFinish(residual, "csrf").Render(context.Background(), &output))
 	for _, want := range []string{"2 newly accepted identities were added", "modeled vocabulary consequence", "No new Primary Goal has been selected"} {
 		assert.True(t, strings.Contains(output.String(), want), "residual outcome missing %q: %s", want, output.String())
 	}
+	assert.NotContains(t, output.String(), "No deck artifact was required")
+}
+
+func TestPrimaryGoalFinishOutcomeExplainsEmptySnapshot(t *testing.T) {
+	outcome := primaryGoalFinishView{BookTitle: "Empty snapshot book"}
+	var output bytes.Buffer
+	require.NoError(t, PrimaryGoalFinish(outcome, "csrf").Render(context.Background(), &output))
+	html := output.String()
+	for _, want := range []string{
+		"Reading finished",
+		"0 vocabulary identities were added to modeled Known vocabulary",
+		"No deck artifact was required for this empty snapshot",
+		"Where next?",
+		"No new Primary Goal has been selected",
+	} {
+		assert.Contains(t, html, want)
+	}
+	assert.NotContains(t, html, `<article role="alert" class=`)
+	assert.NotContains(t, html, "verified mastery")
+}
+
+func TestPrimaryGoalFinishEmptySnapshotThroughAuthenticatedHandler(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	cleared := goalRequest(t, h, "/goal/clear", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, cleared.Code)
+	chosen := goalRequest(t, h, "/goal/books/"+fixtures.BookID, url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {""},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, chosen.Code)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Zero(t, goal.SnapshotSize)
+
+	finished := goalRequest(t, h, "/goal/finish", url.Values{
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {goal.SnapshotID},
+	}, cookies)
+	assert.Equal(t, http.StatusOK, finished.Code)
+	for _, want := range []string{
+		"Reading finished",
+		"0 vocabulary identities were added to modeled Known vocabulary",
+		"No deck artifact was required for this empty snapshot",
+		"Reading Journey recalculated",
+		"Where next?",
+		"No new Primary Goal has been selected",
+	} {
+		assert.Contains(t, finished.Body.String(), want)
+	}
+	assert.NotContains(t, finished.Body.String(), `<article role="alert" class=`)
+	assert.NotContains(t, finished.Body.String(), "verified mastery")
 }
