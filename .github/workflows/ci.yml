@@ -15,7 +15,7 @@ permissions:
 jobs:
   ci:
     name: Build and test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
 
     steps:
       # ------------------------------------------------------------------
@@ -127,7 +127,7 @@ jobs:
 
       # Install CPU-only Torch explicitly before installing Mouseion.
       # This prevents Stanza from pulling in the much larger CUDA-enabled
-      # Linux dependency stack on GitHub-hosted runners.
+      # Linux dependency stack on CI runners.
       - name: Install CPU-only PyTorch
         if: |
           github.event_name == 'workflow_dispatch' ||
@@ -215,7 +215,7 @@ jobs:
 
   golangci:
     name: Go lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
     timeout-minutes: 10
     permissions:
       contents: read
@@ -237,7 +237,7 @@ jobs:
 
   integration:
     name: Integration tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
 
     steps:
       - name: Checkout
@@ -278,7 +278,7 @@ jobs:
 
   browser-smoke:
     name: Browser smoke
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
     timeout-minutes: 10
     steps:
       - name: Checkout
