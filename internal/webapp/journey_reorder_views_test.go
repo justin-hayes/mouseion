@@ -24,6 +24,7 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 		`name="expected_revision" value="7"`,
 		`hx-target="#provisional-journey-list"`,
 		`hx-swap="outerHTML"`,
+		`data-journey-reorder`,
 		`aria-label="Move First provisional book earlier"`,
 		`aria-label="Move Second provisional book later"`,
 	} {

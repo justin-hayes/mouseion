@@ -98,6 +98,29 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival in this order:');
   });
 
+  test('enhanced reorder announces recalculation, blocks duplicate activation, and restores focus', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture journey runs once per browser suite.');
+    await signIn(page);
+    await page.goto('/journey');
+    const book = page.locator('#journey-book-fixture-route-differs');
+    const move = book.getByRole('button', { name: /Move .* earlier/ });
+    let requests = 0;
+    await page.route('**/journey/entries/fixture-route-differs/move-earlier', async (route) => {
+      requests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
+
+    await move.click();
+    await expect(page.locator('#provisional-journey-list')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#provisional-journey-status')).toHaveText('Recalculating Reading Journey order...');
+    await expect(move).toBeDisabled();
+    await expect(book.locator('.journey-book__controls button')).toHaveCount(4);
+    await expect.poll(() => requests).toBe(1);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
+    await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
+  });
+
   test('unassessed books have no detail page or standalone analysis action', async ({ page }) => {
     await signIn(page);
     const response = await page.goto('/books/fixture-empty');

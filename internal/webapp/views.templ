@@ -40,6 +40,23 @@ document.addEventListener('submit', function (evt) {
   var button = form.querySelector('button[type="submit"]');
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }
 });
+document.addEventListener('submit', function (evt) {
+  var form = evt.target.closest && evt.target.closest('form[data-journey-reorder]');
+  if (!form) return;
+  var list = form.closest('#provisional-journey-list');
+  if (!list) return;
+  if (list.getAttribute('aria-busy') === 'true') {
+    evt.preventDefault();
+    return;
+  }
+  list.setAttribute('aria-busy', 'true');
+  var status = document.getElementById('provisional-journey-status');
+  if (status) {
+    status.textContent = 'Recalculating Reading Journey order...';
+    status.setAttribute('aria-busy', 'true');
+  }
+  list.querySelectorAll('button[type="submit"]').forEach(function (button) { button.disabled = true; });
+});
 document.addEventListener('submit', async function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');
   if (!form) return;
@@ -519,11 +536,11 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	</div>
 	if !primary {
 		<div class="journey-book__controls" aria-label={ "Reorder "+canonicalBookTitle(item.Book) }>
-			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-list" hx-swap="outerHTML" data-journey-reorder>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
 			</form>
-			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-list" hx-swap="outerHTML">
+			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-list" hx-swap="outerHTML" data-journey-reorder>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
 				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
 			</form>
