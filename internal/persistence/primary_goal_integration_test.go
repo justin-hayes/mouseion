@@ -110,8 +110,9 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 
 	owner, err := store.CreateUser(ctx, "goal-finish", false)
 	require.NoError(t, err)
-	book, _, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish")
+	book, bookSource, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish")
 	replacement, replacementSource, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish-replacement")
+	makeJourneyMemberAnalyzed(t, ctx, store, book, bookSource)
 	makeJourneyMemberAnalyzed(t, ctx, store, replacement, replacementSource)
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -121,7 +122,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", replacement.ID, journey.Revision)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, owner.ID, "de", book.ID)
+	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `
 CREATE FUNCTION test_reading_completion_failure() RETURNS trigger
@@ -130,7 +131,7 @@ CREATE TRIGGER test_reading_completion_failure
 BEFORE DELETE ON reading_journey_membership
 FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.Error(t, err)
 	var historyCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
@@ -142,7 +143,7 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_reading_completion_failure ON reading_journey_membership; DROP FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
 
-	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, result.Completion.BookID, "reading completion")
 	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
@@ -159,20 +160,71 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
 	assert.NotContains(t, journeyBookIDs(journey), book.ID, "completed Book removed from Journey")
 
-	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, result.Completion, repeated.Completion, "idempotent finish")
 	_, err = store.CreatePrimaryGoal(ctx, owner.ID, "de", replacement.ID)
 	require.NoError(t, err)
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.ErrorIs(t, err, ErrGoalStale)
 	goalAfterStale, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, replacement.ID, goalAfterStale.BookID, "stale completion changed replacement Goal")
+	err = store.ClearPrimaryGoal(ctx, owner.ID, "de", replacement.ID)
+	require.NoError(t, err)
 	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.ErrorIs(t, err, ErrReadingAlreadyCompleted)
+	require.NoError(t, err)
+	secondGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	second, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, secondGoal.SnapshotID)
+	require.NoError(t, err)
+	assert.NotEqual(t, result.Completion.CompletedAt, second.Completion.CompletedAt)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
+	require.NoError(t, err)
+	assert.Equal(t, 2, historyCount)
+	oldRetry, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, result.Completion, oldRetry.Completion)
+}
+
+func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-finish-concurrent", false)
+	require.NoError(t, err)
+	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish-concurrent")
+	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+
+	start := make(chan struct{})
+	results := make(chan ReadingFinishResult, 2)
+	errors := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			result, finishErr := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+			results <- result
+			errors <- finishErr
+		}()
+	}
+	close(start)
+	for range 2 {
+		require.NoError(t, <-errors)
+	}
+	first, second := <-results, <-results
+	assert.Equal(t, first.Completion, second.Completion)
+
+	var historyCount int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
+	require.NoError(t, err)
+	assert.Equal(t, 1, historyCount)
+	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, persisted.BookID)
 }
 
 func journeyBookIDs(journey domain.ReadingJourney) []string {

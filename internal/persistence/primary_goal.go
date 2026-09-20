@@ -283,8 +283,9 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 
 // RecordReadingFinishedPrimaryGoal atomically records completion, graduates the
 // frozen snapshot, removes the Book from the active Journey, and clears the
-// current Goal. The entire learner-state transition is one transaction.
-func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID string) (result ReadingFinishResult, err error) {
+// current Goal. The snapshot is the completion request identity, so retries
+// remain idempotent even after the Book is completed again in the future.
+func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (result ReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -298,7 +299,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
-		row, completionErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: expectedBookID})
+		row, completionErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, GoalSnapshot: expectedSnapshotID})
 		if errors.Is(completionErr, pgx.ErrNoRows) {
 			return ReadingFinishResult{}, ErrNotFound
 		}
@@ -313,7 +314,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	if err != nil {
 		return ReadingFinishResult{}, err
 	}
-	if current.GBookID != expectedBookID {
+	if current.GBookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
 		return ReadingFinishResult{}, ErrGoalStale
 	}
 	counts := sqlcgen.CountPrimaryGoalSnapshotVocabularyRow{}
@@ -326,13 +327,13 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	completedAt := time.Now().UTC()
 	completionRow, insertErr := q.InsertReadingCompletion(ctx, sqlcgen.InsertReadingCompletionParams{
 		Owner: owner, Language: language, Book: expectedBookID, CompletedAt: completedAt,
-		GoalSnapshot: current.SnapshotID, SnapshotVocabularyCount: counts.SnapshotCount,
+		GoalSnapshot: expectedSnapshotID, SnapshotVocabularyCount: counts.SnapshotCount,
 		EligibleVocabularyCount: counts.EligibleCount, GraduatedVocabularyCount: 0,
 		AlreadyKnownVocabularyCount: counts.SnapshotCount - counts.EligibleCount,
 	})
 	inserted := insertErr == nil
 	if errors.Is(insertErr, pgx.ErrNoRows) {
-		existing, getErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: expectedBookID})
+		existing, getErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, GoalSnapshot: expectedSnapshotID})
 		if getErr != nil {
 			return ReadingFinishResult{}, getErr
 		}
@@ -356,7 +357,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 			return ReadingFinishResult{}, err
 		}
 		if err = q.UpdateReadingCompletionOutcome(ctx, sqlcgen.UpdateReadingCompletionOutcomeParams{
-			Owner: owner, Language: language, Book: expectedBookID,
+			Owner: owner, Language: language, GoalSnapshot: expectedSnapshotID,
 			GraduatedVocabularyCount: graduatedCount, AlreadyKnownVocabularyCount: counts.SnapshotCount - graduatedCount,
 		}); err != nil {
 			return ReadingFinishResult{}, err

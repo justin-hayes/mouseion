@@ -460,12 +460,6 @@ WHERE jm.owner_id = $1
   AND b.language_state = 'chosen'
   AND b.language_tag = $2
   AND lower(s.media_type) = 'application/epub+zip'
-  AND NOT EXISTS (
-    SELECT 1 FROM reading_history h
-    WHERE h.owner_id = jm.owner_id
-      AND h.language = jm.language
-      AND h.book_id = jm.book_id
-  )
 `
 
 type GetPrimaryGoalCandidateIdentityParams struct {
@@ -555,13 +549,13 @@ SELECT owner_id::text, language, book_id::text, completed_at,
 FROM reading_history
 WHERE owner_id = $1
   AND language = $2
-  AND book_id = $3
+  AND goal_snapshot_id = NULLIF($3, '')::uuid
 `
 
 type GetReadingCompletionParams struct {
-	Owner    string
-	Language string
-	Book     string
+	Owner        string
+	Language     string
+	GoalSnapshot interface{}
 }
 
 type GetReadingCompletionRow struct {
@@ -577,7 +571,7 @@ type GetReadingCompletionRow struct {
 }
 
 func (q *Queries) GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error) {
-	row := q.db.QueryRow(ctx, getReadingCompletion, arg.Owner, arg.Language, arg.Book)
+	row := q.db.QueryRow(ctx, getReadingCompletion, arg.Owner, arg.Language, arg.GoalSnapshot)
 	var i GetReadingCompletionRow
 	err := row.Scan(
 		&i.OwnerID,
@@ -821,7 +815,7 @@ VALUES (
     $6, $7,
     $8, $9
 )
-ON CONFLICT (owner_id, language, book_id) DO NOTHING
+ON CONFLICT (owner_id, language, goal_snapshot_id) DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
           snapshot_vocabulary_count, eligible_vocabulary_count,
@@ -1188,12 +1182,6 @@ SELECT EXISTS(
     AND b.language_state = 'chosen'
     AND b.language_tag = $2
     AND lower(s.media_type) = 'application/epub+zip'
-    AND NOT EXISTS (
-      SELECT 1 FROM reading_history h
-      WHERE h.owner_id = jm.owner_id
-        AND h.language = jm.language
-        AND h.book_id = jm.book_id
-    )
 )
 `
 
@@ -1205,28 +1193,6 @@ type PrimaryGoalCandidateEligibleParams struct {
 
 func (q *Queries) PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryGoalCandidateEligibleParams) (bool, error) {
 	row := q.db.QueryRow(ctx, primaryGoalCandidateEligible, arg.Owner, arg.Language, arg.Book)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const readingCompletionExists = `-- name: ReadingCompletionExists :one
-SELECT EXISTS(
-  SELECT 1 FROM reading_history
-  WHERE owner_id = $1
-    AND language = $2
-    AND book_id = $3
-)
-`
-
-type ReadingCompletionExistsParams struct {
-	Owner    string
-	Language string
-	Book     string
-}
-
-func (q *Queries) ReadingCompletionExists(ctx context.Context, arg ReadingCompletionExistsParams) (bool, error) {
-	row := q.db.QueryRow(ctx, readingCompletionExists, arg.Owner, arg.Language, arg.Book)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -1336,7 +1302,7 @@ SET graduated_vocabulary_count = $1,
     already_known_vocabulary_count = $2
 WHERE owner_id = $3
   AND language = $4
-  AND book_id = $5
+  AND goal_snapshot_id = NULLIF($5, '')::uuid
 `
 
 type UpdateReadingCompletionOutcomeParams struct {
@@ -1344,7 +1310,7 @@ type UpdateReadingCompletionOutcomeParams struct {
 	AlreadyKnownVocabularyCount int
 	Owner                       string
 	Language                    string
-	Book                        string
+	GoalSnapshot                interface{}
 }
 
 func (q *Queries) UpdateReadingCompletionOutcome(ctx context.Context, arg UpdateReadingCompletionOutcomeParams) error {
@@ -1353,7 +1319,7 @@ func (q *Queries) UpdateReadingCompletionOutcome(ctx context.Context, arg Update
 		arg.AlreadyKnownVocabularyCount,
 		arg.Owner,
 		arg.Language,
-		arg.Book,
+		arg.GoalSnapshot,
 	)
 	return err
 }

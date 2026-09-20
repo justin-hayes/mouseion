@@ -76,8 +76,8 @@ func fixtureGoalKey(owner, language string) string {
 	return fixtureJourneyKey(owner, language)
 }
 
-func fixtureReadingHistoryKey(owner, language, bookID string) string {
-	return fixtureGoalKey(owner, language) + "\x00" + bookID
+func fixtureReadingHistoryKey(owner, language, snapshotID string) string {
+	return fixtureGoalKey(owner, language) + "\x00" + snapshotID
 }
 
 type Store struct {
@@ -1216,20 +1216,20 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, language, expectedBoo
 
 // RecordReadingFinishedPrimaryGoal records the reading fact and clears the
 // active Goal and Journey membership.
-func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, language, expectedBookID string) (persistence.ReadingFinishResult, error) {
+func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, language, expectedBookID, expectedSnapshotID string) (persistence.ReadingFinishResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
 	key := fixtureGoalKey(owner, language)
 	goal, ok := s.primaryGoals[key]
 	if !ok {
-		completion, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)]
+		completion, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)]
 		if !completed {
 			return persistence.ReadingFinishResult{}, persistence.ErrNotFound
 		}
 		return persistence.ReadingFinishResult{Completion: completion}, nil
 	}
-	if goal.BookID != expectedBookID {
+	if goal.BookID != expectedBookID || goal.SnapshotID != expectedSnapshotID {
 		return persistence.ReadingFinishResult{}, persistence.ErrGoalStale
 	}
 	now := time.Now()
@@ -1254,10 +1254,10 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
 		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount,
 	}
-	if existing, exists := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)]; exists {
+	if existing, exists := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)]; exists {
 		completion = existing
 	} else {
-		s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedBookID)] = completion
+		s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)] = completion
 	}
 	for index := range s.preps {
 		preparation := &s.preps[index]

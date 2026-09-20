@@ -76,6 +76,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 
 func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
+	goal.GoalSnapshotID = "goal-snapshot"
 	first := testJourneyBook("first", "First book", "analyzed")
 	second := testJourneyBook("second", "Second book", "ready")
 	first.Book.Source.MediaType = "application/epub+zip"
@@ -90,6 +91,7 @@ func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(html, `action="/goal/books/first"`), "expected a choose form only for the eligible provisional card: %s", html)
 	assert.False(t, strings.Contains(html, `action="/goal/books/second"`), "expected a choose form only for the eligible provisional card: %s", html)
 	assert.True(t, strings.Contains(html, `name="expected_goal_book_id" value="goal"`), "provisional choose forms did not carry the current Goal: %s", html)
+	assert.True(t, strings.Contains(html, `name="expected_goal_snapshot_id" value="goal-snapshot"`), "finish form did not carry the current Goal snapshot: %s", html)
 	goalStart := strings.Index(html, `id="journey-book-goal"`)
 	goalEnd := strings.Index(html[goalStart:], "</article>")
 	goalCard := html[goalStart : goalStart+goalEnd]
@@ -425,8 +427,10 @@ func journeyCardForecast(t *testing.T, html, bookID string) string {
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
+	goalBefore, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {goalBefore.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
@@ -459,7 +463,7 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	}
 	assert.Equal(t, 2, graduated)
 	repeated := goalRequest(t, h, "/goal/finish", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {goalBefore.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
