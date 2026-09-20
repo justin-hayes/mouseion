@@ -133,6 +133,17 @@ GROUP BY p.id, gv.first_deck_id, gv.first_source_material_id`, matchingOwner.ID,
 	assert.Equal(t, 1, emptyReleased, "ambiguous empty preparation was not released")
 	assert.Equal(t, 1, emptyArtifactCount, "ambiguous empty preparation artifact was deleted")
 
+	// Simulate an installation that ran 000011 and then cleared the synthetic
+	// activity marker before receiving this forward correction.
+	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET goal_snapshot_id=$1, studying_at=NULL, released_at=NULL WHERE owner_id=$2 AND id=$3`, emptySnapshot, emptyOwner.ID, emptyPreparation)
+	require.NoError(t, err)
+	moveApplicationMigrations(t, databaseURL, -1)
+	moveApplicationMigrations(t, databaseURL, 1)
+	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, ''), count(*) FILTER (WHERE released_at IS NOT NULL) FROM deck_preparations WHERE owner_id=$1 AND id=$2 GROUP BY goal_snapshot_id`, emptyOwner.ID, emptyPreparation).Scan(&emptyPreparationSnapshot, &emptyReleased)
+	require.NoError(t, err)
+	assert.Empty(t, emptyPreparationSnapshot, "already-repaired empty preparation remained bound")
+	assert.Equal(t, 1, emptyReleased, "already-repaired empty preparation was not released")
+
 	var emptySnapshotSize int
 	err = pool.QueryRow(ctx, `
 SELECT count(*) FROM primary_goal_snapshot_vocabulary v

@@ -8,6 +8,13 @@
 -- A backup from before migration 000008 is the only recovery posture that can
 -- establish whether one of these rows was genuinely active. The migration is
 -- transactional and idempotent; ambiguous rows are intentionally not adopted.
+-- Ownership and observation belong to the release operator. The expected
+-- impact is zero snapshot-vocabulary rows for each ambiguous empty preparation,
+-- a NULL Goal binding, and a release timestamp while artifacts and provenance
+-- counts remain unchanged. A non-zero migration result or a post-migration
+-- count that violates those expectations is a failure; recovery is restoring
+-- the pre-migration backup and correcting the cause before retrying this
+-- forward migration, not manually editing partially repaired rows.
 WITH ambiguous_empty_preparations AS (
     SELECT DISTINCT
            p.owner_id,
@@ -23,6 +30,9 @@ WITH ambiguous_empty_preparations AS (
       ON g.owner_id = p.owner_id
      AND g.book_id = p.book_id
      AND g.snapshot_id IS NOT NULL
+    JOIN public.primary_goal_snapshots ps
+      ON ps.owner_id = g.owner_id
+     AND ps.id = g.snapshot_id
     WHERE p.state = 'ready'
       AND p.completed_at IS NOT NULL
       AND p.retired_at IS NULL
@@ -34,10 +44,7 @@ WITH ambiguous_empty_preparations AS (
             AND dv.deck_preparation_id = p.id
             AND dv.graduated_at IS NULL
       )
-      AND (
-          p.goal_snapshot_id IS NULL
-          OR p.studying_at IS NOT NULL
-      )
+      AND (p.goal_snapshot_id IS NULL OR p.created_at < ps.created_at)
 ),
 deleted_snapshot_vocabulary AS (
     DELETE FROM public.primary_goal_snapshot_vocabulary v
@@ -54,5 +61,4 @@ SET goal_snapshot_id = NULL,
 FROM ambiguous_empty_preparations ambiguous
 WHERE p.owner_id = ambiguous.owner_id
   AND p.id = ambiguous.preparation_id
-  AND p.goal_snapshot_id IS NOT NULL
-  AND p.studying_at IS NOT NULL;
+  AND p.goal_snapshot_id IS NOT NULL;
