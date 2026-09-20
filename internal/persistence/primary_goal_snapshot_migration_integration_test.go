@@ -22,12 +22,15 @@ func TestPrimaryGoalSnapshotBackfillMigratesLegacyStudies(t *testing.T) {
 	moveApplicationMigrations(t, databaseURL, -4)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
+	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
+	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "snapshot-migration-other", false)
 	require.NoError(t, err)
 	languageOwner, err := store.CreateUser(ctx, "snapshot-migration-language", false)
 	require.NoError(t, err)
 
 	matchingBook, matchingSource, matchingRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "de", "matching")
+	emptyBook, emptySource, emptyRun, emptyCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, emptyOwner.ID, "de", "empty")
 	otherBook, otherSource, otherRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, otherOwner.ID, "de", "other")
 	languageBook, languageSource, languageRun, languageCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, languageOwner.ID, "de", "language")
 	italianBook, _, _, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "it", "italian")
@@ -37,7 +40,10 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
   ($1, 'de', $2),
   ($1, 'it', $3),
   ($4, 'de', $5),
-  ($6, 'de', $7)`, matchingOwner.ID, matchingBook, italianBook, otherOwner.ID, otherBook, languageOwner.ID, languageBook)
+  ($6, 'de', $7),
+  ($8, 'de', $9)`, matchingOwner.ID, matchingBook, italianBook, otherOwner.ID, otherBook, languageOwner.ID, languageBook, emptyOwner.ID, emptyBook)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance) VALUES ($1,$2,'de','must-not-widen','NOUN',5,'[]','[]','{}')`, emptyOwner.ID, emptyCorpus)
 	require.NoError(t, err)
 
 	otherPreparation := insertLegacyPreparation(t, ctx, pool, otherOwner.ID, otherBook, otherSource, otherRun, "other-artifact")
@@ -47,6 +53,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	matchingPreparation := insertLegacyPreparation(t, ctx, pool, matchingOwner.ID, matchingBook, matchingSource, matchingRun, "matching-artifact")
 	insertLegacyGeneratedVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy", "NOUN")
 	insertLegacyPreparationVocabulary(t, ctx, pool, matchingOwner.ID, matchingPreparation, "de", "legacy", "NOUN")
+	emptyPreparation := insertLegacyPreparation(t, ctx, pool, emptyOwner.ID, emptyBook, emptySource, emptyRun, "empty-artifact")
 
 	// This reservation has the right owner, Book, and current source but the
 	// wrong study language, so it must not be adopted by the German Goal.
@@ -93,6 +100,20 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, matchingOwner.ID, matchingP
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, matchingOwner.ID).Scan(&knownCount)
 	require.NoError(t, err)
 	assert.Zero(t, knownCount, "migration graduated vocabulary")
+
+	var emptySnapshot, emptyPreparationSnapshot string
+	err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, emptyOwner.ID).Scan(&emptySnapshot)
+	require.NoError(t, err)
+	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyPreparationSnapshot)
+	require.NoError(t, err)
+	assert.Equal(t, emptySnapshot, emptyPreparationSnapshot, "empty matching preparation was not bound to the Goal snapshot")
+	var emptyOwnerSnapshotSize, emptyReleased int
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, emptyOwner.ID, emptySnapshot).Scan(&emptyOwnerSnapshotSize)
+	require.NoError(t, err)
+	assert.Zero(t, emptyOwnerSnapshotSize, "empty matching preparation was widened from current candidates")
+	err = pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE released_at IS NOT NULL) FROM deck_preparations WHERE owner_id=$1 AND id=$2`, emptyOwner.ID, emptyPreparation).Scan(&emptyReleased)
+	require.NoError(t, err)
+	assert.Zero(t, emptyReleased, "empty matching preparation was released")
 
 	var emptySnapshotSize int
 	err = pool.QueryRow(ctx, `

@@ -292,7 +292,8 @@ SELECT owner_id::text, language, book_id::text, completed_at,
 FROM reading_history
 WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
-  AND goal_snapshot_id = NULLIF(sqlc.arg('goal_snapshot'), '')::uuid;
+  AND book_id = sqlc.arg('book')
+  AND goal_snapshot_id IS NOT DISTINCT FROM NULLIF(sqlc.arg('goal_snapshot'), '')::uuid;
 
 -- name: InsertReadingCompletion :one
 INSERT INTO reading_history(
@@ -300,12 +301,19 @@ INSERT INTO reading_history(
     snapshot_vocabulary_count, eligible_vocabulary_count,
     graduated_vocabulary_count, already_known_vocabulary_count
 )
-VALUES (
-    sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('completed_at'),
-    NULLIF(sqlc.arg('goal_snapshot'), '')::uuid,
-    sqlc.arg('snapshot_vocabulary_count'), sqlc.arg('eligible_vocabulary_count'),
-    sqlc.arg('graduated_vocabulary_count'), sqlc.arg('already_known_vocabulary_count')
-)
+SELECT sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('completed_at'),
+       NULLIF(sqlc.arg('goal_snapshot'), '')::uuid,
+       sqlc.arg('snapshot_vocabulary_count'), sqlc.arg('eligible_vocabulary_count'),
+       sqlc.arg('graduated_vocabulary_count'), sqlc.arg('already_known_vocabulary_count')
+WHERE NULLIF(sqlc.arg('goal_snapshot'), '') IS NOT NULL
+   OR NOT EXISTS (
+       SELECT 1
+       FROM reading_history
+       WHERE owner_id = sqlc.arg('owner')
+         AND language = sqlc.arg('language')
+         AND book_id = sqlc.arg('book')
+         AND goal_snapshot_id IS NULL
+   )
 ON CONFLICT (owner_id, language, goal_snapshot_id) DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,

@@ -88,6 +88,10 @@ func readingCompletionFromValues(ownerID, language, bookID string, completedAt t
 	}
 }
 
+func getReadingCompletion(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID, snapshotID string) (sqlcgen.GetReadingCompletionRow, error) {
+	return q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: bookID, GoalSnapshot: snapshotID})
+}
+
 // CountPrimaryGoalVocabularyToGraduate reports the currently eligible frozen
 // identities. It is deliberately read-only so the confirmation can state the
 // exact modeled consequence before the learner accepts completion.
@@ -299,7 +303,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
-		row, completionErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, GoalSnapshot: expectedSnapshotID})
+		row, completionErr := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
 		if errors.Is(completionErr, pgx.ErrNoRows) {
 			return ReadingFinishResult{}, ErrNotFound
 		}
@@ -336,7 +340,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	})
 	inserted := insertErr == nil
 	if errors.Is(insertErr, pgx.ErrNoRows) {
-		existing, getErr := q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, GoalSnapshot: expectedSnapshotID})
+		existing, getErr := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
 		if getErr != nil {
 			return ReadingFinishResult{}, getErr
 		}
