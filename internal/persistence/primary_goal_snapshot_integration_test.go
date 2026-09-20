@@ -68,14 +68,27 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
-	for _, candidate := range []string{"reisen", "bleiben"} {
+	for _, candidate := range []struct {
+		lemma string
+		upos  string
+	}{
+		{lemma: "reisen", upos: "VERB"},
+		{lemma: "bleiben", upos: "VERB"},
+		{lemma: "exact-known", upos: "NOUN"},
+		{lemma: "state-only", upos: "VERB"},
+		{lemma: "state-mismatch", upos: "VERB"},
+	} {
 		_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
-			OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: candidate, UPOS: "VERB",
+			OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: candidate.lemma, UPOS: candidate.upos,
 			OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
 		})
 		require.NoError(t, err)
 	}
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	_, err = store.PutVocabularyState(ctx, owner.ID, "de", "state-only", "VERB", "known")
+	require.NoError(t, err)
+	_, err = store.PutVocabularyState(ctx, owner.ID, "de", "state-mismatch", "NOUN", "known")
 	require.NoError(t, err)
 	deck, err := store.PutDeck(ctx, owner.ID, "de", "Graduation provenance deck")
 	require.NoError(t, err)
@@ -86,6 +99,11 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "reisen", "")
 	require.NoError(t, err)
+	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "exact-known", "NOUN")
+	require.NoError(t, err)
+	eligibleCount, err := store.CountPrimaryGoalVocabularyToGraduate(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, 2, eligibleCount)
 
 	_, err = store.Pool().Exec(ctx, `
 CREATE FUNCTION test_goal_graduation_failure() RETURNS trigger
@@ -109,14 +127,18 @@ FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, goal.SnapshotID, result.Completion.GoalSnapshotID)
-	assert.Equal(t, 2, result.Completion.SnapshotVocabularyCount)
-	assert.Equal(t, 1, result.Completion.EligibleVocabularyCount)
-	assert.Equal(t, 1, result.Completion.GraduatedVocabularyCount)
-	assert.Equal(t, 1, result.Completion.AlreadyKnownVocabularyCount)
+	assert.Equal(t, 5, result.Completion.SnapshotVocabularyCount)
+	assert.Equal(t, 2, result.Completion.EligibleVocabularyCount)
+	assert.Equal(t, 2, result.Completion.GraduatedVocabularyCount)
+	assert.Equal(t, 3, result.Completion.AlreadyKnownVocabularyCount)
 
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, known, 2)
+	assert.Len(t, known, 4)
+	var stateOnlyKnownCount int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='state-only'`, owner.ID).Scan(&stateOnlyKnownCount)
+	require.NoError(t, err)
+	assert.Zero(t, stateOnlyKnownCount)
 	var completionBook, completionSnapshot, completionAnalysis string
 	var completionAt, generatedAt *string
 	err = store.Pool().QueryRow(ctx, `

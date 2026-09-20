@@ -73,6 +73,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	for _, candidate := range []domain.SelectionCandidate{
 		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
 		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
+		{OwnerID: alice.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "legacy-state", UPOS: "ADJ", OccurrenceCount: 3, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`)},
 	} {
 		_, err = store.PutSelectionCandidate(ctx, candidate)
 		require.NoError(t, err)
@@ -118,6 +119,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	goal, err := store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID)
 	require.NoError(t, err)
+	_, err = store.PutVocabularyState(ctx, alice.ID, "de", "legacy-state", "ADJ", "known")
+	require.NoError(t, err)
 
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
@@ -149,7 +152,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {book.ID}, "expected_goal_snapshot_id": {goal.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
-	for _, want := range []string{"Reading finished", "newly accepted identities were added", "Where next?", "No new Primary Goal has been selected"} {
+	for _, want := range []string{"Reading finished", "2 frozen Reserved identities were currently eligible", "2 newly accepted identities were added", "1 identities were already Known", "Where next?", "No new Primary Goal has been selected"} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
@@ -182,10 +185,10 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
 	completion, err := store.RecordReadingFinishedPrimaryGoal(ctx, alice.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
-	assert.Equal(t, 2, completion.Completion.SnapshotVocabularyCount)
+	assert.Equal(t, 3, completion.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.GraduatedVocabularyCount)
-	assert.Equal(t, 0, completion.Completion.AlreadyKnownVocabularyCount)
+	assert.Equal(t, 1, completion.Completion.AlreadyKnownVocabularyCount)
 	legacyPreparation, err := store.GetDeckPreparation(ctx, alice.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.NotNil(t, legacyPreparation.StudyingAt, "legacy preparation was silently graduated")
