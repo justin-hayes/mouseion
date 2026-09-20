@@ -495,8 +495,9 @@ func TestJourneyReorderingEndpointsAreOwnerScopedAndStaleSafe(t *testing.T) {
 	htmxRecorder := httptest.NewRecorder()
 	h.ServeHTTP(htmxRecorder, request)
 	assert.Equal(t, http.StatusOK, htmxRecorder.Code)
-	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `id="provisional-journey-list"`), "body=%s", htmxRecorder.Body.String())
-	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `aria-live="polite"`), "body=%s", htmxRecorder.Body.String())
+	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `id="provisional-journey-content"`), "body=%s", htmxRecorder.Body.String())
+	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `hx-swap-oob="innerHTML:#provisional-journey-status"`), "body=%s", htmxRecorder.Body.String())
+	assert.True(t, strings.Contains(htmxRecorder.Body.String(), `provisional-journey-status`), "body=%s", htmxRecorder.Body.String())
 	assert.False(t, strings.Contains(htmxRecorder.Body.String(), "<!doctype html>"), "body=%s", htmxRecorder.Body.String())
 
 	journeyPage := perform(t, h, "GET", "/journey", nil, aliceCookies)
