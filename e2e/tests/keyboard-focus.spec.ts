@@ -112,7 +112,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     });
 
     await move.click();
-    await expect(page.locator('#provisional-journey-list')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#provisional-journey-content')).toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('#provisional-journey-status')).toHaveText('Recalculating Reading Journey order...');
     await expect(move).toBeDisabled();
     const duplicatePrevented = await move.locator('xpath=ancestor::form').evaluate((form) => {
@@ -122,7 +122,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     expect(duplicatePrevented).toBeTruthy();
     await expect.poll(() => requests).toBe(1);
     await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
-    await expect(page.locator('#provisional-journey-list')).not.toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#provisional-journey-content')).not.toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
   });
 
