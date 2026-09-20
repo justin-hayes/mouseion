@@ -61,6 +61,8 @@ JOIN public.deck_preparations p
  AND p.source_material_id = ca.source_material_id
  AND p.analysis_run_id = ca.analysis_run_id
  AND p.studying_at IS NOT NULL
+ AND p.released_at IS NULL
+ AND p.retired_at IS NULL
  AND p.graduated_at IS NULL
 JOIN public.deck_preparation_vocabulary dv
   ON dv.owner_id = p.owner_id AND dv.deck_preparation_id = p.id
@@ -81,6 +83,33 @@ WHERE g.snapshot_id IS NOT NULL
         AND existing.upos = dv.upos
   )
 ORDER BY p.owner_id, g.snapshot_id, dv.language, dv.canonical_lemma, dv.upos, p.created_at DESC;
+
+-- Bind adopted legacy preparations to the same frozen snapshot. This is what
+-- makes retries and rerenders reuse the migrated identities instead of
+-- selecting from the current candidate pool.
+UPDATE public.deck_preparations p
+SET goal_snapshot_id = g.snapshot_id, updated_at = now()
+FROM public.primary_goals g
+JOIN public.current_analysis_identity ca
+  ON ca.owner_id = g.owner_id AND ca.book_id = g.book_id
+WHERE p.goal_snapshot_id IS NULL
+  AND p.owner_id = g.owner_id
+  AND p.book_id = g.book_id
+  AND p.source_material_id = ca.source_material_id
+  AND p.analysis_run_id = ca.analysis_run_id
+  AND p.studying_at IS NOT NULL
+  AND p.released_at IS NULL
+  AND p.retired_at IS NULL
+  AND p.graduated_at IS NULL
+  AND g.snapshot_id IS NOT NULL
+  AND EXISTS (
+      SELECT 1
+      FROM public.deck_preparation_vocabulary dv
+      WHERE dv.owner_id = p.owner_id
+        AND dv.deck_preparation_id = p.id
+        AND dv.language = g.language
+        AND dv.graduated_at IS NULL
+  );
 
 -- Active Goals without a matching legacy study still receive the current
 -- recurring-vocabulary snapshot. A matching legacy study intentionally keeps
@@ -113,8 +142,9 @@ WHERE NOT EXISTS (
      AND dv.language = g.language AND dv.graduated_at IS NULL
     WHERE p.owner_id = g.owner_id AND p.book_id = g.book_id
       AND p.source_material_id = ps.source_material_id
-      AND p.analysis_run_id = ps.analysis_run_id
-      AND p.studying_at IS NOT NULL AND p.graduated_at IS NULL
+       AND p.analysis_run_id = ps.analysis_run_id
+       AND p.studying_at IS NOT NULL AND p.released_at IS NULL
+       AND p.retired_at IS NULL AND p.graduated_at IS NULL
 )
   AND sc.occurrence_count >= 3
   AND NOT EXISTS (
