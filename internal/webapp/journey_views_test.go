@@ -42,8 +42,11 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goal.GoalSnapshotSize = 2
+	goal.GoalVocabularyEligible = 1
 	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", GoalSnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
+	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
 	assert.Contains(t, html, "Goal deck preparation")
 	assert.Contains(t, html, "Retry Goal deck")
 	assert.Contains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
@@ -52,6 +55,24 @@ func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	require.GreaterOrEqual(t, goalCardStart, 0)
 	require.Greater(t, goalCardEnd, 0)
 	assert.NotContains(t, html[goalCardStart:goalCardStart+goalCardEnd], "external_translation_consent")
+}
+
+func TestJourneyGoalRendersEmptyReservedVocabularyCount(t *testing.T) {
+	goal := testJourneyBook("empty-goal", "Empty Goal book", "analyzed")
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.")
+	assert.NotContains(t, html, "Deck preparation unavailable")
+	assert.NotContains(t, html, "Retry deck preparation")
+}
+
+func TestJourneyGoalShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
+	goal := testJourneyBook("unavailable-goal", "Unavailable Goal book", "analyzed")
+	goal.GoalSnapshotSize = 2
+	goal.GoalDeckUnavailable = true
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
+	assert.Contains(t, html, "Deck preparation unavailable")
+	assert.Contains(t, html, "Retry deck preparation")
 }
 
 func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
