@@ -18,9 +18,9 @@
 -- The migration runner serializes this transaction with application migration
 -- work. A retry after rollback repeats the same guarded cleanup; duplicate work
 -- is prevented by the legacy preparation/snapshot identity and is harmless.
--- Unbound rows are cleaned only when their preparation predates the snapshot
--- and the source language agrees with the Goal language. Other ambiguous rows
--- are deliberately left alone because their vocabulary source is unknowable.
+-- Unbound rows are deliberately left alone because their vocabulary source is
+-- unknowable; only an exact legacy repair binding can attribute snapshot rows
+-- to this preparation.
 WITH ambiguous_empty_preparations AS (
     SELECT DISTINCT
            p.owner_id,
@@ -54,7 +54,7 @@ WITH ambiguous_empty_preparations AS (
             AND dv.deck_preparation_id = p.id
             AND dv.graduated_at IS NULL
       )
-      AND (p.goal_snapshot_id IS NULL OR p.goal_snapshot_id = g.snapshot_id)
+      AND p.goal_snapshot_id = g.snapshot_id
       AND p.created_at < ps.created_at
 ),
 deleted_snapshot_vocabulary AS (
