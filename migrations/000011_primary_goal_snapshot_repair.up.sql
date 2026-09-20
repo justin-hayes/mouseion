@@ -7,6 +7,8 @@
 -- avoids inventing a language association for an empty preparation. Recovery
 -- is a forward fix from backup if the post-migration counts are unexpected;
 -- the down migration does not recreate deleted widened candidates.
+-- released_at is intentionally not filtered: migration 000008 released these
+-- empty matches before this repair can bind and restore them.
 WITH empty_matches AS (
     SELECT p.owner_id, p.id AS preparation_id, g.snapshot_id
     FROM public.deck_preparations p
