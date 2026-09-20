@@ -237,6 +237,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 		`id="journey-book-fixture-empty"`,
 		`name="expected_revision" value="1"`,
 		`action="/journey/entries/fixture-empty/move-later"`,
+		"Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.",
 	} {
 		assert.True(t, strings.Contains(body, want), "Italian Journey page missing %q: %s", want, body)
 	}
@@ -271,6 +272,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.Code)
 	body = response.Body.String()
 	assert.True(t, strings.Contains(body, "Reading Journey in German") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Journey did not remain isolated after Italian move: %s", body)
+	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
 }
 
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {

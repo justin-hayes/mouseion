@@ -492,6 +492,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	</h3>
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
+		<p class="metadata"><strong>Reserved vocabulary</strong>: <span class="numeric">{ fmt.Sprintf("%d", item.GoalSnapshotSize) }</span> frozen identities.</p>
 	} else {
 		<p>@StatusBadge("Your order", StatusNeutral)</p>
 	}
