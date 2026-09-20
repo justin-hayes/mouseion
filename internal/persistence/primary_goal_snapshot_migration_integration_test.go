@@ -312,7 +312,13 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, activeOwner.ID, activeSnapshotID).Scan(&snapshotVocabularyCount)
 	require.NoError(t, err)
 	assert.Zero(t, snapshotVocabularyCount, "ambiguous active empty preparation widened the Goal snapshot")
-
+	var languageSnapshotVocabularyCount int
+	err = pool.QueryRow(ctx, `
+SELECT count(*) FROM primary_goal_snapshot_vocabulary v
+JOIN primary_goals g ON g.owner_id=v.owner_id AND g.snapshot_id=v.snapshot_id
+WHERE g.owner_id=$1`, languageOwner.ID).Scan(&languageSnapshotVocabularyCount)
+	require.NoError(t, err)
+	assert.Zero(t, languageSnapshotVocabularyCount, "language-isolated empty preparation widened a Goal snapshot")
 }
 
 func insertMigrationAnalysisFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *PostgresStore, owner, language, suffix string) (bookID, sourceID, runID, corpusID string) {

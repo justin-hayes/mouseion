@@ -15,9 +15,12 @@
 -- count that violates those expectations is a failure; recovery is restoring
 -- the pre-migration backup and correcting the cause before retrying this
 -- forward migration, not manually editing partially repaired rows.
--- Unbound ambiguous preparations are deliberately left alone: without the
--- repair binding there is no durable evidence that their snapshot vocabulary
--- came from this preparation rather than from a legitimate Goal selection.
+-- The migration runner serializes this transaction with application migration
+-- work. A retry after rollback repeats the same guarded cleanup; duplicate work
+-- is prevented by the legacy preparation/snapshot identity and is harmless.
+-- Unbound rows are cleaned only when their preparation predates the snapshot
+-- and the source language agrees with the Goal language. Other ambiguous rows
+-- are deliberately left alone because their vocabulary source is unknowable.
 WITH ambiguous_empty_preparations AS (
     SELECT DISTINCT
            p.owner_id,
@@ -29,9 +32,13 @@ WITH ambiguous_empty_preparations AS (
      AND ca.book_id = p.book_id
      AND ca.source_material_id = p.source_material_id
      AND ca.analysis_run_id = p.analysis_run_id
+    JOIN public.source_materials sm
+      ON sm.owner_id = p.owner_id
+     AND sm.id = p.source_material_id
     JOIN public.primary_goals g
       ON g.owner_id = p.owner_id
      AND g.book_id = p.book_id
+     AND g.language = sm.language
      AND g.snapshot_id IS NOT NULL
     JOIN public.primary_goal_snapshots ps
       ON ps.owner_id = g.owner_id
@@ -47,7 +54,6 @@ WITH ambiguous_empty_preparations AS (
             AND dv.deck_preparation_id = p.id
             AND dv.graduated_at IS NULL
       )
-      AND p.goal_snapshot_id IS NOT NULL
       AND p.created_at < ps.created_at
 ),
 deleted_snapshot_vocabulary AS (
