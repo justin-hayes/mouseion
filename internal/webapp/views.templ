@@ -415,9 +415,15 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 						<section class="finish-evidence" aria-labelledby={ "finish-evidence-" + journeyBookID(item.Book) }>
 							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ canonicalBookTitle(item.Book.Book) }</h3>
 							if item.Changed {
-							<p><strong>Before:</strong> { item.BeforeLabel }; current coverage { item.BeforeCurrent }; projected coverage { item.BeforeProjected }.</p>
+								<h4>Before completion</h4>
+								if item.HasBefore {
+									@JourneyForecast(item.Before)
+								} else {
+									<p>Forecast was not previously available.</p>
+								}
 							}
-							<p><strong>Now — { item.AfterLabel }:</strong> current coverage { item.AfterCurrent }; projected coverage { item.AfterProjected }.</p>
+							<h4>Now</h4>
+							@JourneyForecast(item.Book)
 						</section>
 					}
 				}
@@ -575,40 +581,7 @@ templ JourneyEvidence(item journeyBookView, csrf string) {
 			}
 		}
 	}
-	if item.Forecast != nil {
-		<section aria-label="Journey coverage forecast">
-			<p><strong>Current coverage:</strong> { journeyForecastCoverageLabel(item.Forecast.Current) }</p>
-			if item.ForecastHasGoal {
-				<p><strong>After accepting the active Goal:</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
-			} else {
-				<p><strong>After-Goal coverage (no active Goal):</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
-			}
-			<p><strong>On arrival in this order:</strong> { journeyForecastOnArrivalLabel(*item.Forecast) }</p>
-			if item.Forecast.UnavailableReason != "" {
-				<p><strong>Forecast unavailable:</strong> { item.Forecast.UnavailableReason }</p>
-			} else if item.Forecast.LowerBound {
-				<p role="note"><strong>Lower bound:</strong> an earlier Journey book has unavailable evidence, so this on-arrival value excludes any vocabulary it might contribute.</p>
-			}
-		</section>
-	} else if item.ForecastUnavailable {
-		<section aria-label="Journey coverage forecast">
-			<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
-			if item.ForecastHasGoal {
-				<p><strong>After accepting the active Goal:</strong> unavailable</p>
-			} else {
-				<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
-			}
-			<p><strong>On arrival in this order:</strong> unavailable</p>
-		</section>
-	} else {
-		<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
-		if item.ForecastHasGoal {
-			<p><strong>After accepting the active Goal:</strong> unavailable</p>
-		} else {
-			<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
-		}
-		<p><strong>On arrival in this order:</strong> unavailable</p>
-	}
+	@JourneyForecast(item)
 }
 
 func journeyEntryAvailable(item journeyBookView) bool {
@@ -1173,5 +1146,42 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 			}
 		}
 		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>
+	}
+}
+
+templ JourneyForecast(item journeyBookView) {
+	if item.Forecast != nil {
+		<section aria-label="Journey coverage forecast">
+			<p><strong>Current coverage:</strong> { journeyForecastCoverageLabel(item.Forecast.Current) }</p>
+			if item.ForecastHasGoal {
+				<p><strong>After accepting the active Goal:</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
+			} else {
+				<p><strong>After-Goal coverage (no active Goal):</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
+			}
+			<p><strong>On arrival in this order:</strong> { journeyForecastOnArrivalLabel(*item.Forecast) }</p>
+			if item.Forecast.UnavailableReason != "" {
+				<p><strong>Forecast unavailable:</strong> { item.Forecast.UnavailableReason }</p>
+			} else if item.Forecast.LowerBound {
+				<p role="note"><strong>Lower bound:</strong> an earlier Journey book has unavailable evidence, so this on-arrival value excludes any vocabulary it might contribute.</p>
+			}
+		</section>
+	} else if item.ForecastUnavailable {
+		<section aria-label="Journey coverage forecast">
+			<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
+			if item.ForecastHasGoal {
+				<p><strong>After accepting the active Goal:</strong> unavailable</p>
+			} else {
+				<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
+			}
+			<p><strong>On arrival in this order:</strong> unavailable</p>
+		</section>
+	} else {
+		<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
+		if item.ForecastHasGoal {
+			<p><strong>After accepting the active Goal:</strong> unavailable</p>
+		} else {
+			<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
+		}
+		<p><strong>On arrival in this order:</strong> unavailable</p>
 	}
 }

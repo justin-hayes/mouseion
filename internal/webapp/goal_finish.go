@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -16,14 +17,10 @@ type primaryGoalFinisher interface {
 }
 
 type finishEvidenceView struct {
-	Book            journeyBookView
-	BeforeLabel     string
-	BeforeCurrent   string
-	BeforeProjected string
-	AfterLabel      string
-	AfterCurrent    string
-	AfterProjected  string
-	Changed         bool
+	Book      journeyBookView
+	Before    journeyBookView
+	HasBefore bool
+	Changed   bool
 }
 
 type primaryGoalFinishView struct {
@@ -117,25 +114,53 @@ func finishEvidence(before, after journeyPageView) []finishEvidenceView {
 	for _, item := range after.Provisional {
 		beforeItem, hadBefore := beforeByID[journeyBookID(item)]
 		view := finishEvidenceView{
-			Book:           item,
-			AfterLabel:     journeyEvidenceLabel(item),
-			AfterCurrent:   journeyCurrentCoverage(item),
-			AfterProjected: journeyProjectedCoverage(item),
+			Book:      item,
+			HasBefore: hadBefore,
 		}
 		if hadBefore {
-			view.BeforeLabel = journeyEvidenceLabel(beforeItem)
-			view.BeforeCurrent = journeyCurrentCoverage(beforeItem)
-			view.BeforeProjected = journeyProjectedCoverage(beforeItem)
-			view.Changed = view.BeforeLabel != view.AfterLabel || view.BeforeCurrent != view.AfterCurrent || view.BeforeProjected != view.AfterProjected
+			view.Before = beforeItem
+			view.Changed = !sameFinishEvidence(beforeItem, item)
 		} else {
-			view.BeforeLabel = "Not previously available"
-			view.BeforeCurrent = "unavailable"
-			view.BeforeProjected = "unavailable"
+			view.Before = journeyBookView{Book: item.Book, ForecastUnavailable: true}
 			view.Changed = true
 		}
 		evidence = append(evidence, view)
 	}
 	return evidence
+}
+
+func sameFinishEvidence(left, right journeyBookView) bool {
+	return journeyEvidenceLabel(left) == journeyEvidenceLabel(right) &&
+		left.StatisticsUnavailable == right.StatisticsUnavailable &&
+		left.ForecastUnavailable == right.ForecastUnavailable &&
+		left.ForecastHasGoal == right.ForecastHasGoal &&
+		sameJourneyForecastEntry(left.Forecast, right.Forecast) &&
+		sameJourneyCoverage(left.Coverage, right.Coverage)
+}
+
+func sameJourneyForecastEntry(left, right *domain.JourneyForecastEntry) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return sameJourneyForecastCoverage(left.Current, right.Current) &&
+		sameJourneyForecastCoverage(left.AfterGoal, right.AfterGoal) &&
+		sameJourneyForecastCoverage(left.OnArrival, right.OnArrival) &&
+		left.LowerBound == right.LowerBound &&
+		left.UnavailableReason == right.UnavailableReason
+}
+
+func sameJourneyForecastCoverage(left, right *domain.JourneyForecastCoverage) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.KnownTokenCount == right.KnownTokenCount && left.AnalyzableTokenCount == right.AnalyzableTokenCount
+}
+
+func sameJourneyCoverage(left, right *domain.AnalysisCoverage) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.KnownTokenCount == right.KnownTokenCount && left.AnalyzableTokenCount == right.AnalyzableTokenCount
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {

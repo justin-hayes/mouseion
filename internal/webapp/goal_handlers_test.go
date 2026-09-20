@@ -427,6 +427,8 @@ func journeyCardForecast(t *testing.T, html, bookID string) string {
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
 	goalBefore, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
@@ -440,11 +442,17 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 		"Reading Journey recalculated",
 		"Where next?",
 		"No new Primary Goal has been selected",
-		"projected coverage",
+		"After accepting the active Goal:",
+		"Current coverage:",
+		"After-Goal coverage (no active Goal):",
+		"On arrival in this order:",
+		"Forecast unavailable:",
+		"Lower bound:",
 		"Choose another book from Reading Journey",
 	} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
 	}
+	assert.NotContains(t, finished.Body.String(), "projected coverage")
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
@@ -468,6 +476,29 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	assert.Equal(t, http.StatusOK, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
 	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
+}
+
+func TestFinishEvidenceComparesStructuredForecastValues(t *testing.T) {
+	before := journeyPageView{Provisional: []journeyBookView{{
+		BookID: "book",
+		Forecast: &domain.JourneyForecastEntry{
+			Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 3},
+			AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 3},
+			OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 3},
+		},
+	}}}
+	after := journeyPageView{Provisional: []journeyBookView{{
+		BookID: "book",
+		Forecast: &domain.JourneyForecastEntry{
+			Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 6},
+			AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 4, AnalyzableTokenCount: 6},
+			OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 4, AnalyzableTokenCount: 6},
+		},
+	}}}
+
+	evidence := finishEvidence(before, after)
+	require.Len(t, evidence, 1)
+	assert.True(t, evidence[0].Changed, "structured forecast changes must not be hidden by formatted percentage equality")
 }
 
 func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
