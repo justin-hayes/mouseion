@@ -328,6 +328,13 @@ SELECT count(*)::int AS snapshot_count,
              AND kv.language = pv.language
              AND kv.canonical_lemma = pv.canonical_lemma
              AND (kv.upos = pv.upos OR kv.upos = '')
+       ) AND NOT EXISTS (
+           SELECT 1 FROM vocabulary_states vs
+           WHERE vs.owner_id = pv.owner_id
+             AND vs.language = pv.language
+             AND vs.canonical_lemma = pv.canonical_lemma
+             AND vs.upos = pv.upos
+             AND vs.state = 'known'
        ))::int AS eligible_count
 FROM primary_goal_snapshot_vocabulary pv
 WHERE pv.owner_id = sqlc.arg('owner')
@@ -375,6 +382,14 @@ WITH eligible AS (
             AND kv.language = pv.language
             AND kv.canonical_lemma = pv.canonical_lemma
             AND (kv.upos = pv.upos OR kv.upos = '')
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM vocabulary_states vs
+          WHERE vs.owner_id = pv.owner_id
+            AND vs.language = pv.language
+            AND vs.canonical_lemma = pv.canonical_lemma
+            AND vs.upos = pv.upos
+            AND vs.state = 'known'
       )
 ), inserted AS (
     INSERT INTO known_vocabulary(
