@@ -151,22 +151,9 @@ def plural_for(item: dict) -> str:
 
 
 def article_for(language: str, word: str, gender: str, forms: object) -> str:
-    article_values = {
-        "de": {"der", "die", "das"},
-        "it": {"il", "lo", "la", "l'"},
-        "el": {"ο", "η", "το"},
-    }.get(language, set())
-    for form in forms if isinstance(forms, list) else []:
-        if not isinstance(form, dict):
-            continue
-        tags = {tag.casefold() for tag in values(form.get("tags"))}
-        if not tags.intersection({"article", "definite", "definite article"}):
-            continue
-        if "nominative" not in tags or tags.intersection({"plural", "inflected", "inflected form"}):
-            continue
-        value = form.get("form")
-        if isinstance(value, str) and value.strip() and value.casefold().strip() in article_values:
-            return value.casefold().strip()
+    supplied = supplied_article_for(language, forms)
+    if supplied:
+        return supplied
     if language == "de":
         return {"Masc": "der", "Fem": "die", "Neut": "das"}.get(gender, "")
     if language == "el":
@@ -183,6 +170,26 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
     if word.startswith(("z", "x", "y", "gn", "ps", "pn")) or (word.startswith("s") and len(word) > 1 and word[1] not in "aeiouàèéìòóù"):
         return "lo"
     return "il"
+
+
+def supplied_article_for(language: str, forms: object) -> str:
+    article_values = {
+        "de": {"der", "die", "das"},
+        "it": {"il", "lo", "la", "l'"},
+        "el": {"ο", "η", "το"},
+    }.get(language, set())
+    for form in forms if isinstance(forms, list) else []:
+        if not isinstance(form, dict):
+            continue
+        tags = {tag.casefold() for tag in values(form.get("tags"))}
+        if not tags.intersection({"article", "definite", "definite article"}):
+            continue
+        if "nominative" not in tags or tags.intersection({"plural", "inflected", "inflected form"}):
+            continue
+        value = form.get("form")
+        if isinstance(value, str) and value.strip() and value.casefold().strip() in article_values:
+            return value.casefold().strip()
+    return ""
 
 
 def ipa_for(item: dict) -> str:
@@ -210,7 +217,7 @@ def ipa_for(item: dict) -> str:
 
 
 def principal_parts_for(language: str, upos: str, item: dict) -> str:
-    if language != "de" or upos != "VERB":
+    if language == "el" or upos != "VERB":
         return ""
     for template in item.get("head_templates", []):
         if not isinstance(template, dict):
@@ -326,12 +333,21 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                     if sense is None:
                         continue
                     key = (language, lemma, upos)
-                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": "", "principal_parts": ""})
+                    entry = entries.setdefault(key, {"senses": [], "gender": "", "genders": set(), "article": "", "article_from_source": False, "fallback_article": "", "plural": "", "ipa": "", "principal_parts": ""})
                     identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
                     if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
                         entry["senses"].append(sense)
-                    entry["gender"] = entry["gender"] or sense["Gender"]
-                    entry["article"] = entry["article"] or sense["Article"]
+                    if sense["Gender"]:
+                        entry["genders"].add(sense["Gender"])
+                    entry["gender"] = next(iter(entry["genders"])) if len(entry["genders"]) == 1 else ""
+                    source_article = supplied_article_for(language, item.get("forms"))
+                    if source_article:
+                        entry["article"] = source_article
+                        entry["article_from_source"] = True
+                    elif not entry["fallback_article"]:
+                        entry["fallback_article"] = sense["Article"]
+                    if not entry["article_from_source"]:
+                        entry["article"] = entry["fallback_article"] if entry["gender"] else ""
                     entry["plural"] = entry["plural"] or sense["Plural"]
                     entry["ipa"] = entry["ipa"] or ipa_for(item)
                     entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(language, upos, item)

@@ -98,8 +98,8 @@ func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
 }
 
 func TestOrderSensesIgnoresGreekFunctionWords(t *testing.T) {
-	request := LexicalLookupRequest{Language: "el", RepresentativeSentence: "Ο άνθρωπος είναι εδώ.", TargetWord: "άνθρωπος"}
-	senses := []LexicalSense{{Gloss: "primary"}, {Gloss: "the"}}
+	request := LexicalLookupRequest{Language: "el", RepresentativeSentence: "Ο άνθρωπος και εδώ.", TargetWord: "άνθρωπος"}
+	senses := []LexicalSense{{Gloss: "primary"}, {Gloss: "secondary", Topics: []string{"ο", "και"}}}
 
 	ordered := OrderSenses(request, senses)
 	assert.Equal(t, "primary", ordered[0].Gloss)

@@ -121,6 +121,40 @@ def test_ambiguous_gender_does_not_derive_an_article(tmp_path: Path):
     connection.close()
 
 
+def test_valid_nominative_article_wins_across_colliding_source_records(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "colliding.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(item, ensure_ascii=False)
+            for item in [
+                {
+                    "word": "ΟΔΌΣ",
+                    "lang_code": "el",
+                    "pos": "noun",
+                    "tags": ["masculine"],
+                    "senses": [{"glosses": ["road"]}],
+                },
+                {
+                    "word": "οδός",
+                    "lang_code": "el",
+                    "pos": "noun",
+                    "tags": ["feminine"],
+                    "senses": [{"glosses": ["way"]}],
+                    "forms": [{"form": "η", "tags": ["definite", "nominative", "singular"]}],
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT gender, article FROM entries").fetchone() == ("", "η")
+    connection.close()
+
+
 def test_captured_kaikki_forms_fall_back_to_noun_gender(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
