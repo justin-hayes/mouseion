@@ -201,16 +201,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) (workErr err
 }
 
 func normalizeImportLemma(language, rawLemma string) (canonicalization.NormalizedLemma, error) {
-	normalized, err := canonicalization.Normalize(language, rawLemma)
-	if !errors.Is(err, canonicalization.ErrUnsupportedLanguage) {
-		return normalized, err
-	}
-	return canonicalization.NormalizedLemma{
-		RawLemma:       rawLemma,
-		CanonicalLemma: canonicalization.Lemma(rawLemma),
-		ProfileName:    "language-neutral",
-		ProfileVersion: "1",
-	}, nil
+	return canonicalization.Normalize(language, rawLemma)
 }
 
 func (w *Worker) update(ctx context.Context, id int64, owner, state string, fields map[string]any, completed bool) error {

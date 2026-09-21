@@ -176,6 +176,33 @@ def test_german_fixture_keys_match_runtime_lookup_keys(tmp_path: Path):
     assert set(actual) == set(expected.values())
 
 
+def test_modern_greek_keys_use_nfc_casefold_normalization(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "greek.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "word": word,
+                    "lang_code": "el",
+                    "pos": "noun",
+                    "senses": [{"glosses": [word]}],
+                },
+                ensure_ascii=False,
+            )
+            for word in ["ΟΔΟΣ", "οδός", "που\u0301", "που"]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    actual = {lemma for (lemma,) in connection.execute("SELECT lemma FROM entries ORDER BY lemma")}
+    connection.close()
+    assert actual == {"οδοσ", "οδόσ", "πού", "που"}
+
+
 def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
     module = load_script()
     source = tmp_path / "pos.jsonl"

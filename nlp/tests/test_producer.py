@@ -381,6 +381,48 @@ def test_german_separable_verbs_reattach_and_ignore_homographs() -> None:
     assert artifact.normalization_profile.version == "6"
 
 
+def test_modern_greek_canonicalization_matches_identity_contract() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="ΟΔΟΣ οδός οδοσ πού που.",
+                tokens=[
+                    SimpleNamespace(words=[word("ΟΔΟΣ", "ΟΔΟΣ", "NOUN", None, 0, 4)]),
+                    SimpleNamespace(words=[word("οδός", "οδός", "NOUN", None, 5, 9)]),
+                    SimpleNamespace(words=[word("οδοσ", "οδοσ", "NOUN", None, 10, 14)]),
+                    SimpleNamespace(words=[word("πού", "που\u0301", "ADV", None, 15, 18)]),
+                    SimpleNamespace(words=[word("που", "που", "SCONJ", None, 19, 22)]),
+                    SimpleNamespace(words=[word(".", ".", "PUNCT", None, 22, 23)]),
+                ],
+            )
+        ]
+    )
+
+    artifact = Producer(pipeline_factory=lambda _language: lambda _text: result).analyze(
+        result.sentences[0].text, "el"
+    )
+
+    tokens = artifact.sentences[0].tokens
+    assert [token.raw_lemma for token in tokens] == [
+        "ΟΔΟΣ",
+        "οδός",
+        "οδοσ",
+        "που\u0301",
+        "που",
+        ".",
+    ]
+    assert [token.canonical_lemma for token in tokens] == [
+        "οδοσ",
+        "οδόσ",
+        "οδοσ",
+        "πού",
+        "που",
+        ".",
+    ]
+    assert artifact.normalization_profile.name == "modern-greek"
+    assert artifact.normalization_profile.version == "1"
+
+
 def test_normalized_corpus_round_trip() -> None:
     artifact = normalized_corpus_pb2.NormalizedCorpus(
         schema_version="1.1.0",

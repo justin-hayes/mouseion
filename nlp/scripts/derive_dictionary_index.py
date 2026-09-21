@@ -18,7 +18,7 @@ import unicodedata
 from urllib.request import urlopen
 
 
-LANGUAGES = {"de", "it"}
+LANGUAGES = {"de", "it", "el"}
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -108,7 +108,7 @@ def normalize(language: str, value: str) -> str:
         value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().lower().split())
         equivalences = GERMAN_NORMALIZATION_POLICY["equivalences"]
         return GERMAN_V6_EQUIVALENCES.get(value, equivalences.get(value, value))
-    return " ".join(value.strip().casefold().split())
+    return " ".join(unicodedata.normalize("NFC", value.strip()).casefold().split())
 
 
 def values(value: object) -> list[str]:

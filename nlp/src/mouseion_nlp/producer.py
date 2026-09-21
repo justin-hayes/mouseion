@@ -33,6 +33,8 @@ PipelineFactory = Callable[[str], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
 GERMAN_NORMALIZATION_VERSION = "6"
+GREEK_NORMALIZATION_PROFILE = "modern-greek"
+GREEK_NORMALIZATION_VERSION = "1"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
 DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 
@@ -290,6 +292,8 @@ class Producer:
             return self.normalization_profile, self.normalization_version or ""
         if self._is_german(language):
             return GERMAN_NORMALIZATION_PROFILE, GERMAN_NORMALIZATION_VERSION
+        if self._is_greek(language):
+            return GREEK_NORMALIZATION_PROFILE, GREEK_NORMALIZATION_VERSION
         return DEFAULT_NORMALIZATION_PROFILE, DEFAULT_NORMALIZATION_VERSION
 
     @classmethod
@@ -314,9 +318,13 @@ class Producer:
         return language.lower().replace("_", "-").split("-", 1)[0] == "de"
 
     @staticmethod
+    def _is_greek(language: str) -> bool:
+        return language.lower().replace("_", "-").split("-", 1)[0] == "el"
+
+    @staticmethod
     def _canonical_lemma(language: str, lemma: str) -> str:
         if not Producer._is_german(language):
-            return lemma.casefold()
+            return " ".join(unicodedata.normalize("NFC", lemma).casefold().split())
         lowered = lemma.lower()
         return GERMAN_POST_1996_EQUIVALENCES.get(lowered, lowered)
 
