@@ -125,16 +125,17 @@ def tags_for(item: dict, sense: dict) -> list[str]:
 
 
 def gender_for(item: dict, sense: dict) -> str:
+    genders = set()
     candidates = tags_for(item, sense)
     for value in candidates:
         if value.casefold() in GENDERS:
-            return GENDERS[value.casefold()]
+            genders.add(GENDERS[value.casefold()])
     for category in values(item.get("categories")):
         lowered = category.casefold()
         for name, gender in GENDERS.items():
             if name in lowered:
-                return gender
-    return ""
+                genders.add(gender)
+    return next(iter(genders)) if len(genders) == 1 else ""
 
 
 def plural_for(item: dict) -> str:
@@ -153,6 +154,7 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
     article_values = {
         "de": {"der", "die", "das"},
         "it": {"il", "lo", "la", "l'"},
+        "el": {"ο", "η", "το"},
     }.get(language, set())
     for form in forms if isinstance(forms, list) else []:
         if not isinstance(form, dict):
@@ -167,6 +169,8 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
             return value.casefold().strip()
     if language == "de":
         return {"Masc": "der", "Fem": "die", "Neut": "das"}.get(gender, "")
+    if language == "el":
+        return {"Masc": "ο", "Fem": "η", "Neut": "το"}.get(gender, "")
     if language != "it":
         return ""
     word = word.casefold().strip()
@@ -205,8 +209,8 @@ def ipa_for(item: dict) -> str:
     return best
 
 
-def principal_parts_for(upos: str, item: dict) -> str:
-    if upos != "VERB":
+def principal_parts_for(language: str, upos: str, item: dict) -> str:
+    if language != "de" or upos != "VERB":
         return ""
     for template in item.get("head_templates", []):
         if not isinstance(template, dict):
@@ -263,7 +267,11 @@ def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
         "Tags": tags,
         "Phrase": phrase.strip(),
         "Gender": gender_for(item, raw),
-        "Article": article_for(item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")),
+        "Article": article_for(
+            item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")
+        )
+        if upos == "NOUN"
+        else "",
         "Plural": plural_for(item) if upos == "NOUN" else "",
         "IPA": ipa_for(item),
     }
@@ -326,7 +334,7 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                     entry["article"] = entry["article"] or sense["Article"]
                     entry["plural"] = entry["plural"] or sense["Plural"]
                     entry["ipa"] = entry["ipa"] or ipa_for(item)
-                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(upos, item)
+                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(language, upos, item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:

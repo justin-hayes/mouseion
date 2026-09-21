@@ -635,6 +635,9 @@ func nounArticle(language, upos, lemma, morphology string) string {
 	case "it":
 		articles = map[string]string{"masc": "masc", "masculine": "masc", "fem": "fem", "feminine": "fem"}
 		validArticles = map[string]bool{"il": true, "lo": true, "la": true, "l'": true}
+	case "el":
+		articles = map[string]string{"masc": "ο", "masculine": "ο", "fem": "η", "feminine": "η", "neut": "το", "neuter": "το"}
+		validArticles = map[string]bool{"ο": true, "η": true, "το": true}
 	default:
 		return ""
 	}

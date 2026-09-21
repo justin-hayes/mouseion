@@ -254,11 +254,23 @@ var contextStopWords = map[string]struct{}{
 	"a": {}, "ai": {}, "al": {}, "alla": {}, "alle": {}, "agli": {}, "an": {}, "and": {}, "auf": {}, "aus": {}, "auch": {}, "bei": {}, "bin": {}, "bis": {}, "con": {}, "come": {}, "da": {}, "dal": {}, "dalle": {}, "dass": {}, "das": {}, "de": {}, "dei": {}, "degli": {}, "del": {}, "della": {}, "delle": {}, "der": {}, "des": {}, "die": {}, "di": {}, "e": {}, "ein": {}, "eine": {}, "einer": {}, "eines": {}, "el": {}, "en": {}, "er": {}, "es": {}, "è": {}, "for": {}, "from": {}, "gli": {}, "haben": {}, "hat": {}, "he": {}, "i": {}, "ich": {}, "il": {}, "im": {}, "in": {}, "is": {}, "ist": {}, "la": {}, "le": {}, "lo": {}, "ma": {}, "man": {}, "mein": {}, "mit": {}, "nach": {}, "nei": {}, "nel": {}, "nella": {}, "nelle": {}, "nicht": {}, "non": {}, "o": {}, "of": {}, "on": {}, "oder": {}, "per": {}, "she": {}, "si": {}, "sie": {}, "sind": {}, "so": {}, "sono": {}, "su": {}, "sugli": {}, "sui": {}, "sul": {}, "the": {}, "to": {}, "tra": {}, "tu": {}, "und": {}, "un": {}, "una": {}, "uno": {}, "was": {}, "we": {}, "wie": {}, "wir": {}, "with": {}, "wo": {}, "wird": {}, "zu": {},
 }
 
+var greekContextStopWords = map[string]struct{}{
+	"από": {}, "απο": {}, "αν": {}, "αλλά": {}, "αλλα": {}, "για": {}, "η": {}, "ή": {},
+	"και": {}, "κατά": {}, "με": {}, "μη": {}, "μην": {}, "να": {}, "ο": {}, "οι": {},
+	"σε": {}, "στα": {}, "στο": {}, "στη": {}, "στην": {}, "στις": {}, "στους": {}, "τα": {},
+	"τη": {}, "την": {}, "τις": {}, "το": {}, "του": {}, "των": {}, "τον": {}, "τους": {},
+	"θα": {}, "που": {}, "πως": {}, "δεν": {},
+}
+
 func isContextWord(word string) bool {
 	if word == "" {
 		return false
 	}
 	_, stop := contextStopWords[word]
+	if stop {
+		return false
+	}
+	_, stop = greekContextStopWords[word]
 	return !stop
 }
 

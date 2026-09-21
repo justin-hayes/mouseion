@@ -657,6 +657,12 @@ func TestMakeNoteDerivesNounArticleFromMorphology(t *testing.T) {
 		{name: "Italian masculine vowel", language: "it", sentence: "Uomo, vieni ancora qui oggi.", target: "uomo", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "l&#39;", wantLemma: "uomo"},
 		{name: "Italian feminine vowel", language: "it", sentence: "Amica, vieni ancora qui oggi.", target: "amica", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantArticle: "l&#39;", wantLemma: "amica"},
 		{name: "Italian language tag with region", language: "it-IT", sentence: "La casa è ancora molto grande oggi.", target: "casa", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantArticle: "la", wantLemma: "casa"},
+		{name: "Greek masculine", language: "el", sentence: "Ο άνθρωπος διαβάζει σήμερα.", target: "άνθρωπος", morphology: `{"Gender":"Masc","Number":"Sing"}`, wantArticle: "ο", wantLemma: "άνθρωπος"},
+		{name: "Greek feminine", language: "el", sentence: "Η πόλη είναι μεγάλη.", target: "πόλη", morphology: `{"Gender":"Fem","Number":"Sing"}`, wantArticle: "η", wantLemma: "πόλη"},
+		{name: "Greek neuter", language: "el", sentence: "Το σπίτι είναι παλιό.", target: "σπίτι", morphology: `{"Gender":"Neut","Number":"Sing"}`, wantArticle: "το", wantLemma: "σπίτι"},
+		{name: "Greek valid dictionary article wins", language: "el", sentence: "Ο δρόμος είναι μακρύς.", target: "δρόμος", morphology: `{"Gender":"Fem","Article":"ο","Number":"Sing"}`, wantArticle: "ο", wantLemma: "δρόμος"},
+		{name: "Greek invalid gender", language: "el", sentence: "Το σπίτι είναι παλιό.", target: "σπίτι", morphology: `{"Gender":"Common","Number":"Sing"}`, wantLemma: "σπίτι"},
+		{name: "Greek ambiguous gender variants", language: "el", sentence: "Το σπίτι είναι παλιό.", target: "σπίτι", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Masc","Number":"Sing"}]`, wantLemma: "σπίτι"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			lemma := test.lemma
@@ -669,6 +675,15 @@ func TestMakeNoteDerivesNounArticleFromMorphology(t *testing.T) {
 			assert.Equal(t, test.wantLemma, note.Lemma)
 		})
 	}
+}
+
+func TestMakeNoteDoesNotAddGreekArticleToNonNoun(t *testing.T) {
+	note, err := makeNote("alice", renderInputFromEntry(Entry{
+		Language: "el", CanonicalLemma: "είμαι", UPOS: "VERB", Sentence: "Είμαι εδώ.", TargetWord: "Είμαι",
+		Morphology: `{"Gender":"Masc","Number":"Sing"}`,
+	}))
+	require.NoError(t, err)
+	assert.Empty(t, note.Article)
 }
 
 func TestMakeNoteJoinsItalianElidedArticleWithoutSpace(t *testing.T) {
