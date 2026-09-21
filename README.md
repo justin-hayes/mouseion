@@ -38,6 +38,11 @@ make test
 make lint
 ```
 
+Database-backed integration tests always execute rather than using Go's test
+result cache. Use either `make test-integration` for the full internal package
+scope or `make test-integration-shared` for the shared-database runner. Ordinary
+unit-test commands such as `go test ./...` retain Go's normal caching behavior.
+
 `make dev` starts the Go web server, which connects to PostgreSQL (required,
 `MOUSEION_DATABASE_URL`) and the Python NLP gRPC service (required for analysis,
 `MOUSEION_NLP_ADDR`, default `localhost:50051`). PostgreSQL schema changes live

@@ -279,7 +279,7 @@ jobs:
         if: |
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.go == 'true'
-        run: go test -tags=integration ./internal/persistence ./internal/prepareddeck ./internal/webapp
+        run: go test -count=1 -tags=integration ./internal/persistence ./internal/prepareddeck ./internal/webapp
 
   browser-smoke:
     name: Browser smoke
