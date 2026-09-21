@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.1.0",
+  "language": "el",
+  "sentences": [
+    {
+      "text": "ΣΤΟ σπίτι ο Νίκος διαβάζει ιστορίες.",
+      "tokens": [
+        {"surface":"σε","raw_lemma":"σε","pos":"ADP","canonical_lemma":"σε","dependency":"case","head":2,"location":{"source_document_id":"greek-book","end_offset":"3"}},
+        {"surface":"το","raw_lemma":"ο","pos":"DET","canonical_lemma":"ο","dependency":"det","head":2,"morphology":{"Case":"Acc","Gender":"Neut","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"greek-book","end_offset":"3"}},
+        {"surface":"σπίτι","raw_lemma":"σπίτι","pos":"NOUN","canonical_lemma":"σπίτι","dependency":"nsubj","head":5,"morphology":{"Case":"Acc","Gender":"Neut","Number":"Sing"},"location":{"source_document_id":"greek-book","start_offset":"4","end_offset":"9"}},
+        {"surface":"ο","raw_lemma":"ο","pos":"DET","canonical_lemma":"ο","dependency":"det","head":4,"morphology":{"Case":"Nom","Gender":"Masc","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"greek-book","start_offset":"10","end_offset":"11"}},
+        {"surface":"Νίκος","raw_lemma":"Νίκος","pos":"PROPN","canonical_lemma":"νίκοσ","dependency":"nsubj","head":5,"morphology":{"Case":"Nom","Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"greek-book","start_offset":"12","end_offset":"17"}},
+        {"surface":"διαβάζει","raw_lemma":"διαβάζω","pos":"VERB","canonical_lemma":"διαβάζω","dependency":"root","head":5,"morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"greek-book","start_offset":"18","end_offset":"26"}},
+        {"surface":"ιστορίες","raw_lemma":"ιστορία","pos":"NOUN","canonical_lemma":"ιστορία","dependency":"obj","head":5,"morphology":{"Case":"Acc","Gender":"Fem","Number":"Plur"},"location":{"source_document_id":"greek-book","start_offset":"27","end_offset":"35"}},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","dependency":"punct","head":5,"location":{"source_document_id":"greek-book","start_offset":"35","end_offset":"36"}}
+      ],
+      "location":{"source_document_id":"greek-book","end_offset":"36"}
+    },
+    {
+      "text":"Οι φίλοι επιστρέφουν στην πλατεία, ενώ ο ΚΟΣΜΟΣ γελά.",
+      "tokens":[
+        {"surface":"Οι","raw_lemma":"ο","pos":"DET","canonical_lemma":"ο","dependency":"det","head":1,"morphology":{"Case":"Nom","Gender":"Masc","Number":"Plur","PronType":"Art"},"location":{"source_document_id":"greek-book","start_offset":"37","end_offset":"39"}},
+        {"surface":"φίλοι","raw_lemma":"φίλος","pos":"NOUN","canonical_lemma":"φίλοσ","dependency":"nsubj","head":2,"morphology":{"Case":"Nom","Gender":"Masc","Number":"Plur"},"location":{"source_document_id":"greek-book","start_offset":"40","end_offset":"45"}},
+        {"surface":"επιστρέφουν","raw_lemma":"επιστρέφω","pos":"VERB","canonical_lemma":"επιστρέφω","dependency":"root","head":2,"morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Plur","VerbForm":"Fin"},"location":{"source_document_id":"greek-book","start_offset":"46","end_offset":"57"}},
+        {"surface":"σε","raw_lemma":"σε","pos":"ADP","canonical_lemma":"σε","dependency":"case","head":5,"location":{"source_document_id":"greek-book","start_offset":"58","end_offset":"62"}},
+        {"surface":"την","raw_lemma":"ο","pos":"DET","canonical_lemma":"ο","dependency":"det","head":5,"morphology":{"Case":"Acc","Gender":"Fem","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"greek-book","start_offset":"58","end_offset":"62"}},
+        {"surface":"πλατεία","raw_lemma":"πλατεία","pos":"NOUN","canonical_lemma":"πλατεία","dependency":"obl","head":2,"morphology":{"Case":"Acc","Gender":"Fem","Number":"Sing"},"location":{"source_document_id":"greek-book","start_offset":"63","end_offset":"70"}},
+        {"surface":",","raw_lemma":",","pos":"PUNCT","canonical_lemma":",","dependency":"punct","head":2,"location":{"source_document_id":"greek-book","start_offset":"70","end_offset":"71"}},
+        {"surface":"ενώ","raw_lemma":"ενώ","pos":"SCONJ","canonical_lemma":"ενώ","dependency":"mark","head":2,"location":{"source_document_id":"greek-book","start_offset":"72","end_offset":"75"}},
+        {"surface":"ο","raw_lemma":"ο","pos":"DET","canonical_lemma":"ο","dependency":"det","head":9,"morphology":{"Case":"Nom","Gender":"Masc","Number":"Sing","PronType":"Art"},"location":{"source_document_id":"greek-book","start_offset":"76","end_offset":"77"}},
+        {"surface":"ΚΟΣΜΟΣ","raw_lemma":"κόσμος","pos":"NOUN","canonical_lemma":"κόσμοσ","dependency":"nsubj","head":10,"morphology":{"Case":"Nom","Gender":"Masc","Number":"Sing"},"location":{"source_document_id":"greek-book","start_offset":"78","end_offset":"84"}},
+        {"surface":"γελά","raw_lemma":"γελάω","pos":"VERB","canonical_lemma":"γελάω","dependency":"root","head":10,"morphology":{"Tense":"Pres","Mood":"Ind","Person":"3","Number":"Sing","VerbForm":"Fin"},"location":{"source_document_id":"greek-book","start_offset":"85","end_offset":"89"}},
+        {"surface":".","raw_lemma":".","pos":"PUNCT","canonical_lemma":".","dependency":"punct","head":10,"location":{"source_document_id":"greek-book","start_offset":"89","end_offset":"90"}}
+      ],
+      "location":{"source_document_id":"greek-book","start_offset":"37","end_offset":"90"}
+    }
+  ],
+  "source_documents":[{"id":"greek-book","source_identifier":"fixture:greek","title":"Greek fixture"}],
+  "analysis":{"run_id":"greek-regression","analyzed_at":"2026-08-25T00:00:00Z","analyzer_name":"stanza","analyzer_version":"1.14.0"},
+  "normalization_profile":{"name":"modern-greek","version":"1"}
+}

@@ -42,7 +42,7 @@ language for import.
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
 - [EPUB Analysis Scope — Phase 1](features/epub-analysis-scope.md) — preserves ordered EPUB units, stable identity, provenance, and navigation data for analysis.
 - [Main text selection](features/main-text-selection.md) — derives the analyzed main-text run from declared EPUB structure with a whole-snapshot fallback.
-- [Language Support](features/language-support.md) — capability-driven German and Italian analysis, deployment, and end-to-end validation.
+- [Language Support](features/language-support.md) — capability-driven German, Italian, and Modern Greek analysis, deployment, and end-to-end validation.
 - [Catalog Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogs with lazy content acquisition.
 - [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
 - [Language Mode](features/language-mode.md) — the active study language scopes the shell, My Books, Reading Journey, and Vocabulary.
@@ -56,7 +56,7 @@ language for import.
 - [Dependency Parse Foundation](features/dependency-parse-foundation.md) — persists each token's dependency relation and head at analysis time and extends the concordance query layer with grammar-aware role and dependents queries; the data prerequisite for deterministic sentence-quality scoring.
 - [German separable-verb lemmatization](features/separable-verb-lemmatization.md) — reattaches German separable particles to verb lemmas in the NLP producer so vocabulary identity is the full lexeme, and excludes particles from content-word candidates.
 - [Sentence-quality scoring](features/sentence-quality-scoring.md) — a deterministic GDEX-informed rubric computed at export time over the persisted corpus: a finite-verb-and-subject knock-out plus gradual ranking (subordinate-clause placement, deixis, entity density, length).
-- [Dictionary gloss and morphology enrichment](features/dictionary-gloss-enrichment.md) — a built-in dictionary provider over a build-time-derived SQLite index (Wiktextract/Kaikki) supplying consent-free, deterministic English glosses and morphology (article, gender, plural) for German and Italian.
+- [Dictionary gloss and morphology enrichment](features/dictionary-gloss-enrichment.md) — a built-in dictionary provider over a build-time-derived SQLite index (Wiktextract/Kaikki) supplying consent-free, deterministic English glosses and morphology (article, gender, plural) for German, Italian, and Modern Greek.
 
 Retired feature records are preserved under [`doc/archive/features/`](archive/features/).
 

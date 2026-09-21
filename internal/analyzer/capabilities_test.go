@@ -54,6 +54,32 @@ func TestCachedCapabilityProviderReturnsInitialFailure(t *testing.T) {
 	assert.ErrorIs(t, err, want)
 }
 
+func TestCachedCapabilityProviderPreservesReadyGreekLabelsWhenDiscoveryFails(t *testing.T) {
+	calls := 0
+	provider := NewCachedCapabilityProvider(capabilityProviderFunc(func(context.Context) (Capabilities, error) {
+		calls++
+		if calls > 1 {
+			return Capabilities{}, errors.New("Greek model unavailable")
+		}
+		return Capabilities{Languages: []LanguageCapability{
+			{Language: "de", DisplayName: "German", Ready: true},
+			{Language: "it", DisplayName: "Italian", Ready: true},
+			{Language: "el", DisplayName: "Greek", Ready: true},
+		}}, nil
+	}), time.Minute)
+	now := time.Date(2026, 8, 24, 0, 0, 0, 0, time.UTC)
+	provider.now = func() time.Time { return now }
+	first, err := provider.GetCapabilities(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "Greek", first.Languages[2].DisplayName)
+	now = now.Add(2 * time.Minute)
+	stale, err := provider.GetCapabilities(context.Background())
+	require.NoError(t, err)
+	assert.True(t, stale.Degraded)
+	require.Len(t, stale.Languages, 3)
+	assert.Equal(t, []string{"de", "it", "el"}, []string{stale.Languages[0].Language, stale.Languages[1].Language, stale.Languages[2].Language})
+}
+
 func TestCachedCapabilityProviderSharesInFlightLookup(t *testing.T) {
 	var calls atomic.Int32
 	lookupStarted := make(chan struct{})

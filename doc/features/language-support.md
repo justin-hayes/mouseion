@@ -45,6 +45,35 @@ and export regressions. Language columns and identities are general text values;
 the persistence schema contains no German-only constraint, so Italian requires
 no database migration.
 
+## Greek vertical
+
+The deterministic Greek regression fixture proves the same learner loop for
+Modern Greek (`el`):
+
+1. capability discovery exposes a warmed Greek pipeline as **Greek**;
+2. catalogue sync admits offered Greek Books from capability identity, without
+   an application language allowlist;
+3. chosen Greek Books derive Greek as a study language and can be selected as
+   the active study-language context;
+4. the normalized-corpus boundary preserves accents, capitalization, final
+   sigma, `στο`/`στην` multiword-token expansion, noun gender, inflected verbs,
+   and dependency heads;
+5. selection and coverage aggregate the shared Greek canonical lemma identity
+   while keeping Known, Generated, and Reserved vocabulary owner- and
+   language-scoped;
+6. representative sentences use the generic quality rubric. German GDEX
+   resources are intentionally not applied to Greek;
+7. prepared decks remain separate from Known vocabulary and use
+   `Mouseion::el::<book title>` with the `lang::el` tag. Greek dictionary
+   articles, glosses, plurals, and IPA are rendered through the frozen card
+   contract.
+
+The Greek contract deliberately does not add a language enum, persistence table,
+or Greek-specific workflow state. Principal-part extraction remains Germanic,
+and Greek sentence quality remains on the generic path until language-specific
+resources are justified. If Greek warmup fails, cached/stored labels remain
+legible and ready German and Italian capabilities remain available.
+
 ## Model cache and deployment
 
 `MOUSEION_NLP_WARM_LANGUAGES` selects which Stanza pipelines to provision, load,

@@ -40,6 +40,7 @@ func (f *fakeReader) Languages(context.Context, string, string) (opds.Feed, erro
 		{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/7"}}},
 		{Title: "English", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/8"}}},
 		{Title: "Italian", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/9"}}},
+		{Title: "Greek", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/11"}}},
 		{Title: "French", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/opds/language/10"}}},
 	}}, nil
 }
@@ -79,6 +80,8 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.PutSupportedLanguage(ctx, "it", "Italian")
 	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "el", "Greek")
+	require.NoError(t, err)
 	_, err = store.PutSupportedLanguage(ctx, "fr", "French")
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://catalog.example/opds", Password: "catalog-secret"})
@@ -87,14 +90,15 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		"7":  {Entries: []opds.Entry{testEntry("entry-1", "First title")}},
 		"8":  {Entries: []opds.Entry{testEntry("english-entry", "Do not sync")}},
 		"9":  {Entries: []opds.Entry{testEntry("italian-entry", "Not ready")}},
+		"11": {Entries: []opds.Entry{testEntry("greek-entry", "Greek title")}},
 		"10": {Entries: []opds.Entry{testEntry("french-entry", "French title")}},
 	}}
-	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
+	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "el", DisplayName: "Greek", Ready: true}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: alice.ID, ConnectionID: connection.ID}}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err := store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
-	assert.Len(t, books, 2)
+	assert.Len(t, books, 3)
 	tags := make(map[string]string, len(books))
 	for _, book := range books {
 		tags[book.Title] = book.LanguageTag
@@ -102,6 +106,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		assert.Equal(t, domain.MetadataProvenanceCatalogueSync, book.MetadataProvenance, "first sync book=%+v", book)
 	}
 	assert.Equal(t, "de", tags["First title"])
+	assert.Equal(t, "el", tags["Greek title"])
 	assert.Equal(t, "fr", tags["French title"])
 	var journeyBookID string
 	for _, book := range books {
@@ -115,15 +120,16 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision)
 	require.NoError(t, err)
-	require.Len(t, reader.visited, 2)
+	require.Len(t, reader.visited, 3)
 	assert.Equal(t, "7", reader.visited[0])
-	assert.Equal(t, "10", reader.visited[1])
+	assert.Equal(t, "11", reader.visited[1])
+	assert.Equal(t, "10", reader.visited[2])
 	status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.CatalogueSyncSynced, status.State)
 	assert.NotNil(t, status.LastSyncedAt)
 	assert.Equal(t, "", status.LastError)
-	assert.Equal(t, 2, status.LastUpsertedCount)
+	assert.Equal(t, 3, status.LastUpsertedCount)
 	require.NoError(t, worker.Work(ctx, job))
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
@@ -132,12 +138,13 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
-	assert.Len(t, books, 2)
+	assert.Len(t, books, 3)
 	updatedTitles := make(map[string]string, len(books))
 	for _, book := range books {
 		updatedTitles[book.Title] = book.LanguageTag
 	}
 	assert.Equal(t, "de", updatedTitles["Updated title"])
+	assert.Equal(t, "el", updatedTitles["Greek title"])
 	assert.Equal(t, "fr", updatedTitles["French title"])
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
@@ -154,13 +161,13 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, alice.ID).Scan(&memberships)
 	require.NoError(t, err)
-	assert.Equal(t, 2, aliases)
-	assert.Equal(t, 2, memberships)
+	assert.Equal(t, 3, aliases)
+	assert.Equal(t, 3, memberships)
 	reader.feeds["7"] = opds.Feed{}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
-	assert.Len(t, books, 2)
+	assert.Len(t, books, 3)
 	require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}))
 	bobBooks, listErr := store.ListMyBooks(ctx, bob.ID)
 	require.NoError(t, listErr)

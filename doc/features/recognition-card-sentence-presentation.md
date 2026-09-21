@@ -2,9 +2,9 @@
 
 ## Product contract
 
-Mouseion generates **recognition cards**. The complete selected German source
-sentence appears on the front, and the word under test is bolded. The word is
-not hidden behind an Anki cloze deletion.
+Mouseion generates **recognition cards**. The complete selected source sentence
+(German, Italian, or Modern Greek) appears on the front, and the word under test
+is bolded. The word is not hidden behind an Anki cloze deletion.
 
 Long sentences are handled by deterministic quality policy and presentation:
 
@@ -52,7 +52,7 @@ The noun morphology renders in the headword line as
 `Article Lemma (Pl. Plural) · POS`:
 
 - `Article` is the noun's nominative definite article (`der`/`die`/`das`;
-  `il`/`lo`/`la`/`l'`), or empty when the dictionary gives no unambiguous
+  `il`/`lo`/`la`/`l'`; or Greek `ο`/`η`/`το`), or empty when the dictionary gives no unambiguous
   article. A derived value that is not a genuine article is ignored and the
   gender fallback applies.
 - `Plural` is the noun's dictionary plural, rendered beside the singular it
@@ -72,8 +72,8 @@ only when the index supplies it:
   discarded). It self-suppresses when the index has no usable pronunciation.
 - `PrincipalParts` shows a verb's inflectional forms beside the infinitive
   headword: third-person singular present, preterite, and past participle
-  (`geht · ging · gegangen`). It is German-first; the extraction is
-  language-agnostic so Italian can follow as a data-only change. It
+  (`geht · ging · gegangen`). It remains German-first; Greek principal parts are
+  deliberately absent because the Germanic extractor does not apply. It
   self-suppresses when no forms are available. Auxiliary and mood are out of
   scope.
 

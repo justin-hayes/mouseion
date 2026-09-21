@@ -72,7 +72,7 @@ See ADR 0038 and ADR 0070. Rules an agent will otherwise get wrong:
 - Conventional Commits: `type(scope): imperative summary`.
 - Never commit directly to `main`; work on a feature branch and open a PR referencing the issue.
 - Local learner accounts: first sign-in on a fresh install creates the account; there is no admin role and no public-registration setting (ADR 0017/0024).
-- NLP language availability is discovered from the running service (capabilities), not a web-app allowlist. Deployment-supported languages are `de` and `it`; `make dev` default is `de` only.
+- NLP language availability is discovered from the running service (capabilities), not a web-app allowlist. Deployment-supported languages are `de`, `it`, and `el`; `make dev` default is `de` only.
 - App is meant to be reachable only over the tailnet (plain HTTP, ADR 0009); `MOUSEION_COOKIE_SECURE` only if serving HTTPS.
 - Generated decks and known vocabulary are deliberately separate — generating cards never marks vocabulary as known (ADR 0036).
 

@@ -19,6 +19,7 @@ func ReadyDepparseCapabilityProvider() CapabilityProvider {
 	return CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
 		{Language: "de", SupportedFeatures: []string{analyzer.FeatureDepparse}, Ready: true},
 		{Language: "it", SupportedFeatures: []string{analyzer.FeatureDepparse}, Ready: true},
+		{Language: "el", DisplayName: "Greek", SupportedFeatures: []string{analyzer.FeatureDepparse}, Ready: true},
 	}}}
 }
 

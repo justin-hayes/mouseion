@@ -285,12 +285,15 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.PutSupportedLanguage(ctx, "de", "German")
 	require.NoError(t, err)
+	_, err = store.PutSupportedLanguage(ctx, "el", "Greek")
+	require.NoError(t, err)
 	inputs := []struct {
 		title, language string
 		state           string
 	}{
 		{title: "German one", language: "DE_de", state: domain.LanguageChosen},
 		{title: "German two", language: "de-DE", state: domain.LanguageChosen},
+		{title: "Greek", language: "el", state: domain.LanguageChosen},
 		{title: "Fallback", language: "PT_br", state: domain.LanguageChosen},
 		{title: "Unknown", state: domain.LanguageUnknown},
 	}
@@ -315,9 +318,15 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 
 	languages, err := store.ListStudyLanguages(ctx, alice.ID)
 	require.NoError(t, err)
-	require.Len(t, languages, 2)
+	require.Len(t, languages, 3)
 	assert.Equal(t, domain.StudyLanguage{Language: "de", DisplayName: "German"}, languages[0])
-	assert.Equal(t, domain.StudyLanguage{Language: "pt", DisplayName: "pt"}, languages[1])
+	assert.Equal(t, domain.StudyLanguage{Language: "el", DisplayName: "Greek"}, languages[1])
+	assert.Equal(t, domain.StudyLanguage{Language: "pt", DisplayName: "pt"}, languages[2])
+	err = store.SetActiveStudyLanguage(ctx, alice.ID, "el")
+	require.NoError(t, err)
+	active, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "el", active)
 }
 
 func insertLegacySource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, language, identifier, title string, content []byte) string {

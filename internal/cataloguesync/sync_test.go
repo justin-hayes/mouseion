@@ -19,21 +19,25 @@ func TestEligibleLanguagesUsesReadyCatalogueLanguagesAndExcludesEnglish(t *testi
 	languages := opds.Feed{Entries: []opds.Entry{
 		{Title: "de", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/7"}}},
 		{Title: "English", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/8"}}},
+		{Title: "Greek", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/11"}}},
 		{Title: "French", Links: []opds.Link{{Rel: "subsection", Href: "https://catalog.example/language/10"}}},
 	}}
 	capabilities := analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
 		{Language: "de-DE", DisplayName: "German", Ready: true},
 		{Language: "en", DisplayName: "English", Ready: true},
 		{Language: "it", Ready: false},
+		{Language: "el", DisplayName: "Greek", Ready: true},
 		{Language: "fr", DisplayName: "French", Ready: true},
 		{Language: "es", DisplayName: "Spanish", Ready: true},
 	}}
 	got := eligibleLanguages(languages, capabilities)
-	require.Len(t, got, 2)
+	require.Len(t, got, 3)
 	assert.Equal(t, "de-DE", got[0].capability.Language)
 	assert.Equal(t, "7", got[0].languageID)
-	assert.Equal(t, "fr", got[1].capability.Language)
-	assert.Equal(t, "10", got[1].languageID)
+	assert.Equal(t, "el", got[1].capability.Language)
+	assert.Equal(t, "11", got[1].languageID)
+	assert.Equal(t, "fr", got[2].capability.Language)
+	assert.Equal(t, "10", got[2].languageID)
 }
 
 func TestSyncArgsNeverSerializeCredentials(t *testing.T) {

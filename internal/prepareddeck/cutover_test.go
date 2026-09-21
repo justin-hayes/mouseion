@@ -199,6 +199,44 @@ func TestInputAssemblerSelectsRecurringUnknownVocabularyFromFacts(t *testing.T) 
 	assert.Equal(t, []string{"keep", "generated"}, []string{store.requested[0].CanonicalLemma, store.requested[1].CanonicalLemma})
 }
 
+func TestGreekInputAssemblerLeavesKnownVocabularyUnchangedUntilGraduation(t *testing.T) {
+	projection := cutoverProjection()
+	projection.Candidate.Language = "el"
+	projection.Candidate.CanonicalLemma = "σπίτι"
+	projection.Candidate.ObservedForms = []byte(`["σπίτι"]`)
+	projection.Entry.Language = "el"
+	projection.Entry.CanonicalLemma = "σπίτι"
+	projection.Entry.SourceDocument = "Το σπίτι"
+	projection.Sentences = map[int64]analyzer.Sentence{0: {Text: "Το σπίτι είναι μεγάλο.", Tokens: []analyzer.Token{{Surface: "Το", UPOS: "DET"}, {Surface: "σπίτι", UPOS: "NOUN"}, {Surface: "είναι", UPOS: "VERB"}, {Surface: "μεγάλο", UPOS: "ADJ"}}}}
+
+	makeFact := func(lemma string, occurrences int) persistence.PreparedDeckCandidateFacts {
+		candidate := projection.Candidate
+		candidate.CanonicalLemma = lemma
+		candidate.OccurrenceCount = occurrences
+		entry := projection.Entry
+		entry.CanonicalLemma = lemma
+		return persistence.PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: projection.Sentences}
+	}
+	otherBook := "other-greek-book"
+	facts := persistence.PreparedDeckInputFacts{
+		DeckName:  "Mouseion::el::Το σπίτι",
+		Known:     []domain.KnownVocabulary{{Language: "el", CanonicalLemma: "γνωστό", UPOS: "NOUN"}},
+		Generated: []domain.GeneratedVocabulary{{Language: "el", CanonicalLemma: "παλιό", UPOS: "ADJ", FirstSourceMaterialID: &otherBook}},
+		Reserved:  []domain.DeckPreparationVocabulary{{Language: "el", CanonicalLemma: "δεσμευμένο", UPOS: "NOUN"}},
+	}
+	store := inputFactsStore{facts: facts, candidateFacts: []persistence.PreparedDeckCandidateFacts{
+		makeFact("σπίτι", 3), makeFact("γνωστό", 5), makeFact("παλιό", 5), makeFact("δεσμευμένο", 5),
+	}}
+	projections, deckName, err := NewInputAssembler(&store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "greek-book"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Mouseion::el::Το σπίτι", deckName)
+	assert.Len(t, projections, 2)
+	assert.Equal(t, "σπίτι", projections[0].Candidate.CanonicalLemma)
+	assert.Equal(t, "παλιό", projections[1].Candidate.CanonicalLemma)
+	assert.Equal(t, "γνωστό", store.facts.Known[0].CanonicalLemma)
+}
+
 func TestInputAssemblerFailsClosedForMissingGoalSnapshot(t *testing.T) {
 	store := inputFactsStore{facts: persistence.PreparedDeckInputFacts{
 		DeckName:   "Book",

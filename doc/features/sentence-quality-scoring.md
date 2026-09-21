@@ -26,7 +26,8 @@ A deterministic, explainable sentence-quality rubric informed by GDEX, computed
 at export time over the persisted corpus, that (i) adds finite-verb-and-subject
 as a knock-out in the export gate and (ii) ranks accepted candidate sentences by
 a gradual GDEX-style score (target-in-subordinate-clause, deixis, named-entity
-density, optimal length). German only, first pass.
+density, optimal length). German-specific GDEX resources are first pass; Greek
+and Italian candidates use the generic deterministic rubric.
 
 ## Scope
 
@@ -44,8 +45,9 @@ density, optimal length). German only, first pass.
 
 ## Non-goals
 
-- Italian (`it`) — the rubric concepts transfer, but the deixis term list is
-  language-specific; Italian follows once the German rubric is validated.
+- Language-specific GDEX resources for Italian (`it`) or Greek (`el`) — the
+  generic rubric is available now, while language-specific deixis and other
+  resources remain deferred.
 - The VulGer obscenity blacklist — a German-only data asset (CC-BY-SA); deferred.
 - The DWDS frequency whitelist — ADR 0018 removed global-frequency data.
 - Changing card ordering (first-encounter) or the omission policy.

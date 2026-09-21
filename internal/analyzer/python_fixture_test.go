@@ -47,3 +47,25 @@ func TestGoConsumesItalianStanzaRegressionFixture(t *testing.T) {
 	assert.Equal(t, "portare", second[5].GetRawLemma())
 	assert.Equal(t, "Yes", second[9].GetMorphology()["Clitic"])
 }
+
+func TestGoConsumesGreekStanzaRegressionFixture(t *testing.T) {
+	payload, err := os.ReadFile("../../nlp/tests/testdata/greek_stanza_expected.json")
+	require.NoError(t, err)
+	corpus := new(mouseionv1.NormalizedCorpus)
+	require.NoError(t, protojson.Unmarshal(payload, corpus), "unmarshal Greek Python fixture")
+	assert.Equal(t, "el", corpus.GetLanguage())
+	require.Len(t, corpus.GetSentences(), 2)
+	first := corpus.GetSentences()[0].GetTokens()
+	assert.Equal(t, "σε", first[0].GetSurface())
+	assert.Equal(t, "ADP", first[0].GetPos())
+	assert.Equal(t, "το", first[1].GetSurface())
+	assert.Equal(t, "σπίτι", first[2].GetCanonicalLemma())
+	assert.Equal(t, "Neut", first[2].GetMorphology()["Gender"])
+	assert.Equal(t, uint32(5), first[5].GetHead())
+	second := corpus.GetSentences()[1].GetTokens()
+	assert.Equal(t, "σε", second[3].GetSurface())
+	assert.Equal(t, "σε", second[3].GetRawLemma())
+	assert.Equal(t, "την", second[4].GetSurface())
+	assert.Equal(t, "κόσμοσ", second[9].GetCanonicalLemma())
+	assert.Equal(t, "γελάω", second[10].GetRawLemma())
+}
