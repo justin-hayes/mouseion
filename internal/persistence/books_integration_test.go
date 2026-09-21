@@ -322,6 +322,11 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 	assert.Equal(t, domain.StudyLanguage{Language: "de", DisplayName: "German"}, languages[0])
 	assert.Equal(t, domain.StudyLanguage{Language: "el", DisplayName: "Greek"}, languages[1])
 	assert.Equal(t, domain.StudyLanguage{Language: "pt", DisplayName: "pt"}, languages[2])
+	err = store.SetActiveStudyLanguage(ctx, alice.ID, "el")
+	require.NoError(t, err)
+	active, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "el", active)
 }
 
 func insertLegacySource(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, language, identifier, title string, content []byte) string {

@@ -181,8 +181,12 @@ func TestGreekCoverageUsesScopedLemmaOccurrencesAndExclusions(t *testing.T) {
 			{OwnerID: "alice", Language: "de", CanonicalLemma: "φίλοσ", UPOS: "NOUN"},
 			{OwnerID: "bob", Language: "el", CanonicalLemma: "φίλοσ", UPOS: "NOUN"},
 		},
-		generated: []domain.GeneratedVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "παλιό", UPOS: "ADJ", FirstSourceMaterialID: &otherBook}},
-		reserved:  []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN"}},
+		generated: []domain.GeneratedVocabulary{
+			{OwnerID: "alice", Language: "el", CanonicalLemma: "παλιό", UPOS: "ADJ", FirstSourceMaterialID: &otherBook},
+			{OwnerID: "bob", Language: "el", CanonicalLemma: "γελάω", UPOS: "VERB", FirstSourceMaterialID: &otherBook},
+			{OwnerID: "alice", Language: "de", CanonicalLemma: "γελάω", UPOS: "VERB", FirstSourceMaterialID: &otherBook},
+		},
+		reserved: []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN"}},
 	}
 
 	got, err := NewService(store).Coverage(context.Background(), "alice", "greek-corpus")
@@ -193,6 +197,10 @@ func TestGreekCoverageUsesScopedLemmaOccurrencesAndExclusions(t *testing.T) {
 	assert.Equal(t, int64(1), got.ReservedLemmaCount)
 	assert.Equal(t, int64(8), got.UnknownTokenCount)
 	assert.Equal(t, int64(4), got.UnknownLemmaCount)
+	assert.Equal(t, int64(3), got.Thresholds[0].EligibleTokenCount)
+	assert.False(t, got.Thresholds[0].Reachable)
+	assert.False(t, got.Thresholds[1].Reachable)
+	assert.False(t, got.Thresholds[2].Reachable)
 	require.Len(t, got.TopUnknownLemmas, 2)
 	assert.Equal(t, "φίλοσ", got.TopUnknownLemmas[0].CanonicalLemma)
 	assert.Equal(t, "γελάω", got.TopUnknownLemmas[1].CanonicalLemma)

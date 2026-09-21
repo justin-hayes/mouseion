@@ -70,8 +70,10 @@ the separate sentence-quality (GDEX) scorer.
 
 ### NLP pipeline
 
-- Processors become `tokenize,pos,lemma,depparse`,
-  unchanged in order; `depparse` requires `pos`, which is already core.
+- The baseline processors are `tokenize,pos,lemma,depparse`, unchanged in order;
+  `depparse` requires `pos`, which is already core. Greek adds the language-
+  specific `mwt` processor as `tokenize,mwt,pos,lemma,depparse` so contracted
+  preposition/article forms can be expanded before persistence.
 - The producer maps Stanza's 1-based `word.head` (`0` = root) to the 0-based
   convention above. Because tokens are already flattened from
   `sentence.tokens[i].words`, head references must be mapped through a Stanza
