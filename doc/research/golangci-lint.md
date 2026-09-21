@@ -2,8 +2,9 @@
 
 **Research date:** 2026-09-17
 
-**Scope:** Research and documentation only. This report does not change the
-repository configuration, Makefile, or workflows.
+**Scope:** Research informing repository configuration and documentation. The
+workflow implementation is recorded in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml);
+this report does not change the Makefile.
 
 ## Executive Recommendation
 
@@ -33,9 +34,11 @@ For supply-chain hardening, reference the action by its full commit SHA with a
 `# v9.0.0` comment; GitHub documents a full-length SHA as the immutable action
 reference ([GitHub secure-use guidance](https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions)).
 
-Run golangci-lint in its own CI job, after `setup-go`, and let the action's
-analysis cache complement `actions/setup-go`'s Go module/build cache. The
-official action recommends a separate job and documents both cache layers
+Run golangci-lint in its own CI job, after `setup-go`. The persistent
+self-hosted runner provides the local Go module/build and golangci-lint
+analysis caches; GitHub Actions remote dependency caching is disabled to avoid
+restoring archives over those persistent directories. The official action
+recommends a separate job and documents its cache controls
 ([official action README, v9.0.0](https://raw.githubusercontent.com/golangci/golangci-lint-action/0a35821d5c230e903fcfe077583637dea1b27b47/README.md)).
 
 Start with the clean, focused configuration in this report and run it over the
@@ -55,7 +58,7 @@ These are observations of the repository, not claims about golangci-lint:
 - [`go.mod`](../../go.mod#L1-L20) declares module `github.com/justin-hayes/mouseion`, Go `1.24.0`, and a mixed application dependency set including gRPC, pgx, River, SQLite, and Testcontainers.
 - [`Makefile`](../../Makefile#L1-L8) has existing tool-version variables for generated tooling, but no golangci-lint variable.
 - [`Makefile`](../../Makefile#L67-L69) currently runs `go vet ./...` and Ruff for Python linting; the `lint` target is therefore already the natural cross-language entry point.
-- [`ci.yml`](../../.github/workflows/ci.yml#L74-L100) obtains Go from `go.mod` through `actions/setup-go@v5`, enables its cache, and runs separate build, test, and `go vet` steps.
+- [`ci.yml`](../../.github/workflows/ci.yml#L74-L100) obtains Go from `go.mod` through `actions/setup-go@v5`, leaves dependency caching to the persistent self-hosted runner, and runs separate build and test steps.
 - [`ci.yml`](../../.github/workflows/ci.yml#L28-L68) uses `dorny/paths-filter@v3` and has a Go filter for Go sources, module files, protobuf, SQLC, migrations, the Makefile, and the workflow, but it does not currently include `.golangci.yml`.
 - Generated protobuf files under [`gen/go`](../../gen/go/) begin with the strict generated-code marker, for example [`normalized_corpus.pb.go`](../../gen/go/mouseion/v1/normalized_corpus.pb.go#L1-L5).
 - Generated SQLC files under [`gen/sqlc`](../../gen/sqlc/) use the same marker, for example [`models.go`](../../gen/sqlc/models.go#L1-L4).
@@ -196,11 +199,10 @@ Use the official GitHub Action with an explicit Go setup step. The action v4+
 compatibility notes require an explicit `setup-go` step, and v5+ delegates Go
 module/build caching to `actions/setup-go` ([action compatibility](https://raw.githubusercontent.com/golangci/golangci-lint-action/0a35821d5c230e903fcfe077583637dea1b27b47/README.md#compatibility)).
 
-The action's analysis cache is enabled by default. Its documented cache key
-contains the runner OS, working directory, a periodic invalidation number, and
-the `go.mod` hash; the default invalidation interval is seven days
-([action cache options](https://raw.githubusercontent.com/golangci/golangci-lint-action/0a35821d5c230e903fcfe077583637dea1b27b47/README.md#cache),
-[cache internals](https://raw.githubusercontent.com/golangci/golangci-lint-action/0a35821d5c230e903fcfe077583637dea1b27b47/README.md#caching-internals)).
+The action's remote analysis cache is enabled by default. This repository sets
+`skip-cache: true` so the linter continues to use its normal local cache on the
+persistent runner without restoring or saving a GitHub Actions archive
+([action cache options](https://raw.githubusercontent.com/golangci/golangci-lint-action/0a35821d5c230e903fcfe077583637dea1b27b47/README.md#cache)).
 Do not add the removed `skip-pkg-cache` or `skip-build-cache` options; the
 action documents that Go caching is handled by `setup-go` in v5 and later
 ([compatibility notes](https://raw.githubusercontent.com/golangci/golangci-lint-action/0a35821d5c230e903fcfe077583637dea1b27b47/README.md#compatibility)).
@@ -211,11 +213,12 @@ The action version is a separate pin from the linter version:
 - uses: actions/setup-go@v5
   with:
     go-version-file: go.mod
-    cache: true
+    cache: false
 - name: Go lint
   uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47 # v9.0.0
   with:
     version: v2.13.2
+    skip-cache: true
 ```
 
 Keep the repository's existing `setup-go@v5` during adoption: the
@@ -386,7 +389,7 @@ An end-state job, shown as a proposal, is:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
       - name: golangci-lint
         uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47 # v9.0.0
         with:
@@ -394,7 +397,8 @@ An end-state job, shown as a proposal, is:
 ```
 
 This intentionally preserves the versions already used elsewhere in the
-workflow. Pin `actions/checkout` and `actions/setup-go` by full commit SHA as a
+workflow and makes the persistent runner's local caches authoritative. Pin
+`actions/checkout` and `actions/setup-go` by full commit SHA as a
 separate workflow-hardening change if the repository adopts GitHub's immutable
 action policy ([GitHub SHA guidance](https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions)).
 

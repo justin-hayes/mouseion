@@ -43,6 +43,17 @@ result cache. Use either `make test-integration` for the full internal package
 scope or `make test-integration-shared` for the shared-database runner. Ordinary
 unit-test commands such as `go test ./...` retain Go's normal caching behavior.
 
+## CI dependency caching
+
+CI runs on a persistent self-hosted runner. Runtime setup actions still select
+and reuse installed Go and Node distributions from the Actions runner tool
+cache, while Go, uv, npm, and golangci-lint reuse their dependency or analysis
+caches on the runner filesystem. Their GitHub Actions remote dependency caches
+are disabled: restoring archives over persistent directories caused extraction
+warnings and duplicate saves, and added no useful reuse. This distinction is
+intentional: tool caching keeps runtimes available, local filesystem caching
+keeps dependencies warm between jobs, and remote Actions caching is not used.
+
 `make dev` starts the Go web server, which connects to PostgreSQL (required,
 `MOUSEION_DATABASE_URL`) and the Python NLP gRPC service (required for analysis,
 `MOUSEION_NLP_ADDR`, default `localhost:50051`). PostgreSQL schema changes live

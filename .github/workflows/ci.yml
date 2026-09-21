@@ -80,7 +80,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          # The self-hosted runner retains Go's module and build caches.
+          cache: false
 
       - name: Go build
         if: |
@@ -104,10 +105,10 @@ jobs:
           steps.changes.outputs.python == 'true'
         uses: astral-sh/setup-uv@v6
         with:
-          enable-cache: true
-          cache-dependency-glob: |
-            nlp/requirements-dev.txt
-            nlp/pyproject.toml
+          # uv's cache persists on the self-hosted runner; do not use an
+          # additional GitHub Actions dependency archive.
+          enable-cache: false
+          cache-local-path: ~/.cache/uv
 
       - name: Set up Python 3.11
         if: |
@@ -233,12 +234,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          # The self-hosted runner retains Go's module and build caches.
+          cache: false
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47 # v9.0.0
         with:
           version: v2.13.2
+          # Reuse the runner's local golangci-lint cache instead of GitHub's
+          # remote dependency cache.
+          skip-cache: true
 
   integration:
     name: Integration tests
@@ -273,7 +278,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: Go integration test
         if: |
@@ -292,13 +297,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
       - name: Install Playwright dependency
         working-directory: e2e
         run: npm ci --ignore-scripts
