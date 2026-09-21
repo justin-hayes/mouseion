@@ -81,10 +81,12 @@ docker compose up -d --build
   succeeds and its configured pipelines are warmed
 - `web` — the Go server on `http://localhost:8080`
 
-Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. The init
+Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it,el` by default. The init
 container provisions each language's configured Stanza package and processor
 set into `stanza-data`, mounted at
-`STANZA_RESOURCES_DIR=/opt/stanza_resources`. A marker in that volume makes
+`STANZA_RESOURCES_DIR=/opt/stanza_resources`. GreekBERT is provisioned into the
+`huggingface-data` volume at `HF_HOME=/opt/huggingface`. Markers in those
+volumes make
 unchanged restarts a no-op, downloads only a newly added language, and
 re-provisions everything automatically when the Stanza version or an effective
 language model configuration changes.
@@ -112,7 +114,8 @@ export PYTHONPATH=nlp/src:gen/python
 # Provision the configured languages and full processor set into a persistent
 # local directory. The marker makes reruns idempotent and refreshes on upgrades.
 export STANZA_RESOURCES_DIR="$PWD/.stanza_resources"
-export MOUSEION_NLP_WARM_LANGUAGES=de,it
+export HF_HOME="$PWD/.huggingface"
+export MOUSEION_NLP_WARM_LANGUAGES=de,it,el
 .venv/bin/python -m mouseion_nlp.provision
 # Start only after provisioning succeeds.
 .venv/bin/python -m mouseion_nlp.server

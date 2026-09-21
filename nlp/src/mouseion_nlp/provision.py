@@ -29,6 +29,7 @@ import sys
 from typing import Callable, Iterable
 
 import stanza
+from huggingface_hub import snapshot_download
 from stanza.resources.common import DEFAULT_MODEL_DIR
 
 from .model_config import LanguageModelConfig, model_config_for_language
@@ -36,6 +37,7 @@ from .server import configured_languages
 
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
+DEFAULT_HF_HOME = Path("/opt/huggingface")
 
 
 @dataclass(frozen=True)
@@ -157,6 +159,8 @@ def provision(
     *,
     stanza_version: str,
     download: Callable[..., object] | None = None,
+    external_download: Callable[..., object] | None = None,
+    hf_home: Path | None = None,
 ) -> ProvisionPlan:
     """Provision the resource directory for the configured languages.
 
@@ -164,6 +168,8 @@ def provision(
     failed provisioning run cannot write a marker and exits non-zero.
     """
     download = download or stanza.download
+    external_download = external_download or snapshot_download
+    hf_home = Path(hf_home or os.getenv("HF_HOME", DEFAULT_HF_HOME))
     resources_dir = Path(resources_dir)
     plan = plan_provisioning(read_marker(resources_dir), stanza_version, languages)
     resources_dir.mkdir(parents=True, exist_ok=True)
@@ -180,6 +186,9 @@ def provision(
         if config.package is not None:
             kwargs["package"] = config.package
         download(language, **kwargs)
+        for dependency in config.external_model_dependencies:
+            print(f"provisioning Hugging Face model '{dependency}'…", flush=True)
+            external_download(dependency, cache_dir=str(hf_home / "hub"))
     model_configs = tuple(model_config_for_language(language) for language in plan.provisioned)
     write_marker(
         resources_dir,
@@ -195,9 +204,10 @@ def provision(
 def main() -> int:
     """Provision the configured languages as a one-shot init command."""
     resources_dir = Path(os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR))
+    hf_home = Path(os.getenv("HF_HOME", DEFAULT_HF_HOME))
     languages = [descriptor.language for descriptor in configured_languages()]
     try:
-        provision(resources_dir, languages, stanza_version=stanza.__version__)
+        provision(resources_dir, languages, stanza_version=stanza.__version__, hf_home=hf_home)
     except Exception as error:  # noqa: BLE001
         print(f"stanza provisioning failed: {error}", file=sys.stderr, flush=True)
         return 1

@@ -2,6 +2,7 @@
 FROM python:3.11-slim
 WORKDIR /src
 ENV STANZA_RESOURCES_DIR=/opt/stanza_resources
+ENV HF_HOME=/opt/huggingface
 # Install the package + its runtime deps (grpcio, protobuf, stanza, torch)
 COPY nlp/ ./nlp/
 COPY internal/canonicalization/german_post1996.json ./internal/canonicalization/german_post1996.json

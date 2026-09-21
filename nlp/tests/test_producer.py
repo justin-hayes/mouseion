@@ -10,6 +10,7 @@ from mouseion.v1 import normalized_corpus_pb2
 from mouseion_nlp import Producer, SourceDocument
 from mouseion_nlp.model_config import LanguageModelConfig
 import stanza
+from stanza.pipeline.core import DownloadMethod
 
 
 def word(
@@ -523,8 +524,10 @@ def test_pipeline_and_capability_model_version_use_language_configuration() -> N
 
     pipeline.assert_called_once_with(
         lang="el",
+        model_dir=stanza.resources.common.DEFAULT_MODEL_DIR,
         processors=config.processors,
         package=config.package,
+        download_method=DownloadMethod.NONE,
         verbose=False,
     )
 
