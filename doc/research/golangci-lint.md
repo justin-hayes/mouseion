@@ -2,8 +2,9 @@
 
 **Research date:** 2026-09-17
 
-**Scope:** Research and documentation only. This report does not change the
-repository configuration, Makefile, or workflows.
+**Scope:** Research informing repository configuration and documentation. The
+workflow implementation is recorded in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml);
+this report does not change the Makefile.
 
 ## Executive Recommendation
 

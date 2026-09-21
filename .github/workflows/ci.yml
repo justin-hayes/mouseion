@@ -108,6 +108,7 @@ jobs:
           # uv's cache persists on the self-hosted runner; do not use an
           # additional GitHub Actions dependency archive.
           enable-cache: false
+          cache-local-path: ~/.cache/uv
 
       - name: Set up Python 3.11
         if: |
