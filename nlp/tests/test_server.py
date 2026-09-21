@@ -13,10 +13,10 @@ from mouseion_nlp.server import (
 
 class StubProducer:
     def model_version(self, language):
-        return {"de": "de-fixture-1", "it": "it-fixture-2"}[language]
+        return {"de": "de-fixture-1", "el": "el-fixture-accurate", "it": "it-fixture-2"}[language]
 
     def warmup(self, language):
-        assert language in {"de", "it"}
+        assert language in {"de", "el", "it"}
 
     def analyze(self, text, language, document):
         assert (text, language) == ("Goethe", "de")
@@ -104,3 +104,41 @@ def test_warmup_failure_does_not_mark_another_language_ready(capsys) -> None:
     assert capabilities[0].model_version == ""
     assert capabilities[1].model_version == "it-fixture-2"
     assert "failed to warm Stanza pipeline for language 'de': model unavailable" in capsys.readouterr().err
+
+
+def test_greek_capability_uses_public_features_and_accurate_model_version() -> None:
+    with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "el"}, clear=True):
+        servicer = AnalyzerServicer(StubProducer())
+
+    servicer.warmup("el")
+    capability = servicer.GetCapabilities(None, None).languages[0]
+
+    assert (capability.language, capability.display_name, capability.model_version) == (
+        "el",
+        "Greek",
+        "el-fixture-accurate",
+    )
+    assert capability.supported_features == ["tokenize", "pos", "lemma", "depparse"]
+    assert capability.ready
+
+
+def test_greek_warmup_failure_preserves_other_ready_languages(capsys) -> None:
+    class GreekFailingProducer(StubProducer):
+        def warmup(self, language):
+            if language == "el":
+                raise RuntimeError("GreekBERT unavailable")
+            super().warmup(language)
+
+    with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "de,el,it"}, clear=True):
+        servicer = AnalyzerServicer(GreekFailingProducer())
+
+    warm_configured_languages(servicer)
+    capabilities = {
+        capability.language: capability for capability in servicer.GetCapabilities(None, None).languages
+    }
+
+    assert capabilities["de"].ready
+    assert not capabilities["el"].ready
+    assert capabilities["it"].ready
+    assert capabilities["el"].model_version == ""
+    assert "GreekBERT unavailable" in capsys.readouterr().err

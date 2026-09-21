@@ -10,6 +10,7 @@ from mouseion.v1 import normalized_corpus_pb2
 from mouseion_nlp import Producer, SourceDocument
 from mouseion_nlp.model_config import LanguageModelConfig
 import stanza
+from stanza.pipeline.core import DownloadMethod
 
 
 def word(
@@ -423,6 +424,52 @@ def test_modern_greek_canonicalization_matches_identity_contract() -> None:
     assert artifact.normalization_profile.version == "1"
 
 
+def test_modern_greek_maps_mwt_words_and_dependency_data() -> None:
+    result = SimpleNamespace(
+        sentences=[
+            SimpleNamespace(
+                text="στο σπίτι.",
+                tokens=[
+                    SimpleNamespace(
+                        words=[
+                            word("σε", "σε", "ADP", None, 0, 2, id=1, head=3, deprel="case"),
+                            word("το", "ο", "DET", "Case=Acc|Gender=Neut|Number=Sing", 0, 2, id=2, head=3, deprel="det"),
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[
+                            word(
+                                "σπίτι",
+                                "σπίτι",
+                                "NOUN",
+                                "Case=Acc|Gender=Neut|Number=Sing",
+                                3,
+                                8,
+                                id=3,
+                                head=0,
+                            )
+                        ]
+                    ),
+                    SimpleNamespace(
+                        words=[word(".", ".", "PUNCT", None, 8, 9, id=4, head=3, deprel="punct")]
+                    ),
+                ],
+            )
+        ]
+    )
+
+    artifact = Producer(pipeline_factory=lambda _language: lambda _text: result).analyze(
+        "στο σπίτι.", "el"
+    )
+    tokens = artifact.sentences[0].tokens
+
+    assert [token.surface for token in tokens] == ["σε", "το", "σπίτι", "."]
+    assert [token.pos for token in tokens] == ["ADP", "DET", "NOUN", "PUNCT"]
+    assert tokens[1].morphology == {"Case": "Acc", "Gender": "Neut", "Number": "Sing"}
+    assert [token.dependency for token in tokens] == ["case", "det", "root", "punct"]
+    assert [token.head for token in tokens] == [2, 2, 2, 2]
+
+
 def test_normalized_corpus_round_trip() -> None:
     artifact = normalized_corpus_pb2.NormalizedCorpus(
         schema_version="1.1.0",
@@ -523,8 +570,10 @@ def test_pipeline_and_capability_model_version_use_language_configuration() -> N
 
     pipeline.assert_called_once_with(
         lang="el",
+        model_dir=stanza.resources.common.DEFAULT_MODEL_DIR,
         processors=config.processors,
         package=config.package,
+        download_method=DownloadMethod.NONE,
         verbose=False,
     )
 
@@ -534,6 +583,12 @@ def test_default_languages_keep_stanza_library_model_version() -> None:
 
     assert producer.model_version("de") == stanza.__version__
     assert producer.model_version("it") == stanza.__version__
+
+
+def test_greek_model_version_identifies_the_accurate_package() -> None:
+    producer = Producer(pipeline_factory=lambda _language: lambda _text: None)
+
+    assert producer.model_version("el") == "stanza-1.14.0-gdt-accurate"
 
 
 def test_italian_linguistic_regression_fixture() -> None:

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Callable
 import unicodedata
@@ -14,6 +15,8 @@ from uuid import uuid4
 
 import stanza
 from mouseion.v1 import normalized_corpus_pb2
+from stanza.pipeline.core import DownloadMethod
+from stanza.resources.common import DEFAULT_MODEL_DIR
 
 from .model_config import model_config_for_language
 
@@ -115,7 +118,13 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
 @lru_cache(maxsize=None)
 def _stanza_pipeline(language: str) -> Any:
     config = model_config_for_language(language)
-    kwargs = {"lang": config.language, "processors": config.processors, "verbose": False}
+    kwargs = {
+        "lang": config.language,
+        "model_dir": os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR),
+        "processors": config.processors,
+        "download_method": DownloadMethod.NONE,
+        "verbose": False,
+    }
     if config.package is not None:
         kwargs["package"] = config.package
     return stanza.Pipeline(**kwargs)

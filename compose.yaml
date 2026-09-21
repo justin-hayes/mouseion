@@ -30,10 +30,12 @@ services:
       dockerfile: nlp/Dockerfile
     entrypoint: ["python", "-m", "mouseion_nlp.provision"]
     environment:
-      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it}
+      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el}
       STANZA_RESOURCES_DIR: /opt/stanza_resources
+      HF_HOME: /opt/huggingface
     volumes:
       - stanza-data:/opt/stanza_resources
+      - huggingface-data:/opt/huggingface
 
   nlp:
     build:
@@ -46,10 +48,12 @@ services:
         condition: service_completed_successfully
     environment:
       MOUSEION_NLP_ADDR: "[::]:50051"
-      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it}
+      MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el}
       STANZA_RESOURCES_DIR: /opt/stanza_resources
+      HF_HOME: /opt/huggingface
     volumes:
       - stanza-data:/opt/stanza_resources
+      - huggingface-data:/opt/huggingface
     expose:
       - "50051"
 
@@ -97,4 +101,5 @@ services:
 
 volumes:
   db-data:
+  huggingface-data:
   stanza-data:

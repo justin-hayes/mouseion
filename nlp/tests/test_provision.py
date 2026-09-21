@@ -1,16 +1,18 @@
 import json
 from unittest.mock import patch
 
+from huggingface_hub.errors import LocalEntryNotFoundError
 import pytest
 
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
+    ensure_external_dependency,
     main,
     provision,
     read_marker,
     wipe_resources,
 )
-from mouseion_nlp.model_config import LanguageModelConfig, model_config_for_language
+from mouseion_nlp.model_config import GREEK_BERT_MODEL, LanguageModelConfig, model_config_for_language
 
 STANZA_VERSION = "1.14.0"
 
@@ -27,6 +29,14 @@ class RecordingDownload:
     @property
     def languages(self) -> list[str]:
         return [language for language, _kwargs in self.calls]
+
+
+class RecordingExternalDownload:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict]] = []
+
+    def __call__(self, repo_id: str, **kwargs) -> None:
+        self.calls.append((repo_id, kwargs))
 
 
 def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
@@ -119,12 +129,19 @@ def test_changed_model_configuration_wipes_and_provisions_from_scratch(
     sentinel.write_text("stale", encoding="utf-8")
     original_resolver = model_config_for_language
     upgraded = RecordingDownload()
+    external_download = RecordingExternalDownload()
 
     def changed_resolver(language: str) -> LanguageModelConfig:
         return changed_config if language == "de" else original_resolver(language)
 
     with patch("mouseion_nlp.provision.model_config_for_language", changed_resolver):
-        provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=upgraded)
+        provision(
+            tmp_path,
+            ["de"],
+            stanza_version=STANZA_VERSION,
+            download=upgraded,
+            external_download=external_download,
+        )
 
     assert not sentinel.exists()
     assert upgraded.languages == ["de"]
@@ -136,13 +153,73 @@ def test_external_model_dependencies_are_marker_data_not_stanza_downloads(tmp_pa
         language="el", external_model_dependencies=("example/model",)
     )
     download = RecordingDownload()
+    external_download = RecordingExternalDownload()
 
     with patch("mouseion_nlp.provision.model_config_for_language", return_value=config):
-        provision(tmp_path, ["el"], stanza_version=STANZA_VERSION, download=download)
+        provision(
+            tmp_path,
+            ["el"],
+            stanza_version=STANZA_VERSION,
+            download=download,
+            external_download=external_download,
+            hf_home=tmp_path / "huggingface",
+        )
 
     assert download.languages == ["el"]
     assert download.calls[0][1]["processors"] == config.processors
+    assert external_download.calls == [
+        ("example/model", {"cache_dir": str(tmp_path / "huggingface" / "hub")})
+    ]
     assert read_marker(tmp_path).model_configs == (config,)
+
+
+def test_missing_external_cache_is_fetched_even_with_a_current_marker(tmp_path) -> None:
+    external_download = RecordingExternalDownload()
+    with patch(
+        "mouseion_nlp.provision.snapshot_download",
+        side_effect=LocalEntryNotFoundError("missing")
+    ):
+        ensure_external_dependency("example/model", tmp_path, external_download)
+
+    assert external_download.calls == [
+        ("example/model", {"cache_dir": str(tmp_path / "hub")})
+    ]
+
+
+def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:
+    download = RecordingDownload()
+    external_download = RecordingExternalDownload()
+
+    provision(
+        tmp_path,
+        ["el"],
+        stanza_version=STANZA_VERSION,
+        download=download,
+        external_download=external_download,
+        hf_home=tmp_path / "huggingface",
+    )
+
+    assert download.calls == [
+        (
+            "el",
+            {
+                "model_dir": str(tmp_path),
+                "processors": "tokenize,mwt,pos,lemma,depparse",
+                "verbose": False,
+                "package": {
+                    "tokenize": "gdt",
+                    "mwt": "gdt",
+                    "pos": "gdt_nocharlm",
+                    "lemma": "gdt_nocharlm",
+                    "depparse": "gdt_greek-bert",
+                },
+            },
+        )
+    ]
+    assert external_download.calls == [
+        (GREEK_BERT_MODEL, {"cache_dir": str(tmp_path / "huggingface" / "hub")})
+    ]
+    assert read_marker(tmp_path).model_configs == (model_config_for_language("el"),)
 
 
 def test_added_language_downloads_only_the_missing_language(tmp_path) -> None:

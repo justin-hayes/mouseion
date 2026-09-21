@@ -2,8 +2,9 @@
 
 The NLP service owns the configured language set (ADR 0023) and advertises the
 public runtime processor set. This entrypoint fills ``STANZA_RESOURCES_DIR``
-with each language's effective Stanza package and processors so the serving
-container never downloads at startup.
+with each language's effective Stanza package and processors, and verifies
+external model dependencies in the ``HF_HOME`` cache, so the serving container
+never downloads at startup.
 
 Provisioning is idempotent and refresh-aware via a marker file written into the
 resource directory:
@@ -29,6 +30,8 @@ import sys
 from typing import Callable, Iterable
 
 import stanza
+from huggingface_hub import snapshot_download
+from huggingface_hub.errors import LocalEntryNotFoundError
 from stanza.resources.common import DEFAULT_MODEL_DIR
 
 from .model_config import LanguageModelConfig, model_config_for_language
@@ -36,6 +39,12 @@ from .server import configured_languages
 
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
+DEFAULT_HF_HOME = Path("/opt/huggingface")
+
+
+def configured_hf_home() -> Path:
+    """Return the explicit Hugging Face cache root for this process."""
+    return Path(os.getenv("HF_HOME", DEFAULT_HF_HOME))
 
 
 @dataclass(frozen=True)
@@ -151,12 +160,28 @@ def wipe_resources(resources_dir: Path) -> None:
             entry.unlink()
 
 
+def ensure_external_dependency(
+    dependency: str,
+    hf_home: Path,
+    download: Callable[..., object],
+) -> None:
+    """Verify a cached Hugging Face dependency and fetch it if absent."""
+    cache_dir = str(hf_home / "hub")
+    try:
+        snapshot_download(dependency, cache_dir=cache_dir, local_files_only=True)
+    except LocalEntryNotFoundError:
+        print(f"provisioning Hugging Face model '{dependency}'…", flush=True)
+        download(dependency, cache_dir=cache_dir)
+
+
 def provision(
     resources_dir: Path,
     languages: Iterable[str],
     *,
     stanza_version: str,
     download: Callable[..., object] | None = None,
+    external_download: Callable[..., object] | None = None,
+    hf_home: Path | None = None,
 ) -> ProvisionPlan:
     """Provision the resource directory for the configured languages.
 
@@ -164,6 +189,8 @@ def provision(
     failed provisioning run cannot write a marker and exits non-zero.
     """
     download = download or stanza.download
+    external_download = external_download or snapshot_download
+    hf_home = Path(hf_home) if hf_home is not None else configured_hf_home()
     resources_dir = Path(resources_dir)
     plan = plan_provisioning(read_marker(resources_dir), stanza_version, languages)
     resources_dir.mkdir(parents=True, exist_ok=True)
@@ -180,6 +207,13 @@ def provision(
         if config.package is not None:
             kwargs["package"] = config.package
         download(language, **kwargs)
+    dependencies = {
+        dependency
+        for language in plan.provisioned
+        for dependency in model_config_for_language(language).external_model_dependencies
+    }
+    for dependency in sorted(dependencies):
+        ensure_external_dependency(dependency, hf_home, external_download)
     model_configs = tuple(model_config_for_language(language) for language in plan.provisioned)
     write_marker(
         resources_dir,
@@ -195,9 +229,10 @@ def provision(
 def main() -> int:
     """Provision the configured languages as a one-shot init command."""
     resources_dir = Path(os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR))
+    hf_home = configured_hf_home()
     languages = [descriptor.language for descriptor in configured_languages()]
     try:
-        provision(resources_dir, languages, stanza_version=stanza.__version__)
+        provision(resources_dir, languages, stanza_version=stanza.__version__, hf_home=hf_home)
     except Exception as error:  # noqa: BLE001
         print(f"stanza provisioning failed: {error}", file=sys.stderr, flush=True)
         return 1
