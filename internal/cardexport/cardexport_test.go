@@ -221,6 +221,19 @@ func TestAnkiCardPresentationHierarchy(t *testing.T) {
 	}
 }
 
+func TestGreekPreparedDeckUsesLanguageHierarchyAndTag(t *testing.T) {
+	note, err := makeNote("alice", RenderInput{
+		Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN", Sentence: "Στο σπίτι ο Νίκος διαβάζει.",
+		TargetWord: "σπίτι", SourceDocument: "Το σπίτι", Morphology: `{"Gender":"Neut","Number":"Sing"}`,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Mouseion", "lang::el", "pos::NOUN", "source::Το_σπίτι"}, note.Tags)
+	deckName := DeckName("el", "Το σπίτι")
+	apkg, err := renderAPKG(t.Context(), deckName, []Note{note}, "")
+	require.NoError(t, err)
+	assert.Contains(t, collectionColumn(t, apkg, "decks"), deckName)
+}
+
 func TestCardPresentationPreviewIsFrozen(t *testing.T) {
 	preview, err := os.ReadFile("testdata/recognition_card_preview.html")
 	require.NoError(t, err)
@@ -825,6 +838,32 @@ func TestBestSentenceEvidenceRanksAcceptedReferencesByGradualGDEXScore(t *testin
 	assert.Equal(t, int64(100), got.FirstEncounter)
 	assert.Equal(t, int64(1), got.SentenceOrdinal)
 	assert.Greater(t, got.Quality.GDEXScore, float64(0))
+}
+
+func TestBestSentenceEvidenceUsesGenericGreekQualityPath(t *testing.T) {
+	candidate := domain.SelectionCandidate{
+		CorpusID: "greek-corpus", Language: "el", CanonicalLemma: "σπίτι", ObservedForms: []byte(`["σπίτι"]`),
+		SentenceReferences: []byte(`[{"sentence_index":0,"text":"Στο μεγάλο σπίτι ο Νίκος διαβάζει κάθε βράδυ.","location":{"start_offset":10}}]`),
+	}
+	sentences := map[int64]analyzer.Sentence{0: {
+		Text: "Στο μεγάλο σπίτι ο Νίκος διαβάζει κάθε βράδυ.",
+		Tokens: []analyzer.Token{
+			{Surface: "Στο", UPOS: "ADP", Dependency: "case", Head: 2},
+			{Surface: "μεγάλο", UPOS: "ADJ", Dependency: "amod", Head: 2},
+			{Surface: "σπίτι", UPOS: "NOUN", Dependency: "nsubj", Head: 5},
+			{Surface: "ο", UPOS: "DET", Dependency: "det", Head: 4},
+			{Surface: "Νίκος", UPOS: "PROPN", Dependency: "nsubj", Head: 5},
+			{Surface: "διαβάζει", UPOS: "VERB", Dependency: "root", Head: 5, Morphology: map[string]string{"VerbForm": "Fin"}},
+			{Surface: "κάθε", UPOS: "DET", Dependency: "det", Head: 7},
+			{Surface: "βράδυ", UPOS: "NOUN", Dependency: "obl", Head: 5},
+		},
+	}}
+	got, ok := BestSentenceEvidenceFromCorpus(candidate, sentences)
+	require.True(t, ok)
+	assert.True(t, got.Quality.Accepted)
+	assert.Zero(t, got.Quality.GDEXScore)
+	assert.NotContains(t, got.Quality.Reasons, "deictic context")
+	assert.NotContains(t, got.Quality.Reasons, "named-entity density")
 }
 
 func TestBestSentenceEvidenceUsesSourceOrderWhenGradualScoresTie(t *testing.T) {

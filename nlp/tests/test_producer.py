@@ -638,3 +638,50 @@ def test_italian_linguistic_regression_fixture() -> None:
 
     expected = json.loads((Path(__file__).parent / "testdata" / "italian_stanza_expected.json").read_text())
     assert MessageToDict(artifact, preserving_proto_field_name=True) == expected
+
+
+def test_greek_linguistic_regression_fixture() -> None:
+    """Lock the normalized contract to representative Greek Stanza output."""
+    first = "ΣΤΟ σπίτι ο Νίκος διαβάζει ιστορίες."
+    second = "Οι φίλοι επιστρέφουν στην πλατεία, ενώ ο ΚΟΣΜΟΣ γελά."
+    text = first + " " + second
+    sentences = [
+        SimpleNamespace(
+            text=first,
+            tokens=[
+                SimpleNamespace(words=[word("ΣΤΟ", "σε", "ADP", None, 0, 3, id=1, head=3, deprel="case"), word("ΣΤΟ", "ο", "DET", "Case=Acc|Gender=Neut|Number=Sing|PronType=Art", 0, 3, id=2, head=3, deprel="det")]),
+                SimpleNamespace(words=[word("σπίτι", "σπίτι", "NOUN", "Case=Acc|Gender=Neut|Number=Sing", 4, 9, id=3, head=6, deprel="nsubj")]),
+                SimpleNamespace(words=[word("ο", "ο", "DET", "Case=Nom|Gender=Masc|Number=Sing|PronType=Art", 10, 11, id=4, head=5, deprel="det")]),
+                SimpleNamespace(words=[word("Νίκος", "Νίκος", "PROPN", "Case=Nom|Gender=Masc|Number=Sing", 12, 17, id=5, head=6, deprel="nsubj")]),
+                SimpleNamespace(words=[word("διαβάζει", "διαβάζω", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin", 18, 26, id=6, head=0, deprel="root")]),
+                SimpleNamespace(words=[word("ιστορίες", "ιστορία", "NOUN", "Case=Acc|Gender=Fem|Number=Plur", 27, 35, id=7, head=6, deprel="obj")]),
+                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 35, 36, id=8, head=6, deprel="punct")]),
+            ],
+        ),
+        SimpleNamespace(
+            text=second,
+            tokens=[
+                SimpleNamespace(words=[word("Οι", "ο", "DET", "Case=Nom|Gender=Masc|Number=Plur|PronType=Art", 37, 39, id=1, head=2, deprel="det")]),
+                SimpleNamespace(words=[word("φίλοι", "φίλος", "NOUN", "Case=Nom|Gender=Masc|Number=Plur", 40, 45, id=2, head=3, deprel="nsubj")]),
+                SimpleNamespace(words=[word("επιστρέφουν", "επιστρέφω", "VERB", "Mood=Ind|Number=Plur|Person=3|Tense=Pres|VerbForm=Fin", 46, 57, id=3, head=0, deprel="root")]),
+                SimpleNamespace(words=[word("στην", "σε", "ADP", None, 58, 62, id=4, head=6, deprel="case"), word("στην", "ο", "DET", "Case=Acc|Gender=Fem|Number=Sing|PronType=Art", 58, 62, id=5, head=6, deprel="det")]),
+                SimpleNamespace(words=[word("πλατεία", "πλατεία", "NOUN", "Case=Acc|Gender=Fem|Number=Sing", 63, 70, id=6, head=3, deprel="obl")]),
+                SimpleNamespace(words=[word(",", ",", "PUNCT", None, 70, 71, id=7, head=3, deprel="punct")]),
+                SimpleNamespace(words=[word("ενώ", "ενώ", "SCONJ", None, 72, 75, id=8, head=3, deprel="mark")]),
+                SimpleNamespace(words=[word("ο", "ο", "DET", "Case=Nom|Gender=Masc|Number=Sing|PronType=Art", 76, 77, id=9, head=10, deprel="det")]),
+                SimpleNamespace(words=[word("ΚΟΣΜΟΣ", "κόσμος", "NOUN", "Case=Nom|Gender=Masc|Number=Sing", 78, 84, id=10, head=11, deprel="nsubj")]),
+                SimpleNamespace(words=[word("γελά", "γελάω", "VERB", "Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin", 85, 89, id=11, head=0, deprel="root")]),
+                SimpleNamespace(words=[word(".", ".", "PUNCT", None, 89, 90, id=12, head=11, deprel="punct")]),
+            ],
+        ),
+    ]
+    artifact = Producer(pipeline_factory=lambda _language: lambda _value: SimpleNamespace(sentences=sentences)).analyze(
+        text,
+        "el",
+        SourceDocument("greek-book", "fixture:greek", "Greek fixture"),
+        run_id="greek-regression",
+        analyzed_at=datetime(2026, 8, 25, tzinfo=timezone.utc),
+    )
+
+    expected = json.loads((Path(__file__).parent / "testdata" / "greek_stanza_expected.json").read_text())
+    assert MessageToDict(artifact, preserving_proto_field_name=True) == expected

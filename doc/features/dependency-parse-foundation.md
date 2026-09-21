@@ -75,8 +75,10 @@ the separate sentence-quality (GDEX) scorer.
 - The producer maps Stanza's 1-based `word.head` (`0` = root) to the 0-based
   convention above. Because tokens are already flattened from
   `sentence.tokens[i].words`, head references must be mapped through a Stanza
-  word-id → flattened-ordinal table so multiword-token words (Italian `l'`,
-  `dell'`) resolve correctly.
+   word-id → flattened-ordinal table so multiword-token words (Italian `l'`,
+   `dell'`, and Greek `στο`/`στην`) resolve correctly. Greek's expanded
+   preposition and article retain the same source span while both point to the
+   governing noun.
 - `supported_features` advertises `depparse` in the base set.
 
 ### Data model
@@ -129,6 +131,11 @@ the separate sentence-quality (GDEX) scorer.
   subtree/hypotaxis membership of a target token — the two dependency-based
   checks in a GDEX-style sentence scorer.
 - `selection_candidates` and `example_sentences` are unchanged.
+
+The checked-in Greek normalized-corpus fixture exercises the same contract with
+accented and uppercase forms, final sigma, noun gender, inflected verbs, and
+dependency heads. It is a transport fixture, not a Greek-specific protobuf or
+persistence shape.
 
 ## References
 

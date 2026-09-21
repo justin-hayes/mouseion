@@ -126,6 +126,41 @@ func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 	assert.Equal(t, int64(12), statistics.TextProfile.NormalizedTokenCount)
 }
 
+func TestGreekFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
+	corpus := analyzer.Result{Language: "el", Sentences: []analyzer.Sentence{{
+		Text: "ΣΤΟ σπίτι ο Νίκος διαβάζει ιστορίες. Οι φίλοι γελούν.",
+		Tokens: []analyzer.Token{
+			{Surface: "ΣΤΟ", CanonicalLemma: "σε", UPOS: "ADP"},
+			{Surface: "ΣΤΟ", CanonicalLemma: "ο", UPOS: "DET"},
+			{Surface: "σπίτι", CanonicalLemma: "σπίτι", UPOS: "NOUN"},
+			{Surface: "ο", CanonicalLemma: "ο", UPOS: "DET"},
+			{Surface: "Νίκος", CanonicalLemma: "νίκοσ", UPOS: "PROPN"},
+			{Surface: "διαβάζει", CanonicalLemma: "διαβάζω", UPOS: "VERB"},
+			{Surface: "ιστορίες", CanonicalLemma: "ιστορία", UPOS: "NOUN"},
+			{Surface: ".", CanonicalLemma: ".", UPOS: "PUNCT"},
+			{Surface: "Οι", CanonicalLemma: "ο", UPOS: "DET"},
+			{Surface: "φίλοι", CanonicalLemma: "φίλοσ", UPOS: "NOUN"},
+			{Surface: "γελούν", CanonicalLemma: "γελάω", UPOS: "VERB"},
+			{Surface: "!", CanonicalLemma: "!", UPOS: "PUNCT"},
+		},
+	}}}
+	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("greek-corpus"))
+	require.NoError(t, err)
+	counts := make(map[string]int)
+	for _, candidate := range got {
+		counts[candidate.Identity.CanonicalLemma] = candidate.OccurrenceCount
+	}
+	assert.Equal(t, map[string]int{"γελάω": 1, "διαβάζω": 1, "ιστορία": 1, "σπίτι": 1, "φίλοσ": 1}, counts)
+	assert.NotContains(t, counts, "σε")
+	assert.NotContains(t, counts, "ο")
+	assert.NotContains(t, counts, "νίκοσ")
+	assert.NotContains(t, counts, ".")
+	statistics := AnalyzableStatistics(corpus, DefaultConfig("greek-corpus"))
+	assert.Equal(t, int64(5), statistics.AnalyzableTokenCount)
+	assert.Equal(t, int64(5), statistics.DistinctLemmaCount)
+}
+
 func TestAnalyzableStatisticsComputesExplainableSentenceProfile(t *testing.T) {
 	result := analyzer.Result{Sentences: []analyzer.Sentence{{}, {Tokens: make([]analyzer.Token, 10)}, {Tokens: make([]analyzer.Token, 20)}, {Tokens: make([]analyzer.Token, 36)}}}
 	got := AnalyzableStatistics(result, DefaultConfig("corpus")).TextProfile
@@ -177,6 +212,17 @@ func TestEligibilityUsesKnownWildcardAndLanguageScopedReservations(t *testing.T)
 	)
 	assert.False(t, overlap.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN", OccurrenceCount: 3}, 3))
 	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "häufig", UPOS: "NOUN", OccurrenceCount: 2}, 3))
+}
+
+func TestGreekEligibilityKeepsKnownAndReservedVocabularyOwnerAndLanguageScoped(t *testing.T) {
+	eligibility := NewEligibility(
+		[]domain.KnownVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN"}},
+		[]domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN"}},
+	)
+	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "σπίτι", UPOS: "NOUN", OccurrenceCount: 3}, 3))
+	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "el", CanonicalLemma: "σπίτι", UPOS: "VERB", OccurrenceCount: 3}, 3))
 }
 
 func TestReservedVocabularyIsOwnerScoped(t *testing.T) {

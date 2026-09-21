@@ -165,6 +165,39 @@ func TestItalianCoverageUsesAggregatedLemmaOccurrences(t *testing.T) {
 	assert.Equal(t, int64(3), got.Thresholds[1].LemmaCount)
 }
 
+func TestGreekCoverageUsesScopedLemmaOccurrencesAndExclusions(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 12, DistinctLemmaCount: 5}
+	otherBook := "other-greek-book"
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{SourceMaterialID: "greek-book", Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN", OccurrenceCount: 4},
+			{Language: "el", CanonicalLemma: "παλιό", UPOS: "ADJ", OccurrenceCount: 3},
+			{Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN", OccurrenceCount: 2},
+			{Language: "el", CanonicalLemma: "φίλοσ", UPOS: "NOUN", OccurrenceCount: 2},
+			{Language: "el", CanonicalLemma: "γελάω", UPOS: "VERB", OccurrenceCount: 1},
+		}},
+		known: []domain.KnownVocabulary{
+			{OwnerID: "alice", Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN"},
+			{OwnerID: "alice", Language: "de", CanonicalLemma: "φίλοσ", UPOS: "NOUN"},
+			{OwnerID: "bob", Language: "el", CanonicalLemma: "φίλοσ", UPOS: "NOUN"},
+		},
+		generated: []domain.GeneratedVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "παλιό", UPOS: "ADJ", FirstSourceMaterialID: &otherBook}},
+		reserved:  []domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN"}},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "greek-corpus")
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), got.KnownTokenCount)
+	assert.Equal(t, int64(1), got.KnownLemmaCount)
+	assert.Equal(t, int64(2), got.ReservedTokenCount)
+	assert.Equal(t, int64(1), got.ReservedLemmaCount)
+	assert.Equal(t, int64(8), got.UnknownTokenCount)
+	assert.Equal(t, int64(4), got.UnknownLemmaCount)
+	require.Len(t, got.TopUnknownLemmas, 2)
+	assert.Equal(t, "φίλοσ", got.TopUnknownLemmas[0].CanonicalLemma)
+	assert.Equal(t, "γελάω", got.TopUnknownLemmas[1].CanonicalLemma)
+}
+
 func TestCoverageSeparatesReservedProjectionAndReleasesReservation(t *testing.T) {
 	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 3}
 	store := &memoryStore{

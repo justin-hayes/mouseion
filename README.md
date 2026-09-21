@@ -189,11 +189,13 @@ normalized-corpus runs and prepared-deck manifests are not rewritten.
 
 ## Language validation
 
-German and Italian are the deployment-supported analysis languages. The
-Italian vertical is covered deterministically from capability discovery and
-learner selection through Stanza fixture consumption, content-word filtering,
-coverage thresholds, Goal-owned reservation eligibility, and the generated
-`Mouseion::it::<book title>` APKG. These tests also assert account isolation and
-keep the German regression suite intact. See the [language-support feature
-contract](doc/features/language-support.md) for the supported path and model
-cache requirements.
+German, Italian, and Modern Greek are the deployment-supported analysis
+languages. The Italian and Greek verticals are covered deterministically from
+capability discovery and learner selection through normalized-corpus fixture
+consumption, content-word filtering, coverage thresholds, language-scoped
+vocabulary exclusions, and generated `Mouseion::<lang>::<book title>` APKGs.
+Greek additionally locks `στο`/`στην` expansion, final-sigma canonicalization,
+noun gender, and the generic sentence-quality path. These tests also assert
+account isolation and keep the German regression suite intact. See the
+[language-support feature contract](doc/features/language-support.md) for the
+supported path and model cache requirements.
