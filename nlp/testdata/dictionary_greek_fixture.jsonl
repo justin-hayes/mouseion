@@ -1,0 +1,5 @@
+{"word":"άνθρωπος","lang_code":"el","pos":"noun","tags":["masculine"],"senses":[{"glosses":["person","human being"]}],"forms":[{"form":"άνθρωποι","tags":["plural"]}],"sounds":[{"tags":["standard"],"ipa":"[ˈan.θro.pos]"},{"tags":["standard"],"ipa":"/ˈanθropos/"}]}
+{"word":"πόλη","lang_code":"el","pos":"noun","tags":["feminine"],"senses":[{"glosses":["city"]}],"forms":[{"form":"πόλεις","tags":["plural"]}]}
+{"word":"σπίτι","lang_code":"el","pos":"noun","tags":["neuter"],"senses":[{"glosses":["house","home"]}],"forms":[{"form":"σπίτια","tags":["plural"]}],"sounds":[{"tags":["standard"],"ipa":"/ˈspi.ti/"}]}
+{"word":"δρόμος","lang_code":"el","pos":"noun","tags":["masculine"],"senses":[{"glosses":["road"]}],"forms":[{"form":"ο","tags":["definite","nominative","singular"]},{"form":"δρόμοι","tags":["plural"]}]}
+{"word":"είμαι","lang_code":"el","pos":"verb","senses":[{"glosses":["to be"]}],"head_templates":[{"expansion":"third-person singular present είναι, past tense ήταν, past participle υπάρξει"}]}

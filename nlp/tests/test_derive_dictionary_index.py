@@ -97,6 +97,64 @@ def test_definite_plural_forms_fall_back_to_noun_gender(tmp_path: Path):
     connection.close()
 
 
+def test_ambiguous_gender_does_not_derive_an_article(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "ambiguous.jsonl"
+    source.write_text(
+        json.dumps(
+            {
+                "word": "λέξη",
+                "lang_code": "el",
+                "pos": "noun",
+                "tags": ["masculine", "feminine"],
+                "senses": [{"glosses": ["word"]}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT gender, article FROM entries").fetchone() == ("", "")
+    connection.close()
+
+
+def test_valid_nominative_article_wins_across_colliding_source_records(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "colliding.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(item, ensure_ascii=False)
+            for item in [
+                {
+                    "word": "ΟΔΌΣ",
+                    "lang_code": "el",
+                    "pos": "noun",
+                    "tags": ["masculine"],
+                    "senses": [{"glosses": ["road"]}],
+                },
+                {
+                    "word": "οδός",
+                    "lang_code": "el",
+                    "pos": "noun",
+                    "tags": ["feminine"],
+                    "senses": [{"glosses": ["way"]}],
+                    "forms": [{"form": "η", "tags": ["definite", "nominative", "singular"]}],
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT gender, article FROM entries").fetchone() == ("", "η")
+    connection.close()
+
+
 def test_captured_kaikki_forms_fall_back_to_noun_gender(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
@@ -201,6 +259,87 @@ def test_modern_greek_keys_use_nfc_casefold_normalization(tmp_path: Path):
     actual = {lemma for (lemma,) in connection.execute("SELECT lemma FROM entries ORDER BY lemma")}
     connection.close()
     assert actual == {"οδοσ", "οδόσ", "πού", "που"}
+
+
+def test_modern_greek_fixture_preserves_dictionary_morphology(tmp_path: Path):
+    module = load_script()
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_greek_fixture.jsonl",
+        output,
+        "fixture-v1",
+    )
+
+    connection = sqlite3.connect(output)
+    rows = {
+        lemma: (upos, json.loads(senses), gender, article, plural, ipa, principal_parts)
+        for lemma, upos, senses, gender, article, plural, ipa, principal_parts in connection.execute(
+            "SELECT lemma, upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries"
+        )
+    }
+    connection.close()
+
+    assert rows["άνθρωποσ"] == (
+        "NOUN",
+        [
+            {
+                "Gloss": "person",
+                "Examples": [],
+                "Topics": [],
+                "Tags": ["masculine"],
+                "Phrase": "",
+                "Gender": "Masc",
+                "Article": "ο",
+                "Plural": "άνθρωποι",
+                "IPA": "/ˈanθropos/",
+            }
+        ],
+        "Masc",
+        "ο",
+        "άνθρωποι",
+        "/ˈanθropos/",
+        "",
+    )
+    assert rows["πόλη"][:5] == (
+        "NOUN",
+        [
+            {
+                "Gloss": "city",
+                "Examples": [],
+                "Topics": [],
+                "Tags": ["feminine"],
+                "Phrase": "",
+                "Gender": "Fem",
+                "Article": "η",
+                "Plural": "πόλεις",
+                "IPA": "",
+            }
+        ],
+        "Fem",
+        "η",
+        "πόλεις",
+    )
+    assert rows["σπίτι"][:5] == (
+        "NOUN",
+        [
+            {
+                "Gloss": "house",
+                "Examples": [],
+                "Topics": [],
+                "Tags": ["neuter"],
+                "Phrase": "",
+                "Gender": "Neut",
+                "Article": "το",
+                "Plural": "σπίτια",
+                "IPA": "/ˈspi.ti/",
+            }
+        ],
+        "Neut",
+        "το",
+        "σπίτια",
+    )
+    assert rows["δρόμοσ"][3] == "ο"
+    assert rows["είμαι"][-1] == ""
 
 
 def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):

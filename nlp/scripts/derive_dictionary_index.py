@@ -125,16 +125,17 @@ def tags_for(item: dict, sense: dict) -> list[str]:
 
 
 def gender_for(item: dict, sense: dict) -> str:
+    genders = set()
     candidates = tags_for(item, sense)
     for value in candidates:
         if value.casefold() in GENDERS:
-            return GENDERS[value.casefold()]
+            genders.add(GENDERS[value.casefold()])
     for category in values(item.get("categories")):
         lowered = category.casefold()
         for name, gender in GENDERS.items():
             if name in lowered:
-                return gender
-    return ""
+                genders.add(gender)
+    return next(iter(genders)) if len(genders) == 1 else ""
 
 
 def plural_for(item: dict) -> str:
@@ -150,23 +151,13 @@ def plural_for(item: dict) -> str:
 
 
 def article_for(language: str, word: str, gender: str, forms: object) -> str:
-    article_values = {
-        "de": {"der", "die", "das"},
-        "it": {"il", "lo", "la", "l'"},
-    }.get(language, set())
-    for form in forms if isinstance(forms, list) else []:
-        if not isinstance(form, dict):
-            continue
-        tags = {tag.casefold() for tag in values(form.get("tags"))}
-        if not tags.intersection({"article", "definite", "definite article"}):
-            continue
-        if "nominative" not in tags or tags.intersection({"plural", "inflected", "inflected form"}):
-            continue
-        value = form.get("form")
-        if isinstance(value, str) and value.strip() and value.casefold().strip() in article_values:
-            return value.casefold().strip()
+    supplied = supplied_article_for(language, forms)
+    if supplied:
+        return supplied
     if language == "de":
         return {"Masc": "der", "Fem": "die", "Neut": "das"}.get(gender, "")
+    if language == "el":
+        return {"Masc": "ο", "Fem": "η", "Neut": "το"}.get(gender, "")
     if language != "it":
         return ""
     word = word.casefold().strip()
@@ -179,6 +170,26 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
     if word.startswith(("z", "x", "y", "gn", "ps", "pn")) or (word.startswith("s") and len(word) > 1 and word[1] not in "aeiouàèéìòóù"):
         return "lo"
     return "il"
+
+
+def supplied_article_for(language: str, forms: object) -> str:
+    article_values = {
+        "de": {"der", "die", "das"},
+        "it": {"il", "lo", "la", "l'"},
+        "el": {"ο", "η", "το"},
+    }.get(language, set())
+    for form in forms if isinstance(forms, list) else []:
+        if not isinstance(form, dict):
+            continue
+        tags = {tag.casefold() for tag in values(form.get("tags"))}
+        if not tags.intersection({"article", "definite", "definite article"}):
+            continue
+        if "nominative" not in tags or tags.intersection({"plural", "inflected", "inflected form"}):
+            continue
+        value = form.get("form")
+        if isinstance(value, str) and value.strip() and value.casefold().strip() in article_values:
+            return value.casefold().strip()
+    return ""
 
 
 def ipa_for(item: dict) -> str:
@@ -205,8 +216,8 @@ def ipa_for(item: dict) -> str:
     return best
 
 
-def principal_parts_for(upos: str, item: dict) -> str:
-    if upos != "VERB":
+def principal_parts_for(language: str, upos: str, item: dict) -> str:
+    if language == "el" or upos != "VERB":
         return ""
     for template in item.get("head_templates", []):
         if not isinstance(template, dict):
@@ -263,7 +274,11 @@ def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
         "Tags": tags,
         "Phrase": phrase.strip(),
         "Gender": gender_for(item, raw),
-        "Article": article_for(item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")),
+        "Article": article_for(
+            item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")
+        )
+        if upos == "NOUN"
+        else "",
         "Plural": plural_for(item) if upos == "NOUN" else "",
         "IPA": ipa_for(item),
     }
@@ -318,15 +333,24 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                     if sense is None:
                         continue
                     key = (language, lemma, upos)
-                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": "", "principal_parts": ""})
+                    entry = entries.setdefault(key, {"senses": [], "gender": "", "genders": set(), "article": "", "article_from_source": False, "fallback_article": "", "plural": "", "ipa": "", "principal_parts": ""})
                     identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
                     if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
                         entry["senses"].append(sense)
-                    entry["gender"] = entry["gender"] or sense["Gender"]
-                    entry["article"] = entry["article"] or sense["Article"]
+                    if sense["Gender"]:
+                        entry["genders"].add(sense["Gender"])
+                    entry["gender"] = next(iter(entry["genders"])) if len(entry["genders"]) == 1 else ""
+                    source_article = supplied_article_for(language, item.get("forms"))
+                    if source_article:
+                        entry["article"] = source_article
+                        entry["article_from_source"] = True
+                    elif not entry["fallback_article"]:
+                        entry["fallback_article"] = sense["Article"]
+                    if not entry["article_from_source"]:
+                        entry["article"] = entry["fallback_article"] if entry["gender"] else ""
                     entry["plural"] = entry["plural"] or sense["Plural"]
                     entry["ipa"] = entry["ipa"] or ipa_for(item)
-                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(upos, item)
+                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(language, upos, item)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:

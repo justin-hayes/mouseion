@@ -97,6 +97,14 @@ func TestOrderSensesUsesTokenContextDeterministically(t *testing.T) {
 	assert.Equal(t, "household", first[0].Gloss)
 }
 
+func TestOrderSensesIgnoresGreekFunctionWords(t *testing.T) {
+	request := LexicalLookupRequest{Language: "el", RepresentativeSentence: "Ο άνθρωπος και εδώ.", TargetWord: "άνθρωπος"}
+	senses := []LexicalSense{{Gloss: "primary"}, {Gloss: "secondary", Topics: []string{"ο", "και"}}}
+
+	ordered := OrderSenses(request, senses)
+	assert.Equal(t, "primary", ordered[0].Gloss)
+}
+
 func TestRenderGlossLimitsSensesAndTokens(t *testing.T) {
 	got := RenderGloss([]LexicalSense{{Gloss: "one two three four"}, {Gloss: "second meaning"}, {Gloss: "third"}}, 2, 3)
 	assert.Equal(t, "one two three · second meaning", got)

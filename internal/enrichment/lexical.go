@@ -176,7 +176,7 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 				end = len(fields)
 			}
 			for _, candidate := range fields[start:end] {
-				if word := normalizeWord(candidate); isContextWord(word) && word != target {
+				if word := normalizeWord(candidate); isContextWord(request.Language, word) && word != target {
 					words[word] = true
 				}
 			}
@@ -206,7 +206,7 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 		end = len(request.SentenceTokens)
 	}
 	for _, token := range request.SentenceTokens[start:end] {
-		if word := normalizeWord(token.CanonicalLemma); isContextWord(word) && word != target && contentPOS(token.UPOS) {
+		if word := normalizeWord(token.CanonicalLemma); isContextWord(request.Language, word) && word != target && contentPOS(token.UPOS) {
 			words[word] = true
 		}
 		if relation := normalizeWord(token.Dependency); relation != "" {
@@ -254,12 +254,34 @@ var contextStopWords = map[string]struct{}{
 	"a": {}, "ai": {}, "al": {}, "alla": {}, "alle": {}, "agli": {}, "an": {}, "and": {}, "auf": {}, "aus": {}, "auch": {}, "bei": {}, "bin": {}, "bis": {}, "con": {}, "come": {}, "da": {}, "dal": {}, "dalle": {}, "dass": {}, "das": {}, "de": {}, "dei": {}, "degli": {}, "del": {}, "della": {}, "delle": {}, "der": {}, "des": {}, "die": {}, "di": {}, "e": {}, "ein": {}, "eine": {}, "einer": {}, "eines": {}, "el": {}, "en": {}, "er": {}, "es": {}, "è": {}, "for": {}, "from": {}, "gli": {}, "haben": {}, "hat": {}, "he": {}, "i": {}, "ich": {}, "il": {}, "im": {}, "in": {}, "is": {}, "ist": {}, "la": {}, "le": {}, "lo": {}, "ma": {}, "man": {}, "mein": {}, "mit": {}, "nach": {}, "nei": {}, "nel": {}, "nella": {}, "nelle": {}, "nicht": {}, "non": {}, "o": {}, "of": {}, "on": {}, "oder": {}, "per": {}, "she": {}, "si": {}, "sie": {}, "sind": {}, "so": {}, "sono": {}, "su": {}, "sugli": {}, "sui": {}, "sul": {}, "the": {}, "to": {}, "tra": {}, "tu": {}, "und": {}, "un": {}, "una": {}, "uno": {}, "was": {}, "we": {}, "wie": {}, "wir": {}, "with": {}, "wo": {}, "wird": {}, "zu": {},
 }
 
-func isContextWord(word string) bool {
+var greekContextStopWords = map[string]struct{}{
+	"από": {}, "απο": {}, "αν": {}, "αλλά": {}, "αλλα": {}, "για": {}, "η": {}, "ή": {},
+	"και": {}, "κατά": {}, "με": {}, "μη": {}, "μην": {}, "να": {}, "ο": {}, "οι": {},
+	"σε": {}, "στα": {}, "στο": {}, "στη": {}, "στην": {}, "στις": {}, "στους": {}, "τα": {},
+	"τη": {}, "την": {}, "τις": {}, "το": {}, "του": {}, "των": {}, "τον": {}, "τους": {},
+	"θα": {}, "που": {}, "πως": {}, "δεν": {}, "είμαι": {}, "ειμαι": {}, "είναι": {}, "ειναι": {},
+	"ένας": {}, "ενας": {}, "ένα": {}, "ενα": {}, "μια": {}, "μία": {}, "μιας": {},
+}
+
+func isContextWord(language, word string) bool {
 	if word == "" {
 		return false
 	}
 	_, stop := contextStopWords[word]
+	if stop {
+		return false
+	}
+	if baseLanguage(language) != "el" {
+		return true
+	}
+	_, stop = greekContextStopWords[word]
 	return !stop
+}
+
+func baseLanguage(language string) string {
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	base, _, _ := strings.Cut(language, "-")
+	return base
 }
 
 func sensePhrase(value string) []string {
