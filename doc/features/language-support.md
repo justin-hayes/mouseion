@@ -51,18 +51,21 @@ no database migration.
 and advertise, and is the single setting that drives all three operations.
 The Compose `nlp-init` service reuses the NLP image and provisions each
 configured language into the named `stanza-data` volume mounted at
-`STANZA_RESOURCES_DIR=/opt/stanza_resources`. It downloads the full runtime
-processor set: `tokenize,pos,lemma,depparse`. The `nlp` service mounts the
-same volume and starts only after the init service completes successfully.
+`STANZA_RESOURCES_DIR=/opt/stanza_resources` using the language's effective
+Stanza package and processor set. The `nlp` service mounts the same volume and
+starts only after the init service completes successfully.
 
-Provisioning writes a marker containing the Stanza version and configured
-language set. An unchanged restart completes without a download. If the
-language set grows, the init step downloads only the missing language; update
+Provisioning writes a marker containing the Stanza version, configured language
+set, and each language's effective model configuration. An unchanged restart
+completes without a download. If the language set grows, the init step downloads
+only the missing language; update
 `MOUSEION_NLP_WARM_LANGUAGES` in `.env` and run `docker compose up -d`, without
 rebuilding the image. When the Stanza dependency version changes, the marker
 causes the volume to be wiped and the complete configured bundle to be
-provisioned again. A missing marker, including on an existing volume containing
-only the old partially-baked model set, has the same full-reprovision behavior.
+provisioned again. A changed package, processor set, or external model
+dependency has the same full-reprovision behavior. A missing or legacy marker,
+including on an existing volume containing only the old partially-baked model
+set, also triggers full reprovisioning.
 Provisioning failure is fatal, so the NLP service does not start with an
 incomplete cache.
 

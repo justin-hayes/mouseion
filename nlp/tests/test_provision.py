@@ -5,12 +5,12 @@ import pytest
 
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
-    PROCESSORS,
     main,
     provision,
     read_marker,
     wipe_resources,
 )
+from mouseion_nlp.model_config import LanguageModelConfig, model_config_for_language
 
 STANZA_VERSION = "1.14.0"
 
@@ -38,14 +38,34 @@ def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
     for _language, kwargs in download.calls:
         assert kwargs == {
             "model_dir": str(tmp_path),
-            "processors": PROCESSORS,
+            "processors": "tokenize,pos,lemma,depparse",
             "verbose": False,
         }
     marker = read_marker(tmp_path)
     assert (marker.stanza_version, marker.languages) == (STANZA_VERSION, ("de", "it"))
+    assert marker.model_configs == (
+        LanguageModelConfig(language="de"),
+        LanguageModelConfig(language="it"),
+    )
 
     assert json.loads((tmp_path / MARKER_FILENAME).read_text(encoding="utf-8")) == {
         "languages": ["de", "it"],
+        "model_configs": [
+            {
+                "external_model_dependencies": [],
+                "language": "de",
+                "model_version": None,
+                "package": None,
+                "processors": "tokenize,pos,lemma,depparse",
+            },
+            {
+                "external_model_dependencies": [],
+                "language": "it",
+                "model_version": None,
+                "package": None,
+                "processors": "tokenize,pos,lemma,depparse",
+            },
+        ],
         "stanza_version": STANZA_VERSION,
     }
 
@@ -76,6 +96,53 @@ def test_changed_stanza_version_wipes_and_provisions_from_scratch(tmp_path) -> N
     assert not sentinel.exists()
     assert upgraded.languages == ["de"]
     assert read_marker(tmp_path).stanza_version == "1.15.0"
+
+
+@pytest.mark.parametrize(
+    "changed_config",
+    [
+        LanguageModelConfig(language="de", processors="tokenize,pos,lemma"),
+        LanguageModelConfig(language="de", package="accurate"),
+        LanguageModelConfig(
+            language="de", external_model_dependencies=("example/model",)
+        ),
+    ],
+)
+def test_changed_model_configuration_wipes_and_provisions_from_scratch(
+    tmp_path, changed_config
+) -> None:
+    provision(
+        tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload()
+    )
+    sentinel = tmp_path / "de" / "tokenize" / "stale.pt"
+    sentinel.parent.mkdir(parents=True)
+    sentinel.write_text("stale", encoding="utf-8")
+    original_resolver = model_config_for_language
+    upgraded = RecordingDownload()
+
+    def changed_resolver(language: str) -> LanguageModelConfig:
+        return changed_config if language == "de" else original_resolver(language)
+
+    with patch("mouseion_nlp.provision.model_config_for_language", changed_resolver):
+        provision(tmp_path, ["de"], stanza_version=STANZA_VERSION, download=upgraded)
+
+    assert not sentinel.exists()
+    assert upgraded.languages == ["de"]
+    assert read_marker(tmp_path).model_configs == (changed_config,)
+
+
+def test_external_model_dependencies_are_marker_data_not_stanza_downloads(tmp_path) -> None:
+    config = LanguageModelConfig(
+        language="el", external_model_dependencies=("example/model",)
+    )
+    download = RecordingDownload()
+
+    with patch("mouseion_nlp.provision.model_config_for_language", return_value=config):
+        provision(tmp_path, ["el"], stanza_version=STANZA_VERSION, download=download)
+
+    assert download.languages == ["el"]
+    assert download.calls[0][1]["processors"] == config.processors
+    assert read_marker(tmp_path).model_configs == (config,)
 
 
 def test_added_language_downloads_only_the_missing_language(tmp_path) -> None:
@@ -142,6 +209,15 @@ def test_read_marker_treats_a_corrupt_marker_as_absent(tmp_path) -> None:
 
 def test_read_marker_ignores_a_wrong_marker_schema(tmp_path) -> None:
     (tmp_path / MARKER_FILENAME).write_text('{"languages": ["de"]}', encoding="utf-8")
+
+    assert read_marker(tmp_path) is None
+
+
+def test_read_marker_treats_a_legacy_marker_as_absent(tmp_path) -> None:
+    (tmp_path / MARKER_FILENAME).write_text(
+        json.dumps({"languages": ["de"], "stanza_version": STANZA_VERSION}),
+        encoding="utf-8",
+    )
 
     assert read_marker(tmp_path) is None
 
