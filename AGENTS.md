@@ -22,7 +22,7 @@ make gen              # protobuf -> gen/go, gen/python (source of truth: proto/)
 make templ            # templ generate (check in the generated *_templ.go)
 make build            # go build ./... + python compileall
 make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
-make test-integration # go test -tags=integration ./internal/...
+make test-integration # go test -count=1 -tags=integration ./internal/...
 make lint-go          # pinned golangci-lint over the complete Go module
 make lint             # make lint-go + ruff check nlp/src nlp/tests
 make browser-smoke    # Playwright against cmd/fixtureserver
@@ -38,7 +38,7 @@ Non-obvious setup:
   the host `python3` version or Debian's `ensurepip` package.
 - `make gen` also needs `protoc` and `protoc-gen-go` on PATH; the Makefile only auto-installs `protoc-gen-go-grpc` v1.5.1 and `grpcio-tools==1.71.2`. Run `make gen` in the venv-configured shell; CI verifies it via `git diff --exit-code`.
 - Python commands require `PYTHONPATH=nlp/src:gen/python` and the `.venv` from `make setup`.
-- Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). CI only runs `go test ./...`; verify `-tags=integration` work locally.
+- Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). Every supported integration command uses Go's `-count=1` flag, so repeated runs execute the packages again and never report `(cached)`; ordinary unit-test commands retain Go's normal result caching.
 - Integration tests use one named, reusable Testcontainers PostgreSQL instance and reset the schema between package processes. The full run can exceed an agent command timeout, so run it in the background and poll its log:
   `mkdir -p .tmp && (make test-integration >.tmp/integration.log 2>&1; printf '%s\n' $? >.tmp/integration.exit) & printf '%s\n' $! >.tmp/integration.pid`
   Check progress with `tail -n 100 .tmp/integration.log`; when the PID exits, read `.tmp/integration.exit` and treat only `0` as passing. Remove the reusable container after the run with `docker rm -f mouseion-test-postgres` when it is no longer needed.
