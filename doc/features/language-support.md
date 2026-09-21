@@ -11,9 +11,9 @@ offered non-English language that is ready; the resulting chosen-language Books
 derive each learner's study-language set. The web application does not maintain
 a learner-selected language allowlist; the learner's active study language
 ([ADR 0050](../adr/0050-active-study-language.md)) is a context selection into
-the derived set, never an allowlist. German (`de`, display name **German**) and
-Italian (`it`, display name **Italian**) are provisioned by the standard
-deployment.
+the derived set, never an allowlist. German (`de`, display name **German**),
+Italian (`it`, display name **Italian**), and Modern Greek (`el`, display name
+**Greek**) are provisioned by the standard deployment.
 
 If discovery is unavailable, stored display-name references keep derived
 language labels legible, while sync and actions requiring a newly ready
@@ -55,6 +55,14 @@ configured language into the named `stanza-data` volume mounted at
 Stanza package and processor set. The `nlp` service mounts the same volume and
 starts only after the init service completes successfully.
 
+Greek's accurate package also requires the
+`nlpaueb/bert-base-greek-uncased-v1` GreekBERT snapshot. The snapshot is
+approximately 454 MB and is stored in the named `huggingface-data` volume at
+`/opt/huggingface`, alongside the Stanza resources in `stanza-data` at
+`/opt/stanza_resources`. The init container checks both caches before writing
+its success marker; the serving container mounts both volumes and does not
+need model-source network access.
+
 Provisioning writes a marker containing the Stanza version, configured language
 set, and each language's effective model configuration. An unchanged restart
 completes without a download. If the language set grows, the init step downloads
@@ -69,8 +77,12 @@ set, also triggers full reprovisioning.
 Provisioning failure is fatal, so the NLP service does not start with an
 incomplete cache.
 
-For a manual launch, set `STANZA_RESOURCES_DIR` to the local Stanza resource
-directory, set `MOUSEION_NLP_WARM_LANGUAGES`, and run
+For a manual launch, set persistent `STANZA_RESOURCES_DIR` and `HF_HOME`
+directories, set `MOUSEION_NLP_WARM_LANGUAGES`, and run
 `python -m mouseion_nlp.provision` before `python -m mouseion_nlp.server`.
 Rerun the provisioner after adding a language or upgrading Stanza. Missing or
 incompatible resources make only that language unavailable after startup.
+Artifacts are downloaded at deployment time rather than baked or redistributed
+in the application image. Stanza is Apache-2.0, GreekBERT is MIT, and the UD
+Greek-GDT data used by the Stanza package is CC BY-NC-SA 3.0; operators should
+review those licenses for their deployment.
