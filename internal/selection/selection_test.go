@@ -141,6 +141,8 @@ func TestGreekFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 			{Surface: "Οι", CanonicalLemma: "ο", UPOS: "DET"},
 			{Surface: "φίλοι", CanonicalLemma: "φίλοσ", UPOS: "NOUN"},
 			{Surface: "γελούν", CanonicalLemma: "γελάω", UPOS: "VERB"},
+			{Surface: "τον", CanonicalLemma: "ο", UPOS: "PRON"},
+			{Surface: "και", CanonicalLemma: "και", UPOS: "CCONJ"},
 			{Surface: "!", CanonicalLemma: "!", UPOS: "PUNCT"},
 		},
 	}}}
@@ -154,6 +156,7 @@ func TestGreekFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 	assert.Equal(t, map[string]int{"γελάω": 1, "διαβάζω": 1, "ιστορία": 1, "σπίτι": 1, "φίλοσ": 1}, counts)
 	assert.NotContains(t, counts, "σε")
 	assert.NotContains(t, counts, "ο")
+	assert.NotContains(t, counts, "και")
 	assert.NotContains(t, counts, "νίκοσ")
 	assert.NotContains(t, counts, ".")
 	statistics := AnalyzableStatistics(corpus, DefaultConfig("greek-corpus"))
