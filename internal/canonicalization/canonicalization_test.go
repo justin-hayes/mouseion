@@ -106,6 +106,52 @@ func TestGermanV6SelectsFirstUsablePipeLemmaAndRetainsPriorVersions(t *testing.T
 	assert.Equal(t, "hass", GermanPost1996().Canonical("Haß"))
 }
 
+func TestModernGreekCanonicalizationPreservesAccentsAndFoldsSigma(t *testing.T) {
+	profile := ModernGreek()
+	tests := map[string]string{
+		"uppercase":                   "ΟΔΟΣ",
+		"final sigma":                 "οδός",
+		"medial sigma":                "οδοσ",
+		"unaccented remains distinct": "που",
+	}
+	// Keep the decomposed form visibly equivalent to the precomposed accented
+	// form without making the table itself depend on source-file normalization.
+	tests["decomposed tonos"] = "που\u0301"
+	want := map[string]string{
+		"uppercase":                   "οδοσ",
+		"final sigma":                 "οδόσ",
+		"medial sigma":                "οδοσ",
+		"decomposed tonos":            "πού",
+		"unaccented remains distinct": "που",
+	}
+	for name, raw := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := profile.Canonical(raw)
+			assert.Equal(t, want[name], got)
+			assert.Equal(t, got, profile.Canonical(got), "canonicalization must be idempotent")
+		})
+	}
+	assert.NotEqual(t, profile.Canonical("πού"), profile.Canonical("που"))
+}
+
+func TestModernGreekNormalizationPreservesRawLemmaAndProfile(t *testing.T) {
+	raw := "ΟΔΟΣ"
+	got, err := Normalize("el", raw)
+	require.NoError(t, err)
+	assert.Equal(t, raw, got.RawLemma)
+	assert.Equal(t, "οδοσ", got.CanonicalLemma)
+	assert.Equal(t, ModernGreekProfileName, got.ProfileName)
+	assert.Equal(t, ModernGreekProfileVersion, got.ProfileVersion)
+}
+
+func TestUnknownLanguageUsesUnicodeCasefoldFallback(t *testing.T) {
+	got, err := Normalize("it", "CITTÀ")
+	require.NoError(t, err)
+	assert.Equal(t, "città", got.CanonicalLemma)
+	assert.Equal(t, UnicodeCasefoldProfile, got.ProfileName)
+	assert.Equal(t, UnicodeCasefoldVersion, got.ProfileVersion)
+}
+
 func TestActivatingNewVersionDoesNotMutatePriorResult(t *testing.T) {
 	registry := NewRegistry()
 	v1 := testProfile{version: "1", suffix: "-v1"}
@@ -125,7 +171,7 @@ func TestActivatingNewVersionDoesNotMutatePriorResult(t *testing.T) {
 func TestRegistryErrors(t *testing.T) {
 	registry := NewRegistry()
 	_, err := registry.For("it")
-	assert.ErrorIs(t, err, ErrUnsupportedLanguage) //nolint:testifylint // Independent registry error case; the next lookup is a separate case.
+	require.NoError(t, err)
 	_, err = registry.Lookup("de", "99")
 	assert.ErrorIs(t, err, ErrProfileNotFound) //nolint:testifylint // Independent registry error case; the following registration remains meaningful.
 	require.NoError(t, registry.Register(GermanPost1996(), true))

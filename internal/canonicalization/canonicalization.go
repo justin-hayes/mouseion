@@ -41,10 +41,11 @@ type Registry struct {
 	mu       sync.RWMutex
 	profiles map[profileKey]Profile
 	active   map[string]string
+	fallback Profile
 }
 
 func NewRegistry() *Registry {
-	return &Registry{profiles: make(map[profileKey]Profile), active: make(map[string]string)}
+	return &Registry{profiles: make(map[profileKey]Profile), active: make(map[string]string), fallback: LanguageNeutral()}
 }
 
 // Register adds a profile. If active, future normalization uses this version;
@@ -80,6 +81,9 @@ func (r *Registry) For(language string) (Profile, error) {
 			return r.profiles[profileKey{candidate, version}], nil
 		}
 	}
+	if language != "" && r.fallback != nil {
+		return r.fallback, nil
+	}
 	return nil, fmt.Errorf("%w: %s", ErrUnsupportedLanguage, language)
 }
 
@@ -91,6 +95,9 @@ func (r *Registry) Lookup(language, version string) (Profile, error) {
 		if profile, ok := r.profiles[profileKey{candidate, version}]; ok {
 			return profile, nil
 		}
+	}
+	if language != "" && r.fallback != nil && r.fallback.Version() == version {
+		return r.fallback, nil
 	}
 	return nil, fmt.Errorf("%w: %s version %s", ErrProfileNotFound, language, version)
 }
@@ -107,6 +114,9 @@ var defaultRegistry = func() *Registry {
 		panic(err)
 	}
 	if err := r.Register(GermanPost1996Profile{version: "5"}, false); err != nil {
+		panic(err)
+	}
+	if err := r.Register(ModernGreek(), true); err != nil {
 		panic(err)
 	}
 	if err := r.Register(GermanPost1996(), true); err != nil {

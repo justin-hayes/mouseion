@@ -33,14 +33,22 @@ PipelineFactory = Callable[[str], Any]
 
 GERMAN_NORMALIZATION_PROFILE = "german-standard-post-1996"
 GERMAN_NORMALIZATION_VERSION = "6"
+GREEK_NORMALIZATION_PROFILE = "modern-greek"
+GREEK_NORMALIZATION_VERSION = "1"
 DEFAULT_NORMALIZATION_PROFILE = "unicode-casefold"
 DEFAULT_NORMALIZATION_VERSION = "1.2.0"
 
 logger = logging.getLogger(__name__)
 
+
 def load_german_normalization_policy() -> dict[str, dict[str, str]]:
     """Load the same reviewed policy consumed by the Go runtime and index."""
-    repository_policy = Path(__file__).resolve().parents[3] / "internal" / "canonicalization" / "german_post1996.json"
+    repository_policy = (
+        Path(__file__).resolve().parents[3]
+        / "internal"
+        / "canonicalization"
+        / "german_post1996.json"
+    )
     container_policy = Path("/src/internal/canonicalization/german_post1996.json")
     policy_path = repository_policy if repository_policy.exists() else container_policy
     with policy_path.open(encoding="utf-8") as source:
@@ -131,6 +139,7 @@ def _morphology(feats: str | None) -> dict[str, str]:
 
 def _clean_surface(surface: str) -> str:
     """Remove Unicode punctuation/symbol edges while preserving lexical internals."""
+
     def is_edge_decoration(character: str) -> bool:
         # Apostrophes are lexical in elided forms such as Italian L' and dell'.
         return character not in {"'", "’"} and unicodedata.category(character)[0] in {"P", "S"}
@@ -199,8 +208,7 @@ class Producer:
         analyzed = analyzed_at or datetime.now(timezone.utc)
         stanza_document = self._pipeline_factory(language)(text)
         sentences = [
-            self._map_sentence(sentence, source, language)
-            for sentence in stanza_document.sentences
+            self._map_sentence(sentence, source, language) for sentence in stanza_document.sentences
         ]
         profile_name, profile_version = self._normalization_profile(language)
 
@@ -290,6 +298,8 @@ class Producer:
             return self.normalization_profile, self.normalization_version or ""
         if self._is_german(language):
             return GERMAN_NORMALIZATION_PROFILE, GERMAN_NORMALIZATION_VERSION
+        if self._is_greek(language):
+            return GREEK_NORMALIZATION_PROFILE, GREEK_NORMALIZATION_VERSION
         return DEFAULT_NORMALIZATION_PROFILE, DEFAULT_NORMALIZATION_VERSION
 
     @classmethod
@@ -306,7 +316,8 @@ class Producer:
             ]
             if particles:
                 verb.canonical_lemma = cls._canonical_lemma(
-                    "de", "".join(token.canonical_lemma for token in particles) + verb.canonical_lemma
+                    "de",
+                    "".join(token.canonical_lemma for token in particles) + verb.canonical_lemma,
                 )
 
     @staticmethod
@@ -314,9 +325,13 @@ class Producer:
         return language.lower().replace("_", "-").split("-", 1)[0] == "de"
 
     @staticmethod
+    def _is_greek(language: str) -> bool:
+        return language.lower().replace("_", "-").split("-", 1)[0] == "el"
+
+    @staticmethod
     def _canonical_lemma(language: str, lemma: str) -> str:
         if not Producer._is_german(language):
-            return lemma.casefold()
+            return " ".join(unicodedata.normalize("NFC", lemma).casefold().split())
         lowered = lemma.lower()
         return GERMAN_POST_1996_EQUIVALENCES.get(lowered, lowered)
 

@@ -119,9 +119,9 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 }
 
 func normalizeLemma(language, lemma string) string {
-	lemma = strings.ToLower(strings.TrimSpace(lemma))
-	if language == "de" {
-		lemma = canonicalization.GermanPost1996().Canonical(lemma)
+	normalized, err := canonicalization.Normalize(language, lemma)
+	if err != nil {
+		return ""
 	}
-	return lemma
+	return normalized.CanonicalLemma
 }

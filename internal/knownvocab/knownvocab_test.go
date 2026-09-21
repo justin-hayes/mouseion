@@ -128,6 +128,25 @@ func TestImportFullGermanLexemeMatchesAnalysisCanonicalLemma(t *testing.T) {
 	assert.Equal(t, 1, second.AlreadyKnown)
 }
 
+func TestImportUsesSharedFallbackForItalianAndGreek(t *testing.T) {
+	store := newMemoryStore()
+	service := NewService(store)
+
+	italian, err := service.Import(context.Background(), "alice", "it", strings.NewReader("CITTÀ\n"))
+	require.NoError(t, err)
+	require.Len(t, italian.Entries, 1)
+	assert.Equal(t, "città", italian.Entries[0].CanonicalLemma)
+	assert.Equal(t, "unicode-casefold", italian.Entries[0].ProfileName)
+
+	greek, err := service.Import(context.Background(), "alice", "el", strings.NewReader("ΟΣ\nος\n"))
+	require.NoError(t, err)
+	require.Len(t, greek.Entries, 2)
+	assert.Equal(t, "οσ", greek.Entries[0].CanonicalLemma)
+	assert.Equal(t, "οσ", greek.Entries[1].CanonicalLemma)
+	assert.Equal(t, 1, greek.Imported)
+	assert.Equal(t, 1, greek.AlreadyKnown)
+}
+
 func TestImportRejectsNonLexicalLemmasAndPreservesUnicodeWords(t *testing.T) {
 	store := newMemoryStore()
 	got, err := NewService(store).Import(context.Background(), "alice", "de", strings.NewReader("5\n—\nl'acqua\nStraße\nB2\n"))
@@ -146,8 +165,8 @@ func TestImportRequiresOwnerLanguageAndSupportedProfile(t *testing.T) {
 		_, err := service.Import(context.Background(), tc.owner, tc.language, strings.NewReader("Haus\n"))
 		assert.ErrorIs(t, err, ErrInvalidInput, "Import(%q, %q)", tc.owner, tc.language) //nolint:testifylint // Each invalid owner/language pair is an independent table case.
 	}
-	got, err := service.Import(context.Background(), "alice", "zz", strings.NewReader("word\n"))
+	got, err := service.Import(context.Background(), "alice", "zz", strings.NewReader("WORD\n"))
 	require.NoError(t, err)
-	require.Len(t, got.Rejected, 1)
-	assert.Contains(t, got.Rejected[0].Error, "unsupported language")
+	require.Len(t, got.Entries, 1)
+	assert.Equal(t, "word", got.Entries[0].CanonicalLemma)
 }

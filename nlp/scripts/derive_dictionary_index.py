@@ -18,7 +18,7 @@ import unicodedata
 from urllib.request import urlopen
 
 
-LANGUAGES = {"de", "it"}
+LANGUAGES = {"de", "it", "el"}
 KAIKKI_DOWNLOAD_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 POS = {
     "adj": "ADJ",
@@ -68,7 +68,12 @@ PRINCIPAL_PARTS_PATTERN = re.compile(
 
 
 def load_german_normalization_policy() -> dict:
-    path = Path(__file__).resolve().parents[2] / "internal" / "canonicalization" / "german_post1996.json"
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "internal"
+        / "canonicalization"
+        / "german_post1996.json"
+    )
     with path.open(encoding="utf-8") as source:
         return json.load(source)
 
@@ -108,7 +113,7 @@ def normalize(language: str, value: str) -> str:
         value = " ".join(clean_lemma_edges(primary_lemma(value)).strip().lower().split())
         equivalences = GERMAN_NORMALIZATION_POLICY["equivalences"]
         return GERMAN_V6_EQUIVALENCES.get(value, equivalences.get(value, value))
-    return " ".join(value.strip().casefold().split())
+    return " ".join(unicodedata.normalize("NFC", value.strip()).casefold().split())
 
 
 def values(value: object) -> list[str]:
@@ -176,7 +181,9 @@ def article_for(language: str, word: str, gender: str, forms: object) -> str:
         return "l'"
     if gender == "Fem":
         return "la"
-    if word.startswith(("z", "x", "y", "gn", "ps", "pn")) or (word.startswith("s") and len(word) > 1 and word[1] not in "aeiouàèéìòóù"):
+    if word.startswith(("z", "x", "y", "gn", "ps", "pn")) or (
+        word.startswith("s") and len(word) > 1 and word[1] not in "aeiouàèéìòóù"
+    ):
         return "lo"
     return "il"
 
@@ -263,7 +270,9 @@ def sense_from(item: dict, raw: dict, upos: str) -> dict | None:
         "Tags": tags,
         "Phrase": phrase.strip(),
         "Gender": gender_for(item, raw),
-        "Article": article_for(item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")),
+        "Article": article_for(
+            item["lang_code"], item["word"], gender_for(item, raw), item.get("forms")
+        ),
         "Plural": plural_for(item) if upos == "NOUN" else "",
         "IPA": ipa_for(item),
     }
@@ -285,7 +294,9 @@ def download_input(force: bool) -> Path:
     if output.exists() and not force:
         return output
     output.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(dir=output.parent, prefix=output.name + ".", suffix=".tmp")
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=output.parent, prefix=output.name + ".", suffix=".tmp"
+    )
     temporary_path = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as destination, urlopen(KAIKKI_DOWNLOAD_URL) as source:
@@ -296,7 +307,14 @@ def download_input(force: bool) -> Path:
     return output
 
 
-def derive(input_path: Path, output_path: Path, provider_version: str, dump_date: str = "", extraction_date: str = "", wiktextract_commit: str = "") -> None:
+def derive(
+    input_path: Path,
+    output_path: Path,
+    provider_version: str,
+    dump_date: str = "",
+    extraction_date: str = "",
+    wiktextract_commit: str = "",
+) -> None:
     entries: dict[tuple[str, str, str], dict] = {}
     with open_input(input_path) as source:
         for line in source:
@@ -318,18 +336,35 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
                     if sense is None:
                         continue
                     key = (language, lemma, upos)
-                    entry = entries.setdefault(key, {"senses": [], "gender": "", "article": "", "plural": "", "ipa": "", "principal_parts": ""})
+                    entry = entries.setdefault(
+                        key,
+                        {
+                            "senses": [],
+                            "gender": "",
+                            "article": "",
+                            "plural": "",
+                            "ipa": "",
+                            "principal_parts": "",
+                        },
+                    )
                     identity = json.dumps(sense, ensure_ascii=False, sort_keys=True)
-                    if not any(json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity for existing in entry["senses"]):
+                    if not any(
+                        json.dumps(existing, ensure_ascii=False, sort_keys=True) == identity
+                        for existing in entry["senses"]
+                    ):
                         entry["senses"].append(sense)
                     entry["gender"] = entry["gender"] or sense["Gender"]
                     entry["article"] = entry["article"] or sense["Article"]
                     entry["plural"] = entry["plural"] or sense["Plural"]
                     entry["ipa"] = entry["ipa"] or ipa_for(item)
-                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(upos, item)
+                    entry["principal_parts"] = entry["principal_parts"] or principal_parts_for(
+                        upos, item
+                    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False) as temporary:
+    with tempfile.NamedTemporaryFile(
+        dir=output_path.parent, prefix=output_path.name + ".", suffix=".tmp", delete=False
+    ) as temporary:
         temporary_path = Path(temporary.name)
     try:
         connection = sqlite3.connect(temporary_path)
@@ -365,7 +400,17 @@ def derive(input_path: Path, output_path: Path, provider_version: str, dump_date
         connection.executemany(
             "INSERT INTO entries(language, lemma, upos, senses_json, gender, article, plural, ipa, principal_parts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                (language, lemma, upos, json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")), entry["gender"], entry["article"], entry["plural"], entry["ipa"], entry["principal_parts"])
+                (
+                    language,
+                    lemma,
+                    upos,
+                    json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")),
+                    entry["gender"],
+                    entry["article"],
+                    entry["plural"],
+                    entry["ipa"],
+                    entry["principal_parts"],
+                )
                 for (language, lemma, upos), entry in sorted(entries.items())
             ),
         )
@@ -382,7 +427,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="raw Kaikki/Wiktextract JSONL(.gz)")
-    source.add_argument("--download", action="store_true", help="download the raw Kaikki dump first")
+    source.add_argument(
+        "--download", action="store_true", help="download the raw Kaikki dump first"
+    )
     parser.add_argument("--force-download", action="store_true", help="redownload the Kaikki dump")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--provider-version")
@@ -398,8 +445,18 @@ def main(argv: list[str] | None = None) -> int:
             input_path = download_input(args.force_download)
         except (OSError, RuntimeError) as error:
             parser.error(f"could not download Kaikki dump: {error}")
-    provider_version = args.provider_version or f"dump={args.dump_date or 'unknown'};extraction={args.extraction_date};wiktextract={args.wiktextract_commit or 'unknown'}"
-    derive(input_path, args.output, provider_version, args.dump_date, args.extraction_date, args.wiktextract_commit)
+    provider_version = (
+        args.provider_version
+        or f"dump={args.dump_date or 'unknown'};extraction={args.extraction_date};wiktextract={args.wiktextract_commit or 'unknown'}"
+    )
+    derive(
+        input_path,
+        args.output,
+        provider_version,
+        args.dump_date,
+        args.extraction_date,
+        args.wiktextract_commit,
+    )
     print(f"Wrote {args.output}")
     return 0
 

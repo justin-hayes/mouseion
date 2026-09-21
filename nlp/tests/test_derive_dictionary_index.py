@@ -20,29 +20,58 @@ def load_script():
 def test_fixture_derives_filtered_entries_and_metadata(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
-    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl", output, "dump-2026-09-14")
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl",
+        output,
+        "dump-2026-09-14",
+    )
 
     connection = sqlite3.connect(output)
-    assert connection.execute("SELECT value FROM metadata WHERE key = 'provider_version'").fetchone() == ("dump-2026-09-14",)
-    assert connection.execute("SELECT value FROM metadata WHERE key = 'license'").fetchone() == ("Wiktionary-derived data: CC BY-SA 3.0 / GFDL",)
-    assert connection.execute("SELECT value FROM metadata WHERE key = 'attribution'").fetchone() == ("Wiktionary contributors; CC BY-SA 3.0 / GFDL",)
-    row = connection.execute("SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'").fetchone()
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'provider_version'"
+    ).fetchone() == ("dump-2026-09-14",)
+    assert connection.execute("SELECT value FROM metadata WHERE key = 'license'").fetchone() == (
+        "Wiktionary-derived data: CC BY-SA 3.0 / GFDL",
+    )
+    assert connection.execute(
+        "SELECT value FROM metadata WHERE key = 'attribution'"
+    ).fetchone() == ("Wiktionary contributors; CC BY-SA 3.0 / GFDL",)
+    row = connection.execute(
+        "SELECT language, lemma, upos, senses_json, gender, article, plural FROM entries WHERE lemma = 'haus'"
+    ).fetchone()
     assert row[:3] == ("de", "haus", "NOUN")
     assert json.loads(row[3])[0]["Gloss"] == "house"
     assert row[4:] == ("Neut", "das", "Häuser")
     assert connection.execute("SELECT count(*) FROM entries").fetchone() == (7,)
-    assert connection.execute("SELECT count(*) FROM entries WHERE lemma = 'unbekannt'").fetchone() == (0,)
+    assert connection.execute(
+        "SELECT count(*) FROM entries WHERE lemma = 'unbekannt'"
+    ).fetchone() == (0,)
     assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'albero'").fetchone() == ("",)
-    assert set(connection.execute("SELECT DISTINCT language FROM entries").fetchall()) == {("de",), ("it",)}
+    assert set(connection.execute("SELECT DISTINCT language FROM entries").fetchall()) == {
+        ("de",),
+        ("it",),
+    }
     for (senses_json,) in connection.execute("SELECT senses_json FROM entries"):
         senses = json.loads(senses_json)
         assert senses
         assert all(sense["Gloss"].strip() for sense in senses)
-    assert connection.execute("SELECT upos, plural, senses_json FROM entries WHERE lemma IN ('aufstehen', 'gut') ORDER BY lemma").fetchall() == [
-        ("VERB", "", '[{"Gloss":"to get up","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]'),
-        ("ADJ", "", '[{"Gloss":"good","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]'),
+    assert connection.execute(
+        "SELECT upos, plural, senses_json FROM entries WHERE lemma IN ('aufstehen', 'gut') ORDER BY lemma"
+    ).fetchall() == [
+        (
+            "VERB",
+            "",
+            '[{"Gloss":"to get up","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]',
+        ),
+        (
+            "ADJ",
+            "",
+            '[{"Gloss":"good","Examples":[],"Topics":[],"Tags":[],"Phrase":"","Gender":"","Article":"","Plural":"","IPA":""}]',
+        ),
     ]
-    italian = connection.execute("SELECT lemma, gender, article, plural FROM entries WHERE language = 'it' ORDER BY lemma").fetchall()
+    italian = connection.execute(
+        "SELECT lemma, gender, article, plural FROM entries WHERE language = 'it' ORDER BY lemma"
+    ).fetchall()
     assert italian == [
         ("albero", "Masc", "l'", "alberi"),
         ("casa", "Fem", "la", "case"),
@@ -82,7 +111,10 @@ def test_definite_plural_forms_fall_back_to_noun_gender(tmp_path: Path):
                     "forms": [{"form": form, "tags": ["definite", "nominative", "plural"]}],
                 }
             )
-            for word, gender, form in [("Gauner", "masculine", "Gauner"), ("Feigheit", "feminine", "Feigheiten")]
+            for word, gender, form in [
+                ("Gauner", "masculine", "Gauner"),
+                ("Feigheit", "feminine", "Feigheiten"),
+            ]
         ),
         encoding="utf-8",
     )
@@ -100,7 +132,11 @@ def test_definite_plural_forms_fall_back_to_noun_gender(tmp_path: Path):
 def test_captured_kaikki_forms_fall_back_to_noun_gender(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
-    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_article_forms.jsonl", output, "fixture-v1")
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_article_forms.jsonl",
+        output,
+        "fixture-v1",
+    )
 
     connection = sqlite3.connect(output)
     assert connection.execute("SELECT lemma, article FROM entries ORDER BY lemma").fetchall() == [
@@ -113,25 +149,41 @@ def test_captured_kaikki_forms_fall_back_to_noun_gender(tmp_path: Path):
 def test_captured_kaikki_ipa_is_normalized(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
-    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_article_forms.jsonl", output, "fixture-v1")
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_article_forms.jsonl",
+        output,
+        "fixture-v1",
+    )
 
     connection = sqlite3.connect(output)
-    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'feigheit'").fetchone() == ("/ˈfaɪ̯kaɪ̯t/",)
-    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'gauner'").fetchone() == ("/ˈɡaʊ̯nər/",)
+    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'feigheit'").fetchone() == (
+        "/ˈfaɪ̯kaɪ̯t/",
+    )
+    assert connection.execute("SELECT ipa FROM entries WHERE lemma = 'gauner'").fetchone() == (
+        "/ˈɡaʊ̯nər/",
+    )
     connection.close()
 
 
 def test_derivation_normalizes_ipa_and_extracts_principal_parts(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
-    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_form_presentation.jsonl", output, "fixture-v1")
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_form_presentation.jsonl",
+        output,
+        "fixture-v1",
+    )
 
     connection = sqlite3.connect(output)
     rows = {
         lemma: (ipa, principal_parts)
-        for lemma, ipa, principal_parts in connection.execute("SELECT lemma, ipa, principal_parts FROM entries")
+        for lemma, ipa, principal_parts in connection.execute(
+            "SELECT lemma, ipa, principal_parts FROM entries"
+        )
     }
-    gehen_senses = json.loads(connection.execute("SELECT senses_json FROM entries WHERE lemma = 'gehen'").fetchone()[0])
+    gehen_senses = json.loads(
+        connection.execute("SELECT senses_json FROM entries WHERE lemma = 'gehen'").fetchone()[0]
+    )
     connection.close()
     assert rows == {
         "gehen": ("/ˈɡeːən/", "geht · ging · gegangen"),
@@ -153,7 +205,11 @@ def test_downloader_uses_mouseion_cache_without_external_dependency(monkeypatch,
 def test_derived_index_is_readable_by_the_nonroot_container(tmp_path: Path):
     module = load_script()
     output = tmp_path / "dictionary.sqlite"
-    module.derive(Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl", output, "dump-2026-09-14")
+    module.derive(
+        Path(__file__).parents[1] / "testdata" / "dictionary_fixture.jsonl",
+        output,
+        "dump-2026-09-14",
+    )
 
     assert stat.S_IMODE(output.stat().st_mode) == 0o644
 
@@ -176,12 +232,46 @@ def test_german_fixture_keys_match_runtime_lookup_keys(tmp_path: Path):
     assert set(actual) == set(expected.values())
 
 
+def test_modern_greek_keys_use_nfc_casefold_normalization(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "greek.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "word": word,
+                    "lang_code": "el",
+                    "pos": "noun",
+                    "senses": [{"glosses": [word]}],
+                },
+                ensure_ascii=False,
+            )
+            for word in ["ΟΔΟΣ", "οδός", "που\u0301", "που"]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    actual = {lemma for (lemma,) in connection.execute("SELECT lemma FROM entries ORDER BY lemma")}
+    connection.close()
+    assert actual == {"οδοσ", "οδόσ", "πού", "που"}
+
+
 def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
     module = load_script()
     source = tmp_path / "pos.jsonl"
     source.write_text(
         "\n".join(
-            json.dumps({"word": word, "lang_code": "de", "pos": pos, "senses": [{"glosses": [word], "tags": tags}]})
+            json.dumps(
+                {
+                    "word": word,
+                    "lang_code": "de",
+                    "pos": pos,
+                    "senses": [{"glosses": [word], "tags": tags}],
+                }
+            )
             for word, pos, tags in [
                 ("obwohl", "conj", []),
                 ("dass", "conj", ["subordinating"]),
