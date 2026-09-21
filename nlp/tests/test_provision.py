@@ -1,10 +1,12 @@
 import json
 from unittest.mock import patch
 
+from huggingface_hub.errors import LocalEntryNotFoundError
 import pytest
 
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
+    ensure_external_dependency,
     main,
     provision,
     read_marker,
@@ -169,6 +171,19 @@ def test_external_model_dependencies_are_marker_data_not_stanza_downloads(tmp_pa
         ("example/model", {"cache_dir": str(tmp_path / "huggingface" / "hub")})
     ]
     assert read_marker(tmp_path).model_configs == (config,)
+
+
+def test_missing_external_cache_is_fetched_even_with_a_current_marker(tmp_path) -> None:
+    external_download = RecordingExternalDownload()
+    with patch(
+        "mouseion_nlp.provision.snapshot_download",
+        side_effect=LocalEntryNotFoundError("missing")
+    ):
+        ensure_external_dependency("example/model", tmp_path, external_download)
+
+    assert external_download.calls == [
+        ("example/model", {"cache_dir": str(tmp_path / "hub")})
+    ]
 
 
 def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:

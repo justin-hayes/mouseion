@@ -120,3 +120,25 @@ def test_greek_capability_uses_public_features_and_accurate_model_version() -> N
     )
     assert capability.supported_features == ["tokenize", "pos", "lemma", "depparse"]
     assert capability.ready
+
+
+def test_greek_warmup_failure_preserves_other_ready_languages(capsys) -> None:
+    class GreekFailingProducer(StubProducer):
+        def warmup(self, language):
+            if language == "el":
+                raise RuntimeError("GreekBERT unavailable")
+            super().warmup(language)
+
+    with patch.dict(os.environ, {"MOUSEION_NLP_WARM_LANGUAGES": "de,el,it"}, clear=True):
+        servicer = AnalyzerServicer(GreekFailingProducer())
+
+    warm_configured_languages(servicer)
+    capabilities = {
+        capability.language: capability for capability in servicer.GetCapabilities(None, None).languages
+    }
+
+    assert capabilities["de"].ready
+    assert not capabilities["el"].ready
+    assert capabilities["it"].ready
+    assert capabilities["el"].model_version == ""
+    assert "GreekBERT unavailable" in capsys.readouterr().err

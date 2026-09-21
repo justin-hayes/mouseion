@@ -85,11 +85,11 @@ Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it,el` by default. The init
 container provisions each language's configured Stanza package and processor
 set into `stanza-data`, mounted at
 `STANZA_RESOURCES_DIR=/opt/stanza_resources`. GreekBERT is provisioned into the
-`huggingface-data` volume at `HF_HOME=/opt/huggingface`. Markers in those
-volumes make
-unchanged restarts a no-op, downloads only a newly added language, and
+`huggingface-data` volume at `HF_HOME=/opt/huggingface`. The Stanza marker
+makes unchanged restarts a no-op, downloads only a newly added language, and
 re-provisions everything automatically when the Stanza version or an effective
-language model configuration changes.
+language model configuration changes; the Hugging Face cache is checked on each
+run and repaired if an external model is missing.
 
 To add a language, set the comma-separated `MOUSEION_NLP_WARM_LANGUAGES` value
 in `.env` and run `docker compose up -d`; no image rebuild is needed. The init
