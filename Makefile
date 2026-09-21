@@ -4,7 +4,9 @@ VENV := .venv
 VENV_BIN := $(VENV)/bin
 PROTO_FILE := proto/mouseion/v1/normalized_corpus.proto
 PROTOC_GEN_GO_GRPC := $(shell go env GOPATH)/bin/protoc-gen-go-grpc
-SQLC := $(shell go env GOPATH)/bin/sqlc
+# sqlc is installed separately (the CI setup action provides the release
+# binary); callers may override this with a locally installed executable.
+SQLC ?= sqlc
 SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
 MOUSEION_TEST_PACKAGES ?= ./internal/...
@@ -93,7 +95,7 @@ templ:
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs
 # the same version and asserts `git diff --exit-code` after regeneration.
 sqlc: go-tmp
-	test "$$($(SQLC) version 2>/dev/null)" = "$(SQLC_VERSION)" || go install github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION)
+	test "$$($(SQLC) version 2>/dev/null)" = "$(SQLC_VERSION)"
 	$(SQLC) generate
 
 dictionary-index:
