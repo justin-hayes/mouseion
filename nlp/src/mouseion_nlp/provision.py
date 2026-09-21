@@ -1,16 +1,17 @@
 """One-shot provisioner for the Stanza model bundle on a persistent volume.
 
 The NLP service owns the configured language set (ADR 0023) and advertises the
-full runtime processor set; this entrypoint fills ``STANZA_RESOURCES_DIR`` with
-``tokenize``, ``pos``, ``lemma``, and ``depparse`` for every configured
-language so the serving container never downloads at startup.
+public runtime processor set. This entrypoint fills ``STANZA_RESOURCES_DIR``
+with each language's effective Stanza package and processors so the serving
+container never downloads at startup.
 
 Provisioning is idempotent and refresh-aware via a marker file written into the
 resource directory:
 
 - no marker (e.g. a volume from an image that only baked some processors) means
   the directory is wiped and every language is provisioned fresh;
-- a changed Stanza version means the directory is wiped and re-provisioned;
+- a changed Stanza version or model configuration means the directory is wiped
+  and re-provisioned;
 - a grown language set only downloads the missing languages.
 
 Any download failure propagates and aborts the process with a non-zero exit.
@@ -30,19 +31,20 @@ from typing import Callable, Iterable
 import stanza
 from stanza.resources.common import DEFAULT_MODEL_DIR
 
+from .model_config import LanguageModelConfig, model_config_for_language
 from .server import configured_languages
 
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
-PROCESSORS = "tokenize,pos,lemma,depparse"
 
 
 @dataclass(frozen=True)
 class Marker:
-    """The Stanza version and provisioned language set recorded on disk."""
+    """The inputs that identify the resources recorded on disk."""
 
     stanza_version: str
     languages: tuple[str, ...]
+    model_configs: tuple[LanguageModelConfig, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -64,11 +66,38 @@ def read_marker(resources_dir: Path) -> Marker | None:
     path = marker_path(resources_dir)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        stanza_version = str(payload["stanza_version"])
-        languages = tuple(sorted({str(code) for code in payload["languages"]}))
+        if not isinstance(payload, dict):
+            return None
+        stanza_version = payload["stanza_version"]
+        raw_languages = payload["languages"]
+        raw_configs = payload["model_configs"]
+        if not isinstance(stanza_version, str) or not isinstance(raw_languages, list):
+            return None
+        if not all(isinstance(language, str) for language in raw_languages):
+            return None
+        languages = tuple(sorted(set(raw_languages)))
+        if not isinstance(raw_configs, list):
+            return None
+        model_configs = tuple(
+            sorted(
+                (
+                    config
+                    for payload_config in raw_configs
+                    if (config := LanguageModelConfig.from_marker_payload(payload_config))
+                    is not None
+                ),
+                key=lambda config: config.language,
+            )
+        )
+        if len(model_configs) != len(raw_configs) or tuple(
+            config.language for config in model_configs
+        ) != languages:
+            return None
     except (OSError, ValueError, KeyError, TypeError):
         return None
-    return Marker(stanza_version=stanza_version, languages=languages)
+    return Marker(
+        stanza_version=stanza_version, languages=languages, model_configs=model_configs
+    )
 
 
 def write_marker(resources_dir: Path, marker: Marker) -> None:
@@ -77,6 +106,7 @@ def write_marker(resources_dir: Path, marker: Marker) -> None:
     payload = {
         "stanza_version": marker.stanza_version,
         "languages": list(marker.languages),
+        "model_configs": [config.marker_payload() for config in marker.model_configs],
     }
     marker_path(resources_dir).write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -88,11 +118,23 @@ def plan_provisioning(
 ) -> ProvisionPlan:
     """Decide whether to wipe and which languages to download.
 
-    A missing marker or a changed Stanza version invalidates everything already
-    on disk. Otherwise only languages absent from the marker are downloaded.
+    A missing marker, changed Stanza version, or changed configuration for an
+    already-provisioned language invalidates everything already on disk.
+    Otherwise only languages absent from the marker are downloaded.
     """
-    configured = tuple(dict.fromkeys(languages))
+    configured = tuple(
+        dict.fromkeys(model_config_for_language(language).language for language in languages)
+    )
     if marker is None or marker.stanza_version != stanza_version:
+        return ProvisionPlan(wipe=True, downloads=configured, provisioned=configured)
+    marker_configs = {config.language: config for config in marker.model_configs}
+    expected_configs = {
+        language: model_config_for_language(language) for language in configured
+    }
+    if any(
+        language in marker.languages and marker_configs.get(language) != config
+        for language, config in expected_configs.items()
+    ):
         return ProvisionPlan(wipe=True, downloads=configured, provisioned=configured)
     missing = tuple(language for language in configured if language not in marker.languages)
     return ProvisionPlan(wipe=False, downloads=missing, provisioned=configured)
@@ -129,9 +171,23 @@ def provision(
         wipe_resources(resources_dir)
     for language in plan.downloads:
         print(f"provisioning Stanza models for language '{language}'…", flush=True)
-        download(language, model_dir=str(resources_dir), processors=PROCESSORS, verbose=False)
+        config = model_config_for_language(language)
+        kwargs = {
+            "model_dir": str(resources_dir),
+            "processors": config.processors,
+            "verbose": False,
+        }
+        if config.package is not None:
+            kwargs["package"] = config.package
+        download(language, **kwargs)
+    model_configs = tuple(model_config_for_language(language) for language in plan.provisioned)
     write_marker(
-        resources_dir, Marker(stanza_version=stanza_version, languages=plan.provisioned)
+        resources_dir,
+        Marker(
+            stanza_version=stanza_version,
+            languages=plan.provisioned,
+            model_configs=model_configs,
+        ),
     )
     return plan
 

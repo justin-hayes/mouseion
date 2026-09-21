@@ -82,11 +82,12 @@ docker compose up -d --build
 - `web` — the Go server on `http://localhost:8080`
 
 Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it` by default. The init
-container provisions the full runtime processor set (`tokenize,pos,lemma,
-depparse`) into `stanza-data`, mounted at
+container provisions each language's configured Stanza package and processor
+set into `stanza-data`, mounted at
 `STANZA_RESOURCES_DIR=/opt/stanza_resources`. A marker in that volume makes
 unchanged restarts a no-op, downloads only a newly added language, and
-re-provisions everything automatically when the Stanza version changes.
+re-provisions everything automatically when the Stanza version or an effective
+language model configuration changes.
 
 To add a language, set the comma-separated `MOUSEION_NLP_WARM_LANGUAGES` value
 in `.env` and run `docker compose up -d`; no image rebuild is needed. The init

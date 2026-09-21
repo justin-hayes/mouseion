@@ -15,6 +15,8 @@ from uuid import uuid4
 import stanza
 from mouseion.v1 import normalized_corpus_pb2
 
+from .model_config import model_config_for_language
+
 
 @dataclass(frozen=True)
 class SourceDocument:
@@ -110,9 +112,11 @@ GERMAN_SEPARABLE_PREFIXES = frozenset(
 
 @lru_cache(maxsize=None)
 def _stanza_pipeline(language: str) -> Any:
-    return stanza.Pipeline(
-        lang=language, processors="tokenize,pos,lemma,depparse", verbose=False
-    )
+    config = model_config_for_language(language)
+    kwargs = {"lang": config.language, "processors": config.processors, "verbose": False}
+    if config.package is not None:
+        kwargs["package"] = config.package
+    return stanza.Pipeline(**kwargs)
 
 
 def _default_pipeline_factory(language: str) -> Any:
@@ -173,9 +177,9 @@ class Producer:
         """
         self._pipeline_factory(language)
 
-    def model_version(self, language: str) -> str:  # noqa: ARG002
-        """Return the Stanza model release used by the configured pipeline."""
-        return stanza.__version__
+    def model_version(self, language: str) -> str:
+        """Return the configured model tag, or Stanza's version by default."""
+        return model_config_for_language(language).model_version or stanza.__version__
 
     def analyze(
         self,

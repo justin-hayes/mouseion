@@ -3,10 +3,13 @@ import json
 import logging
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from google.protobuf.json_format import MessageToDict
 from mouseion.v1 import normalized_corpus_pb2
 from mouseion_nlp import Producer, SourceDocument
+from mouseion_nlp.model_config import LanguageModelConfig
+import stanza
 
 
 def word(
@@ -447,6 +450,48 @@ def test_italian_warmup_and_analyze_use_the_injected_pipeline() -> None:
     assert analyzed == ["La casa."]
     assert artifact.language == "it"
     assert [token.raw_lemma for token in artifact.sentences[0].tokens] == ["il", "casa", "."]
+
+
+def test_pipeline_and_capability_model_version_use_language_configuration() -> None:
+    config = LanguageModelConfig(
+        language="el",
+        processors="tokenize,mwt,pos,lemma,depparse",
+        package={
+            "tokenize": "gdt",
+            "mwt": "gdt",
+            "pos": "gdt_nocharlm",
+            "lemma": "gdt_nocharlm",
+            "depparse": "gdt_greek-bert",
+        },
+        model_version="stanza-1.14.0-gdt-accurate",
+    )
+
+    with (
+        patch("mouseion_nlp.producer.model_config_for_language", return_value=config),
+        patch("mouseion_nlp.producer.stanza.Pipeline") as pipeline,
+    ):
+        from mouseion_nlp import producer as producer_module
+
+        producer_module._stanza_pipeline.cache_clear()
+        try:
+            Producer().warmup("el")
+            assert Producer().model_version("el") == config.model_version
+        finally:
+            producer_module._stanza_pipeline.cache_clear()
+
+    pipeline.assert_called_once_with(
+        lang="el",
+        processors=config.processors,
+        package=config.package,
+        verbose=False,
+    )
+
+
+def test_default_languages_keep_stanza_library_model_version() -> None:
+    producer = Producer(pipeline_factory=lambda _language: lambda _text: None)
+
+    assert producer.model_version("de") == stanza.__version__
+    assert producer.model_version("it") == stanza.__version__
 
 
 def test_italian_linguistic_regression_fixture() -> None:
