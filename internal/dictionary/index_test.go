@@ -42,7 +42,7 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Article":"das","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', '/haʊ̯s/', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', '', 'steht auf · stand auf · aufgestanden'); INSERT INTO entries VALUES ('de', 'regnen', 'VERB', '[{"Gloss":"to rain"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Gender":"Fem","Article":"la","Plural":"case"}]', 'Fem', 'la', 'case', '', ''); INSERT INTO entries VALUES ('el', 'οδοσ', 'NOUN', '[{"Gloss":"road"}]', '', '', '', '', '')`)
 	require.NoError(t, err)
-	_, err = db.ExecContext(t.Context(), `INSERT INTO entries VALUES ('el', 'άνθρωποσ', 'NOUN', '[{"Gloss":"person","Gender":"Masc","Article":"ο","Plural":"άνθρωποι"}]', 'Masc', 'ο', 'άνθρωποι', '/ˈanθropos/', ''); INSERT INTO entries VALUES ('el', 'είμαι', 'VERB', '[{"Gloss":"to be"}]', '', '', '', '', '')`)
+	_, err = db.ExecContext(t.Context(), `INSERT INTO entries VALUES ('el', 'άνθρωποσ', 'NOUN', '[{"Gloss":"person","Gender":"Masc","Article":"ο","Plural":"άνθρωποι"}]', 'Masc', 'ο', 'άνθρωποι', '/ˈanθropos/', ''); INSERT INTO entries VALUES ('el', 'είμαι', 'VERB', '[{"Gloss":"to be"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('el', 'δρόμοσ', 'NOUN', '[{"Gloss":"road","Gender":"Masc","Article":"ο","Plural":"δρόμοι"}]', '', 'η', 'δρόμοι', '', '')`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -104,6 +104,13 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.Empty(t, result.PrincipalParts)
+
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "el", CanonicalLemma: "ΔΡΌΜΟΣ", UPOS: "NOUN"})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Empty(t, result.Gender)
+	assert.Equal(t, "η", result.Article)
+	assert.Equal(t, "δρόμοι", result.Plural)
 
 	_, err = index.db.ExecContext(t.Context(), `INSERT INTO metadata VALUES ('unexpected', 'write')`)
 	assert.Error(t, err) //nolint:testifylint // Read-only write rejection and the following lookup are independent checks.

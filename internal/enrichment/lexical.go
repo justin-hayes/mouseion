@@ -176,7 +176,7 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 				end = len(fields)
 			}
 			for _, candidate := range fields[start:end] {
-				if word := normalizeWord(candidate); isContextWord(word) && word != target {
+				if word := normalizeWord(candidate); isContextWord(request.Language, word) && word != target {
 					words[word] = true
 				}
 			}
@@ -206,7 +206,7 @@ func sentenceContext(request LexicalLookupRequest) map[string]bool {
 		end = len(request.SentenceTokens)
 	}
 	for _, token := range request.SentenceTokens[start:end] {
-		if word := normalizeWord(token.CanonicalLemma); isContextWord(word) && word != target && contentPOS(token.UPOS) {
+		if word := normalizeWord(token.CanonicalLemma); isContextWord(request.Language, word) && word != target && contentPOS(token.UPOS) {
 			words[word] = true
 		}
 		if relation := normalizeWord(token.Dependency); relation != "" {
@@ -259,10 +259,11 @@ var greekContextStopWords = map[string]struct{}{
 	"και": {}, "κατά": {}, "με": {}, "μη": {}, "μην": {}, "να": {}, "ο": {}, "οι": {},
 	"σε": {}, "στα": {}, "στο": {}, "στη": {}, "στην": {}, "στις": {}, "στους": {}, "τα": {},
 	"τη": {}, "την": {}, "τις": {}, "το": {}, "του": {}, "των": {}, "τον": {}, "τους": {},
-	"θα": {}, "που": {}, "πως": {}, "δεν": {},
+	"θα": {}, "που": {}, "πως": {}, "δεν": {}, "είμαι": {}, "ειμαι": {}, "είναι": {}, "ειναι": {},
+	"ένας": {}, "ενας": {}, "ένα": {}, "ενα": {}, "μια": {}, "μία": {}, "μιας": {},
 }
 
-func isContextWord(word string) bool {
+func isContextWord(language, word string) bool {
 	if word == "" {
 		return false
 	}
@@ -270,8 +271,17 @@ func isContextWord(word string) bool {
 	if stop {
 		return false
 	}
+	if baseLanguage(language) != "el" {
+		return true
+	}
 	_, stop = greekContextStopWords[word]
 	return !stop
+}
+
+func baseLanguage(language string) string {
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	base, _, _ := strings.Cut(language, "-")
+	return base
 }
 
 func sensePhrase(value string) []string {

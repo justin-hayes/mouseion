@@ -132,8 +132,8 @@ Then open `http://localhost:8080`.
 ## Refreshing the dictionary index
 
 The optional dictionary index is a build artifact, not Postgres state and not a
-service. After running `make setup`, derive the combined German and Italian
-index from the current Kaikki raw Wiktextract dump with:
+service. After running `make setup`, derive the combined German, Italian, and
+Modern Greek index from the current Kaikki raw Wiktextract dump with:
 
 ```sh
 make dictionary-index \
@@ -145,8 +145,8 @@ make dictionary-index \
 `DICTIONARY_REFRESH=1` forces the downloader to fetch the weekly dump again;
 omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
 at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild. The
-input is the raw Wiktextract dump; the script filters it to the German and
-Italian entries needed by Mouseion. Do not combine `KAIKKI_INPUT` with
+input is the raw Wiktextract dump; the script filters it to the German,
+Italian, and Modern Greek entries needed by Mouseion. Do not combine `KAIKKI_INPUT` with
 `DICTIONARY_REFRESH=1`.
 
 The command writes `dictionary/dictionary-index.sqlite` atomically, mode `0644`.
