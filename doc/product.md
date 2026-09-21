@@ -175,12 +175,16 @@ Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process
 - `MOUSEION_NLP_ADDR` — address of the Python gRPC service.
 - `MOUSEION_NLP_WARM_LANGUAGES` — comma-separated language pipelines to preload and
   advertise from the NLP service and provision into its model cache. Compose
-  defaults to `de,it` and provisions the full Stanza processor bundle into the
-  named `stanza-data` volume before starting NLP; manually launched services
-  retain the application default of `de` and should run the provisioner first.
-  Models are stored under `STANZA_RESOURCES_DIR`. Changing this value adds
-  languages without an image rebuild, while a Stanza version change causes the
-  marker-driven provisioner to refresh the bundle. The singular
+  defaults to `de,it,el` and provisions the full Stanza processor bundle into
+  the named `stanza-data` volume before starting NLP. GreekBERT is provisioned
+  into the named `huggingface-data` volume at `HF_HOME=/opt/huggingface`.
+  Manually launched services retain the application default of `de`, should set
+  persistent `STANZA_RESOURCES_DIR` and `HF_HOME` locations, and should run the
+  provisioner first. Models are stored under `STANZA_RESOURCES_DIR`. Changing
+  this value adds languages without an image rebuild, while a Stanza version or
+  effective model configuration change causes the marker-driven provisioner to
+  refresh the bundle. Serving loads only local artifacts and does not download
+  models. The singular
   `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
 - `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
 - `MOUSEION_LLM_ENABLED` — set to `true` to enable optional external translation;
