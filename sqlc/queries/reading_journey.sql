@@ -211,12 +211,6 @@ WHERE sc.owner_id = sqlc.arg('owner')
       AND (kv.upos = sc.upos OR kv.upos = '')
   )
   AND NOT EXISTS (
-    SELECT 1 FROM vocabulary_states vs
-    WHERE vs.owner_id = sc.owner_id AND vs.language = sc.language
-      AND vs.canonical_lemma = sc.canonical_lemma AND vs.upos = sc.upos
-      AND vs.state = 'known'
-  )
-  AND NOT EXISTS (
     SELECT 1
     FROM primary_goal_snapshots ps
     JOIN primary_goal_snapshot_vocabulary pv
@@ -328,13 +322,6 @@ SELECT count(*)::int AS snapshot_count,
              AND kv.language = pv.language
              AND kv.canonical_lemma = pv.canonical_lemma
              AND (kv.upos = pv.upos OR kv.upos = '')
-       ) AND NOT EXISTS (
-           SELECT 1 FROM vocabulary_states vs
-           WHERE vs.owner_id = pv.owner_id
-             AND vs.language = pv.language
-             AND vs.canonical_lemma = pv.canonical_lemma
-             AND vs.upos = pv.upos
-             AND vs.state = 'known'
        ))::int AS eligible_count
 FROM primary_goal_snapshot_vocabulary pv
 WHERE pv.owner_id = sqlc.arg('owner')
@@ -383,14 +370,6 @@ WITH eligible AS (
             AND kv.canonical_lemma = pv.canonical_lemma
             AND (kv.upos = pv.upos OR kv.upos = '')
       )
-      AND NOT EXISTS (
-          SELECT 1 FROM vocabulary_states vs
-          WHERE vs.owner_id = pv.owner_id
-            AND vs.language = pv.language
-            AND vs.canonical_lemma = pv.canonical_lemma
-            AND vs.upos = pv.upos
-            AND vs.state = 'known'
-      )
 ), inserted AS (
     INSERT INTO known_vocabulary(
         owner_id, language, canonical_lemma, upos,
@@ -407,14 +386,7 @@ WITH eligible AS (
            first_deck_id, first_source_material_id, first_generated_at
     FROM eligible
     ON CONFLICT DO NOTHING
-    RETURNING owner_id, language, canonical_lemma, upos
-), states AS (
-    INSERT INTO vocabulary_states(owner_id, language, canonical_lemma, upos, state)
-    SELECT owner_id, language, canonical_lemma, upos, 'known'
-    FROM inserted
-    ON CONFLICT(owner_id, language, canonical_lemma, upos) DO UPDATE
-    SET state = 'known', updated_at = now()
-    RETURNING id
+    RETURNING owner_id
 )
 SELECT count(*)::int AS graduated_count FROM inserted;
 

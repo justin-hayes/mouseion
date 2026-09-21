@@ -97,19 +97,17 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "atomic-book", Title: "Atomic Book", MediaType: "text/plain", ContentHash: "atomic-hash", Content: []byte("Haus"), FullText: "Haus"})
 	require.NoError(t, err)
-	for _, lemma := range []string{"Haus", "Baum"} {
-		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de',$2,'NOUN','candidate')`, owner.ID, lemma)
-		require.NoError(t, err)
-	}
 	p := createPreparation(t, ctx, store, owner.ID, source.ID, source.ContentHash)
 	_, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID)
 	require.NoError(t, err)
 	record := func(lemma string) cardexport.GeneratedRecord {
 		return cardexport.GeneratedRecord{Input: cardexport.RenderInput{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}, Note: cardexport.Note{Key: lemma, Text: lemma + " front", BackExtra: lemma + " back", BookTitle: "Atomic Book"}}
 	}
-	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), record("Missing")}, Completeness: cardexport.Completeness{TotalCards: 2}}
+	invalid := record("Invalid")
+	invalid.Note.BookTitle = "\x00"
+	bad := cardexport.Artifact{APKG: []byte("bad"), Filename: "bad.apkg", DeckName: "Mouseion::de::Atomic Book", Generated: []cardexport.GeneratedRecord{record("Haus"), invalid}, Completeness: cardexport.Completeness{TotalCards: 2}}
 	_, err = store.CompletePreparedDeck(ctx, owner.ID, p.ID, bad)
-	assert.ErrorIs(t, err, ErrNotFound, "expected rollback error") //nolint:testifylint // The following queries independently verify rollback completeness.
+	assert.Error(t, err, "expected rollback error") //nolint:testifylint // The following queries independently verify rollback completeness.
 	var cards, generated int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM cards WHERE owner_id=$1`, owner.ID).Scan(&cards)
 	require.NoError(t, err)
@@ -134,9 +132,9 @@ func TestCompletePreparedDeckAtomicallyPersistsArtifactAndProvenance(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, 2, cards, "duplicate cards")
 	var assignments int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='vocabulary.transition' AND details->>'to'='generated'`, owner.ID).Scan(&assignments)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparation_vocabulary WHERE owner_id=$1 AND deck_preparation_id=$2`, owner.ID, p.ID).Scan(&assignments)
 	require.NoError(t, err)
-	assert.Equal(t, 2, assignments, "duplicate state assignments")
+	assert.Equal(t, 2, assignments, "duplicate provenance assignments")
 }
 
 func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {

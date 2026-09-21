@@ -91,16 +91,6 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	_, err = store.PutExampleSentence(ctx, bob.ID, corpus.ID, "s1", "stolen", []byte(`{}`))
 	assert.Error(t, err, "bob inserted a sentence into alice corpus") //nolint:testifylint // Mutation rejection and subsequent vocabulary checks are independent.
 
-	state, err := store.PutVocabularyState(ctx, alice.ID, "de", "Haus", "NOUN", "accepted")
-	require.NoError(t, err)
-	_, err = store.GetVocabularyState(ctx, bob.ID, state.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner vocabulary lookup is independent of the delete check.
-	err = store.DeleteVocabularyState(ctx, bob.ID, state.ID)
-	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner delete rejection is independently asserted.
-	got, err := store.GetVocabularyState(ctx, alice.ID, state.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "accepted", got.State, "alice state changed")
-
 	known, err := store.PutKnownVocabulary(ctx, alice.ID, "de", "gehen", "VERB")
 	require.NoError(t, err)
 	_, err = store.GetKnownVocabulary(ctx, bob.ID, known.ID)

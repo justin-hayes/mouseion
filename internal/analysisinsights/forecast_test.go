@@ -63,7 +63,7 @@ func TestJourneyForecastUsesExactSequentialIdentityUnion(t *testing.T) {
 	assert.Equal(t, second.Current, second.AfterGoal, "without a Goal, after-Goal is the current stage")
 }
 
-func TestJourneyForecastTreatsKnownVocabularyStateAsKnown(t *testing.T) {
+func TestJourneyForecastUsesCanonicalKnownVocabulary(t *testing.T) {
 	store := &forecastSnapshotStore{routeStore: &routeStore{
 		journey: domain.ReadingJourney{OwnerID: "alice", Entries: []domain.ReadingJourneyEntry{{BookID: "first", Position: 1}, {BookID: "second", Position: 2}}},
 		books:   []domain.MyBook{forecastBook("first", "de", "c-first"), forecastBook("second", "de", "c-second")},
@@ -71,17 +71,17 @@ func TestJourneyForecastTreatsKnownVocabularyStateAsKnown(t *testing.T) {
 			"c-first":  forecastInput("first", "c-first", "de", 8, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 3}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "wild", UPOS: "NOUN", OccurrenceCount: 3}),
 			"c-second": forecastInput("second", "c-second", "de", 8, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN", OccurrenceCount: 2}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "legacy", UPOS: "VERB", OccurrenceCount: 2}, domain.LemmaOccurrence{Language: "de", CanonicalLemma: "wild", UPOS: "VERB", OccurrenceCount: 3}),
 		},
-		states: map[string]string{"alice/de/legacy/NOUN": "known"},
+		known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "legacy", UPOS: "NOUN"}},
 	}, snapshot: nil}
 
 	result, err := NewService(store).JourneyForecast(context.Background(), "alice", "de")
 	require.NoError(t, err)
 	require.Len(t, result.Entries, 2)
 	first, second := result.Entries[0], result.Entries[1]
-	assert.Equal(t, int64(3), first.Current.KnownTokenCount, "exact Known vocabulary state must count as known")
-	assert.Equal(t, int64(3), first.OnArrival.KnownTokenCount, "Known vocabulary state must not be projected as recurring vocabulary")
-	assert.Equal(t, int64(2), second.Current.KnownTokenCount, "the exact state must match the same lemma and UPOS, not another UPOS")
-	assert.Equal(t, int64(2), second.OnArrival.KnownTokenCount, "downstream arrival must retain the state-known identity")
+	assert.Equal(t, int64(3), first.Current.KnownTokenCount, "exact Known vocabulary must count as known")
+	assert.Equal(t, int64(3), first.OnArrival.KnownTokenCount, "Known vocabulary must not be projected as recurring vocabulary")
+	assert.Equal(t, int64(2), second.Current.KnownTokenCount, "the exact identity must match the same lemma and UPOS, not another UPOS")
+	assert.Equal(t, int64(2), second.OnArrival.KnownTokenCount, "downstream arrival must retain the Known identity")
 }
 
 func TestJourneyForecastAppliesGoalSnapshotAndLowerBounds(t *testing.T) {

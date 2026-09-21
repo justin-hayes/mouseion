@@ -1,2 +1,0 @@
--- This data repair is not reversed because the widened candidates it removes
--- cannot be distinguished from later snapshot changes.

@@ -324,7 +324,7 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	assert.False(t, strings.Contains(body, `id="journey-book-fixture-empty"`) || strings.Contains(body, `id="journey-book-fixture-edge-content"`), "empty Italian Journey page exposed a member: %s", body)
 }
 
-func TestJourneyReorderRecalculatesForecastWithoutChangingVocabularyState(t *testing.T) {
+func TestJourneyReorderRecalculatesForecastWithoutChangingLearnerState(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	handler := requireHandler(t, h)
 	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}

@@ -1,1 +1,0 @@
--- This migration is intentionally a no-op and has no inverse.

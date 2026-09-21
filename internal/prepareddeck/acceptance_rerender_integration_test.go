@@ -49,9 +49,6 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 		DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash,
 	})
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','haus','NOUN','candidate')`, owner.ID)
-	require.NoError(t, err)
-
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{
 		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN",
 		Sentence: "Das alte Haus steht heute am ruhigen Fluss.", TargetWord: "Haus", SourceDocument: source.Title,
@@ -122,8 +119,6 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	var generatedDeckID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','acceptance-graduated') RETURNING id::text`, owner.ID).Scan(&generatedDeckID))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','graduated','NOUN',$2,$3)`, owner.ID, generatedDeckID, graduated.SourceMaterialID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','graduated','NOUN','candidate')`, owner.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id,deck_preparation_id,language,canonical_lemma,upos,generated_at) VALUES($1,$2,'de','graduated','NOUN',now())`, owner.ID, graduated.ID)
 	require.NoError(t, err)

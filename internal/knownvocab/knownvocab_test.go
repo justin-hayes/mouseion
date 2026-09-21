@@ -37,11 +37,10 @@ func TestParseRejectsInvalidUTF8(t *testing.T) {
 
 type memoryStore struct {
 	known map[string]domain.KnownVocabulary
-	state map[string]domain.VocabularyState
 }
 
 func newMemoryStore() *memoryStore {
-	return &memoryStore{known: map[string]domain.KnownVocabulary{}, state: map[string]domain.VocabularyState{}}
+	return &memoryStore{known: map[string]domain.KnownVocabulary{}}
 }
 
 func importKey(owner, language, lemma, upos string) string {
@@ -61,13 +60,6 @@ func (s *memoryStore) PutKnownVocabulary(_ context.Context, owner, language, lem
 		value = domain.KnownVocabulary{ID: key, OwnerID: owner, Language: language, CanonicalLemma: lemma, UPOS: upos, CreatedAt: time.Now()}
 		s.known[key] = value
 	}
-	return value, nil
-}
-
-func (s *memoryStore) PutVocabularyState(_ context.Context, owner, language, lemma, upos, state string) (domain.VocabularyState, error) {
-	key := importKey(owner, language, lemma, upos)
-	value := domain.VocabularyState{ID: key, OwnerID: owner, Language: language, CanonicalLemma: lemma, UPOS: upos, State: state}
-	s.state[key] = value
 	return value, nil
 }
 
@@ -97,9 +89,6 @@ func TestImportCanonicalizesUpsertsAndReportsProvenance(t *testing.T) {
 	assert.Empty(t, first.Entries[0].UPOS)
 	assert.NotEmpty(t, first.Entries[0].ProfileName)
 	assert.NotEmpty(t, first.Entries[0].ProfileVersion)
-	assert.Equal(t, "known", store.state[importKey("alice", "de", "dass", "")].State)
-	assert.Equal(t, "known", store.state[importKey("alice", "de", "haus", "")].State)
-
 	second, err := service.Import(context.Background(), "alice", "de", strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Zero(t, second.Imported)

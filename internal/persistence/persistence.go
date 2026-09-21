@@ -106,24 +106,12 @@ func Migrate(databaseURL string) (err error) {
 func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 func (s *PostgresStore) Close() error                   { s.pool.Close(); return nil }
 
-// PutSelectionCandidate atomically respects current learner-state exclusions,
-// creates an initial candidate state, and records corpus-specific provenance.
-// The generated state is legacy bookkeeping; generated_vocabulary is the
-// authoritative generated-history source used by coverage export.
+// PutSelectionCandidate atomically respects current learner-state exclusions
+// and records corpus-specific provenance.
 func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate domain.SelectionCandidate) (bool, error) {
 	var accepted bool
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		state, err := q.GetVocabularyStateForUpdate(ctx, sqlcgen.GetVocabularyStateForUpdateParams{
-			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-		})
-		stateMissing := errors.Is(err, pgx.ErrNoRows)
-		if err != nil && !stateMissing {
-			return err
-		}
-		if !stateMissing && state == "known" {
-			return nil
-		}
 		known, err := q.KnownVocabularyExists(ctx, sqlcgen.KnownVocabularyExistsParams{
 			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
 		})
@@ -141,13 +129,6 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 		}
 		if reserved {
 			return nil
-		}
-		if stateMissing {
-			if err = q.InsertVocabularyStateCandidate(ctx, sqlcgen.InsertVocabularyStateCandidateParams{
-				OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-			}); err != nil {
-				return err
-			}
 		}
 		if err = q.PutSelectionCandidate(ctx, sqlcgen.PutSelectionCandidateParams{
 			OwnerID: candidate.OwnerID, CorpusID: candidate.CorpusID, Language: candidate.Language,
@@ -722,36 +703,6 @@ func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, la
 	lang = canonicalization.NormalizeLanguage(lang)
 	return s.queries().IsKnownVocabularyIdentity(ctx, sqlcgen.IsKnownVocabularyIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
 }
-func (s *PostgresStore) PutVocabularyState(ctx context.Context, owner, lang, lemma, upos, state string) (v domain.VocabularyState, err error) {
-	row, err := s.queries().PutVocabularyState(ctx, sqlcgen.PutVocabularyStateParams{
-		OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, State: state,
-	})
-	if err != nil {
-		return v, err
-	}
-	return vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt), nil
-}
-func (s *PostgresStore) GetVocabularyState(ctx context.Context, owner, id string) (v domain.VocabularyState, err error) {
-	row, err := s.queries().GetVocabularyState(ctx, sqlcgen.GetVocabularyStateParams{OwnerID: owner, ID: id})
-	if err != nil {
-		return v, missing(err)
-	}
-	return vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt), nil
-}
-func (s *PostgresStore) GetVocabularyStateByIdentity(ctx context.Context, owner, lang, lemma, upos string) (v domain.VocabularyState, err error) {
-	row, err := s.queries().GetVocabularyStateByIdentity(ctx, sqlcgen.GetVocabularyStateByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
-	if err != nil {
-		return v, missing(err)
-	}
-	return vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt), nil
-}
-func (s *PostgresStore) DeleteVocabularyState(ctx context.Context, owner, id string) error {
-	affected, err := s.queries().DeleteVocabularyState(ctx, sqlcgen.DeleteVocabularyStateParams{OwnerID: owner, ID: id})
-	if err == nil && affected == 0 {
-		return ErrNotFound
-	}
-	return err
-}
 func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, key, sentence string, loc []byte) (v domain.ExampleSentence, err error) {
 	row, err := s.queries().PutExampleSentence(ctx, sqlcgen.PutExampleSentenceParams{
 		OwnerID: owner, CorpusID: corpus, SentenceKey: key, SentenceText: sentence, SourceLocation: loc,
@@ -978,24 +929,4 @@ func (s *PostgresStore) PutProcessingHistory(ctx context.Context, v domain.Proce
 		Details: row.Details, StartedAt: row.StartedAt, CompletedAt: pgTimePtr(row.CompletedAt),
 	}
 	return out, nil
-}
-
-// PutVocabularyTransition persists a lifecycle state and its audit record atomically.
-// Transition validation remains the responsibility of the vocabulary domain service.
-func (s *PostgresStore) PutVocabularyTransition(ctx context.Context, owner, lang, lemma, upos, state string, history domain.ProcessingHistory) (v domain.VocabularyState, err error) {
-	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		q := sqlcgen.New(tx)
-		row, err := q.PutVocabularyState(ctx, sqlcgen.PutVocabularyStateParams{
-			OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, State: state,
-		})
-		if err != nil {
-			return err
-		}
-		v = vocabularyStateFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.State, row.UpdatedAt)
-		return q.InsertProcessingHistory(ctx, sqlcgen.InsertProcessingHistoryParams{
-			OwnerID: history.OwnerID, CorpusID: nullableUUIDArg(history.CorpusID), Operation: history.Operation,
-			Status: history.Status, Details: history.Details, CompletedAt: pgTimeArgPtr(history.CompletedAt),
-		})
-	})
-	return v, err
 }

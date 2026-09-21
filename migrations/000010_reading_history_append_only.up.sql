@@ -9,3 +9,9 @@ ALTER TABLE public.reading_history
     ADD CONSTRAINT reading_history_pkey PRIMARY KEY (completion_id),
     ADD CONSTRAINT reading_history_completion_identity_key
         UNIQUE (owner_id, language, goal_snapshot_id);
+
+-- Legacy Goals without trustworthy current analysis have no snapshot. Give
+-- their completion retries a durable identity as well.
+CREATE UNIQUE INDEX reading_history_null_snapshot_identity_idx
+    ON public.reading_history(owner_id, language, book_id)
+    WHERE goal_snapshot_id IS NULL;

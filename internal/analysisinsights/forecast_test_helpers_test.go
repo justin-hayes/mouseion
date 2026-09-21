@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 type routeStore struct {
@@ -15,7 +14,6 @@ type routeStore struct {
 	corpora         map[string]domain.AnalysisCorpusVocabulary
 	known           []domain.KnownVocabulary
 	reserved        []domain.DeckPreparationVocabulary
-	states          map[string]string
 }
 
 func (s *routeStore) GetReadingJourney(_ context.Context, _, language string) (domain.ReadingJourney, error) {
@@ -53,14 +51,6 @@ func (s *routeStore) ListReservedVocabulary(_ context.Context, owner, language s
 		}
 	}
 	return out, nil
-}
-
-func (s *routeStore) GetVocabularyStateByIdentity(_ context.Context, owner, language, lemma, upos string) (domain.VocabularyState, error) {
-	state, ok := s.states[owner+"/"+language+"/"+lemma+"/"+upos]
-	if !ok {
-		return domain.VocabularyState{}, persistence.ErrNotFound
-	}
-	return domain.VocabularyState{OwnerID: owner, Language: language, CanonicalLemma: lemma, UPOS: upos, State: state}, nil
 }
 
 func (s *routeStore) ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error) {

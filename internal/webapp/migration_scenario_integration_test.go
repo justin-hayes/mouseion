@@ -119,9 +119,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	goal, err := store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID)
 	require.NoError(t, err)
-	_, err = store.PutVocabularyState(ctx, alice.ID, "de", "legacy-state", "ADJ", "known")
+	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "legacy-state", "ADJ")
 	require.NoError(t, err)
-
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), beforeCoverage.KnownTokenCount)
@@ -160,7 +159,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Empty(t, reserved)
 	knownAfterReading, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, knownAfterReading, 3)
+	assert.Len(t, knownAfterReading, 4)
 	provenance := map[string]string{}
 	for _, item := range knownAfterReading {
 		provenance[item.CanonicalLemma] = item.Provenance
@@ -168,6 +167,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, "Explicitly recorded", provenance["Haus"])
 	assert.Equal(t, "Accepted on Primary Goal completion", provenance["residual"])
 	assert.Equal(t, "Accepted on Primary Goal completion", provenance["graduated"])
+	assert.Equal(t, "Explicitly recorded", provenance["legacy-state"])
 	assert.Empty(t, provenance["legacy"])
 	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)

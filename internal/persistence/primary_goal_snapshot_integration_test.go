@@ -75,8 +75,8 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 		{lemma: "reisen", upos: "VERB"},
 		{lemma: "bleiben", upos: "VERB"},
 		{lemma: "exact-known", upos: "NOUN"},
-		{lemma: "state-only", upos: "VERB"},
-		{lemma: "state-mismatch", upos: "VERB"},
+		{lemma: "known-before-completion", upos: "VERB"},
+		{lemma: "known-other-pos", upos: "VERB"},
 	} {
 		_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
 			OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: candidate.lemma, UPOS: candidate.upos,
@@ -86,9 +86,9 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 	}
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	_, err = store.PutVocabularyState(ctx, owner.ID, "de", "state-only", "VERB", "known")
+	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known-before-completion", "VERB")
 	require.NoError(t, err)
-	_, err = store.PutVocabularyState(ctx, owner.ID, "de", "state-mismatch", "NOUN", "known")
+	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known-other-pos", "NOUN")
 	require.NoError(t, err)
 	deck, err := store.PutDeck(ctx, owner.ID, "de", "Graduation provenance deck")
 	require.NoError(t, err)
@@ -134,11 +134,11 @@ FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.Len(t, known, 4)
-	var stateOnlyKnownCount int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='state-only'`, owner.ID).Scan(&stateOnlyKnownCount)
+	assert.Len(t, known, 6)
+	var knownBeforeCompletionCount int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='known-before-completion'`, owner.ID).Scan(&knownBeforeCompletionCount)
 	require.NoError(t, err)
-	assert.Zero(t, stateOnlyKnownCount)
+	assert.Equal(t, 1, knownBeforeCompletionCount)
 	var completionBook, completionSnapshot, completionAnalysis string
 	var completionAt, generatedAt *string
 	err = store.Pool().QueryRow(ctx, `

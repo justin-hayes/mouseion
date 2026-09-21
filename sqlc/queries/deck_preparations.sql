@@ -301,9 +301,3 @@ FROM generated_vocabulary gv
 WHERE gv.owner_id = sqlc.arg('owner') AND gv.language = sqlc.arg('language')
   AND gv.canonical_lemma = sqlc.arg('canonical_lemma') AND gv.upos = sqlc.arg('upos')
 ON CONFLICT DO NOTHING;
-
--- name: SetVocabularyStateGenerated :exec
-UPDATE vocabulary_states
-SET state = 'generated', updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
-  AND canonical_lemma = sqlc.arg('canonical_lemma') AND upos = sqlc.arg('upos');

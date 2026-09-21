@@ -43,9 +43,6 @@ func TestLegacyRerenderRecoversDependencyParseWithoutChangingManifest(t *testing
 		DeckName: source.Title, ContentHash: source.ContentHash,
 	})
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES($1,'de','entgegenrufen','VERB','candidate')`, owner.ID)
-	require.NoError(t, err)
-
 	tokens := legacyRerenderTokens()
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{{
 		OwnerID: owner.ID, Language: "de", CanonicalLemma: "entgegenrufen", UPOS: "VERB", CorpusID: corpus.ID,

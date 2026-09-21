@@ -7,13 +7,8 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lexical"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
-
-type vocabularyStateStore interface {
-	GetVocabularyStateByIdentity(context.Context, string, string, string, string) (domain.VocabularyState, error)
-}
 
 // JourneyForecast computes the read-only, sequential coverage explanation for
 // the learner's stored Journey order.
@@ -81,7 +76,6 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 	for _, book := range evidence {
 		byBook[book.Book.ID] = book
 	}
-	stateStore, hasStateStore := s.store.(vocabularyStateStore)
 	forecastInputs := make(map[string]forecastEvidenceInput)
 	for _, journeyEntry := range journey.Entries {
 		if _, alreadyLoaded := forecastInputs[journeyEntry.BookID]; alreadyLoaded {
@@ -89,11 +83,6 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 		}
 		input, reason := s.forecastEvidence(ctx, owner, language, journeyEntry.BookID, byBook)
 		forecastInputs[journeyEntry.BookID] = forecastEvidenceInput{input: input, reason: reason}
-		if reason == "" && hasStateStore {
-			if err := addKnownVocabularyStates(ctx, stateStore, owner, input, known); err != nil {
-				return domain.JourneyForecast{}, err
-			}
-		}
 	}
 	goalKnown := unionForecastVocabulary(known, goalVocabulary)
 	goalInJourney := false
@@ -171,31 +160,6 @@ func (s *Service) JourneyForecast(ctx context.Context, owner, language string) (
 type forecastEvidenceInput struct {
 	input  domain.AnalysisCorpusVocabulary
 	reason string
-}
-
-func addKnownVocabularyStates(ctx context.Context, store vocabularyStateStore, owner string, input domain.AnalysisCorpusVocabulary, known map[selection.Identity]struct{}) error {
-	checked := make(map[selection.Identity]struct{}, len(input.Lemmas))
-	for _, lemma := range input.Lemmas {
-		if !lexical.IsLemma(lemma.CanonicalLemma) {
-			continue
-		}
-		identity := selection.Identity{Language: lemma.Language, CanonicalLemma: lemma.CanonicalLemma, UPOS: lemma.UPOS}
-		if _, alreadyChecked := checked[identity]; alreadyChecked {
-			continue
-		}
-		checked[identity] = struct{}{}
-		state, err := store.GetVocabularyStateByIdentity(ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS)
-		if errors.Is(err, persistence.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("get vocabulary state for %s/%s/%s: %w", identity.Language, identity.CanonicalLemma, identity.UPOS, err)
-		}
-		if state.State == "known" {
-			known[identity] = struct{}{}
-		}
-	}
-	return nil
 }
 
 func (s *Service) forecastEvidence(ctx context.Context, owner, language, bookID string, books map[string]domain.MyBook) (domain.AnalysisCorpusVocabulary, string) {

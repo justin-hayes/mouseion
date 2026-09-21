@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lexical"
-	"github.com/justin-hayes/mouseion/internal/vocabulary"
 )
 
 var ErrInvalidInput = errors.New("knownvocab: owner, language, and input are required")
@@ -84,7 +83,6 @@ func Parse(reader io.Reader) (ParseResult, error) {
 type Store interface {
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
 	PutKnownVocabulary(context.Context, string, string, string, string) (domain.KnownVocabulary, error)
-	PutVocabularyState(context.Context, string, string, string, string, string) (domain.VocabularyState, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 }
 
@@ -122,9 +120,6 @@ func (s *Service) Import(ctx context.Context, owner, language string, reader io.
 		}
 		if _, putErr := s.store.PutKnownVocabulary(ctx, owner, language, entry.CanonicalLemma, entry.UPOS); putErr != nil {
 			return result, fmt.Errorf("upsert known vocabulary row %d: %w", entry.Row, putErr)
-		}
-		if _, putErr := s.store.PutVocabularyState(ctx, owner, language, entry.CanonicalLemma, entry.UPOS, string(vocabulary.Known)); putErr != nil {
-			return result, fmt.Errorf("set known state row %d: %w", entry.Row, putErr)
 		}
 		result.Entries = append(result.Entries, entry)
 		if known {
