@@ -354,8 +354,13 @@ change it?
 Use an `ol` for the learner's sequence. Primary Goal is a separate anchored
 region before the provisional list. Each later item has visible Move earlier and
 Move later buttons with unavailable boundary actions disabled or omitted
-consistently. Removal does not delete the book from My Books. Recalculation must
-not block acknowledging the accepted learner order.
+consistently; compact layouts may place the two move controls side by side.
+Choose as Primary Goal is the principal visible action for an eligible item.
+Removal and uncommon secondary actions use a native More actions disclosure and
+material consequences use Confirmation. Exceptional evidence states keep their
+supported recovery action in the affected row. Removal does not delete the book
+from My Books. Recalculation must not block acknowledging the accepted learner
+order.
 
 ### `JourneyForecast`
 

@@ -114,7 +114,9 @@ test.describe('Primary Goal selection', () => {
     await page.goto('/journey');
     await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
 
-    await page.locator('#primary-goal-section details.more-actions > summary').click();
+    const goalMoreActions = page.locator('#primary-goal-section details.more-actions');
+    await goalMoreActions.locator(':scope > summary').click();
+    await goalMoreActions.locator('.confirmation > summary').first().click();
     await page.locator('#primary-goal-section form[action="/goal/clear"] button').click();
     await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.locator('#primary-goal-section')).toContainText('No Primary Goal yet');

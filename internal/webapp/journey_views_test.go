@@ -124,6 +124,30 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	assert.Equal(t, "Retry analysis", action.Label)
 	assert.Equal(t, "/journey/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
+
+	missingSnapshot := testJourneyBook("missing-snapshot", "Missing snapshot", "analyzed")
+	missingSnapshot.Book.Source.MediaType = "application/epub+zip"
+	missingSnapshot.Book.Source.ContentRevisionID = "current-revision"
+	action = journeyAnalysisAction(missingSnapshot)
+	assert.Equal(t, "Assessment unavailable", action.Status)
+	assert.Equal(t, "Retry acquisition", action.Label)
+
+	for _, test := range []struct {
+		status, wantStatus string
+	}{
+		{status: "analysis queued", wantStatus: "Analysis queued"},
+		{status: "analysis running", wantStatus: "Analysis running"},
+	} {
+		item := testJourneyBook(test.status, test.status, test.status)
+		item.Book.Source.MediaType = "application/epub+zip"
+		item.Book.Source.ContentRevisionID = "revision"
+		item.Book.Source.ContentSnapshotID = "snapshot"
+		item.Book.AnalysisJobID = 42
+		queuedAction := journeyAnalysisAction(item)
+		assert.Equal(t, test.wantStatus, queuedAction.Status)
+		assert.Equal(t, "View analysis status", queuedAction.Label)
+		assert.False(t, queuedAction.Submit)
+	}
 }
 
 func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
