@@ -748,6 +748,15 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
 			} else if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
+				if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
+					<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare Goal deck</button></form>
+				} else {
+					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<fieldset><legend>Optional external translation for the re-preparation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the re-preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+						<button type="submit">Re-prepare deck</button>
+					</form>
+				}
 			} else {
 				if deckPreparationHasNewerRevision(preparation) {
 					@Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision))
@@ -1232,7 +1241,12 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 			<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Prepare deck</a>
 		} else {
 			<p><strong>Deck state:</strong> { deckPreparationTitle(*item.AnalysisPreparation) }.</p>
-			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
+			if item.AnalysisPreparation.Error == domain.DeckPreparationRequiresRepreparationError {
+				<p role="note">The previous deck is retained, but it cannot be updated in place.</p>
+				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Re-prepare deck</a>
+			} else {
+				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
+			}
 			if deckPreparationActive(*item.AnalysisPreparation) {
 				<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Cancel preparation</button></form>
 			} else if item.AnalysisPreparation.State == domain.DeckPreparationReady {

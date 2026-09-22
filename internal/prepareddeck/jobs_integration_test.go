@@ -149,6 +149,23 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 		assert.Equal(t, handle.Preparation.ID, result.Preparation.ID)
 		assert.Equal(t, retried.JobID, result.JobID, "concurrent retry")
 	}
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, retried.Preparation.ID)
+	require.NoError(t, err)
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, retried.Preparation.ID, domain.DeckPreparation{Artifact: []byte("old-artifact"), Filename: "old.apkg", DeckName: "Old", TotalCards: 1})
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET error=$1 WHERE owner_id=$2 AND id=$3`, domain.DeckPreparationRequiresRepreparationError, owner.ID, retried.Preparation.ID)
+	require.NoError(t, err)
+	reprepared, err := service.Retry(ctx, owner.ID, retried.Preparation.ID, false)
+	require.NoError(t, err)
+	assert.NotEqual(t, retried.Preparation.ID, reprepared.Preparation.ID, "re-preparation creates a new specification")
+	assert.Equal(t, domain.DeckPreparationQueued, reprepared.Preparation.State)
+	oldArtifact, err := store.DownloadDeckPreparation(ctx, owner.ID, retried.Preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("old-artifact"), oldArtifact.Artifact)
+	repeatedReprepare, err := service.Retry(ctx, owner.ID, retried.Preparation.ID, false)
+	require.NoError(t, err)
+	assert.Equal(t, reprepared.Preparation.ID, repeatedReprepare.Preparation.ID, "re-preparation is idempotent")
+	assert.Equal(t, reprepared.JobID, repeatedReprepare.JobID)
 }
 
 func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {

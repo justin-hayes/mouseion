@@ -37,7 +37,7 @@ FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
   AND analysis_run_id = sqlc.arg('analysis_run')
-  AND (book_id IS NULL OR retired_at IS NULL);
+  AND retired_at IS NULL;
 
 -- name: GetDeckPreparationForGoalSnapshot :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
@@ -116,7 +116,8 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
-  AND analysis_run_id = sqlc.arg('analysis_run');
+  AND analysis_run_id = sqlc.arg('analysis_run')
+  AND retired_at IS NULL;
 
 -- name: GetDeckPreparationBySourceHashWithoutAnalysis :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,

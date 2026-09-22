@@ -185,6 +185,49 @@ func TestDeckPreparationReanalysisRetiresPreviousBookDeck(t *testing.T) {
 	assert.Equal(t, second.ID, retry.ID, "analysis retry")
 }
 
+func TestDeckPreparationRepreparationCreatesCurrentAnalysisGeneration(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "reprepare-owner", false)
+	require.NoError(t, err)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Reprepare Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "reprepare-book", Title: book.Title, MediaType: "application/epub+zip", Content: []byte("eins"), FullText: "eins"}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit-1"), Order: 0, SpineIndex: 0, ManifestID: "unit-1", Text: "eins", StartOffset: 0, EndOffset: 4}}})
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
+	err = store.Pool().QueryRow(ctx, `SELECT current_content_revision_id::text,current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner.ID, source.ID).Scan(&source.ContentRevisionID, &source.ContentSnapshotID)
+	require.NoError(t, err)
+	var runID string
+	err = store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1','reprepare','completed',now()) RETURNING id::text`, owner.ID, source.ID, source.ContentRevisionID, source.ContentSnapshotID).Scan(&runID)
+	require.NoError(t, err)
+	old, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID, Filename: "old.apkg", DeckName: "Old", ContentHash: source.ContentHash})
+	require.NoError(t, err)
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, old.ID)
+	require.NoError(t, err)
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, old.ID, domain.DeckPreparation{Artifact: []byte("old-artifact"), Filename: "old.apkg", DeckName: "Old", TotalCards: 1})
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET error=$1 WHERE owner_id=$2 AND id=$3`, domain.DeckPreparationRequiresRepreparationError, owner.ID, old.ID)
+	require.NoError(t, err)
+	oldArtifact, err := store.DownloadDeckPreparation(ctx, owner.ID, old.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("old-artifact"), oldArtifact.Artifact)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET retired_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, old.ID)
+	require.NoError(t, err)
+
+	oldAfter, err := store.GetDeckPreparation(ctx, owner.ID, old.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, oldAfter.RetiredAt, "the old ready row is retained as history after it is superseded")
+	current, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID, Filename: "new.apkg", DeckName: "New", ContentHash: source.ContentHash})
+	require.NoError(t, err)
+	assert.NotEqual(t, old.ID, current.ID)
+	assert.Equal(t, runID, current.AnalysisRunID)
+	assert.Nil(t, current.RetiredAt)
+
+	repeated, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID, Filename: "changed.apkg", DeckName: "Changed", ContentHash: "changed"})
+	require.NoError(t, err)
+	assert.Equal(t, current.ID, repeated.ID, "the current generation remains idempotent")
+}
+
 func createPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner, source, hash string) domain.DeckPreparation {
 	t.Helper()
 	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source, Filename: hash + ".apkg", DeckName: hash, ContentHash: hash})

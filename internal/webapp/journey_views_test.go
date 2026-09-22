@@ -392,14 +392,19 @@ func TestJourneyProvisionalBookExposesAnalysisBoundDeckActions(t *testing.T) {
 	failed.AnalysisPreparation = &domain.DeckPreparation{ID: "failed-prep", State: domain.DeckPreparationFailed}
 	empty := analyzedJourneyBookView("empty-deck")
 	empty.AnalysisPreparation = &domain.DeckPreparation{ID: "empty-prep", State: domain.DeckPreparationReady}
+	reprepare := analyzedJourneyBookView("reprepare-deck")
+	reprepare.AnalysisPreparation = &domain.DeckPreparation{ID: "reprepare-prep", State: domain.DeckPreparationReady, TotalCards: 2, Error: domain.DeckPreparationRequiresRepreparationError}
 
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{missing, ready, active, failed, empty}}, "", "")
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{missing, ready, active, failed, empty, reprepare}}, "", "")
 	for _, want := range []string{
 		`href="/journey/books/missing-deck/deck/preparations/new"`,
 		`href="/deck-preparations/ready-prep/download"`,
 		`action="/deck-preparations/active-prep/cancel"`,
 		`href="/journey/books/failed-deck/deck/preparations/new"`,
 		"No recurring vocabulary",
+		"Re-preparation required",
+		"Re-prepare deck",
+		`href="/journey/books/reprepare-deck/deck/preparations/new"`,
 	} {
 		assert.Contains(t, html, want)
 	}
