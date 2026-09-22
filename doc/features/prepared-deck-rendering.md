@@ -77,8 +77,10 @@ marked stale and re-rendered by a background job. Re-rendering:
 
 An input-stale deck is re-renderable only when its missing inputs can be read
 from the immutable per-analysis corpus; otherwise it is reported as requiring
-re-preparation. Re-preparation is not silently substituted, because it is
-deduplicated by source and analysis run.
+re-preparation. Re-preparation is an explicit roll-forward exception: the old
+owner-scoped artifact remains historical and downloadable, while one new
+current preparation is created for the same source and analysis run (or Goal
+snapshot). Repeated recovery resolves to that current generation.
 
 ## Recovering inputs from the corpus
 
@@ -126,6 +128,9 @@ timestamps remain available for provenance.
   input; one without them is reported as requiring re-preparation.
 - Re-importing a re-rendered package updates the same Anki notes and does not
   change Goal snapshot or Reserved-vocabulary state.
+- A deck reported as requiring re-preparation keeps its old artifact and
+  provenance, and recovery creates a new current preparation without re-running
+  analysis.
 
 ## References
 

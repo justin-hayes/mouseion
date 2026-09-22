@@ -166,6 +166,13 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.Equal(t, reprepared.Preparation.ID, repeatedReprepare.Preparation.ID, "re-preparation is idempotent")
 	assert.Equal(t, reprepared.JobID, repeatedReprepare.JobID)
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, reprepared.Preparation.ID)
+	require.NoError(t, err)
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, reprepared.Preparation.ID, domain.DeckPreparation{Artifact: []byte("new-artifact"), Filename: "new.apkg", DeckName: "New", TotalCards: 1})
+	require.NoError(t, err)
+	newArtifact, err := service.Download(ctx, owner.ID, reprepared.Preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("new-artifact"), newArtifact.Artifact)
 }
 
 func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {

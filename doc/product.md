@@ -154,6 +154,7 @@ amendments.
 73. [ADR 0073: Modern Greek language support](adr/0073-modern-greek-language-support.md) — provisions Modern Greek with Stanza's GDT package (`mwt`) and the accurate Greek-BERT dependency parser, served offline from a Hugging Face cache volume; introduces per-language processor/package selection and a Greek canonicalization profile; amends ADR 0063's provisioned package, ADR 0005's normalization profiles, and ADR 0064's dictionary-index language set.
 74. [ADR 0074: Retire the generic Journey entry surface](adr/0074-retire-generic-journey-entry.md) — makes Reading Journey the canonical Book identity, relationship, evidence, forecast, and recovery surface; turns `/journey/{bookID}` and exact-analysis links into guarded anchor redirects; and assigns deck work to the focused preparation task while retaining internal analysis data.
 75. [ADR 0075: Catalogue-sourced Book author metadata](adr/0075-book-author-metadata.md) — stores the mutable OPDS author display value on each Book, projects it into Reading Journey identity, and leaves missing author metadata absent rather than inferred.
+76. [ADR 0076: Roll forward when a ready deck requires re-preparation](adr/0076-reprepare-ready-deck.md) — preserves the old owner-scoped artifact and exact provenance while creating one new current preparation for the same analysis or Goal snapshot; repeated recovery resolves idempotently to that current generation.
 
 ### Superseded or historical decisions
 
