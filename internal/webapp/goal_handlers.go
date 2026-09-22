@@ -203,6 +203,11 @@ func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
 		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
 		return
 	}
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
+	if expectedSnapshotID == "" || goal.SnapshotID != expectedSnapshotID {
+		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+		return
+	}
 	if goal.SnapshotSize == 0 {
 		h.respondGoal(w, r, "No deck is required for this empty Goal snapshot.", "", goal.BookID)
 		return

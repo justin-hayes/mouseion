@@ -297,6 +297,22 @@ func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T
 	assert.Contains(t, body, "Prepare Goal deck")
 }
 
+func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+
+	response := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/retry", url.Values{
+		"csrf_token":                {csrf},
+		"expected_goal_snapshot_id": {"stale-snapshot"},
+	}, cookies)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	location, err := url.QueryUnescape(response.Header().Get("Location"))
+	require.NoError(t, err)
+	assert.Contains(t, location, goalStaleMessage)
+}
+
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	ctx := context.Background()

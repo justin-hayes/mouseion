@@ -144,7 +144,8 @@ The Primary Goal region leads with:
 2. the fact that this is the learner's current Goal;
 3. reading state;
 4. Reserved vocabulary and artifact state;
-5. current, after-Goal, and clearly labeled on-arrival evidence;
+5. current coverage and coverage after completion, with no on-arrival stage for
+   the Book the learner has already reached;
 6. one next useful decision, with supporting actions demoted.
 
 An unassessed or unavailable Journey member remains visible in its learner-chosen

@@ -78,11 +78,13 @@ func TestJourneyGoalShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
 func TestJourneyGoalShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) {
 	goal := testJourneyBook("missing-goal", "Missing Goal deck", "analyzed")
 	goal.GoalSnapshotSize = 2
+	goal.GoalSnapshotID = "missing-snapshot"
 	goal.GoalDeckMissing = true
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
 	assert.Contains(t, html, "Deck state: Missing")
 	assert.Contains(t, html, "Goal, its snapshot, and reading state remain unchanged")
 	assert.Contains(t, html, "Prepare Goal deck")
+	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="missing-snapshot"`)
 }
 
 func TestJourneyGoalShowsReadingStateAndPageAction(t *testing.T) {
