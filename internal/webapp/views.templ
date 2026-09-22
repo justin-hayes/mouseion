@@ -434,7 +434,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
 	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
 		@PageHeader(journeyPageTitle(journey), "Keep one current Primary Goal anchored first, followed by Your order.", nil) {
-			<a role="button" class="outline" href="/library">Prepare another deck</a>
+			<a role="button" class="outline" href="/library">Add books from My Books</a>
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -572,6 +572,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	</h3>
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
+		<p class="metadata"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p>
 		<p class="metadata"><strong>Reserved vocabulary</strong>: <span class="numeric">{ fmt.Sprintf("%d", item.GoalSnapshotSize) }</span> frozen identities.</p>
 	} else {
 		<p>@StatusBadge("Your order", StatusNeutral)</p>
@@ -587,13 +588,19 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	</div>
 	<div class="journey-book__evidence">
 	@JourneyEvidence(item, csrf, primary)
-	if primary && item.GoalSnapshotSize > 0 {
+	if primary {
 		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
 			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Goal deck preparation</h4>
-			if item.GoalPreparation != nil {
+			if item.GoalSnapshotSize == 0 {
+				<p><strong>Deck state</strong>: No deck needed. This Goal has no frozen vocabulary identities to prepare.</p>
+			} else if item.GoalPreparation != nil {
+				<p class="metadata"><strong>Deck state</strong>: { deckPreparationTitle(*item.GoalPreparation) }.</p>
 				@GoalDeckPreparationStatus(csrf, journeyBookID(item), *item.GoalPreparation)
+			} else if item.GoalDeckMissing {
+				<p role="note" aria-live="polite"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The Goal, its snapshot, and reading state remain unchanged.</p>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">Prepare Goal deck</button></form>
 			} else if item.GoalDeckUnavailable {
-				<p role="note" aria-live="polite"><strong>Deck preparation unavailable.</strong> The Goal and its frozen snapshot are still preserved.</p>
+				<p role="note" aria-live="polite"><strong>Deck state: Unavailable.</strong> The Goal, its snapshot, and reading state remain unchanged.</p>
 				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit">Retry deck preparation</button></form>
 			}
 		</section>

@@ -103,12 +103,17 @@ func journeyForecastStages(item journeyBookView, primary bool) []journeyForecast
 		if after == nil && afterReason == "" {
 			afterReason = "after-Goal coverage cannot be calculated from available evidence"
 		}
+		qualifier := ""
+		if primary {
+			qualifier = "After completion of this Primary Goal"
+		}
 		stages = append(stages, journeyForecastStageView{
 			Label:             "After Primary Goal coverage",
 			Coverage:          after,
 			Comparison:        current,
 			ComparisonLabel:   "Current coverage",
 			UnavailableReason: afterReason,
+			Qualifier:         qualifier,
 			Context:           "Modeled Known vocabulary plus the active Primary Goal's frozen Reserved vocabulary after completion.",
 		})
 	} else {

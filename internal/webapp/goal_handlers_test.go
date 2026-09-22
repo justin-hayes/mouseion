@@ -293,8 +293,8 @@ func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
-	assert.Contains(t, body, "Deck preparation unavailable")
-	assert.Contains(t, body, "Retry deck preparation")
+	assert.Contains(t, body, "Deck state: Missing")
+	assert.Contains(t, body, "Prepare Goal deck")
 }
 
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {

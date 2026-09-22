@@ -71,8 +71,26 @@ func TestJourneyGoalShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
 	goal.GoalDeckUnavailable = true
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
 	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
-	assert.Contains(t, html, "Deck preparation unavailable")
+	assert.Contains(t, html, "Deck state: Unavailable")
 	assert.Contains(t, html, "Retry deck preparation")
+}
+
+func TestJourneyGoalShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) {
+	goal := testJourneyBook("missing-goal", "Missing Goal deck", "analyzed")
+	goal.GoalSnapshotSize = 2
+	goal.GoalDeckMissing = true
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	assert.Contains(t, html, "Deck state: Missing")
+	assert.Contains(t, html, "Goal, its snapshot, and reading state remain unchanged")
+	assert.Contains(t, html, "Prepare Goal deck")
+}
+
+func TestJourneyGoalShowsReadingStateAndPageAction(t *testing.T) {
+	goal := testJourneyBook("goal-state", "Goal state book", "analyzed")
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	assert.Contains(t, html, "Reading state")
+	assert.Contains(t, html, "Not yet marked finished")
+	assert.Contains(t, html, `href="/library">Add books from My Books</a>`)
 }
 
 func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
@@ -199,6 +217,7 @@ func TestJourneyGoalForecastOmitsOnArrivalStage(t *testing.T) {
 	goalHTML := html[goalStart : goalStart+goalEnd]
 	assert.Contains(t, goalHTML, "Current coverage")
 	assert.Contains(t, goalHTML, "After Primary Goal")
+	assert.Contains(t, goalHTML, "After completion of this Primary Goal")
 	assert.NotContains(t, goalHTML, "On arrival")
 }
 

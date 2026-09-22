@@ -28,15 +28,18 @@ test.describe('Primary Goal selection', () => {
 
     const goal = page.locator('#primary-goal-section');
     await expect(goal).toContainText('Der lange Weg nach Hause');
-    await expect(goal).toContainText('Current commitment');
+      await expect(goal).toContainText('Current commitment');
+      await expect(goal).toContainText('Reading state');
+      await expect(goal).toContainText('Not yet marked finished');
     // The goal card always offers a Clear form (directly, or via the
     // residual-work confirmation when an active campaign still reserves
     // vocabulary). It never offers to re-choose itself.
      await expect(goal.locator('form[action="/goal/clear"]')).toHaveCount(1);
      await expect(goal.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
      await expect(goal).toContainText('Goal deck preparation');
-     await expect(goal).toContainText('Deck ready');
-      await expect(goal.locator('p.metadata').first()).toContainText('Reserved vocabulary: 2 frozen identities.');
+      await expect(goal).toContainText('Deck ready');
+      await expect(goal.getByRole('button', { name: 'Download Goal deck' })).toHaveAttribute('download', '');
+      await expect(goal).toContainText('Reserved vocabulary: 2 frozen identities.');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     const provisional = page.locator('#provisional-journey-list .journey-list > li');
@@ -53,6 +56,7 @@ test.describe('Primary Goal selection', () => {
       await expect(goalForecast.locator('.journey-forecast__stage')).toHaveCount(2);
       await expect(goalForecast).toContainText('Current coverage');
       await expect(goalForecast).toContainText('After Primary Goal');
+      await expect(goalForecast).toContainText('After completion of this Primary Goal');
       await expect(goalForecast).not.toContainText('On arrival');
 
       const unchanged = provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('region', { name: 'Journey coverage forecast' });
@@ -71,6 +75,8 @@ test.describe('Primary Goal selection', () => {
       const unavailable = provisional.filter({ hasText: 'Route evidence pending' }).getByRole('region', { name: 'Journey coverage forecast' });
       await expect(unavailable).toContainText('Unavailable');
       await expect(unavailable).toContainText('completed analysis evidence is unavailable');
+
+      await expect(page.getByRole('button', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
 
      await page.goto('/library');
     await expect(page.locator('article.library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByText('Current Primary Goal')).toBeVisible();
