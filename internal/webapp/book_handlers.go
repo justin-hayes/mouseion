@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -25,75 +24,15 @@ func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary := *detail.Acquired
-	summary.BookID = detail.Book.ID
-	summary.BookTitle = detail.Book.Title
-	language := strings.TrimSpace(detail.Book.LanguageTag)
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, language, &detail); err != nil {
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, journeyBookLanguage(detail), &detail); err != nil {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember || summary.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(summary) {
+	if !detail.JourneyMember || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
 		http.NotFound(w, r)
 		return
 	}
-	summary.JourneyMember = detail.JourneyMember
-	summary.JourneyGoal = detail.JourneyGoal
-	summary.JourneyRevision = detail.JourneyRevision
-	if !h.renderBookPage(w, r, u, summary, journeyBookPageOptions(summary), r.URL.Query().Get("message")) {
-		return
-	}
-}
-
-func (h *Handler) renderBookPage(w http.ResponseWriter, r *http.Request, u domain.User, summary domain.SourceMaterialSummary, page bookPageOptions, message string) bool {
-	var coverage *domain.AnalysisCoverage
-	statisticsUnavailable := false
-	if summary.AnalysisStatus == "analyzed" && h.services.AnalysisInsights != nil {
-		value, err := h.services.AnalysisInsights.Coverage(r.Context(), u.ID, summary.CorpusID)
-		if errors.Is(err, analysisinsights.ErrStatisticsUnavailable) {
-			statisticsUnavailable = true
-		} else if err != nil {
-			fail(w, err)
-			return false
-		} else {
-			coverage = &value
-		}
-	}
-	preparation, journeyAction, ok := h.currentBookPreparation(w, r, u.ID, summary)
-	if !ok {
-		return false
-	}
-	history, historyErr := h.deckPreparationHistory(r.Context(), u.ID, summary.Source.ID, preparation)
-	if historyErr != nil {
-		fail(w, historyErr)
-		return false
-	}
-	page.DeckPreparationHistory = history
-	render(w, r, BookPageWithOptions(u, h.csrf(w, r), summary, coverage, statisticsUnavailable, message, page, preparation, journeyAction))
-	return true
-}
-
-func (h *Handler) deckPreparationHistory(ctx context.Context, owner, sourceMaterialID string, current *domain.DeckPreparation) ([]domain.DeckPreparation, error) {
-	reader, ok := h.services.Store.Books.(DeckPreparationHistoryReader)
-	if !ok {
-		return nil, nil
-	}
-	preparations, err := reader.ListDeckPreparationsForSourceMaterial(ctx, owner, sourceMaterialID)
-	if err != nil {
-		return nil, err
-	}
-	currentID := ""
-	if current != nil {
-		currentID = current.ID
-	}
-	history := make([]domain.DeckPreparation, 0, len(preparations))
-	for _, preparation := range preparations {
-		if preparation.ID == currentID {
-			continue
-		}
-		history = append(history, preparation)
-	}
-	return history, nil
+	http.Redirect(w, r, journeyEntryURL(detail.Book.ID), http.StatusSeeOther)
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {
@@ -263,7 +202,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, journeyBookLanguage(detail), &detail); err != nil {
 		fail(w, err)
 		return
 	}
@@ -272,33 +211,6 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, journeyEntryURL(detail.Book.ID), http.StatusSeeOther)
-}
-
-func (h *Handler) currentBookPreparation(w http.ResponseWriter, r *http.Request, owner string, book domain.SourceMaterialSummary) (*domain.DeckPreparation, deckJourneyActionView, bool) {
-	journeyAction := emptyDeckJourneyAction()
-	if book.AnalysisStatus != "analyzed" || book.AnalysisState != "completed" || book.AnalysisRunID == "" || h.services.PreparedDeck == nil {
-		return nil, journeyAction, true
-	}
-	reader, ok := h.services.PreparedDeck.(PreparedDeckForAnalysis)
-	if !ok {
-		return nil, journeyAction, true
-	}
-	preparation, err := reader.GetForAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return nil, journeyAction, true
-	}
-	if err != nil {
-		handlePreparationError(w, r, err)
-		return nil, journeyAction, false
-	}
-	if preparation.State == domain.DeckPreparationReady {
-		journeyAction, err = h.deckJourneyAction(r.Context(), owner, preparation.ID, preparation.SourceMaterialID)
-		if err != nil {
-			fail(w, err)
-			return nil, journeyAction, false
-		}
-	}
-	return &preparation, journeyAction, true
 }
 
 func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {

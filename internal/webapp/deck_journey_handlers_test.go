@@ -272,7 +272,7 @@ func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailabl
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 1)
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyMember, action.State)
-	assert.True(t, strings.Contains(action.Error, "Journey entry is retained"))
+	assert.True(t, strings.Contains(action.Error, "Journey membership is retained"))
 	assert.Equal(t, 1, len(store.journey.Entries))
 }
 

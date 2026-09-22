@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -44,7 +43,7 @@ func journeyEntryRequest(t *testing.T, h http.Handler, path string, cookies []*h
 	return response
 }
 
-func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
+func TestJourneyEntryRedirectsCompletedMemberUsingBookLanguage(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 	handler := requireHandler(t, h)
@@ -52,24 +51,13 @@ func TestJourneyEntryRendersCompletedMemberUsingBookLanguage(t *testing.T) {
 
 	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
 
-	assert.Equal(t, http.StatusOK, response.Code)
-	body := response.Body.String()
-	for _, want := range []string{
-		"<h1>Route match: familiar German</h1>",
-		"← Reading Journey",
-		`data-navigation-context="reading-journey"`,
-		"Vocabulary coverage",
-		"Vocabulary investment",
-		"Prepare deck",
-		"In Reading Journey.",
-		`action="/journey/books/fixture-route-match/remove"`,
-	} {
-		assert.True(t, strings.Contains(body, want), "Journey entry missing %q: %s", want, body)
-	}
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/journey#journey-book-fixture-route-match", response.Header().Get("Location"))
+	assert.NotContains(t, response.Body.String(), "<h1>")
 
 	response = journeyEntryRequest(t, h, "/journey/fixture-book", cookies)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.True(t, strings.Contains(response.Body.String(), `action="/journey/books/fixture-book/remove"`), "Primary Goal Journey entry omitted removal action: %s", response.Body.String())
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
 }
 
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {
@@ -196,6 +184,13 @@ func TestAnalysisCompatibilityRouteRequiresJourneyMembership(t *testing.T) {
 
 	response := journeyEntryRequest(t, h, "/books/"+bookID+"/analyses/run-"+bookID, cookies)
 	assert.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestAnalysisCompatibilityRouteRedirectsToReadingJourneyAnchor(t *testing.T) {
+	h, cookies, _, _ := goalFixtureSession(t)
+	response := journeyEntryRequest(t, h, "/books/fixture-book/analyses/fixture-run", cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
 }
 
 func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {

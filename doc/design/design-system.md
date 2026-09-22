@@ -204,16 +204,16 @@ scrollable data table must label and contain its own overflow.
   receive neutral recalculation, not warning or correction.
 - Modeled Known vocabulary, Reserved vocabulary, conditional forecast, reading
   completion, preparation, and artifact state remain visibly distinct.
-- Operational analysis status and the Journey entry's single current analysis are
-  separate surfaces. Run-specific result URLs redirect to the Journey entry for
-  members or return 404 otherwise; deck preparation follows its retained
-  insights and any concrete quality warning.
+- Operational analysis status and Reading Journey's current Book evidence are
+  separate surfaces. Run-specific result URLs redirect to the canonical Book
+  anchor for members or return 404 otherwise; deck work follows the focused
+  preparation task and its retained analysis provenance.
 - Scope review is a calm native checklist: reliable top-level TOC choices or a
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence
   dashboard.
 - Goal choice, Goal clearing/changing, and completion retain distinct
-  consequential confirmations on the Journey entry; Goal snapshot and forecast
+  consequential confirmations in Reading Journey; Goal snapshot and forecast
   behavior is defined by ADR 0072.
 - Vocabulary is canonical for known vocabulary; study languages are derived from
   chosen-language Books rather than maintained on a Settings route.
@@ -239,9 +239,9 @@ The first rollout is complete and preserved as history in
   Settings, operational recovery, and quality gates. The roadmap does not plan the
 frozen My Books / Reading Journey / Primary Goal architecture.
 
-Current implementation adoption covers My Books (`/library`), Journey entry and
-scope review, Reading Journey (`/journey`), analysis jobs, and known-vocabulary
-management. The accepted target patterns preserve bibliographic book identity,
+Current implementation adoption covers My Books (`/library`), Reading Journey
+anchors and scope review, Reading Journey (`/journey`), analysis jobs, and
+known-vocabulary management. The accepted target patterns preserve bibliographic book identity,
 the one Primary Goal per language, a fluid Journey order, explicit forecast
 stages, evidence deltas, and the Where next? outcome. Do not disguise those
 contracts as mere component renames.

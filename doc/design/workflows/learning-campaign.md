@@ -114,7 +114,8 @@ Known vocabulary, Reserved vocabulary, or the active Goal. The hierarchy is:
 1. the one learner order, with titles and authors;
 2. the three labeled coverage meanings;
 3. lower-bound or unavailable evidence where it changes interpretation;
-4. method and threshold detail on the individual Journey entry.
+4. internal method and threshold data retained by the analysis services, not a
+   competing learner-facing destination.
 
 Do not describe any Book as best, optimal, recommended, or the correct reading
 order.

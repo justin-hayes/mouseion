@@ -6,6 +6,11 @@ async function signIn(page: Page) {
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/library/);
+  const switcher = page.getByLabel('Study language');
+  if (await switcher.inputValue() !== 'de') {
+    await switcher.selectOption('de');
+    await expect(page).toHaveURL(/\/library$/);
+  }
 }
 
 const representativePages: Array<[string, RegExp]> = [
@@ -52,7 +57,7 @@ test.describe('responsive and theme regression coverage', () => {
       await switcher.selectOption('de');
       await expect(page).toHaveURL(/\/library$/);
     }
-    await expect(page.locator('.library-list .bibliographic-title a[href="/journey/fixture-book"]')).toBeVisible();
+    await expect(page.locator('.library-list .bibliographic-title a[href="/journey#journey-book-fixture-book"]')).toBeVisible();
     await expect(page.locator('.library-list .bibliographic-title a[href="/books/fixture-failed"]')).toHaveCount(0);
     await expect(page.locator('.library-list a[href="/books/fixture-edge-content"]')).toHaveCount(0);
     await expect(page.locator('.library-list a[href="/books/fixture-empty"]')).toHaveCount(0);
@@ -72,10 +77,10 @@ test.describe('responsive and theme regression coverage', () => {
   test('dense analysis, deck provenance, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
     await page.goto('/journey/fixture-book');
-    await expect(page.locator('.stat-group__value').filter({ hasText: '37.0%' })).toBeVisible();
-    await expect(page.getByText('Randlemma-18')).toBeVisible();
-    await expect(page.locator('.top-unknown li')).toHaveCount(18);
-    await expect(page.locator('.stat-group').last()).toBeVisible();
+    await expect(page).toHaveURL('/journey#journey-book-fixture-book');
+    await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
+    await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/jobs');
     await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(18);
     await page.goto('/journey/fixture-book');
@@ -106,8 +111,8 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
     await page.goto('/journey/fixture-book');
-    const resultActions = await page.locator('[aria-labelledby="deck-preparation-heading"] button, [aria-labelledby="deck-preparation-heading"] a[role="button"]').evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim()));
-    expect(resultActions[0]).toMatch(/Prepare deck|Download deck/);
+    await expect(page).toHaveURL('/journey#journey-book-fixture-book');
+    await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toBeVisible();
   });
 
   test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {

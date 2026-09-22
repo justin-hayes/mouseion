@@ -2,7 +2,7 @@
 
 ## What it is
 
-Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes declared main text when EPUB structure identifies it and otherwise analyzes the complete snapshot as an ensure-once consequence of Reading Journey membership, explains current known coverage and additional vocabulary investment, and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, Goal snapshots, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+Mouseion is a self-hosted web application for advanced foreign-language reading that adds a learner's ready-language catalog as metadata-first entries through automated synchronization, acquires content lazily per Book on learner intent, analyzes declared main text when EPUB structure identifies it and otherwise analyzes the complete snapshot as an ensure-once consequence of Reading Journey membership, explains current evidence and prepares Anki recognition-card decks from eligible unknown vocabulary. It is multi-user: books, known vocabulary, Goal snapshots, generated cards, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
@@ -16,8 +16,9 @@ browser is retired. `/` redirects to My Books. The active vocabulary consequence
 belongs to the Primary Goal (see [ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md)):
 choosing a Goal freezes its recurring-vocabulary snapshot and derives Reserved
 vocabulary from it; completion accepts that snapshot into modeled Known
-vocabulary. Prepared-deck work and historical provenance remain supporting
-artifacts on the Journey entry, not a second learner-facing plan.
+vocabulary. Prepared-deck work belongs to the focused preparation task, with
+historical provenance remaining an operational supporting artifact rather than a
+second learner-facing plan.
 
 Catalogue synchronization status is part of the learner-owned Catalogs surface
 at `/catalogs`, with detailed work under `/jobs`.
@@ -64,7 +65,7 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
 
 1. **Catalog discovery and My Books** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, and browse the resulting local My Books collection. Sync creates or updates metadata-only Books and never downloads content, starts analysis, or invalidates existing evidence. The resulting chosen-language Books derive the learner's study-language set.
 2. **Reading intent** — add a Book to Reading Journey from a My Books row when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it retains Journey membership, acquires the current EPUB when needed, and ensures one analysis for the current content revision, selecting declared main text when safe and otherwise using the complete snapshot. Re-adding and reordering are idempotent and do not create redundant work.
-3. **Analysis and insights** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Journey entry's current analysis for known coverage, vocabulary investment, and deck preparation. Prior runs remain operational history.
+3. **Analysis and evidence** — observe an asynchronous analysis producing an immutable completed corpus, then inspect the Book's current evidence from its Reading Journey anchor. Open the focused preparation task separately when deck work is wanted. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
 5. **Vocabulary selection** — classify imported and completed-Goal vocabulary as modeled Known, exclude the active Goal's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
 6. **Sentence selection** — use an example from the completed analysis for each selected lemma.
@@ -132,7 +133,7 @@ amendments.
 51. [ADR 0051: Reading journeys and primary goals are one per language](adr/0051-reading-journeys-and-goals-per-language.md) — partitions Reading Journey and Primary Goal identity by study language, with a per-language revision and a split backfill migration.
 52. [ADR 0052: The domain owns evidence classification](adr/0052-domain-owns-evidence-classification.md) — makes the evidence state a single derivation on the domain types read by My Books, the Reading Journey, and corpus/route insights, removes the SQL-assigned `EvidenceState` and its webapp fallback, and keeps goal-eligibility a read-only projection with enforcement at the persistence layer.
 54. [ADR 0054: Retire the standalone analysis action](adr/0054-retire-standalone-analysis-action.md) — removes the learner-facing analysis trigger and metadata-only Book detail page, making Add to Reading Journey the sole initial acquisition-and-analysis intent; its completed-page route portions are superseded by ADR 0055.
-55. [ADR 0055: Retire the standalone Book detail route](adr/0055-retire-book-detail-route.md) — makes the Journey entry the sole analyzed-Book destination, retires `GET /books/{id}`, constrains exact-analysis compatibility redirects to reachable Journey members, and moves learner-facing refresh/deck mutations to their owning surfaces.
+55. [ADR 0055: Retire the standalone Book detail route](adr/0055-retire-book-detail-route.md) — retires `GET /books/{id}` and constrains exact-analysis compatibility redirects to reachable Journey members; its generic Journey-entry and deck-surface wording is superseded by ADR 0074.
 56. [ADR 0056: Retire the Campaign learner surface](adr/0056-retire-campaign-learner-surface.md) — removes the Campaign queue, history, and operations from the learner-facing application; historical campaign records remain supporting provenance under ADR 0072.
 57. [ADR 0057: Retire the Language view panel](adr/0057-retire-language-view-panel.md) — retires the proposed My Books language panel and its read model; per-Book and Journey surfaces remain the evidence contracts.
 58. [ADR 0058: Catalog maintenance is a principal destination](adr/0058-catalog-maintenance-principal-destination.md) — promotes learner-owned catalog connection maintenance to a fourth shell destination at `/catalogs`, retires "Add books" as a term, and standardizes the learner-facing spelling on "catalog".
@@ -151,6 +152,7 @@ amendments.
 71. [ADR 0071: Decouple prepared-deck data from presentation](adr/0071-decouple-deck-data-from-presentation.md) — makes the frozen manifest the presentation-independent deck specification, versions render inputs and card presentation separately, and regenerates a ready deck from existing data in place; amends ADR 0030's byte-immutable ready artifact and the roll-forward-only posture of ADR 0067 and ADR 0068.
 72. [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](adr/0072-goal-owned-vocabulary-and-journey-forecast.md) — makes Primary Goal the owner of the active frozen vocabulary snapshot, derives per-language Reserved vocabulary from it, accepts completion as modeled vocabulary knowledge, treats generated rows as provenance, and forecasts coverage in the learner's own order.
 73. [ADR 0073: Modern Greek language support](adr/0073-modern-greek-language-support.md) — provisions Modern Greek with Stanza's GDT package (`mwt`) and the accurate Greek-BERT dependency parser, served offline from a Hugging Face cache volume; introduces per-language processor/package selection and a Greek canonicalization profile; amends ADR 0063's provisioned package, ADR 0005's normalization profiles, and ADR 0064's dictionary-index language set.
+74. [ADR 0074: Retire the generic Journey entry surface](adr/0074-retire-generic-journey-entry.md) — makes Reading Journey the canonical Book identity, relationship, evidence, forecast, and recovery surface; turns `/journey/{bookID}` and exact-analysis links into guarded anchor redirects; and assigns deck work to the focused preparation task while retaining internal analysis data.
 
 ### Superseded or historical decisions
 

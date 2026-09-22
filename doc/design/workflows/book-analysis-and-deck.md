@@ -3,7 +3,7 @@
 Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
 serve a Book and, when present, its Primary Goal. Historical Campaign records
 remain supporting provenance under ADR 0072; the Goal owns the active frozen
-vocabulary snapshot and the Journey entry owns its learner-facing context.
+vocabulary snapshot and Reading Journey owns the Book's learner-facing context.
 Reading Journey membership automatically ensures current
 analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
 with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
@@ -49,8 +49,8 @@ Catalog sync
     -> Add to Reading Journey
     -> Acquire current EPUB and ensure whole-book analysis
     -> Analysis status
-    -> Journey entry with current evidence
-    -> Choose Goal and freeze snapshot, or prepare an artifact from the entry
+    -> Reading Journey Book anchor with current evidence
+    -> Choose Goal and freeze snapshot, or open the focused preparation task
     -> Download deck or return to the Journey / Primary Goal
 ```
 
@@ -97,43 +97,31 @@ The interface must answer:
 Operational identifiers, attempt counts, and timestamps are supporting detail;
 they must not replace book identity and next-step guidance.
 
-### 4. Inspect analysis insights
+### 4. Inspect current Book evidence
 
-**Learner decision:** What does this book's current analysis say about my known
-coverage and vocabulary investment, and do I want to prepare a deck?
+**Learner decision:** What current evidence and next action does this Book have?
 
-The current completed analysis is presented in the Journey entry at
-`/journey/{bookID}`. A newly completed reanalysis
-replaces the current analysis; earlier runs remain operational audit records in
-`/jobs`. The compatibility route `/books/{book-id}/analyses/{analysis-run-id}`
-redirects to the Journey entry for members and returns 404 otherwise, rather
-than presenting a separate exact-result experience.
+The current completed analysis supports the Book anchor in Reading Journey. A
+newly completed reanalysis replaces the current analysis; earlier runs remain
+operational audit records in `/jobs`. The compatibility route
+`/books/{book-id}/analyses/{analysis-run-id}` redirects to the Reading Journey
+anchor for members and returns 404 otherwise, rather than presenting a separate
+exact-result experience.
 
-Information hierarchy answers, in order:
-
-1. What is my **Current known coverage** of the analyzed units?
-2. What additional vocabulary would reach the documented thresholds?
-3. Which unknown vocabulary has the highest contribution?
-4. Does a concrete analyzer or data-integrity gap require a warning?
-5. Do I want to prepare a deck?
-
-Current known coverage is the headline and premier metric. Its one-line scope
-qualifier, such as “of the analyzed units,” is a caption rather than an
-**Analyzed scope** section. **Vocabulary investment** / **Additional
-vocabulary** and **Highest-impact unknown vocabulary** follow. Render one
-compact analysis-quality note only when a reproducible warning exists; render
-nothing for a clean analysis.
+Reading Journey owns Book identity, relationship, current evidence, forecast,
+and recovery. It does not render a generic Book-detail, analysis-result,
+vocabulary-investment, or top-unknown page. Internal threshold and top-unknown
+data remain available to analysis and forecast services.
 
 Do not render analyzed-scope details, text profile, projected token coverage,
 the rest of the former coverage-stat list, analysis history, identity/trust, or
 provenance/history sections on the learner surface. Mouseion does not claim
-CEFR level, general reading level, or a composite difficulty score. Deck
-preparation follows the retained evidence on the Journey entry and may be repeated
-as the closing action.
+CEFR level, general reading level, or a composite difficulty score. Open deck
+work through the focused preparation task.
 
 ### 5. Prepare and download a deck
 
-For a manual preparation from a Journey entry, the learner decides whether to
+For a manual preparation from the focused task, the learner decides whether to
 create study material and whether to consent to optional external sentence
 translation. Selecting a Primary Goal is different: Mouseion automatically
 prepares local study material from that Goal's immutable vocabulary snapshot;
@@ -183,12 +171,13 @@ The interface must answer:
 
 - keep `/jobs/{id}` for queued/running state, retry, cancellation, attempts, and
   failure recovery;
-- completed analysis jobs expose **View analysis result**, opening `/journey/{bookID}`
-  directly or through the run-specific compatibility redirect;
-- manual deck preparation is submitted from the Journey entry after its
-  warning-only note and retained insights; Primary Goal selection submits a
+- completed analysis jobs expose **View in Reading Journey**, opening the
+  canonical `/journey#journey-book-{bookID}` anchor directly or through the
+  run-specific compatibility redirect;
+- manual deck preparation is submitted from the focused task after the Book is
+  reached in Reading Journey; Primary Goal selection submits a
   local preparation from the exact frozen Goal snapshot;
-- do not list analysis history on the Journey entry; `GET /jobs` remains the
+- do not list analysis history on the Reading Journey page; `GET /jobs` remains the
   operational history surface; and
 - a newly completed rerun replaces the book's current learner-facing analysis
   while prior immutable analyses remain operational audit records.
@@ -197,7 +186,7 @@ The direct `POST /jobs/{id}/deck/preparations` action is retained only for
 legacy compatibility and is not a canonical path for new analyses.
 
 Deck preparation may use JavaScript to consume its JSON status resource, but the
-Journey entry and preparation status retain a coherent server-rendered baseline;
+focused task and preparation status retain a coherent server-rendered baseline;
 status JSON is not itself a learner-facing page.
 
 ## Accessibility and responsive contract

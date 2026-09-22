@@ -67,13 +67,6 @@ func journeyBookID(item journeyBookView) string {
 	return item.Book.Source.ID
 }
 
-func journeyMembershipBookID(book domain.SourceMaterialSummary) string {
-	if book.BookID != "" {
-		return book.BookID
-	}
-	return book.Source.ID
-}
-
 func journeyMoveURL(bookID string, earlier bool) string {
 	direction := "move-later"
 	if earlier {
@@ -91,7 +84,7 @@ func journeyReanalyzeURL(bookID string) string {
 }
 
 func journeyEntryURL(bookID string) string {
-	return "/journey/" + url.PathEscape(bookID)
+	return "/journey#" + url.PathEscape(journeyBookAnchorID(bookID))
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -181,7 +174,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" || strings.TrimSpace(item.Book.Source.ContentSnapshotID) == "" {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
-			Description: "No current EPUB content is available for this Journey entry. Retry acquisition when the catalog can provide it.",
+			Description: "No current EPUB content is available for this book in Reading Journey. Retry acquisition when the catalog can provide it.",
 			Label:       "Retry acquisition",
 			URL:         journeyReanalyzeURL(bookID),
 			Submit:      true,
@@ -207,7 +200,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book) {
 		action.URL = journeyEntryURL(bookID)
-		action.Label = "View Journey entry"
+		action.Label = "View in Reading Journey"
 	}
 	return action
 }
@@ -412,12 +405,12 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 
 func journeyAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
-		return "Book added to Reading Journey, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The Journey entry is retained; assessment is unavailable until the current EPUB can be acquired."
+		return "Book added to Reading Journey, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The Journey membership is retained; assessment is unavailable until the current EPUB can be acquired."
 	}
 	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
-		return "Book added to Reading Journey, but the current source has no usable EPUB units. The Journey entry is retained; assessment is unavailable."
+		return "Book added to Reading Journey, but the current source has no usable EPUB units. The Journey membership is retained; assessment is unavailable."
 	}
-	return "Book added to Reading Journey, but analysis could not start. The Journey entry is retained; retry analysis from the Journey entry when ready."
+	return "Book added to Reading Journey, but analysis could not start. Retry analysis from Reading Journey when ready."
 }
 
 func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {

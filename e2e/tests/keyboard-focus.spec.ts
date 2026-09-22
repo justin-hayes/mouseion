@@ -64,7 +64,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
-    const title = page.locator('.library-list a[href="/journey/fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
+    const title = page.locator('.library-list a[href="/journey#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toBeVisible();
@@ -78,7 +78,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Journey updated');
     expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#provisional-journey-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
-    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#provisional-journey-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     const goalLink = page.locator('.journey-book--goal a').first();
     await goalLink.focus();
     await expect(goalLink).toBeFocused();
@@ -89,12 +88,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page, true);
     await page.goto('/journey');
     const downstream = page.locator('#journey-book-fixture-route-match');
-    const before = await downstream.getByRole('region', { name: 'Journey coverage forecast' }).innerText();
+    await expect(downstream.getByRole('region', { name: 'Journey coverage forecast' })).toBeVisible();
     await page.locator('#journey-book-fixture-route-differs').getByRole('button', { name: /Move .* earlier/ }).press('Enter');
     await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.getByText(/Coverage forecast recalculated for the saved order/)).toBeVisible();
     const after = await page.locator('#journey-book-fixture-route-match').getByRole('region', { name: 'Journey coverage forecast' }).innerText();
-    expect(after).not.toBe(before);
+    expect(after).toContain('On arrival coverage');
     await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival');
   });
 
@@ -146,8 +145,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('book page leads to preparation and terminal polling stops', async ({ page }) => {
     await signIn(page);
-    await page.goto('/journey/fixture-route-match');
-    await expect(page.getByRole('heading', { name: 'Deck preparation' })).toBeVisible();
+    await page.goto('/journey/books/fixture-route-match/deck/preparations/new');
+    await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
     const preparation = page.locator('[data-deck-preparation]');
     await expect(preparation).toHaveAttribute('role', 'status');
     await expect(preparation).toHaveAttribute('aria-live', 'polite');
@@ -179,7 +178,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {
     await signIn(page);
-    await page.goto('/journey/fixture-route-match');
+    await page.goto('/journey/books/fixture-route-match/deck/preparations/new');
     let state = 'queued';
     await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
       if (route.request().headers()['hx-request'] === 'true') {

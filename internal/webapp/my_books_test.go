@@ -86,7 +86,7 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, `href="/journey/analyzed-book"`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
+	assert.True(t, strings.Contains(html, `href="/journey#journey-book-analyzed-book"`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
 }
 
 func TestAnalyzedNonJourneyMyBookKeepsEvidenceWithoutLink(t *testing.T) {
@@ -217,7 +217,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey/fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
@@ -225,67 +225,6 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 	response = httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusNotFound, response.Code)
-}
-
-func TestBookDetailHeaderUsesTheBooksOwnLanguage(t *testing.T) {
-	book := domain.SourceMaterialSummary{
-		Source: domain.SourceMaterial{
-			ID:        "italian-book",
-			Title:     "Una storia italiana",
-			Language:  "it",
-			MediaType: "application/epub+zip",
-		},
-		AnalysisStatus: "analyzed",
-		AnalysisState:  "completed",
-		AnalysisRunID:  "italian-run",
-		CorpusID:       "italian-corpus",
-	}
-	var output bytes.Buffer
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
-	html := output.String()
-	assert.True(t, strings.Contains(html, "<h1>Una storia italiana</h1>") && strings.Contains(html, "it · application/epub+zip"), "book detail omitted its own language: %s", html)
-}
-
-func TestBookDetailHeaderRendersCanonicalBookTitle(t *testing.T) {
-	book := domain.SourceMaterialSummary{
-		Source:         domain.SourceMaterial{ID: "canonical-book", Title: "Acquisition-internal title", Language: "de", MediaType: "application/epub+zip"},
-		BookTitle:      "Refreshed catalogue title",
-		AnalysisStatus: "analyzed",
-		AnalysisState:  "completed",
-		AnalysisRunID:  "canonical-run",
-		CorpusID:       "canonical-corpus",
-	}
-	var output bytes.Buffer
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
-	html := output.String()
-	assert.True(t, strings.Contains(html, "<h1>Refreshed catalogue title</h1>"), "analyzed page omitted canonical Book title: %s", html)
-	assert.False(t, strings.Contains(html, "Acquisition-internal title"), "analyzed page rendered acquisition-internal title: %s", html)
-}
-
-func TestAnalyzedBookPageUsesParameterizedJourneyContext(t *testing.T) {
-	book := domain.SourceMaterialSummary{
-		Source:    domain.SourceMaterial{ID: "journey-book", Title: "Internal title", Language: "de", MediaType: "application/epub+zip"},
-		BookTitle: "Journey title",
-	}
-	page := bookPageOptions{
-		BreadcrumbURL:   "/journey",
-		BreadcrumbLabel: "Reading Journey",
-		Navigation:      NavigationReadingJourney,
-		Journey:         bookPageJourneyState{Member: true, Revision: 3},
-	}
-	var output bytes.Buffer
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
-	html := output.String()
-	for _, want := range []string{
-		`data-navigation-context="reading-journey"`,
-		`href="/journey"`,
-		"← Reading Journey",
-		"In Reading Journey.",
-		`action="/journey/books/journey-book/remove"`,
-	} {
-		assert.True(t, strings.Contains(html, want), "parameterized Journey page missing %q: %s", want, html)
-	}
-	assert.False(t, strings.Contains(html, "← My Books") || strings.Contains(html, `data-navigation-context="library"`), "parameterized Journey page retained My Books context: %s", html)
 }
 
 type bookRefreshStub struct {

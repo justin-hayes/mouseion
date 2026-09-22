@@ -12,7 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
-	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
 templ Layout(title string, user *domain.User, csrf string) {
@@ -217,7 +216,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 templ JourneyMembershipAction(bookID string, member bool, revision int64, csrf string) {
 	if bookID != "" {
 		if member {
-			<p><strong>In Reading Journey.</strong> <a href={ templ.SafeURL("/journey#" + journeyBookAnchorID(bookID)) }>View this Journey entry</a></p>
+			<p><strong>In Reading Journey.</strong> <a href={ templ.SafeURL("/journey#" + journeyBookAnchorID(bookID)) }>View in Reading Journey</a></p>
 			@RemoveJourneyMembershipAction(bookID, revision, csrf)
 		} else {
 			<form method="post" action={ templ.SafeURL(journeyAddURL(bookID)) }>
@@ -242,7 +241,7 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligi
 		<div class="library-book__identity">
 			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
 				if book.EvidenceState() == domain.BookAnalyzed && book.JourneyMember {
-					<a href={ templ.SafeURL("/journey/" + url.PathEscape(book.Book.ID)) }>{ book.Book.Title }</a>
+					<a href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }>{ book.Book.Title }</a>
 				} else {
 					{ book.Book.Title }
 				}
@@ -697,123 +696,6 @@ templ JourneyEvidence(item journeyBookView, csrf string, primary bool) {
 func journeyEntryAvailable(item journeyBookView) bool {
 	return item.Book.EvidenceState() == domain.BookAnalyzed && bookHasCompletedAnalysis(item.Book)
 }
-templ BookPageWithOptions(user domain.User, csrf string, book domain.SourceMaterialSummary, coverage *domain.AnalysisCoverage, statisticsUnavailable bool, message string, page bookPageOptions, preparation *domain.DeckPreparation, journeyAction deckJourneyActionView) {
-	@ShellLayout(canonicalBookTitle(book), &user, csrf, page.Navigation) {
-	@Breadcrumb(page.BreadcrumbURL, page.BreadcrumbLabel)
-	{{ action := bookLifecycleActionFor(book) }}
-	@PageHeader(canonicalBookTitle(book), book.Source.Language+" · "+book.Source.MediaType, StatusBadge(action.Status, action.Tone)) {
-	}
-	if message != "" {
-		@Feedback(FeedbackSuccess, "", message)
-	}
-	@NextActionSummary(action)
-	if page.Journey.Goal {
-		<p><strong>Primary Goal.</strong></p>
-		<p><a href={ templ.SafeURL("/journey#journey-book-"+journeyMembershipBookID(book)) }>View Primary Goal in Reading Journey</a></p>
-		if page.ShowJourneyRemoval {
-			@RemoveJourneyMembershipAction(journeyMembershipBookID(book), page.Journey.Revision, csrf)
-		}
-	} else {
-		@JourneyMembershipAction(journeyMembershipBookID(book), page.Journey.Member, page.Journey.Revision, csrf)
-	}
-	if coverage != nil {
-		if hasAnalysisWarnings(*coverage) {
-			<section aria-labelledby="analysis-quality-heading"><h2 id="analysis-quality-heading">Analysis quality</h2>
-				<p>These checks describe concrete gaps in the analyzer output. They do not assign a quality grade.</p>
-				<article role="note">
-					if coverage.TextProfile != nil && coverage.TextProfile.SentenceCount == 0 {
-						<p><strong>No sentences returned.</strong> Sentence-length signals are unavailable. Analyze the book again if the source text should contain sentences.</p>
-					}
-					if coverage.TextProfile != nil && coverage.TextProfile.EmptySentenceCount > 0 {
-						<p><strong>Empty sentences returned.</strong> { fmt.Sprintf("%d analyzer-provided sentences contained no tokens; those sentences count as zero tokens in the structural statistics.", coverage.TextProfile.EmptySentenceCount) }</p>
-					}
-					if coverage.TextProfile != nil && coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0 {
-						<p><strong>No vocabulary-analyzable tokens.</strong> The analyzer returned normalized tokens, but none passed the vocabulary filters, so coverage and vocabulary projections have no usable token denominator.</p>
-					}
-				</article>
-			</section>
-		}
-		<section aria-labelledby="coverage-heading"><h2 id="coverage-heading">Vocabulary coverage</h2>
-			@StatGroup(currentCoverageStatItems(*coverage))
-		</section>
-		if len(coverage.Thresholds) > 0 {
-			<section aria-labelledby="vocabulary-investment-heading"><h2 id="vocabulary-investment-heading">Vocabulary investment</h2>
-				<h3>Additional vocabulary</h3><p>Smallest number of deck-eligible lemmas needed to reach each target across all analyzable tokens:</p>
-				@StatGroup(thresholdStatItems(coverage.Thresholds))
-			</section>
-		}
-		if len(coverage.TopUnknownLemmas) > 0 {
-			<section aria-labelledby="top-unknown-heading"><h2 id="top-unknown-heading">Highest-impact unknown vocabulary</h2>
-				<p>The most frequent deck-eligible lemmas in this analysis:</p>
-				<ol class="top-unknown">
-					for _, lemma := range coverage.TopUnknownLemmas {
-						if lexical.IsLemma(lemma.CanonicalLemma) {
-							<li><span><strong>{ lemmadisplay.Format(book.Source.Language, lemma.CanonicalLemma, lemma.UPOS) }</strong> <small>{ lemma.UPOS }</small></span><span>{ fmt.Sprintf("%d occurrences", lemma.OccurrenceCount) }</span></li>
-						}
-					}
-				</ol>
-			</section>
-		}
-	}
-	if statisticsUnavailable {
-		<article role="note"><h2>Analysis insights unavailable</h2><p>This book was analyzed before reproducible vocabulary statistics were recorded. Analyze it again to see current coverage and vocabulary investment.</p></article>
-	}
-	if book.AnalysisStatus == "analyzed" && bookHasCompletedAnalysis(book) {
-		<section aria-labelledby="deck-preparation-heading"><h2 id="deck-preparation-heading">Deck preparation</h2>
-			<p>Prepare vocabulary from this book's exact current analysis and EPUB snapshot. Preparation records provenance; Goal completion determines what becomes known.</p>
-			if preparation != nil {
-				@DeckPreparationStatus(csrf, *preparation, "", journeyAction)
-			} else {
-				<form method="post" action={ templ.SafeURL(bookDeckPreparationURL(book)) } data-prepare-deck>
-					<input type="hidden" name="csrf_token" value={ csrf }/>
-					<fieldset><legend>Optional external translation</legend>
-						<p>English translation is optional. If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, preparation stays local and translation fields may be incomplete.</p>
-						<label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label>
-					</fieldset>
-					<button type="submit">Prepare deck</button>
-				</form>
-				<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
-			}
-		</section>
-	}
-	if len(page.DeckPreparationHistory) > 0 {
-		@BookDeckHistory(page.DeckPreparationHistory)
-	}
-}
-
-}
-
-templ BookDeckHistory(preparations []domain.DeckPreparation) {
-	<section aria-labelledby="deck-preparation-history-heading" class="book-deck-preparation-history">
-		<h2 id="deck-preparation-history-heading">Historical prepared decks</h2>
-		<p>Earlier prepared decks remain attached to the Book with their vocabulary and completion provenance.</p>
-		<ul>
-			for _, preparation := range preparations {
-				<li><strong>{ preparation.DeckName }</strong> · Prepared deck
-					if preparation.StudyingAt != nil {
-						<span> Legacy study timestamp: { preparation.StudyingAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
-					}
-					if preparation.ReviewedAt != nil {
-						<span> Legacy review timestamp: { preparation.ReviewedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
-					}
-					if preparation.GraduatedAt != nil {
-						<span> Graduation timestamp: { preparation.GraduatedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
-					}
-					if preparation.ReleasedAt != nil {
-						<span> Legacy release timestamp: { preparation.ReleasedAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
-					}
-					if preparation.RetiredAt != nil {
-						<span> Retired timestamp: { preparation.RetiredAt.UTC().Format("2006-01-02 15:04 UTC") }.</span>
-					}
-					if preparation.State == domain.DeckPreparationReady && !deckPreparationEmpty(preparation) {
-						<a download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-					}
-				</li>
-			}
-		</ul>
-	</section>
-}
-
 templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
 	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary) {
 		if resultURL != "" {
@@ -873,7 +755,6 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 }
 
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
-func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/journey/books/" + url.PathEscape(journeyMembershipBookID(book)) + "/deck/preparations" }
 func journeyDeckPreparationTaskURL(bookID string) string { return "/journey/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
@@ -997,7 +878,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 				for _, job := range jobs {
 					<tr><td>
 						if url := journeyEntryURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · Reading Journey", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
@@ -1031,11 +912,11 @@ templ JobStatus(csrf string, status analysis.Status, journeyEntryURL string) {
 		if status.CorpusID != "" {
 			if status.LogicalState == "completed" {
 					if status.SourceMaterialID != "" && status.RunID != "" && journeyEntryURL != "" {
-						<p>Analysis complete. Review the insights for this immutable analysis result.</p>
-						<a role="button" class="outline" href={ templ.SafeURL(journeyEntryURL) }>View analysis result</a>
+						<p>Analysis complete. Continue with this book in Reading Journey.</p>
+						<a role="button" class="outline" href={ templ.SafeURL(journeyEntryURL) }>View in Reading Journey</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
-							<p>Analysis complete, but its Journey entry is no longer available.</p>
+							<p>Analysis complete, but this book is no longer available in Reading Journey.</p>
 						} else {
 							<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
 							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
@@ -1195,7 +1076,7 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 				</form>
 			} else if action.State == deckJourneyMember {
 				<p><strong>In Reading Journey.</strong> This book is already in your Reading Journey.</p>
-				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View this Journey entry</a></p>
+				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View in Reading Journey</a></p>
 			} else if action.State == deckJourneyGoal {
 				<p><strong>Primary Goal.</strong> This deck is preparation for your current Primary Goal.</p>
 				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View Primary Goal in Reading Journey</a></p>
@@ -1321,7 +1202,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 	<section class="journey-book__deck" aria-labelledby={ "journey-deck-heading-" + journeyBookID(item) }>
 		<h4 id={ "journey-deck-heading-" + journeyBookID(item) }>Deck</h4>
 		if item.AnalysisDeckUnavailable {
-			<p role="note"><strong>Deck state: Unavailable.</strong> Deck preparation status could not be read. The analysis and Journey entry are unchanged.</p>
+			<p role="note"><strong>Deck state: Unavailable.</strong> Deck preparation status could not be read. The analysis and Journey membership are unchanged.</p>
 			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Try the focused deck task</a>
 		} else if item.AnalysisPreparation == nil {
 			<p><strong>Deck state:</strong> Not prepared from this analysis.</p>

@@ -11,36 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func renderDeckResult(t *testing.T, preparation *domain.DeckPreparation) string {
-	t.Helper()
-	var output bytes.Buffer
-	book := domain.SourceMaterialSummary{
-		Source:         domain.SourceMaterial{ID: "book-deck-372", Title: "The Exact Book", Language: "de"},
-		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-deck-372", CorpusID: "corpus-deck-372",
-	}
-	journeyAction := emptyDeckJourneyAction()
-	if preparation != nil && preparation.State == domain.DeckPreparationReady {
-		journeyAction = deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 1, State: deckJourneyNotMember}
-	}
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf-372", book, nil, true, "", journeyBookPageOptions(book), preparation, journeyAction).Render(context.Background(), &output))
-	return output.String()
-}
-
-func TestBookPageProvidesCurrentNativeDeckPreparationForm(t *testing.T) {
-	html := renderDeckResult(t, nil)
-	for _, want := range []string{
-		`method="post" action="/journey/books/book-deck-372/deck/preparations"`,
-		`name="external_translation_consent"`,
-		"English translation is optional",
-		"sends each selected lemma and its example sentence",
-		"Preparation records provenance; Goal completion determines what becomes known.",
-		"data-deck-preparation",
-	} {
-		assert.True(t, strings.Contains(html, want), "exact result missing %q: %s", want, html)
-	}
-	assert.False(t, strings.Contains(html, `action="/jobs/`) || strings.Contains(html, "Generate vocabulary deck"), "result preparation is not bound to the exact result: %s", html)
-}
-
 func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 	tests := []struct {
 		name string
@@ -75,17 +45,15 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			html := renderDeckResult(t, &test.prep)
-			statusStart := strings.Index(html, `<section data-deck-preparation`)
-			require.True(t, statusStart >= 0, "rendered result has no deck preparation status")
-			statusHTML := html[statusStart:]
+			var output bytes.Buffer
+			require.NoError(t, DeckPreparationStatus("csrf-372", test.prep, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			statusHTML := output.String()
 			for _, want := range test.want {
 				assert.True(t, strings.Contains(statusHTML, want), "status missing %q: %s", want, statusHTML)
 			}
 			for _, unwanted := range test.omit {
 				assert.False(t, strings.Contains(statusHTML, unwanted), "status unexpectedly contains %q: %s", unwanted, statusHTML)
 			}
-			assert.False(t, test.name == "ready" && strings.Contains(html, `method="post" action="/journey/books/book-deck-372/deck/preparations"`), "ready preparation unexpectedly retained the submission form")
 		})
 	}
 }

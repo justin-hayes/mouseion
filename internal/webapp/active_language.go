@@ -165,6 +165,10 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 	}
 	if legacyJourneyURL != "" {
 		if u.RawQuery != "" {
+			base, fragment, hasFragment := strings.Cut(legacyJourneyURL, "#")
+			if hasFragment {
+				return base + "?" + u.RawQuery + "#" + fragment
+			}
 			return legacyJourneyURL + "?" + u.RawQuery
 		}
 		return legacyJourneyURL
