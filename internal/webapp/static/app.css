@@ -1035,6 +1035,12 @@ progress {
   gap: var(--mouseion-space-1) var(--mouseion-space-3);
 }
 
+.library-book__author {
+  margin: calc(var(--mouseion-space-2) * -1) 0 var(--mouseion-space-3);
+  color: var(--mouseion-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
 .library-book__supporting {
   display: flex;
   min-width: 14rem;

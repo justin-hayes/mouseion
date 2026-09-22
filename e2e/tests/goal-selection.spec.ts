@@ -27,8 +27,13 @@ test.describe('Primary Goal selection', () => {
       await page.goto('/journey');
 
     const goal = page.locator('#primary-goal-section');
-    await expect(goal).toContainText('Der lange Weg nach Hause');
+      await expect(goal).toContainText('Der lange Weg nach Hause');
       await expect(goal).toContainText('By Mara Weiss');
+      expect(await goal.locator('.journey-book__identity').evaluate((identity) => {
+        const title = identity.querySelector('h3');
+        const author = identity.querySelector('.journey-book__author');
+        return title !== null && author !== null && Boolean(title.compareDocumentPosition(author) & Node.DOCUMENT_POSITION_FOLLOWING);
+      })).toBe(true);
       await expect(goal).toContainText('Current commitment');
       await expect(goal).toContainText('Reading state');
       await expect(goal).toContainText('Not yet marked finished');
