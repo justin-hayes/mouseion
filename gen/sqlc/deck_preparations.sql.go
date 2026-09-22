@@ -451,6 +451,7 @@ FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
   AND analysis_run_id = $3
+  AND retired_at IS NULL
 `
 
 type GetDeckPreparationBySourceAnalysisParams struct {
@@ -568,7 +569,7 @@ FROM deck_preparations
 WHERE owner_id = $1
   AND source_material_id = $2
   AND analysis_run_id = $3
-  AND (book_id IS NULL OR retired_at IS NULL)
+  AND retired_at IS NULL
 `
 
 type GetDeckPreparationForAnalysisParams struct {

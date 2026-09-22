@@ -44,6 +44,18 @@ func TestJourneyDeckPreparationPageKeepsGoalRetrySnapshotBound(t *testing.T) {
 	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-1126/retry"`)
 }
 
+func TestJourneyDeckPreparationPageRepreparesReadyGoalDeckBySnapshot(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-reprepare", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
+	task := journeyDeckPreparationView{Book: book, BookID: "book-goal-reprepare", AnalysisRunID: "run-goal-reprepare", Goal: true, GoalSnapshotID: "goal-snapshot-reprepare", GoalSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-reprepare", SourceMaterialID: "source-goal-reprepare", AnalysisRunID: "run-goal-reprepare", GoalSnapshotID: "goal-snapshot-reprepare", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError}}
+	var output bytes.Buffer
+	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/journey#journey-book-book-goal-reprepare").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "Re-preparation required")
+	assert.Contains(t, html, `action="/goal/books/book-goal-reprepare/deck/retry"`)
+	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="goal-snapshot-reprepare"`)
+	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-reprepare/retry"`)
+}
+
 func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	tests := []struct {
 		name     string

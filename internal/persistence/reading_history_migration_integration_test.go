@@ -23,7 +23,9 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 
 	// Return to the pre-feature schema so this test exercises the shipped
 	// backfill and cleanup migrations rather than reproducing their SQL.
-	moveApplicationMigrations(t, databaseURL, -8)
+	// The re-preparation migration is newer than this historical scenario; go
+	// back to the same pre-reading-history version before replaying its steps.
+	moveApplicationMigrations(t, databaseURL, -9)
 	owner, err := store.CreateUser(ctx, "history-migration-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "history-migration-other", false)

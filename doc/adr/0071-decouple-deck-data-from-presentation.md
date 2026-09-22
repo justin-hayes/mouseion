@@ -3,7 +3,8 @@
 Status: **Accepted** · Date: 2026-09-15 · Author: Justin + opencode
 
 Amends the byte-immutable ready artifact of **ADR 0030** and the
-roll-forward-only delivery posture of **ADR 0067** and **ADR 0068**.
+roll-forward-only delivery posture of **ADR 0067** and **ADR 0068**. The
+explicit re-preparation exception is amended by [ADR 0076](0076-reprepare-ready-deck.md).
 
 ## Context
 
@@ -124,17 +125,18 @@ unpersisted and unserved (the download contract stays APKG-only).
 - The schema gains version columns and a corpus-coordinate column on manifest
   items, crossing the migration review boundary.
 - A re-render that needs an input absent from both the specification and the
-  immutable corpus still requires re-preparation, and re-preparation remains
+  immutable corpus still requires explicit re-preparation. Its roll-forward
+  generation exception is defined by ADR 0076; ordinary preparation remains
   deduplicated by source analysis.
 - Legacy manifests created before corpus coordinates cannot use corpus
   recovery; they are re-rendered only when their frozen inputs suffice.
 
 ## Alternatives considered
 
-- **Keep roll-forward only and force re-preparation.** Rejected: preparation is
-  deduplicated by source and analysis run and returns the existing preparation,
-  so "re-prepare" does not actually create a new specification and a fix is
-  unreachable.
+- **Keep roll-forward only and force re-preparation.** Rejected for the
+  presentation-only path: preparation is deduplicated by source and analysis
+  run and returns the existing preparation. ADR 0076 defines the separate
+  explicit recovery exception when that existing specification is unusable.
 - **One combined version.** Rejected: it cannot distinguish a presentation
   change from a change to the frozen input set, so a missing input would either
   be rendered incomplete or force unnecessary re-preparation.

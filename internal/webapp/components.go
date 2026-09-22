@@ -435,6 +435,9 @@ func deckPreparationStatusLabel(state domain.DeckPreparationState) string {
 }
 
 func deckPreparationTitle(preparation domain.DeckPreparation) string {
+	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+		return "Re-preparation required"
+	}
 	if deckPreparationEmpty(preparation) {
 		return "No recurring vocabulary"
 	}
@@ -442,6 +445,9 @@ func deckPreparationTitle(preparation domain.DeckPreparation) string {
 }
 
 func deckPreparationStatusTone(preparation domain.DeckPreparation) StatusTone {
+	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+		return StatusWarning
+	}
 	if deckPreparationEmpty(preparation) {
 		return StatusNeutral
 	}
@@ -449,6 +455,9 @@ func deckPreparationStatusTone(preparation domain.DeckPreparation) StatusTone {
 }
 
 func deckPreparationSummary(preparation domain.DeckPreparation) string {
+	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+		return "The previous artifact is retained, but a new preparation is needed from the current analysis."
+	}
 	if preparation.State == domain.DeckPreparationFailed {
 		return "Preparation stopped and can be retried after reviewing the recovery message below."
 	}

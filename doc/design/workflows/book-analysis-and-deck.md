@@ -142,6 +142,10 @@ whose artifact may later be superseded in place by a newer deck revision.
 Download is a pure read and serves the current artifact. Empty Goal snapshots
 remain valid Goals and do not require a deck artifact; failed or unavailable
 Goal artifacts remain visible without clearing the Goal or its snapshot.
+A ready artifact whose frozen render inputs cannot be recovered is named
+**Re-preparation required**. The focused task retains the old artifact and
+offers an owner-scoped roll-forward preparation bound to the same exact
+analysis or Goal snapshot; it does not hide recovery behind an empty state.
 
 The interface must answer:
 
@@ -166,8 +170,11 @@ The interface must answer:
   quality omissions remains a completeness result and keeps its artifact action.
 - Metadata-only edits preserve current evidence; changed EPUB bytes create a
   stale current-analysis state until the learner re-analyzes from Reading Journey.
-- Duplicate analysis or preparation submission resolves idempotently rather than
-  enqueuing competing work.
+- Duplicate analysis or ordinary preparation submission resolves idempotently
+  rather than enqueuing competing work. Explicit re-preparation of the
+  sentinel creates one new current generation while preserving the old
+  artifact as historical provenance; repeated recovery resolves to that
+  generation.
 - Failed or cancelled analysis/preparation is retryable only when the server can
   establish viable work.
 - Legacy/full-text analyses remain readable through operational audit paths but

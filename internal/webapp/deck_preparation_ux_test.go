@@ -42,6 +42,12 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`},
 			omit: []string{"Cancel preparation", "Retry preparation"},
 		},
+		{
+			name: "re-preparation required",
+			prep: domain.DeckPreparation{ID: "prep-reprepare", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError},
+			want: []string{"Re-preparation required", "Re-prepare deck", `action="/deck-preparations/prep-reprepare/retry"`},
+			omit: []string{"Download deck", "Deck ready"},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

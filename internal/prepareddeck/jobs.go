@@ -476,14 +476,52 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 		return Handle{}, err
 	}
 	if p.RetiredAt != nil {
-		return Handle{}, persistence.ErrInvalidTransition
+		if p.AnalysisRunID == "" {
+			return Handle{}, persistence.ErrInvalidTransition
+		}
+		// A repeated submission may still point at the superseded preparation.
+		// Resolve the current exact analysis so recovery is idempotent without
+		// mutating or reusing the historical artifact.
+		p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1`, owner, p.SourceMaterialID, p.AnalysisRunID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Handle{}, persistence.ErrInvalidTransition
+		}
+		if err != nil {
+			return Handle{}, err
+		}
+		id = p.ID
+		if p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError {
+			if err = tx.Commit(ctx); err != nil {
+				return Handle{}, err
+			}
+			return Handle{Preparation: p}, nil
+		}
 	}
 	if p.GoalSnapshotID != "" {
 		// Goal preparation is always local; consent cannot be introduced by a
 		// retry form or a direct API request.
 		consent = false
 	}
-	if p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
+	if p.State == domain.DeckPreparationReady && p.Error == domain.DeckPreparationRequiresRepreparationError {
+		// The sentinel means the immutable specification cannot be rendered.
+		// Retire that current row and roll forward to a new specification bound
+		// to the same exact analysis (and Goal snapshot, if present).
+		if p.BookID != "" {
+			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
+				return Handle{}, err
+			}
+		} else if _, err = tx.Exec(ctx, `UPDATE deck_preparations SET retired_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2 AND retired_at IS NULL`, owner, p.ID); err != nil {
+			return Handle{}, err
+		}
+		var created bool
+		p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, p)
+		if err != nil {
+			return Handle{}, err
+		}
+		if !created {
+			return Handle{}, errors.New("re-preparation did not create a new specification")
+		}
+	} else if p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
 		previousState := p.State
 		p, err = scanPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state='queued',error='',current_run_id=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+preparationColumns, owner, id))
 		if err != nil {
@@ -582,12 +620,12 @@ func recordPreparationHistoryTx(ctx context.Context, tx pgx.Tx, owner, id, statu
 	return err
 }
 
-const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at,studying_at,reviewed_at,graduated_at,released_at,retired_at,cards_with_fallback_gloss,render_input_version,presentation_version,deck_revision`
+const preparationColumns = `id::text,owner_id::text,source_material_id::text,COALESCE(analysis_run_id::text,''),COALESCE(current_run_id::text,''),COALESCE(book_id::text,''),COALESCE(goal_snapshot_id::text,''),state,artifact,filename,deck_name,content_hash,total_cards,cards_with_english,cards_with_contextual_sentence_translations,quality_omissions,error,created_at,updated_at,started_at,completed_at,studying_at,reviewed_at,graduated_at,released_at,retired_at,cards_with_fallback_gloss,render_input_version,presentation_version,deck_revision`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt, &p.CardsWithFallbackGloss, &p.RenderInputVersion, &p.PresentationVersion, &p.DeckRevision)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.BookID, &p.GoalSnapshotID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt, &p.CardsWithFallbackGloss, &p.RenderInputVersion, &p.PresentationVersion, &p.DeckRevision)
 	return p, err
 }

@@ -680,13 +680,13 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 
 templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation domain.DeckPreparation) {
 	<p><strong>{ deckPreparationTitle(preparation) }.</strong> { deckPreparationSummary(preparation) }</p>
-	if preparation.State == domain.DeckPreparationReady {
-		if deckPreparationEmpty(preparation) {
-			<p>No cards were created from this snapshot.</p>
-		} else if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
-			@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-			<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Re-prepare Goal deck</button></form>
-		} else {
+		if preparation.State == domain.DeckPreparationReady {
+			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
+				<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Re-prepare Goal deck</button></form>
+			} else if deckPreparationEmpty(preparation) {
+				<p>No cards were created from this snapshot.</p>
+			} else {
 			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download Goal deck</a>
 		}
 	} else if deckPreparationActive(preparation) {
@@ -744,10 +744,19 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			<p><strong>Deck:</strong> <code>{ preparation.DeckName }</code> · <strong>Filename:</strong> <code>{ preparation.Filename }</code></p>
 		}
 		if preparation.State == domain.DeckPreparationReady {
-			if deckPreparationEmpty(preparation) {
-				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
-			} else if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
+				if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
+					<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare Goal deck</button></form>
+				} else {
+					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<fieldset><legend>Optional external translation for the re-preparation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the re-preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+						<button type="submit">Re-prepare deck</button>
+					</form>
+				}
+			} else if deckPreparationEmpty(preparation) {
+				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
 			} else {
 				if deckPreparationHasNewerRevision(preparation) {
 					@Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision))
@@ -1232,14 +1241,21 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 			<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Prepare deck</a>
 		} else {
 			<p><strong>Deck state:</strong> { deckPreparationTitle(*item.AnalysisPreparation) }.</p>
-			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
+			if item.AnalysisPreparation.Error == domain.DeckPreparationRequiresRepreparationError {
+				<p role="note">The previous deck is retained, but it cannot be updated in place.</p>
+				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Re-prepare deck</a>
+			} else {
+				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
+			}
 			if deckPreparationActive(*item.AnalysisPreparation) {
 				<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Cancel preparation</button></form>
 			} else if item.AnalysisPreparation.State == domain.DeckPreparationReady {
-				if deckPreparationEmpty(*item.AnalysisPreparation) {
-					<p role="note">No recurring vocabulary was found, so no cards were created.</p>
-				} else if item.AnalysisPreparation.Error != domain.DeckPreparationRequiresRepreparationError {
-					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
+				if item.AnalysisPreparation.Error != domain.DeckPreparationRequiresRepreparationError {
+					if deckPreparationEmpty(*item.AnalysisPreparation) {
+						<p role="note">No recurring vocabulary was found, so no cards were created.</p>
+					} else {
+						<a role="button" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
+					}
 				}
 			} else if item.AnalysisPreparation.State == domain.DeckPreparationFailed || item.AnalysisPreparation.State == domain.DeckPreparationCancelled {
 				<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Review and retry</a>
