@@ -1,8 +1,9 @@
 # Information architecture
 
-Status: **Canonical learner-facing architecture contract.** ADR 0072 records the
-target Goal and forecast changes for follow-on implementation; existing shipped
-surfaces remain until that work lands. This document follows
+Status: **Canonical shipped learner-facing architecture contract.** ADR 0074
+ships the consolidated Reading Journey Book surface and assigns deck work to the
+focused preparation task. ADR 0072 continues to own the Goal snapshot and
+forecast semantics. This document follows
 the one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
