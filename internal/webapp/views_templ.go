@@ -2881,7 +2881,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRe
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = Confirmation("Clear Primary Goal", "This releases the frozen Reserved vocabulary and clears the Goal. The snapshot, deck, and history remain available.", StatusDanger).Render(templ.WithChildren(ctx, templ_7745c5c3_Var135), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = Confirmation("Clear Primary Goal", "Clearing ends this Goal and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger).Render(templ.WithChildren(ctx, templ_7745c5c3_Var135), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -638,7 +638,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-				@Confirmation("Clear Primary Goal", "This releases the frozen Reserved vocabulary and clears the Goal. The snapshot, deck, and history remain available.", StatusDanger) {
+				@Confirmation("Clear Primary Goal", "Clearing ends this Goal and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger) {
 					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Confirm clearing</button></form>
 				}
 				@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)

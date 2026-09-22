@@ -230,14 +230,6 @@ func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
 	}
 }
 
-func journeyGoalEligibilityForView(item journeyBookView) (bool, string) {
-	eligible, reason := journeyGoalEligibility(item.Book)
-	if eligible && journeyEvidenceState(item) == "incomplete" {
-		return false, "This book needs usable coverage statistics before it can become a Primary Goal."
-	}
-	return eligible, reason
-}
-
 func journeyCurrentCoverage(item journeyBookView) string {
 	if item.Coverage == nil {
 		return "unavailable"
@@ -681,7 +673,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
-		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibilityForView(book)
+		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibility(book.Book)
 		view.Provisional = append(view.Provisional, book)
 	}
 	for i := range view.Provisional {
