@@ -220,15 +220,14 @@ members of the same language. It is a candidate pool, not a commitment. A Book
 with a chosen language joins its language's Journey.
 _Avoid_: learning queue, backlog, curriculum, plan, roadmap.
 
-**Journey entry**:
-The learner-facing view of one Book as a step in its language's Reading Journey,
-combining that Journey member with its current completed analysis evidence and
-the actions available for the entry. It exists only for a Book that belongs to
-the Journey and has a current completed analysis. A Journey entry is not a
-separate identity or membership object: the Book remains the My Books
-bibliographic identity, and the Reading Journey remains the provisional
-candidate pool.
-_Avoid_: Book detail, analysis page, journey item.
+**Reading Journey book anchor**:
+The canonical Reading Journey presentation of one Book's identity, Journey and
+Goal relationship, current evidence, forecast, and evidence recovery actions.
+The former `/journey/{bookID}` URLs remain compatibility bookmarks: an authorized
+and reachable Book redirects to its anchor in `/journey`, while unavailable or
+unauthorized Books remain unavailable. Deck work belongs to the focused
+preparation task, not to a separate Book or analysis page.
+_Avoid_: Journey entry, Book detail, analysis page, journey item.
 
 **Primary Goal**:
 One per study language: the Book in that language's Reading Journey the learner

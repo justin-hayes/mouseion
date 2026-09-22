@@ -155,10 +155,11 @@ These objects remain important, but they do not define principal navigation:
   unreliable; TOC entries expand to existing unit IDs.
 - **Analysis run** — asynchronous analysis attempt; queue and retry details are
   operational state.
-- **Current analysis** — the one completed analysis whose evidence is presented
-  on the Journey entry. Its immutable corpus and provenance remain backend facts.
+- **Current analysis** — the one completed analysis whose evidence supports the
+  Book anchor in Reading Journey. Its immutable corpus and provenance remain
+  backend facts.
 - **Prepared deck** — immutable APKG artifact from the exact analysis that
-  supplied its corpus, even though preparation begins on the Journey entry.
+  supplied its corpus, prepared through the focused deck task.
 - **Goal vocabulary snapshot** — the immutable recurring-vocabulary identity set
   owned by an active Primary Goal, with its selection and analysis provenance.
 - **Reserved vocabulary** — the active Goal snapshot projected into selection
@@ -183,11 +184,11 @@ These objects remain important, but they do not define principal navigation:
   records the retirement.
 
 A relationship graph, not a strict containment hierarchy, connects these
-objects. A book can exist without a Journey or Primary Goal. A Journey entry
-does not own a book or analysis. A Primary Goal does not make a projection
-actual. Earlier analysis runs remain addressable as operational audit records
-after vocabulary, Journey, source, or scope changes; they are not parallel
-learner result surfaces.
+objects. A book can exist without a Journey or Primary Goal. Reading Journey
+owns the Book anchor but does not own the Book or analysis. A Primary Goal does
+not make a projection actual. Earlier analysis runs remain addressable as
+operational audit records after vocabulary, Journey, source, or scope changes;
+they are not parallel learner result surfaces.
 
 ## Primary navigation
 
@@ -237,17 +238,15 @@ My Books
 Reading Journey (active study language)
     embedded Primary Goal, when present
     provisional ordered books
-    Journey entry for current completed analysis
-        current analysis insights and deck-preparation action
-        exact-analysis compatibility redirect
+    Book anchors for current evidence and recovery
+        focused deck-preparation task
+        exact-analysis compatibility redirect to the Book anchor
     current, after-Goal, and on-arrival forecast
     completion outcome
     Where next?
 
 Catalogs
     connection setup and sync status
-Journey entry
-    current completed analysis view for a Journey member
 
 Vocabulary
     known vocabulary and import
@@ -260,10 +259,11 @@ Secondary history
 ### Current route compatibility
 
 The shipped application uses `/library` for My Books and `/journey` for Reading
-Journey. `/` redirects to `/library`. A Journey entry at `/journey/{bookID}`
-owns the Book's current analysis and Goal-derived vocabulary snapshot context.
-Historical artifacts remain supporting records. The application does not present
-a duplicate queue, campaign, or plan.
+Journey. `/` redirects to `/library`. A former `/journey/{bookID}` URL is a
+compatibility bookmark: after the same owner, language, membership, and current
+evidence checks, it redirects to `/journey#journey-book-{bookID}`. Historical
+artifacts remain supporting records. The application does not present a duplicate
+Book-detail, analysis-result, queue, campaign, or plan surface.
 
 The authenticated shell therefore exposes exactly My Books, Reading Journey,
 Vocabulary, and Catalogs in the top navigation. `/jobs` remains a supporting
@@ -277,7 +277,7 @@ run-specific analysis route is a compatibility redirect rather than a separate
 surface:
 
 ```text
-/journey/{bookID}
+/journey/{bookID} (compatibility bookmark to the Reading Journey anchor)
 /books/{id}/analyses/{analysis-run-id} (compatibility redirect)
 /jobs/{id}
 /deck-preparations/{id}/status
@@ -307,12 +307,12 @@ Journey/Goal relationship precede concise evidence state. Search is scoped to
 the active language; filtering and sorting support finding books but do not turn
 readiness into the default ranking.
 
-Journey entries remain the place for full lifecycle state and the one current
-analysis for members. Books without a reachable Journey entry remain in My
-Books with their available row actions. Exact analysis history and provenance
-are operational facts available through `/jobs`, not sections on the learner-facing
-Journey entry. My Books should be moderately dense and should not place every
-book in a large card.
+Reading Journey owns full lifecycle state, Book identity, relationship, current
+evidence, forecast, and recovery for members. Books without a reachable anchor
+remain in My Books with their available row actions. Exact analysis history and
+provenance are operational facts available through `/jobs`, not sections on a
+generic learner-facing Book page. My Books should be moderately dense and
+should not place every book in a large card.
 
 ## Reading Journey information hierarchy
 
@@ -331,9 +331,10 @@ reorderable with keyboard-operable controls. Drag may enhance but never replace
 
 The learner's order is always the only active order. Current, after-Goal, and
 on-arrival forecast labels must be available, including a lower-bound label when
-an earlier Book cannot contribute trustworthy modeled vocabulary. Aggregate
-threshold detail remains on the individual Journey entry; the overview leads
-with books and the consequence of the learner's order.
+an earlier Book cannot contribute trustworthy modeled vocabulary. Internal
+threshold and top-unknown data remain available to analysis and forecast
+services, but the learner-facing overview leads with books and the consequence
+of the learner's order.
 
 Unassessed or otherwise untrustworthy books stay in the Journey at the
 learner's chosen position. Mouseion explains the evidence gap, gives no
@@ -372,38 +373,24 @@ completed plan.
 
 ## Analysis continuity
 
-The Journey entry at `/journey/{bookID}` is the canonical presentation for a
-member's one current analysis. The run-specific route
-`/books/{book-id}/analyses/{analysis-run-id}` remains only as a compatibility
-redirect to the Journey entry for reachable members and returns 404 otherwise,
-preserving valid deep links without rendering a second insight surface.
+The Reading Journey anchor is the canonical presentation for a member's Book
+identity, relationship, current evidence, forecast, and recovery actions. The
+run-specific route `/books/{book-id}/analyses/{analysis-run-id}` remains only as
+a compatibility redirect to the anchor for reachable members and returns 404
+otherwise, preserving valid deep links without rendering a second insight
+surface. Internal threshold and top-unknown analysis data remain durable even
+though their learner-facing presentation is retired.
 
-The Journey entry answers completed-analysis questions in this order:
-
-1. What is my **Current known coverage** of the analyzed units?
-2. What additional vocabulary would reach the documented coverage targets?
-3. Which unknown vocabulary has the highest contribution?
-4. Do any concrete analysis-quality gaps require a compact warning?
-5. Do I want to prepare a deck from this analysis?
-
-Current known coverage is the headline and premier metric, followed by
-**Vocabulary investment** / **Additional vocabulary** and **Highest-impact
-unknown vocabulary**. A one-line qualifier such as “of the analyzed units”
-makes the coverage scope unambiguous without creating an **Analyzed scope**
-section. The page renders one compact quality note only when the analyzer data
-contains a concrete warning; clean analysis renders no quality region.
-
-The learner surface does not show analyzed-scope details, text profile,
-projected token coverage, the broader coverage-stat list, analysis history, or
-run identity/provenance sections. Deck preparation follows the retained
-evidence on the Journey entry. It does not automatically add a book to Reading
-Journey, choose a Primary Goal, or mark vocabulary known.
+Deck preparation is a separate focused task at
+`/journey/books/{bookID}/deck/preparations/new`. It is bound to the exact current
+analysis and returns to the originating Reading Journey anchor; it does not
+replace Book identity, choose a Primary Goal, or mark vocabulary known.
 
 The operational job page remains responsible for queued/running progress,
 cancellation, retry, attempts, and failure recovery. When work completes, its
-primary action is **View analysis result**, which opens the Journey entry directly
-or through the compatibility redirect. `GET /jobs` remains the operational
-history surface for current and prior runs.
+primary action is **View in Reading Journey**, which opens the canonical Book
+anchor directly or through the compatibility redirect. `GET /jobs` remains the
+operational history surface for current and prior runs.
 
 ## Active study language, study languages, and Vocabulary ownership
 
@@ -420,8 +407,9 @@ deterministically (the sole study language, else the language of the most
 recently activated chosen-language Book) and resets lazily when the selection
 leaves the set. A shell-level switcher carries it on every authenticated screen;
 changing it navigates to the same screen in the new language on language-scoped
-screens. Journey entries are not mode-scoped: they render a Book's own language and
-never auto-switches the mode. A newly arrived study language appears passively
+screens. Compatibility bookmarks validate a Book's own language before redirecting
+to the active Reading Journey anchor; they never render a separate language-scoped
+page or auto-switch the mode. A newly arrived study language appears passively
 in the switcher (marked "new") without changing the mode.
 
 Vocabulary owns known vocabulary and its additive import workflow, scoped to the
@@ -470,9 +458,9 @@ needed.
    remains a compatibility route with its documented redirect. Campaign routes
    are not learner-facing webapp routes.
 8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
-   Journey entries are the current completed-analysis surface for members, prior
-   runs remain operational audit records, and run-specific result URLs redirect
-   to the applicable current context.
+    Reading Journey anchors are the current evidence surface for members, prior
+    runs remain operational audit records, and run-specific result URLs redirect
+    to the applicable Book anchor.
 9. **Catalog sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
@@ -481,8 +469,8 @@ needed.
    content, deleting local state, or invalidating scope or analysis.
 10. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
     the panel proposed by ADR 0042 has no current route or screen contract.
-    Per-Book evidence remains on My Books rows and current analysis evidence
-    remains on Journey entries; no replacement aggregate is implied.
+     Per-Book evidence remains on My Books rows and Reading Journey anchors; no
+     replacement aggregate is implied.
 11. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
     chosen-language Books define the language set, Vocabulary owns

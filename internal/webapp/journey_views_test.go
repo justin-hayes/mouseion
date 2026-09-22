@@ -160,7 +160,7 @@ func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
 	book.Book.AnalysisRunID = "run"
 	book.Book.CorpusID = "corpus"
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{book}}, "", "")
-	assert.True(t, strings.Contains(html, `href="/journey/canonical-book"`) && !strings.Contains(html, `href="/books/source-book"`), "Journey card used a non-canonical entry link: %s", html)
+	assert.True(t, strings.Contains(html, `href="/journey#journey-book-canonical-book"`) && !strings.Contains(html, `href="/books/source-book"`), "Journey card used a non-canonical book link: %s", html)
 }
 
 func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {

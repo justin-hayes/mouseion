@@ -144,35 +144,6 @@ const (
 	NavigationCatalogs       NavigationContext = "catalogs"
 )
 
-type bookPageJourneyState struct {
-	Member   bool
-	Goal     bool
-	Revision int64
-}
-
-type bookPageOptions struct {
-	BreadcrumbURL          string
-	BreadcrumbLabel        string
-	Navigation             NavigationContext
-	ShowJourneyRemoval     bool
-	Journey                bookPageJourneyState
-	DeckPreparationHistory []domain.DeckPreparation
-}
-
-func journeyBookPageOptions(book domain.SourceMaterialSummary) bookPageOptions {
-	return bookPageOptions{
-		BreadcrumbURL:      "/journey",
-		BreadcrumbLabel:    "Reading Journey",
-		Navigation:         NavigationReadingJourney,
-		ShowJourneyRemoval: true,
-		Journey: bookPageJourneyState{
-			Member:   book.JourneyMember,
-			Goal:     book.JourneyGoal,
-			Revision: book.JourneyRevision,
-		},
-	}
-}
-
 func navigationContextForTitle(title string) NavigationContext {
 	switch {
 	case title == "My Books", title == "My Library":
@@ -298,7 +269,7 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 		}
 	}
 	if state == domain.BookStale {
-		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze it from its Reading Journey entry.", Tone: StatusWarning}
+		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze it from Reading Journey.", Tone: StatusWarning}
 	}
 	if state == domain.BookAnalyzed && !book.JourneyMember && bookHasCompletedAnalysis(*book.Acquired) {
 		return bookLifecycleAction{
@@ -307,7 +278,9 @@ func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
 			Tone:        StatusSuccess,
 		}
 	}
-	action := bookLifecycleActionFor(*book.Acquired)
+	acquired := *book.Acquired
+	acquired.BookID = book.Book.ID
+	action := bookLifecycleActionFor(acquired)
 	return action
 }
 
@@ -354,7 +327,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 	}
 	switch state {
 	case "stale":
-		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence for this Journey entry.", "Re-analyze", journeyReanalyzeURL(bookID), StatusWarning, true}
+		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence in Reading Journey.", "Re-analyze", journeyReanalyzeURL(bookID), StatusWarning, true}
 	case "queued":
 		return bookLifecycleAction{"Analysis queued", "The EPUB snapshot is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
 	case "running":
@@ -365,11 +338,11 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Inspect the insights for this exact completed analysis.", "View Journey entry", journeyEntryURL(bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading Journey.", "View in Reading Journey", journeyEntryURL(bookID), StatusSuccess, false}
 		}
 	}
 
-	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this Journey entry yet.", "", "", StatusInfo, false}
+	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this book yet.", "", "", StatusInfo, false}
 }
 
 func feedbackClass(kind FeedbackKind) string {
@@ -605,10 +578,6 @@ func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
 		{Label: "analyzable tokens", Value: strconv.FormatInt(coverage.AnalyzableTokenCount, 10)},
 		{Label: "distinct lemmas", Value: strconv.FormatInt(coverage.DistinctLemmaCount, 10)},
 	}
-}
-
-func currentCoverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
-	return []StatItem{{Label: "Current known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage)), Detail: "of the analyzed units"}}
 }
 
 func thresholdStatItems(thresholds []domain.CoverageThreshold) []StatItem {

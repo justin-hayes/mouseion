@@ -66,17 +66,17 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 | **Stale analysis** | Existing evidence belongs to an older EPUB content revision. | Current evidence, failed Journey membership |
 | **Analysis trigger** | Adding a Book to Reading Journey submits asynchronous analysis or re-analysis as needed. | Start analysis, continue, process book |
 | **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
-| **Analysis result** | The Book's single current learner-facing analysis, shown in the Journey entry for a member. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the Journey entry |
-| **Analysis insights** | Current known coverage, vocabulary investment, highest-impact unknown vocabulary, and warning-only quality information for the current analysis. | Dashboard metrics, difficulty score, text profile on the learner surface |
-| **View analysis result** | Leave operational status and open the current analysis context, directly or through the run-specific compatibility redirect. | View job, view exact result |
+| **Current analysis evidence** | The Book's current completed evidence, owned by the Book and presented from its Reading Journey anchor. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the learner surface |
+| **Analysis evidence** | Current coverage and warning-only quality information used by Reading Journey; internal thresholds and top-unknown data remain available to analysis services without a learner-facing detail page. | Dashboard metrics, difficulty score, text profile on the learner surface |
+| **View in Reading Journey** | Leave operational status and open the Book's canonical Reading Journey anchor, directly or through the run-specific compatibility redirect. | View job, view exact result |
 
 Use **job** only for operational history or implementation-facing detail. A
 Book's learner-facing state may be **ready to analyze**, **analysis queued**,
 **analysis running**, **analysis result ready**, **stale**, or **unavailable**
 even when backend state is expressed differently. **Analysis history** is
 operational language for `GET /jobs`, not a learner-facing Book-page section.
-Run-specific analysis URLs remain only as compatibility redirects to the Book
-page.
+Run-specific analysis URLs remain only as compatibility redirects to the Reading
+Journey anchor.
 
 ## Journey and route evidence
 
@@ -139,8 +139,8 @@ Always state whether a number is current, projected, token-weighted, scoped,
 conditional, stale, or unavailable. A selected threshold is a planning aid, not
 a literary judgment or claim that the learner can or cannot read a book.
 Prepared decks and Goal snapshots select recurring vocabulary and make no
-coverage claim; coverage thresholds remain whole-book planning markers on the
-individual Journey entry, not Journey ordering inputs.
+coverage claim; coverage thresholds remain internal whole-book planning data,
+not Journey ordering inputs or a competing learner-facing destination.
 
 **Language view** and **language corpus view** were the names used for the panel
 proposed by [ADR 0042](../adr/0042-derived-language-corpus-view.md). That panel is

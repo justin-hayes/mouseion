@@ -6,34 +6,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
-	var output bytes.Buffer
-	book := domain.SourceMaterialSummary{
-		Source:         domain.SourceMaterial{ID: "book-372", Title: "A Book", Language: "de"},
-		AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-372", CorpusID: "corpus-372",
-	}
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, true, "", journeyBookPageOptions(book), nil, emptyDeckJourneyAction()).Render(context.Background(), &output))
-	html := output.String()
-	for _, want := range []string{
-		`id="deck-preparation-heading"`,
-		`action="/journey/books/book-372/deck/preparations"`,
-		`name="external_translation_consent"`,
-		"outside Mouseion",
-		"configured translation provider",
-		"Without consent",
-		"Preparation records provenance; Goal completion determines what becomes known.",
-	} {
-		assert.True(t, strings.Contains(html, want), "exact result missing deck contract %q: %s", want, html)
-	}
-	assert.False(t, strings.Contains(html, `action="/jobs/`), "exact result must not submit deck preparation through an operational job route")
-}
 
 func TestJourneyDeckPreparationPageShowsExactAnalysisAndConsent(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1126", Title: "The Exact Journey Book", Language: "de", ContentSnapshotID: "snapshot-1126"}}
@@ -115,7 +92,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, CardsWithFallbackGloss: 2, QualityOmissions: 1}
-			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/journey/book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/journey#journey-book-book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
 			html := output.String()
 			assert.True(t, strings.Contains(html, "Return to book") || test.name != "queued", "status missing return-to-book link: %s", html)
 			for _, want := range test.want {
@@ -188,26 +165,6 @@ func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 	}
 }
 
-func TestBookPageRendersHistoricalPreparedDecksWithoutStudyActions(t *testing.T) {
-	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "book-history", Language: "de"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-history"}
-	now := time.Date(2026, time.September, 10, 9, 0, 0, 0, time.UTC)
-	page := journeyBookPageOptions(book)
-	page.DeckPreparationHistory = []domain.DeckPreparation{
-		{ID: "old-study", DeckName: "Mouseion::de::Old deck", State: domain.DeckPreparationReady, TotalCards: 2, ReleasedAt: &now},
-		{ID: "old-prepared", DeckName: "Mouseion::de::Prepared deck", State: domain.DeckPreparationReady, TotalCards: 1},
-	}
-	current := domain.DeckPreparation{ID: "current-deck", State: domain.DeckPreparationReady, TotalCards: 2, VocabularyCount: 2}
-	var output bytes.Buffer
-	require.NoError(t, BookPageWithOptions(domain.User{Username: "learner"}, "csrf", book, nil, false, "", page, &current, emptyDeckJourneyAction()).Render(context.Background(), &output))
-	html := output.String()
-	for _, want := range []string{"Historical prepared decks", "Mouseion::de::Old deck", "Mouseion::de::Prepared deck", "Legacy release timestamp", "2026-09-10 09:00 UTC", `href="/deck-preparations/old-study/download"`} {
-		assert.True(t, strings.Contains(html, want), "Book page missing %q: %s", want, html)
-	}
-	for _, unwanted := range []string{"This Book's vocabulary study", "Study this Book's vocabulary", "Confirm deck review", "Release study", "/vocabulary-study"} {
-		assert.NotContains(t, html, unwanted)
-	}
-}
-
 func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {
 	preparation := domain.DeckPreparation{
 		ID: "prep-omitted", SourceMaterialID: "book-omitted", State: domain.DeckPreparationReady,
@@ -241,9 +198,9 @@ func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 		want  []string
 		omit  []string
 	}{
-		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in Reading Journey", "Add to Reading Journey", `method="post" action="/journey/books/book-372/add"`, `name="expected_revision"`}, omit: []string{"View this Journey entry", "Primary Goal"}},
+		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in Reading Journey", "Add to Reading Journey", `method="post" action="/journey/books/book-372/add"`, `name="expected_revision"`}, omit: []string{"View this book in Reading Journey", "Primary Goal"}},
 		{name: "already in Journey", state: deckJourneyMember, want: []string{"In Reading Journey", "This book is already in your Reading Journey", `href="/journey#journey-book-book-372"`}, omit: []string{"Add to Reading Journey", "Primary Goal"}},
-		{name: "Primary Goal", state: deckJourneyGoal, want: []string{"Primary Goal", "This deck is preparation for your current Primary Goal", "View Primary Goal in Reading Journey"}, omit: []string{"Add to Reading Journey", "View this Journey entry"}},
+		{name: "Primary Goal", state: deckJourneyGoal, want: []string{"Primary Goal", "This deck is preparation for your current Primary Goal", "View Primary Goal in Reading Journey"}, omit: []string{"Add to Reading Journey", "View in Reading Journey"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

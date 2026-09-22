@@ -46,7 +46,7 @@ func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, o
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), owner, detail.Book.LanguageTag, &detail); err != nil {
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), owner, journeyBookLanguage(detail), &detail); err != nil {
 		fail(w, err)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -97,7 +97,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 	book.BookID = detail.Book.ID
 	book.BookTitle = detail.Book.Title
 	task := journeyDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, strings.TrimSpace(detail.Book.LanguageTag))
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, journeyBookLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
@@ -396,7 +396,7 @@ func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner strin
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
 		return "", nil
 	}
-	if err := h.annotateBookWithJourneyLanguage(ctx, owner, detail.Book.LanguageTag, &detail); err != nil {
+	if err := h.annotateBookWithJourneyLanguage(ctx, owner, journeyBookLanguage(detail), &detail); err != nil {
 		return "", err
 	}
 	if !detail.JourneyMember {

@@ -23,7 +23,7 @@ out-of-band "needs language" surface.
 ## Scope
 
 This feature defines the learner-facing behaviour of language-as-mode across the
-shell, My Books, Reading Journey, Vocabulary, and Journey entry. It implements
+shell, My Books, Reading Journey, Vocabulary, and compatibility bookmarks. It implements
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md). Learner-facing
 labels use **Language** and the language's own name, never **Mode** or
@@ -52,8 +52,8 @@ labels use **Language** and the language's own name, never **Mode** or
 - Browse, paging, and search are scoped to the active language. The "All
   languages" pill and per-row language tags are removed; a section heading names
   the language.
-- Per-Book evidence remains visible in My Books; current analysis insights remain
-  on the Journey entry. The retired Language view panel does not render.
+- Per-Book evidence remains visible in My Books; current Book evidence remains
+  on the Reading Journey anchor. The retired Language view panel does not render.
 - When any Book lacks a language, an out-of-band "N books need a language" strip
   appears (display-only: fix the language in the catalog, then re-sync; no
   per-book actions). Its browse state is `/library?needs-language`.
@@ -76,10 +76,11 @@ labels use **Language** and the language's own name, never **Mode** or
 - Known-vocabulary-only languages are reachable through the switcher
   (read-only, import disabled).
 
-### Journey entry (`/journey/{bookID}`)
+### Compatibility bookmark (`/journey/{bookID}`)
 
-- Not mode-scoped: a Book renders its own language; a stale cross-language link
-  never auto-switches the mode. Language remains on the page header.
+- The route validates the Book's own language, owner, membership, and current
+  evidence, then redirects to its anchor in the active Reading Journey. It never
+  renders a separate language-scoped page or auto-switches the mode.
 
 ## States
 

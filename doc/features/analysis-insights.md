@@ -47,7 +47,7 @@ precondition.
 
 The underlying calculation retains distinct lemma counts and occurrence counts
 because lemma coverage and token coverage answer different questions. The
-learner-facing Journey entry presents only current known coverage from this
+learner-facing Reading Journey presents Book identity and current evidence from this
 coverage-stat family. Percentages use the integer occurrence counts;
 presentation may round the resulting ratio, but selection never uses a rounded
 percentage.
@@ -97,34 +97,27 @@ The calculation and operational evidence distinguish:
 - generated vocabulary as immutable historical provenance;
 - vocabulary eligible for a new deck.
 
-Generated or reserved vocabulary is not silently reported as Known. The Journey
-entry leads only with current coverage; vocabulary investment and top unknowns
-apply the distinct categories internally. The Journey overview additionally
+Generated or reserved vocabulary is not silently reported as Known. Reading
+Journey uses the distinct categories for its current evidence and forecast; the
+retired vocabulary-investment and top-unknown presentation remains available
+only to internal analysis services. The Journey overview additionally
 shows current, after-Goal, and on-arrival coverage from the learner's own order.
 All values are calculated on demand, so Goal changes, completion, reordering, or
 evidence changes do not leave a persisted coverage or mastery snapshot.
 
 ## Initial presentation
 
-The Journey entry at `/journey/{bookID}` shows one current analysis for a
-Journey member. Its
-presentation keeps:
+The former `/journey/{bookID}` URL is a compatibility bookmark that redirects a
+reachable Journey member to the Book's anchor in `/journey`; it never renders a
+generic Book or analysis-result page. Reading Journey owns Book identity,
+relationship, current evidence, forecast, and recovery. Focused preparation is
+opened separately at `/journey/books/{bookID}/deck/preparations/new`.
 
-- **Current known coverage** as the headline and premier metric, with a
-  one-line qualifier such as “of the analyzed units”;
-- **Vocabulary investment** / **Additional vocabulary** for the 95%, 97%, and
-  99% targets;
-- **Highest-impact unknown vocabulary**, led by the unknown lemmas with the
-  greatest contribution;
-- deck preparation; and
-- a single compact analysis-quality note only when persisted analyzer output
-  exposes a concrete warning.
-
-The learner-facing presentation removes analyzed-scope detail, text profile,
-projected token coverage after the top 10/25/50 lemmas, the detailed
-coverage-stat list other than current known coverage, and analysis history.
-The underlying metric contracts, persisted aggregates, and operational audit
-records remain intact.
+The learner-facing presentation removes vocabulary investment, highest-impact
+unknown vocabulary, analyzed-scope detail, text profile, projected token
+coverage, the detailed coverage-stat list, and analysis history. The underlying
+metric contracts, persisted aggregates, thresholds, top-unknown data, and
+operational audit records remain intact.
 
 Quality warnings are limited to gaps reproducible directly from persisted
 analyzer output: no sentences, analyzer-provided sentences with no tokens, or
@@ -180,7 +173,7 @@ coverage, thresholds, and top unknowns use the resulting corpus; the one-line
 coverage qualifier states that the headline applies to the analyzed book without
 exposing a separate scope-detail section.
 
-Deck preparation starts on the Journey entry but remains bound internally to the
+Deck preparation starts in the focused task but remains bound internally to the
 exact immutable completed analysis that owns the corpus. It is not available
 for queued, running, failed, cancelled, or legacy-only analysis state.
 

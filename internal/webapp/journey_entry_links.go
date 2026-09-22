@@ -3,14 +3,23 @@ package webapp
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+func journeyBookLanguage(detail domain.MyBook) string {
+	language := strings.TrimSpace(detail.Book.LanguageTag)
+	if language == "" && detail.Acquired != nil {
+		language = strings.TrimSpace(detail.Acquired.Source.Language)
+	}
+	return language
+}
+
 // journeyEntryURLForSource returns a link only when the owner's current Book
-// evidence can be served by the Journey entry route. Source material IDs are
-// accepted because Jobs and deck history retain acquisition identities.
+// evidence can be served in Reading Journey. Source material IDs are accepted
+// because Jobs and deck history retain acquisition identities.
 func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID string) (string, error) {
 	if sourceID == "" {
 		return "", nil
@@ -25,11 +34,7 @@ func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID 
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
 		return "", nil
 	}
-	language := detail.Book.LanguageTag
-	if language == "" {
-		language = detail.Acquired.Source.Language
-	}
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, journeyBookLanguage(detail))
 	if err != nil {
 		return "", err
 	}
