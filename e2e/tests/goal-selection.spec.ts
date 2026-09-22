@@ -64,6 +64,7 @@ test.describe('Primary Goal selection', () => {
       const ineligible = provisional.filter({ hasText: 'Route evidence pending' });
       await expect(ineligible).toContainText('cannot become a Primary Goal');
       await expect(ineligible.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+      await expect(ineligible.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
 
       const goalForecast = goal.getByRole('region', { name: 'Journey coverage forecast' });
       await expect(goalForecast.locator('.journey-forecast__stage')).toHaveCount(2);
