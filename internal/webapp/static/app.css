@@ -1153,6 +1153,12 @@ progress {
 	grid-column: 1;
 }
 
+.journey-book__author {
+  margin: calc(var(--mouseion-space-2) * -1) 0 var(--mouseion-space-3);
+  color: var(--mouseion-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
 .journey-forecast {
 	min-width: 0;
 }

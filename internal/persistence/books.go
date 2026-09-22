@@ -42,6 +42,7 @@ func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain
 			ID:                 row.BID,
 			OwnerID:            row.BOwnerID,
 			Title:              row.Title,
+			Author:             row.Author,
 			MetadataProvenance: row.MetadataProvenance,
 			LanguageState:      row.LanguageState,
 			LanguageTag:        row.LanguageTag,
@@ -246,6 +247,7 @@ func (s *PostgresStore) SetCatalogueEntryAliasConnection(ctx context.Context, ow
 
 func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.Book, error) {
 	b.Title = strings.TrimSpace(b.Title)
+	b.Author = strings.TrimSpace(b.Author)
 	b.LanguageTag = strings.TrimSpace(b.LanguageTag)
 	if err := b.Validate(); err != nil {
 		return domain.Book{}, err
@@ -253,7 +255,7 @@ func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.B
 	var created domain.Book
 	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		row, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: b.OwnerID, Title: b.Title, MetadataProvenance: b.MetadataProvenance, LanguageState: b.LanguageState, LanguageTag: nullableTextArg(nullableLanguageTag(b.LanguageState, b.LanguageTag))})
+		row, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: b.OwnerID, Title: b.Title, Author: b.Author, MetadataProvenance: b.MetadataProvenance, LanguageState: b.LanguageState, LanguageTag: nullableTextArg(nullableLanguageTag(b.LanguageState, b.LanguageTag))})
 		if err != nil {
 			return err
 		}
@@ -270,7 +272,7 @@ func nullableLanguageTag(state, tag string) string {
 	return tag
 }
 
-func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, title, languageState, languageTag string) (domain.Book, error) {
+func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {
 	current, err := s.GetBook(ctx, owner, bookID)
 	if err != nil {
 		return domain.Book{}, err
@@ -279,14 +281,14 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 	if languageState == domain.LanguageChosen {
 		languageTag = canonicalization.NormalizeLanguage(languageTag)
 	}
-	candidate.Title, candidate.LanguageState, candidate.LanguageTag = title, languageState, languageTag
+	candidate.Title, candidate.Author, candidate.LanguageState, candidate.LanguageTag = strings.TrimSpace(title), strings.TrimSpace(author), languageState, languageTag
 	if err = candidate.Validate(); err != nil {
 		return domain.Book{}, err
 	}
 	var updated domain.Book
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		row, err := q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: owner, ID: bookID, Title: title, LanguageState: languageState, LanguageTag: nullableTextArg(nullableLanguageTag(languageState, languageTag))})
+		row, err := q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: owner, ID: bookID, Title: candidate.Title, Author: candidate.Author, LanguageState: languageState, LanguageTag: nullableTextArg(nullableLanguageTag(languageState, languageTag))})
 		if err != nil {
 			return err
 		}
@@ -359,7 +361,7 @@ func (s *PostgresStore) ResolveBookByAlias(ctx context.Context, owner, namespace
 	if err != nil {
 		return domain.Book{}, false, err
 	}
-	return domain.Book{ID: row.BID, OwnerID: row.BOwnerID, Title: row.Title, MetadataProvenance: row.MetadataProvenance, LanguageState: row.LanguageState, LanguageTag: row.LanguageTag, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, true, nil
+	return domain.Book{ID: row.BID, OwnerID: row.BOwnerID, Title: row.Title, Author: row.Author, MetadataProvenance: row.MetadataProvenance, LanguageState: row.LanguageState, LanguageTag: row.LanguageTag, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, true, nil
 }
 
 func aliasConflictError(err error) error {
@@ -444,11 +446,12 @@ type CatalogueEntryReconcileResult struct {
 	Created         bool
 	TitleChanged    bool
 	LanguageChanged bool
+	AuthorChanged   bool
 }
 
 // Upserted reports whether the entry added or updated a Book.
 func (r CatalogueEntryReconcileResult) Upserted() bool {
-	return r.Created || r.TitleChanged || r.LanguageChanged
+	return r.Created || r.TitleChanged || r.LanguageChanged || r.AuthorChanged
 }
 
 // ReconcileCatalogueEntry performs the metadata-only, owner-scoped catalogue
@@ -456,8 +459,9 @@ func (r CatalogueEntryReconcileResult) Upserted() bool {
 // sync scope determines that language deterministically from the catalogue
 // entry (never inferred). Source materials and acquired content are never
 // touched here: membership and identity are metadata-only.
-func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, language string) (result CatalogueEntryReconcileResult, err error) {
-	owner, connectionID, sourceIdentifier, title, language = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(language)
+
+func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, connectionID, sourceIdentifier, title, author, language string) (result CatalogueEntryReconcileResult, err error) {
+	owner, connectionID, sourceIdentifier, title, author, language = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(title), strings.TrimSpace(author), strings.TrimSpace(language)
 	if owner == "" || connectionID == "" || sourceIdentifier == "" || title == "" || language == "" {
 		return CatalogueEntryReconcileResult{}, errors.New("persistence: catalogue entry identity is incomplete")
 	}
@@ -483,9 +487,9 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		bookID = aliasBook
 	}
 	created := bookID == ""
-	var titleChanged, languageChanged bool
+	var titleChanged, authorChanged, languageChanged bool
 	if bookID == "" {
-		createdBook, insertErr := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
+		createdBook, insertErr := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: author, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
 		err = insertErr
 		if err != nil {
 			return CatalogueEntryReconcileResult{}, err
@@ -497,12 +501,13 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 			return CatalogueEntryReconcileResult{}, err
 		}
 		titleChanged = strings.TrimSpace(current.Title) != title
+		authorChanged = strings.TrimSpace(current.Author) != author
 		languageChanged = current.LanguageState != domain.LanguageChosen || current.LanguageTag != language
 	}
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if _, err = q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: owner, ID: bookID, Title: title, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)}); err != nil {
+	if _, err = q.UpdateBookMetadata(ctx, sqlcgen.UpdateBookMetadataParams{OwnerID: owner, ID: bookID, Title: title, Author: author, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)}); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
 	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
@@ -521,7 +526,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if err = tx.Commit(ctx); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged, LanguageChanged: languageChanged}, nil
+	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged, AuthorChanged: authorChanged, LanguageChanged: languageChanged}, nil
 }
 
 // ResolveOrCreateBookForAcquisitionForBook promotes an explicitly selected
@@ -619,7 +624,7 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		return bookID, nil
 	}
 
-	createdRow, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceAcquisition, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
+	createdRow, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: "", MetadataProvenance: domain.MetadataProvenanceAcquisition, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
 	if err != nil {
 		return "", err
 	}

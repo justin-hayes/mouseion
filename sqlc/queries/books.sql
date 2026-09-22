@@ -8,6 +8,7 @@
 SELECT b.id::text,
        b.owner_id::text,
        b.title,
+       b.author,
        b.metadata_provenance,
        b.language_state,
        COALESCE(b.language_tag, '') AS language_tag,

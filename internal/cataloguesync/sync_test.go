@@ -134,7 +134,7 @@ func (s *refreshStore) ListSupportedLanguages(context.Context) ([]domain.Support
 func (s *refreshStore) SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error {
 	return nil
 }
-func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, connectionID, sourceIdentifier, title, language string) (persistence.CatalogueEntryReconcileResult, error) {
+func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, connectionID, sourceIdentifier, title, author, language string) (persistence.CatalogueEntryReconcileResult, error) {
 	s.reconciles++
 	s.lastOwner = owner
 	s.lastConnection = connectionID
@@ -143,6 +143,9 @@ func (s *refreshStore) ReconcileCatalogueEntry(_ context.Context, owner, connect
 	}
 	if s.reconcile.Book.Title == "" {
 		s.reconcile.Book.Title = title
+	}
+	if s.reconcile.Book.Author == "" {
+		s.reconcile.Book.Author = author
 	}
 	if s.reconcile.Book.LanguageTag == "" {
 		s.reconcile.Book.LanguageTag = language

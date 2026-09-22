@@ -47,8 +47,8 @@ const (
 )
 
 type Book struct {
-	ID, OwnerID, Title, MetadataProvenance, LanguageState, LanguageTag string
-	CreatedAt, UpdatedAt                                               time.Time
+	ID, OwnerID, Title, Author, MetadataProvenance, LanguageState, LanguageTag string
+	CreatedAt, UpdatedAt                                                       time.Time
 }
 
 type BookMembership struct {

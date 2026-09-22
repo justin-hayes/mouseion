@@ -44,7 +44,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		if source.owner == bob.ID {
 			connectionID = bobConnection.ID
 		}
-		_, err = store.ReconcileCatalogueEntry(ctx, source.owner, connectionID, source.identifier, source.title, source.language)
+		_, err = store.ReconcileCatalogueEntry(ctx, source.owner, connectionID, source.identifier, source.title, "", source.language)
 		require.NoError(t, err)
 		var bookID string
 		err = pool.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND value=$3`, source.owner, connectionID, source.identifier).Scan(&bookID)
@@ -234,7 +234,7 @@ func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
 	got, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "it", got)
-	_, err = store.UpdateBookMetadata(ctx, alice.ID, deBook.ID, deBook.Title, domain.LanguageUnknown, "")
+	_, err = store.UpdateBookMetadata(ctx, alice.ID, deBook.ID, deBook.Title, deBook.Author, domain.LanguageUnknown, "")
 	require.NoError(t, err)
 	languages, err = store.ListStudyLanguages(ctx, alice.ID)
 	require.NoError(t, err)

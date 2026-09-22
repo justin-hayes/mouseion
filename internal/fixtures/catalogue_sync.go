@@ -21,7 +21,7 @@ var fixtureCatalogueSyncJobIDs = map[string]int64{
 }
 
 var fixtureCatalogueEntries = map[string]opds.Entry{
-	"fixture-connection": {ID: "fixture-entry", Title: "Metadata-only migration book"},
+	"fixture-connection": {ID: "fixture-entry", Title: "Metadata-only migration book", Author: "Fixture Catalogue Author"},
 }
 
 const fixtureCatalogueLanguage = "de"
@@ -109,10 +109,10 @@ func (s *CatalogueSync) RefreshEntry(ctx context.Context, owner, bookID string) 
 		return cataloguesync.RefreshResult{Book: book, Missing: true}, nil
 	}
 	entryTitle := entry.Title
-	if book.Title == entryTitle {
+	if book.Title == entryTitle && book.Author == entry.Author {
 		return cataloguesync.RefreshResult{Book: book}, nil
 	}
-	updated, err := s.Store.UpdateBookMetadata(ctx, owner, book.ID, entryTitle, book.LanguageState, book.LanguageTag)
+	updated, err := s.Store.UpdateBookMetadata(ctx, owner, book.ID, entryTitle, entry.Author, book.LanguageState, book.LanguageTag)
 	if err != nil {
 		return cataloguesync.RefreshResult{Book: book, Failed: true}, err
 	}

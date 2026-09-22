@@ -576,6 +576,9 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		{ canonicalBookTitle(item.Book) }
 	}
 	</h3>
+	if author := canonicalBookAuthor(item.Book); author != "" {
+		<p class="journey-book__author">By { author }</p>
+	}
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 		<p class="metadata"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p>

@@ -133,6 +133,7 @@ type SourceMaterialSummary struct {
 	// BookTitle is the canonical catalogue title when this source is projected
 	// onto its learner-facing Book identity.
 	BookTitle       string
+	BookAuthor      string
 	BookID          string
 	AnalysisStatus  string
 	AnalysisState   string

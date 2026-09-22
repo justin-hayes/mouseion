@@ -23,17 +23,14 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 
 	// Return to the pre-feature schema so this test exercises the shipped
 	// backfill and cleanup migrations rather than reproducing their SQL.
-	moveApplicationMigrations(t, databaseURL, -7)
+	moveApplicationMigrations(t, databaseURL, -8)
 	owner, err := store.CreateUser(ctx, "history-migration-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "history-migration-other", false)
 	require.NoError(t, err)
-	finishedBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Migrated finished book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
-	activeBook, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Unfinished Italian book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
-	require.NoError(t, err)
-	otherBook, err := store.CreateBook(ctx, domain.Book{OwnerID: otherOwner.ID, Title: "Other owner's book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
+	finishedBook := insertLegacyBook(t, ctx, store, owner.ID, "Migrated finished book", "de")
+	activeBook := insertLegacyBook(t, ctx, store, owner.ID, "Unfinished Italian book", "it")
+	otherBook := insertLegacyBook(t, ctx, store, otherOwner.ID, "Other owner's book", "de")
 	completedAt := time.Date(2026, time.January, 20, 12, 0, 0, 0, time.UTC)
 	_, err = pool.Exec(ctx, `INSERT INTO reading_journeys(owner_id, language) VALUES ($1, 'de'), ($1, 'it'), ($2, 'de')`, owner.ID, otherOwner.ID)
 	require.NoError(t, err)
@@ -69,6 +66,19 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, known, 1, "backfill changed Known vocabulary")
+}
+
+// insertLegacyBook seeds the pre-author schema used by migration backfill
+// scenarios. The current application write path intentionally targets the
+// latest schema and cannot create rows while those tests are rolled back.
+func insertLegacyBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, title, language string) domain.Book {
+	t.Helper()
+	var bookID string
+	err := store.Pool().QueryRow(ctx, `INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag) VALUES ($1, $2, $3, $4, $5) RETURNING id::text`, owner, title, domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, language).Scan(&bookID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_membership(owner_id, book_id, state, activated_at) VALUES ($1, $2, 'active', now())`, owner, bookID)
+	require.NoError(t, err)
+	return domain.Book{ID: bookID, OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language}
 }
 
 func moveApplicationMigrations(t *testing.T, databaseURL string, steps int) {

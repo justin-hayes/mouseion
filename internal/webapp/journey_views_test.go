@@ -102,6 +102,19 @@ func TestJourneyPageRendersCanonicalBookTitle(t *testing.T) {
 	assert.True(t, strings.Contains(html, "Catalogue title") && !strings.Contains(html, "Acquisition title"), "Journey did not use canonical Book title: %s", html)
 }
 
+func TestJourneyPageRendersAvailableAuthorWithoutInventingMissingMetadata(t *testing.T) {
+	withAuthor := testJourneyBook("with-author", "Book with author", "ready")
+	withAuthor.Book.BookAuthor = "A. Reader"
+	withoutAuthor := testJourneyBook("without-author", "Book without author", "ready")
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{withAuthor, withoutAuthor}}, "", "")
+	assert.Contains(t, html, "By A. Reader")
+	missingStart := strings.Index(html, `id="journey-book-without-author"`)
+	missingEnd := strings.Index(html[missingStart:], "</article>")
+	require.GreaterOrEqual(t, missingStart, 0)
+	require.Greater(t, missingEnd, 0)
+	assert.NotContains(t, html[missingStart:missingStart+missingEnd], "journey-book__author")
+}
+
 func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	stale := testJourneyBook("stale", "Stale book", "stale")
 	stale.Book.Source.MediaType = "application/epub+zip"

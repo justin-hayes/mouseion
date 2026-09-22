@@ -101,6 +101,10 @@ func canonicalBookTitle(book domain.SourceMaterialSummary) string {
 	return book.Source.ID
 }
 
+func canonicalBookAuthor(book domain.SourceMaterialSummary) string {
+	return strings.TrimSpace(book.BookAuthor)
+}
+
 func journeyExpectedGoalBookID(journey journeyPageView) string {
 	if journey.Goal == nil {
 		return ""
@@ -676,13 +680,15 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 				if myBook.Acquired != nil {
 					book := *myBook.Acquired
 					book.BookTitle = myBook.Book.Title
+					book.BookAuthor = myBook.Book.Author
 					bookByID[myBook.Book.ID] = book
 					bookByID[book.Source.ID] = book
 				} else {
 					bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
-						Source:    domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
-						BookTitle: myBook.Book.Title,
-						BookID:    myBook.Book.ID,
+						Source:     domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
+						BookTitle:  myBook.Book.Title,
+						BookAuthor: myBook.Book.Author,
+						BookID:     myBook.Book.ID,
 					}
 				}
 			}
@@ -852,7 +858,7 @@ func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByI
 		}
 		return journeyBookView{}, err
 	}
-	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}, BookTitle: book.Title}, BookID: book.ID}, nil
+	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}, BookTitle: book.Title, BookAuthor: book.Author}, BookID: book.ID}, nil
 }
 
 func (h *Handler) addJourneyEvidence(ctx context.Context, owner string, book *journeyBookView) error {

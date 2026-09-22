@@ -211,14 +211,14 @@ func TestReadingJourneyLanguageIsolationAndLazyLifecycle(t *testing.T) {
 
 	// Retagging a member out of a language makes it invisible immediately; the
 	// next mutation cleans up the stale membership and can remove the Journey.
-	_, err = store.UpdateBookMetadata(ctx, owner.ID, deBook.ID, deBook.Title, domain.LanguageUnknown, "")
+	_, err = store.UpdateBookMetadata(ctx, owner.ID, deBook.ID, deBook.Title, deBook.Author, domain.LanguageUnknown, "")
 	require.NoError(t, err)
 	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", deBook.ID, deJourney.Revision)
 	require.NoError(t, err)
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM reading_journeys WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&journeyRows)
 	require.NoError(t, err)
 	assert.Equal(t, 1, journeyRows, "German Journey was removed while another German Book remained")
-	_, err = store.UpdateBookMetadata(ctx, owner.ID, deSecond.ID, deSecond.Title, domain.LanguageUnknown, "")
+	_, err = store.UpdateBookMetadata(ctx, owner.ID, deSecond.ID, deSecond.Title, deSecond.Author, domain.LanguageUnknown, "")
 	require.NoError(t, err)
 	deJourney, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)

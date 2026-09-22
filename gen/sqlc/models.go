@@ -67,6 +67,7 @@ type Book struct {
 	LanguageTag        pgtype.Text
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	Author             string
 }
 
 type BookAlias struct {
@@ -572,6 +573,7 @@ type MyBooksEvidence struct {
 	AnalysisRunID           string
 	CorpusID                string
 	AnalysisJobID           int64
+	BookAuthor              string
 }
 
 type NormalizedCorpusArtifact struct {
@@ -761,6 +763,7 @@ type SourceMaterialEvidence struct {
 	CorpusID          string
 	AnalysisJobID     int64
 	IsCurrentAnalysis bool
+	BookAuthor        string
 }
 
 type SourceMaterialUnit struct {

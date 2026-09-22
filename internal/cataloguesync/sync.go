@@ -109,7 +109,7 @@ type CatalogueStore interface {
 	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
 	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
-	ReconcileCatalogueEntry(context.Context, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
+	ReconcileCatalogueEntry(context.Context, string, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 }
 
 // CatalogueAliasStore contains the explicit legacy alias backfill operations.
@@ -365,11 +365,11 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 				continue
 			}
 			entryLanguage := languageTag(scope)
-			reconciled, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, entryLanguage)
+			reconciled, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, owner, connection.ID, entry.ID, entry.Title, entry.Author, entryLanguage)
 			if reconcileErr != nil {
 				return RefreshResult{Book: book, Failed: true}, reconcileErr
 			}
-			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.LanguageChanged, Created: reconciled.Created}, nil
+			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created}, nil
 		}
 	}
 	return RefreshResult{Book: book, Missing: true}, nil
@@ -779,7 +779,7 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 			if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
 				continue
 			}
-			if result, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entryLanguage); reconcileErr != nil {
+			if result, reconcileErr := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entry.Author, entryLanguage); reconcileErr != nil {
 				if firstConflict == nil {
 					firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, reconcileErr)
 				}
