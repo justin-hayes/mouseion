@@ -445,8 +445,8 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		@GoalSection(journey.Goal, csrf, "", "", "")
 		<details class="journey-coverage-note">
 			<summary>How coverage is shown</summary>
-			<p><strong>Current coverage</strong> is the present coverage from Known vocabulary. <strong>After-Goal coverage</strong> models the active Goal's Reserved vocabulary after it is accepted into Known vocabulary when the Goal is completed.</p>
-			<p><strong>On-arrival coverage</strong> models trustworthy recurring vocabulary from earlier books in Your order. It is a forecast, not a claim about what you know now.</p>
+			<p><strong>Current coverage</strong> is the present coverage from Known vocabulary. <strong>After Primary Goal coverage</strong> models the active Goal's Reserved vocabulary after it is accepted into Known vocabulary when the Goal is completed.</p>
+			<p><strong>On arrival coverage</strong> models trustworthy recurring vocabulary from earlier books in Your order. It is a forecast, not a claim about what you know now.</p>
 		</details>
 		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Your order</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
@@ -488,13 +488,13 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 							if item.Changed {
 								<h4>Before completion</h4>
 								if item.HasBefore {
-									@JourneyForecast(item.Before)
+							@JourneyForecast(item.Before, false)
 								} else {
 									<p>Forecast was not previously available.</p>
 								}
 							}
 							<h4>Now</h4>
-							@JourneyForecast(item.Book)
+							@JourneyForecast(item.Book, false)
 						</section>
 					}
 				}
@@ -563,7 +563,7 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 	</section>
 }
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64, expectedGoalBookID string) {
-	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div><h3>
+	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div class="journey-book__identity"><h3>
 	if journeyEntryAvailable(item) {
 		<a href={ templ.SafeURL(journeyEntryURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 	} else {
@@ -584,7 +584,9 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			<p>Analysis evidence exists, but this Goal has no deck-eligible vocabulary. Reading directly is the current path.</p>
 		}
 	}
-	@JourneyEvidence(item, csrf)
+	</div>
+	<div class="journey-book__evidence">
+	@JourneyEvidence(item, csrf, primary)
 	if primary && item.GoalSnapshotSize > 0 {
 		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
 			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Goal deck preparation</h4>
@@ -650,7 +652,7 @@ templ GoalDeckPreparationStatus(csrf, bookID string, preparation domain.DeckPrep
 	}
 }
 
-templ JourneyEvidence(item journeyBookView, csrf string) {
+templ JourneyEvidence(item journeyBookView, csrf string, primary bool) {
 	if journeyEvidenceState(item) != "current" {
 		<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
 		{{ action := journeyAnalysisAction(item) }}
@@ -662,7 +664,7 @@ templ JourneyEvidence(item journeyBookView, csrf string) {
 			}
 		}
 	}
-	@JourneyForecast(item)
+	@JourneyForecast(item, primary)
 }
 
 func journeyEntryAvailable(item journeyBookView) bool {
@@ -1230,39 +1232,55 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 	}
 }
 
-templ JourneyForecast(item journeyBookView) {
-	if item.Forecast != nil {
-		<section aria-label="Journey coverage forecast">
-			<p><strong>Current coverage:</strong> { journeyForecastCoverageLabel(item.Forecast.Current) }</p>
-			if item.ForecastHasGoal {
-				<p><strong>After accepting the active Goal:</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
-			} else {
-				<p><strong>After-Goal coverage (no active Goal):</strong> { journeyForecastAfterGoalLabel(*item.Forecast) }</p>
+templ JourneyForecast(item journeyBookView, primary bool) {
+	<section class="journey-forecast" aria-label="Journey coverage forecast">
+		<ol class="journey-forecast__stages" aria-label="Coverage stages">
+			for _, stage := range journeyForecastStages(item, primary) {
+				<li class="journey-forecast__stage">
+					<span class="journey-forecast__label">{ stage.Label }</span>
+					<div class="journey-forecast__detail">
+						if stage.Coverage != nil {
+							<span class="journey-forecast__value numeric">{ journeyForecastCoverageLabel(stage.Coverage) }</span>
+							if delta := journeyForecastDeltaLabel(stage.Coverage, stage.Comparison); delta != "" {
+								if delta == "No change" {
+									<span class="journey-forecast__delta">{ delta }</span>
+								} else {
+									<span class="journey-forecast__delta">Change from { stage.ComparisonLabel }: { delta }</span>
+								}
+							}
+						} else if stage.Qualifier == "No active Primary Goal" {
+							<span class="journey-forecast__unavailable">{ stage.Qualifier }</span>
+						} else {
+							<span class="journey-forecast__unavailable">Unavailable</span>
+						}
+						if stage.UnavailableReason != "" {
+							<span class="journey-forecast__qualifier">{ stage.UnavailableReason }</span>
+						}
+						if stage.Qualifier != "" && stage.Qualifier != "No active Primary Goal" {
+							<span class="journey-forecast__qualifier">{ stage.Qualifier }</span>
+						}
+					</div>
+				</li>
 			}
-			<p><strong>On arrival in this order:</strong> { journeyForecastOnArrivalLabel(*item.Forecast) }</p>
-			if item.Forecast.UnavailableReason != "" {
-				<p><strong>Forecast unavailable:</strong> { item.Forecast.UnavailableReason }</p>
-			} else if item.Forecast.LowerBound {
-				<p role="note"><strong>Lower bound:</strong> an earlier Journey book has unavailable evidence, so this on-arrival value excludes any vocabulary it might contribute.</p>
+		</ol>
+		<details class="journey-coverage-evidence">
+			<summary>Evidence and calculation</summary>
+			<p>Percentages use modeled Known vocabulary tokens divided by this Book's analyzable tokens.</p>
+			<dl>
+				for _, stage := range journeyForecastStages(item, primary) {
+					if stage.Coverage != nil {
+						<div><dt>{ stage.Label }</dt><dd>{ fmt.Sprintf("%d of %d analyzable tokens (%s). %s", stage.Coverage.KnownTokenCount, stage.Coverage.AnalyzableTokenCount, journeyForecastCoverageLabel(stage.Coverage), stage.Context) }</dd></div>
+					}
+				}
+			</dl>
+			if item.Forecast != nil && item.Forecast.UnavailableReason != "" {
+				<p><strong>Unavailable evidence:</strong> { item.Forecast.UnavailableReason }</p>
 			}
-		</section>
-	} else if item.ForecastUnavailable {
-		<section aria-label="Journey coverage forecast">
-			<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
-			if item.ForecastHasGoal {
-				<p><strong>After accepting the active Goal:</strong> unavailable</p>
-			} else {
-				<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
-			}
-			<p><strong>On arrival in this order:</strong> unavailable</p>
-		</section>
-	} else {
-		<p><strong>Current coverage:</strong> { journeyCurrentCoverage(item) }</p>
-		if item.ForecastHasGoal {
-			<p><strong>After accepting the active Goal:</strong> unavailable</p>
-		} else {
-			<p><strong>After-Goal coverage (no active Goal):</strong> unavailable</p>
-		}
-		<p><strong>On arrival in this order:</strong> unavailable</p>
-	}
+			<p class="metadata">Current uses Known vocabulary. After Primary Goal assumes completion and acceptance of its frozen Reserved vocabulary.
+				if !primary {
+					<span> On arrival includes trustworthy recurring vocabulary from earlier Books in Your order.</span>
+				}
+			</p>
+		</details>
+	</section>
 }

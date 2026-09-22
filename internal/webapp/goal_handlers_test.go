@@ -352,9 +352,9 @@ func TestJourneyReorderRecalculatesForecastWithoutChangingLearnerState(t *testin
 	require.Equal(t, http.StatusOK, page.Code)
 	after := page.Body.String()
 	assertJourneyOrder(t, after, "fixture-route-differs", "fixture-route-match")
-	assert.Contains(t, after, "Current coverage:")
-	assert.Contains(t, after, "After accepting the active Goal:")
-	assert.Contains(t, after, "On arrival in this order:")
+	assert.Contains(t, after, "Current coverage")
+	assert.Contains(t, after, "After Primary Goal")
+	assert.Contains(t, after, "On arrival")
 	assert.NotEqual(t, journeyCardForecast(t, before, "fixture-route-match"), journeyCardForecast(t, after, "fixture-route-match"), "downstream forecast did not change after reorder")
 
 	journey, err := store.GetReadingJourney(ctx, fixtures.OwnerID, "de")
@@ -392,7 +392,8 @@ func TestJourneyReorderForecastFailureDoesNotUndoSavedOrder(t *testing.T) {
 	require.Equal(t, http.StatusOK, moved.Code)
 	assert.Contains(t, moved.Body.String(), "saved order remains in place")
 	assert.Contains(t, moved.Body.String(), `href="/journey">Retry forecast</a>`)
-	assert.Contains(t, moved.Body.String(), "On arrival in this order:</strong> unavailable")
+	assert.Contains(t, moved.Body.String(), "On arrival")
+	assert.Contains(t, moved.Body.String(), "Unavailable")
 	assertJourneyOrder(t, moved.Body.String(), "fixture-route-differs", "fixture-route-match")
 }
 
@@ -466,19 +467,19 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 		"Reading Journey recalculated",
 		"Where next?",
 		"No new Primary Goal has been selected",
-		"After accepting the active Goal:",
-		"Current coverage:",
-		"After-Goal coverage (no active Goal):",
-		"On arrival in this order:",
-		"Forecast unavailable:",
+		"After Primary Goal",
+		"Current coverage",
+		"No active Primary Goal",
+		"On arrival",
+		"Unavailable evidence:",
 		"Lower bound:",
 		"Choose another book from Reading Journey",
 	} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
 	}
 	assert.NotContains(t, finished.Body.String(), "projected coverage")
-	assert.Contains(t, finished.Body.String(), "90.0% (90 of 100 analyzable tokens)")
-	assert.Contains(t, finished.Body.String(), "20.0% (20 of 100 analyzable tokens)")
+	assert.Contains(t, finished.Body.String(), "90.0%")
+	assert.Contains(t, finished.Body.String(), "20.0%")
 	assert.NotContains(t, finished.Body.String(), "No deck artifact was required")
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
@@ -554,10 +555,10 @@ func TestPrimaryGoalFinishRendersStructuredForecast(t *testing.T) {
 	html := output.String()
 	for _, want := range []string{
 		"Before completion",
-		"After accepting the active Goal:",
-		"After-Goal coverage (no active Goal):",
-		"40.0% (40 of 100 analyzable tokens)",
-		"60.0% (60 of 100 analyzable tokens)",
+		"After Primary Goal",
+		"No active Primary Goal",
+		"40.0%",
+		"60.0%",
 		"Lower bound:",
 	} {
 		assert.Contains(t, html, want)

@@ -95,7 +95,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.getByText(/Coverage forecast recalculated for the saved order/)).toBeVisible();
     const after = await page.locator('#journey-book-fixture-route-match').getByRole('region', { name: 'Journey coverage forecast' }).innerText();
     expect(after).not.toBe(before);
-    await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival in this order:');
+    await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival');
   });
 
   test('enhanced reorder announces recalculation, blocks duplicate activation, and restores focus', async ({ page }) => {

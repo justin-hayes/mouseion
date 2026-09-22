@@ -17,9 +17,14 @@ async function signIn(page: Page) {
 // residual transitions are covered by Go unit and integration tests against
 // isolated databases.
 test.describe('Primary Goal selection', () => {
-  test('Journey and My Books expose truthful Goal controls', async ({ page }) => {
-    await signIn(page);
-    await page.goto('/journey');
+    test('Journey and My Books expose truthful Goal controls', async ({ page }) => {
+      await signIn(page);
+      const switcher = page.getByLabel('Study language');
+      if (await switcher.inputValue() !== 'de') {
+        await switcher.selectOption('de');
+        await expect(page).toHaveURL(/\/library$/);
+      }
+      await page.goto('/journey');
 
     const goal = page.locator('#primary-goal-section');
     await expect(goal).toContainText('Der lange Weg nach Hause');
@@ -31,7 +36,7 @@ test.describe('Primary Goal selection', () => {
      await expect(goal.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
      await expect(goal).toContainText('Goal deck preparation');
      await expect(goal).toContainText('Deck ready');
-     await expect(goal.locator('p.metadata')).toContainText('Reserved vocabulary: 2 frozen identities.');
+      await expect(goal.locator('p.metadata').first()).toContainText('Reserved vocabulary: 2 frozen identities.');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     const provisional = page.locator('#provisional-journey-list .journey-list > li');
@@ -40,11 +45,34 @@ test.describe('Primary Goal selection', () => {
     await expect(provisional.first()).toBeVisible();
      await expect(provisional.filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
      await expect(provisional.filter({ hasText: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
-     await expect(provisional.filter({ hasText: 'Route evidence pending' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
-     await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
-     await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
+      await expect(provisional.filter({ hasText: 'Route evidence pending' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+      await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
+      await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
 
-    await page.goto('/library');
+      const goalForecast = goal.getByRole('region', { name: 'Journey coverage forecast' });
+      await expect(goalForecast.locator('.journey-forecast__stage')).toHaveCount(2);
+      await expect(goalForecast).toContainText('Current coverage');
+      await expect(goalForecast).toContainText('After Primary Goal');
+      await expect(goalForecast).not.toContainText('On arrival');
+
+      const unchanged = provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('region', { name: 'Journey coverage forecast' });
+      await expect(unchanged).toContainText('90.0%');
+      await expect(unchanged).toContainText('No change');
+      await expect(unchanged.locator('details summary')).toHaveText('Evidence and calculation');
+
+      const changed = provisional.filter({ hasText: 'Route differs: new German' }).getByRole('region', { name: 'Journey coverage forecast' });
+      if (test.info().project.name === 'desktop-light') {
+        await expect(changed).toContainText('25.0%');
+        await expect(changed).toContainText('+5.0 percentage points');
+      }
+
+      const lowerBound = provisional.filter({ hasText: 'Route tie A' }).getByRole('region', { name: 'Journey coverage forecast' });
+      await expect(lowerBound).toContainText('Lower bound');
+      const unavailable = provisional.filter({ hasText: 'Route evidence pending' }).getByRole('region', { name: 'Journey coverage forecast' });
+      await expect(unavailable).toContainText('Unavailable');
+      await expect(unavailable).toContainText('completed analysis evidence is unavailable');
+
+     await page.goto('/library');
     await expect(page.locator('article.library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByText('Current Primary Goal')).toBeVisible();
     await expect(page.getByRole('link', { name: 'View Primary Goal in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
      await expect(page.locator('article.library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
@@ -61,6 +89,7 @@ test.describe('Primary Goal selection', () => {
     await page.locator('#primary-goal-section form[action="/goal/clear"] button').click();
     await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.locator('#primary-goal-section')).toContainText('No Primary Goal yet');
+    await expect(page.locator('#provisional-journey-content .journey-forecast').first()).toContainText('No active Primary Goal');
 
     await page.locator('#journey-book-fixture-italian-goal').getByRole('button', { name: 'Choose as Primary Goal' }).click();
     await expect(page).toHaveURL(/\/journey\?message=/);
