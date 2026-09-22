@@ -92,7 +92,15 @@ test.describe('Primary Goal selection', () => {
 
       await expect(page.getByRole('button', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
 
-     await page.goto('/library');
+      const retryAcquisition = ineligible.getByRole('button', { name: 'Retry acquisition' });
+      const retryForm = retryAcquisition.locator('xpath=ancestor::form');
+      const retryResponse = await page.request.post(new URL(await retryForm.getAttribute('action') ?? '', page.url()).toString(), {
+        maxRedirects: 0,
+        form: { csrf_token: await retryForm.locator('input[name="csrf_token"]').inputValue() },
+      });
+      expect(retryResponse.status()).toBe(303);
+
+      await page.goto('/library');
     await expect(page.locator('article.library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByText('Current Primary Goal')).toBeVisible();
     await expect(page.getByRole('link', { name: 'View Primary Goal in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
      await expect(page.locator('article.library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);

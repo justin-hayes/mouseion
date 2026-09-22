@@ -229,6 +229,14 @@ func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
 	}
 }
 
+func journeyGoalEligibilityForView(item journeyBookView) (bool, string) {
+	eligible, reason := journeyGoalEligibility(item.Book)
+	if eligible && journeyEvidenceState(item) == "incomplete" {
+		return false, "This book needs usable coverage statistics before it can become a Primary Goal."
+	}
+	return eligible, reason
+}
+
 func journeyCurrentCoverage(item journeyBookView) string {
 	if item.Coverage == nil {
 		return "unavailable"
@@ -524,12 +532,15 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember || detail.Acquired == nil {
+	if !detail.JourneyMember {
 		http.NotFound(w, r)
 		return
 	}
-	recoverable := detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
-	if detail.Acquired.EvidenceState() == domain.BookAnalyzed {
+	recoverable := detail.Acquired == nil
+	if detail.Acquired != nil {
+		recoverable = detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
+	}
+	if detail.Acquired != nil && detail.Acquired.EvidenceState() == domain.BookAnalyzed {
 		item := journeyBookView{Book: *detail.Acquired, BookID: detail.Book.ID}
 		if evidenceErr := h.addJourneyEvidence(r.Context(), u.ID, &item); evidenceErr != nil {
 			fail(w, evidenceErr)
@@ -669,7 +680,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
-		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibility(book.Book)
+		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibilityForView(book)
 		view.Provisional = append(view.Provisional, book)
 	}
 	for i := range view.Provisional {

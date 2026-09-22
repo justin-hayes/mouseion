@@ -298,6 +298,21 @@ func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
 	assert.Empty(t, message)
 }
 
+func TestJourneyIncompleteStatisticsBlockGoalChoice(t *testing.T) {
+	item := testJourneyBook("incomplete-statistics", "Incomplete statistics", "analyzed")
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	item.Book.Source.ContentSnapshotID = "snapshot"
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run"
+	item.Book.CorpusID = "corpus"
+	item.StatisticsUnavailable = true
+
+	eligible, reason := journeyGoalEligibilityForView(item)
+	assert.False(t, eligible)
+	assert.Equal(t, "This book needs usable coverage statistics before it can become a Primary Goal.", reason)
+}
+
 func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T) {
 	eligible := testJourneyBook("eligible", "Eligible book", "analyzed")
 	eligible.CanChooseGoal = true
