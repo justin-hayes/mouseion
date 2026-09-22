@@ -19,7 +19,7 @@ func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -4)
+	moveApplicationMigrations(t, databaseURL, -5)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
@@ -33,8 +33,7 @@ func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 
 	matchingBook, matchingSource, matchingRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "de", "matching")
 	emptyBook, emptySource, emptyRun, emptyCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, emptyOwner.ID, "de", "empty")
-	missingSnapshotBook, err := store.CreateBook(ctx, domain.Book{OwnerID: missingSnapshotOwner.ID, Title: "Migration missing snapshot", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
+	missingSnapshotBook := insertLegacyBook(t, ctx, store, missingSnapshotOwner.ID, "Migration missing snapshot", "de")
 	otherBook, otherSource, otherRun, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, otherOwner.ID, "de", "other")
 	languageBook, languageSource, languageRun, languageCorpus := insertMigrationAnalysisFixture(t, ctx, pool, store, languageOwner.ID, "de", "language")
 	italianBook, _, _, _ := insertMigrationAnalysisFixture(t, ctx, pool, store, matchingOwner.ID, "it", "italian")
@@ -240,7 +239,7 @@ func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testin
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -4)
+	moveApplicationMigrations(t, databaseURL, -5)
 	activeOwner, err := store.CreateUser(ctx, "snapshot-empty-active", false)
 	require.NoError(t, err)
 	inactiveOwner, err := store.CreateUser(ctx, "snapshot-empty-inactive", false)
@@ -393,8 +392,7 @@ WHERE g.owner_id=$1`, expected.owner).Scan(&snapshotVocabularyCount)
 
 func insertMigrationAnalysisFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, store *PostgresStore, owner, language, suffix string) (bookID, sourceID, runID, corpusID string) {
 	t.Helper()
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Migration " + suffix, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
-	require.NoError(t, err)
+	book := insertLegacyBook(t, ctx, store, owner, "Migration "+suffix, language)
 	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: "migration-" + suffix, Title: "Migration " + suffix, MediaType: "text/plain", ContentHash: "legacy:" + suffix, Content: []byte(suffix), FullText: suffix})
 	require.NoError(t, err)
 	err = store.LinkSourceToBook(ctx, owner, book.ID, source.ID)

@@ -39,8 +39,8 @@ type Link struct {
 	Rel, Href, Type, Title string
 }
 type Entry struct {
-	ID, Title string
-	Links     []Link
+	ID, Title, Author string
+	Links             []Link
 }
 type Feed struct {
 	Title   string
@@ -55,9 +55,14 @@ type atomLink struct {
 	Title string `xml:"title,attr"`
 }
 type atomEntry struct {
-	ID    string     `xml:"id"`
-	Title string     `xml:"title"`
-	Links []atomLink `xml:"link"`
+	ID      string       `xml:"id"`
+	Title   string       `xml:"title"`
+	Authors []atomAuthor `xml:"author"`
+	Creator string       `xml:"http://purl.org/dc/elements/1.1/ creator"`
+	Links   []atomLink   `xml:"link"`
+}
+type atomAuthor struct {
+	Name string `xml:"name"`
 }
 type atomFeed struct {
 	Title   string      `xml:"title"`
@@ -376,7 +381,16 @@ func (c *Client) fetchFeed(ctx context.Context, feedURL string) (feed Feed, err 
 	base := resp.Request.URL
 	feed = Feed{Title: strings.TrimSpace(raw.Title), Links: resolveLinks(base, raw.Links)}
 	for _, item := range raw.Entries {
-		feed.Entries = append(feed.Entries, Entry{ID: strings.TrimSpace(item.ID), Title: strings.TrimSpace(item.Title), Links: resolveLinks(base, item.Links)})
+		authors := make([]string, 0, len(item.Authors))
+		for _, author := range item.Authors {
+			if name := strings.TrimSpace(author.Name); name != "" {
+				authors = append(authors, name)
+			}
+		}
+		if len(authors) == 0 && strings.TrimSpace(item.Creator) != "" {
+			authors = append(authors, strings.TrimSpace(item.Creator))
+		}
+		feed.Entries = append(feed.Entries, Entry{ID: strings.TrimSpace(item.ID), Title: strings.TrimSpace(item.Title), Author: strings.Join(authors, ", "), Links: resolveLinks(base, item.Links)})
 	}
 	return feed, nil
 }

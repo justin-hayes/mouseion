@@ -27,7 +27,13 @@ test.describe('Primary Goal selection', () => {
       await page.goto('/journey');
 
     const goal = page.locator('#primary-goal-section');
-    await expect(goal).toContainText('Der lange Weg nach Hause');
+      await expect(goal).toContainText('Der lange Weg nach Hause');
+      await expect(goal).toContainText('By Mara Weiss');
+      expect(await goal.locator('.journey-book__identity').evaluate((identity) => {
+        const title = identity.querySelector('h3');
+        const author = identity.querySelector('.journey-book__author');
+        return title !== null && author !== null && Boolean(title.compareDocumentPosition(author) & Node.DOCUMENT_POSITION_FOLLOWING);
+      })).toBe(true);
       await expect(goal).toContainText('Current commitment');
       await expect(goal).toContainText('Reading state');
       await expect(goal).toContainText('Not yet marked finished');
@@ -49,6 +55,8 @@ test.describe('Primary Goal selection', () => {
      await expect(provisional.filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
      await expect(provisional.filter({ hasText: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
       await expect(provisional.filter({ hasText: 'Route evidence pending' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+      await expect(provisional.filter({ hasText: 'Route match: familiar German' })).toContainText('By Anja Roth');
+      await expect(provisional.filter({ hasText: 'Route evidence pending' }).locator('.journey-book__author')).toHaveCount(0);
       await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
       await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
 

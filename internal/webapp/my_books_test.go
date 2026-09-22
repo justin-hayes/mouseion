@@ -108,7 +108,7 @@ func TestAnalyzedNonJourneyMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 
 func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
 	book := domain.MyBook{
-		Book: domain.Book{ID: "canonical-book", OwnerID: "owner", Title: "Refreshed catalogue title"},
+		Book: domain.Book{ID: "canonical-book", OwnerID: "owner", Title: "Refreshed catalogue title", Author: "Catalogue author"},
 		Acquired: &domain.SourceMaterialSummary{
 			Source: domain.SourceMaterial{ID: "source-canonical-book", Title: "Acquisition-internal title"},
 		},
@@ -117,6 +117,7 @@ func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 	assert.True(t, strings.Contains(html, "Refreshed catalogue title"), "My Books omitted canonical Book title: %s", html)
+	assert.Contains(t, html, "By Catalogue author")
 	assert.False(t, strings.Contains(html, "Acquisition-internal title"), "My Books rendered acquisition-internal title: %s", html)
 }
 

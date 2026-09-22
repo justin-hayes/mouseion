@@ -74,7 +74,7 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
 
 - Sync walks the applicable Calibre-Web language feeds using the connection's
   existing origin-scoped OPDS client and bounded pagination.
-- It upserts title, language, and catalog identity through the owner-scoped
+- It upserts title, author when supplied, language, and catalog identity through the owner-scoped
   Book alias and duplicate rules in ADR 0035.
 - A new match becomes an active metadata-only My Books entry. No placeholder
   source, empty content record, scope, analysis, or deck is created.

@@ -61,7 +61,7 @@ func (q *Queries) DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteB
 }
 
 const getBook = `-- name: GetBook :one
-SELECT id::text, owner_id::text, title, metadata_provenance, language_state,
+SELECT id::text, owner_id::text, title, author, metadata_provenance, language_state,
        COALESCE(language_tag, '') AS language_tag, created_at, updated_at
 FROM books WHERE owner_id = $1 AND id = $2
 `
@@ -75,6 +75,7 @@ type GetBookRow struct {
 	ID                 string
 	OwnerID            string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
@@ -89,6 +90,7 @@ func (q *Queries) GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, e
 		&i.ID,
 		&i.OwnerID,
 		&i.Title,
+		&i.Author,
 		&i.MetadataProvenance,
 		&i.LanguageState,
 		&i.LanguageTag,
@@ -116,7 +118,7 @@ func (q *Queries) GetBookAliasConnection(ctx context.Context, arg GetBookAliasCo
 }
 
 const getBookByAlias = `-- name: GetBookByAlias :one
-SELECT b.id::text, b.owner_id::text, b.title, b.metadata_provenance, b.language_state,
+SELECT b.id::text, b.owner_id::text, b.title, b.author, b.metadata_provenance, b.language_state,
        COALESCE(b.language_tag, '') AS language_tag, b.created_at, b.updated_at
 FROM books b
 JOIN book_aliases a ON a.owner_id = b.owner_id AND a.book_id = b.id
@@ -133,6 +135,7 @@ type GetBookByAliasRow struct {
 	BID                string
 	BOwnerID           string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
@@ -147,6 +150,7 @@ func (q *Queries) GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) 
 		&i.BID,
 		&i.BOwnerID,
 		&i.Title,
+		&i.Author,
 		&i.MetadataProvenance,
 		&i.LanguageState,
 		&i.LanguageTag,
@@ -157,7 +161,7 @@ func (q *Queries) GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) 
 }
 
 const getBookByUnscopedAliasForUpdate = `-- name: GetBookByUnscopedAliasForUpdate :one
-SELECT b.id::text, b.owner_id::text, b.title, b.metadata_provenance, b.language_state,
+SELECT b.id::text, b.owner_id::text, b.title, b.author, b.metadata_provenance, b.language_state,
        COALESCE(b.language_tag, '') AS language_tag, b.created_at, b.updated_at
 FROM books b
 JOIN book_aliases a ON a.owner_id = b.owner_id AND a.book_id = b.id
@@ -175,6 +179,7 @@ type GetBookByUnscopedAliasForUpdateRow struct {
 	BID                string
 	BOwnerID           string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
@@ -189,6 +194,7 @@ func (q *Queries) GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBo
 		&i.BID,
 		&i.BOwnerID,
 		&i.Title,
+		&i.Author,
 		&i.MetadataProvenance,
 		&i.LanguageState,
 		&i.LanguageTag,
@@ -247,7 +253,7 @@ func (q *Queries) GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatal
 }
 
 const getBookMetadata = `-- name: GetBookMetadata :one
-SELECT title, language_state, COALESCE(language_tag, '') AS language_tag
+SELECT title, author, language_state, COALESCE(language_tag, '') AS language_tag
 FROM books WHERE owner_id = $1 AND id = $2
 `
 
@@ -258,6 +264,7 @@ type GetBookMetadataParams struct {
 
 type GetBookMetadataRow struct {
 	Title         string
+	Author        string
 	LanguageState string
 	LanguageTag   string
 }
@@ -265,7 +272,12 @@ type GetBookMetadataRow struct {
 func (q *Queries) GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error) {
 	row := q.db.QueryRow(ctx, getBookMetadata, arg.OwnerID, arg.ID)
 	var i GetBookMetadataRow
-	err := row.Scan(&i.Title, &i.LanguageState, &i.LanguageTag)
+	err := row.Scan(
+		&i.Title,
+		&i.Author,
+		&i.LanguageState,
+		&i.LanguageTag,
+	)
 	return i, err
 }
 
@@ -354,15 +366,16 @@ func (q *Queries) GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnsc
 }
 
 const insertBook = `-- name: InsertBook :one
-INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
-          COALESCE(language_tag, '') AS language_tag, created_at, updated_at
+INSERT INTO books(owner_id, title, author, metadata_provenance, language_state, language_tag)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id::text, owner_id::text, title, author, metadata_provenance, language_state,
+           COALESCE(language_tag, '') AS language_tag, created_at, updated_at
 `
 
 type InsertBookParams struct {
 	OwnerID            string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        pgtype.Text
@@ -372,6 +385,7 @@ type InsertBookRow struct {
 	ID                 string
 	OwnerID            string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
@@ -383,6 +397,7 @@ func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (InsertB
 	row := q.db.QueryRow(ctx, insertBook,
 		arg.OwnerID,
 		arg.Title,
+		arg.Author,
 		arg.MetadataProvenance,
 		arg.LanguageState,
 		arg.LanguageTag,
@@ -392,6 +407,7 @@ func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (InsertB
 		&i.ID,
 		&i.OwnerID,
 		&i.Title,
+		&i.Author,
 		&i.MetadataProvenance,
 		&i.LanguageState,
 		&i.LanguageTag,
@@ -629,9 +645,9 @@ func (q *Queries) SetSourceMaterialBook(ctx context.Context, arg SetSourceMateri
 
 const updateBookMetadata = `-- name: UpdateBookMetadata :one
 UPDATE books
-SET title = $3, language_state = $4, language_tag = $5, updated_at = now()
+SET title = $3, author = $4, language_state = $5, language_tag = $6, updated_at = now()
 WHERE owner_id = $1 AND id = $2
-RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
+RETURNING id::text, owner_id::text, title, author, metadata_provenance, language_state,
           COALESCE(language_tag, '') AS language_tag, created_at, updated_at
 `
 
@@ -639,6 +655,7 @@ type UpdateBookMetadataParams struct {
 	OwnerID       string
 	ID            string
 	Title         string
+	Author        string
 	LanguageState string
 	LanguageTag   pgtype.Text
 }
@@ -647,6 +664,7 @@ type UpdateBookMetadataRow struct {
 	ID                 string
 	OwnerID            string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
@@ -659,6 +677,7 @@ func (q *Queries) UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadata
 		arg.OwnerID,
 		arg.ID,
 		arg.Title,
+		arg.Author,
 		arg.LanguageState,
 		arg.LanguageTag,
 	)
@@ -667,6 +686,7 @@ func (q *Queries) UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadata
 		&i.ID,
 		&i.OwnerID,
 		&i.Title,
+		&i.Author,
 		&i.MetadataProvenance,
 		&i.LanguageState,
 		&i.LanguageTag,

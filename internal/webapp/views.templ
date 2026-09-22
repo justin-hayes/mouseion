@@ -246,6 +246,9 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligi
 					{ book.Book.Title }
 				}
 			</h2>
+			if author := strings.TrimSpace(book.Book.Author); author != "" {
+				<p class="library-book__author">By { author }</p>
+			}
 			if book.EvidenceState() == domain.BookNotAcquired {
 				<p class="metadata">Not acquired / metadata only</p>
 			} else if book.Acquired != nil && (book.Acquired.Source.MediaType != "" || !book.Acquired.Source.CreatedAt.IsZero()) {
@@ -303,6 +306,9 @@ templ NeedsLanguageBookRow(book domain.MyBook) {
 	<article class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div class="library-book__identity">
 			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+			if author := strings.TrimSpace(book.Book.Author); author != "" {
+				<p class="library-book__author">By { author }</p>
+			}
 			<p class="metadata">Language not assigned in the catalog</p>
 		</div>
 	</article>
@@ -491,6 +497,9 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 					for _, item := range outcome.Evidence {
 						<section class="finish-evidence" aria-labelledby={ "finish-evidence-" + journeyBookID(item.Book) }>
 							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ canonicalBookTitle(item.Book.Book) }</h3>
+							if author := canonicalBookAuthor(item.Book.Book); author != "" {
+								<p class="journey-book__author">By { author }</p>
+							}
 							if item.Changed {
 								<h4>Before completion</h4>
 								if item.HasBefore {
@@ -510,7 +519,11 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
 				<p>Choose what you want to do next. No new Primary Goal has been selected.</p>
 				<div class="action-group">
 					if len(outcome.Journey.Provisional) > 0 {
-						<p><strong>First in your current order:</strong> { canonicalBookTitle(outcome.Journey.Provisional[0].Book) }</p>
+						<p><strong>First in your current order:</strong> { canonicalBookTitle(outcome.Journey.Provisional[0].Book) }
+							if author := canonicalBookAuthor(outcome.Journey.Provisional[0].Book); author != "" {
+								<span class="journey-book__author">By { author }</span>
+							}
+						</p>
 						if outcome.Journey.Provisional[0].CanChooseGoal {
 							<form method="post" action={ templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/><button type="submit">Choose as Primary Goal</button></form>
 						} else if outcome.Journey.Provisional[0].GoalEligibilityReason != "" {
@@ -576,6 +589,9 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		{ canonicalBookTitle(item.Book) }
 	}
 	</h3>
+	if author := canonicalBookAuthor(item.Book); author != "" {
+		<p class="journey-book__author">By { author }</p>
+	}
 	if primary {
 		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 		<p class="metadata"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p>

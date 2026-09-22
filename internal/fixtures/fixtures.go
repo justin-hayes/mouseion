@@ -106,12 +106,12 @@ func NewStore() *Store {
 	initialActiveLanguage := "de"
 	return &Store{
 		books: []domain.SourceMaterialSummary{
-			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
+			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, BookAuthor: "Mara Weiss, Herausgeberin der langen deutschen Ausgabe", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
-			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
-			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-failed-revision", ContentSnapshotID: "fixture-failed-snapshot"}, AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
-			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision", ContentSnapshotID: "fixture-route-match-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
-			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision", ContentSnapshotID: "fixture-route-differs-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
+			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot"}, BookAuthor: "Giulia Conti", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
+			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-failed-revision", ContentSnapshotID: "fixture-failed-snapshot"}, BookAuthor: "Jonas Keller", AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
+			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision", ContentSnapshotID: "fixture-route-match-snapshot"}, BookAuthor: "Anja Roth", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
+			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision", ContentSnapshotID: "fixture-route-differs-snapshot"}, BookAuthor: "Paul Stein", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-a-revision", ContentSnapshotID: "fixture-route-tie-a-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision", ContentSnapshotID: "fixture-route-tie-b-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
@@ -151,7 +151,7 @@ func NewStore() *Store {
 		},
 		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
-			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}, {
 			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}},
@@ -509,7 +509,7 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if source.BookTitle == "" {
 			source.BookTitle = source.Source.Title
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source})
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source})
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {
@@ -803,7 +803,7 @@ func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, e
 			if title == "" {
 				title = source.Source.Title
 			}
-			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, LanguageState: state, LanguageTag: source.Source.Language}, nil
+			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: source.BookAuthor, LanguageState: state, LanguageTag: source.Source.Language}, nil
 		}
 	}
 	return domain.Book{}, errNotFound
@@ -815,7 +815,7 @@ func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, er
 	s.myBooks = append(s.myBooks, domain.MyBook{Book: book})
 	return book, nil
 }
-func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, languageState, languageTag string) (domain.Book, error) {
+func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if languageState == domain.LanguageChosen {
@@ -828,17 +828,19 @@ func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, lang
 				resolvedBookID = s.books[i].Source.ID
 			}
 			s.books[i].BookTitle = title
+			s.books[i].BookAuthor = strings.TrimSpace(author)
 			if languageState == domain.LanguageUnknown {
 				languageTag = ""
 			}
 			s.books[i].Source.Language = languageTag
 			s.clearFixtureGoalsForRetaggedBook(owner, resolvedBookID, languageState, languageTag)
-			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, LanguageState: languageState, LanguageTag: languageTag}, nil
+			return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: strings.TrimSpace(author), LanguageState: languageState, LanguageTag: languageTag}, nil
 		}
 	}
 	for i := range s.myBooks {
 		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
 			s.myBooks[i].Book.Title = title
+			s.myBooks[i].Book.Author = strings.TrimSpace(author)
 			s.myBooks[i].Book.LanguageState = languageState
 			s.myBooks[i].Book.LanguageTag = languageTag
 			s.clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, languageTag)

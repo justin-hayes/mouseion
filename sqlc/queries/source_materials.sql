@@ -22,7 +22,8 @@ SELECT source_id,
        analysis_state,
        analysis_run_id,
        corpus_id,
-       analysis_job_id
+       analysis_job_id,
+       book_author
 FROM source_material_evidence
 WHERE source_owner_id = sqlc.arg('owner')
 ORDER BY source_created_at DESC, source_title, source_id;

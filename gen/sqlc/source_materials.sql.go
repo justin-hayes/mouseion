@@ -30,7 +30,8 @@ SELECT source_id,
        analysis_state,
        analysis_run_id,
        corpus_id,
-       analysis_job_id
+       analysis_job_id,
+       book_author
 FROM source_material_evidence
 WHERE source_owner_id = $1
 ORDER BY source_created_at DESC, source_title, source_id
@@ -56,6 +57,7 @@ type ListSourceMaterialsRow struct {
 	AnalysisRunID     string
 	CorpusID          string
 	AnalysisJobID     int64
+	BookAuthor        string
 }
 
 // Source-material library queries. The current-analysis identity and the
@@ -91,6 +93,7 @@ func (q *Queries) ListSourceMaterials(ctx context.Context, owner string) ([]List
 			&i.AnalysisRunID,
 			&i.CorpusID,
 			&i.AnalysisJobID,
+			&i.BookAuthor,
 		); err != nil {
 			return nil, err
 		}

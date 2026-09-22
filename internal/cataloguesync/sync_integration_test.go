@@ -63,6 +63,12 @@ func testEntry(id, title string) opds.Entry {
 	return opds.Entry{ID: id, Title: title, Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/opds/epub/" + id}}}
 }
 
+func testEntryWithAuthor(id, title, author string) opds.Entry {
+	entry := testEntry(id, title)
+	entry.Author = author
+	return entry
+}
+
 func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
@@ -87,7 +93,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://catalog.example/opds", Password: "catalog-secret"})
 	require.NoError(t, err)
 	reader := &fakeReader{feeds: map[string]opds.Feed{
-		"7":  {Entries: []opds.Entry{testEntry("entry-1", "First title")}},
+		"7":  {Entries: []opds.Entry{testEntryWithAuthor("entry-1", "First title", "First author")}},
 		"8":  {Entries: []opds.Entry{testEntry("english-entry", "Do not sync")}},
 		"9":  {Entries: []opds.Entry{testEntry("italian-entry", "Not ready")}},
 		"11": {Entries: []opds.Entry{testEntry("greek-entry", "Greek title")}},
@@ -106,6 +112,11 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		assert.Equal(t, domain.MetadataProvenanceCatalogueSync, book.MetadataProvenance, "first sync book=%+v", book)
 	}
 	assert.Equal(t, "de", tags["First title"])
+	for _, book := range books {
+		if book.Title == "First title" {
+			assert.Equal(t, "First author", book.Author)
+		}
+	}
 	assert.Equal(t, "el", tags["Greek title"])
 	assert.Equal(t, "fr", tags["French title"])
 	var journeyBookID string
@@ -134,7 +145,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 0, status.LastUpsertedCount)
-	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntry("entry-1", "Updated title")}}
+	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Updated title", "Updated author")}}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
@@ -146,6 +157,11 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	assert.Equal(t, "de", updatedTitles["Updated title"])
 	assert.Equal(t, "el", updatedTitles["Greek title"])
 	assert.Equal(t, "fr", updatedTitles["French title"])
+	for _, book := range books {
+		if book.Title == "Updated title" {
+			assert.Equal(t, "Updated author", book.Author)
+		}
+	}
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, status.LastUpsertedCount)

@@ -11,7 +11,7 @@ import (
 )
 
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
-SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id FROM my_books_evidence
+SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id, book_author FROM my_books_evidence
 WHERE book_owner_id = $1
   AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\')
   AND (
@@ -73,6 +73,7 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.AnalysisRunID,
 			&i.CorpusID,
 			&i.AnalysisJobID,
+			&i.BookAuthor,
 		); err != nil {
 			return nil, err
 		}
@@ -195,7 +196,7 @@ func (q *Queries) GetBookForUpdate(ctx context.Context, arg GetBookForUpdatePara
 }
 
 const getMyBookDetail = `-- name: GetMyBookDetail :one
-SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id FROM my_books_evidence e
+SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author FROM my_books_evidence e
 WHERE e.book_owner_id = $1 AND (e.book_id = $2 OR EXISTS (
   SELECT 1 FROM source_materials requested_source
   WHERE requested_source.owner_id::text = e.book_owner_id
@@ -241,6 +242,7 @@ func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams
 		&i.AnalysisRunID,
 		&i.CorpusID,
 		&i.AnalysisJobID,
+		&i.BookAuthor,
 	)
 	return i, err
 }
@@ -250,6 +252,7 @@ const listActiveBooks = `-- name: ListActiveBooks :many
 SELECT b.id::text,
        b.owner_id::text,
        b.title,
+       b.author,
        b.metadata_provenance,
        b.language_state,
        COALESCE(b.language_tag, '') AS language_tag,
@@ -265,6 +268,7 @@ type ListActiveBooksRow struct {
 	BID                string
 	BOwnerID           string
 	Title              string
+	Author             string
 	MetadataProvenance string
 	LanguageState      string
 	LanguageTag        string
@@ -290,6 +294,7 @@ func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActi
 			&i.BID,
 			&i.BOwnerID,
 			&i.Title,
+			&i.Author,
 			&i.MetadataProvenance,
 			&i.LanguageState,
 			&i.LanguageTag,
@@ -307,7 +312,7 @@ func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActi
 }
 
 const listMyBooksEvidence = `-- name: ListMyBooksEvidence :many
-SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id FROM my_books_evidence
+SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id, book_author FROM my_books_evidence
 WHERE book_owner_id = $1
 ORDER BY book_title, book_id
 `
@@ -348,6 +353,7 @@ func (q *Queries) ListMyBooksEvidence(ctx context.Context, owner string) ([]MyBo
 			&i.AnalysisRunID,
 			&i.CorpusID,
 			&i.AnalysisJobID,
+			&i.BookAuthor,
 		); err != nil {
 			return nil, err
 		}

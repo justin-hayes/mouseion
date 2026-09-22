@@ -290,7 +290,7 @@ func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testin
 func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
-	_, err := store.UpdateBookMetadata(ctx, OwnerID, ItalianGoalBookID, "Una meta", domain.LanguageUnknown, "")
+	_, err := store.UpdateBookMetadata(ctx, OwnerID, ItalianGoalBookID, "Una meta", "", domain.LanguageUnknown, "")
 	require.NoError(t, err, "retag Italian Goal book: %v", err)
 	goal, err := store.GetPrimaryGoal(ctx, OwnerID, "it")
 	require.NoError(t, err, "Italian Goal after retag=%+v err=%v", goal, err)

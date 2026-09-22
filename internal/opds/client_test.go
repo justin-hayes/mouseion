@@ -40,6 +40,20 @@ func TestListRootPaginationAndAcquisition(t *testing.T) {
 	assert.Empty(t, FindEPUBs(feed.Entries[1]), "PDF treated as EPUB")
 }
 
+func TestListPageParsesAtomAuthorsAndDCCreator(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/atom+xml")
+		testwrite.String(t, w, `<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/"><entry><id>authors</id><title>Authors</title><author><name>First Author</name></author><author><name>Second Author</name></author></entry><entry><id>creator</id><title>Creator</title><dc:creator>DC Creator</dc:creator></entry></feed>`)
+	}))
+	defer server.Close()
+
+	feed, err := NewClient(server.Client(), Auth{}).ListPage(context.Background(), server.URL)
+	require.NoError(t, err)
+	require.Len(t, feed.Entries, 2)
+	assert.Equal(t, "First Author, Second Author", feed.Entries[0].Author)
+	assert.Equal(t, "DC Creator", feed.Entries[1].Author)
+}
+
 func TestRelativePaginationPreservesCatalogQueryCredentials(t *testing.T) {
 	var requests []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

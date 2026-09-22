@@ -25,7 +25,7 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	other, err := store.CreateUser(ctx, "refresh-other-owner", false)
 	require.NoError(t, err)
 	source := putBookSource(t, ctx, store, owner.ID, "refresh-entry", "Old title", []byte("acquired content"), "readable text")
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, source.Title, source.Language)
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, source.Title, "Old author", source.Language)
 	require.NoError(t, err)
 	bookID := reconciled.Book.ID
 	err = store.LinkSourceToBook(ctx, owner.ID, bookID, source.ID)
@@ -41,11 +41,13 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1 AND book_id=$2`, owner.ID, bookID).Scan(&beforeMemberships)
 	require.NoError(t, err)
 
-	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", "it")
+	result, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, source.SourceIdentifier, "New title", "New author", "it")
 	require.NoError(t, err)
 	assert.True(t, result.TitleChanged)
+	assert.True(t, result.AuthorChanged)
 	assert.True(t, result.LanguageChanged)
 	assert.Equal(t, "New title", result.Book.Title)
+	assert.Equal(t, "New author", result.Book.Author)
 	assert.Equal(t, domain.LanguageChosen, result.Book.LanguageState)
 	assert.Equal(t, "it", result.Book.LanguageTag)
 	alias, err := store.GetBookCatalogEntryAlias(ctx, owner.ID, bookID)
@@ -72,6 +74,7 @@ func TestCatalogueMetadataRefreshPreservesAcquiredEvidence(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, updatedLibrary, 1)
 	assert.Equal(t, "New title", updatedLibrary[0].BookTitle, "refreshed canonical title was not projected into source summary")
+	assert.Equal(t, "New author", updatedLibrary[0].BookAuthor, "refreshed canonical author was not projected into source summary")
 
 	_, err = store.GetBookCatalogEntryAlias(ctx, other.ID, bookID)
 	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Owner isolation is independently checked for alias and book lookup.

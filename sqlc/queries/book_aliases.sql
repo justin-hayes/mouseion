@@ -14,7 +14,7 @@ LEFT JOIN supported_languages s ON s.language = c.language
 ORDER BY COALESCE(NULLIF(s.display_name, ''), c.language), c.language;
 
 -- name: GetBook :one
-SELECT id::text, owner_id::text, title, metadata_provenance, language_state,
+SELECT id::text, owner_id::text, title, author, metadata_provenance, language_state,
        COALESCE(language_tag, '') AS language_tag, created_at, updated_at
 FROM books WHERE owner_id = $1 AND id = $2;
 
@@ -45,10 +45,10 @@ SELECT (COALESCE(connection_id::text, ''))::text AS connection_id
 FROM book_aliases WHERE owner_id = $1 AND id = $2;
 
 -- name: InsertBook :one
-INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
-          COALESCE(language_tag, '') AS language_tag, created_at, updated_at;
+INSERT INTO books(owner_id, title, author, metadata_provenance, language_state, language_tag)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id::text, owner_id::text, title, author, metadata_provenance, language_state,
+           COALESCE(language_tag, '') AS language_tag, created_at, updated_at;
 
 -- name: InsertBookMembership :exec
 INSERT INTO book_membership(owner_id, book_id, state, activated_at)
@@ -56,9 +56,9 @@ VALUES ($1, $2, 'active', now());
 
 -- name: UpdateBookMetadata :one
 UPDATE books
-SET title = $3, language_state = $4, language_tag = $5, updated_at = now()
+SET title = $3, author = $4, language_state = $5, language_tag = $6, updated_at = now()
 WHERE owner_id = $1 AND id = $2
-RETURNING id::text, owner_id::text, title, metadata_provenance, language_state,
+RETURNING id::text, owner_id::text, title, author, metadata_provenance, language_state,
           COALESCE(language_tag, '') AS language_tag, created_at, updated_at;
 
 -- name: DeleteBookGoalsExceptLanguage :exec
@@ -83,7 +83,7 @@ ON CONFLICT(owner_id, book_id) DO UPDATE SET
   removed_at = CASE WHEN book_membership.state = 'removed' THEN book_membership.removed_at ELSE now() END;
 
 -- name: GetBookByAlias :one
-SELECT b.id::text, b.owner_id::text, b.title, b.metadata_provenance, b.language_state,
+SELECT b.id::text, b.owner_id::text, b.title, b.author, b.metadata_provenance, b.language_state,
        COALESCE(b.language_tag, '') AS language_tag, b.created_at, b.updated_at
 FROM books b
 JOIN book_aliases a ON a.owner_id = b.owner_id AND a.book_id = b.id
@@ -123,7 +123,7 @@ WHERE owner_id = $1 AND connection_id = $2 AND namespace = $3 AND value = $4
 FOR UPDATE;
 
 -- name: GetBookMetadata :one
-SELECT title, language_state, COALESCE(language_tag, '') AS language_tag
+SELECT title, author, language_state, COALESCE(language_tag, '') AS language_tag
 FROM books WHERE owner_id = $1 AND id = $2;
 
 -- name: InsertCatalogueEntryAlias :exec
@@ -131,7 +131,7 @@ INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetBookByUnscopedAliasForUpdate :one
-SELECT b.id::text, b.owner_id::text, b.title, b.metadata_provenance, b.language_state,
+SELECT b.id::text, b.owner_id::text, b.title, b.author, b.metadata_provenance, b.language_state,
        COALESCE(b.language_tag, '') AS language_tag, b.created_at, b.updated_at
 FROM books b
 JOIN book_aliases a ON a.owner_id = b.owner_id AND a.book_id = b.id
