@@ -1125,11 +1125,11 @@ progress {
 }
 
 .journey-book {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mouseion-space-4);
-  min-width: 0;
+	display: grid;
+	grid-template-columns: minmax(14rem, 1fr) minmax(0, 2.2fr);
+	align-items: start;
+	gap: var(--mouseion-space-4);
+	min-width: 0;
   margin: 0;
   border: 0;
   border-bottom: 1px solid var(--mouseion-color-border);
@@ -1146,18 +1146,128 @@ progress {
 }
 
 .journey-book > div {
-  min-width: 0;
+	min-width: 0;
+}
+
+.journey-book__identity {
+	grid-column: 1;
+}
+
+.journey-forecast {
+	min-width: 0;
+}
+
+.journey-book__evidence {
+	grid-column: 2;
+	min-width: 0;
+	width: 100%;
+}
+
+.goal-card__actions {
+	grid-column: 1 / -1;
+}
+
+.journey-forecast__stages {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0;
+	min-width: 0;
+	margin: 0;
+	padding-inline-start: 0;
+	border-block: 1px solid var(--mouseion-color-border);
+	list-style: none;
+}
+
+.journey-forecast__stage {
+	min-width: 0;
+	padding: var(--mouseion-space-3) var(--mouseion-space-3) var(--mouseion-space-4);
+}
+
+.journey-forecast__stage + .journey-forecast__stage {
+	border-inline-start: 1px solid var(--mouseion-color-border);
+}
+
+.journey-forecast__label {
+	display: block;
+	margin-bottom: var(--mouseion-space-2);
+	color: var(--mouseion-color-text-muted);
+	font-size: 0.9rem;
+}
+
+.journey-forecast__detail {
+	margin: 0;
+}
+
+.journey-forecast__value {
+	display: block;
+	font-size: var(--mouseion-font-size-stat);
+	font-weight: 700;
+}
+
+.journey-forecast__delta,
+.journey-forecast__qualifier,
+.journey-forecast__unavailable {
+	display: block;
+	margin-top: var(--mouseion-space-1);
+	font-size: 0.875rem;
+}
+
+.journey-forecast__delta {
+	color: var(--mouseion-color-accent);
+}
+
+.journey-forecast__qualifier,
+.journey-forecast__unavailable {
+	color: var(--mouseion-color-text-muted);
+	overflow-wrap: anywhere;
+}
+
+.journey-forecast__unavailable {
+	color: var(--mouseion-color-warning);
+	font-weight: 700;
+}
+
+.journey-coverage-evidence {
+	margin-top: var(--mouseion-space-3);
+	font-size: 0.9rem;
+}
+
+.journey-coverage-evidence summary {
+	color: var(--mouseion-color-text-muted);
+}
+
+.journey-coverage-evidence dl {
+	display: grid;
+	gap: var(--mouseion-space-1) var(--mouseion-space-3);
+	grid-template-columns: max-content minmax(0, 1fr);
+	margin: var(--mouseion-space-3) 0;
+}
+
+.journey-coverage-evidence dl div {
+	display: contents;
+}
+
+.journey-coverage-evidence dt {
+	font-weight: 700;
+}
+
+.journey-coverage-evidence dd {
+	margin: 0;
+}
+
+.journey-coverage-evidence p:last-child {
+	margin-bottom: 0;
 }
 
 .journey-book__controls {
-  display: flex;
-  flex: 0 1 22rem;
-  flex-wrap: wrap;
-  gap: var(--mouseion-space-2);
-  align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  width: min(100%, 22rem);
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--mouseion-space-2);
+	align-items: center;
+	grid-column: 1 / -1;
+	min-width: 0;
+	max-width: 100%;
+	width: min(100%, 22rem);
 }
 
 .journey-book__controls form {
@@ -1180,10 +1290,14 @@ progress {
 }
 
 .journey-book--goal {
-  border: 0;
-  padding: 0;
+	border: 0;
+	padding: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.journey-book--goal .journey-forecast__stages {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .journey-coverage-note {
@@ -1398,6 +1512,7 @@ progress {
   .library-list article,
   .journey-book,
   .scope-summary {
+    display: flex;
     align-items: stretch;
     flex-direction: column;
   }
@@ -1500,6 +1615,20 @@ progress {
 
   .journey-book form {
     width: 100%;
+  }
+
+  .journey-forecast {
+    width: 100%;
+  }
+
+  .journey-forecast__stages,
+  .journey-book--goal .journey-forecast__stages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .journey-forecast__stage + .journey-forecast__stage {
+    border-inline-start: 0;
+    border-top: 1px solid var(--mouseion-color-border);
   }
 
   .journey-book__controls {

@@ -139,20 +139,67 @@ func TestJourneyPageRendersSequentialForecastMeaningsAndLowerBound(t *testing.T)
 		OnArrival:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
 		LowerBound: true,
 	}
+	item.ForecastHasGoal = true
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
 	for _, want := range []string{
 		`aria-label="Journey coverage forecast"`,
-		"Current coverage:",
-		"After-Goal coverage (no active Goal):",
-		"On arrival in this order:",
-		"40.0% (40 of 100 analyzable tokens)",
-		"60.0% (60 of 100 analyzable tokens)",
+		"Current coverage",
+		"After Primary Goal",
+		"On arrival",
+		"40.0%",
+		"60.0%",
+		"No change",
 		"Lower bound:",
 	} {
 		assert.Contains(t, html, want)
 	}
-	assert.Contains(t, html, "same as after Goal")
-	assert.NotContains(t, html, "same as after Goal (60.0%")
+	assert.NotContains(t, html, "same as after Goal")
+}
+
+func TestJourneyForecastLedgerShowsSignedChangesAndNoActiveGoal(t *testing.T) {
+	item := testJourneyBook("delta", "Delta book", "analyzed")
+	item.Forecast = &domain.JourneyForecastEntry{
+		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
+		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 75, AnalyzableTokenCount: 100},
+	}
+	item.ForecastHasGoal = true
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	assert.Contains(t, html, "+20.0 percentage points")
+	assert.Contains(t, html, "+15.0 percentage points")
+	assert.Contains(t, html, "Evidence and calculation")
+	assert.Contains(t, html, "40 of 100 analyzable tokens")
+
+	item.ForecastHasGoal = false
+	html = renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	assert.Contains(t, html, "No active Primary Goal")
+	assert.NotContains(t, html, "+20.0 percentage points")
+}
+
+func TestJourneyForecastDeltaDoesNotHideSmallChanges(t *testing.T) {
+	left := &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 100000}
+	right := &domain.JourneyForecastCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 100000}
+
+	assert.Equal(t, "+0.00 percentage points", journeyForecastDeltaLabel(left, right))
+}
+
+func TestJourneyGoalForecastOmitsOnArrivalStage(t *testing.T) {
+	goal := testJourneyBook("goal-forecast", "Goal forecast book", "analyzed")
+	goal.Forecast = &domain.JourneyForecastEntry{
+		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
+		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 75, AnalyzableTokenCount: 100},
+	}
+	goal.ForecastHasGoal = true
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	goalStart := strings.Index(html, `id="journey-book-goal-forecast"`)
+	goalEnd := strings.Index(html[goalStart:], "</article>")
+	require.GreaterOrEqual(t, goalStart, 0)
+	require.Greater(t, goalEnd, 0)
+	goalHTML := html[goalStart : goalStart+goalEnd]
+	assert.Contains(t, goalHTML, "Current coverage")
+	assert.Contains(t, goalHTML, "After Primary Goal")
+	assert.NotContains(t, goalHTML, "On arrival")
 }
 
 func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
@@ -169,7 +216,7 @@ func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
 	assert.NotContains(t, html, "Current evidence")
 	assert.NotContains(t, html, "Assessment:")
 	assert.NotContains(t, html, "Analysis result ready")
-	assert.Contains(t, html, "Current coverage:")
+	assert.Contains(t, html, "Current coverage")
 }
 
 func TestJourneyExceptionalEvidenceNamesStateAndRecovery(t *testing.T) {

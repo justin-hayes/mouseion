@@ -362,12 +362,16 @@ not block acknowledging the accepted learner order.
 **Answers:** What coverage is true now, what follows from the active Goal, and
 what may be available when I arrive at each later Book in my order?
 
-Use one semantic ordered list. Label **Current coverage**, **After-Goal
-coverage**, and **On-arrival coverage** in full, and keep the active Goal's
-frozen snapshot and any lower-bound condition explicit. An unavailable or stale
-predecessor contributes no invented identities; downstream values are labeled
-as lower bounds. Reordering recalculates forecasts without changing learner
-state or creating another order.
+Use one semantic ordered list. Label **Current coverage**, **After Primary Goal
+coverage**, and **On arrival coverage** in full, and keep the active Goal's
+frozen snapshot and any lower-bound condition explicit. Each available stage
+retains its one-decimal percentage; equal stages add **No change**, while
+changed stages name the comparison stage and signed percentage-point delta.
+Exact token counts and calculation context live in a compact evidence disclosure.
+An unavailable or stale predecessor contributes no invented identities;
+downstream values are labeled as lower bounds. Reordering recalculates forecasts
+without changing learner state or creating another order. The anchored Primary
+Goal uses only Current coverage and After Primary Goal coverage.
 
 ### `EvidenceDelta`
 
