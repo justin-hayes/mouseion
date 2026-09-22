@@ -297,3 +297,24 @@ func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
 	assert.True(t, eligible)
 	assert.Empty(t, message)
 }
+
+func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T) {
+	eligible := testJourneyBook("eligible", "Eligible book", "analyzed")
+	eligible.CanChooseGoal = true
+	ineligible := testJourneyBook("ineligible", "Ineligible book", "not analyzed")
+	ineligible.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a Primary Goal."
+
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{eligible, ineligible}}, "", "")
+	eligibleStart := strings.Index(html, `id="journey-book-eligible"`)
+	ineligibleStart := strings.Index(html, `id="journey-book-ineligible"`)
+	require.GreaterOrEqual(t, eligibleStart, 0)
+	require.Greater(t, ineligibleStart, eligibleStart)
+	eligibleCard := html[eligibleStart:ineligibleStart]
+	ineligibleCard := html[ineligibleStart:]
+
+	assert.Contains(t, eligibleCard, ">Choose as Primary Goal</button>")
+	assert.Contains(t, eligibleCard, `<details class="more-actions"><summary>More actions</summary>`)
+	assert.Contains(t, eligibleCard, `action="/journey/books/eligible/remove"`)
+	assert.NotContains(t, ineligibleCard, "Choose as Primary Goal")
+	assert.Contains(t, ineligibleCard, ineligible.GoalEligibilityReason)
+}

@@ -28,6 +28,8 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 		`data-journey-reorder`,
 		`aria-label="Move First provisional book earlier"`,
 		`aria-label="Move Second provisional book later"`,
+		`<details class="more-actions"><summary>More actions</summary>`,
+		`action="/journey/books/first/remove"`,
 	} {
 		assert.True(t, strings.Contains(html, want), "journey reorder markup missing %q: %s", want, html)
 	}
@@ -37,6 +39,8 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 	assert.True(t, strings.Contains(firstCard, "disabled") && strings.Contains(secondCard, "disabled"), "first/last boundary controls were not disabled: first=%s second=%s", firstCard, secondCard)
 	goalCard := html[strings.Index(html, `id="journey-book-goal"`):strings.Index(html, `id="provisional-journey-heading"`)]
 	assert.False(t, strings.Contains(goalCard, "Move earlier") || strings.Contains(goalCard, "Move later"), "Primary Goal rendered reorder controls: %s", goalCard)
+	assert.Contains(t, goalCard, `<details class="more-actions"><summary>More actions</summary>`)
+	assert.Contains(t, goalCard, "Clear Primary Goal")
 }
 
 func TestJourneyForecastFailureKeepsSavedOrderActionable(t *testing.T) {

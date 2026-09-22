@@ -185,3 +185,10 @@ templ CatalogueSyncConnectionActions(csrf string, connection domain.OpdsConnecti
 		}
 	</div>
 }
+
+templ MoreActions() {
+	<details class="more-actions">
+		<summary>More actions</summary>
+		<div class="more-actions__body">{ children... }</div>
+	</details>
+}

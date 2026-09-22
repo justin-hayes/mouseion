@@ -52,6 +52,19 @@ test.describe('Primary Goal selection', () => {
       await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
       await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Choose as Primary Goal' })).toBeVisible();
 
+      const eligible = provisional.filter({ hasText: 'Route match: familiar German' });
+      const moreActions = eligible.locator('details.more-actions');
+      await expect(moreActions).toBeVisible();
+      await expect(moreActions).not.toHaveAttribute('open', '');
+      await expect(moreActions.getByRole('button', { name: 'Confirm removal' })).toBeHidden();
+      await moreActions.locator(':scope > summary').click();
+      await moreActions.locator('.confirmation > summary').click();
+      await expect(moreActions.getByRole('button', { name: 'Confirm removal' })).toBeVisible();
+
+      const ineligible = provisional.filter({ hasText: 'Route evidence pending' });
+      await expect(ineligible).toContainText('cannot become a Primary Goal');
+      await expect(ineligible.getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+
       const goalForecast = goal.getByRole('region', { name: 'Journey coverage forecast' });
       await expect(goalForecast.locator('.journey-forecast__stage')).toHaveCount(2);
       await expect(goalForecast).toContainText('Current coverage');
@@ -92,6 +105,7 @@ test.describe('Primary Goal selection', () => {
     await page.goto('/journey');
     await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
 
+    await page.locator('#primary-goal-section details.more-actions > summary').click();
     await page.locator('#primary-goal-section form[action="/goal/clear"] button').click();
     await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.locator('#primary-goal-section')).toContainText('No Primary Goal yet');

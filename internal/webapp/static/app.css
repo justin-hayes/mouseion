@@ -1271,11 +1271,61 @@ progress {
 }
 
 .journey-book__controls form {
-  margin: 0;
+	margin: 0;
 }
 
 .journey-book__controls .confirmation {
-  min-width: 0;
+	min-width: 0;
+}
+
+.journey-book__reorder {
+	display: flex;
+	flex: 1 1 100%;
+	flex-wrap: wrap;
+	gap: var(--mouseion-space-2);
+	min-width: 0;
+}
+
+.journey-book__reorder form {
+	flex: 1 1 8rem;
+	min-width: 0;
+}
+
+.journey-book__reorder button,
+.journey-book__goal-action button {
+	width: 100%;
+}
+
+.journey-book__goal-action,
+.journey-book__goal-reason,
+.journey-book__controls > .more-actions {
+	flex: 1 1 100%;
+}
+
+.journey-book__goal-reason {
+	margin: 0;
+}
+
+.more-actions {
+	min-width: 0;
+	border-top: 1px solid var(--mouseion-color-border);
+	padding-top: var(--mouseion-space-3);
+}
+
+.more-actions > summary {
+	color: var(--mouseion-color-text-muted);
+	font-weight: 600;
+}
+
+.more-actions__body {
+	display: grid;
+	gap: var(--mouseion-space-3);
+	padding-top: var(--mouseion-space-3);
+}
+
+.more-actions__body > .confirmation {
+	border-top: 0;
+	padding-top: 0;
 }
 
 .journey-status:empty {
@@ -1637,14 +1687,22 @@ progress {
     border-top: 1px solid var(--mouseion-color-border);
   }
 
-  .journey-book__controls {
-    width: 100%;
-    align-items: stretch;
-  }
+	.journey-book__controls {
+		width: 100%;
+		align-items: stretch;
+	}
 
-  .journey-book form button {
-    width: 100%;
-  }
+	.journey-book__reorder {
+		width: 100%;
+	}
+
+	.journey-book__reorder form {
+		width: auto;
+	}
+
+	.journey-book form button {
+		width: 100%;
+	}
 
   .scope-summary {
     position: static;
