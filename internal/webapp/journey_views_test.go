@@ -124,6 +124,30 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	assert.Equal(t, "Retry analysis", action.Label)
 	assert.Equal(t, "/journey/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
+
+	missingSnapshot := testJourneyBook("missing-snapshot", "Missing snapshot", "analyzed")
+	missingSnapshot.Book.Source.MediaType = "application/epub+zip"
+	missingSnapshot.Book.Source.ContentRevisionID = "current-revision"
+	action = journeyAnalysisAction(missingSnapshot)
+	assert.Equal(t, "Assessment unavailable", action.Status)
+	assert.Equal(t, "Retry acquisition", action.Label)
+
+	for _, test := range []struct {
+		status, wantStatus string
+	}{
+		{status: "analysis queued", wantStatus: "Analysis queued"},
+		{status: "analysis running", wantStatus: "Analysis running"},
+	} {
+		item := testJourneyBook(test.status, test.status, test.status)
+		item.Book.Source.MediaType = "application/epub+zip"
+		item.Book.Source.ContentRevisionID = "revision"
+		item.Book.Source.ContentSnapshotID = "snapshot"
+		item.Book.AnalysisJobID = 42
+		queuedAction := journeyAnalysisAction(item)
+		assert.Equal(t, test.wantStatus, queuedAction.Status)
+		assert.Equal(t, "View analysis status", queuedAction.Label)
+		assert.False(t, queuedAction.Submit)
+	}
 }
 
 func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
@@ -296,4 +320,25 @@ func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
 	eligible, message := journeyGoalEligibility(item.Book)
 	assert.True(t, eligible)
 	assert.Empty(t, message)
+}
+
+func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T) {
+	eligible := testJourneyBook("eligible", "Eligible book", "analyzed")
+	eligible.CanChooseGoal = true
+	ineligible := testJourneyBook("ineligible", "Ineligible book", "not analyzed")
+	ineligible.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a Primary Goal."
+
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{eligible, ineligible}}, "", "")
+	eligibleStart := strings.Index(html, `id="journey-book-eligible"`)
+	ineligibleStart := strings.Index(html, `id="journey-book-ineligible"`)
+	require.GreaterOrEqual(t, eligibleStart, 0)
+	require.Greater(t, ineligibleStart, eligibleStart)
+	eligibleCard := html[eligibleStart:ineligibleStart]
+	ineligibleCard := html[ineligibleStart:]
+
+	assert.Contains(t, eligibleCard, ">Choose as Primary Goal</button>")
+	assert.Contains(t, eligibleCard, `<details class="more-actions"><summary>More actions</summary>`)
+	assert.Contains(t, eligibleCard, `action="/journey/books/eligible/remove"`)
+	assert.NotContains(t, ineligibleCard, "Choose as Primary Goal")
+	assert.Contains(t, ineligibleCard, ineligible.GoalEligibilityReason)
 }

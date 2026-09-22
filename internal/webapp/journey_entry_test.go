@@ -225,3 +225,21 @@ func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 	assert.Equal(t, "/journey?message=Analysis+job+%231+submitted.", response.Header().Get("Location"))
 	assert.Equal(t, 1, analysisService.calls)
 }
+
+func TestReanalyzeJourneyMemberAcceptsUnavailableAcquisition(t *testing.T) {
+	h, cookies, csrf, fixtureStore := goalFixtureSession(t)
+	bookID := "unavailable-acquisition-book"
+	store := &journeyEntryStore{
+		Store: fixtureStore,
+		detail: domain.MyBook{
+			Book: domain.Book{ID: bookID, OwnerID: fixtures.OwnerID, Title: "Unavailable acquisition", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		},
+		journey: domain.ReadingJourney{OwnerID: fixtures.OwnerID, Language: "de", Entries: []domain.ReadingJourneyEntry{{BookID: bookID}}},
+	}
+	handler := requireHandler(t, h)
+	handler.services.Store = storeDependencies(store)
+
+	response := goalRequest(t, h, "/journey/books/"+bookID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Contains(t, response.Header().Get("Location"), "Could+not+acquire")
+}

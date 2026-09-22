@@ -175,7 +175,7 @@ func journeyEvidenceDescription(item journeyBookView) string {
 
 func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	bookID := journeyBookID(item)
-	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" {
+	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" || strings.TrimSpace(item.Book.Source.ContentSnapshotID) == "" {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
 			Description: "No current EPUB content is available for this Journey entry. Retry acquisition when the catalog can provide it.",
@@ -186,7 +186,8 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		}
 	}
 	action := bookLifecycleActionFor(item.Book)
-	if journeyEvidenceState(item) == "failed" || journeyEvidenceState(item) == "incomplete" {
+	evidenceState := journeyEvidenceState(item)
+	if evidenceState == "failed" || (evidenceState == "incomplete" && action.Status != "Analysis queued" && action.Status != "Analysis running") {
 		action.Status = "Analysis incomplete"
 		action.Description = journeyEvidenceDescription(item)
 		action.Label = "Retry analysis"
@@ -524,12 +525,15 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember || detail.Acquired == nil {
+	if !detail.JourneyMember {
 		http.NotFound(w, r)
 		return
 	}
-	recoverable := detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
-	if detail.Acquired.EvidenceState() == domain.BookAnalyzed {
+	recoverable := detail.Acquired == nil
+	if detail.Acquired != nil {
+		recoverable = detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
+	}
+	if detail.Acquired != nil && detail.Acquired.EvidenceState() == domain.BookAnalyzed {
 		item := journeyBookView{Book: *detail.Acquired, BookID: detail.Book.ID}
 		if evidenceErr := h.addJourneyEvidence(r.Context(), u.ID, &item); evidenceErr != nil {
 			fail(w, evidenceErr)

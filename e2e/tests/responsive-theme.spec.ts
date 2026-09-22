@@ -126,6 +126,30 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
+  test('compact Journey move controls stay adjacent and contained', async ({ page }) => {
+    test.skip(!test.info().project.name.startsWith('compact'), 'This contract applies to the compact layout.');
+    await signIn(page);
+    await page.goto('/journey');
+    const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
+      const reorder = node.querySelector<HTMLElement>('.journey-book__reorder');
+      const buttons = Array.from(reorder?.querySelectorAll('button') ?? []).map((button) => {
+        const box = button.getBoundingClientRect();
+        return { top: box.top, left: box.left, right: box.right };
+      });
+      const bounds = reorder?.getBoundingClientRect();
+      return { buttons, left: bounds?.left ?? 0, right: bounds?.right ?? 0 };
+    }));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.buttons).toHaveLength(2);
+      expect(Math.abs(row.buttons[0].top - row.buttons[1].top)).toBeLessThanOrEqual(1);
+      for (const button of row.buttons) {
+        expect(button.left).toBeGreaterThanOrEqual(row.left - 1);
+        expect(button.right).toBeLessThanOrEqual(row.right + 1);
+      }
+    }
+  });
+
   test('Journey titles and actions remain reachable at 200 percent text size', async ({ page }) => {
     await signIn(page);
     await page.goto('/journey');

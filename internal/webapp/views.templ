@@ -607,29 +607,43 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	}
 	</div>
 	if !primary {
-		<div class="journey-book__controls" aria-label={ "Reorder "+canonicalBookTitle(item.Book) }>
-			<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
-				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
-				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
-			</form>
-			<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
-				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
-				<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
-			</form>
-			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
+		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
 			if item.CanChooseGoal {
-				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit" class="outline">Choose as Primary Goal</button></form>
+				<form class="journey-book__goal-action" method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit">Choose as Primary Goal</button></form>
 			} else if item.GoalEligibilityReason != "" {
-				<p class="metadata">{ item.GoalEligibilityReason }</p>
+				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
+			<div class="journey-book__reorder" role="group" aria-label={ "Move "+canonicalBookTitle(item.Book) }>
+				<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
+					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
+					<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
+				</form>
+				<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
+					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
+					<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
+				</form>
+			</div>
+			<details class="more-actions">
+				<summary>More actions</summary>
+				<div class="more-actions__body">
+				@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
+				</div>
+			</details>
 		</div>
 	} else {
 		<div class="goal-card__actions">
 				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
 				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
 			}
-		<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Clear Primary Goal</button></form>
-			@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
+			<details class="more-actions">
+				<summary>More actions</summary>
+				<div class="more-actions__body">
+				@Confirmation("Clear Primary Goal", "Clearing ends this Goal and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger) {
+					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Confirm clearing</button></form>
+				}
+				@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
+				</div>
+			</details>
 			<p>To choose a different Goal, use Choose as Primary Goal on another eligible book in your provisional order.</p>
 		</div>
 	}
