@@ -230,7 +230,22 @@ func TestJourneyForecastLedgerShowsSignedChangesAndNoActiveGoal(t *testing.T) {
 	item.ForecastHasGoal = false
 	html = renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
 	assert.Contains(t, html, "No active Primary Goal")
-	assert.NotContains(t, html, "+20.0 percentage points")
+	assert.Contains(t, html, "Change from Current coverage: +35.0 percentage points")
+	assert.NotContains(t, html, "Change from After Primary Goal coverage")
+}
+
+func TestJourneyForecastLedgerShowsNoChangeFromCurrentWithoutGoal(t *testing.T) {
+	item := testJourneyBook("no-goal", "No Goal book", "analyzed")
+	item.Forecast = &domain.JourneyForecastEntry{
+		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
+		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
+		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
+	}
+
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	assert.Contains(t, html, "No active Primary Goal")
+	assert.Contains(t, html, "No change")
+	assert.NotContains(t, html, "Change from After Primary Goal coverage")
 }
 
 func TestJourneyForecastDeltaDoesNotHideSmallChanges(t *testing.T) {

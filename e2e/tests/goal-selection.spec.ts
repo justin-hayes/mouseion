@@ -130,6 +130,14 @@ test.describe('Primary Goal selection', () => {
     await expect(page.locator('#primary-goal-section')).toContainText('No Primary Goal yet');
     await expect(page.locator('#provisional-journey-content .journey-forecast').first()).toContainText('No active Primary Goal');
 
+    const noGoalUnchanged = page.locator('#provisional-journey-list .journey-list > li').filter({ hasText: 'Italian route baseline' }).getByRole('region', { name: 'Journey coverage forecast' });
+    await expect(noGoalUnchanged).toContainText('No change');
+    await expect(noGoalUnchanged).not.toContainText('Change from After Primary Goal coverage');
+
+    const noGoalChanged = page.locator('#provisional-journey-list .journey-list > li').filter({ hasText: 'Una meta italiana' }).getByRole('region', { name: 'Journey coverage forecast' });
+    await expect(noGoalChanged).toContainText('Change from Current coverage: +5.0 percentage points');
+    await expect(noGoalChanged).not.toContainText('Change from After Primary Goal coverage');
+
     await page.locator('#journey-book-fixture-italian-goal').getByRole('button', { name: 'Choose as Primary Goal' }).click();
     await expect(page).toHaveURL(/\/journey\?message=/);
     await expect(page.locator('#primary-goal-section')).toContainText('Una meta italiana');

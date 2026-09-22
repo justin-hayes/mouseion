@@ -53,6 +53,7 @@ const (
 )
 
 const edgeBookID = "fixture-edge-content"
+const italianRouteBookID = "fixture-italian-route"
 
 var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
@@ -116,6 +117,7 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision", ContentSnapshotID: "fixture-route-tie-b-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", Language: "it", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, AnalysisStatus: "not analyzed", AnalysisState: ""},
+			{Source: domain.SourceMaterial{ID: italianRouteBookID, OwnerID: OwnerID, Language: "it", Title: "Italian route baseline", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-route-revision", ContentSnapshotID: "fixture-italian-route-snapshot"}, BookAuthor: "Luca Bianchi", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-route-run", CorpusID: "fixture-italian-route-corpus"},
 		},
 		jobs:      fixtureJobs(),
 		supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}},
@@ -173,7 +175,8 @@ func NewStore() *Store {
 				Entries: []domain.ReadingJourneyEntry{
 					{OwnerID: OwnerID, Language: "it", BookID: "fixture-empty", Position: 1, CreatedAt: fixtureJourneyTime},
 					{OwnerID: OwnerID, Language: "it", BookID: edgeBookID, Position: 2, CreatedAt: fixtureJourneyTime.Add(time.Minute)},
-					{OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, Position: 3, CreatedAt: fixtureJourneyTime.Add(2 * time.Minute)},
+					{OwnerID: OwnerID, Language: "it", BookID: italianRouteBookID, Position: 3, CreatedAt: fixtureJourneyTime.Add(2 * time.Minute)},
+					{OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, Position: 4, CreatedAt: fixtureJourneyTime.Add(3 * time.Minute)},
 				},
 			},
 		},
