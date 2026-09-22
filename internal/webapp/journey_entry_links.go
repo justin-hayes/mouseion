@@ -41,13 +41,13 @@ func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID 
 	}
 	for _, entry := range journey.Entries {
 		if entry.BookID == detail.Book.ID {
-			return journeyCompatibilityURL(ctx, detail), nil
+			return journeyEntryOrLanguageHandoffURL(ctx, detail), nil
 		}
 	}
 	return "", nil
 }
 
-func journeyCompatibilityURL(ctx context.Context, detail domain.MyBook) string {
+func journeyEntryOrLanguageHandoffURL(ctx context.Context, detail domain.MyBook) string {
 	if shellViewFromContext(ctx) != nil {
 		bookLanguage := canonicalization.NormalizeLanguage(journeyBookLanguage(detail))
 		activeLanguage, _ := activeStudyLanguageForContext(ctx)

@@ -32,7 +32,7 @@ func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	redirect(w, r, journeyCompatibilityURL(r.Context(), detail))
+	redirect(w, r, journeyEntryOrLanguageHandoffURL(r.Context(), detail))
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {
@@ -210,7 +210,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	redirect(w, r, journeyCompatibilityURL(r.Context(), detail))
+	redirect(w, r, journeyEntryOrLanguageHandoffURL(r.Context(), detail))
 }
 
 func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {

@@ -152,6 +152,15 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
   });
 
+  test('unavailable and non-member Journey bookmarks remain unavailable', async ({ page }) => {
+    const unavailable = await page.goto('/journey/fixture-empty');
+    expect(unavailable?.status()).toBe(404);
+    const nonMember = await page.goto('/journey/fixture-metadata-only');
+    expect(nonMember?.status()).toBe(404);
+    const unknown = await page.goto('/journey/not-owned-book');
+    expect(unknown?.status()).toBe(404);
+  });
+
   test('metadata-only book detail URLs are retired', async ({ page }) => {
     const response = await page.goto('/books/fixture-metadata-only');
     expect(response?.status()).toBe(404);

@@ -116,6 +116,10 @@ func TestJourneyEntryRequiresCurrentCompletedMemberAnalysis(t *testing.T) {
 			AnalysisRunID:  "old-run",
 			CorpusID:       "old-corpus",
 		},
+		"unavailable": {
+			AnalysisStatus: "content unavailable",
+			AnalysisState:  "unavailable",
+		},
 	}
 
 	for name, acquired := range states {
