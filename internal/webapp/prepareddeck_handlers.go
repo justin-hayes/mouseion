@@ -28,46 +28,127 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 		return
 	}
 	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
+	_, result, ok := h.validJourneyDeckBook(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
-	if detail.Acquired == nil {
+	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
+}
+
+func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, owner, bookID string) (domain.MyBook, analysis.CompletedAnalysis, bool) {
+	detail, ok := h.bookDetail(w, r, owner, bookID)
+	if !ok || detail.Acquired == nil {
 		http.NotFound(w, r)
-		return
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
 	book := *detail.Acquired
-	if !bookHasCompletedAnalysis(book) {
+	if book.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(book) {
 		http.NotFound(w, r)
-		return
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
+	if err := h.annotateBookWithJourneyLanguage(r.Context(), owner, detail.Book.LanguageTag, &detail); err != nil {
 		fail(w, err)
-		return
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
 	if !detail.JourneyMember {
 		http.NotFound(w, r)
-		return
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
 	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
 	if !ok {
 		http.NotFound(w, r)
-		return
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	result, err := reader.GetCompletedAnalysis(r.Context(), u.ID, book.Source.ID, book.AnalysisRunID)
+	result, err := reader.GetCompletedAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
 	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
+	}
+	if result.OwnerID != owner || result.SourceMaterialID != book.Source.ID || result.RunID != book.AnalysisRunID || result.Corpus.ID != book.CorpusID {
+		http.NotFound(w, r)
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
+	}
+	return detail, result, true
+}
+
+type journeyDeckPreparationView struct {
+	Book             domain.SourceMaterialSummary
+	BookID           string
+	AnalysisRunID    string
+	GoalSnapshotID   string
+	GoalSnapshotSize int
+	Goal             bool
+	Preparation      *domain.DeckPreparation
+	Missing          bool
+	Unavailable      bool
+}
+
+func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	owner := user(r).ID
+	detail, result, ok := h.validJourneyDeckBook(w, r, owner, r.PathValue("bookID"))
+	if !ok {
 		return
 	}
+	book := *detail.Acquired
+	book.BookID = detail.Book.ID
+	book.BookTitle = detail.Book.Title
+	task := journeyDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, strings.TrimSpace(detail.Book.LanguageTag))
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	if result.OwnerID != u.ID || result.SourceMaterialID != book.Source.ID || result.RunID != book.AnalysisRunID || result.Corpus.ID != book.CorpusID {
-		http.NotFound(w, r)
-		return
+	if goal.IsActive() && goal.BookID == detail.Book.ID {
+		if goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID || goal.ContentRevisionID != book.Source.ContentRevisionID || goal.ContentSnapshotID != book.Source.ContentSnapshotID {
+			http.NotFound(w, r)
+			return
+		}
+		task.Goal = true
+		task.GoalSnapshotID = goal.SnapshotID
+		task.GoalSnapshotSize = goal.SnapshotSize
+		if goal.SnapshotSize > 0 {
+			reader, readerOK := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
+			if !readerOK {
+				task.Unavailable = true
+			} else if preparation, preparationErr := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
+				if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != result.SourceMaterialID || preparation.AnalysisRunID != result.RunID || preparation.GoalSnapshotID != goal.SnapshotID {
+					http.NotFound(w, r)
+					return
+				}
+				task.Preparation = &preparation
+			} else if errors.Is(preparationErr, persistence.ErrNotFound) {
+				task.Missing = true
+			} else {
+				fail(w, preparationErr)
+				return
+			}
+		}
+	} else {
+		reader, readerOK := h.services.PreparedDeck.(PreparedDeckForAnalysis)
+		if !readerOK {
+			task.Unavailable = true
+		} else if preparation, preparationErr := reader.GetForAnalysis(r.Context(), owner, result.SourceMaterialID, result.RunID); preparationErr == nil {
+			if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != result.SourceMaterialID || preparation.AnalysisRunID != result.RunID || preparation.GoalSnapshotID != "" {
+				http.NotFound(w, r)
+				return
+			}
+			task.Preparation = &preparation
+		} else if errors.Is(preparationErr, persistence.ErrNotFound) {
+			task.Missing = true
+		} else {
+			fail(w, preparationErr)
+			return
+		}
 	}
-	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
+	action := deckJourneyActionView{BookID: task.BookID, State: deckJourneyMember}
+	if task.Goal {
+		action.State = deckJourneyGoal
+	}
+	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, preparationReturnURL(action)))
 }
 
 func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
@@ -205,7 +286,7 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	journeyAction := emptyDeckJourneyAction()
-	if p.State == domain.DeckPreparationReady && p.SourceMaterialID != "" {
+	if p.SourceMaterialID != "" {
 		journeyAction, err = h.deckJourneyAction(r.Context(), user(r).ID, p.ID, p.SourceMaterialID)
 		if err != nil {
 			fail(w, err)
@@ -301,7 +382,7 @@ func preparationReturnURL(action deckJourneyActionView) string {
 	if action.BookID == "" {
 		return ""
 	}
-	return "/journey/" + url.PathEscape(action.BookID)
+	return "/journey#journey-book-" + url.PathEscape(action.BookID)
 }
 
 func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckJourneyActionView) (string, error) {

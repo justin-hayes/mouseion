@@ -35,6 +35,38 @@ func TestBookPageOffersDeckPreparationWithConsentDisclosure(t *testing.T) {
 	assert.False(t, strings.Contains(html, `action="/jobs/`), "exact result must not submit deck preparation through an operational job route")
 }
 
+func TestJourneyDeckPreparationPageShowsExactAnalysisAndConsent(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1126", Title: "The Exact Journey Book", Language: "de", ContentSnapshotID: "snapshot-1126"}}
+	task := journeyDeckPreparationView{Book: book, BookID: "book-1126", AnalysisRunID: "run-1126"}
+	var output bytes.Buffer
+	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/journey#journey-book-book-1126").Render(context.Background(), &output))
+	html := output.String()
+	for _, want := range []string{
+		"The Exact Journey Book",
+		"run-1126",
+		"snapshot-1126",
+		`action="/journey/books/book-1126/deck/preparations"`,
+		`name="external_translation_consent"`,
+		"outside Mouseion",
+		"Declining still permits local preparation",
+		`href="/journey#journey-book-book-1126"`,
+	} {
+		assert.Contains(t, html, want)
+	}
+}
+
+func TestJourneyDeckPreparationPageKeepsGoalRetrySnapshotBound(t *testing.T) {
+	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-1126", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
+	task := journeyDeckPreparationView{Book: book, BookID: "book-goal-1126", AnalysisRunID: "run-goal-1126", Goal: true, GoalSnapshotID: "goal-snapshot-1126", GoalSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-1126", SourceMaterialID: "source-goal-1126", AnalysisRunID: "run-goal-1126", GoalSnapshotID: "goal-snapshot-1126", State: domain.DeckPreparationFailed}}
+	var output bytes.Buffer
+	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/journey#journey-book-book-goal-1126").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "goal-snapshot-1126")
+	assert.Contains(t, html, `action="/goal/books/book-goal-1126/deck/retry"`)
+	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="goal-snapshot-1126"`)
+	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-1126/retry"`)
+}
+
 func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -123,9 +155,9 @@ func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T)
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/journey/book-1", action).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/journey#journey-book-book-1", action).Render(context.Background(), &output))
 	html := output.String()
-	assert.Equal(t, 2, strings.Count(html, `href="/journey/book-1"`), "Journey entry link count=%d: %s", strings.Count(html, `href="/journey/book-1"`), html)
+	assert.Equal(t, 3, strings.Count(html, `href="/journey#journey-book-book-1"`), "Journey anchor link count=%d: %s", strings.Count(html, `href="/journey#journey-book-book-1"`), html)
 	assert.False(t, strings.Contains(html, "/books/source-1"), "status page contains retired book link: %s", html)
 }
 
