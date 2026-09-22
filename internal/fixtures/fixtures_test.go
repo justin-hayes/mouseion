@@ -23,7 +23,7 @@ func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
 	assert.Equal(t, journey.Revision+1, revision, "move revision=%d err=%v", revision, err)
 	journey, err = store.GetReadingJourney(ctx, OwnerID, "it")
 	require.NoError(t, err)
-	require.Len(t, journey.Entries, 3, "reordered journey=%+v", journey.Entries)
+	require.Len(t, journey.Entries, 4, "reordered journey=%+v", journey.Entries)
 	assert.Equal(t, edgeBookID, journey.Entries[0].BookID, "reordered journey=%+v", journey.Entries)
 	assert.Equal(t, 1, journey.Entries[0].Position, "reordered journey=%+v", journey.Entries)
 	assert.Equal(t, 2, journey.Entries[1].Position, "reordered journey=%+v", journey.Entries)

@@ -137,11 +137,17 @@ func journeyForecastStages(item journeyBookView, primary bool) []journeyForecast
 		if forecast != nil && forecast.LowerBound {
 			qualifier = "Lower bound: an earlier Journey Book has unavailable evidence, so this value excludes any vocabulary it might contribute."
 		}
+		comparison := after
+		comparisonLabel := "After Primary Goal coverage"
+		if !item.ForecastHasGoal {
+			comparison = current
+			comparisonLabel = "Current coverage"
+		}
 		stages = append(stages, journeyForecastStageView{
 			Label:             "On arrival coverage",
 			Coverage:          arrival,
-			Comparison:        after,
-			ComparisonLabel:   "After Primary Goal coverage",
+			Comparison:        comparison,
+			ComparisonLabel:   comparisonLabel,
 			UnavailableReason: arrivalReason,
 			Qualifier:         qualifier,
 			Context:           "Modeled Known vocabulary plus trustworthy recurring vocabulary from earlier Books in Your order.",
