@@ -12,6 +12,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -236,10 +237,25 @@ func journeyCurrentCoverage(item journeyBookView) string {
 type journeyPageView struct {
 	Language            string
 	LanguageLabel       string
+	LanguageHandoff     *journeyLanguageHandoffView
 	Goal                *journeyBookView
 	Provisional         []journeyBookView
 	Revision            int64
 	ForecastUnavailable bool
+}
+
+type journeyLanguageHandoffView struct {
+	BookID        string
+	BookTitle     string
+	Language      string
+	LanguageLabel string
+}
+
+func journeyLanguageHandoffURL(bookID, language string) string {
+	query := url.Values{}
+	query.Set("language_handoff_book", bookID)
+	query.Set("language_handoff_language", language)
+	return "/journey?" + query.Encode()
 }
 
 func journeyPageTitle(journey journeyPageView) string {
@@ -575,7 +591,64 @@ func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
 	}
 	view.Language = language
 	view.LanguageLabel = languageLabel
+	handoff, hasHandoff, err := h.journeyLanguageHandoff(r.Context(), u.ID, language, r.URL.Query().Get("language_handoff_book"), r.URL.Query().Get("language_handoff_language"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if hasHandoff {
+		view.LanguageHandoff = &handoff
+	}
 	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+}
+
+func (h *Handler) journeyLanguageHandoff(ctx context.Context, owner, activeLanguage, bookID, targetLanguage string) (journeyLanguageHandoffView, bool, error) {
+	bookID = strings.TrimSpace(bookID)
+	targetLanguage = canonicalization.NormalizeLanguage(targetLanguage)
+	if bookID == "" || targetLanguage == "" || canonicalization.NormalizeLanguage(activeLanguage) == targetLanguage {
+		return journeyLanguageHandoffView{}, false, nil
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return journeyLanguageHandoffView{}, false, nil
+	}
+	if err != nil {
+		return journeyLanguageHandoffView{}, false, err
+	}
+	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
+		return journeyLanguageHandoffView{}, false, nil
+	}
+	if canonicalization.NormalizeLanguage(journeyBookLanguage(detail)) != targetLanguage {
+		return journeyLanguageHandoffView{}, false, nil
+	}
+	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, targetLanguage)
+	if err != nil {
+		return journeyLanguageHandoffView{}, false, err
+	}
+	member := false
+	for _, entry := range journey.Entries {
+		if entry.BookID == detail.Book.ID {
+			member = true
+			break
+		}
+	}
+	if !member {
+		return journeyLanguageHandoffView{}, false, nil
+	}
+	label := targetLanguage
+	if shell := shellViewFromContext(ctx); shell != nil {
+		for _, option := range shell.Options {
+			if option.Language == targetLanguage {
+				label = option.DisplayName
+				break
+			}
+		}
+	}
+	title := strings.TrimSpace(detail.Book.Title)
+	if title == "" && detail.Acquired != nil {
+		title = strings.TrimSpace(detail.Acquired.Source.Title)
+	}
+	return journeyLanguageHandoffView{BookID: detail.Book.ID, BookTitle: title, Language: targetLanguage, LanguageLabel: label}, true, nil
 }
 
 func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {

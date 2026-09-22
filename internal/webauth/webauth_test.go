@@ -39,12 +39,13 @@ func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 
 func TestSafeReturnPath(t *testing.T) {
 	for raw, want := range map[string]string{
-		"/books/one?tab=jobs":   "/books/one?tab=jobs",
-		"https://evil.example/": "/",
-		"//evil.example/":       "/",
-		`/\evil.example/`:       "/",
-		"library":               "/",
-		"":                      "/",
+		"/books/one?tab=jobs":       "/books/one?tab=jobs",
+		"/journey#journey-book-one": "/journey#journey-book-one",
+		"https://evil.example/":     "/",
+		"//evil.example/":           "/",
+		`/\evil.example/`:           "/",
+		"library":                   "/",
+		"":                          "/",
 	} {
 		assert.Equal(t, want, SafeReturnPath(raw), "SafeReturnPath(%q)", raw)
 	}

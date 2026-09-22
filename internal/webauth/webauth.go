@@ -92,7 +92,11 @@ func SafeReturnPath(raw string) string {
 	if err != nil || u.Scheme != "" || u.Host != "" || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") || strings.Contains(u.Path, `\`) {
 		return "/"
 	}
-	return u.RequestURI()
+	result := u.RequestURI()
+	if u.Fragment != "" {
+		result += "#" + url.PathEscape(u.Fragment)
+	}
+	return result
 }
 
 type credentials struct {

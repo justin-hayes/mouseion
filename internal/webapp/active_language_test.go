@@ -41,3 +41,7 @@ func TestActiveStudyLanguageEmptySubmissionIsNoOp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "de", stored)
 }
+
+func TestActiveStudyLanguageReturnPathPreservesJourneyAnchor(t *testing.T) {
+	assert.Equal(t, "/journey#journey-book-book-1", activeStudyLanguageReturnPath("/journey#journey-book-book-1", "de"))
+}

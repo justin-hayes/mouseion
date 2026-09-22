@@ -52,12 +52,30 @@ func TestJourneyEntryRedirectsCompletedMemberUsingBookLanguage(t *testing.T) {
 	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey#journey-book-fixture-route-match", response.Header().Get("Location"))
+	assert.Equal(t, "/journey?language_handoff_book=fixture-route-match&language_handoff_language=de", response.Header().Get("Location"))
 	assert.NotContains(t, response.Body.String(), "<h1>")
 
+	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
 	response = journeyEntryRequest(t, h, "/journey/fixture-book", cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
+}
+
+func TestJourneyPageRendersValidatedCrossLanguageHandoff(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
+	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
+	handler := requireHandler(t, h)
+	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
+
+	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
+	location := response.Header().Get("Location")
+	handoff := journeyEntryRequest(t, h, location, cookies)
+
+	assert.Equal(t, http.StatusOK, handoff.Code)
+	assert.Contains(t, handoff.Body.String(), "This Book is in German")
+	assert.Contains(t, handoff.Body.String(), `name="language" value="de"`)
+	assert.Contains(t, handoff.Body.String(), `name="return_to" value="/journey#journey-book-fixture-route-match"`)
+	assert.NotContains(t, handoff.Body.String(), `id="journey-book-fixture-route-match"`)
 }
 
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {

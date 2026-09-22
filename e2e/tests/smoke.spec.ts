@@ -135,6 +135,23 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
   });
 
+  test('cross-language Journey bookmarks offer an explicit language handoff', async ({ page }) => {
+    await page.goto('/library');
+    await page.getByLabel('Study language').selectOption('it');
+    await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/journey/fixture-route-match');
+
+    await expect(page).toHaveURL(/\/journey\?language_handoff_book=fixture-route-match&language_handoff_language=de/);
+    await expect(page.getByRole('heading', { name: 'This Book is in German', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Switch to German and open this Book', exact: true })).toBeVisible();
+    await expect(page.locator('#journey-book-fixture-route-match')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Switch to German and open this Book', exact: true }).click();
+    await expect(page).toHaveURL('/journey#journey-book-fixture-route-match');
+    await expect(page.getByLabel('Study language')).toHaveValue('de');
+    await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
+  });
+
   test('metadata-only book detail URLs are retired', async ({ page }) => {
     const response = await page.goto('/books/fixture-metadata-only');
     expect(response?.status()).toBe(404);
@@ -145,6 +162,12 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('exact analysis result redirects to the Reading Journey anchor', async ({ page }) => {
+    await page.goto('/library');
+    const switcher = page.getByLabel('Study language');
+    if (await switcher.inputValue() !== 'de') {
+      await switcher.selectOption('de');
+      await expect(page).toHaveURL(/\/library$/);
+    }
     await page.goto('/books/fixture-book/analyses/fixture-run');
     await expect(page).toHaveURL('/journey#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
