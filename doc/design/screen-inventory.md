@@ -1,8 +1,9 @@
 # Screen inventory
 
-Status: **Canonical learner-facing screen contract.** The ADR 0072 Goal and
-forecast changes below are target behavior for the follow-on implementation; the
-existing shipped surfaces remain until that work lands. It includes the
+Status: **Canonical shipped learner-facing screen contract.** ADR 0074 ships the
+consolidated Reading Journey Book surface and assigns deck work to the focused
+preparation task. ADR 0072 continues to own the Goal snapshot and forecast
+semantics described below. It includes the
 one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
