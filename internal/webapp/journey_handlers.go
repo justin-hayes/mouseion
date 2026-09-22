@@ -30,6 +30,7 @@ type journeyBookView struct {
 	GoalSnapshotID         string
 	GoalSnapshotSize       int
 	GoalPreparation        *domain.DeckPreparation
+	GoalDeckMissing        bool
 	GoalDeckUnavailable    bool
 	CanMoveEarlier         bool
 	CanMoveLater           bool
@@ -645,6 +646,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 				case errors.Is(preparationErr, persistence.ErrNotFound):
 					// The Goal remains visible while an unavailable artifact is
 					// retried through the exact snapshot identity.
+					book.GoalDeckMissing = true
 				default:
 					log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, goal.SnapshotID, preparationErr)
 				}

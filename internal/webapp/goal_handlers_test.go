@@ -293,8 +293,24 @@ func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
-	assert.Contains(t, body, "Deck preparation unavailable")
-	assert.Contains(t, body, "Retry deck preparation")
+	assert.Contains(t, body, "Deck state: Missing")
+	assert.Contains(t, body, "Prepare Goal deck")
+}
+
+func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+
+	response := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/retry", url.Values{
+		"csrf_token":                {csrf},
+		"expected_goal_snapshot_id": {"stale-snapshot"},
+	}, cookies)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	location, err := url.QueryUnescape(response.Header().Get("Location"))
+	require.NoError(t, err)
+	assert.Contains(t, location, goalStaleMessage)
 }
 
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {

@@ -1300,6 +1300,12 @@ progress {
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.journey-book--goal .goal-card__deck {
+	margin-top: var(--mouseion-space-5);
+	border-top: 1px solid var(--mouseion-color-border);
+	padding-top: var(--mouseion-space-4);
+}
+
 .journey-coverage-note {
   max-width: var(--mouseion-width-reading);
   margin-bottom: var(--mouseion-space-6);
