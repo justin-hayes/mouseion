@@ -79,8 +79,15 @@ labels use **Language** and the language's own name, never **Mode** or
 ### Compatibility bookmark (`/journey/{bookID}`)
 
 - The route validates the Book's own language, owner, membership, and current
-  evidence, then redirects to its anchor in the active Reading Journey. It never
-  renders a separate language-scoped page or auto-switches the mode.
+  evidence before deciding where to send the learner.
+- A same-language bookmark redirects to its anchor in the active Reading Journey.
+- A valid cross-language bookmark redirects to the active Journey with a
+  language-selection handoff. The handoff names the Book and target language and
+  offers an explicit, CSRF-protected switch whose return URL contains the Book's
+  canonical anchor.
+- The route never auto-switches the active language or redirects cross-language
+  bookmarks to a page where the promised Book anchor is absent. Unauthorized,
+  non-member, and unavailable Books remain unavailable.
 
 ## States
 

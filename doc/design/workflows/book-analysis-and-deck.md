@@ -108,6 +108,14 @@ operational audit records in `/jobs`. The compatibility route
 anchor for members and returns 404 otherwise, rather than presenting a separate
 exact-result experience.
 
+Compatibility navigation is language-aware. When a valid bookmark or completed
+analysis link targets a Book in another study language, it opens the active
+Reading Journey with a language-selection handoff instead of changing the active
+language or claiming an absent anchor. The handoff names the Book and target
+language; an explicit switch returns to that Book's canonical anchor. Same-language
+links remain direct anchors, and owner, membership, and current-evidence checks
+remain unchanged.
+
 Reading Journey owns Book identity, relationship, current evidence, forecast,
 and recovery. It does not render a generic Book-detail, analysis-result,
 vocabulary-investment, or top-unknown page. Internal threshold and top-unknown
@@ -173,7 +181,7 @@ The interface must answer:
   failure recovery;
 - completed analysis jobs expose **View in Reading Journey**, opening the
   canonical `/journey#journey-book-{bookID}` anchor directly or through the
-  run-specific compatibility redirect;
+  language-selection handoff when the Book is outside the active language;
 - manual deck preparation is submitted from the focused task after the Book is
   reached in Reading Journey; Primary Goal selection submits a
   local preparation from the exact frozen Goal snapshot;

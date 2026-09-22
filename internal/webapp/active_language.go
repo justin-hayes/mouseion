@@ -183,6 +183,9 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 		u.RawQuery = query.Encode()
 	}
 	if result := u.RequestURI(); result != "" {
+		if u.Fragment != "" {
+			return result + "#" + url.PathEscape(u.Fragment)
+		}
 		return result
 	}
 	return "/"

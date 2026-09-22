@@ -441,6 +441,13 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
 		}
+		if journey.LanguageHandoff != nil {
+			<section class="language-handoff" aria-labelledby="language-handoff-heading">
+				<h2 id="language-handoff-heading">This Book is in { journey.LanguageHandoff.LanguageLabel }</h2>
+				<p><strong>{ journey.LanguageHandoff.BookTitle }</strong> belongs to your { journey.LanguageHandoff.LanguageLabel } Reading Journey, while this page is showing { journey.LanguageLabel }. Switching language is explicit so a bookmark never changes your study context by itself.</p>
+				<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ journey.LanguageHandoff.Language }/><input type="hidden" name="return_to" value={ journeyEntryURL(journey.LanguageHandoff.BookID) }/><button type="submit">Switch to { journey.LanguageHandoff.LanguageLabel } and open this Book</button></form>
+			</section>
+		}
 		@GoalSection(journey.Goal, csrf, "", "", "")
 		<details class="journey-coverage-note">
 			<summary>How coverage is shown</summary>
