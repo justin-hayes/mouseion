@@ -588,9 +588,15 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	</div>
 	<div class="journey-book__evidence">
 	@JourneyEvidence(item, csrf, primary)
+	if !primary && bookHasCompletedAnalysis(item.Book) {
+		@JourneyAnalysisDeck(item, csrf)
+	}
 	if primary {
 		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
 			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Goal deck preparation</h4>
+			if bookHasCompletedAnalysis(item.Book) {
+				<p><a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Open focused deck task</a></p>
+			}
 			if item.GoalSnapshotSize == 0 {
 				<p><strong>Deck state</strong>: No deck needed. This Goal has no frozen vocabulary identities to prepare.</p>
 			} else if item.GoalPreparation != nil {
@@ -853,17 +859,22 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			if preparation.State == domain.DeckPreparationFailed {
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
 			}
-			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				<fieldset><legend>Optional external translation for the retry</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the retry stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
-				<button type="submit">Retry preparation</button>
-			</form>
+			if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
+				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry Goal deck</button></form>
+			} else {
+				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					<fieldset><legend>Optional external translation for the retry</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the retry stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+					<button type="submit">Retry preparation</button>
+				</form>
+			}
 		}
 	}
 }
 
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
 func bookDeckPreparationURL(book domain.SourceMaterialSummary) string { return "/journey/books/" + url.PathEscape(journeyMembershipBookID(book)) + "/deck/preparations" }
+func journeyDeckPreparationTaskURL(bookID string) string { return "/journey/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
@@ -1304,4 +1315,75 @@ templ JourneyForecast(item journeyBookView, primary bool) {
 			</p>
 		</details>
 	</section>
+}
+
+templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
+	<section class="journey-book__deck" aria-labelledby={ "journey-deck-heading-" + journeyBookID(item) }>
+		<h4 id={ "journey-deck-heading-" + journeyBookID(item) }>Deck</h4>
+		if item.AnalysisDeckUnavailable {
+			<p role="note"><strong>Deck state: Unavailable.</strong> Deck preparation status could not be read. The analysis and Journey entry are unchanged.</p>
+			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Try the focused deck task</a>
+		} else if item.AnalysisPreparation == nil {
+			<p><strong>Deck state:</strong> Not prepared from this analysis.</p>
+			<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Prepare deck</a>
+		} else {
+			<p><strong>Deck state:</strong> { deckPreparationTitle(*item.AnalysisPreparation) }.</p>
+			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
+			if deckPreparationActive(*item.AnalysisPreparation) {
+				<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Cancel preparation</button></form>
+			} else if item.AnalysisPreparation.State == domain.DeckPreparationReady {
+				if deckPreparationEmpty(*item.AnalysisPreparation) {
+					<p role="note">No recurring vocabulary was found, so no cards were created.</p>
+				} else if item.AnalysisPreparation.Error != domain.DeckPreparationRequiresRepreparationError {
+					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
+				}
+			} else if item.AnalysisPreparation.State == domain.DeckPreparationFailed || item.AnalysisPreparation.State == domain.DeckPreparationCancelled {
+				<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Review and retry</a>
+			}
+		}
+	</section>
+}
+
+templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckPreparationView, resultURL string) {
+	@ShellLayout("Prepare deck · "+canonicalBookTitle(task.Book), &user, csrf, NavigationReadingJourney) {
+		@Breadcrumb(resultURL, "Reading Journey")
+		@PageHeader("Prepare a deck", canonicalBookTitle(task.Book), StatusBadge("Exact source", StatusInfo))
+		<section class="narrow" aria-labelledby="journey-deck-task-heading">
+		<h2 id="journey-deck-task-heading">Deck preparation task</h2>
+		<p>This task belongs to <strong>{ canonicalBookTitle(task.Book) }</strong>. Preparation never changes reading state, Known vocabulary, or Reserved vocabulary.</p>
+		<dl>
+			<dt>Book language</dt><dd>{ task.Book.Source.Language }</dd>
+			<dt>Current analysis</dt><dd><code>{ task.AnalysisRunID }</code> from the current EPUB snapshot <code>{ task.Book.Source.ContentSnapshotID }</code></dd>
+			if task.Goal {
+				<dt>Frozen Goal snapshot</dt><dd><code>{ task.GoalSnapshotID }</code> · { fmt.Sprintf("%d frozen identities", task.GoalSnapshotSize) }</dd>
+			}
+		</dl>
+		if task.Unavailable {
+			@Feedback(FeedbackWarning, "Deck preparation unavailable", "The preparation service could not verify this exact source. No deck action was started.")
+		} else if task.Goal {
+			if task.GoalSnapshotSize == 0 {
+				@EmptyState("No deck needed", "This frozen Goal snapshot contains no vocabulary identities, so no cards will be created.")
+			} else if task.Preparation != nil {
+				@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckJourneyGoal})
+			} else {
+				<p role="note"><strong>Deck state: Missing.</strong> This exact Goal snapshot remains unchanged. Prepare it when ready.</p>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare Goal deck</button></form>
+			}
+		} else if task.Preparation != nil {
+			@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckJourneyMember})
+		} else {
+			if task.Missing {
+				<p role="note"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>
+			}
+			<p>Choose whether this preparation may use the configured external translation provider. Declining still permits local preparation.</p>
+			<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<fieldset><legend>Optional external translation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+				<button type="submit">Prepare deck</button>
+			</form>
+			<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+		}
+		<p><a href={ templ.SafeURL(resultURL) }>Back to this Book in Reading Journey</a></p>
+		</section>
+	}
 }

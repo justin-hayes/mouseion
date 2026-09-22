@@ -729,7 +729,7 @@ func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMa
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, preparation := range s.preps {
-		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.AnalysisRunID == analysisRunID {
+		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.AnalysisRunID == analysisRunID && preparation.GoalSnapshotID == "" && preparation.RetiredAt == nil {
 			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
 			return preparation, nil
 		}
@@ -1524,7 +1524,7 @@ func (PreparedDeck) Submit(_ context.Context, owner, analysisID string, _ bool) 
 	if analysisID == "fixture-route-match-run" {
 		sourceMaterialID = routeMatchBookID
 	}
-	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: PrepID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
+	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "fixture-submitted-" + analysisID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
 func (p PreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
 	sourceMaterialID := SourceID
@@ -1570,6 +1570,13 @@ func (p PreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPrepa
 			}
 		}
 	}
+	if analysisID, ok := strings.CutPrefix(id, "fixture-submitted-"); ok {
+		sourceMaterialID := SourceID
+		if analysisID == "fixture-route-match-run" {
+			sourceMaterialID = routeMatchBookID
+		}
+		return domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, nil
+	}
 	return fixturePreparationFor(owner, id), nil
 }
 func (p PreparedDeck) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
@@ -1593,8 +1600,14 @@ func (PreparedDeck) Retry(context.Context, string, string, bool) (prepareddeck.H
 func (PreparedDeck) Rerender(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{JobID: 10}, nil
 }
-func (PreparedDeck) Download(context.Context, string, string) (domain.DeckPreparation, error) {
-	return domain.DeckPreparation{ID: PrepID, State: domain.DeckPreparationReady, Artifact: []byte("fixture")}, nil
+func (p PreparedDeck) Download(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
+	preparation, err := p.Get(ctx, owner, id)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	preparation.State = domain.DeckPreparationReady
+	preparation.Artifact = []byte("fixture")
+	return preparation, nil
 }
 
 type Capabilities struct{}

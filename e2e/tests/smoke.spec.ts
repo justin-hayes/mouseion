@@ -109,6 +109,26 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Remove from Reading Journey', { exact: true })).toBeVisible();
   });
 
+  test('Journey books open the focused deck preparation task', async ({ page }) => {
+    await page.goto('/journey');
+    const card = page.locator('#journey-book-fixture-route-match');
+    const deckLink = card.getByRole('button', { name: /Prepare deck|View deck preparation/ }).first();
+    await expect(deckLink).toHaveAttribute('href', '/journey/books/fixture-route-match/deck/preparations/new');
+    await deckLink.click();
+
+    await expect(page).toHaveURL('/journey/books/fixture-route-match/deck/preparations/new');
+    await expect(page.getByRole('heading', { name: 'Deck preparation task', exact: true })).toBeVisible();
+    await expect(page.getByText('fixture-route-match-run', { exact: true })).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: /sending selected vocabulary/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to this Book in Reading Journey', exact: true })).toHaveAttribute('href', '/journey#journey-book-fixture-route-match');
+
+    const form = page.locator('form[action="/journey/books/fixture-route-match/deck/preparations"]');
+    await form.evaluate((element) => (element as HTMLFormElement).submit());
+    await expect(page).toHaveURL(/\/deck-preparations\/fixture-submitted-fixture-route-match-run\/status$/);
+    await expect(page.locator('#deck-preparation-status').getByText('Deck preparation queued', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', '/journey#journey-book-fixture-route-match');
+  });
+
   test('Journey entry keeps its own language without changing the active mode', async ({ page }) => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');

@@ -83,8 +83,8 @@ func TestDeckPreparationReturnURLUsesResolvedJourneyBookID(t *testing.T) {
 		action deckJourneyActionView
 		want   string
 	}{
-		{name: "journey member", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}, want: "/journey/book-1"},
-		{name: "primary goal", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyGoal}, want: "/journey/book-1"},
+		{name: "journey member", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}, want: "/journey#journey-book-book-1"},
+		{name: "primary goal", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyGoal}, want: "/journey#journey-book-book-1"},
 		{name: "unresolved", action: emptyDeckJourneyAction()},
 	}
 	for _, test := range tests {
@@ -103,7 +103,7 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJour
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyNotMember}
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)
-	assert.Equal(t, "/journey/book-1", got)
+	assert.Equal(t, "/journey#journey-book-book-1", got)
 
 	store.detail.Acquired.AnalysisState = "failed"
 	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)

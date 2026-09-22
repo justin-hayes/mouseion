@@ -342,3 +342,37 @@ func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T)
 	assert.NotContains(t, ineligibleCard, "Choose as Primary Goal")
 	assert.Contains(t, ineligibleCard, ineligible.GoalEligibilityReason)
 }
+
+func analyzedJourneyBookView(id string) journeyBookView {
+	item := testJourneyBook(id, "Analyzed "+id, "analyzed")
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision-" + id
+	item.Book.Source.ContentSnapshotID = "snapshot-" + id
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run-" + id
+	item.Book.CorpusID = "corpus-" + id
+	return item
+}
+
+func TestJourneyProvisionalBookExposesAnalysisBoundDeckActions(t *testing.T) {
+	missing := analyzedJourneyBookView("missing-deck")
+	ready := analyzedJourneyBookView("ready-deck")
+	ready.AnalysisPreparation = &domain.DeckPreparation{ID: "ready-prep", State: domain.DeckPreparationReady, TotalCards: 2}
+	active := analyzedJourneyBookView("active-deck")
+	active.AnalysisPreparation = &domain.DeckPreparation{ID: "active-prep", State: domain.DeckPreparationPreparing}
+	failed := analyzedJourneyBookView("failed-deck")
+	failed.AnalysisPreparation = &domain.DeckPreparation{ID: "failed-prep", State: domain.DeckPreparationFailed}
+	empty := analyzedJourneyBookView("empty-deck")
+	empty.AnalysisPreparation = &domain.DeckPreparation{ID: "empty-prep", State: domain.DeckPreparationReady}
+
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{missing, ready, active, failed, empty}}, "", "")
+	for _, want := range []string{
+		`href="/journey/books/missing-deck/deck/preparations/new"`,
+		`href="/deck-preparations/ready-prep/download"`,
+		`action="/deck-preparations/active-prep/cancel"`,
+		`href="/journey/books/failed-deck/deck/preparations/new"`,
+		"No recurring vocabulary",
+	} {
+		assert.Contains(t, html, want)
+	}
+}

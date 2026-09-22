@@ -19,28 +19,31 @@ import (
 )
 
 type journeyBookView struct {
-	Book                   domain.SourceMaterialSummary
-	BookID                 string
-	Position               int
-	JourneyRevision        int64
-	PrimaryGoal            bool
-	GoalReadingOnly        bool
-	GoalUnassessed         bool
-	GoalVocabularyEligible int
-	GoalSnapshotID         string
-	GoalSnapshotSize       int
-	GoalPreparation        *domain.DeckPreparation
-	GoalDeckMissing        bool
-	GoalDeckUnavailable    bool
-	CanMoveEarlier         bool
-	CanMoveLater           bool
-	CanChooseGoal          bool
-	GoalEligibilityReason  string
-	Coverage               *domain.AnalysisCoverage
-	StatisticsUnavailable  bool
-	Forecast               *domain.JourneyForecastEntry
-	ForecastHasGoal        bool
-	ForecastUnavailable    bool
+	Book                    domain.SourceMaterialSummary
+	BookID                  string
+	Position                int
+	JourneyRevision         int64
+	PrimaryGoal             bool
+	GoalReadingOnly         bool
+	GoalUnassessed          bool
+	GoalVocabularyEligible  int
+	GoalSnapshotID          string
+	GoalSnapshotSize        int
+	GoalPreparation         *domain.DeckPreparation
+	GoalDeckMissing         bool
+	GoalDeckUnavailable     bool
+	AnalysisPreparation     *domain.DeckPreparation
+	AnalysisDeckMissing     bool
+	AnalysisDeckUnavailable bool
+	CanMoveEarlier          bool
+	CanMoveLater            bool
+	CanChooseGoal           bool
+	GoalEligibilityReason   string
+	Coverage                *domain.AnalysisCoverage
+	StatisticsUnavailable   bool
+	Forecast                *domain.JourneyForecastEntry
+	ForecastHasGoal         bool
+	ForecastUnavailable     bool
 }
 
 func journeyBookClass(primary bool) string {
@@ -639,23 +642,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		book.GoalReadingOnly = book.GoalVocabularyEligible == 0
 		book.GoalSnapshotID = goal.SnapshotID
 		book.GoalSnapshotSize = goal.SnapshotSize
-		if goal.SnapshotSize > 0 {
-			book.GoalDeckUnavailable = true
-			if reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot); ok {
-				preparation, preparationErr := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
-				switch {
-				case preparationErr == nil:
-					book.GoalPreparation = &preparation
-					book.GoalDeckUnavailable = false
-				case errors.Is(preparationErr, persistence.ErrNotFound):
-					// The Goal remains visible while an unavailable artifact is
-					// retried through the exact snapshot identity.
-					book.GoalDeckMissing = true
-				default:
-					log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, goal.SnapshotID, preparationErr)
-				}
-			}
-		}
+		h.addGoalDeckPreparation(ctx, owner, &book, goal)
 		view.Goal = &book
 	}
 	for _, entry := range journey.Entries {
@@ -674,6 +661,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, err
 		}
 		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibility(book.Book)
+		h.addJourneyDeckPreparation(ctx, owner, &book)
 		view.Provisional = append(view.Provisional, book)
 	}
 	for i := range view.Provisional {
@@ -730,6 +718,59 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	}
 
 	return view, nil
+}
+
+func (h *Handler) addJourneyDeckPreparation(ctx context.Context, owner string, book *journeyBookView) {
+	if !bookHasCompletedAnalysis(book.Book) || h.services.PreparedDeck == nil {
+		return
+	}
+	reader, ok := h.services.PreparedDeck.(PreparedDeckForAnalysis)
+	if !ok {
+		book.AnalysisDeckUnavailable = true
+		return
+	}
+	preparation, err := reader.GetForAnalysis(ctx, owner, book.Book.Source.ID, book.Book.AnalysisRunID)
+	switch {
+	case errors.Is(err, persistence.ErrNotFound):
+		book.AnalysisDeckMissing = true
+	case err != nil:
+		log.Printf("mouseion: Journey deck unavailable for owner %s book %s: %v", owner, journeyBookID(*book), err)
+		book.AnalysisDeckUnavailable = true
+	default:
+		if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != book.Book.Source.ID || preparation.AnalysisRunID != book.Book.AnalysisRunID || preparation.GoalSnapshotID != "" {
+			log.Printf("mouseion: Journey deck provenance mismatch for owner %s book %s", owner, journeyBookID(*book))
+			book.AnalysisDeckUnavailable = true
+			break
+		}
+		book.AnalysisPreparation = &preparation
+	}
+}
+
+func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book *journeyBookView, goal domain.PrimaryGoal) {
+	if goal.SnapshotSize == 0 {
+		return
+	}
+	book.GoalDeckUnavailable = true
+	reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
+	if !ok {
+		return
+	}
+	preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
+	switch {
+	case err == nil:
+		if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != book.Book.Source.ID || preparation.AnalysisRunID != book.Book.AnalysisRunID || preparation.GoalSnapshotID != goal.SnapshotID {
+			log.Printf("mouseion: Goal deck provenance mismatch for owner %s snapshot %s", owner, goal.SnapshotID)
+			return
+		}
+		book.GoalPreparation = &preparation
+		book.GoalDeckUnavailable = false
+	case errors.Is(err, persistence.ErrNotFound):
+		// The Goal remains visible while an unavailable artifact is retried through
+		// the exact snapshot identity.
+		book.GoalDeckMissing = true
+	default:
+		log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, goal.SnapshotID, err)
+	}
 }
 
 func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (journeyBookView, error) {
