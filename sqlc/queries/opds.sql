@@ -27,3 +27,30 @@ RETURNING id::text, owner_id::text, name, url, username, password_encrypted, lan
 
 -- name: DeleteOpdsConnection :execrows
 DELETE FROM opds_connections WHERE owner_id = $1 AND id = $2;
+
+-- name: DeleteBookCoverCandidatesForConnection :exec
+DELETE FROM book_cover_candidates
+WHERE owner_id = sqlc.arg('owner_id') AND connection_id = sqlc.arg('connection_id');
+
+-- name: ResolveBookCoverAfterConnectionDeletion :exec
+UPDATE book_covers AS cover
+SET state = 'unavailable',
+    media_type = NULL,
+    width = NULL,
+    height = NULL,
+    content_hash = NULL,
+    bytes = NULL,
+    fetched_at = NULL,
+    failure_reason = 'cover retrieval source was deleted',
+    updated_at = now()
+WHERE cover.owner_id = sqlc.arg('owner_id')
+  AND cover.state = 'pending'
+  AND cover.selected_connection_id = sqlc.arg('connection_id')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM book_cover_candidates AS candidate
+      WHERE candidate.owner_id = cover.owner_id
+        AND candidate.book_id = cover.book_id
+        AND candidate.advertised_at = cover.advertised_at
+        AND candidate.state = 'pending'
+  );

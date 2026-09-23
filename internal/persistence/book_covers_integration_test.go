@@ -231,6 +231,47 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	assert.Equal(t, first.ID, recovered.SelectedConnectionID)
 }
 
+func TestBookCoverPendingConnectionDeletionDoesNotStrandGeneration(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "deleted candidate cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "deleted-candidate-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+	firstBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-first", "First book", "", "de")
+	require.NoError(t, err)
+	secondBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-second", "Second book", "", "de")
+	require.NoError(t, err)
+
+	_, firstAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, firstBook.Book.ID, first.ID, "entry-first", true)
+	require.NoError(t, err)
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, firstBook.Book.ID, second.ID, "entry-first-fallback", true)
+	require.NoError(t, err)
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, secondBook.Book.ID, first.ID, "entry-second", true)
+	require.NoError(t, err)
+
+	require.NoError(t, store.DeleteOpdsConnection(ctx, owner.ID, first.ID))
+	pending, err := store.GetBookCoverForRetrieval(ctx, owner.ID, firstBook.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, pending.State)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, firstBook.Book.ID, second.ID, "entry-first-fallback", firstAt, "image/png", 4, 6, "fallback", []byte("fallback-image")))
+	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, firstBook.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Equal(t, second.ID, recovered.SelectedConnectionID)
+
+	unavailable, err := store.GetBookCoverForRetrieval(ctx, owner.ID, secondBook.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverUnavailable, unavailable.State)
+	assert.Equal(t, "cover retrieval source was deleted", unavailable.FailureReason)
+}
+
 func TestBookCoverStaleRetrievalCompletionsAreIgnored(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
