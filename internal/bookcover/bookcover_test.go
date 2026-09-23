@@ -64,6 +64,27 @@ func TestNormalizePNGPreservesAspectRatioAndDoesNotUpscale(t *testing.T) {
 	}
 }
 
+func TestNormalizeAcceptsMatchingMediaTypeClaims(t *testing.T) {
+	raw := encodePNG(t, solidImage(2, 3, color.NRGBA{B: 255, A: 255}))
+
+	_, mediaType, _, _, _, err := Normalize(raw, " IMAGE/PNG ; charset=binary ", "image/png; charset=utf-8")
+	if err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
+	if mediaType != "image/png" {
+		t.Fatalf("Normalize() media type = %q, want image/png", mediaType)
+	}
+}
+
+func TestNormalizeRejectsAnyDisagreeingMediaTypeClaim(t *testing.T) {
+	raw := encodePNG(t, solidImage(2, 3, color.NRGBA{B: 255, A: 255}))
+
+	_, _, _, _, _, err := Normalize(raw, "image/png", "image/jpeg")
+	if !errors.Is(err, ErrMediaTypeMismatch) {
+		t.Fatalf("Normalize() error = %v, want %v", err, ErrMediaTypeMismatch)
+	}
+}
+
 func TestNormalizeRejectsInvalidCover(t *testing.T) {
 	validPNG := encodePNG(t, solidImage(2, 3, color.NRGBA{B: 255, A: 255}))
 	animatedPNG := insertPNGChunk(validPNG, []byte("acTL"), make([]byte, 8))
