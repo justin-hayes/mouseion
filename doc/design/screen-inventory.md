@@ -1,7 +1,7 @@
 # Screen inventory
 
-Status: **Canonical shipped learner-facing screen contract plus accepted,
-not-yet-shipped Book-cover target.** ADR 0074 ships the consolidated Reading
+Status: **Canonical shipped learner-facing screen contract, including Book-cover
+behavior.** ADR 0074 ships the consolidated Reading
 Journey Book surface and assigns deck work to the focused preparation task. ADR
 0072 continues to own the Goal snapshot and forecast semantics described below.
 It includes the
@@ -71,18 +71,16 @@ is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Find a Book by bibliographic identity and understand its Goal/Journey relationship and trustworthy evidence state. | Reading Journey, Catalogs, or Add to Reading Journey | Empty collection with no connections, metadata-only Book, search/filter empty, Primary Goal, in Journey, outside Journey, unassessed, stale/questionable evidence, cannot currently assess, analysis queued/running/failed/complete, reading finished, long/missing metadata |
-| My Books collection browser | Shipped search/paging in `GET /library`; accepted cover-grid target not implemented | Recognize and find a Book in the active language's collection by cover or bibliographic identity and understand whether it is in Reading Journey. | Add to Reading Journey, View in Reading Journey, or clear/revise controls | Scoped to the active study language (no "All languages"), valid cover, no cover, initial retrieval pending, replacement pending, cover unavailable, in/out of Journey, needs-language text list, scoped search, paging, no match, later page removed, long content, enhancement unavailable |
-| Reading Journey book anchor | Embedded in `GET /journey`; `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, Journey/Goal relationship, current evidence, forecast, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Journey actions | Current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, reading and Goal state |
+| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection and understand whether it is in Reading Journey. | Add to Reading Journey, View in Reading Journey, Catalogs, Refresh metadata, or Remove from My Books | Empty collection with no connections, metadata-only Book, valid cover, no cover, retrieval pending, replacement pending, cover unavailable, in/out of Journey, needs-language text list, scoped search, paging, no match, later page removed, long content, enhancement unavailable |
+| Reading Journey book anchor | Embedded in `GET /journey`; `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, supporting cover thumbnail, Journey/Goal relationship, current evidence, forecast, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Journey actions | Valid, missing, pending, unavailable, or retained replacement cover; current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, reading and Goal state |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Reading Journey when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Reading Journey | Empty history, mixed states, historical/legacy records |
 | Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the canonical Book anchor. | Reading Journey anchor for members; 404 otherwise | Valid owned member/run redirect, non-member or incomplete result, missing or unauthorized reference |
 | Deck preparation | Focused `GET /journey/books/{bookID}/deck/preparations/new`; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to the Reading Journey anchor | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
 
 My Books is the canonical home and a moderately dense bibliographic catalog.
-The shipped surface uses rows led by title and author. The accepted
-[Book Covers](../features/book-covers.md) target instead lets the cover lead a
-responsive grid while title and author remain visible beneath it. My Books then
+The shipped [Book Covers](../features/book-covers.md) surface uses a responsive
+grid led by the cover while title and author remain visible beneath it. My Books
 communicates only Reading Journey membership; Primary Goal and analysis evidence
 remain concerns of Reading Journey. Generic large cards and metric-first sorting
 are not the default.
@@ -132,7 +130,7 @@ The Reading Journey is an ordered semantic list. The Primary Goal is anchored
 above the provisional books. The learner's order remains canonical. Current,
 after-Goal, and on-arrival coverage are clearly labeled evidence; unavailable
 predecessors make downstream values lower bounds rather than fabricated zeros.
-The accepted Book Covers target reserves one modest aligned thumbnail for the
+The shipped Book Covers experience reserves one modest aligned thumbnail for the
 Primary Goal and every provisional item without changing this hierarchy.
 
 Visible **Move earlier** and **Move later** controls are required. Drag may
@@ -181,7 +179,7 @@ learner-facing screen.
 - Shipped navigation is **My Books** / **Reading Journey** / **Vocabulary** /
   **Catalogs**; historical **My Library**, **Learning**, queue, and learner-facing
   Campaign labels remain only as compatibility fallbacks/redirects and are not
-  the accepted target IA.
+  part of the canonical IA.
 - Enrichment, deck-preparation, import, and recalculation status endpoints are
   supporting asynchronous resources, not global destinations.
 - HTMX fragments and JSON responses must have a coherent parent screen and must

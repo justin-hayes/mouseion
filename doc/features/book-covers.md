@@ -1,6 +1,6 @@
 # Book Covers
 
-Status: **My Books cover grid and Reading Journey thumbnails implemented** · Date:
+Status: **Implemented** · Date:
 2026-09-23
 
 ## Motivation
@@ -73,19 +73,26 @@ browse or mutate the active-language collection.
 - Catalog reconciliation records advertised cover provenance and schedules
   cover retrieval independently. Catalog sync does not wait for every image and
   does not fail because an optional cover could not be retrieved.
+- Retrieval completion is conditional on the current cover source: a stale
+  success or failure cannot restore an explicitly absent source, replace a
+  newer fallback, or change its presentation state or diagnostics.
 - Retrieval uses the same owner-scoped connection credentials, origin
   restrictions, and redirect safety as other OPDS requests. Catalog URLs and
   credentials are never exposed to the browser.
 - Initial retrieval accepts only content-sniffed JPEG and PNG raster images. It
   reads at most 8 MiB, rejects images above 40 megapixels, and rejects SVG,
-  animated images, unsupported formats, malformed files, and mismatches between
-  advertised and decoded media.
+  animated images, unsupported formats, malformed files, and media-type claims
+  that disagree. When supplied, the OPDS declaration, response `Content-Type`,
+  and decoded media type must agree after normalization; omitted optional claims
+  remain acceptable for valid JPEG or PNG content.
 - Mouseion preserves aspect ratio, does not upscale, and normalizes the selected
   cover to a JPEG or PNG no larger than 600 by 900 pixels. It retains that one
   display raster, not an unlimited original or append-only image history.
 - Cover bytes live in PostgreSQL and are excluded from ordinary Book list and
   evidence projections. A dedicated authenticated, owner-scoped endpoint loads
-  and serves bytes only for an authorized Book.
+  and serves bytes only for an active My Books member. Missing, unavailable,
+  removed-from-view, and cross-owner references all return the same not-found
+  response; conditional requests are evaluated only after authorization.
 - The image response supplies intrinsic dimensions, a content-derived validator,
   and private browser caching. Cross-owner and missing references reveal no Book
   or Catalog metadata.

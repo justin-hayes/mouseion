@@ -150,7 +150,7 @@ Use when peer content and actions no longer fit comfortably side by side.
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.
 
-The accepted My Books cover-grid target keeps ordinary document order and uses
+The shipped My Books cover grid keeps ordinary document order and uses
 two columns at typical compact widths, reducing columns when long content or
 zoom makes that necessary. It never introduces horizontal page scrolling or an
 ARIA-grid keyboard model. Reading Journey keeps its ordered-list structure and

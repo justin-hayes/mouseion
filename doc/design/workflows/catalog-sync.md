@@ -78,10 +78,10 @@ search and paging are scoped to it, and there is no "All languages" default.
 Books awaiting a language appear only through an out-of-band **needs language**
 strip. This is the
 [My Books Collection Browsing](../../features/collection-browsing.md) contract,
-not OPDS search. The accepted, not-yet-shipped
-[Book Covers](../../features/book-covers.md) target lets the cover lead visually
-while title and author remain visible, and leaves analysis evidence to Reading
-Journey. The language is carried by the page heading, not repeated per item.
+not OPDS search. The shipped [Book Covers](../../features/book-covers.md)
+experience lets the cover lead visually while title and author remain visible,
+and leaves analysis evidence to Reading Journey. The language is carried by the
+page heading, not repeated per item.
 
 ### 4. Add a metadata-only Book and acquire content lazily
 
