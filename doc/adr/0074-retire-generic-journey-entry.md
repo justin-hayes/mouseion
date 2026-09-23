@@ -18,9 +18,12 @@ bookmarks ambiguous.
   relationship, current evidence, forecast, and evidence recovery actions.
 - `GET /journey/{bookID}` remains a compatibility bookmark. It enforces the
   existing owner, Book-language, Journey-membership, current completed-analysis,
-  and evidence-reachability checks, then returns `303 See Other` to
-  `/journey#journey-book-{bookID}`. Invalid, unauthorized, non-member, and
-  unreachable Books return 404 and do not render a generic page.
+  and evidence-reachability checks, then returns `303 See Other` to the canonical
+  `/journey#journey-book-{bookID}` anchor when that language is active. For a
+  Book in another study language, it returns the explicit language-handoff URL
+  for that same anchor instead of changing the active language. Invalid,
+  unauthorized, non-member, and unreachable Books return 404 and do not render
+  a generic page.
 - Exact-analysis compatibility URLs, completed operational analysis links, and
   other retained Book references resolve to the same Reading Journey anchor.
 - Deck preparation is owned by the focused preparation task and its status,

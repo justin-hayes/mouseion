@@ -56,6 +56,26 @@ func TestJourneyDeckPreparationPageRepreparesReadyGoalDeckBySnapshot(t *testing.
 	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-reprepare/retry"`)
 }
 
+func TestGoalDeckPreparationStatusRetriesBySnapshot(t *testing.T) {
+	var output bytes.Buffer
+	preparation := domain.DeckPreparation{ID: "goal-prep-failed", State: domain.DeckPreparationFailed}
+	require.NoError(t, GoalDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `action="/goal/books/book-goal/deck/retry"`)
+	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="snapshot-goal"`)
+	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-failed/retry"`)
+}
+
+func TestGoalDeckPreparationStatusCancelsBySnapshot(t *testing.T) {
+	var output bytes.Buffer
+	preparation := domain.DeckPreparation{ID: "goal-prep-active", State: domain.DeckPreparationPreparing}
+	require.NoError(t, GoalDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `action="/goal/books/book-goal/deck/cancel"`)
+	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="snapshot-goal"`)
+	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-active/cancel"`)
+}
+
 func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 	tests := []struct {
 		name     string

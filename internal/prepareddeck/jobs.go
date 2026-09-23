@@ -152,6 +152,8 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 	source := analysis.Source
 	deckName := cardexport.DeckName(source.Language, source.Title)
 	filename := cardexport.DownloadFilename(source.Title)
+	var p domain.DeckPreparation
+	var created bool
 	if goalSnapshotID != "" {
 		bookID, bookErr := sqlcBookForSource(ctx, tx, owner, source.ID)
 		if bookErr != nil {
@@ -160,16 +162,33 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 		if bookID == "" {
 			return Handle{}, ErrAnalysisUnavailable
 		}
+		if _, lockErr := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); lockErr != nil {
+			return Handle{}, lockErr
+		}
 		if snapshotErr := validateGoalSnapshot(ctx, tx, owner, goalSnapshotID, source.ID, analysis.RunID); snapshotErr != nil {
 			return Handle{}, snapshotErr
 		}
-		if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
-			return Handle{}, err
+		p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE`, owner, goalSnapshotID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
+				return Handle{}, err
+			}
+			p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, GoalSnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
+		} else if err == nil && (p.SourceMaterialID != source.ID || p.AnalysisRunID != analysis.RunID) {
+			return Handle{}, persistence.ErrInvalidTransition
 		}
+	} else {
+		p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
 	}
-	p, created, err := persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, GoalSnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
 	if err != nil {
 		return Handle{}, err
+	}
+	if goalSnapshotID == "" && p.GoalSnapshotID != "" {
+		return Handle{}, persistence.ErrInvalidTransition
+	}
+	if p.GoalSnapshotID != "" {
+		// Goal snapshots are always prepared locally.
+		consent = false
 	}
 	p, jobID, err := s.ensurePreparationJob(ctx, tx, p, consent)
 	if err != nil {
@@ -192,18 +211,17 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 }
 
 func validateGoalSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID, sourceMaterialID, analysisRunID string) error {
-	var valid bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(
-		SELECT 1 FROM primary_goal_snapshots
+	var lockedSnapshotID string
+	err := tx.QueryRow(ctx, `SELECT id::text FROM primary_goal_snapshots
 		WHERE owner_id=$1 AND id=$2::uuid
 		  AND source_material_id=$3::uuid AND analysis_run_id=$4::uuid
 		  AND released_at IS NULL
-	)`, owner, snapshotID, sourceMaterialID, analysisRunID).Scan(&valid)
-	if err != nil {
-		return fmt.Errorf("%w: Goal snapshot is unavailable", ErrAnalysisUnavailable)
-	}
-	if !valid {
+		FOR UPDATE`, owner, snapshotID, sourceMaterialID, analysisRunID).Scan(&lockedSnapshotID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w: Goal snapshot does not match the completed analysis", ErrAnalysisUnavailable)
+	}
+	if err != nil || lockedSnapshotID != snapshotID {
+		return fmt.Errorf("%w: Goal snapshot is unavailable", ErrAnalysisUnavailable)
 	}
 	return nil
 }
@@ -214,6 +232,30 @@ func sqlcBookForSource(ctx context.Context, tx pgx.Tx, owner, sourceMaterialID s
 		return "", persistence.ErrNotFound
 	}
 	return bookID, err
+}
+
+func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) (domain.DeckPreparation, error) {
+	candidate, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.DeckPreparation{}, persistence.ErrNotFound
+	}
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	bookID, err := sqlcBookForSource(ctx, tx, owner, candidate.SourceMaterialID)
+	if err != nil {
+		return domain.DeckPreparation{}, err
+	}
+	if bookID != "" {
+		if _, err = sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+	}
+	preparation, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.DeckPreparation{}, persistence.ErrNotFound
+	}
+	return preparation, err
 }
 
 func sqlcRetireDeckPreparationsForBook(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
@@ -336,6 +378,12 @@ func (s *Service) Reconcile(ctx context.Context, owner, id string) (result domai
 	if err != nil {
 		return domain.DeckPreparation{}, err
 	}
+	if p.RetiredAt != nil {
+		if err = tx.Commit(ctx); err != nil {
+			return domain.DeckPreparation{}, err
+		}
+		return p, nil
+	}
 	p, _, err = s.ensurePreparationJob(ctx, tx, p, false)
 	if err != nil {
 		p, err = markPreparationFailedTx(ctx, tx, owner, id, fmt.Sprintf("could not enqueue preparation: %v", err))
@@ -371,10 +419,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (result Handle
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Handle{}, persistence.ErrNotFound
-	}
+	p, err := lockPreparationForUpdate(ctx, tx, owner, id)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -468,10 +513,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, id))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Handle{}, persistence.ErrNotFound
-	}
+	p, err := lockPreparationForUpdate(ctx, tx, owner, id)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -482,7 +524,11 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 		// A repeated submission may still point at the superseded preparation.
 		// Resolve the current exact analysis so recovery is idempotent without
 		// mutating or reusing the historical artifact.
-		p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1`, owner, p.SourceMaterialID, p.AnalysisRunID))
+		if p.GoalSnapshotID == "" {
+			p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND goal_snapshot_id IS NULL AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, p.SourceMaterialID, p.AnalysisRunID))
+		} else {
+			p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND goal_snapshot_id=$4::uuid AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, p.SourceMaterialID, p.AnalysisRunID, p.GoalSnapshotID))
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Handle{}, persistence.ErrInvalidTransition
 		}
@@ -521,6 +567,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 		if !created {
 			return Handle{}, errors.New("re-preparation did not create a new specification")
 		}
+		id = p.ID
 	} else if p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
 		previousState := p.State
 		p, err = scanPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state='queued',error='',current_run_id=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+preparationColumns, owner, id))

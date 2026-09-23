@@ -39,6 +39,9 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "service-book", Title: "A Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
 	require.NoError(t, err)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
 	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	analysisService := analysis.NewService(store.Pool(), analysisRiver)
@@ -54,6 +57,8 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	_, err = store.Pool().Exec(ctx, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, analysisHandle.RunID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner.ID, corpusID, analysisHandle.RunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisHandle.RunID)
 	require.NoError(t, err)
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
@@ -173,6 +178,91 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	newArtifact, err := service.Download(ctx, owner.ID, reprepared.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("new-artifact"), newArtifact.Artifact)
+
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
+	require.NoError(t, err)
+	firstGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	var goalSubmissions sync.WaitGroup
+	goalResults := make(chan Handle, 8)
+	goalErrors := make(chan error, 8)
+	startGoalSubmissions := make(chan struct{})
+	for range 8 {
+		goalSubmissions.Add(1)
+		go func() {
+			defer goalSubmissions.Done()
+			<-startGoalSubmissions
+			result, submitErr := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
+			if submitErr != nil {
+				goalErrors <- submitErr
+				return
+			}
+			goalResults <- result
+		}()
+	}
+	close(startGoalSubmissions)
+	goalSubmissions.Wait()
+	close(goalResults)
+	close(goalErrors)
+	for submitErr := range goalErrors {
+		assert.NoError(t, submitErr, "concurrent Goal submission") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
+	}
+	var firstGoalPreparation Handle
+	for result := range goalResults {
+		if firstGoalPreparation.Preparation.ID == "" {
+			firstGoalPreparation = result
+		}
+		assert.Equal(t, firstGoalPreparation.Preparation.ID, result.Preparation.ID)
+		assert.Equal(t, firstGoalPreparation.JobID, result.JobID)
+	}
+	require.NotEmpty(t, firstGoalPreparation.Preparation.ID)
+	_, err = service.Submit(ctx, owner.ID, analysisID, true)
+	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "generic submission must not reuse an active Goal preparation")
+	require.NoError(t, store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID))
+	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
+	require.NoError(t, err)
+	require.NotNil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot retires its preparation")
+	genericPreparation, err := service.Submit(ctx, owner.ID, analysisID, true)
+	require.NoError(t, err)
+	assert.Empty(t, genericPreparation.Preparation.GoalSnapshotID, "generic submission reused a released Goal preparation")
+	assert.NotEqual(t, firstGoalPreparation.Preparation.ID, genericPreparation.Preparation.ID)
+	secondGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	blockingClient := &blockingRiverClient{client: service.client, inserted: make(chan struct{}), release: make(chan struct{})}
+	service.client = blockingClient
+	submitted := make(chan Handle, 1)
+	submitErrors := make(chan error, 1)
+	go func() {
+		result, submitErr := service.SubmitForGoal(ctx, owner.ID, analysisID, secondGoal.SnapshotID)
+		submitted <- result
+		submitErrors <- submitErr
+	}()
+	select {
+	case <-blockingClient.inserted:
+	case <-ctx.Done():
+		require.FailNow(t, "Goal submission did not reach River insertion", ctx.Err())
+	}
+	cleared := make(chan error, 1)
+	go func() {
+		cleared <- store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	}()
+	select {
+	case clearErr := <-cleared:
+		require.FailNow(t, "Goal clear did not wait for snapshot-bound submission", clearErr)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(blockingClient.release)
+	secondGoalPreparation := <-submitted
+	require.NoError(t, <-submitErrors)
+	require.NoError(t, <-cleared)
+	retiredSecondGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
+	require.NoError(t, err)
+	require.NotNil(t, retiredSecondGoalPreparation.RetiredAt, "Goal clear left a concurrent snapshot-bound preparation current")
+
+	_, err = service.Retry(ctx, owner.ID, firstGoalPreparation.Preparation.ID, false)
+	assert.ErrorIs(t, err, persistence.ErrInvalidTransition, "a retired preparation must not resolve across Goal snapshots")
 }
 
 func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
@@ -207,6 +297,16 @@ func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationFailed, got.State)
 	assert.Equal(t, orphanedPreparationError, got.Error)
+	retired, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "retired.apkg", DeckName: "retired", ContentHash: "retired-hash"})
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET retired_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, retired.ID)
+	require.NoError(t, err)
+	got, err = service.Get(ctx, owner.ID, retired.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.RetiredAt)
+	var retiredJobs int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (JobArgs{}).Kind(), retired.ID).Scan(&retiredJobs))
+	assert.Zero(t, retiredJobs, "reconciliation enqueued a retired preparation")
 	var historyCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='prepared_deck' AND details->>'preparation_id'=$2`, owner.ID, preparing.ID).Scan(&historyCount))
 	assert.NotZero(t, historyCount, "reconciliation history")
@@ -233,6 +333,27 @@ func (c *unconfirmedRiverClient) InsertTx(ctx context.Context, tx pgx.Tx, args r
 }
 
 func (c *unconfirmedRiverClient) JobCancel(ctx context.Context, id int64) (*rivertype.JobRow, error) {
+	return c.client.JobCancel(ctx, id)
+}
+
+type blockingRiverClient struct {
+	client   riverClient
+	inserted chan struct{}
+	release  chan struct{}
+}
+
+func (c *blockingRiverClient) InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	result, err := c.client.InsertTx(ctx, tx, args, opts)
+	close(c.inserted)
+	select {
+	case <-c.release:
+		return result, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (c *blockingRiverClient) JobCancel(ctx context.Context, id int64) (*rivertype.JobRow, error) {
 	return c.client.JobCancel(ctx, id)
 }
 

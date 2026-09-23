@@ -3,14 +3,26 @@ package webapp
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type repreparingPreparedDeck struct {
+	fixtures.PreparedDeck
+}
+
+func (repreparingPreparedDeck) Retry(context.Context, string, string, bool) (prepareddeck.Handle, error) {
+	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
+}
 
 func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{
@@ -74,24 +86,20 @@ func TestPreparationResponseSurfacesUnrecoverableRenderInputs(t *testing.T) {
 	})
 
 	assert.Equal(t, domain.DeckPreparationRequiresRepreparationError, response.Error)
+	assert.False(t, response.Ready)
 	assert.Empty(t, response.DownloadURL)
 }
 
-func TestDeckPreparationReturnURLUsesResolvedJourneyBookID(t *testing.T) {
-	tests := []struct {
-		name   string
-		action deckJourneyActionView
-		want   string
-	}{
-		{name: "journey member", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}, want: "/journey#journey-book-book-1"},
-		{name: "primary goal", action: deckJourneyActionView{BookID: "book-1", State: deckJourneyGoal}, want: "/journey#journey-book-book-1"},
-		{name: "unresolved", action: emptyDeckJourneyAction()},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, preparationReturnURL(test.action), test.name)
-		})
-	}
+func TestReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
+	h, cookies, csrf, _ := goalFixtureSession(t)
+	requireHandler(t, h).services.PreparedDeck = repreparingPreparedDeck{}
+
+	response := goalRequest(t, h, "/deck-preparations/old-preparation/retry", url.Values{
+		"csrf_token": {csrf},
+	}, cookies)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/deck-preparations/new-preparation/status", response.Header().Get("Location"))
 }
 
 func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJourney(t *testing.T) {
@@ -104,6 +112,11 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJour
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)
 	assert.Equal(t, "/journey#journey-book-book-1", got)
+
+	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{ActiveLanguage: "it"})
+	got, err = h.reachablePreparationReturnURL(crossLanguageContext, "owner-1", action)
+	require.NoError(t, err)
+	assert.Equal(t, journeyLanguageHandoffURL("book-1", "de"), got)
 
 	store.detail.Acquired.AnalysisState = "failed"
 	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)

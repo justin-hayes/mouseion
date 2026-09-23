@@ -33,7 +33,7 @@ ORDER BY book_title, book_id;
 -- name: BrowseMyBooksEvidence :many
 SELECT * FROM my_books_evidence
 WHERE book_owner_id = sqlc.arg('owner')
-  AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
+  AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
   AND (
     sqlc.arg('language')::text = ''
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
@@ -45,7 +45,7 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 -- name: CountMyBooksFiltered :one
 SELECT count(*) FROM my_books_evidence
 WHERE book_owner_id = sqlc.arg('owner')
-  AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
+  AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
   AND (
     sqlc.arg('language')::text = ''
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')

@@ -35,6 +35,9 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	create(alice.ID, "German Upper", domain.LanguageChosen, "DE", domain.MetadataProvenanceCatalogueSync)
 	create(alice.ID, "German Lower", domain.LanguageChosen, "de", domain.MetadataProvenanceCatalogueSync)
 	metadataDampf := create(alice.ID, "Metadata Donaudampf", domain.LanguageUnknown, "", domain.MetadataProvenanceCatalogueSync)
+	authorBook := create(alice.ID, "The Lost Daughter", domain.LanguageChosen, "it", domain.MetadataProvenanceCatalogueSync)
+	_, err = store.UpdateBookMetadata(ctx, alice.ID, authorBook.ID, authorBook.Title, "Elena Ferrante", authorBook.LanguageState, authorBook.LanguageTag)
+	require.NoError(t, err)
 	acquiredSource := putBookSource(t, ctx, store, alice.ID, "browse-acquired", "Acquired Donaudampf", []byte("browse-content"), "browse content")
 	acquiredID, err := store.ResolveOrCreateBookForAcquisition(ctx, alice.ID, acquiredSource.SourceIdentifier, acquiredSource.Language, acquiredSource.Title)
 	require.NoError(t, err)
@@ -51,7 +54,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, result.Total)
 	assert.Equal(t, 2, len(result.Items))
-	assert.Equal(t, 33, result.AllCount)
+	assert.Equal(t, 34, result.AllCount)
 	for _, item := range result.Items {
 		assert.Equal(t, alice.ID, item.Book.OwnerID, "cross-owner item leaked: %+v", item)
 	}
@@ -60,6 +63,10 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, literal.Total)
 	assert.Equal(t, percent.ID, literal.Items[0].Book.ID, "LIKE wildcard was not literal")
+	authorResult, err := store.ListMyBooksBrowse(ctx, alice.ID, "ferrante", "", 0, 25)
+	require.NoError(t, err)
+	require.Len(t, authorResult.Items, 1)
+	assert.Equal(t, authorBook.ID, authorResult.Items[0].Book.ID)
 
 	deResult, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "DE", 0, 25)
 	require.NoError(t, err)
@@ -68,7 +75,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	assert.Equal(t, "de", deResult.Counts[0].Tag)
 	assert.Equal(t, 3, deResult.Counts[0].Count)
 	assert.Equal(t, "it", deResult.Counts[1].Tag)
-	assert.Equal(t, 26, deResult.Counts[1].Count)
+	assert.Equal(t, 27, deResult.Counts[1].Count)
 	assert.Equal(t, "unknown", deResult.Counts[2].Tag)
 	assert.Equal(t, 4, deResult.Counts[2].Count)
 	unknown, err := store.ListMyBooksBrowse(ctx, alice.ID, "Donaudampf", domain.LanguageUnknown, 0, 25)
@@ -78,8 +85,8 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 
 	page, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "", 25, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 33, page.Total)
-	assert.Equal(t, 8, len(page.Items), "page slice")
+	assert.Equal(t, 34, page.Total)
+	assert.Equal(t, 9, len(page.Items), "page slice")
 	tieIDs := []string{tieA.ID, tieB.ID}
 	orderedTies, err := store.ListMyBooksBrowse(ctx, alice.ID, "Same title", "", 0, 25)
 	require.NoError(t, err)
@@ -91,8 +98,8 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	remaining, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "", 0, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 32, remaining.AllCount)
-	assert.Equal(t, 32, remaining.Total)
+	assert.Equal(t, 33, remaining.AllCount)
+	assert.Equal(t, 33, remaining.Total)
 	assert.False(t, strings.Contains(fmt.Sprint(remaining.Items), percent.ID), "removed membership remained in browse")
 }
 

@@ -62,9 +62,10 @@ search surface.
   turns the collection into a metric-led dashboard.
 - Missing author or edition/year is stated or omitted without inventing
   metadata.
-- Choosing an analyzed Journey member opens `/journey/{bookID}`. Metadata-only
-  and otherwise incomplete Books remain operable from their rows through
-  Journey membership and catalog actions; they have no detail page.
+- Choosing an analyzed Journey member opens its canonical
+  `/journey#journey-book-{bookID}` anchor. Metadata-only and otherwise
+  incomplete Books remain operable from their rows through Journey membership
+  and catalog actions; they have no detail page.
 - The list does not expose batch-select-then-analyze behavior.
 
 ### Progressive enhancement and accessibility
@@ -113,8 +114,8 @@ search surface.
   their state in navigable URLs.
 - Search covers the active language's local collection and performs no OPDS
   request.
-- Analyzed Journey-member rows link to `/journey/{bookID}`; other rows do not
-  link to a detail page.
+- Analyzed Journey-member rows link to their canonical Reading Journey anchor;
+  other rows do not link to a detail page.
 - Empty, no-match, needs-language, and paging-boundary states are distinct.
 - The full workflow is keyboard-operable and usable without JavaScript; HTMX
   enhancement preserves focus, announcements, and URL meaning.

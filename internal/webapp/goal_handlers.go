@@ -10,6 +10,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 // goalSectionView is the server-truth fragment returned after an HTMX Goal
@@ -27,6 +28,7 @@ const (
 	goalIneligibleMessage       = "This book must be an active Reading Journey member with a successfully completed current analysis before it can become a Primary Goal."
 	goalLanguageRequiredMessage = "Choose a study language before setting a Primary Goal."
 	goalDeckRetryMessage        = "Deck preparation retry queued."
+	goalDeckCancelledMessage    = "Deck preparation cancelled."
 	goalDeckUnavailableMessage  = "The Goal deck is unavailable. The Primary Goal and its frozen snapshot remain unchanged; retry preparation when ready."
 )
 
@@ -189,23 +191,8 @@ func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r).ID
-	language, _ := activeStudyLanguageForContext(r.Context())
-	if language == "" {
-		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
-		return
-	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if !goal.IsActive() || goal.BookID != strings.TrimSpace(r.PathValue("id")) {
-		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
-		return
-	}
-	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
-	if expectedSnapshotID == "" || goal.SnapshotID != expectedSnapshotID {
-		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+	goal, ok := h.currentPrimaryGoalForDeckAction(w, r, owner)
+	if !ok {
 		return
 	}
 	if goal.SnapshotSize == 0 {
@@ -216,12 +203,89 @@ func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
 		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
 		return
 	}
-	if _, err = h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, goal.AnalysisRunID, goal.SnapshotID); err != nil {
-		log.Printf("primary goal deck retry owner=%s language=%s book=%s: %v", owner, language, goal.BookID, err)
+	_, err := h.submitOrRetryGoalDeck(r.Context(), owner, goal)
+	if err != nil {
+		log.Printf("primary goal deck retry owner=%s book=%s: %v", owner, goal.BookID, err)
 		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
 		return
 	}
 	h.respondGoal(w, r, goalDeckRetryMessage, "", goal.BookID)
+}
+
+func (h *Handler) cancelPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	goal, ok := h.currentPrimaryGoalForDeckAction(w, r, owner)
+	if !ok {
+		return
+	}
+	reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
+	if !ok {
+		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
+		return
+	}
+	preparation, err := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID)
+	if err != nil || !goalPreparationMatches(preparation, owner, goal) {
+		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
+			log.Printf("primary goal deck cancel lookup owner=%s book=%s: %v", owner, goal.BookID, err)
+		}
+		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
+		return
+	}
+	if _, err = h.services.PreparedDeck.Cancel(r.Context(), owner, preparation.ID); err != nil {
+		log.Printf("primary goal deck cancel owner=%s book=%s: %v", owner, goal.BookID, err)
+		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
+		return
+	}
+	h.respondGoal(w, r, goalDeckCancelledMessage, "", goal.BookID)
+}
+
+func (h *Handler) currentPrimaryGoalForDeckAction(w http.ResponseWriter, r *http.Request, owner string) (domain.PrimaryGoal, bool) {
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if language == "" {
+		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
+		return domain.PrimaryGoal{}, false
+	}
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return domain.PrimaryGoal{}, false
+	}
+	if !goal.IsActive() || goal.BookID != strings.TrimSpace(r.PathValue("id")) {
+		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+		return domain.PrimaryGoal{}, false
+	}
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
+	if expectedSnapshotID == "" || goal.SnapshotID != expectedSnapshotID {
+		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+		return domain.PrimaryGoal{}, false
+	}
+	return goal, true
+}
+
+func (h *Handler) submitOrRetryGoalDeck(ctx context.Context, owner string, goal domain.PrimaryGoal) (prepareddeck.Handle, error) {
+	if reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot); ok {
+		preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
+		switch {
+		case err == nil:
+			if !goalPreparationMatches(preparation, owner, goal) {
+				return prepareddeck.Handle{}, persistence.ErrInvalidTransition
+			}
+			return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID, false)
+		case !errors.Is(err, persistence.ErrNotFound):
+			return prepareddeck.Handle{}, err
+		}
+	}
+	return h.services.PreparedDeck.SubmitForGoal(ctx, owner, goal.AnalysisRunID, goal.SnapshotID)
+}
+
+func goalPreparationMatches(preparation domain.DeckPreparation, owner string, goal domain.PrimaryGoal) bool {
+	return (preparation.OwnerID == "" || preparation.OwnerID == owner) &&
+		preparation.SourceMaterialID == goal.SourceMaterialID &&
+		preparation.AnalysisRunID == goal.AnalysisRunID &&
+		preparation.GoalSnapshotID == goal.SnapshotID
 }
 
 func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {

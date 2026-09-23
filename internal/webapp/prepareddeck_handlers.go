@@ -28,8 +28,26 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 		return
 	}
 	u := user(r)
-	_, result, ok := h.validJourneyDeckBook(w, r, u.ID, r.PathValue("id"))
+	detail, result, ok := h.validJourneyDeckBook(w, r, u.ID, r.PathValue("id"))
 	if !ok {
+		return
+	}
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, journeyBookLanguage(detail))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if goal.IsActive() && goal.BookID == detail.Book.ID {
+		if goal.SnapshotSize == 0 || goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID {
+			http.NotFound(w, r)
+			return
+		}
+		handle, submitErr := h.submitOrRetryGoalDeck(r.Context(), u.ID, goal)
+		if submitErr != nil {
+			handlePreparationError(w, r, submitErr)
+			return
+		}
+		http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 		return
 	}
 	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
@@ -115,7 +133,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 			if !readerOK {
 				task.Unavailable = true
 			} else if preparation, preparationErr := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
-				if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != result.SourceMaterialID || preparation.AnalysisRunID != result.RunID || preparation.GoalSnapshotID != goal.SnapshotID {
+				if !goalPreparationMatches(preparation, owner, goal) {
 					http.NotFound(w, r)
 					return
 				}
@@ -144,11 +162,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	action := deckJourneyActionView{BookID: task.BookID, State: deckJourneyMember}
-	if task.Goal {
-		action.State = deckJourneyGoal
-	}
-	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, preparationReturnURL(action)))
+	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, journeyEntryOrLanguageHandoffURL(r.Context(), detail)))
 }
 
 func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
@@ -240,7 +254,7 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	if p.State == domain.DeckPreparationReady {
 		fallbackGlossCount = &p.CardsWithFallbackGloss
 	}
-	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
+	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
 	if response.Ready && !deckPreparationEmpty(p) && p.Error != domain.DeckPreparationRequiresRepreparationError {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"
 	}
@@ -300,6 +314,9 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 			fail(w, err)
 			return
 		}
+		if strings.Contains(resultURL, "language_handoff_book=") {
+			journeyAction = emptyDeckJourneyAction()
+		}
 	}
 	if r.Header.Get("Hx-Request") == "true" {
 		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, journeyAction))
@@ -345,7 +362,7 @@ func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 		writePreparationStatus(w, handle.Preparation)
 		return
 	}
-	h.redirectToPreparationStatus(w, r)
+	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 }
 
 // rerenderDeckPreparation is an operational trigger for verification and
@@ -378,13 +395,6 @@ func (h *Handler) redirectToPreparationStatus(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(r.PathValue("id"))+"/status", http.StatusSeeOther)
 }
 
-func preparationReturnURL(action deckJourneyActionView) string {
-	if action.BookID == "" {
-		return ""
-	}
-	return "/journey#journey-book-" + url.PathEscape(action.BookID)
-}
-
 func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckJourneyActionView) (string, error) {
 	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, action.BookID)
 	if err != nil {
@@ -402,7 +412,7 @@ func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner strin
 	if !detail.JourneyMember {
 		return "", nil
 	}
-	return preparationReturnURL(action), nil
+	return journeyEntryOrLanguageHandoffURL(ctx, detail), nil
 }
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {

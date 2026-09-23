@@ -294,12 +294,20 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 		}
 		updated = domain.Book(row)
 		if languageState == domain.LanguageChosen {
-			if err := q.ReleasePrimaryGoalSnapshotsExceptLanguage(ctx, sqlcgen.ReleasePrimaryGoalSnapshotsExceptLanguageParams{Owner: owner, Book: bookID, Language: languageTag}); err != nil {
+			snapshotIDs, err := q.LockPrimaryGoalsExceptLanguage(ctx, sqlcgen.LockPrimaryGoalsExceptLanguageParams{Owner: owner, Book: bookID, Language: languageTag})
+			if err != nil {
+				return err
+			}
+			if err := releasePrimaryGoalSnapshots(ctx, q, owner, snapshotIDs); err != nil {
 				return err
 			}
 			return q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: owner, BookID: bookID, Language: languageTag})
 		}
-		if err := q.ReleasePrimaryGoalSnapshotsForAllLanguages(ctx, sqlcgen.ReleasePrimaryGoalSnapshotsForAllLanguagesParams{Owner: owner, Book: bookID}); err != nil {
+		snapshotIDs, err := q.LockPrimaryGoalsForAllLanguages(ctx, sqlcgen.LockPrimaryGoalsForAllLanguagesParams{Owner: owner, Book: bookID})
+		if err != nil {
+			return err
+		}
+		if err := releasePrimaryGoalSnapshots(ctx, q, owner, snapshotIDs); err != nil {
 			return err
 		}
 		return q.DeleteBookGoals(ctx, sqlcgen.DeleteBookGoalsParams{OwnerID: owner, BookID: bookID})
