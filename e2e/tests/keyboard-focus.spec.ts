@@ -67,6 +67,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const title = page.locator('.library-grid a.library-book__identity-link[href="/journey#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
+    const item = title.locator('xpath=ancestor::li');
+    const itemFocusStops = item.locator('a, button, summary');
+    await expect(itemFocusStops.first()).toHaveClass(/library-book__identity-link/);
+    await expect(itemFocusStops.nth(1)).toHaveText(/View in Reading Journey/);
+    await expect(itemFocusStops.nth(2)).toHaveText('More actions');
     await expect(page.locator('.library-grid').getByText('Review failed analysis')).toHaveCount(0);
   });
 

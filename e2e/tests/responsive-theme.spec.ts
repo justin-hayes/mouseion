@@ -62,6 +62,19 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('.library-grid a[href="/books/fixture-edge-content"]')).toHaveCount(0);
     await expect(page.locator('.library-grid a[href="/books/fixture-empty"]')).toHaveCount(0);
     expect(await page.locator('.library-book').filter({ has: page.locator('.library-book__identity-link[href^="/journey#"]') }).count()).toBeGreaterThan(0);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+    const libraryControls = page.locator('.library-grid button:visible, .library-grid a.library-book__journey-action:visible, .library-grid > .library-book > details > summary:visible');
+    const libraryControlBoxes = await libraryControls.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
+    }));
+    for (const control of libraryControlBoxes) {
+      expect(control.width, control.text).toBeGreaterThanOrEqual(44);
+      expect(control.height, control.text).toBeGreaterThanOrEqual(44);
+      expect(control.left, control.text).toBeGreaterThanOrEqual(-1);
+      expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
+    }
     if (test.info().project.name.startsWith('compact')) {
       // The Italian Journey retains the long-title content for narrow-layout
       // coverage without relying on the retired unassessed Book page.

@@ -48,6 +48,23 @@ test.describe('My Books collection browsing', () => {
     await switcher.selectOption('de');
   });
 
+  test('keeps the server-rendered grid usable without JavaScript', async ({ browser }) => {
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, javaScriptEnabled: false });
+    try {
+      const page = await context.newPage();
+      await signIn(page);
+      await page.goto('/library?q=Der%20lange');
+      await expect(page.locator('ul.library-grid')).toBeVisible();
+      await expect(page.locator('.library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+      await page.getByLabel('Search My Books').fill('Route evidence pending');
+      await page.getByRole('button', { name: 'Search' }).press('Enter');
+      await expect(page).toHaveURL(/q=Route\+evidence\+pending/);
+      await expect(page.locator('.library-grid').getByText('Route evidence pending')).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
   test('reviews needs-language books without actions', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture sync runs once per browser suite.');
     await signIn(page);
