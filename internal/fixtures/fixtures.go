@@ -55,6 +55,21 @@ const (
 const edgeBookID = "fixture-edge-content"
 const italianRouteBookID = "fixture-italian-route"
 
+var fixtureCoverPNG = []byte{137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130}
+
+func fixtureCover(bookID string) domain.BookCover {
+	switch bookID {
+	case BookID, SourceID, routeMatchBookID, ItalianGoalBookID:
+		return domain.BookCover{State: domain.BookCoverAvailable, Width: 600, Height: 900}
+	case "fixture-failed", routeTieBBookID:
+		return domain.BookCover{State: domain.BookCoverPending}
+	case routeTieABookID:
+		return domain.BookCover{State: domain.BookCoverUnavailable}
+	default:
+		return domain.BookCover{State: domain.BookCoverNone}
+	}
+}
+
 var errNotFound = persistence.ErrNotFound
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
@@ -512,7 +527,7 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if source.BookTitle == "" {
 			source.BookTitle = source.Source.Title
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Acquired: &source})
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Cover: fixtureCover(bookID), Acquired: &source})
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {
@@ -786,7 +801,14 @@ func (s *Store) GetExtractedUnitSnapshot(context.Context, string, string) (strin
 // methods cover the learner-facing metadata controls without a database.
 func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
 
-func (s *Store) GetBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error) {
+func (s *Store) GetBookCoverResource(_ context.Context, owner, bookID string) (domain.BookCoverResource, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, book := range s.myBooksForOwner(owner) {
+		if book.Book.ID == bookID && book.Cover.State == domain.BookCoverAvailable {
+			return domain.BookCoverResource{OwnerID: owner, BookID: bookID, MediaType: "image/png", ContentHash: "fixture-cover-v1", Bytes: append([]byte(nil), fixtureCoverPNG...), Width: book.Cover.Width, Height: book.Cover.Height}, nil
+		}
+	}
 	return domain.BookCoverResource{}, errNotFound
 }
 

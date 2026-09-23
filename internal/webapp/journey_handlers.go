@@ -22,6 +22,7 @@ import (
 type journeyBookView struct {
 	Book                    domain.SourceMaterialSummary
 	BookID                  string
+	Cover                   domain.BookCover
 	Position                int
 	JourneyRevision         int64
 	PrimaryGoal             bool
@@ -669,27 +670,32 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		return journeyPageView{}, err
 	}
 	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
+	coverByBookID := make(map[string]domain.BookCover)
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
 	if reader, ok := h.services.Store.Books.(interface {
 		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	}); ok {
-		if myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner); readErr == nil {
-			for _, myBook := range myBooks {
-				if myBook.Acquired != nil {
-					book := *myBook.Acquired
-					book.BookTitle = myBook.Book.Title
-					book.BookAuthor = myBook.Book.Author
-					bookByID[myBook.Book.ID] = book
-					bookByID[book.Source.ID] = book
-				} else {
-					bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
-						Source:     domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
-						BookTitle:  myBook.Book.Title,
-						BookAuthor: myBook.Book.Author,
-						BookID:     myBook.Book.ID,
-					}
+		myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner)
+		if readErr != nil {
+			return journeyPageView{}, readErr
+		}
+		for _, myBook := range myBooks {
+			coverByBookID[myBook.Book.ID] = myBook.Cover
+			if myBook.Acquired != nil {
+				book := *myBook.Acquired
+				book.BookTitle = myBook.Book.Title
+				book.BookAuthor = myBook.Book.Author
+				bookByID[myBook.Book.ID] = book
+				bookByID[book.Source.ID] = book
+				coverByBookID[book.Source.ID] = myBook.Cover
+			} else {
+				bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
+					Source:     domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
+					BookTitle:  myBook.Book.Title,
+					BookAuthor: myBook.Book.Author,
+					BookID:     myBook.Book.ID,
 				}
 			}
 		}
@@ -702,6 +708,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, bookErr
 		}
 		book.PrimaryGoal = true
+		book.Cover = coverByBookID[goal.BookID]
 		book.JourneyRevision = journey.Revision
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
@@ -728,6 +735,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, bookErr
 		}
 		book.Position = entry.Position
+		book.Cover = coverByBookID[entry.BookID]
 		book.JourneyRevision = journey.Revision
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
