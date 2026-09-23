@@ -31,15 +31,17 @@ import (
 
 // coverImage is one configurable image response.
 type coverImage struct {
-	body        []byte
-	contentType string
-	status      int
+	body            []byte
+	contentType     string
+	omitContentType bool
+	status          int
 }
 
 // coverEntry is one configurable Catalog entry. An empty imageHref means the
 // entry advertises no cover.
 type coverEntry struct {
-	id, title, imageHref string
+	id, title, imageHref, imageType string
+	omitImageType                   bool
 }
 
 // coverCatalog is a minimal HTTP OPDS catalog and image host with mutable
@@ -96,7 +98,10 @@ func (c *coverCatalog) handle(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(img.status)
 			return
 		}
-		w.Header().Set("Content-Type", img.contentType)
+		if !img.omitContentType {
+			w.Header().Set("Content-Type", img.contentType)
+		}
+		w.WriteHeader(http.StatusOK)
 		testwrite.Bytes(c.t, w, img.body)
 		return
 	}
@@ -128,7 +133,15 @@ func (c *coverCatalog) writeLanguageFeed(w http.ResponseWriter, base, prefix str
 	for _, entry := range c.entries[prefix] {
 		testwrite.Fprintf(c.t, &feed, `<entry><id>%s</id><title>%s</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="%s/%s.epub"/>`, entry.id, entry.title, base, entry.id)
 		if entry.imageHref != "" {
-			testwrite.Fprintf(c.t, &feed, `<link rel="http://opds-spec.org/image" type="image/png" href="%s"/>`, entry.imageHref)
+			if entry.omitImageType {
+				testwrite.Fprintf(c.t, &feed, `<link rel="http://opds-spec.org/image" href="%s"/>`, entry.imageHref)
+			} else {
+				imageType := entry.imageType
+				if imageType == "" {
+					imageType = "image/png"
+				}
+				testwrite.Fprintf(c.t, &feed, `<link rel="http://opds-spec.org/image" type="%s" href="%s"/>`, imageType, entry.imageHref)
+			}
 		}
 		feed.WriteString(`</entry>`)
 	}
@@ -293,6 +306,80 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	afterReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
+}
+
+func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
+	tests := []struct {
+		name            string
+		imageType       string
+		omitImageType   bool
+		contentType     string
+		omitContentType bool
+		wantAvailable   bool
+	}{
+		{name: "all claims agree after normalization", imageType: "IMAGE/PNG; charset=binary", contentType: "image/png; charset=utf-8", wantAvailable: true},
+		{name: "opds claim disagrees with decoded content", imageType: "image/jpeg", contentType: "image/png", wantAvailable: false},
+		{name: "response claim disagrees with decoded content", imageType: "image/png", contentType: "image/jpeg", wantAvailable: false},
+		{name: "optional claims omitted", omitImageType: true, omitContentType: true, wantAvailable: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newCoverFixture(t)
+			entry := coverEntry{
+				id: "entry-1", title: "Book One", imageHref: "/a/image/one.png",
+				imageType: tt.imageType, omitImageType: tt.omitImageType,
+			}
+			f.catalog.setImage(entry.imageHref, coverImage{
+				body: testPNG(t, 10), contentType: tt.contentType, omitContentType: tt.omitContentType,
+			})
+			f.catalog.setEntries("/a", entry)
+			require.NoError(t, f.sync(f.connection.ID), "cover validation must not fail catalog reconciliation")
+			status, err := f.store.GetCatalogueSyncStatus(f.ctx, f.ownerID, f.connection.ID)
+			require.NoError(t, err)
+			assert.Equal(t, domain.CatalogueSyncSynced, status.State)
+
+			book := f.bookByTitle(entry.title)
+			args := f.pendingCoverArgs()
+			require.Len(t, args, 1)
+			err = f.runCoverJob(args[0])
+			if tt.wantAvailable {
+				require.NoError(t, err)
+				assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
+				return
+			}
+
+			require.Error(t, err)
+			cover := f.coverState(book.ID)
+			assert.Equal(t, domain.BookCoverUnavailable, cover.State)
+			assert.NotEmpty(t, cover.FailureReason)
+			_, err = f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+			assert.ErrorIs(t, err, persistence.ErrNotFound)
+		})
+	}
+}
+
+func TestCatalogueSyncCoverMediaTypeMismatchPreservesReplacement(t *testing.T) {
+	f := newCoverFixture(t)
+	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
+	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+
+	// Both declarations are supplied, but the response disagrees with the
+	// selected OPDS source and decoded PNG. The retained image remains visible.
+	entry.imageType = "image/png"
+	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/jpeg"})
+	f.catalog.setEntries("/a", entry)
+	require.NoError(t, f.sync(f.connection.ID))
+	args := f.pendingCoverArgs()
+	require.Len(t, args, 1)
+	require.Error(t, f.runCoverJob(args[0]))
+
+	cover := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	assert.NotEmpty(t, cover.FailureReason)
+	preserved, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, preserved.Bytes)
 }
 
 func TestCatalogueSyncCoverAbsencePreservesOnUncertainty(t *testing.T) {

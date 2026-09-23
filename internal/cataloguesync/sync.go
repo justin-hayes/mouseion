@@ -1044,13 +1044,7 @@ func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error
 		if fetchErr != nil {
 			continue
 		}
-		linkType := link.Type
-		if strings.TrimSpace(advertisedType) != "" {
-			// The response header is the transport truth when present; the link
-			// type remains useful for catalogs that omit that header.
-			linkType = advertisedType
-		}
-		normalized, mediaType, width, height, contentHash, normalizeErr := bookcover.Normalize(raw, linkType)
+		normalized, mediaType, width, height, contentHash, normalizeErr := bookcover.Normalize(raw, link.Type, advertisedType)
 		if normalizeErr != nil {
 			continue
 		}

@@ -34,23 +34,26 @@ var (
 var pngSignature = [...]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
 
 // Normalize validates and converts a catalog-supplied cover into one bounded,
-// aspect-preserving display raster. The caller is responsible for bounding the
+// aspect-preserving display raster. Every non-empty advertised media type must
+// agree with the decoded raster. The caller is responsible for bounding the
 // input before calling this function.
-func Normalize(raw []byte, advertisedType string) ([]byte, string, int, int, string, error) {
+func Normalize(raw []byte, advertisedTypes ...string) ([]byte, string, int, int, string, error) {
 	if len(raw) == 0 {
 		return nil, "", 0, 0, "", ErrEmpty
 	}
 
-	advertised, err := normalizedAdvertisedType(advertisedType)
-	if err != nil {
-		return nil, "", 0, 0, "", err
-	}
 	decoded, err := sniff(raw)
 	if err != nil {
 		return nil, "", 0, 0, "", err
 	}
-	if advertised != "" && advertised != decoded {
-		return nil, "", 0, 0, "", fmt.Errorf("%w: advertised %q, decoded %q", ErrMediaTypeMismatch, advertised, decoded)
+	for _, advertisedType := range advertisedTypes {
+		advertised, err := normalizedAdvertisedType(advertisedType)
+		if err != nil {
+			return nil, "", 0, 0, "", err
+		}
+		if advertised != "" && advertised != decoded {
+			return nil, "", 0, 0, "", fmt.Errorf("%w: advertised %q, decoded %q", ErrMediaTypeMismatch, advertised, decoded)
+		}
 	}
 
 	if decoded == "image/png" {
