@@ -1,8 +1,9 @@
 # Interface components
 
 Status: **Established implementation components plus shipped learner-facing
-patterns.** Workflow-specific Journey and Primary Goal markup may remain in the
-owning views; ADRs define persistence and historical behavior.
+patterns; Book-cover target patterns accepted but not shipped.**
+Workflow-specific Journey and Primary Goal markup may remain in the owning
+views; ADRs define persistence and historical behavior.
 
 This document defines Mouseion's reusable server-rendered interface patterns.
 Established patterns are the durable contract between product design, Templ
@@ -75,6 +76,47 @@ one-pattern/one-Templ-component implementation.
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
 to wrap every region in a card.
+
+## Accepted target patterns (not shipped)
+
+[Book Covers](../features/book-covers.md) introduces these patterns when its
+accepted target is implemented. They do not describe the current row markup.
+
+### `BookCoverMedia`
+
+**Answers:** Is catalog-supplied visual identity available for this Book without
+replacing its bibliographic identity?
+
+Use one fixed portrait frame that preserves the complete image. The My Books
+variant leads visually at approximately 2:3; the Reading Journey variant is a
+modest aligned thumbnail. Both variants support valid image, no image advertised,
+retrieval pending, and advertised image unavailable. A replacement in progress
+continues showing the prior validated image.
+
+Real images use empty alternative text when title text is adjacent. Placeholder
+visuals are hidden from the accessibility tree. A cover and title that navigate
+to the same Reading Journey anchor form one link and one focus stop; when no
+anchor exists, cover media does not become an implicit control. Reserve intrinsic
+space, lazy-load below-viewport images, preserve visible focus on the containing
+link, and never make cover content or actions hover-only.
+
+### `MyBooksCoverItem`
+
+**Answers:** Which Book is this, is it in my Reading Journey, and what can I do
+with it?
+
+Use `BookCoverMedia`, then full title and available author, a restrained **In
+Reading Journey** marker when applicable, one labeled **Add to Reading Journey**
+or **View in Reading Journey** action, and a labeled native **More actions**
+disclosure. The disclosure owns eligible metadata refresh and confirmed My Books
+removal. Do not add analysis, acquired-content, evidence, Primary Goal, or
+next-action status to this pattern.
+
+Repeated items form a native unordered list laid out with CSS Grid, not an ARIA
+grid. Compact layouts retain two ordinary columns where the viewport permits,
+reduce columns without horizontal overflow, and keep title, author, membership,
+and controls in document and keyboard order. Search-result replacement uses one
+scoped live region and does not announce every cover or item.
 
 ## Shared rules
 
@@ -255,11 +297,13 @@ Lead with resource identity, then supporting metadata or relationship, evidence
 state, and action. Cards in a list must use the same internal order. Avoid
 nested cards and avoid using a card solely to add decoration around prose.
 
-A repeated My Books or Journey item normally uses a bibliographic row/list-item
-treatment with fine rules, not `ResourceCard`. Reserve a stronger contained
-surface for a genuinely distinct region such as the one Primary Goal or a
-consequential outcome; even there, typography should carry more hierarchy than
-border, shadow, or background.
+The shipped repeated My Books and Journey items normally use a bibliographic
+row/list-item treatment with fine rules, not `ResourceCard`. The accepted
+`MyBooksCoverItem` deliberately replaces only the My Books row with a cover-grid
+item; it is not a generic card license. Reserve a stronger contained surface for
+a genuinely distinct region such as the one Primary Goal or a consequential
+outcome; even there, typography should carry more hierarchy than border, shadow,
+or background.
 
 ### `ActionGroup`
 

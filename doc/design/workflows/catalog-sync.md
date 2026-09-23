@@ -78,9 +78,10 @@ search and paging are scoped to it, and there is no "All languages" default.
 Books awaiting a language appear only through an out-of-band **needs language**
 strip. This is the
 [My Books Collection Browsing](../../features/collection-browsing.md) contract,
-not OPDS search. Title and author lead; edition/year follows; the language is
-carried by the page heading, not repeated per row; evidence state remains
-supporting information.
+not OPDS search. The accepted, not-yet-shipped
+[Book Covers](../../features/book-covers.md) target lets the cover lead visually
+while title and author remain visible, and leaves analysis evidence to Reading
+Journey. The language is carried by the page heading, not repeated per item.
 
 ### 4. Add a metadata-only Book and acquire content lazily
 
@@ -88,9 +89,9 @@ supporting information.
 before analysis?
 
 Metadata-only Books remain in My Books with their bibliographic identity and
-row-level refresh, Journey, and removal actions. **Add to Reading Journey**
+item-level refresh, Journey, and removal actions. **Add to Reading Journey**
 records reversible reading intent and acquires, validates, and analyzes the EPUB
-with ensure-once semantics. There is no metadata-only detail page. The row uses
+with ensure-once semantics. There is no metadata-only detail page. The item uses
 the recorded owner-scoped catalog identity.
 
 The Book becomes acquired only after a complete validated immutable snapshot is
@@ -131,7 +132,7 @@ analysis, prepares a deck, or invalidates existing evidence.
   new destination.
 - My Books owns active-language-scoped browse, search, paging, browsing of
   synced metadata, and the per-book acquisition intent action.
-- My Books rows own metadata refresh and acquisition intent. Reading Journey owns
+- My Books items own metadata refresh and acquisition intent. Reading Journey owns
   ensure-once analysis consequence, current analysis, and deck actions. The
   language-level aggregate lens remains evidence-only.
 - HTMX may enhance forms and status regions, but connect, sync submission,

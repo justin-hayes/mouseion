@@ -294,26 +294,33 @@ not learner-facing destinations.
 
 ## My Books information hierarchy
 
-My Books answers questions in this order:
+The accepted [Book Covers](../features/book-covers.md) target, which is not yet
+shipped, makes My Books answer questions in this order:
 
 1. What literature do I care about or want to find again?
-2. Which book is my Primary Goal, and which are in my Journey?
-3. Which books have trustworthy current evidence?
-4. Which books are unassessed, stale, or cannot currently be assessed?
-5. What can I do with this book next?
+2. Which Book is this, by cover, title, and author?
+3. Is this Book in my Reading Journey?
+4. What can I do with this Book next?
 
-Rows lead with title, author, and edition/year where useful; the language tag is
-carried by the active-language heading, not repeated per row. Learner intent and
-Journey/Goal relationship precede concise evidence state. Search is scoped to
-the active language; filtering and sorting support finding books but do not turn
-readiness into the default ranking.
+The responsive collection grid lets a catalog-supplied cover lead visually while
+keeping title and author visible beneath it. The language tag is carried by the
+active-language heading, not repeated per item. Search remains scoped to the
+active language; filtering and sorting support finding Books but do not turn
+readiness into the default ranking. The cover is optional supporting metadata,
+never the sole Book identity or an implicit mutation control.
 
 Reading Journey owns full lifecycle state, Book identity, relationship, current
-evidence, forecast, and recovery for members. Books without a reachable anchor
-remain in My Books with their available row actions. Exact analysis history and
-provenance are operational facts available through `/jobs`, not sections on a
-generic learner-facing Book page. My Books should be moderately dense and
-should not place every book in a large card.
+evidence, Goal role, forecast, and recovery for members. My Books communicates
+only Reading Journey membership and keeps its explicit Journey, metadata-refresh,
+and removal actions. Books without a reachable anchor remain operable without a
+detail page. Exact analysis history and provenance are operational facts
+available through `/jobs`, not sections on a generic learner-facing Book page.
+The grid remains moderately dense and does not establish a generic large-card
+pattern.
+
+Until the cover target ships, the current My Books rows continue to present
+Goal/Journey relationship and concise evidence. This is an implementation gap,
+not a competing target hierarchy.
 
 ## Reading Journey information hierarchy
 
@@ -466,12 +473,15 @@ needed.
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
    each learner-owned connection periodically reconciles metadata for every
-   non-English language whose NLP pipeline is ready, without downloading
-   content, deleting local state, or invalidating scope or analysis.
+   non-English language whose NLP pipeline is ready, without downloading EPUB
+   content, deleting local state, or invalidating scope or analysis. ADR 0077
+   adds independent optional cover-image retrieval without changing that EPUB
+   boundary.
 10. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
     the panel proposed by ADR 0042 has no current route or screen contract.
-     Per-Book evidence remains on My Books rows and Reading Journey anchors; no
-     replacement aggregate is implied.
+     Per-Book evidence remains on Reading Journey anchors in the accepted cover
+     target; the shipped My Books rows retain it until that target is implemented.
+     No replacement aggregate is implied.
 11. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
     chosen-language Books define the language set, Vocabulary owns

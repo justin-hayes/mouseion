@@ -7,7 +7,9 @@ The historical **Add to library** label may remain in compatibility artifacts.
 
 The [catalog sync workflow](catalog-sync.md) creates metadata-first My Books
 entries. This document defines the per-book content-acquisition step from My
-Books through Reading Journey; sync never downloads content.
+Books through Reading Journey; sync never downloads EPUB content. Independent
+optional Book-cover retrieval follows
+[ADR 0077](../../adr/0077-catalog-supplied-book-covers.md).
 
 ## Goal
 
@@ -78,7 +80,7 @@ NLP service?
 
 My Books owns the active-language-scoped browse, search, and paging; there is no
 "All languages" default ([ADR 0050](../../adr/0050-active-study-language.md)).
-Metadata-only Books remain fully operable from their My Books rows: **Refresh
+Metadata-only Books remain fully operable from their My Books items: **Refresh
 metadata**, **Add to Reading Journey**, and removal. **Add to Reading Journey**
 expresses reading intent and triggers acquisition plus ensure-once analysis. No
 metadata-only detail page or upstream browser is exposed.
@@ -118,9 +120,9 @@ background watcher. The learner expresses intent again to refresh evidence.
   `/catalogs` while preserving supported deep-link parameters.
 - The current acquisition context is the selected Book and owner-scoped
   connection, not an upstream feed path.
-- On narrow screens, row metadata precedes the acquisition and refresh actions,
+- On narrow screens, Book identity precedes the acquisition and refresh actions,
   which remain reachable without horizontal page scrolling.
 - HTMX enhances real links and forms. A failed or unavailable enhancement must
-  not turn the My Books row into an unusable raw fragment response.
+  not turn the My Books item into an unusable raw fragment response.
 - Dynamic acquisition updates use scoped live regions and do not move focus on
   every update.

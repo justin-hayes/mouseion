@@ -1,6 +1,6 @@
 # My Books Collection Browsing
 
-Status: Implemented · Date: 2026-09-02 · Updated: 2026-09-15
+Status: Implemented; cover-grid extension accepted but not implemented · Date: 2026-09-02 · Updated: 2026-09-23
 
 ## Motivation
 
@@ -24,6 +24,21 @@ This feature applies to My Books at `/library`. It defines collection controls,
 row hierarchy, progressive enhancement, and accessibility. My Books is the sole
 browse surface for synced catalog metadata; there is no live OPDS browse or
 search surface.
+
+## Accepted cover-grid extension
+
+[Book Covers](book-covers.md) defines the accepted target for the repeated
+active-language results: one responsive cover grid with title and author always
+visible, Reading Journey membership as its only relationship signal, and labeled
+Journey plus secondary actions. It preserves this feature's search, deterministic
+ordering, paging, empty states, language scope, and progressive-enhancement
+contracts.
+
+That target is not yet shipped. Until it is implemented, the row hierarchy and
+row-specific acceptance language below describe the current interface. When the
+cover grid ships, the Book Covers contract supersedes this document's row layout
+and My Books evidence/Primary Goal presentation, while Reading Journey becomes
+the sole learner surface for those details.
 
 ## Requirements
 
