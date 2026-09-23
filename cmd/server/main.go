@@ -138,12 +138,13 @@ func run() (err error) {
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
 	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
-	cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
+	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		return err
 	}
+	catalogueWorker.Client = riverClient
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err = prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
@@ -176,7 +177,7 @@ func run() (err error) {
 		return err
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
-	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Journey: store, Goals: store, Catalog: store, AnalysisJobs: store}
+	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Journey: store, Goals: store, Catalog: store, AnalysisJobs: store, Covers: store}
 	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
 		return fmt.Errorf("initialize web application: %w", err)

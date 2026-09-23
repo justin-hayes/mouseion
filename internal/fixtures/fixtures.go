@@ -786,6 +786,10 @@ func (s *Store) GetExtractedUnitSnapshot(context.Context, string, string) (strin
 // methods cover the learner-facing metadata controls without a database.
 func (s *Store) ListMyBooks(context.Context, string) ([]domain.Book, error) { return nil, nil }
 
+func (s *Store) GetBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error) {
+	return domain.BookCoverResource{}, errNotFound
+}
+
 func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
 	for _, book := range s.myBooks {
 		if book.Book.OwnerID == owner && book.Book.ID == bookID {

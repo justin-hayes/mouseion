@@ -18,10 +18,13 @@ import (
 )
 
 const (
-	AcquisitionRel = "http://opds-spec.org/acquisition"
-	EPUBMediaType  = "application/epub+zip"
-	maxPages       = 100
-	maxResponse    = 100 << 20
+	AcquisitionRel    = "http://opds-spec.org/acquisition"
+	CoverImageRel     = "http://opds-spec.org/image"
+	CoverThumbnailRel = "http://opds-spec.org/image/thumbnail"
+	EPUBMediaType     = "application/epub+zip"
+	maxPages          = 100
+	maxResponse       = 100 << 20
+	maxImageResponse  = 8 << 20
 )
 
 var (
@@ -214,6 +217,30 @@ func FindEPUBs(entry Entry) []Link {
 	return out
 }
 
+// FindCoverImage returns the entry's full-size cover link, or its thumbnail
+// link when no full-size image is advertised.
+func FindCoverImage(entry Entry) *Link {
+	links := CoverImages(entry)
+	if len(links) > 0 {
+		return &links[0]
+	}
+	return nil
+}
+
+// CoverImages returns valid advertised image links in preferred order. A
+// worker can try the thumbnail when a full-size link is unreachable or invalid.
+func CoverImages(entry Entry) []Link {
+	var links []Link
+	for _, relation := range []string{CoverImageRel, CoverThumbnailRel} {
+		for _, link := range entry.Links {
+			if slices.Contains(strings.Fields(link.Rel), relation) && strings.TrimSpace(link.Href) != "" {
+				links = append(links, link)
+			}
+		}
+	}
+	return links
+}
+
 // FilterEPUBEntries removes catalog entries that do not offer an EPUB.
 // Calibre-Web's language endpoint filters by language but not by file format.
 func FilterEPUBEntries(feed Feed) Feed {
@@ -350,6 +377,35 @@ func (c *Client) Download(ctx context.Context, downloadURL string) (data []byte,
 		return nil, errors.New("opds: EPUB exceeds 100 MiB limit")
 	}
 	return data, nil
+}
+
+// DownloadImage fetches an advertised cover image without imposing EPUB
+// media-type restrictions.
+func (c *Client) DownloadImage(ctx context.Context, imageURL string) (data []byte, contentType string, err error) {
+	scoped, err := c.withOrigin(imageURL)
+	if err != nil {
+		return nil, "", fmt.Errorf("opds: download image: %w", err)
+	}
+	if scoped != c {
+		return scoped.DownloadImage(ctx, imageURL)
+	}
+	resp, err := c.get(ctx, imageURL)
+	if err != nil {
+		return nil, "", fmt.Errorf("opds: download image: %w", err)
+	}
+	defer func() { err = errors.Join(err, resp.Body.Close()) }()
+	if err := statusError(resp); err != nil {
+		return nil, "", err
+	}
+	contentType = strings.TrimSpace(resp.Header.Get("Content-Type"))
+	data, err = io.ReadAll(io.LimitReader(resp.Body, maxImageResponse+1))
+	if err != nil {
+		return nil, "", fmt.Errorf("opds: read image: %w", err)
+	}
+	if len(data) > maxImageResponse {
+		return nil, "", errors.New("opds: image exceeds 8 MiB limit")
+	}
+	return data, contentType, nil
 }
 
 func (c *Client) withOrigin(target string) (*Client, error) {

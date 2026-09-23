@@ -17,6 +17,10 @@ const (
 	AliasStrongBibliographic        = "strong_bibliographic"
 	NamespaceSourceIdentifier       = "source_identifier"
 	MetadataProvenanceBackfill      = "source_materials_backfill"
+	BookCoverNone                   = "none"
+	BookCoverPending                = "pending"
+	BookCoverAvailable              = "available"
+	BookCoverUnavailable            = "unavailable"
 )
 
 type CatalogueSyncState string
@@ -62,11 +66,27 @@ type BookAlias struct {
 	CreatedAt                                                      time.Time
 }
 
+// BookCover is the byte-free cover projection used by collection views.
+type BookCover struct {
+	State  string
+	Width  int
+	Height int
+}
+
+// BookCoverResource is the owner-scoped stored resource read by the cover
+// endpoint. It is deliberately not embedded in MyBook or any collection query.
+type BookCoverResource struct {
+	OwnerID, BookID, MediaType, ContentHash string
+	Bytes                                   []byte
+	Width, Height                           int
+}
+
 // MyBook is the complete learner-facing My Books read model. Acquired is nil
 // for metadata-only membership; when present it contains only the current
 // owner-scoped acquired source and its derived analysis state.
 type MyBook struct {
 	Book            Book
+	Cover           BookCover
 	Acquired        *SourceMaterialSummary
 	JourneyMember   bool
 	JourneyGoal     bool

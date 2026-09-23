@@ -1,12 +1,14 @@
 package webapp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -33,6 +35,32 @@ func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, journeyEntryOrLanguageHandoffURL(r.Context(), detail))
+}
+
+func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
+	reader := h.services.Store.Covers
+	if reader == nil || strings.TrimSpace(r.PathValue("id")) == "" {
+		http.NotFound(w, r)
+		return
+	}
+	resource, err := reader.GetBookCoverResource(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	etag := `"` + strings.ReplaceAll(resource.ContentHash, `"`, "") + `"`
+	w.Header().Set("Cache-Control", "private, no-cache")
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Content-Type", resource.MediaType)
+	if strings.TrimSpace(r.Header.Get("If-None-Match")) == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	http.ServeContent(w, r, "book-cover", time.Time{}, bytes.NewReader(resource.Bytes))
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {
@@ -87,9 +115,6 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 func (h *Handler) refreshableMyBookIDs(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, error) {
 	refreshable := make(map[string]bool)
 	for _, book := range books {
-		if book.EvidenceState() != domain.BookNotAcquired {
-			continue
-		}
 		eligible, err := h.bookRefreshEligible(ctx, owner, book.Book.ID)
 		if err != nil {
 			return nil, err
@@ -129,6 +154,13 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 	message := refreshMessage(result)
 	if isHTMX(r) {
 		row := domain.MyBook{Book: result.Book}
+		if refreshed, readErr := h.services.Store.Books.GetBookDetail(r.Context(), u.ID, result.Book.ID); readErr == nil {
+			row = refreshed
+			row.Book = result.Book
+		} else if !errors.Is(readErr, persistence.ErrNotFound) {
+			fail(w, readErr)
+			return
+		}
 		if err := h.annotateBookWithJourney(r.Context(), u.ID, &row); err != nil {
 			fail(w, err)
 			return
@@ -171,6 +203,8 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 
 func refreshMessage(result cataloguesync.RefreshResult) string {
 	switch {
+	case result.CoverPending:
+		return "Metadata refreshed. Cover pending."
 	case result.Updated:
 		return "Metadata refreshed."
 	case result.Missing:

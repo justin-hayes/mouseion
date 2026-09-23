@@ -29,6 +29,16 @@ templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
 	}
 }
 
+templ BookCoverMedia(bookID string, cover domain.BookCover) {
+	<div class="book-cover-media">
+		if cover.State == domain.BookCoverAvailable && cover.Width > 0 && cover.Height > 0 {
+			<img class="book-cover-media__image" src={ templ.SafeURL(bookCoverURL(bookID)) } alt="" width={ fmt.Sprintf("%d", cover.Width) } height={ fmt.Sprintf("%d", cover.Height) } loading="lazy" decoding="async"/>
+		} else {
+			<div class="book-cover-media__placeholder" aria-hidden="true"><span>{ bookCoverLabel(cover) }</span></div>
+		}
+	</div>
+}
+
 templ NextActionSummary(action bookLifecycleAction) {
 	<section class="next-action" aria-labelledby="next-action-heading">
 		<h2 id="next-action-heading">Next action</h2>

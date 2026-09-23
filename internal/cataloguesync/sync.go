@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/bookcover"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -26,6 +27,7 @@ import (
 const (
 	Queue                 = "catalogue_sync"
 	Kind                  = "catalogue_sync"
+	CoverKind             = "book_cover"
 	DefaultCadence        = 24 * time.Hour
 	defaultMaxAttempts    = 3
 	periodicJobIDPrefix   = "catalogue_sync:"
@@ -51,6 +53,16 @@ type SyncArgs struct {
 	OwnerID      string `json:"owner_id" river:"unique"`
 	ConnectionID string `json:"connection_id" river:"unique"`
 }
+
+// CoverArgs deliberately carries no URL, credential, or image data. The
+// worker reloads all mutable catalog state before it fetches anything.
+type CoverArgs struct {
+	OwnerID      string `json:"owner_id" river:"unique"`
+	BookID       string `json:"book_id" river:"unique"`
+	ConnectionID string `json:"connection_id" river:"unique"`
+}
+
+func (CoverArgs) Kind() string { return CoverKind }
 
 func (SyncArgs) Kind() string { return Kind }
 
@@ -80,11 +92,12 @@ type AcquisitionTarget struct {
 // RefreshResult describes a single-book metadata refresh without implying any
 // content, analysis, or deck work.
 type RefreshResult struct {
-	Book    domain.Book
-	Updated bool
-	Created bool
-	Missing bool
-	Failed  bool
+	Book         domain.Book
+	Updated      bool
+	Created      bool
+	Missing      bool
+	Failed       bool
+	CoverPending bool
 }
 
 // AliasBackfillResult reports the deterministic legacy alias migration.
@@ -112,6 +125,13 @@ type CatalogueStore interface {
 	ReconcileCatalogueEntry(context.Context, string, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
 }
 
+type coverStore interface {
+	CatalogueStore
+	RecordBookCoverAdvertisement(context.Context, string, string, string, string, bool) error
+	SaveBookCover(context.Context, string, string, string, string, string, int, int, string, []byte) error
+	MarkBookCoverUnavailable(context.Context, string, string, string) error
+}
+
 // CatalogueAliasStore contains the explicit legacy alias backfill operations.
 type CatalogueAliasStore interface {
 	ListUnscopedCatalogueEntryAliases(context.Context) ([]domain.BookAlias, error)
@@ -137,6 +157,11 @@ type catalogueReader interface {
 	Languages(context.Context, string, string) (opds.Feed, error)
 	BrowseLanguage(context.Context, string, string, string) (opds.Feed, error)
 	BrowseLanguageUnfiltered(context.Context, string, string, string) (opds.Feed, error)
+}
+
+type coverReader interface {
+	catalogueReader
+	FetchCover(context.Context, string, string, string) ([]byte, string, error)
 }
 
 type Service struct {
@@ -255,6 +280,31 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
 }
 
+// EnqueueCover schedules optional cover retrieval independently of metadata
+// reconciliation. The River payload remains safe to inspect and replay.
+func (s *Service) EnqueueCover(ctx context.Context, owner, bookID, connectionID string) (Handle, error) {
+	if s == nil || s.connections == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" || strings.TrimSpace(connectionID) == "" {
+		return Handle{}, ErrNotFound
+	}
+	exists, err := s.connections.OpdsConnectionExists(ctx, owner, connectionID)
+	if err != nil {
+		return Handle{}, err
+	}
+	if !exists {
+		return Handle{}, ErrNotFound
+	}
+	inserted, err := s.client.Insert(ctx, CoverArgs{OwnerID: owner, BookID: bookID, ConnectionID: connectionID}, &river.InsertOpts{
+		Queue: Queue, MaxAttempts: defaultMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates},
+	})
+	if err != nil {
+		return Handle{}, fmt.Errorf("enqueue book cover retrieval: %w", err)
+	}
+	if inserted == nil || inserted.Job == nil {
+		return Handle{}, errors.New("book cover enqueue returned no River job")
+	}
+	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
+}
+
 // RegisterConnection adds one in-memory River periodic job. The constructor
 // performs no I/O and therefore cannot leak credentials or block the leader.
 func (s *Service) RegisterConnection(_ context.Context, owner, connectionID string) error {
@@ -369,10 +419,80 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 			if reconcileErr != nil {
 				return RefreshResult{Book: book, Failed: true}, reconcileErr
 			}
-			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created}, nil
+			coverPending, coverErr := s.recordAndEnqueueCover(ctx, owner, reconciled.Book.ID, connection.ID, entry)
+			if coverErr != nil {
+				return RefreshResult{Book: reconciled.Book, Failed: true}, coverErr
+			}
+			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created, CoverPending: coverPending}, nil
 		}
 	}
 	return RefreshResult{Book: book, Missing: true}, nil
+}
+
+func (s *Service) recordAndEnqueueCover(ctx context.Context, owner, bookID, connectionID string, entry opds.Entry) (bool, error) {
+	covers, ok := s.catalogue.(coverStore)
+	if !ok {
+		return false, nil
+	}
+	hasCover := opds.FindCoverImage(entry) != nil
+	if err := covers.RecordBookCoverAdvertisement(ctx, owner, bookID, connectionID, entry.ID, hasCover); err != nil {
+		return false, err
+	}
+	if !hasCover || s.client == nil {
+		return false, nil
+	}
+	if _, err := s.EnqueueCover(ctx, owner, bookID, connectionID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *Service) currentEntryForBook(ctx context.Context, owner, bookID string) (domain.Book, domain.BookAlias, domain.OpdsConnection, opds.Entry, error) {
+	book, err := s.catalogue.GetBook(ctx, owner, bookID)
+	if err != nil {
+		return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, err
+	}
+	alias, err := s.catalogue.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if err != nil {
+		return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, err
+	}
+	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	if err != nil {
+		return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, err
+	}
+	supported, err := s.catalogue.ListSupportedLanguages(ctx)
+	if err != nil {
+		return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, err
+	}
+	languages, err := s.reader.Languages(ctx, owner, connection.ID)
+	if err != nil {
+		return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, err
+	}
+	var scopes []languageScope
+	if s.capabilities != nil {
+		capabilities, capabilityErr := s.capabilities.GetCapabilities(ctx)
+		if capabilityErr != nil {
+			return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, capabilityErr
+		}
+		scopes = eligibleLanguages(languages, capabilities)
+	} else {
+		displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
+		if languageID := opds.LanguageID(languages, book.LanguageTag, displayName); languageID != "" {
+			scopes = []languageScope{{capability: analyzer.LanguageCapability{Language: book.LanguageTag}, languageID: languageID}}
+		}
+	}
+	for _, scope := range scopes {
+		feed, feedErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, scope.languageID)
+		if feedErr != nil {
+			return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, feedErr
+		}
+		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
+			if strings.TrimSpace(entry.ID) == strings.TrimSpace(alias.Value) {
+				return book, alias, connection, entry, nil
+			}
+		}
+	}
+	return domain.Book{}, domain.BookAlias{}, domain.OpdsConnection{}, opds.Entry{}, ErrNotFound
 }
 
 // FindAcquisitionTarget resolves the current EPUB link for a synced Book.
@@ -783,8 +903,13 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 				if firstConflict == nil {
 					firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, reconcileErr)
 				}
-			} else if result.Upserted() {
-				upserted++
+			} else {
+				if result.Upserted() {
+					upserted++
+				}
+				if _, coverErr := s.recordAndEnqueueCover(ctx, args.OwnerID, result.Book.ID, args.ConnectionID, entry); coverErr != nil && firstConflict == nil {
+					firstConflict = fmt.Errorf("catalog entry %q cover could not be scheduled: %w", entry.ID, coverErr)
+				}
 			}
 		}
 	}
@@ -820,13 +945,61 @@ type Worker struct {
 	Statuses     CatalogueSyncStatusStore
 	Reader       catalogueReader
 	Capabilities analyzer.CapabilityProvider
+	Client       *river.Client[pgx.Tx]
+}
+
+type CoverWorker struct {
+	river.WorkerDefaults[CoverArgs]
+	Connections  ConnectionStore
+	Catalogue    coverStore
+	Reader       coverReader
+	Capabilities analyzer.CapabilityProvider
+}
+
+func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error {
+	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Reader == nil || job == nil {
+		return errors.New("book cover worker is unavailable")
+	}
+	service := &Service{connections: w.Connections, catalogue: w.Catalogue, reader: w.Reader, capabilities: w.Capabilities}
+	book, alias, connection, entry, err := service.currentEntryForBook(ctx, job.Args.OwnerID, job.Args.BookID)
+	if errors.Is(err, persistence.ErrNotFound) || errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if alias.ConnectionID != job.Args.ConnectionID || connection.ID != job.Args.ConnectionID || book.ID != job.Args.BookID {
+		return nil
+	}
+	links := opds.CoverImages(entry)
+	if len(links) == 0 {
+		return nil
+	}
+	for _, link := range links {
+		raw, advertisedType, fetchErr := w.Reader.FetchCover(ctx, job.Args.OwnerID, job.Args.ConnectionID, link.Href)
+		if fetchErr != nil {
+			continue
+		}
+		normalized, mediaType, width, height, contentHash, normalizeErr := bookcover.Normalize(raw, link.Type)
+		if advertisedType != "" {
+			// The response header is the transport truth when present; the link
+			// type remains useful for catalogs that omit that header.
+			linkType := advertisedType
+			normalized, mediaType, width, height, contentHash, normalizeErr = bookcover.Normalize(raw, linkType)
+		}
+		if normalizeErr != nil {
+			continue
+		}
+		return w.Catalogue.SaveBookCover(ctx, job.Args.OwnerID, job.Args.BookID, job.Args.ConnectionID, entry.ID, mediaType, width, height, contentHash, normalized)
+	}
+	return w.Catalogue.MarkBookCoverUnavailable(context.WithoutCancel(ctx), job.Args.OwnerID, job.Args.BookID, "cover retrieval or validation failed")
 }
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr error) {
 	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Statuses == nil || w.Reader == nil || w.Capabilities == nil || job == nil {
 		return errors.New("catalogue sync worker is unavailable")
 	}
-	service := &Service{connections: w.Connections, catalogue: w.Catalogue, statuses: w.Statuses, reader: w.Reader, capabilities: w.Capabilities}
+	service := &Service{connections: w.Connections, catalogue: w.Catalogue, statuses: w.Statuses, reader: w.Reader, capabilities: w.Capabilities, client: w.Client}
 	args := job.Args
 	connection, loadErr := w.Connections.GetOpdsConnection(ctx, args.OwnerID, args.ConnectionID)
 	if errors.Is(loadErr, persistence.ErrNotFound) {
@@ -851,6 +1024,13 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 
 func timePtr(value time.Time) *time.Time { return &value }
 
-func AddWorker(workers *river.Workers, deps StoreDependencies, reader catalogueReader, capabilities analyzer.CapabilityProvider) {
-	river.AddWorker(workers, &Worker{Connections: deps.Connections, Catalogue: deps.Catalogue, Statuses: deps.Statuses, Reader: reader, Capabilities: capabilities})
+func AddWorker(workers *river.Workers, deps StoreDependencies, reader catalogueReader, capabilities analyzer.CapabilityProvider) *Worker {
+	worker := &Worker{Connections: deps.Connections, Catalogue: deps.Catalogue, Statuses: deps.Statuses, Reader: reader, Capabilities: capabilities}
+	river.AddWorker(workers, worker)
+	if coverReader, readerOK := reader.(coverReader); readerOK {
+		if covers, storeOK := deps.Catalogue.(coverStore); storeOK {
+			river.AddWorker(workers, &CoverWorker{Connections: deps.Connections, Catalogue: covers, Reader: coverReader, Capabilities: capabilities})
+		}
+	}
+	return worker
 }

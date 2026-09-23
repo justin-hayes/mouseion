@@ -238,6 +238,7 @@ templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) 
 
 templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligible bool, message string) {
 	<article id={ myBookRowID(book.Book.ID) } class="resource-card library-book" data-acquired={ boolString(book.Acquired != nil) } aria-labelledby={ "book-title-" + book.Book.ID }>
+		@BookCoverMedia(book.Book.ID, book.Cover)
 		<div class="library-book__identity">
 			<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">
 				if book.EvidenceState() == domain.BookAnalyzed && book.JourneyMember {
@@ -284,7 +285,7 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligi
 				if !book.JourneyGoal {
 					@JourneyMembershipAction(book.Book.ID, book.JourneyMember, book.JourneyRevision, csrf)
 				}
-				if book.EvidenceState() == domain.BookNotAcquired && refreshEligible {
+				if refreshEligible {
 					<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button type="submit" class="outline">Refresh metadata</button>

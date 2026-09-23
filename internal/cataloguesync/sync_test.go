@@ -49,6 +49,16 @@ func TestSyncArgsNeverSerializeCredentials(t *testing.T) {
 	assert.NotContains(t, text, "secret")
 }
 
+func TestCoverArgsNeverSerializeCredentialsOrURLs(t *testing.T) {
+	args := CoverArgs{OwnerID: "owner", BookID: "book", ConnectionID: "connection"}
+	encoded, err := json.Marshal(args)
+	require.NoError(t, err)
+	text := string(encoded)
+	assert.NotContains(t, text, "password")
+	assert.NotContains(t, text, "secret")
+	assert.NotContains(t, text, "http")
+}
+
 func TestSafeSyncErrorIsActionableWithoutCredential(t *testing.T) {
 	secret := "plain-password-must-not-escape"
 	err := safeSyncError(errors.New("opds: HTTP 401 Unauthorized: "+secret), domain.OpdsConnection{Name: "Home", URL: "https://catalog.example/opds", Password: secret})

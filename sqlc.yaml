@@ -53,6 +53,12 @@ sql:
             go_type: "string"
           - column: "my_books_evidence.acquired"
             go_type: "bool"
+          - column: "my_books_evidence.book_cover_state"
+            go_type: "string"
+          - column: "my_books_evidence.book_cover_width"
+            go_type: "int"
+          - column: "my_books_evidence.book_cover_height"
+            go_type: "int"
           # source_created_at is passed through the LEFT JOIN without
           # COALESCE, so the column is nullable at runtime even though the
           # base table is NOT NULL; keep pointer semantics.

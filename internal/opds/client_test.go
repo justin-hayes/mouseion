@@ -239,6 +239,50 @@ func TestUnavailableFormat(t *testing.T) {
 	assert.Empty(t, FindEPUBs(Entry{Links: []Link{{Rel: AcquisitionRel, Type: "application/pdf"}}}))
 }
 
+func TestFindCoverImagePrefersFullImageOverThumbnail(t *testing.T) {
+	entry := Entry{Links: []Link{
+		{Rel: CoverThumbnailRel, Href: "/cover-small.jpg"},
+		{Rel: CoverImageRel, Href: "/cover.jpg"},
+	}}
+
+	cover := FindCoverImage(entry)
+	require.NotNil(t, cover)
+	assert.Equal(t, "/cover.jpg", cover.Href)
+	cover = FindCoverImage(Entry{Links: []Link{{Rel: CoverThumbnailRel, Href: "/cover-small.jpg"}}})
+	require.NotNil(t, cover)
+	assert.Equal(t, "/cover-small.jpg", cover.Href)
+}
+
+func TestDownloadImageIsUnrestrictedButBounded(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/image":
+			w.Header().Set("Content-Type", "image/jpeg; charset=binary")
+			testwrite.String(t, w, "image bytes")
+		case "/pdf":
+			w.Header().Set("Content-Type", "application/pdf")
+			testwrite.String(t, w, "not an EPUB")
+		case "/too-large":
+			_, err := w.Write(make([]byte, maxImageResponse+1))
+			require.NoError(t, err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.Client(), Auth{})
+	data, contentType, err := client.DownloadImage(context.Background(), server.URL+"/image")
+	require.NoError(t, err)
+	assert.Equal(t, "image/jpeg; charset=binary", contentType)
+	assert.Equal(t, "image bytes", string(data))
+	data, contentType, err = client.DownloadImage(context.Background(), server.URL+"/pdf")
+	require.NoError(t, err)
+	assert.Equal(t, "application/pdf", contentType)
+	assert.Equal(t, "not an EPUB", string(data))
+	_, _, err = client.DownloadImage(context.Background(), server.URL+"/too-large")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "8 MiB")
+}
+
 func TestLanguageIDPrefersExactLanguageOverBaseLanguage(t *testing.T) {
 	feed := Feed{Entries: []Entry{
 		{Title: "German", Links: []Link{{Rel: "subsection", Href: "/language/7"}}},
@@ -316,6 +360,8 @@ func TestRedirectsStayOnCatalogOriginAndPreserveCustomRedirectPolicy(t *testing.
 	assert.Error(t, err, "external redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
 	_, err = opdsClient.Download(context.Background(), catalog.URL+"/download-redirect")
 	assert.Error(t, err, "external download redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
+	_, _, err = opdsClient.DownloadImage(context.Background(), catalog.URL+"/download-redirect")
+	assert.Error(t, err, "external image redirect was followed") //nolint:testifylint // Redirect protections are independent requests collected in one test.
 	assert.False(t, externalHit, "external redirect target was fetched")
 }
 

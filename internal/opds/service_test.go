@@ -74,6 +74,47 @@ func TestAcquireResolvesRelativeEPUBLinkAgainstCatalogOrigin(t *testing.T) {
 	assert.Equal(t, "epub", string(importer.content))
 }
 
+func TestFetchCoverResolvesRelativeTargetWithOwnerCredentials(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/covers/book.jpg", r.URL.Path)
+		user, password, ok := r.BasicAuth()
+		assert.True(t, ok)
+		assert.Equal(t, "reader", user)
+		assert.Equal(t, "secret", password)
+		w.Header().Set("Content-Type", "image/jpeg")
+		testwrite.String(t, w, "cover")
+	}))
+	defer server.Close()
+
+	store := &connectionStoreStub{connection: domain.OpdsConnection{
+		URL:      server.URL + "/opds",
+		Username: "reader",
+		Password: "secret",
+	}}
+	data, contentType, err := NewService(store, &importerStub{}, server.Client()).FetchCover(context.Background(), "owner", "connection", "/covers/book.jpg")
+	require.NoError(t, err)
+	assert.Equal(t, "image/jpeg", contentType)
+	assert.Equal(t, "cover", string(data))
+	assert.Equal(t, "owner", store.owner)
+	assert.Equal(t, "connection", store.id)
+}
+
+func TestFetchCoverRejectsTargetOutsideOwnerCatalogOrigin(t *testing.T) {
+	externalHit := false
+	external := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		externalHit = true
+		testwrite.String(t, w, "must not be fetched")
+	}))
+	defer external.Close()
+
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: "https://catalog.example/opds"}}
+	service := NewService(store, &importerStub{}, external.Client())
+	_, _, err := service.FetchCover(context.Background(), "owner", "connection", external.URL+"/cover.jpg")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrUnsafeTarget)
+	assert.False(t, externalHit)
+}
+
 func TestAcquireRejectsEntryWithoutEPUB(t *testing.T) {
 	store := &connectionStoreStub{}
 	_, err := NewService(store, &importerStub{}, nil).Acquire(context.Background(), "owner", "connection", "de", Entry{})
