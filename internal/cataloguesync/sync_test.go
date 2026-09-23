@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,13 +51,14 @@ func TestSyncArgsNeverSerializeCredentials(t *testing.T) {
 }
 
 func TestCoverArgsNeverSerializeCredentialsOrURLs(t *testing.T) {
-	args := CoverArgs{OwnerID: "owner", BookID: "book", ConnectionID: "connection"}
+	args := CoverArgs{OwnerID: "owner", BookID: "book", ConnectionID: "connection", SourceIdentifier: "entry-1"}
 	encoded, err := json.Marshal(args)
 	require.NoError(t, err)
 	text := string(encoded)
 	assert.NotContains(t, text, "password")
 	assert.NotContains(t, text, "secret")
 	assert.NotContains(t, text, "http")
+	assert.Contains(t, text, "entry-1")
 }
 
 func TestSafeSyncErrorIsActionableWithoutCredential(t *testing.T) {
@@ -109,6 +111,15 @@ func (s *refreshStore) GetBookCatalogEntryAlias(_ context.Context, owner, bookID
 		return domain.BookAlias{}, s.aliasErr
 	}
 	if s.alias.OwnerID != "" && (s.alias.OwnerID != owner || s.alias.BookID != bookID) {
+		return domain.BookAlias{}, persistence.ErrNotFound
+	}
+	return s.alias, nil
+}
+func (s *refreshStore) GetBookCatalogEntryAliasForConnection(_ context.Context, owner, bookID, connectionID string) (domain.BookAlias, error) {
+	if s.aliasErr != nil {
+		return domain.BookAlias{}, s.aliasErr
+	}
+	if s.alias.OwnerID != "" && (s.alias.OwnerID != owner || s.alias.BookID != bookID || s.alias.ConnectionID != connectionID) {
 		return domain.BookAlias{}, persistence.ErrNotFound
 	}
 	return s.alias, nil
@@ -422,4 +433,57 @@ func TestRefreshAndAcquisitionReportMissingAliasConnection(t *testing.T) {
 	_, acquisitionErr := newRefreshService(store, reader).FindAcquisitionTarget(context.Background(), "alice", "book-1")
 	assert.ErrorIs(t, acquisitionErr, ErrConnectionNotFound) //nolint:testifylint // Acquisition is an independent missing-connection behavior check.
 	assert.Empty(t, reader.connections)
+}
+
+type stubCapabilities struct{ value analyzer.Capabilities }
+
+func (s stubCapabilities) GetCapabilities(context.Context) (analyzer.Capabilities, error) {
+	return s.value, nil
+}
+
+// recordingCoverStore captures advertisement decisions and can fail them to
+// prove cover work never fails catalog sync.
+type recordingCoverStore struct {
+	refreshStore
+	advertisements []string
+	recordErr      error
+}
+
+func (s *recordingCoverStore) RecordBookCoverAdvertisement(_ context.Context, _, _, _, sourceIdentifier string, advertised bool) (bool, error) {
+	s.advertisements = append(s.advertisements, sourceIdentifier)
+	if s.recordErr != nil {
+		return false, s.recordErr
+	}
+	return advertised, nil
+}
+func (s *recordingCoverStore) SaveBookCover(context.Context, string, string, string, string, string, int, int, string, []byte) error {
+	return nil
+}
+func (s *recordingCoverStore) MarkBookCoverUnavailable(context.Context, string, string, string) error {
+	return nil
+}
+func (s *recordingCoverStore) GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error) {
+	return domain.BookCoverRetrieval{}, persistence.ErrNotFound
+}
+
+func TestSyncRecordsCoverAdvertisementsAfterSuccessAndNeverFailsOnCoverErrors(t *testing.T) {
+	entry := opds.Entry{ID: "entry-1", Title: "Title", Links: []opds.Link{
+		{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/one.epub"},
+		{Rel: opds.CoverImageRel, Type: "image/png", Href: "https://catalog.example/one.png"},
+	}}
+	store := &recordingCoverStore{refreshStore: refreshStore{
+		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+		connections: []domain.OpdsConnection{{ID: "connection-1", OwnerID: "alice"}},
+		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}}
+	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{entry}}}
+	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: stubCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
+
+	require.NoError(t, worker.Work(context.Background(), &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: "alice", ConnectionID: "connection-1"}}))
+	assert.Equal(t, []string{"entry-1"}, store.advertisements)
+
+	store.advertisements = nil
+	store.recordErr = errors.New("cover store unavailable")
+	require.NoError(t, worker.Work(context.Background(), &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: "alice", ConnectionID: "connection-1"}}), "cover recording failure failed catalog sync")
+	assert.Equal(t, []string{"entry-1"}, store.advertisements)
 }

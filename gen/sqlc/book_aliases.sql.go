@@ -252,6 +252,55 @@ func (q *Queries) GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatal
 	return i, err
 }
 
+const getBookCatalogEntryAliasForConnection = `-- name: GetBookCatalogEntryAliasForConnection :one
+SELECT a.id::text, a.owner_id::text, a.book_id::text, (COALESCE(a.connection_id::text, ''))::text AS connection_id,
+       a.alias_type, a.namespace, a.value, a.created_at
+FROM book_aliases a
+WHERE a.owner_id = $1 AND a.book_id = $2 AND a.connection_id = $3
+  AND a.alias_type = $4 AND a.namespace = $5
+`
+
+type GetBookCatalogEntryAliasForConnectionParams struct {
+	OwnerID      string
+	BookID       string
+	ConnectionID pgtype.UUID
+	AliasType    string
+	Namespace    string
+}
+
+type GetBookCatalogEntryAliasForConnectionRow struct {
+	AID          string
+	AOwnerID     string
+	ABookID      string
+	ConnectionID string
+	AliasType    string
+	Namespace    string
+	Value        string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) GetBookCatalogEntryAliasForConnection(ctx context.Context, arg GetBookCatalogEntryAliasForConnectionParams) (GetBookCatalogEntryAliasForConnectionRow, error) {
+	row := q.db.QueryRow(ctx, getBookCatalogEntryAliasForConnection,
+		arg.OwnerID,
+		arg.BookID,
+		arg.ConnectionID,
+		arg.AliasType,
+		arg.Namespace,
+	)
+	var i GetBookCatalogEntryAliasForConnectionRow
+	err := row.Scan(
+		&i.AID,
+		&i.AOwnerID,
+		&i.ABookID,
+		&i.ConnectionID,
+		&i.AliasType,
+		&i.Namespace,
+		&i.Value,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getBookMetadata = `-- name: GetBookMetadata :one
 SELECT title, author, language_state, COALESCE(language_tag, '') AS language_tag
 FROM books WHERE owner_id = $1 AND id = $2

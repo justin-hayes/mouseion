@@ -32,6 +32,7 @@ type Querier interface {
 	ClaimPreparedDeckBatchSubmission(ctx context.Context, arg ClaimPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	ClaimPreparedDeckFinalization(ctx context.Context, arg ClaimPreparedDeckFinalizationParams) (ClaimPreparedDeckFinalizationRow, error)
 	ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
+	ClearBookCover(ctx context.Context, arg ClearBookCoverParams) error
 	CompleteDeckPreparation(ctx context.Context, arg CompleteDeckPreparationParams) (DeckPreparation, error)
 	CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error)
 	CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error)
@@ -86,9 +87,15 @@ type Querier interface {
 	GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) (GetBookByAliasRow, error)
 	GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error)
 	GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatalogEntryAliasParams) (GetBookCatalogEntryAliasRow, error)
+	GetBookCatalogEntryAliasForConnection(ctx context.Context, arg GetBookCatalogEntryAliasForConnectionParams) (GetBookCatalogEntryAliasForConnectionRow, error)
 	// Cover metadata is projected into my_books_evidence; bytes are read only by
-	// the authenticated cover endpoint.
+	// the authenticated cover endpoint. The selected source is the Catalog entry
+	// that owns the retained display image; only that source may replace or
+	// explicitly remove it. While no image is selected, another alias may become
+	// the candidate that the next successful retrieval selects.
 	GetBookCover(ctx context.Context, arg GetBookCoverParams) (GetBookCoverRow, error)
+	GetBookCoverForRetrieval(ctx context.Context, arg GetBookCoverForRetrievalParams) (GetBookCoverForRetrievalRow, error)
+	GetBookCoverForUpdate(ctx context.Context, arg GetBookCoverForUpdateParams) (GetBookCoverForUpdateRow, error)
 	GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error)
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
@@ -162,6 +169,7 @@ type Querier interface {
 	HasUsers(ctx context.Context) (bool, error)
 	InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error)
 	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
+	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) error
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
@@ -281,9 +289,9 @@ type Querier interface {
 	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
-	RecordBookCoverAdvertisement(ctx context.Context, arg RecordBookCoverAdvertisementParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
+	RefreshBookCoverAdvertisement(ctx context.Context, arg RefreshBookCoverAdvertisementParams) error
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
@@ -299,6 +307,7 @@ type Querier interface {
 	// the statement statically analyzable.
 	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
 	SetActiveStudyLanguage(ctx context.Context, arg SetActiveStudyLanguageParams) (int64, error)
+	SetBookCoverPending(ctx context.Context, arg SetBookCoverPendingParams) error
 	SetCatalogueEntryAliasConnection(ctx context.Context, arg SetCatalogueEntryAliasConnectionParams) (int64, error)
 	SetCatalogueSyncStatus(ctx context.Context, arg SetCatalogueSyncStatusParams) error
 	SetCurrentContentRevision(ctx context.Context, arg SetCurrentContentRevisionParams) error
