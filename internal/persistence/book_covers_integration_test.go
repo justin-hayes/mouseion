@@ -215,6 +215,52 @@ func TestBookCoverStaleRetrievalCompletionsAreIgnored(t *testing.T) {
 	assert.Equal(t, second.ID, cover.SelectedConnectionID)
 }
 
+func TestBookCoverSelectedRefreshAdvancesGenerationAndPreservesImage(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "selected refresh cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "selected-refresh-owner", false)
+	require.NoError(t, err)
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Catalog", URL: "https://catalog.example/opds"})
+	require.NoError(t, err)
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-1", "Title", "", "de")
+	require.NoError(t, err)
+
+	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", true)
+	require.NoError(t, err)
+	require.True(t, retrieve)
+	initial, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", initial.AdvertisedAt, "image/png", 4, 6, "initial", []byte("initial-image")))
+
+	// Reconciliation while the old worker is still live advances the fence but
+	// keeps the validated image available until the replacement succeeds.
+	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", true)
+	require.NoError(t, err)
+	require.True(t, retrieve)
+	current, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	require.True(t, current.AdvertisedAt.After(initial.AdvertisedAt))
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", initial.AdvertisedAt, "image/png", 4, 6, "stale", []byte("stale-image")))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", initial.AdvertisedAt, "stale failure"))
+
+	cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	assert.Empty(t, cover.FailureReason)
+	resource, err := store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "initial", resource.ContentHash)
+
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", current.AdvertisedAt, "image/png", 4, 6, "replacement", []byte("replacement-image")))
+	resource, err = store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "replacement", resource.ContentHash)
+}
+
 func mustCoverState(t *testing.T, store *PostgresStore, owner, bookID string) string {
 	t.Helper()
 	cover, err := store.GetBookCoverForRetrieval(context.Background(), owner, bookID)
