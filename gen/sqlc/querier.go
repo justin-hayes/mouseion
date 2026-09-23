@@ -169,7 +169,7 @@ type Querier interface {
 	HasUsers(ctx context.Context) (bool, error)
 	InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error)
 	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
-	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) error
+	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) (int64, error)
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error

@@ -274,8 +274,9 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	// Repeated sync is deduplicated and repeated retrieval converges on one
 	// retained display image rather than creating history.
 	require.NoError(t, f.sync(f.connection.ID))
-	require.Len(t, f.pendingCoverArgs(), 1)
-	require.NoError(t, f.runCoverJob(f.pendingCoverArgs()[0]))
+	repeatArgs := f.pendingCoverArgs()
+	require.Len(t, repeatArgs, 1)
+	require.NoError(t, f.runCoverJob(repeatArgs[0]))
 	repeated, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, first.ContentHash, repeated.ContentHash)
@@ -287,7 +288,8 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	beforeReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, first.ContentHash, beforeReplacement.ContentHash, "prior image was replaced before the new image validated")
-	require.NoError(t, f.runCoverJob(f.pendingCoverArgs()[0]))
+	replacementArgs := f.pendingCoverArgs()
+	require.NoError(t, f.runCoverJob(replacementArgs[0]))
 	afterReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
@@ -314,7 +316,8 @@ func TestCatalogueSyncCoverAbsencePreservesOnUncertainty(t *testing.T) {
 	// without failing catalog sync.
 	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
 	require.NoError(t, f.sync(f.connection.ID))
-	require.Error(t, f.runCoverJob(f.pendingCoverArgs()[0]))
+	failedArgs := f.pendingCoverArgs()
+	require.Error(t, f.runCoverJob(failedArgs[0]))
 	cover := f.coverState(book.ID)
 	assert.Equal(t, domain.BookCoverAvailable, cover.State)
 	assert.NotEmpty(t, cover.FailureReason)

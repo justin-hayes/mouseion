@@ -23,6 +23,7 @@ SET state = 'none',
     content_hash = NULL,
     bytes = NULL,
     fetched_at = NULL,
+    advertised_at = NULL,
     failure_reason = NULL,
     updated_at = now()
 WHERE owner_id = $1 AND book_id = $2
@@ -111,7 +112,8 @@ const getBookCoverForRetrieval = `-- name: GetBookCoverForRetrieval :one
 SELECT state,
        (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
        (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier,
-       (COALESCE(failure_reason, ''))::text AS failure_reason
+       (COALESCE(failure_reason, ''))::text AS failure_reason,
+       advertised_at
 FROM book_covers
 WHERE owner_id = $1 AND book_id = $2
 `
@@ -126,6 +128,7 @@ type GetBookCoverForRetrievalRow struct {
 	SelectedConnectionID     string
 	SelectedSourceIdentifier string
 	FailureReason            string
+	AdvertisedAt             pgtype.Timestamptz
 }
 
 func (q *Queries) GetBookCoverForRetrieval(ctx context.Context, arg GetBookCoverForRetrievalParams) (GetBookCoverForRetrievalRow, error) {
@@ -136,6 +139,7 @@ func (q *Queries) GetBookCoverForRetrieval(ctx context.Context, arg GetBookCover
 		&i.SelectedConnectionID,
 		&i.SelectedSourceIdentifier,
 		&i.FailureReason,
+		&i.AdvertisedAt,
 	)
 	return i, err
 }
@@ -143,7 +147,8 @@ func (q *Queries) GetBookCoverForRetrieval(ctx context.Context, arg GetBookCover
 const getBookCoverForUpdate = `-- name: GetBookCoverForUpdate :one
 SELECT state,
        (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
-       (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier
+       (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier,
+       advertised_at
 FROM book_covers
 WHERE owner_id = $1 AND book_id = $2
 FOR UPDATE
@@ -158,16 +163,22 @@ type GetBookCoverForUpdateRow struct {
 	State                    string
 	SelectedConnectionID     string
 	SelectedSourceIdentifier string
+	AdvertisedAt             pgtype.Timestamptz
 }
 
 func (q *Queries) GetBookCoverForUpdate(ctx context.Context, arg GetBookCoverForUpdateParams) (GetBookCoverForUpdateRow, error) {
 	row := q.db.QueryRow(ctx, getBookCoverForUpdate, arg.Owner, arg.Book)
 	var i GetBookCoverForUpdateRow
-	err := row.Scan(&i.State, &i.SelectedConnectionID, &i.SelectedSourceIdentifier)
+	err := row.Scan(
+		&i.State,
+		&i.SelectedConnectionID,
+		&i.SelectedSourceIdentifier,
+		&i.AdvertisedAt,
+	)
 	return i, err
 }
 
-const insertBookCoverCandidate = `-- name: InsertBookCoverCandidate :exec
+const insertBookCoverCandidate = `-- name: InsertBookCoverCandidate :execrows
 INSERT INTO book_covers (owner_id, book_id, state, selected_connection_id, selected_source_identifier, advertised_at, updated_at)
 VALUES (
     $1,
@@ -178,6 +189,7 @@ VALUES (
     now(),
     now()
 )
+ON CONFLICT (owner_id, book_id) DO NOTHING
 `
 
 type InsertBookCoverCandidateParams struct {
@@ -189,8 +201,8 @@ type InsertBookCoverCandidateParams struct {
 	SourceIdentifier string
 }
 
-func (q *Queries) InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) error {
-	_, err := q.db.Exec(ctx, insertBookCoverCandidate,
+func (q *Queries) InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertBookCoverCandidate,
 		arg.Owner,
 		arg.Book,
 		arg.State,
@@ -198,7 +210,10 @@ func (q *Queries) InsertBookCoverCandidate(ctx context.Context, arg InsertBookCo
 		arg.Connection,
 		arg.SourceIdentifier,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const markBookCoverUnavailable = `-- name: MarkBookCoverUnavailable :exec
@@ -210,23 +225,37 @@ SET state = CASE WHEN state = 'available' THEN state ELSE 'unavailable' END,
     height = CASE WHEN state = 'available' THEN height ELSE NULL END,
     content_hash = CASE WHEN state = 'available' THEN content_hash ELSE NULL END,
     failure_reason = $1, updated_at = now()
-WHERE owner_id = $2 AND book_id = $3
+ WHERE owner_id = $2
+   AND book_id = $3
+   AND selected_connection_id = $4
+   AND selected_source_identifier = $5
+   AND advertised_at IS NOT DISTINCT FROM $6
 `
 
 type MarkBookCoverUnavailableParams struct {
-	FailureReason pgtype.Text
-	Owner         string
-	Book          string
+	FailureReason    pgtype.Text
+	Owner            string
+	Book             string
+	Connection       pgtype.UUID
+	SourceIdentifier pgtype.Text
+	AdvertisedAt     pgtype.Timestamptz
 }
 
 func (q *Queries) MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCoverUnavailableParams) error {
-	_, err := q.db.Exec(ctx, markBookCoverUnavailable, arg.FailureReason, arg.Owner, arg.Book)
+	_, err := q.db.Exec(ctx, markBookCoverUnavailable,
+		arg.FailureReason,
+		arg.Owner,
+		arg.Book,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.AdvertisedAt,
+	)
 	return err
 }
 
 const refreshBookCoverAdvertisement = `-- name: RefreshBookCoverAdvertisement :exec
 UPDATE book_covers
-SET advertised_at = now(), failure_reason = NULL, updated_at = now()
+SET failure_reason = NULL, updated_at = now()
 WHERE owner_id = $1 AND book_id = $2 AND state = 'available'
 `
 
@@ -241,29 +270,28 @@ func (q *Queries) RefreshBookCoverAdvertisement(ctx context.Context, arg Refresh
 }
 
 const saveBookCover = `-- name: SaveBookCover :exec
-INSERT INTO book_covers (owner_id, book_id, state, selected_connection_id, selected_source_identifier, media_type, width, height, content_hash, bytes, advertised_at, fetched_at, updated_at)
-VALUES ($1, $2, 'available', $3, $4, $5, $6, $7, $8, $9, now(), now(), now())
-ON CONFLICT (owner_id, book_id) DO UPDATE SET
-    state = 'available',
-    selected_connection_id = EXCLUDED.selected_connection_id,
-    selected_source_identifier = EXCLUDED.selected_source_identifier,
-    media_type = EXCLUDED.media_type,
-    width = EXCLUDED.width,
-    height = EXCLUDED.height,
-    content_hash = EXCLUDED.content_hash,
-    bytes = EXCLUDED.bytes,
+UPDATE book_covers
+SET state = 'available',
+    selected_connection_id = $1,
+    selected_source_identifier = $2,
+    media_type = $3,
+    width = $4,
+    height = $5,
+    content_hash = $6,
+    bytes = $7,
     fetched_at = now(),
     failure_reason = NULL,
     updated_at = now()
-WHERE book_covers.state <> 'available'
-   OR (book_covers.selected_connection_id IS NOT DISTINCT FROM EXCLUDED.selected_connection_id
-       AND book_covers.selected_source_identifier IS NOT DISTINCT FROM EXCLUDED.selected_source_identifier
-       AND book_covers.content_hash IS DISTINCT FROM EXCLUDED.content_hash)
+WHERE owner_id = $8
+  AND book_id = $9
+  AND advertised_at IS NOT DISTINCT FROM $10
+  AND (state = 'pending'
+       OR (selected_connection_id = $1
+           AND selected_source_identifier = $2))
+  AND (state <> 'available' OR content_hash IS DISTINCT FROM $6)
 `
 
 type SaveBookCoverParams struct {
-	Owner            string
-	Book             string
 	Connection       pgtype.UUID
 	SourceIdentifier pgtype.Text
 	MediaType        pgtype.Text
@@ -271,12 +299,13 @@ type SaveBookCoverParams struct {
 	Height           pgtype.Int4
 	ContentHash      pgtype.Text
 	Bytes            []byte
+	Owner            string
+	Book             string
+	AdvertisedAt     pgtype.Timestamptz
 }
 
 func (q *Queries) SaveBookCover(ctx context.Context, arg SaveBookCoverParams) error {
 	_, err := q.db.Exec(ctx, saveBookCover,
-		arg.Owner,
-		arg.Book,
 		arg.Connection,
 		arg.SourceIdentifier,
 		arg.MediaType,
@@ -284,6 +313,9 @@ func (q *Queries) SaveBookCover(ctx context.Context, arg SaveBookCoverParams) er
 		arg.Height,
 		arg.ContentHash,
 		arg.Bytes,
+		arg.Owner,
+		arg.Book,
+		arg.AdvertisedAt,
 	)
 	return err
 }
