@@ -42,6 +42,7 @@ type Querier interface {
 	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
+	CountPendingBookCoverCandidates(ctx context.Context, arg CountPendingBookCoverCandidatesParams) (int, error)
 	CountPreparedDeckRunOutcomeStates(ctx context.Context, arg CountPreparedDeckRunOutcomeStatesParams) (CountPreparedDeckRunOutcomeStatesRow, error)
 	CountPrimaryGoalSnapshotVocabulary(ctx context.Context, arg CountPrimaryGoalSnapshotVocabularyParams) (CountPrimaryGoalSnapshotVocabularyRow, error)
 	CreateDeckPreparation(ctx context.Context, arg CreateDeckPreparationParams) (DeckPreparation, error)
@@ -54,6 +55,7 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
 	DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error)
+	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error)
@@ -266,6 +268,8 @@ type Querier interface {
 	LockPrimaryGoalsExceptLanguage(ctx context.Context, arg LockPrimaryGoalsExceptLanguageParams) ([]string, error)
 	LockPrimaryGoalsForAllLanguages(ctx context.Context, arg LockPrimaryGoalsForAllLanguagesParams) ([]string, error)
 	LockPrimaryGoalsForBook(ctx context.Context, arg LockPrimaryGoalsForBookParams) ([]string, error)
+	MarkBookCoverCandidateFailed(ctx context.Context, arg MarkBookCoverCandidateFailedParams) (int64, error)
+	MarkBookCoverCandidateSucceeded(ctx context.Context, arg MarkBookCoverCandidateSucceededParams) error
 	MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCoverUnavailableParams) error
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
@@ -290,12 +294,15 @@ type Querier interface {
 	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
+	RecordBookCoverGenerationFailure(ctx context.Context, arg RecordBookCoverGenerationFailureParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	RefreshBookCoverAdvertisement(ctx context.Context, arg RefreshBookCoverAdvertisementParams) error
+	RegisterBookCoverCandidate(ctx context.Context, arg RegisterBookCoverCandidateParams) (int64, error)
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
+	ResolveBookCoverAfterConnectionDeletion(ctx context.Context, arg ResolveBookCoverAfterConnectionDeletionParams) error
 	ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error)
 	RetireDeckPreparationForGoalSnapshot(ctx context.Context, arg RetireDeckPreparationForGoalSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error

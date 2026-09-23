@@ -39,6 +39,28 @@ func (q *Queries) ClearBookCover(ctx context.Context, arg ClearBookCoverParams) 
 	return err
 }
 
+const countPendingBookCoverCandidates = `-- name: CountPendingBookCoverCandidates :one
+SELECT count(*)::int
+FROM book_cover_candidates
+WHERE owner_id = $1
+  AND book_id = $2
+  AND advertised_at = $3
+  AND state = 'pending'
+`
+
+type CountPendingBookCoverCandidatesParams struct {
+	Owner        string
+	Book         string
+	AdvertisedAt time.Time
+}
+
+func (q *Queries) CountPendingBookCoverCandidates(ctx context.Context, arg CountPendingBookCoverCandidatesParams) (int, error) {
+	row := q.db.QueryRow(ctx, countPendingBookCoverCandidates, arg.Owner, arg.Book, arg.AdvertisedAt)
+	var column_1 int
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getActiveBookCoverResource = `-- name: GetActiveBookCoverResource :one
 SELECT c.owner_id::text,
        c.book_id::text,
@@ -280,6 +302,70 @@ func (q *Queries) InsertBookCoverCandidate(ctx context.Context, arg InsertBookCo
 	return result.RowsAffected(), nil
 }
 
+const markBookCoverCandidateFailed = `-- name: MarkBookCoverCandidateFailed :execrows
+UPDATE book_cover_candidates
+SET state = 'failed', failure_reason = $1, updated_at = now()
+WHERE owner_id = $2
+  AND book_id = $3
+  AND connection_id = $4
+  AND source_identifier = $5
+  AND advertised_at = $6
+  AND state = 'pending'
+`
+
+type MarkBookCoverCandidateFailedParams struct {
+	FailureReason    pgtype.Text
+	Owner            string
+	Book             string
+	Connection       string
+	SourceIdentifier string
+	AdvertisedAt     time.Time
+}
+
+func (q *Queries) MarkBookCoverCandidateFailed(ctx context.Context, arg MarkBookCoverCandidateFailedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markBookCoverCandidateFailed,
+		arg.FailureReason,
+		arg.Owner,
+		arg.Book,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.AdvertisedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markBookCoverCandidateSucceeded = `-- name: MarkBookCoverCandidateSucceeded :exec
+UPDATE book_cover_candidates
+SET state = 'succeeded', failure_reason = NULL, updated_at = now()
+WHERE owner_id = $1
+  AND book_id = $2
+  AND connection_id = $3
+  AND source_identifier = $4
+  AND advertised_at = $5
+`
+
+type MarkBookCoverCandidateSucceededParams struct {
+	Owner            string
+	Book             string
+	Connection       string
+	SourceIdentifier string
+	AdvertisedAt     time.Time
+}
+
+func (q *Queries) MarkBookCoverCandidateSucceeded(ctx context.Context, arg MarkBookCoverCandidateSucceededParams) error {
+	_, err := q.db.Exec(ctx, markBookCoverCandidateSucceeded,
+		arg.Owner,
+		arg.Book,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.AdvertisedAt,
+	)
+	return err
+}
+
 const markBookCoverUnavailable = `-- name: MarkBookCoverUnavailable :exec
 UPDATE book_covers
 SET state = CASE WHEN state = 'available' THEN state ELSE 'unavailable' END,
@@ -317,6 +403,32 @@ func (q *Queries) MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCove
 	return err
 }
 
+const recordBookCoverGenerationFailure = `-- name: RecordBookCoverGenerationFailure :exec
+UPDATE book_covers
+SET failure_reason = $1, updated_at = now()
+WHERE owner_id = $2
+  AND book_id = $3
+  AND advertised_at = $4
+  AND state = 'pending'
+`
+
+type RecordBookCoverGenerationFailureParams struct {
+	FailureReason pgtype.Text
+	Owner         string
+	Book          string
+	AdvertisedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) RecordBookCoverGenerationFailure(ctx context.Context, arg RecordBookCoverGenerationFailureParams) error {
+	_, err := q.db.Exec(ctx, recordBookCoverGenerationFailure,
+		arg.FailureReason,
+		arg.Owner,
+		arg.Book,
+		arg.AdvertisedAt,
+	)
+	return err
+}
+
 const refreshBookCoverAdvertisement = `-- name: RefreshBookCoverAdvertisement :exec
 UPDATE book_covers
 SET failure_reason = NULL,
@@ -335,6 +447,34 @@ type RefreshBookCoverAdvertisementParams struct {
 func (q *Queries) RefreshBookCoverAdvertisement(ctx context.Context, arg RefreshBookCoverAdvertisementParams) error {
 	_, err := q.db.Exec(ctx, refreshBookCoverAdvertisement, arg.Owner, arg.Book)
 	return err
+}
+
+const registerBookCoverCandidate = `-- name: RegisterBookCoverCandidate :execrows
+INSERT INTO book_cover_candidates (owner_id, book_id, connection_id, source_identifier, advertised_at, state, updated_at)
+VALUES ($1, $2, $3, $4, $5, 'pending', now())
+ON CONFLICT (owner_id, book_id, connection_id, source_identifier, advertised_at) DO NOTHING
+`
+
+type RegisterBookCoverCandidateParams struct {
+	Owner            string
+	Book             string
+	Connection       string
+	SourceIdentifier string
+	AdvertisedAt     time.Time
+}
+
+func (q *Queries) RegisterBookCoverCandidate(ctx context.Context, arg RegisterBookCoverCandidateParams) (int64, error) {
+	result, err := q.db.Exec(ctx, registerBookCoverCandidate,
+		arg.Owner,
+		arg.Book,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.AdvertisedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const saveBookCover = `-- name: SaveBookCover :exec

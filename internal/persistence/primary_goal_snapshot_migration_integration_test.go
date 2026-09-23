@@ -19,7 +19,7 @@ func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -6)
+	moveApplicationMigrations(t, databaseURL, -7)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
@@ -239,7 +239,7 @@ func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testin
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -6)
+	moveApplicationMigrations(t, databaseURL, -7)
 	activeOwner, err := store.CreateUser(ctx, "snapshot-empty-active", false)
 	require.NoError(t, err)
 	inactiveOwner, err := store.CreateUser(ctx, "snapshot-empty-inactive", false)

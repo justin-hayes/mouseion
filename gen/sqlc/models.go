@@ -98,6 +98,17 @@ type BookCover struct {
 	FailureReason            pgtype.Text
 }
 
+type BookCoverCandidate struct {
+	OwnerID          string
+	BookID           string
+	ConnectionID     string
+	SourceIdentifier string
+	AdvertisedAt     time.Time
+	State            string
+	FailureReason    pgtype.Text
+	UpdatedAt        time.Time
+}
+
 type BookCurrentAnalysis struct {
 	OwnerID          string
 	BookID           string

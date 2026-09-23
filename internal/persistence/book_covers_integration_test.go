@@ -6,6 +6,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -156,6 +157,119 @@ func TestBookCoverConcurrentInitialAdvertisementsChooseOneCandidate(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverPending, cover.State)
 	assert.Contains(t, []string{first.ID, second.ID}, cover.SelectedConnectionID)
+}
+
+func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "candidate failure cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "candidate-failure-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+
+	advertise := func(t *testing.T, title, firstSource, secondSource string) (string, time.Time) {
+		t.Helper()
+		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, title, title, "", "de")
+		require.NoError(t, err)
+		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, firstSource, true)
+		require.NoError(t, err)
+		require.True(t, retrieve)
+		initial, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+		require.NoError(t, err)
+		retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, second.ID, secondSource, true)
+		require.NoError(t, err)
+		require.True(t, retrieve)
+		return reconciled.Book.ID, initial.AdvertisedAt
+	}
+
+	bookID, advertisedAt := advertise(t, "Failure before success", "entry-a", "entry-b")
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-a", advertisedAt, "first candidate failed"))
+	pending, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, pending.State)
+	assert.Equal(t, "first candidate failed", pending.FailureReason)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-b", advertisedAt, "image/png", 4, 6, "second", []byte("second-image")))
+	winner, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, winner.State)
+	assert.Equal(t, second.ID, winner.SelectedConnectionID)
+	assert.Empty(t, winner.FailureReason)
+
+	bookID, advertisedAt = advertise(t, "Success before failure", "entry-c", "entry-d")
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-d", advertisedAt, "image/png", 4, 6, "second", []byte("second-image")))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-c", advertisedAt, "late first failure"))
+	winner, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, winner.State)
+	assert.Equal(t, second.ID, winner.SelectedConnectionID)
+	assert.Empty(t, winner.FailureReason)
+
+	bookID, advertisedAt = advertise(t, "Every candidate fails", "entry-e", "entry-f")
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-e", advertisedAt, "first candidate failed"))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, second.ID, "entry-f", advertisedAt, "second candidate failed"))
+	failed, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverUnavailable, failed.State)
+	assert.Equal(t, "second candidate failed", failed.FailureReason)
+
+	// A later reconciliation starts a fresh generation and can recover without
+	// requiring a learner-facing action.
+	retrieve, retryAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-e", true)
+	require.NoError(t, err)
+	assert.True(t, retrieve)
+	assert.True(t, retryAt.After(advertisedAt))
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "entry-e", retryAt, "image/png", 4, 6, "retry", []byte("retry-image")))
+	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Equal(t, first.ID, recovered.SelectedConnectionID)
+}
+
+func TestBookCoverPendingConnectionDeletionDoesNotStrandGeneration(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "deleted candidate cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "deleted-candidate-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+	firstBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-first", "First book", "", "de")
+	require.NoError(t, err)
+	secondBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-second", "Second book", "", "de")
+	require.NoError(t, err)
+
+	_, firstAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, firstBook.Book.ID, first.ID, "entry-first", true)
+	require.NoError(t, err)
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, firstBook.Book.ID, second.ID, "entry-first-fallback", true)
+	require.NoError(t, err)
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, secondBook.Book.ID, first.ID, "entry-second", true)
+	require.NoError(t, err)
+
+	require.NoError(t, store.DeleteOpdsConnection(ctx, owner.ID, first.ID))
+	pending, err := store.GetBookCoverForRetrieval(ctx, owner.ID, firstBook.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, pending.State)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, firstBook.Book.ID, second.ID, "entry-first-fallback", firstAt, "image/png", 4, 6, "fallback", []byte("fallback-image")))
+	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, firstBook.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Equal(t, second.ID, recovered.SelectedConnectionID)
+
+	unavailable, err := store.GetBookCoverForRetrieval(ctx, owner.ID, secondBook.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverUnavailable, unavailable.State)
+	assert.Equal(t, "cover retrieval source was deleted", unavailable.FailureReason)
 }
 
 func TestBookCoverStaleRetrievalCompletionsAreIgnored(t *testing.T) {

@@ -84,6 +84,12 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 				return err
 			}
 			advertisedAt = current.AdvertisedAt.Time
+			_, err = q.RegisterBookCoverCandidate(ctx, sqlcgen.RegisterBookCoverCandidateParams{
+				Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt,
+			})
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -100,17 +106,67 @@ func (s *PostgresStore) SaveBookCover(ctx context.Context, owner, bookID, connec
 	if len(bytes) == 0 || width <= 0 || height <= 0 || mediaType == "" || contentHash == "" {
 		return errors.New("persistence: incomplete normalized book cover")
 	}
-	return s.queries().SaveBookCover(ctx, sqlcgen.SaveBookCoverParams{
-		Owner: owner, Book: bookID, Connection: nullableUUIDArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
-		AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: !advertisedAt.IsZero()},
-		MediaType:    textArg(mediaType), Width: int4Arg(width), Height: int4Arg(height), ContentHash: textArg(contentHash), Bytes: bytes,
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
+		if err != nil {
+			return err
+		}
+		if !current.AdvertisedAt.Valid || !current.AdvertisedAt.Time.Equal(advertisedAt) ||
+			(current.State != domain.BookCoverPending && (current.SelectedConnectionID != connectionID || current.SelectedSourceIdentifier != sourceIdentifier)) {
+			return nil
+		}
+		if err := q.SaveBookCover(ctx, sqlcgen.SaveBookCoverParams{
+			Owner: owner, Book: bookID, Connection: nullableUUIDArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
+			AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true},
+			MediaType:    textArg(mediaType), Width: int4Arg(width), Height: int4Arg(height), ContentHash: textArg(contentHash), Bytes: bytes,
+		}); err != nil {
+			return err
+		}
+		return q.MarkBookCoverCandidateSucceeded(ctx, sqlcgen.MarkBookCoverCandidateSucceededParams{
+			Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt,
+		})
 	})
 }
 
 func (s *PostgresStore) MarkBookCoverUnavailable(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time, reason string) error {
-	return s.queries().MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
-		Owner: owner, Book: bookID, Connection: uuidArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
-		AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: !advertisedAt.IsZero()}, FailureReason: textArg(reason),
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
+		if err != nil {
+			return err
+		}
+		if !current.AdvertisedAt.Valid || !current.AdvertisedAt.Time.Equal(advertisedAt) {
+			return nil
+		}
+		if current.State == domain.BookCoverAvailable {
+			if current.SelectedConnectionID != connectionID || current.SelectedSourceIdentifier != sourceIdentifier {
+				return nil
+			}
+			return q.MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
+				Owner: owner, Book: bookID, Connection: uuidArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
+				AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),
+			})
+		}
+		_, err = q.MarkBookCoverCandidateFailed(ctx, sqlcgen.MarkBookCoverCandidateFailedParams{
+			Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt, FailureReason: textArg(reason),
+		})
+		if err != nil {
+			return err
+		}
+		pending, err := q.CountPendingBookCoverCandidates(ctx, sqlcgen.CountPendingBookCoverCandidatesParams{Owner: owner, Book: bookID, AdvertisedAt: advertisedAt})
+		if err != nil {
+			return err
+		}
+		if pending > 0 {
+			return q.RecordBookCoverGenerationFailure(ctx, sqlcgen.RecordBookCoverGenerationFailureParams{
+				Owner: owner, Book: bookID, AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),
+			})
+		}
+		return q.MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
+			Owner: owner, Book: bookID, Connection: uuidArg(current.SelectedConnectionID), SourceIdentifier: textArg(current.SelectedSourceIdentifier),
+			AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),
+		})
 	})
 }
 

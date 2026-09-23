@@ -306,11 +306,20 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 	return opdsFromFields(row.ID, row.OwnerID, row.Name, row.Url, row.Username, row.PasswordEncrypted, row.Language, row.CreatedAt, row.UpdatedAt)
 }
 func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id string) error {
-	affected, err := s.queries().DeleteOpdsConnection(ctx, sqlcgen.DeleteOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
-	if err == nil && affected == 0 {
-		return ErrNotFound
-	}
-	return err
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		affected, err := q.DeleteOpdsConnection(ctx, sqlcgen.DeleteOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			return ErrNotFound
+		}
+		if err := q.DeleteBookCoverCandidatesForConnection(ctx, sqlcgen.DeleteBookCoverCandidatesForConnectionParams{OwnerID: ownerID, ConnectionID: id}); err != nil {
+			return err
+		}
+		return q.ResolveBookCoverAfterConnectionDeletion(ctx, sqlcgen.ResolveBookCoverAfterConnectionDeletionParams{OwnerID: ownerID, ConnectionID: uuidArg(id)})
+	})
 }
 
 func (s *PostgresStore) CreateUser(ctx context.Context, username string, admin bool) (u domain.User, err error) {

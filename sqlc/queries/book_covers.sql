@@ -72,6 +72,46 @@ VALUES (
 )
 ON CONFLICT (owner_id, book_id) DO NOTHING;
 
+-- name: RegisterBookCoverCandidate :execrows
+INSERT INTO book_cover_candidates (owner_id, book_id, connection_id, source_identifier, advertised_at, state, updated_at)
+VALUES (sqlc.arg('owner'), sqlc.arg('book'), sqlc.arg('connection'), sqlc.arg('source_identifier'), sqlc.arg('advertised_at'), 'pending', now())
+ON CONFLICT (owner_id, book_id, connection_id, source_identifier, advertised_at) DO NOTHING;
+
+-- name: MarkBookCoverCandidateSucceeded :exec
+UPDATE book_cover_candidates
+SET state = 'succeeded', failure_reason = NULL, updated_at = now()
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND connection_id = sqlc.arg('connection')
+  AND source_identifier = sqlc.arg('source_identifier')
+  AND advertised_at = sqlc.arg('advertised_at');
+
+-- name: MarkBookCoverCandidateFailed :execrows
+UPDATE book_cover_candidates
+SET state = 'failed', failure_reason = sqlc.arg('failure_reason'), updated_at = now()
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND connection_id = sqlc.arg('connection')
+  AND source_identifier = sqlc.arg('source_identifier')
+  AND advertised_at = sqlc.arg('advertised_at')
+  AND state = 'pending';
+
+-- name: CountPendingBookCoverCandidates :one
+SELECT count(*)::int
+FROM book_cover_candidates
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND advertised_at = sqlc.arg('advertised_at')
+  AND state = 'pending';
+
+-- name: RecordBookCoverGenerationFailure :exec
+UPDATE book_covers
+SET failure_reason = sqlc.arg('failure_reason'), updated_at = now()
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND advertised_at = sqlc.arg('advertised_at')
+  AND state = 'pending';
+
 -- name: SetBookCoverPending :exec
 UPDATE book_covers
 SET state = 'pending',

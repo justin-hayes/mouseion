@@ -64,6 +64,21 @@ func (q *Queries) CreateOpdsConnection(ctx context.Context, arg CreateOpdsConnec
 	return i, err
 }
 
+const deleteBookCoverCandidatesForConnection = `-- name: DeleteBookCoverCandidatesForConnection :exec
+DELETE FROM book_cover_candidates
+WHERE owner_id = $1 AND connection_id = $2
+`
+
+type DeleteBookCoverCandidatesForConnectionParams struct {
+	OwnerID      string
+	ConnectionID string
+}
+
+func (q *Queries) DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error {
+	_, err := q.db.Exec(ctx, deleteBookCoverCandidatesForConnection, arg.OwnerID, arg.ConnectionID)
+	return err
+}
+
 const deleteOpdsConnection = `-- name: DeleteOpdsConnection :execrows
 DELETE FROM opds_connections WHERE owner_id = $1 AND id = $2
 `
@@ -210,6 +225,40 @@ func (q *Queries) OpdsConnectionExists(ctx context.Context, arg OpdsConnectionEx
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const resolveBookCoverAfterConnectionDeletion = `-- name: ResolveBookCoverAfterConnectionDeletion :exec
+UPDATE book_covers AS cover
+SET state = 'unavailable',
+    media_type = NULL,
+    width = NULL,
+    height = NULL,
+    content_hash = NULL,
+    bytes = NULL,
+    fetched_at = NULL,
+    failure_reason = 'cover retrieval source was deleted',
+    updated_at = now()
+WHERE cover.owner_id = $1
+  AND cover.state = 'pending'
+  AND cover.selected_connection_id = $2
+  AND NOT EXISTS (
+      SELECT 1
+      FROM book_cover_candidates AS candidate
+      WHERE candidate.owner_id = cover.owner_id
+        AND candidate.book_id = cover.book_id
+        AND candidate.advertised_at = cover.advertised_at
+        AND candidate.state = 'pending'
+  )
+`
+
+type ResolveBookCoverAfterConnectionDeletionParams struct {
+	OwnerID      string
+	ConnectionID pgtype.UUID
+}
+
+func (q *Queries) ResolveBookCoverAfterConnectionDeletion(ctx context.Context, arg ResolveBookCoverAfterConnectionDeletionParams) error {
+	_, err := q.db.Exec(ctx, resolveBookCoverAfterConnectionDeletion, arg.OwnerID, arg.ConnectionID)
+	return err
 }
 
 const updateOpdsConnection = `-- name: UpdateOpdsConnection :one
