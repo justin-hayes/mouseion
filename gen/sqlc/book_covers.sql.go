@@ -319,8 +319,12 @@ func (q *Queries) MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCove
 
 const refreshBookCoverAdvertisement = `-- name: RefreshBookCoverAdvertisement :exec
 UPDATE book_covers
-SET failure_reason = NULL, updated_at = now()
-WHERE owner_id = $1 AND book_id = $2 AND state = 'available'
+SET failure_reason = NULL,
+    advertised_at = clock_timestamp(),
+    updated_at = clock_timestamp()
+WHERE owner_id = $1
+  AND book_id = $2
+  AND state IN ('available', 'pending')
 `
 
 type RefreshBookCoverAdvertisementParams struct {

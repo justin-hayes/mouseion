@@ -284,12 +284,23 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	first, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 
-	// Repeated sync is deduplicated and repeated retrieval converges on one
-	// retained display image rather than creating history.
+	// Repeated sync keeps the selected source stable while creating a new
+	// retrieval generation. The old live job must not suppress the replacement.
 	require.NoError(t, f.sync(f.connection.ID))
 	repeatArgs := f.pendingCoverArgs()
-	require.Len(t, repeatArgs, 1)
-	require.NoError(t, f.runCoverJob(repeatArgs[0]))
+	require.Len(t, repeatArgs, 2)
+	assert.NotEqual(t, repeatArgs[0].AdvertisedAt, repeatArgs[1].AdvertisedAt)
+	var currentArgs, staleArgs CoverArgs
+	for _, args := range repeatArgs {
+		if args.AdvertisedAt.After(cover.AdvertisedAt) {
+			currentArgs = args
+		} else {
+			staleArgs = args
+		}
+	}
+	require.NotEmpty(t, currentArgs.AdvertisedAt)
+	require.NotEmpty(t, staleArgs.AdvertisedAt)
+	require.NoError(t, f.runCoverJob(staleArgs))
 	repeated, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, first.ContentHash, repeated.ContentHash)
@@ -302,7 +313,18 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, first.ContentHash, beforeReplacement.ContentHash, "prior image was replaced before the new image validated")
 	replacementArgs := f.pendingCoverArgs()
-	require.NoError(t, f.runCoverJob(replacementArgs[0]))
+	require.Len(t, replacementArgs, 3)
+	var newestArgs CoverArgs
+	for _, args := range replacementArgs {
+		if args.AdvertisedAt.After(newestArgs.AdvertisedAt) {
+			newestArgs = args
+		}
+	}
+	require.NoError(t, f.runCoverJob(currentArgs))
+	intermediate, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, first.ContentHash, intermediate.ContentHash, "stale replacement completed after a newer reconciliation")
+	require.NoError(t, f.runCoverJob(newestArgs))
 	afterReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
@@ -371,8 +393,14 @@ func TestCatalogueSyncCoverMediaTypeMismatchPreservesReplacement(t *testing.T) {
 	f.catalog.setEntries("/a", entry)
 	require.NoError(t, f.sync(f.connection.ID))
 	args := f.pendingCoverArgs()
-	require.Len(t, args, 1)
-	require.Error(t, f.runCoverJob(args[0]))
+	require.Len(t, args, 2)
+	var currentArgs CoverArgs
+	for _, candidate := range args {
+		if candidate.AdvertisedAt.After(currentArgs.AdvertisedAt) {
+			currentArgs = candidate
+		}
+	}
+	require.Error(t, f.runCoverJob(currentArgs))
 
 	cover := f.coverState(book.ID)
 	assert.Equal(t, domain.BookCoverAvailable, cover.State)
@@ -404,7 +432,14 @@ func TestCatalogueSyncCoverAbsencePreservesOnUncertainty(t *testing.T) {
 	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
 	require.NoError(t, f.sync(f.connection.ID))
 	failedArgs := f.pendingCoverArgs()
-	require.Error(t, f.runCoverJob(failedArgs[0]))
+	require.Len(t, failedArgs, 2)
+	var currentArgs CoverArgs
+	for _, candidate := range failedArgs {
+		if candidate.AdvertisedAt.After(currentArgs.AdvertisedAt) {
+			currentArgs = candidate
+		}
+	}
+	require.Error(t, f.runCoverJob(currentArgs))
 	cover := f.coverState(book.ID)
 	assert.Equal(t, domain.BookCoverAvailable, cover.State)
 	assert.NotEmpty(t, cover.FailureReason)

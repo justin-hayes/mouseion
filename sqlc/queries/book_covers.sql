@@ -90,8 +90,12 @@ WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
 
 -- name: RefreshBookCoverAdvertisement :exec
 UPDATE book_covers
-SET failure_reason = NULL, updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND state = 'available';
+SET failure_reason = NULL,
+    advertised_at = clock_timestamp(),
+    updated_at = clock_timestamp()
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND state IN ('available', 'pending');
 
 -- name: ClearBookCover :exec
 UPDATE book_covers
