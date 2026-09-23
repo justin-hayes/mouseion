@@ -48,26 +48,17 @@ func TestBookCoverAdvertisementStateMachine(t *testing.T) {
 	assert.Equal(t, first.ID, cover.SelectedConnectionID)
 	advertisedAt := cover.AdvertisedAt
 
-	// A second candidate joins the same pending generation. Its first validated
-	// completion may win, while an older generation cannot displace a fallback.
+	// A second candidate joins the same pending generation. Re-advertising the
+	// provisional source refreshes its retrieval without dropping the fallback.
 	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, second.ID, "entry-2", true)
 	require.NoError(t, err)
 	assert.True(t, retrieve)
-	var wg sync.WaitGroup
-	for _, candidate := range []struct {
-		connectionID, source, hash string
-		body                       []byte
-	}{
-		{first.ID, "entry-1", "sha256:first", []byte("first-image")},
-		{second.ID, "entry-2", "sha256:second", []byte("second-image")},
-	} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			assert.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, candidate.connectionID, candidate.source, advertisedAt, "image/png", 4, 6, candidate.hash, candidate.body))
-		}()
-	}
-	wg.Wait()
+	retrieve, refreshedAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-1", true)
+	require.NoError(t, err)
+	assert.True(t, retrieve)
+	assert.Equal(t, advertisedAt, refreshedAt)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-2", advertisedAt, "image/png", 4, 6, "sha256:second", []byte("second-image")))
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "entry-1", advertisedAt, "image/png", 4, 6, "sha256:first", []byte("first-image")))
 
 	winner, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
@@ -157,6 +148,28 @@ func TestBookCoverConcurrentInitialAdvertisementsChooseOneCandidate(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverPending, cover.State)
 	assert.Contains(t, []string{first.ID, second.ID}, cover.SelectedConnectionID)
+	advertisedAt := cover.AdvertisedAt
+
+	var wg sync.WaitGroup
+	for _, candidate := range []struct {
+		connectionID, source, hash string
+		body                       []byte
+	}{
+		{first.ID, "entry-1", "sha256:first", []byte("first-image")},
+		{second.ID, "entry-2", "sha256:second", []byte("second-image")},
+	} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			assert.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, candidate.connectionID, candidate.source, advertisedAt, "image/png", 4, 6, candidate.hash, candidate.body))
+		}()
+	}
+	wg.Wait()
+
+	winner, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, winner.State)
+	assert.Contains(t, []string{first.ID, second.ID}, winner.SelectedConnectionID)
 }
 
 func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
@@ -218,6 +231,18 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	assert.Equal(t, domain.BookCoverUnavailable, failed.State)
 	assert.Equal(t, "second candidate failed", failed.FailureReason)
 
+	// A River retry from the same generation can recover through a non-
+	// provisional candidate after every initial attempt failed.
+	retryBookID, retryAdvertisedAt := advertise(t, "Same-generation retry", "entry-g", "entry-h")
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, retryBookID, first.ID, "entry-g", retryAdvertisedAt, "first candidate failed"))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, retryBookID, second.ID, "entry-h", retryAdvertisedAt, "second candidate failed"))
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, retryBookID, second.ID, "entry-h", retryAdvertisedAt, "image/png", 4, 6, "retry-fallback", []byte("retry-fallback-image")))
+	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, retryBookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Equal(t, second.ID, recovered.SelectedConnectionID)
+	assert.Equal(t, "entry-h", recovered.SelectedSourceIdentifier)
+
 	// A later reconciliation starts a fresh generation and can recover without
 	// requiring a learner-facing action.
 	retrieve, retryAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-e", true)
@@ -225,7 +250,7 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	assert.True(t, retrieve)
 	assert.True(t, retryAt.After(advertisedAt))
 	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "entry-e", retryAt, "image/png", 4, 6, "retry", []byte("retry-image")))
-	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	recovered, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
 	assert.Equal(t, first.ID, recovered.SelectedConnectionID)

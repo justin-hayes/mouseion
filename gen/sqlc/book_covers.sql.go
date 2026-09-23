@@ -493,7 +493,7 @@ SET state = 'available',
 WHERE owner_id = $8
   AND book_id = $9
   AND advertised_at IS NOT DISTINCT FROM $10
-  AND (state = 'pending'
+  AND (state IN ('pending', 'unavailable')
        OR (selected_connection_id = $1
            AND selected_source_identifier = $2))
   AND (state <> 'available' OR content_hash IS DISTINCT FROM $6)
