@@ -89,7 +89,8 @@ FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
   AND analysis_run_id = sqlc.arg('analysis_run')
-  AND retired_at IS NULL;
+  AND retired_at IS NULL
+FOR UPDATE;
 
 -- name: GetUnretiredDeckPreparationBySourceHash :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
@@ -103,7 +104,8 @@ FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
   AND source_material_id = sqlc.arg('source_material')
   AND content_hash = sqlc.arg('content_hash')
-  AND retired_at IS NULL;
+  AND retired_at IS NULL
+FOR UPDATE;
 
 -- name: GetDeckPreparationBySourceAnalysis :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
@@ -149,10 +151,17 @@ UPDATE deck_preparations
 SET retired_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND retired_at IS NULL;
 
+-- name: RetireDeckPreparationForGoalSnapshot :exec
+UPDATE deck_preparations
+SET retired_at = now(), updated_at = now()
+WHERE owner_id = sqlc.arg('owner')
+  AND goal_snapshot_id = sqlc.arg('goal_snapshot')
+  AND retired_at IS NULL;
+
 -- name: ClaimDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'preparing', started_at = now(), updated_at = now(), error = ''
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'queued'
+WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'queued' AND retired_at IS NULL
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,

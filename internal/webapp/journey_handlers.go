@@ -830,7 +830,7 @@ func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book
 	preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
 	switch {
 	case err == nil:
-		if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != book.Book.Source.ID || preparation.AnalysisRunID != book.Book.AnalysisRunID || preparation.GoalSnapshotID != goal.SnapshotID {
+		if !goalPreparationMatches(preparation, owner, goal) {
 			log.Printf("mouseion: Goal deck provenance mismatch for owner %s snapshot %s", owner, goal.SnapshotID)
 			return
 		}

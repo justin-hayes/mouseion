@@ -253,6 +253,10 @@ type Querier interface {
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
+	LockPrimaryGoalSnapshot(ctx context.Context, arg LockPrimaryGoalSnapshotParams) (string, error)
+	LockPrimaryGoalsExceptLanguage(ctx context.Context, arg LockPrimaryGoalsExceptLanguageParams) ([]string, error)
+	LockPrimaryGoalsForAllLanguages(ctx context.Context, arg LockPrimaryGoalsForAllLanguagesParams) ([]string, error)
+	LockPrimaryGoalsForBook(ctx context.Context, arg LockPrimaryGoalsForBookParams) ([]string, error)
 	MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCoverUnavailableParams) error
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
@@ -281,12 +285,10 @@ type Querier interface {
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
-	ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error
-	ReleasePrimaryGoalSnapshotsForAllLanguages(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForAllLanguagesParams) error
-	ReleasePrimaryGoalSnapshotsForBook(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForBookParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error)
+	RetireDeckPreparationForGoalSnapshot(ctx context.Context, arg RetireDeckPreparationForGoalSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
 	RetryPreparedDeckBatchSubmission(ctx context.Context, arg RetryPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)

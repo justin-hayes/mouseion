@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,6 +38,41 @@ type unavailableGoalPreparedDeck struct {
 
 func (unavailableGoalPreparedDeck) GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
 	return domain.DeckPreparation{}, persistence.ErrNotFound
+}
+
+type existingGoalPreparedDeck struct {
+	fixtures.PreparedDeck
+	preparation        domain.DeckPreparation
+	retries            int
+	goalSubmissions    int
+	genericSubmissions int
+	retryConsent       bool
+	cancellations      int
+}
+
+func (p *existingGoalPreparedDeck) GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
+	return p.preparation, nil
+}
+
+func (p *existingGoalPreparedDeck) Retry(_ context.Context, _, _ string, consent bool) (prepareddeck.Handle, error) {
+	p.retries++
+	p.retryConsent = consent
+	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
+}
+
+func (p *existingGoalPreparedDeck) SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error) {
+	p.goalSubmissions++
+	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
+}
+
+func (p *existingGoalPreparedDeck) Submit(context.Context, string, string, bool) (prepareddeck.Handle, error) {
+	p.genericSubmissions++
+	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
+}
+
+func (p *existingGoalPreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparation, error) {
+	p.cancellations++
+	return p.preparation, nil
 }
 
 func renderGoalSection(t *testing.T, goal *journeyBookView, message, pageError, focusBookID string) string {
@@ -311,6 +347,87 @@ func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
 	location, err := url.QueryUnescape(response.Header().Get("Location"))
 	require.NoError(t, err)
 	assert.Contains(t, location, goalStaleMessage)
+}
+
+func TestGoalDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	preparedDeck := &existingGoalPreparedDeck{
+		PreparedDeck: fixtures.PreparedDeck{Store: store},
+		preparation: domain.DeckPreparation{
+			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
+			SourceMaterialID: goal.SourceMaterialID, AnalysisRunID: goal.AnalysisRunID,
+			GoalSnapshotID: goal.SnapshotID, State: domain.DeckPreparationQueued,
+		},
+	}
+	handler := requireHandler(t, h)
+	handler.services.Analysis = fixtures.Analysis{}
+	handler.services.PreparedDeck = preparedDeck
+
+	response := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/retry", url.Values{
+		"csrf_token":                {csrf},
+		"expected_goal_snapshot_id": {goal.SnapshotID},
+	}, cookies)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, 1, preparedDeck.retries)
+	assert.Zero(t, preparedDeck.goalSubmissions, "repeated recovery must not retire the current Goal preparation")
+}
+
+func TestGoalDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	preparedDeck := &existingGoalPreparedDeck{
+		PreparedDeck: fixtures.PreparedDeck{Store: store},
+		preparation: domain.DeckPreparation{
+			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
+			SourceMaterialID: goal.SourceMaterialID, AnalysisRunID: goal.AnalysisRunID,
+			GoalSnapshotID: goal.SnapshotID, State: domain.DeckPreparationPreparing,
+		},
+	}
+	handler := requireHandler(t, h)
+	handler.services.PreparedDeck = preparedDeck
+
+	stale := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/cancel", url.Values{
+		"csrf_token": {csrf}, "expected_goal_snapshot_id": {"stale-snapshot"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, stale.Code)
+	assert.Zero(t, preparedDeck.cancellations)
+
+	current := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/cancel", url.Values{
+		"csrf_token": {csrf}, "expected_goal_snapshot_id": {goal.SnapshotID},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, current.Code)
+	assert.Equal(t, 1, preparedDeck.cancellations)
+}
+
+func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	preparedDeck := &existingGoalPreparedDeck{
+		PreparedDeck: fixtures.PreparedDeck{Store: store},
+		preparation: domain.DeckPreparation{
+			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
+			SourceMaterialID: goal.SourceMaterialID, AnalysisRunID: goal.AnalysisRunID,
+			GoalSnapshotID: goal.SnapshotID, State: domain.DeckPreparationQueued,
+		},
+	}
+	handler := requireHandler(t, h)
+	handler.services.Analysis = fixtures.Analysis{}
+	handler.services.PreparedDeck = preparedDeck
+
+	response := goalRequest(t, h, "/journey/books/"+goal.BookID+"/deck/preparations", url.Values{
+		"csrf_token":                   {csrf},
+		"external_translation_consent": {"on"},
+	}, cookies)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, 1, preparedDeck.retries)
+	assert.False(t, preparedDeck.retryConsent)
+	assert.Zero(t, preparedDeck.genericSubmissions, "Goal preparation must not use the consent-bearing generic path")
 }
 
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {

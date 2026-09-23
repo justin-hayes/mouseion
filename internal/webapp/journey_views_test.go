@@ -42,6 +42,7 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goal.GoalSnapshotSize = 2
+	goal.GoalSnapshotID = "snapshot"
 	goal.GoalVocabularyEligible = 1
 	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", GoalSnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
@@ -49,7 +50,9 @@ func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
 	assert.Contains(t, html, "Goal deck preparation")
 	assert.Contains(t, html, "Retry Goal deck")
-	assert.Contains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
+	assert.Contains(t, html, `action="/goal/books/goal/deck/retry"`)
+	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="snapshot"`)
+	assert.NotContains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
 	goalCardStart := strings.Index(html, `id="journey-book-goal"`)
 	goalCardEnd := strings.Index(html[goalCardStart:], "</article>")
 	require.GreaterOrEqual(t, goalCardStart, 0)
