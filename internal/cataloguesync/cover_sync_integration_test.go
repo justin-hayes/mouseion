@@ -432,6 +432,47 @@ func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
 	}
 }
 
+func TestCatalogueSyncCoverFailedInitialCandidateLeavesAliasFallbackEligible(t *testing.T) {
+	f := newCoverFixture(t)
+	second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})
+	require.NoError(t, err)
+	entryA := coverEntry{id: "entry-a", title: "Fallback Book", imageHref: "/a/image/a.png"}
+	f.catalog.setImage(entryA.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
+	f.catalog.setEntries("/a", entryA)
+	require.NoError(t, f.sync(f.connection.ID))
+	book := f.bookByTitle(entryA.title)
+	_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
+		f.ownerID, book.ID, second.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "entry-b")
+	require.NoError(t, err)
+
+	entryB := coverEntry{id: "entry-b", title: entryA.title, imageHref: "/b/image/b.png"}
+	f.catalog.setImage(entryB.imageHref, coverImage{body: testPNG(t, 220), contentType: "image/png"})
+	f.catalog.setEntries("/b", entryB)
+	require.NoError(t, f.sync(second.ID))
+
+	var first, fallback CoverArgs
+	for _, candidate := range f.pendingCoverArgs() {
+		if candidate.BookID != book.ID {
+			continue
+		}
+		switch candidate.SourceIdentifier {
+		case entryA.id:
+			first = candidate
+		case entryB.id:
+			fallback = candidate
+		}
+	}
+	require.NotEmpty(t, first.BookID)
+	require.NotEmpty(t, fallback.BookID)
+	require.Error(t, f.runCoverJob(first))
+	assert.Equal(t, domain.BookCoverPending, f.coverState(book.ID).State)
+	require.NoError(t, f.runCoverJob(fallback))
+	cover := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	assert.Equal(t, second.ID, cover.SelectedConnectionID)
+	assert.Equal(t, entryB.id, cover.SelectedSourceIdentifier)
+}
+
 func TestCatalogueSyncCoverMediaTypeMismatchPreservesReplacement(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
