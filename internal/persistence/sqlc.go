@@ -234,6 +234,11 @@ func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
 			CreatedAt:          e.BookCreatedAt,
 			UpdatedAt:          e.BookUpdatedAt,
 		},
+		Cover: domain.BookCover{
+			State:  e.BookCoverState,
+			Width:  e.BookCoverWidth,
+			Height: e.BookCoverHeight,
+		},
 	}
 	if e.Acquired {
 		createdAt := time.Time{}

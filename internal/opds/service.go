@@ -144,6 +144,20 @@ func (s *Service) SearchPage(ctx context.Context, ownerID, connectionID, query, 
 	}
 	return client.SearchPage(ctx, connection.URL, query)
 }
+
+// FetchCover downloads an owner-scoped cover target from its catalog origin.
+func (s *Service) FetchCover(ctx context.Context, ownerID, connectionID, target string) ([]byte, string, error) {
+	connection, client, err := s.client(ctx, ownerID, connectionID)
+	if err != nil {
+		return nil, "", err
+	}
+	target, err = resolveCatalogTarget(connection.URL, target)
+	if err != nil {
+		return nil, "", err
+	}
+	return client.DownloadImage(ctx, target)
+}
+
 func (s *Service) Acquire(ctx context.Context, ownerID, connectionID, language string, entry Entry) (epub.ImportResult, error) {
 	return s.acquire(ctx, ownerID, connectionID, language, "", entry)
 }

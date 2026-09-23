@@ -81,6 +81,23 @@ type BookAlias struct {
 	ConnectionID pgtype.UUID
 }
 
+type BookCover struct {
+	OwnerID                  string
+	BookID                   string
+	State                    string
+	SelectedConnectionID     pgtype.UUID
+	SelectedSourceIdentifier pgtype.Text
+	MediaType                pgtype.Text
+	Width                    pgtype.Int4
+	Height                   pgtype.Int4
+	ContentHash              pgtype.Text
+	Bytes                    []byte
+	AdvertisedAt             pgtype.Timestamptz
+	FetchedAt                pgtype.Timestamptz
+	UpdatedAt                time.Time
+	FailureReason            pgtype.Text
+}
+
 type BookCurrentAnalysis struct {
 	OwnerID          string
 	BookID           string
@@ -574,6 +591,9 @@ type MyBooksEvidence struct {
 	CorpusID                string
 	AnalysisJobID           int64
 	BookAuthor              string
+	BookCoverState          string
+	BookCoverWidth          int
+	BookCoverHeight         int
 }
 
 type NormalizedCorpusArtifact struct {

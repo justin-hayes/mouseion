@@ -45,6 +45,19 @@ func vocabularyLanguageName(studyLanguages, knownLanguages []domain.StudyLanguag
 
 func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(bookID) }
 
+func bookCoverURL(bookID string) string { return "/books/" + url.PathEscape(bookID) + "/cover" }
+
+func bookCoverLabel(cover domain.BookCover) string {
+	switch cover.State {
+	case domain.BookCoverPending:
+		return "Cover pending"
+	case domain.BookCoverUnavailable:
+		return "Cover unavailable"
+	default:
+		return "No cover available"
+	}
+}
+
 func knownVocabProvenance(entry domain.KnownVocabulary) string {
 	if entry.Provenance != "" {
 		return entry.Provenance

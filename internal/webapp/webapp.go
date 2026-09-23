@@ -53,6 +53,10 @@ type BookStore interface {
 	RemoveBookFromMyBooks(context.Context, string, string) error
 }
 
+type BookCoverStore interface {
+	GetBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
+}
+
 // JourneyStore provides Reading Journey membership and ordering.
 type JourneyStore interface {
 	GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error)
@@ -94,6 +98,7 @@ type StoreDependencies struct {
 	Goals          GoalStore
 	Catalog        CatalogStore
 	AnalysisJobs   AnalysisJobStore
+	Covers         BookCoverStore
 }
 
 type csrfFailureContextKey struct{}
@@ -195,6 +200,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /journey", h.user(http.HandlerFunc(h.journey)))
 	h.mux.Handle("GET /journey/{bookID}", h.user(http.HandlerFunc(h.journeyEntry)))
+	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /goal/books/{id}", h.user(http.HandlerFunc(h.choosePrimaryGoal)))
 	h.mux.Handle("POST /goal/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryPrimaryGoalDeck)))
 	h.mux.Handle("POST /goal/clear", h.user(http.HandlerFunc(h.clearPrimaryGoal)))
