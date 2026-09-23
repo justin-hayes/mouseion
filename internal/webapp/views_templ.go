@@ -399,7 +399,7 @@ func RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) t
 	})
 }
 
-func MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligible bool, message string) templ.Component {
+func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -572,14 +572,14 @@ func MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligib
 			return templ_7745c5c3_Err
 		}
 		if myBookInJourney(book) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<a role=\"button\" class=\"outline library-book__journey-action\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<a class=\"outline library-book__journey-action\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var27 templ.SafeURL
 			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(journeyEntryURL(book.Book.ID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 260, Col: 117}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 260, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 			if templ_7745c5c3_Err != nil {
@@ -955,7 +955,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 	})
 }
 
-func MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, browse MyBooksBrowseState) templ.Component {
+func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -1185,7 +1185,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brows
 				}
 				for _, book := range books {
 					if myBooksBookInLanguage(browse, book) {
-						templ_7745c5c3_Err = MyBookRow(csrf, book, goalBookID, browse.RefreshableBookIDs[book.Book.ID], "").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "").Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1483,7 +1483,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = MyBooksResults(csrf, books, goalBookID, browse).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = MyBooksResults(csrf, books, browse).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1493,7 +1493,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					return templ_7745c5c3_Err
 				}
 				for _, book := range books {
-					templ_7745c5c3_Err = MyBookRow(csrf, book, goalBookID, browse.RefreshableBookIDs[book.Book.ID], "").Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "").Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

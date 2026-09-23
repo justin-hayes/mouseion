@@ -170,11 +170,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		goalBookID := ""
-		if row.JourneyGoal {
-			goalBookID = row.Book.ID
-		}
-		render(w, r, MyBookRow(h.csrf(w, r), row, goalBookID, refreshEligible, message))
+		render(w, r, MyBookRow(h.csrf(w, r), row, refreshEligible, message))
 		return
 	}
 	redirect(w, r, "/library?message="+url.QueryEscape(message))
@@ -191,11 +187,7 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 			fail(w, err)
 			return
 		}
-		goalBookID := ""
-		if book.JourneyGoal {
-			goalBookID = book.Book.ID
-		}
-		render(w, r, MyBookRow(h.csrf(w, r), book, goalBookID, false, message))
+		render(w, r, MyBookRow(h.csrf(w, r), book, false, message))
 		return
 	}
 	redirect(w, r, "/library?message="+url.QueryEscape(message))

@@ -968,7 +968,7 @@ progress {
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
   gap: var(--mouseion-space-5) var(--mouseion-space-4);
   min-width: 0;
   margin: 0;
@@ -979,6 +979,7 @@ progress {
 
 .library-grid > .library-book {
   display: flex;
+  flex-direction: column;
   min-width: 0;
   margin: 0;
   border-bottom: 1px solid var(--mouseion-color-border);
@@ -1023,6 +1024,7 @@ progress {
 
 .library-book__identity-link {
   display: flex;
+  width: 100%;
   min-width: 0;
   flex-direction: column;
   gap: var(--mouseion-space-2);
@@ -1067,6 +1069,7 @@ progress {
 
 .library-book__actions {
   display: flex;
+  width: 100%;
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
@@ -1074,8 +1077,12 @@ progress {
 }
 
 .library-book__actions button,
-.library-book__actions a[role="button"] {
+.library-book__actions a.library-book__journey-action {
   min-height: 44px;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  background: transparent;
+  color: var(--mouseion-color-accent);
   padding-inline: var(--mouseion-space-3);
   font-size: var(--mouseion-font-size-metadata);
 }
@@ -1086,7 +1093,11 @@ progress {
 }
 
 .library-book__journey-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  text-decoration: none;
 }
 
 .library-book__message {

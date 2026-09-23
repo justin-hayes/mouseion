@@ -236,7 +236,7 @@ templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) 
 	}
 }
 
-templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligible bool, message string) {
+templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) {
 	<li id={ myBookRowID(book.Book.ID) } class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 		if myBookInJourney(book) {
 			<a class="library-book__identity-link" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }>
@@ -257,7 +257,7 @@ templ MyBookRow(csrf string, book domain.MyBook, goalBookID string, refreshEligi
 		}
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
-				<a role="button" class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading Journey</a>
+				<a class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading Journey</a>
 			} else {
 				<form method="post" action={ templ.SafeURL(journeyAddURL(book.Book.ID)) }>
 					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
@@ -301,7 +301,7 @@ templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selec
 	<a class="outline" data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">{ label }</a>
 }
 
-templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, browse MyBooksBrowseState) {
+templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
 		<h2 id="library-books-heading" tabindex="-1">{ myBooksResultsHeading(browse) }</h2>
 		if browse.Total == 0 {
@@ -330,7 +330,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, goalBookID string, brow
 				<ul class="library-grid">
 					for _, book := range books {
 						if myBooksBookInLanguage(browse, book) {
-							@MyBookRow(csrf, book, goalBookID, browse.RefreshableBookIDs[book.Book.ID], "")
+							@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
 						}
 					}
 				</ul>
@@ -413,13 +413,13 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					</div>
 				</form>
 			</section>
-			@MyBooksResults(csrf, books, goalBookID, browse)
+			@MyBooksResults(csrf, books, browse)
 		} else if len(books) > 0 {
 			<section class="library-list" aria-labelledby="acquired-books-heading">
 				<h2 id="acquired-books-heading">Books in My Books</h2>
 				<ul class="library-grid">
 					for _, book := range books {
-						@MyBookRow(csrf, book, goalBookID, browse.RefreshableBookIDs[book.Book.ID], "")
+						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
 					}
 				</ul>
 			</section>

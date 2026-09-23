@@ -111,7 +111,7 @@ test.describe('Primary Goal selection', () => {
       await page.goto('/library');
       const goalBook = page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
       await expect(goalBook.locator('.library-book__membership')).toHaveText(/In Reading Journey/);
-      await expect(goalBook.getByRole('button', { name: 'View in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
+      await expect(goalBook.getByRole('link', { name: 'View in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
       await expect(goalBook.getByText('Current Primary Goal')).toHaveCount(0);
       await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
   });
