@@ -39,6 +39,70 @@ func (q *Queries) ClearBookCover(ctx context.Context, arg ClearBookCoverParams) 
 	return err
 }
 
+const getActiveBookCoverResource = `-- name: GetActiveBookCoverResource :one
+SELECT c.owner_id::text,
+       c.book_id::text,
+       c.state,
+       (COALESCE(c.selected_connection_id::text, ''))::text AS selected_connection_id,
+       c.selected_source_identifier,
+       c.media_type,
+       c.width,
+       c.height,
+       c.content_hash,
+       c.bytes,
+       c.advertised_at,
+       c.fetched_at,
+       c.updated_at,
+       c.failure_reason
+FROM book_covers c
+JOIN book_membership m ON m.owner_id = c.owner_id AND m.book_id = c.book_id AND m.state = 'active'
+WHERE c.owner_id = $1 AND c.book_id = $2
+`
+
+type GetActiveBookCoverResourceParams struct {
+	Owner string
+	Book  string
+}
+
+type GetActiveBookCoverResourceRow struct {
+	COwnerID                 string
+	CBookID                  string
+	State                    string
+	SelectedConnectionID     string
+	SelectedSourceIdentifier pgtype.Text
+	MediaType                pgtype.Text
+	Width                    pgtype.Int4
+	Height                   pgtype.Int4
+	ContentHash              pgtype.Text
+	Bytes                    []byte
+	AdvertisedAt             pgtype.Timestamptz
+	FetchedAt                pgtype.Timestamptz
+	UpdatedAt                time.Time
+	FailureReason            pgtype.Text
+}
+
+func (q *Queries) GetActiveBookCoverResource(ctx context.Context, arg GetActiveBookCoverResourceParams) (GetActiveBookCoverResourceRow, error) {
+	row := q.db.QueryRow(ctx, getActiveBookCoverResource, arg.Owner, arg.Book)
+	var i GetActiveBookCoverResourceRow
+	err := row.Scan(
+		&i.COwnerID,
+		&i.CBookID,
+		&i.State,
+		&i.SelectedConnectionID,
+		&i.SelectedSourceIdentifier,
+		&i.MediaType,
+		&i.Width,
+		&i.Height,
+		&i.ContentHash,
+		&i.Bytes,
+		&i.AdvertisedAt,
+		&i.FetchedAt,
+		&i.UpdatedAt,
+		&i.FailureReason,
+	)
+	return i, err
+}
+
 const getBookCover = `-- name: GetBookCover :one
 
 SELECT owner_id::text,

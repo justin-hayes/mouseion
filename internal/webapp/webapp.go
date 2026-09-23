@@ -54,7 +54,7 @@ type BookStore interface {
 }
 
 type BookCoverStore interface {
-	GetBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
+	GetActiveBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
 }
 
 // JourneyStore provides Reading Journey membership and ordering.
