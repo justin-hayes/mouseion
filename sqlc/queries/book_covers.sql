@@ -86,6 +86,17 @@ WHERE owner_id = sqlc.arg('owner')
   AND source_identifier = sqlc.arg('source_identifier')
   AND advertised_at = sqlc.arg('advertised_at');
 
+-- name: BookCoverCandidateExists :one
+SELECT EXISTS(
+    SELECT 1
+    FROM book_cover_candidates
+    WHERE owner_id = sqlc.arg('owner')
+      AND book_id = sqlc.arg('book')
+      AND connection_id = sqlc.arg('connection')
+      AND source_identifier = sqlc.arg('source_identifier')
+      AND advertised_at = sqlc.arg('advertised_at')
+);
+
 -- name: MarkBookCoverCandidateFailed :execrows
 UPDATE book_cover_candidates
 SET state = 'failed', failure_reason = sqlc.arg('failure_reason'), updated_at = now()
@@ -154,7 +165,7 @@ SET state = 'none',
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
 
 -- name: SaveBookCover :exec
-UPDATE book_covers
+UPDATE book_covers AS cover
 SET state = 'available',
     selected_connection_id = sqlc.arg('connection'),
     selected_source_identifier = sqlc.arg('source_identifier'),
@@ -166,13 +177,23 @@ SET state = 'available',
     fetched_at = now(),
     failure_reason = NULL,
     updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND advertised_at IS NOT DISTINCT FROM sqlc.arg('advertised_at')
-  AND (state IN ('pending', 'unavailable')
-       OR (selected_connection_id = sqlc.arg('connection')
-           AND selected_source_identifier = sqlc.arg('source_identifier')))
-  AND (state <> 'available' OR content_hash IS DISTINCT FROM sqlc.arg('content_hash'));
+WHERE cover.owner_id = sqlc.arg('owner')
+  AND cover.book_id = sqlc.arg('book')
+  AND cover.advertised_at IS NOT DISTINCT FROM sqlc.arg('advertised_at')
+  AND EXISTS (
+      SELECT 1
+      FROM book_cover_candidates AS candidate
+      WHERE candidate.owner_id = cover.owner_id
+        AND candidate.book_id = cover.book_id
+        AND candidate.connection_id = sqlc.arg('connection')
+        AND candidate.source_identifier = sqlc.arg('source_identifier')
+        AND candidate.advertised_at = sqlc.arg('advertised_at')
+        AND candidate.state IN ('pending', 'failed')
+  )
+  AND (cover.state IN ('pending', 'unavailable')
+       OR (cover.selected_connection_id = sqlc.arg('connection')
+           AND cover.selected_source_identifier = sqlc.arg('source_identifier')))
+  AND (cover.state <> 'available' OR cover.content_hash IS DISTINCT FROM sqlc.arg('content_hash'));
 
 -- name: MarkBookCoverUnavailable :exec
 UPDATE book_covers

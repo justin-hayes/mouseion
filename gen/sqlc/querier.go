@@ -18,6 +18,7 @@ type Querier interface {
 	AttachDeckPreparationVocabulary(ctx context.Context, arg AttachDeckPreparationVocabularyParams) error
 	AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error
+	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
 	BookExists(ctx context.Context, arg BookExistsParams) (bool, error)
 	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]MyBooksEvidence, error)
 	BumpReadingJourneyRevision(ctx context.Context, arg BumpReadingJourneyRevisionParams) (int64, error)
@@ -263,6 +264,8 @@ type Querier interface {
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
+	LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error)
+	LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
 	LockPrimaryGoalSnapshot(ctx context.Context, arg LockPrimaryGoalSnapshotParams) (string, error)
 	LockPrimaryGoalsExceptLanguage(ctx context.Context, arg LockPrimaryGoalsExceptLanguageParams) ([]string, error)
@@ -302,7 +305,7 @@ type Querier interface {
 	ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
-	ResolveBookCoverAfterConnectionDeletion(ctx context.Context, arg ResolveBookCoverAfterConnectionDeletionParams) error
+	ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error
 	ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error)
 	RetireDeckPreparationForGoalSnapshot(ctx context.Context, arg RetireDeckPreparationForGoalSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error

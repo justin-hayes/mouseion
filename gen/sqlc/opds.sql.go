@@ -211,6 +211,66 @@ func (q *Queries) ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) 
 	return items, nil
 }
 
+const lockBookCoversForConnection = `-- name: LockBookCoversForConnection :many
+SELECT cover.owner_id::text, cover.book_id::text
+FROM book_covers AS cover
+JOIN book_cover_candidates AS candidate
+  ON candidate.owner_id = cover.owner_id AND candidate.book_id = cover.book_id
+WHERE candidate.owner_id = $1
+  AND candidate.connection_id = $2
+ORDER BY cover.owner_id, cover.book_id
+FOR UPDATE OF cover
+`
+
+type LockBookCoversForConnectionParams struct {
+	OwnerID      string
+	ConnectionID string
+}
+
+type LockBookCoversForConnectionRow struct {
+	CoverOwnerID string
+	CoverBookID  string
+}
+
+func (q *Queries) LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error) {
+	rows, err := q.db.Query(ctx, lockBookCoversForConnection, arg.OwnerID, arg.ConnectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockBookCoversForConnectionRow{}
+	for rows.Next() {
+		var i LockBookCoversForConnectionRow
+		if err := rows.Scan(&i.CoverOwnerID, &i.CoverBookID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockOpdsConnection = `-- name: LockOpdsConnection :one
+SELECT id::text
+FROM opds_connections
+WHERE owner_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type LockOpdsConnectionParams struct {
+	OwnerID      pgtype.UUID
+	ConnectionID string
+}
+
+func (q *Queries) LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error) {
+	row := q.db.QueryRow(ctx, lockOpdsConnection, arg.OwnerID, arg.ConnectionID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const opdsConnectionExists = `-- name: OpdsConnectionExists :one
 SELECT EXISTS(SELECT 1 FROM opds_connections WHERE owner_id = $1 AND id = $2)
 `
@@ -240,7 +300,6 @@ SET state = 'unavailable',
     updated_at = now()
 WHERE cover.owner_id = $1
   AND cover.state = 'pending'
-  AND cover.selected_connection_id = $2
   AND NOT EXISTS (
       SELECT 1
       FROM book_cover_candidates AS candidate
@@ -251,13 +310,8 @@ WHERE cover.owner_id = $1
   )
 `
 
-type ResolveBookCoverAfterConnectionDeletionParams struct {
-	OwnerID      string
-	ConnectionID pgtype.UUID
-}
-
-func (q *Queries) ResolveBookCoverAfterConnectionDeletion(ctx context.Context, arg ResolveBookCoverAfterConnectionDeletionParams) error {
-	_, err := q.db.Exec(ctx, resolveBookCoverAfterConnectionDeletion, arg.OwnerID, arg.ConnectionID)
+func (q *Queries) ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error {
+	_, err := q.db.Exec(ctx, resolveBookCoverAfterConnectionDeletion, ownerID)
 	return err
 }
 

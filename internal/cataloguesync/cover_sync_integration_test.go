@@ -381,6 +381,45 @@ func TestCatalogueSyncCoverStaleWorkerCompletionAfterReplacementReconciliation(t
 	assert.NotEqual(t, retained, updated.Bytes)
 }
 
+func TestCatalogueSyncCoverCompletionAfterConnectionDeletionPreservesRetainedCover(t *testing.T) {
+	f := newCoverFixture(t)
+	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
+	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+
+	// Reconciliation creates a current replacement candidate while retaining the
+	// validated image. Delete the connection after retrieval has reached the
+	// persistence boundary, then let the completion continue.
+	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
+	require.NoError(t, f.sync(f.connection.ID))
+	args := f.pendingCoverArgs()
+	require.Len(t, args, 2)
+	var current CoverArgs
+	for _, candidate := range args {
+		if candidate.AdvertisedAt.After(current.AdvertisedAt) {
+			current = candidate
+		}
+	}
+	require.NotEmpty(t, current.BookID)
+
+	blocking := &blockingCoverStore{coverStore: f.store, saveStarted: make(chan struct{}), releaseSave: make(chan struct{})}
+	worker := &CoverWorker{Connections: f.store, Catalogue: blocking, Reader: f.opdsService, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
+	completed := make(chan error, 1)
+	go func() {
+		completed <- worker.Work(f.ctx, &river.Job[CoverArgs]{Args: current})
+	}()
+	<-blocking.saveStarted
+
+	require.NoError(t, f.store.DeleteOpdsConnection(f.ctx, f.ownerID, f.connection.ID))
+	close(blocking.releaseSave)
+	require.NoError(t, <-completed)
+
+	cover := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	resource, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, resource.Bytes)
+}
+
 func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
 	tests := []struct {
 		name            string

@@ -24,6 +24,13 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 	}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
+		if _, err := q.LockOpdsConnection(ctx, sqlcgen.LockOpdsConnectionParams{OwnerID: uuidArg(owner), ConnectionID: connectionID}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				retrieve = false
+				return nil
+			}
+			return err
+		}
 		current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			if !advertised {
@@ -138,6 +145,15 @@ func (s *PostgresStore) MarkBookCoverUnavailable(ctx context.Context, owner, boo
 		if !current.AdvertisedAt.Valid || !current.AdvertisedAt.Time.Equal(advertisedAt) {
 			return nil
 		}
+		exists, err := q.BookCoverCandidateExists(ctx, sqlcgen.BookCoverCandidateExistsParams{
+			Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt,
+		})
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return nil
+		}
 		if current.State == domain.BookCoverAvailable {
 			if current.SelectedConnectionID != connectionID || current.SelectedSourceIdentifier != sourceIdentifier {
 				return nil
@@ -147,11 +163,14 @@ func (s *PostgresStore) MarkBookCoverUnavailable(ctx context.Context, owner, boo
 				AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),
 			})
 		}
-		_, err = q.MarkBookCoverCandidateFailed(ctx, sqlcgen.MarkBookCoverCandidateFailedParams{
+		failed, err := q.MarkBookCoverCandidateFailed(ctx, sqlcgen.MarkBookCoverCandidateFailedParams{
 			Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt, FailureReason: textArg(reason),
 		})
 		if err != nil {
 			return err
+		}
+		if failed == 0 {
+			return nil
 		}
 		pending, err := q.CountPendingBookCoverCandidates(ctx, sqlcgen.CountPendingBookCoverCandidatesParams{Owner: owner, Book: bookID, AdvertisedAt: advertisedAt})
 		if err != nil {
