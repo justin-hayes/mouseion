@@ -218,6 +218,7 @@ JOIN book_cover_candidates AS candidate
   ON candidate.owner_id = cover.owner_id AND candidate.book_id = cover.book_id
 WHERE candidate.owner_id = $1
   AND candidate.connection_id = $2
+ORDER BY cover.owner_id, cover.book_id
 FOR UPDATE OF cover
 `
 
@@ -249,6 +250,25 @@ func (q *Queries) LockBookCoversForConnection(ctx context.Context, arg LockBookC
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockOpdsConnection = `-- name: LockOpdsConnection :one
+SELECT id::text
+FROM opds_connections
+WHERE owner_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type LockOpdsConnectionParams struct {
+	OwnerID      pgtype.UUID
+	ConnectionID string
+}
+
+func (q *Queries) LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error) {
+	row := q.db.QueryRow(ctx, lockOpdsConnection, arg.OwnerID, arg.ConnectionID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const opdsConnectionExists = `-- name: OpdsConnectionExists :one

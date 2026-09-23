@@ -24,6 +24,13 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 	}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
+		if _, err := q.LockOpdsConnection(ctx, sqlcgen.LockOpdsConnectionParams{OwnerID: uuidArg(owner), ConnectionID: connectionID}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				retrieve = false
+				return nil
+			}
+			return err
+		}
 		current, err := q.GetBookCoverForUpdate(ctx, sqlcgen.GetBookCoverForUpdateParams{Owner: owner, Book: bookID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			if !advertised {

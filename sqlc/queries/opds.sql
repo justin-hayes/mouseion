@@ -28,6 +28,12 @@ RETURNING id::text, owner_id::text, name, url, username, password_encrypted, lan
 -- name: DeleteOpdsConnection :execrows
 DELETE FROM opds_connections WHERE owner_id = $1 AND id = $2;
 
+-- name: LockOpdsConnection :one
+SELECT id::text
+FROM opds_connections
+WHERE owner_id = sqlc.arg('owner_id') AND id = sqlc.arg('connection_id')
+FOR UPDATE;
+
 -- name: DeleteBookCoverCandidatesForConnection :exec
 DELETE FROM book_cover_candidates
 WHERE owner_id = sqlc.arg('owner_id') AND connection_id = sqlc.arg('connection_id');
@@ -39,6 +45,7 @@ JOIN book_cover_candidates AS candidate
   ON candidate.owner_id = cover.owner_id AND candidate.book_id = cover.book_id
 WHERE candidate.owner_id = sqlc.arg('owner_id')
   AND candidate.connection_id = sqlc.arg('connection_id')
+ORDER BY cover.owner_id, cover.book_id
 FOR UPDATE OF cover;
 
 -- name: ResolveBookCoverAfterConnectionDeletion :exec

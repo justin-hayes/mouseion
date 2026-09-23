@@ -4,6 +4,7 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -321,6 +322,9 @@ func TestBookCoverConnectionDeletionFencesCompletions(t *testing.T) {
 	// Deletion wins the race: an in-flight replacement from the retired source
 	// cannot replace the retained image or add a failure diagnostic.
 	require.NoError(t, store.DeleteOpdsConnection(ctx, owner.ID, connection.ID))
+	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, connection.ID, "entry-1", true)
+	require.NoError(t, err)
+	assert.False(t, retrieve)
 	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, connection.ID, "entry-1", replacementAt, "image/png", 4, 6, "stale", []byte("stale-image")))
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, connection.ID, "entry-1", replacementAt, "stale failure"))
 	cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
@@ -347,6 +351,45 @@ func TestBookCoverConnectionDeletionFencesCompletions(t *testing.T) {
 	resource, err = store.GetBookCoverResource(ctx, owner.ID, secondBook.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "replacement", resource.ContentHash)
+}
+
+func TestBookCoverDeletionAndCompletionDoNotDeadlock(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "concurrent cover deletion store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "concurrent-cover-deletion-owner", false)
+	require.NoError(t, err)
+	for i := 0; i < 8; i++ {
+		connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: fmt.Sprintf("Catalog %d", i), URL: fmt.Sprintf("https://catalog.example/%d", i)})
+		require.NoError(t, err)
+		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-"+connection.ID, "Title "+connection.ID, "", "de")
+		require.NoError(t, err)
+		bookID := reconciled.Book.ID
+		_, advertisedAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, connection.ID, "entry-"+connection.ID, true)
+		require.NoError(t, err)
+
+		start := make(chan struct{})
+		results := make(chan error, 2)
+		go func() {
+			<-start
+			results <- store.SaveBookCover(ctx, owner.ID, bookID, connection.ID, "entry-"+connection.ID, advertisedAt, "image/png", 4, 6, "concurrent", []byte("concurrent-image"))
+		}()
+		go func() {
+			<-start
+			results <- store.DeleteOpdsConnection(ctx, owner.ID, connection.ID)
+		}()
+		close(start)
+		for range 2 {
+			require.NoError(t, <-results)
+		}
+
+		cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+		require.NoError(t, err)
+		assert.Contains(t, []string{domain.BookCoverAvailable, domain.BookCoverUnavailable}, cover.State)
+	}
 }
 
 func TestBookCoverFinalPendingConnectionDeletionSettlesInEitherOrder(t *testing.T) {
