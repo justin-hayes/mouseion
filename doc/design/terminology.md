@@ -41,10 +41,11 @@ completion** are not primary learner-facing concepts.
 | **Catalogs** | The authenticated catalogue setup and sync-maintenance destination at `/catalogs`. | Import books, ingest books |
 | **Add to Reading Journey** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
-| **Catalog sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies content download or destructive mirroring. | Import all books, mirror, admin sync |
+| **Catalog sync** | Periodic, owner-scoped reconciliation that adds or updates bibliographic metadata for offered non-English languages whose NLP pipelines are ready. The resulting chosen-language Books derive study languages. It never implies EPUB content download or destructive mirroring; optional Book-cover retrieval is independent metadata work. | Import all books, mirror, admin sync |
 | **Metadata-only catalog entry** | A Book and active My Books membership recorded from catalog metadata, with no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
 | **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Adding a Book to Reading Journey is the intent that triggers acquisition and analysis. | Sync download, automatic analysis |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
+| **Book cover** | The optional catalog-supplied image representing a Book. It may lead visually in My Books and support identity in Reading Journey, but title and author remain visible and authoritative. | Cover art, thumbnail when referring to the metadata |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
@@ -163,6 +164,7 @@ Use complete, factual labels where space permits:
 - ready to analyze;
 - analysis queued, running, failed, cancelled, or result ready;
 - catalog never synced, syncing, last synced, or sync failed;
+- cover pending, cover unavailable, or no cover available when a visual placeholder must distinguish those states;
 - deck preparing or deck ready;
 - evidence needs review;
 - not assessed;

@@ -203,6 +203,12 @@ membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired
 book.
 
+**Book cover**:
+The catalog-supplied image representing a Book, retained with its originating
+Catalog entry and allowed to change as that metadata changes. It supports the
+Book's title and author but is never its sole learner-facing identity.
+_Avoid_: cover art, thumbnail (a presentation size, not the Book metadata).
+
 **Reading intent**:
 A learner's voluntary act of selecting a Book as a candidate they may read and
 study next. Intent is expressed by adding the Book to the Reading Journey, and

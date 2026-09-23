@@ -1,6 +1,6 @@
 # Catalog Sync
 
-Status: Implemented · Date: 2026-09-02 · Updated: 2026-09-11
+Status: Implemented; cover retrieval extension accepted but not implemented · Date: 2026-09-02 · Updated: 2026-09-23
 
 ## Motivation
 
@@ -82,6 +82,21 @@ Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr
   Books or membership.
 - Entries removed upstream remain in My Books. Deleting a connection also
   leaves all Books, membership, acquired content, and derived history intact.
+
+### Accepted cover-metadata extension
+
+[Book Covers](book-covers.md) and
+[ADR 0077](../adr/0077-catalog-supplied-book-covers.md) extend reconciliation
+with catalog-advertised image provenance and independent bounded retrieval. Sync
+does not wait for optional image work and cover failure does not fail metadata
+reconciliation. Retained normalized images remain available while the catalog is
+offline and survive connection deletion; catalog URLs and credentials are never
+sent to the browser.
+
+This extension is accepted but not yet shipped. "Metadata-first" continues to
+mean that sync never downloads EPUB content, creates acquired source evidence,
+or triggers analysis; it does not prohibit independent retrieval of optional
+catalog-supplied display metadata.
 
 ### Lazy content acquisition and per-book refresh
 

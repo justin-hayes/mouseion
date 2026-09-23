@@ -1,6 +1,7 @@
 # Design system
 
-Status: **Foundation and learner-facing contract documented**
+Status: **Foundation and learner-facing contract documented; Book-cover target
+accepted but not shipped**
 
 Mouseion's design system is a semantic layer above native HTML and Pico CSS. It
 supports a server-rendered, HTMX-enhanced product whose visual character is a
@@ -149,6 +150,12 @@ Use when peer content and actions no longer fit comfortably side by side.
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.
 
+The accepted My Books cover-grid target keeps ordinary document order and uses
+two columns at typical compact widths, reducing columns when long content or
+zoom makes that necessary. It never introduces horizontal page scrolling or an
+ARIA-grid keyboard model. Reading Journey keeps its ordered-list structure and
+reserves a modest aligned thumbnail column.
+
 ### Standard — above `40rem` and below `72rem`
 
 This is the default content-led layout. Auto-fit grids use available space while
@@ -177,6 +184,9 @@ scrollable data table must label and contain its own overflow.
 - Keep Pico's visible focus behavior and map any custom focus treatment through
   `--mouseion-color-focus`.
 - Use semantic status text in addition to color.
+- Treat a Book cover as redundant visual identity when title text is adjacent:
+  use empty image alternative text, hide cover placeholders from the
+  accessibility tree, and avoid duplicate cover/title focus stops.
 - Preserve an ordered-list reading structure for Reading Journey. Visible
   keyboard-operable move controls and text announcements are required; drag is
   optional enhancement only.
@@ -193,7 +203,7 @@ scrollable data table must label and contain its own overflow.
 
 - Canonical authenticated destinations are exactly My Books, Reading Journey,
   Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync maintenance on
-  `/catalogs`. My Books is the sole browse surface, and My Books rows own per-book
+  `/catalogs`. My Books is the sole browse surface, and My Books items own per-book
   acquisition intent. Primary Goal is embedded in Reading Journey.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
@@ -245,6 +255,11 @@ known-vocabulary management. The accepted target patterns preserve bibliographic
 the one Primary Goal per language, a fluid Journey order, explicit forecast
 stages, evidence deltas, and the Where next? outcome. Do not disguise those
 contracts as mere component renames.
+
+The accepted, not-yet-shipped Book Covers target changes My Books from repeated
+rows to `MyBooksCoverItem` grid items and adds `BookCoverMedia` thumbnails to
+Reading Journey. It does not change the shell, destination set, Journey order,
+or evidence contracts.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,
