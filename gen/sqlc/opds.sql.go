@@ -211,6 +211,46 @@ func (q *Queries) ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) 
 	return items, nil
 }
 
+const lockBookCoversForConnection = `-- name: LockBookCoversForConnection :many
+SELECT cover.owner_id::text, cover.book_id::text
+FROM book_covers AS cover
+JOIN book_cover_candidates AS candidate
+  ON candidate.owner_id = cover.owner_id AND candidate.book_id = cover.book_id
+WHERE candidate.owner_id = $1
+  AND candidate.connection_id = $2
+FOR UPDATE OF cover
+`
+
+type LockBookCoversForConnectionParams struct {
+	OwnerID      string
+	ConnectionID string
+}
+
+type LockBookCoversForConnectionRow struct {
+	CoverOwnerID string
+	CoverBookID  string
+}
+
+func (q *Queries) LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error) {
+	rows, err := q.db.Query(ctx, lockBookCoversForConnection, arg.OwnerID, arg.ConnectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockBookCoversForConnectionRow{}
+	for rows.Next() {
+		var i LockBookCoversForConnectionRow
+		if err := rows.Scan(&i.CoverOwnerID, &i.CoverBookID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const opdsConnectionExists = `-- name: OpdsConnectionExists :one
 SELECT EXISTS(SELECT 1 FROM opds_connections WHERE owner_id = $1 AND id = $2)
 `
