@@ -139,21 +139,33 @@ func (s *PostgresStore) GetBookCoverForRetrieval(ctx context.Context, owner, boo
 	}, nil
 }
 
-// GetBookCoverResource is used only by the authenticated image endpoint.
+// GetBookCoverResource reads retained bytes for internal persistence checks.
 func (s *PostgresStore) GetBookCoverResource(ctx context.Context, owner, bookID string) (domain.BookCoverResource, error) {
 	row, err := s.queries().GetBookCover(ctx, sqlcgen.GetBookCoverParams{Owner: owner, Book: bookID})
+	return bookCoverResource(err, row.OwnerID, row.BookID, row.State, row.MediaType, row.ContentHash, row.Width, row.Height, row.Bytes)
+}
+
+// GetActiveBookCoverResource is the authenticated image endpoint read. The
+// active-membership predicate is part of the same query as the bytes so a
+// removal cannot race authorization and still expose a retained cover.
+func (s *PostgresStore) GetActiveBookCoverResource(ctx context.Context, owner, bookID string) (domain.BookCoverResource, error) {
+	row, err := s.queries().GetActiveBookCoverResource(ctx, sqlcgen.GetActiveBookCoverResourceParams{Owner: owner, Book: bookID})
+	return bookCoverResource(err, row.COwnerID, row.CBookID, row.State, row.MediaType, row.ContentHash, row.Width, row.Height, row.Bytes)
+}
+
+func bookCoverResource(err error, ownerID, bookID, state string, mediaType, contentHash pgtype.Text, width, height pgtype.Int4, bytes []byte) (domain.BookCoverResource, error) {
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.BookCoverResource{}, ErrNotFound
 		}
 		return domain.BookCoverResource{}, err
 	}
-	if row.State != domain.BookCoverAvailable || len(row.Bytes) == 0 {
+	if state != domain.BookCoverAvailable || len(bytes) == 0 {
 		return domain.BookCoverResource{}, ErrNotFound
 	}
 	return domain.BookCoverResource{
-		OwnerID: row.OwnerID, BookID: row.BookID, MediaType: pgText(row.MediaType), ContentHash: pgText(row.ContentHash),
-		Bytes: row.Bytes, Width: pgInt4(row.Width), Height: pgInt4(row.Height),
+		OwnerID: ownerID, BookID: bookID, MediaType: pgText(mediaType), ContentHash: pgText(contentHash),
+		Bytes: bytes, Width: pgInt4(width), Height: pgInt4(height),
 	}, nil
 }
 

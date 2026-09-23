@@ -812,6 +812,10 @@ func (s *Store) GetBookCoverResource(_ context.Context, owner, bookID string) (d
 	return domain.BookCoverResource{}, errNotFound
 }
 
+func (s *Store) GetActiveBookCoverResource(ctx context.Context, owner, bookID string) (domain.BookCoverResource, error) {
+	return s.GetBookCoverResource(ctx, owner, bookID)
+}
+
 func (s *Store) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
 	for _, book := range s.myBooks {
 		if book.Book.OwnerID == owner && book.Book.ID == bookID {

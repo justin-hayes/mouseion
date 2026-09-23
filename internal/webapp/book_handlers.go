@@ -39,11 +39,12 @@ func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
 	reader := h.services.Store.Covers
-	if reader == nil || strings.TrimSpace(r.PathValue("id")) == "" {
+	bookID := strings.TrimSpace(r.PathValue("id"))
+	if reader == nil || bookID == "" {
 		http.NotFound(w, r)
 		return
 	}
-	resource, err := reader.GetBookCoverResource(r.Context(), user(r).ID, r.PathValue("id"))
+	resource, err := reader.GetActiveBookCoverResource(r.Context(), user(r).ID, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return

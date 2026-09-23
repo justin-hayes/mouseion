@@ -22,6 +22,25 @@ SELECT owner_id::text,
 FROM book_covers
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
 
+-- name: GetActiveBookCoverResource :one
+SELECT c.owner_id::text,
+       c.book_id::text,
+       c.state,
+       (COALESCE(c.selected_connection_id::text, ''))::text AS selected_connection_id,
+       c.selected_source_identifier,
+       c.media_type,
+       c.width,
+       c.height,
+       c.content_hash,
+       c.bytes,
+       c.advertised_at,
+       c.fetched_at,
+       c.updated_at,
+       c.failure_reason
+FROM book_covers c
+JOIN book_membership m ON m.owner_id = c.owner_id AND m.book_id = c.book_id AND m.state = 'active'
+WHERE c.owner_id = sqlc.arg('owner') AND c.book_id = sqlc.arg('book');
+
 -- name: GetBookCoverForUpdate :one
 SELECT state,
        (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
