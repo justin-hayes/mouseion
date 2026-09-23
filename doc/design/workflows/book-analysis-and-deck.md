@@ -68,17 +68,16 @@ Catalog sync creates or updates the metadata-only My Books entry. It does not
 download content, trigger analysis, add the Book to Reading Journey, choose a
 Primary Goal, prepare a deck, or mark vocabulary known.
 
-Under the accepted, not-yet-shipped
-[Book Covers](../../features/book-covers.md) target, My Books must answer:
+The shipped [Book Covers](../../features/book-covers.md) experience makes My
+Books answer:
 
 - Which Book is this by cover, title, and author?
 - Is this Book already in Reading Journey?
 - Is this the Book I want to add to the Reading Journey?
 
-Acquired-content and analysis state do not appear on the target My Books grid.
-No generic Book detail page is offered. Analysis status and recovery live on the
-Jobs page and inline on Journey items. The shipped My Books rows retain their
-current evidence until the cover target is implemented.
+Acquired-content and analysis state do not appear on the My Books grid. No generic
+Book detail page is offered. Analysis status and recovery live on the Jobs page
+and inline on Journey items. Reading Journey is the current evidence surface.
 
 ### 2. Monitor analysis
 

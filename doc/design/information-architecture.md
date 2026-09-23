@@ -294,8 +294,8 @@ not learner-facing destinations.
 
 ## My Books information hierarchy
 
-The accepted [Book Covers](../features/book-covers.md) target, which is not yet
-shipped, makes My Books answer questions in this order:
+The shipped [Book Covers](../features/book-covers.md) experience makes My Books
+answer questions in this order:
 
 1. What literature do I care about or want to find again?
 2. Which Book is this, by cover, title, and author?
@@ -318,9 +318,9 @@ available through `/jobs`, not sections on a generic learner-facing Book page.
 The grid remains moderately dense and does not establish a generic large-card
 pattern.
 
-Until the cover target ships, the current My Books rows continue to present
-Goal/Journey relationship and concise evidence. This is an implementation gap,
-not a competing target hierarchy.
+The current My Books grid presents cover, title, author, Reading Journey
+membership, and explicit actions. It does not present evidence or Primary Goal
+state; those remain on the Reading Journey anchor.
 
 ## Reading Journey information hierarchy
 
@@ -479,8 +479,8 @@ needed.
    boundary.
 10. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
     the panel proposed by ADR 0042 has no current route or screen contract.
-     Per-Book evidence remains on Reading Journey anchors in the accepted cover
-     target; the shipped My Books rows retain it until that target is implemented.
+     Per-Book evidence remains on Reading Journey anchors in the shipped cover
+      experience; the My Books grid does not duplicate it.
      No replacement aggregate is implied.
 11. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):

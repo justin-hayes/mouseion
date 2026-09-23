@@ -8,7 +8,7 @@ The historical **Add to library** label may remain in compatibility artifacts.
 The [catalog sync workflow](catalog-sync.md) creates metadata-first My Books
 entries. This document defines the per-book content-acquisition step from My
 Books through Reading Journey; sync never downloads EPUB content. Independent
-optional Book-cover retrieval follows
+optional Book cover retrieval follows
 [ADR 0077](../../adr/0077-catalog-supplied-book-covers.md).
 
 ## Goal

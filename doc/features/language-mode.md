@@ -1,6 +1,6 @@
 # Language Mode
 
-Status: Implemented; My Books cover-grid extension accepted but not implemented · Date: 2026-09-07 · Updated: 2026-09-23
+Status: Implemented, including the My Books cover grid · Date: 2026-09-07 · Updated: 2026-09-23
 
 ## Motivation
 
@@ -52,10 +52,9 @@ labels use **Language** and the language's own name, never **Mode** or
 - Browse, paging, and search are scoped to the active language. The "All
   languages" pill and per-row language tags are removed; a section heading names
   the language.
-- The shipped My Books rows retain per-Book evidence. The accepted
-  [Book Covers](book-covers.md) target removes it from My Books and leaves current
-  Book evidence on the Reading Journey anchor. The retired Language view panel
-  does not render.
+- The shipped My Books cover grid communicates Reading Journey membership but not
+  per-Book evidence or Primary Goal state. Book evidence remains on the Reading
+  Journey anchor. The retired Language view panel does not render.
 - When any Book lacks a language, an out-of-band "N books need a language" strip
   appears (display-only: fix the language in the catalog, then re-sync; no
   per-book actions). Its browse state is `/library?needs-language`.

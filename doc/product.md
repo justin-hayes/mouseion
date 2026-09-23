@@ -46,7 +46,7 @@ language for import.
 - [Language Support](features/language-support.md) — capability-driven German, Italian, and Modern Greek analysis, deployment, and end-to-end validation.
 - [Catalog Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogs with lazy content acquisition.
 - [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
-- [Book Covers](features/book-covers.md) — accepted cover-led My Books grid, retained catalog-supplied images, and supporting Reading Journey thumbnails; not yet implemented.
+- [Book Covers](features/book-covers.md) — implemented cover-led My Books grid, retained catalog-supplied images, and supporting Reading Journey thumbnails.
 - [Language Mode](features/language-mode.md) — the active study language scopes the shell, My Books, Reading Journey, and Vocabulary.
 - [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — complete bolded source sentences, readable long-card presentation, and optional validated English target highlighting.
 - [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — resumable manifests, durable candidate outcomes, and atomic finalization for prepared decks.
@@ -156,7 +156,7 @@ amendments.
 74. [ADR 0074: Retire the generic Journey entry surface](adr/0074-retire-generic-journey-entry.md) — makes Reading Journey the canonical Book identity, relationship, evidence, forecast, and recovery surface; turns `/journey/{bookID}` and exact-analysis links into guarded anchor redirects; and assigns deck work to the focused preparation task while retaining internal analysis data.
 75. [ADR 0075: Catalogue-sourced Book author metadata](adr/0075-book-author-metadata.md) — stores the mutable OPDS author display value on each Book, projects it into Reading Journey identity, and leaves missing author metadata absent rather than inferred.
 76. [ADR 0076: Roll forward when a ready deck requires re-preparation](adr/0076-reprepare-ready-deck.md) — preserves the old owner-scoped artifact and exact provenance while creating one new current preparation for the same analysis or Goal snapshot; repeated recovery resolves idempotently to that current generation.
-77. [ADR 0077: Retain catalog-supplied Book covers](adr/0077-catalog-supplied-book-covers.md) — retains bounded catalog images in PostgreSQL behind an owner-scoped endpoint, selects a stable Catalog-entry source across aliases, keeps optional retrieval independent from catalog-sync success, and makes Reading Journey the sole Book-evidence surface when the My Books cover grid ships.
+77. [ADR 0077: Retain catalog-supplied Book covers](adr/0077-catalog-supplied-book-covers.md) — retains bounded catalog images in PostgreSQL behind an owner-scoped endpoint, selects a stable Catalog-entry source across aliases, keeps optional retrieval independent from catalog-sync success, and makes Reading Journey the sole Book-evidence surface alongside the shipped My Books cover grid.
 
 ### Superseded or historical decisions
 

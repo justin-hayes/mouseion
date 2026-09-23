@@ -78,7 +78,7 @@ The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
 to wrap every region in a card.
 
-## Book-cover patterns
+## Book cover patterns
 
 [Book Covers](../features/book-covers.md) owns the complete cover experience. The
 My Books cover-grid pattern below and its Reading Journey thumbnail variant are

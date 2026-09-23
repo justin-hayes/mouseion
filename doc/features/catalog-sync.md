@@ -1,6 +1,6 @@
 # Catalog Sync
 
-Status: Implemented; cover retrieval extension accepted but not implemented · Date: 2026-09-02 · Updated: 2026-09-23
+Status: Implemented, including independent cover retrieval · Date: 2026-09-02 · Updated: 2026-09-23
 
 ## Motivation
 
@@ -93,10 +93,9 @@ reconciliation. Retained normalized images remain available while the catalog is
 offline and survive connection deletion; catalog URLs and credentials are never
 sent to the browser.
 
-This extension is accepted but not yet shipped. "Metadata-first" continues to
-mean that sync never downloads EPUB content, creates acquired source evidence,
-or triggers analysis; it does not prohibit independent retrieval of optional
-catalog-supplied display metadata.
+"Metadata-first" continues to mean that sync never downloads EPUB content,
+creates acquired source evidence, or triggers analysis; it does not prohibit the
+shipped independent retrieval of optional catalog-supplied display metadata.
 
 ### Lazy content acquisition and per-book refresh
 
