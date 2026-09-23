@@ -99,11 +99,11 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 	require.NoError(t, LibraryPage(domain.User{Username: "learner"}, "csrf", []domain.SourceMaterialSummary{book}, "", "", false).Render(context.Background(), &output))
 
 	html := output.String()
-	for _, pattern := range []string{`class="page-header"`, `class="resource-card library-book"`, `class="status-badge`} {
+	for _, pattern := range []string{`class="page-header"`, `class="library-grid"`, `class="library-book__identity-link"`} {
 		assert.True(t, strings.Contains(html, pattern), "library missing shared pattern %q", pattern)
 	}
 	assert.True(t, strings.Contains(html, `class="bibliographic-title">`), "book title must use the bibliographic typography role")
-	assert.True(t, strings.Contains(html, `<p class="metadata">`), "book metadata must use the metadata typography role")
+	assert.False(t, strings.Contains(html, `role="grid"`), "library must use native list semantics")
 }
 
 func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {

@@ -13,7 +13,7 @@ async function signIn(page: Page) {
 // therefore only asserts Goal facts that are stable across those mutations and
 // never changes the Goal: the goal book identity, the Clear affordance (present
 // directly or behind the residual-work confirmation), eligible provisional
-// controls, and the My Books goal badge/link. The change/clear/reading-only/
+// controls, and the My Books Journey membership/link. The change/clear/reading-only/
 // residual transitions are covered by Go unit and integration tests against
 // isolated databases.
 test.describe('Primary Goal selection', () => {
@@ -109,9 +109,11 @@ test.describe('Primary Goal selection', () => {
       expect(retryResponse.status()).toBe(303);
 
       await page.goto('/library');
-    await expect(page.locator('article.library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByText('Current Primary Goal')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View Primary Goal in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
-     await expect(page.locator('article.library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
+      const goalBook = page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
+      await expect(goalBook.locator('.library-book__membership')).toHaveText(/In Reading Journey/);
+      await expect(goalBook.getByRole('button', { name: 'View in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
+      await expect(goalBook.getByText('Current Primary Goal')).toHaveCount(0);
+      await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
   });
 
   test('promotes and clears the active language Goal without touching another language', async ({ page }) => {
