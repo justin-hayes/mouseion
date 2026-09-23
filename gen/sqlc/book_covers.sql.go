@@ -12,12 +12,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearBookCover = `-- name: ClearBookCover :exec
+UPDATE book_covers
+SET state = 'none',
+    selected_connection_id = NULL,
+    selected_source_identifier = NULL,
+    media_type = NULL,
+    width = NULL,
+    height = NULL,
+    content_hash = NULL,
+    bytes = NULL,
+    fetched_at = NULL,
+    failure_reason = NULL,
+    updated_at = now()
+WHERE owner_id = $1 AND book_id = $2
+`
+
+type ClearBookCoverParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) ClearBookCover(ctx context.Context, arg ClearBookCoverParams) error {
+	_, err := q.db.Exec(ctx, clearBookCover, arg.Owner, arg.Book)
+	return err
+}
+
 const getBookCover = `-- name: GetBookCover :one
 
 SELECT owner_id::text,
        book_id::text,
        state,
-       selected_connection_id::text,
+       (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
        selected_source_identifier,
        media_type,
        width,
@@ -55,7 +81,10 @@ type GetBookCoverRow struct {
 }
 
 // Cover metadata is projected into my_books_evidence; bytes are read only by
-// the authenticated cover endpoint.
+// the authenticated cover endpoint. The selected source is the Catalog entry
+// that owns the retained display image; only that source may replace or
+// explicitly remove it. While no image is selected, another alias may become
+// the candidate that the next successful retrieval selects.
 func (q *Queries) GetBookCover(ctx context.Context, arg GetBookCoverParams) (GetBookCoverRow, error) {
 	row := q.db.QueryRow(ctx, getBookCover, arg.Owner, arg.Book)
 	var i GetBookCoverRow
@@ -76,6 +105,100 @@ func (q *Queries) GetBookCover(ctx context.Context, arg GetBookCoverParams) (Get
 		&i.FailureReason,
 	)
 	return i, err
+}
+
+const getBookCoverForRetrieval = `-- name: GetBookCoverForRetrieval :one
+SELECT state,
+       (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
+       (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier,
+       (COALESCE(failure_reason, ''))::text AS failure_reason
+FROM book_covers
+WHERE owner_id = $1 AND book_id = $2
+`
+
+type GetBookCoverForRetrievalParams struct {
+	Owner string
+	Book  string
+}
+
+type GetBookCoverForRetrievalRow struct {
+	State                    string
+	SelectedConnectionID     string
+	SelectedSourceIdentifier string
+	FailureReason            string
+}
+
+func (q *Queries) GetBookCoverForRetrieval(ctx context.Context, arg GetBookCoverForRetrievalParams) (GetBookCoverForRetrievalRow, error) {
+	row := q.db.QueryRow(ctx, getBookCoverForRetrieval, arg.Owner, arg.Book)
+	var i GetBookCoverForRetrievalRow
+	err := row.Scan(
+		&i.State,
+		&i.SelectedConnectionID,
+		&i.SelectedSourceIdentifier,
+		&i.FailureReason,
+	)
+	return i, err
+}
+
+const getBookCoverForUpdate = `-- name: GetBookCoverForUpdate :one
+SELECT state,
+       (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
+       (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier
+FROM book_covers
+WHERE owner_id = $1 AND book_id = $2
+FOR UPDATE
+`
+
+type GetBookCoverForUpdateParams struct {
+	Owner string
+	Book  string
+}
+
+type GetBookCoverForUpdateRow struct {
+	State                    string
+	SelectedConnectionID     string
+	SelectedSourceIdentifier string
+}
+
+func (q *Queries) GetBookCoverForUpdate(ctx context.Context, arg GetBookCoverForUpdateParams) (GetBookCoverForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getBookCoverForUpdate, arg.Owner, arg.Book)
+	var i GetBookCoverForUpdateRow
+	err := row.Scan(&i.State, &i.SelectedConnectionID, &i.SelectedSourceIdentifier)
+	return i, err
+}
+
+const insertBookCoverCandidate = `-- name: InsertBookCoverCandidate :exec
+INSERT INTO book_covers (owner_id, book_id, state, selected_connection_id, selected_source_identifier, advertised_at, updated_at)
+VALUES (
+    $1,
+    $2,
+    $3,
+    CASE WHEN $4 THEN $5::uuid ELSE NULL END,
+    CASE WHEN $4 THEN $6::text ELSE NULL END,
+    now(),
+    now()
+)
+`
+
+type InsertBookCoverCandidateParams struct {
+	Owner            string
+	Book             string
+	State            string
+	Advertised       interface{}
+	Connection       string
+	SourceIdentifier string
+}
+
+func (q *Queries) InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) error {
+	_, err := q.db.Exec(ctx, insertBookCoverCandidate,
+		arg.Owner,
+		arg.Book,
+		arg.State,
+		arg.Advertised,
+		arg.Connection,
+		arg.SourceIdentifier,
+	)
+	return err
 }
 
 const markBookCoverUnavailable = `-- name: MarkBookCoverUnavailable :exec
@@ -101,49 +224,19 @@ func (q *Queries) MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCove
 	return err
 }
 
-const recordBookCoverAdvertisement = `-- name: RecordBookCoverAdvertisement :exec
-INSERT INTO book_covers (owner_id, book_id, state, selected_connection_id, selected_source_identifier, advertised_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, now(), now())
-ON CONFLICT (owner_id, book_id) DO UPDATE SET
-    state = CASE
-        WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.state
-        ELSE $3
-    END,
-    selected_connection_id = CASE
-        WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.selected_connection_id
-        ELSE $4
-    END,
-    selected_source_identifier = CASE
-        WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.selected_source_identifier
-        ELSE $5
-    END,
-    media_type = CASE WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.media_type ELSE NULL END,
-    width = CASE WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.width ELSE NULL END,
-    height = CASE WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.height ELSE NULL END,
-    content_hash = CASE WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.content_hash ELSE NULL END,
-    bytes = CASE WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.bytes ELSE NULL END,
-    fetched_at = CASE WHEN book_covers.state = 'available' AND $3 = 'pending' THEN book_covers.fetched_at ELSE NULL END,
-    failure_reason = NULL,
-    advertised_at = now(),
-    updated_at = now()
+const refreshBookCoverAdvertisement = `-- name: RefreshBookCoverAdvertisement :exec
+UPDATE book_covers
+SET advertised_at = now(), failure_reason = NULL, updated_at = now()
+WHERE owner_id = $1 AND book_id = $2 AND state = 'available'
 `
 
-type RecordBookCoverAdvertisementParams struct {
-	Owner            string
-	Book             string
-	State            string
-	Connection       pgtype.UUID
-	SourceIdentifier pgtype.Text
+type RefreshBookCoverAdvertisementParams struct {
+	Owner string
+	Book  string
 }
 
-func (q *Queries) RecordBookCoverAdvertisement(ctx context.Context, arg RecordBookCoverAdvertisementParams) error {
-	_, err := q.db.Exec(ctx, recordBookCoverAdvertisement,
-		arg.Owner,
-		arg.Book,
-		arg.State,
-		arg.Connection,
-		arg.SourceIdentifier,
-	)
+func (q *Queries) RefreshBookCoverAdvertisement(ctx context.Context, arg RefreshBookCoverAdvertisementParams) error {
+	_, err := q.db.Exec(ctx, refreshBookCoverAdvertisement, arg.Owner, arg.Book)
 	return err
 }
 
@@ -164,7 +257,8 @@ ON CONFLICT (owner_id, book_id) DO UPDATE SET
     updated_at = now()
 WHERE book_covers.state <> 'available'
    OR (book_covers.selected_connection_id IS NOT DISTINCT FROM EXCLUDED.selected_connection_id
-       AND book_covers.selected_source_identifier IS NOT DISTINCT FROM EXCLUDED.selected_source_identifier)
+       AND book_covers.selected_source_identifier IS NOT DISTINCT FROM EXCLUDED.selected_source_identifier
+       AND book_covers.content_hash IS DISTINCT FROM EXCLUDED.content_hash)
 `
 
 type SaveBookCoverParams struct {
@@ -190,6 +284,40 @@ func (q *Queries) SaveBookCover(ctx context.Context, arg SaveBookCoverParams) er
 		arg.Height,
 		arg.ContentHash,
 		arg.Bytes,
+	)
+	return err
+}
+
+const setBookCoverPending = `-- name: SetBookCoverPending :exec
+UPDATE book_covers
+SET state = 'pending',
+    selected_connection_id = $1,
+    selected_source_identifier = $2,
+    media_type = NULL,
+    width = NULL,
+    height = NULL,
+    content_hash = NULL,
+    bytes = NULL,
+    fetched_at = NULL,
+    failure_reason = NULL,
+    advertised_at = now(),
+    updated_at = now()
+WHERE owner_id = $3 AND book_id = $4
+`
+
+type SetBookCoverPendingParams struct {
+	Connection       pgtype.UUID
+	SourceIdentifier pgtype.Text
+	Owner            string
+	Book             string
+}
+
+func (q *Queries) SetBookCoverPending(ctx context.Context, arg SetBookCoverPendingParams) error {
+	_, err := q.db.Exec(ctx, setBookCoverPending,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.Owner,
+		arg.Book,
 	)
 	return err
 }

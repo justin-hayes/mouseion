@@ -206,6 +206,17 @@ func (s *PostgresStore) GetBookCatalogEntryAlias(ctx context.Context, owner, boo
 	return domain.BookAlias{ID: row.AID, OwnerID: row.AOwnerID, BookID: row.ABookID, ConnectionID: row.ConnectionID, AliasType: row.AliasType, Namespace: row.Namespace, Value: row.Value, CreatedAt: row.CreatedAt}, nil
 }
 
+// GetBookCatalogEntryAliasForConnection returns the owner's recorded catalogue
+// identity for a Book on one specific connection. The cover worker uses it to
+// reload the current entry without trusting job-supplied URLs or credentials.
+func (s *PostgresStore) GetBookCatalogEntryAliasForConnection(ctx context.Context, owner, bookID, connectionID string) (domain.BookAlias, error) {
+	row, err := s.queries().GetBookCatalogEntryAliasForConnection(ctx, sqlcgen.GetBookCatalogEntryAliasForConnectionParams{OwnerID: owner, BookID: bookID, ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier})
+	if err != nil {
+		return domain.BookAlias{}, missing(err)
+	}
+	return domain.BookAlias{ID: row.AID, OwnerID: row.AOwnerID, BookID: row.ABookID, ConnectionID: row.ConnectionID, AliasType: row.AliasType, Namespace: row.Namespace, Value: row.Value, CreatedAt: row.CreatedAt}, nil
+}
+
 // ListUnscopedCatalogueEntryAliases returns only legacy catalogue-entry aliases
 // that still need the application-logic connection backfill. Strong
 // bibliographic aliases are intentionally excluded.

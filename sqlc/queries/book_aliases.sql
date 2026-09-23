@@ -26,6 +26,13 @@ JOIN books b ON b.owner_id = a.owner_id AND b.id = a.book_id
 JOIN book_membership m ON m.owner_id = a.owner_id AND m.book_id = a.book_id AND m.state = 'active'
 WHERE a.owner_id = $1 AND a.book_id = $2 AND a.alias_type = $3 AND a.namespace = $4;
 
+-- name: GetBookCatalogEntryAliasForConnection :one
+SELECT a.id::text, a.owner_id::text, a.book_id::text, (COALESCE(a.connection_id::text, ''))::text AS connection_id,
+       a.alias_type, a.namespace, a.value, a.created_at
+FROM book_aliases a
+WHERE a.owner_id = $1 AND a.book_id = $2 AND a.connection_id = $3
+  AND a.alias_type = $4 AND a.namespace = $5;
+
 -- name: ListUnscopedCatalogueEntryAliases :many
 SELECT id::text, owner_id::text, book_id::text, (COALESCE(connection_id::text, ''))::text AS connection_id,
        alias_type, namespace, value, created_at
