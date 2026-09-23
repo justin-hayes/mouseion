@@ -362,7 +362,7 @@ func TestBookCoverDeletionAndCompletionDoNotDeadlock(t *testing.T) {
 
 	owner, err := store.CreateUser(ctx, "concurrent-cover-deletion-owner", false)
 	require.NoError(t, err)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: fmt.Sprintf("Catalog %d", i), URL: fmt.Sprintf("https://catalog.example/%d", i)})
 		require.NoError(t, err)
 		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-"+connection.ID, "Title "+connection.ID, "", "de")
