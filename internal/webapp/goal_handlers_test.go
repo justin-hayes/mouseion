@@ -145,7 +145,7 @@ func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 
 func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
 	books := []domain.MyBook{
-		{Book: domain.Book{ID: "goal-book", OwnerID: "owner", Title: "Current goal"}},
+		{Book: domain.Book{ID: "goal-book", OwnerID: "owner", Title: "Current goal"}, JourneyGoal: true},
 		{Book: domain.Book{ID: "other-book", OwnerID: "owner", Title: "Other book"}},
 	}
 	var output bytes.Buffer
@@ -156,10 +156,10 @@ func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
 	require.True(t, goalStart >= 0 && otherStart >= 0, "book cards missing: %s", html)
 	goalCard := html[goalStart:otherStart]
 	otherCard := html[otherStart:]
-	for _, want := range []string{"Current Primary Goal", "View Primary Goal in Reading Journey", "/journey#journey-book-goal-book"} {
+	for _, want := range []string{"In Reading Journey", "View in Reading Journey", "/journey#journey-book-goal-book"} {
 		assert.True(t, strings.Contains(goalCard, want), "current Goal card missing %q: %s", want, goalCard)
 	}
-	assert.False(t, strings.Contains(goalCard, "Choose as Primary Goal"), "current Goal card exposed choose control: %s", goalCard)
+	assert.False(t, strings.Contains(goalCard, "Primary Goal"), "My Books exposed Goal state: %s", goalCard)
 	assert.False(t, strings.Contains(otherCard, "Choose as Primary Goal") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
 }
 

@@ -47,6 +47,10 @@ func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(boo
 
 func bookCoverURL(bookID string) string { return "/books/" + url.PathEscape(bookID) + "/cover" }
 
+func myBookInJourney(book domain.MyBook) bool {
+	return book.JourneyMember || book.JourneyGoal
+}
+
 func bookCoverLabel(cover domain.BookCover) string {
 	switch cover.State {
 	case domain.BookCoverPending:
@@ -231,70 +235,6 @@ func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
 		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: canonicalBookTitle(source), Author: source.BookAuthor, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
 	}
 	return out
-}
-
-func myBookEvidenceLabel(state domain.BookEvidenceState) string {
-	switch state {
-	case domain.BookUnavailable:
-		return "Unavailable"
-	case domain.BookNotAcquired:
-		return "Not acquired"
-	case domain.BookAcquiredUnassessed:
-		return "Ready to analyze"
-	case domain.BookAnalyzed:
-		return "Analyzed"
-	case domain.BookStale:
-		return "Stale analysis"
-	default:
-		return "Evidence unavailable"
-	}
-}
-
-func myBookAnalysisLabel(status string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "not analyzed":
-		return "No analysis run"
-	case "scope confirmed":
-		return "Ready to analyze"
-	case "analyzed", "analysis result ready":
-		return "Analysis complete"
-	case "analysis failed":
-		return "Analysis failed"
-	case "analysis cancelled":
-		return "Analysis cancelled"
-	case "analyzing":
-		return "Analysis in progress"
-	default:
-		return status
-	}
-}
-
-func myBookLifecycleActionFor(book domain.MyBook) bookLifecycleAction {
-	state := book.EvidenceState()
-	if book.Acquired == nil || state == domain.BookUnavailable || state == domain.BookNotAcquired {
-		if state == domain.BookNotAcquired {
-			return bookLifecycleAction{Status: "Not acquired", Description: "Add this book to Reading Journey to acquire and analyze its EPUB.", Tone: StatusNeutral}
-		}
-		return bookLifecycleAction{
-			Status:      myBookEvidenceLabel(state),
-			Description: "No usable acquired EPUB evidence is available for assessment. Add this book to Reading Journey when its catalog content is available.",
-			Tone:        statusTone(myBookEvidenceLabel(state)),
-		}
-	}
-	if state == domain.BookStale {
-		return bookLifecycleAction{Status: "Stale analysis", Description: "The current acquired content differs from the analyzed revision. Re-analyze it from Reading Journey.", Tone: StatusWarning}
-	}
-	if state == domain.BookAnalyzed && !book.JourneyMember && bookHasCompletedAnalysis(*book.Acquired) {
-		return bookLifecycleAction{
-			Status:      myBookEvidenceLabel(state),
-			Description: "Add this book to Reading Journey to inspect its current analysis evidence.",
-			Tone:        StatusSuccess,
-		}
-	}
-	acquired := *book.Acquired
-	acquired.BookID = book.Book.ID
-	action := bookLifecycleActionFor(acquired)
-	return action
 }
 
 type bookLifecycleAction struct {
