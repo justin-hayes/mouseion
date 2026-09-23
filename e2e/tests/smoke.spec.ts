@@ -139,6 +139,11 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/library');
     await page.getByLabel('Study language').selectOption('it');
     await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/journey/books/fixture-route-match/deck/preparations/new');
+    await expect(page.getByRole('link', { name: 'Back to this Book in Reading Journey', exact: true })).toHaveAttribute(
+      'href',
+      '/journey?language_handoff_book=fixture-route-match&language_handoff_language=de',
+    );
     await page.goto('/journey/fixture-route-match');
 
     await expect(page).toHaveURL(/\/journey\?language_handoff_book=fixture-route-match&language_handoff_language=de/);
@@ -196,6 +201,11 @@ test.describe('authenticated learner smoke', () => {
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page).toHaveURL(/\/deck-preparations\/fixture-preparation\/status$/);
+    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute(
+      'href',
+      '/journey?language_handoff_book=fixture-book&language_handoff_language=de',
+    );
+    await expect(page.getByRole('button', { name: 'Add to Reading Journey' })).toHaveCount(0);
     await page.goto('/deck-preparations/fixture-journey-preparation/status');
     await expect(page.getByText('In Reading Journey.', { exact: false })).toBeVisible();
     await expect(page.locator('a[href="/journey#journey-book-fixture-empty"]')).toBeVisible();

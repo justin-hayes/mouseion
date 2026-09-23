@@ -99,7 +99,7 @@ func (q *Queries) CancelDeckPreparation(ctx context.Context, arg CancelDeckPrepa
 const claimDeckPreparation = `-- name: ClaimDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'preparing', started_at = now(), updated_at = now(), error = ''
-WHERE owner_id = $1 AND id = $2 AND state = 'queued'
+WHERE owner_id = $1 AND id = $2 AND state = 'queued' AND retired_at IS NULL
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -744,6 +744,7 @@ WHERE owner_id = $1
   AND source_material_id = $2
   AND analysis_run_id = $3
   AND retired_at IS NULL
+FOR UPDATE
 `
 
 type GetUnretiredDeckPreparationBySourceAnalysisParams struct {
@@ -803,6 +804,7 @@ WHERE owner_id = $1
   AND source_material_id = $2
   AND content_hash = $3
   AND retired_at IS NULL
+FOR UPDATE
 `
 
 type GetUnretiredDeckPreparationBySourceHashParams struct {
@@ -1167,6 +1169,24 @@ func (q *Queries) PutPreparedDeckCard(ctx context.Context, arg PutPreparedDeckCa
 		arg.Front,
 		arg.Back,
 	)
+	return err
+}
+
+const retireDeckPreparationForGoalSnapshot = `-- name: RetireDeckPreparationForGoalSnapshot :exec
+UPDATE deck_preparations
+SET retired_at = now(), updated_at = now()
+WHERE owner_id = $1
+  AND goal_snapshot_id = $2
+  AND retired_at IS NULL
+`
+
+type RetireDeckPreparationForGoalSnapshotParams struct {
+	Owner        string
+	GoalSnapshot pgtype.UUID
+}
+
+func (q *Queries) RetireDeckPreparationForGoalSnapshot(ctx context.Context, arg RetireDeckPreparationForGoalSnapshotParams) error {
+	_, err := q.db.Exec(ctx, retireDeckPreparationForGoalSnapshot, arg.Owner, arg.GoalSnapshot)
 	return err
 }
 

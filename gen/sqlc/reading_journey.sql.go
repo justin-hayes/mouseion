@@ -1165,6 +1165,123 @@ func (q *Queries) ListReadingJourneyMembersForUpdate(ctx context.Context, arg Li
 	return items, nil
 }
 
+const lockPrimaryGoalSnapshot = `-- name: LockPrimaryGoalSnapshot :one
+SELECT id::text
+FROM primary_goal_snapshots
+WHERE owner_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type LockPrimaryGoalSnapshotParams struct {
+	Owner    string
+	Snapshot string
+}
+
+func (q *Queries) LockPrimaryGoalSnapshot(ctx context.Context, arg LockPrimaryGoalSnapshotParams) (string, error) {
+	row := q.db.QueryRow(ctx, lockPrimaryGoalSnapshot, arg.Owner, arg.Snapshot)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockPrimaryGoalsExceptLanguage = `-- name: LockPrimaryGoalsExceptLanguage :many
+SELECT snapshot_id::text
+FROM primary_goals
+WHERE owner_id = $1 AND book_id = $2 AND language <> $3 AND snapshot_id IS NOT NULL
+FOR UPDATE
+`
+
+type LockPrimaryGoalsExceptLanguageParams struct {
+	Owner    string
+	Book     string
+	Language string
+}
+
+func (q *Queries) LockPrimaryGoalsExceptLanguage(ctx context.Context, arg LockPrimaryGoalsExceptLanguageParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, lockPrimaryGoalsExceptLanguage, arg.Owner, arg.Book, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var snapshot_id string
+		if err := rows.Scan(&snapshot_id); err != nil {
+			return nil, err
+		}
+		items = append(items, snapshot_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockPrimaryGoalsForAllLanguages = `-- name: LockPrimaryGoalsForAllLanguages :many
+SELECT snapshot_id::text
+FROM primary_goals
+WHERE owner_id = $1 AND book_id = $2 AND snapshot_id IS NOT NULL
+FOR UPDATE
+`
+
+type LockPrimaryGoalsForAllLanguagesParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) LockPrimaryGoalsForAllLanguages(ctx context.Context, arg LockPrimaryGoalsForAllLanguagesParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, lockPrimaryGoalsForAllLanguages, arg.Owner, arg.Book)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var snapshot_id string
+		if err := rows.Scan(&snapshot_id); err != nil {
+			return nil, err
+		}
+		items = append(items, snapshot_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockPrimaryGoalsForBook = `-- name: LockPrimaryGoalsForBook :many
+SELECT snapshot_id::text
+FROM primary_goals
+WHERE owner_id = $1 AND language = $2 AND book_id = $3 AND snapshot_id IS NOT NULL
+FOR UPDATE
+`
+
+type LockPrimaryGoalsForBookParams struct {
+	Owner    string
+	Language string
+	Book     string
+}
+
+func (q *Queries) LockPrimaryGoalsForBook(ctx context.Context, arg LockPrimaryGoalsForBookParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, lockPrimaryGoalsForBook, arg.Owner, arg.Language, arg.Book)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var snapshot_id string
+		if err := rows.Scan(&snapshot_id); err != nil {
+			return nil, err
+		}
+		items = append(items, snapshot_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const primaryGoalCandidateEligible = `-- name: PrimaryGoalCandidateEligible :one
 SELECT EXISTS(
   SELECT 1
@@ -1212,64 +1329,6 @@ type ReleasePrimaryGoalSnapshotParams struct {
 
 func (q *Queries) ReleasePrimaryGoalSnapshot(ctx context.Context, arg ReleasePrimaryGoalSnapshotParams) error {
 	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshot, arg.Owner, arg.Snapshot)
-	return err
-}
-
-const releasePrimaryGoalSnapshotsExceptLanguage = `-- name: ReleasePrimaryGoalSnapshotsExceptLanguage :exec
-UPDATE primary_goal_snapshots s
-SET released_at = COALESCE(s.released_at, now())
-FROM primary_goals g
-WHERE g.owner_id = $1 AND g.book_id = $2
-  AND g.language <> $3
-  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
-`
-
-type ReleasePrimaryGoalSnapshotsExceptLanguageParams struct {
-	Owner    string
-	Book     string
-	Language string
-}
-
-func (q *Queries) ReleasePrimaryGoalSnapshotsExceptLanguage(ctx context.Context, arg ReleasePrimaryGoalSnapshotsExceptLanguageParams) error {
-	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsExceptLanguage, arg.Owner, arg.Book, arg.Language)
-	return err
-}
-
-const releasePrimaryGoalSnapshotsForAllLanguages = `-- name: ReleasePrimaryGoalSnapshotsForAllLanguages :exec
-UPDATE primary_goal_snapshots s
-SET released_at = COALESCE(s.released_at, now())
-FROM primary_goals g
-WHERE g.owner_id = $1 AND g.book_id = $2
-  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
-`
-
-type ReleasePrimaryGoalSnapshotsForAllLanguagesParams struct {
-	Owner string
-	Book  string
-}
-
-func (q *Queries) ReleasePrimaryGoalSnapshotsForAllLanguages(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForAllLanguagesParams) error {
-	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsForAllLanguages, arg.Owner, arg.Book)
-	return err
-}
-
-const releasePrimaryGoalSnapshotsForBook = `-- name: ReleasePrimaryGoalSnapshotsForBook :exec
-UPDATE primary_goal_snapshots s
-SET released_at = COALESCE(s.released_at, now())
-FROM primary_goals g
-WHERE g.owner_id = $1 AND g.book_id = $2
-  AND g.language = $3
-  AND s.owner_id = g.owner_id AND s.id = g.snapshot_id
-`
-
-type ReleasePrimaryGoalSnapshotsForBookParams struct {
-	Owner    string
-	Book     string
-	Language string
-}
-
-func (q *Queries) ReleasePrimaryGoalSnapshotsForBook(ctx context.Context, arg ReleasePrimaryGoalSnapshotsForBookParams) error {
-	_, err := q.db.Exec(ctx, releasePrimaryGoalSnapshotsForBook, arg.Owner, arg.Book, arg.Language)
 	return err
 }
 

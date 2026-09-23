@@ -71,7 +71,22 @@ func releasePrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, 
 	if snapshotID == "" {
 		return nil
 	}
+	if _, err := q.LockPrimaryGoalSnapshot(ctx, sqlcgen.LockPrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID}); err != nil {
+		return err
+	}
+	if err := q.RetireDeckPreparationForGoalSnapshot(ctx, sqlcgen.RetireDeckPreparationForGoalSnapshotParams{Owner: owner, GoalSnapshot: uuidArg(snapshotID)}); err != nil {
+		return err
+	}
 	return q.ReleasePrimaryGoalSnapshot(ctx, sqlcgen.ReleasePrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID})
+}
+
+func releasePrimaryGoalSnapshots(ctx context.Context, q *sqlcgen.Queries, owner string, snapshotIDs []string) error {
+	for _, snapshotID := range snapshotIDs {
+		if err := releasePrimaryGoalSnapshot(ctx, q, owner, snapshotID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReadingFinishResult is the webapp-facing result of recording reading.
@@ -166,7 +181,7 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
+	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
 	_, err = q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
@@ -219,6 +234,14 @@ func ensurePrimaryGoalCandidate(ctx context.Context, tx pgx.Tx, owner, language,
 	return nil
 }
 
+func lockPrimaryGoalBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
+	_, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
+}
+
 func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID, snapshotID string) (domain.PrimaryGoal, error) {
 	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshotID)})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -244,6 +267,9 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrimaryGoal{}, ErrNotFound
@@ -253,9 +279,6 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	}
 	if current.GBookID != expectedBookID {
 		return domain.PrimaryGoal{}, ErrGoalStale
-	}
-	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
-		return domain.PrimaryGoal{}, err
 	}
 	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, language, bookID); err != nil {
 		return domain.PrimaryGoal{}, err

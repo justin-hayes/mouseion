@@ -13,7 +13,7 @@ import (
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
 SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id, book_author, book_cover_state, book_cover_width, book_cover_height FROM my_books_evidence
 WHERE book_owner_id = $1
-  AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\')
+  AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || $2 || '%' ESCAPE '\')
   AND (
     $3::text = ''
     OR ($3::text = 'unknown' AND book_language_state = 'unknown')
@@ -136,7 +136,7 @@ func (q *Queries) CountMyBooksByLanguage(ctx context.Context, owner string) ([]C
 const countMyBooksFiltered = `-- name: CountMyBooksFiltered :one
 SELECT count(*) FROM my_books_evidence
 WHERE book_owner_id = $1
-  AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\')
+  AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || $2 || '%' ESCAPE '\')
   AND (
     $3::text = ''
     OR ($3::text = 'unknown' AND book_language_state = 'unknown')
