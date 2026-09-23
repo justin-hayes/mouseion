@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -177,6 +178,18 @@ type coverFixture struct {
 	connection  domain.OpdsConnection
 }
 
+type blockingCoverStore struct {
+	coverStore
+	saveStarted chan struct{}
+	releaseSave chan struct{}
+}
+
+func (s *blockingCoverStore) SaveBookCover(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time, mediaType string, width, height int, contentHash string, bytes []byte) error {
+	close(s.saveStarted)
+	<-s.releaseSave
+	return s.coverStore.SaveBookCover(ctx, owner, bookID, connectionID, sourceIdentifier, advertisedAt, mediaType, width, height, contentHash, bytes)
+}
+
 func newCoverFixture(t *testing.T) *coverFixture {
 	t.Helper()
 	ctx := context.Background()
@@ -328,6 +341,44 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	afterReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
+}
+
+func TestCatalogueSyncCoverStaleWorkerCompletionAfterReplacementReconciliation(t *testing.T) {
+	f := newCoverFixture(t)
+	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
+	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+	oldArgs := f.pendingCoverArgs()[0]
+	blocking := &blockingCoverStore{coverStore: f.store, saveStarted: make(chan struct{}), releaseSave: make(chan struct{})}
+	worker := &CoverWorker{Connections: f.store, Catalogue: blocking, Reader: f.opdsService, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
+	completed := make(chan error, 1)
+	go func() {
+		completed <- worker.Work(f.ctx, &river.Job[CoverArgs]{Args: oldArgs})
+	}()
+
+	// The old worker has fetched and normalized its image, but has not yet
+	// persisted it. Reconciliation now advances the selected-source generation.
+	<-blocking.saveStarted
+	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
+	require.NoError(t, f.sync(f.connection.ID))
+	args := f.pendingCoverArgs()
+	require.Len(t, args, 2)
+	var currentArgs CoverArgs
+	for _, candidate := range args {
+		if candidate.AdvertisedAt.After(currentArgs.AdvertisedAt) {
+			currentArgs = candidate
+		}
+	}
+	require.True(t, currentArgs.AdvertisedAt.After(oldArgs.AdvertisedAt))
+	close(blocking.releaseSave)
+	require.NoError(t, <-completed)
+
+	intermediate, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, intermediate.Bytes)
+	require.NoError(t, f.runCoverJob(currentArgs))
+	updated, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.NotEqual(t, retained, updated.Bytes)
 }
 
 func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
