@@ -39,6 +39,59 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 	assert.NotContains(t, html, "advisory order")
 }
 
+func TestJourneyPageRendersAlignedCoverMediaForGoalAndProvisionalBooks(t *testing.T) {
+	tests := []struct {
+		name, goalID, provisionalID string
+		goalCover, provisionalCover domain.BookCover
+		goalImage, provisionalImage bool
+	}{
+		{
+			name: "available Goal and placeholder provisional", goalID: "goal-cover", provisionalID: "placeholder-cover",
+			goalCover: domain.BookCover{State: domain.BookCoverAvailable, Width: 600, Height: 900}, provisionalCover: domain.BookCover{State: domain.BookCoverPending},
+			goalImage: true,
+		},
+		{
+			name: "placeholder Goal and available provisional", goalID: "placeholder-goal", provisionalID: "provisional-cover",
+			goalCover: domain.BookCover{State: domain.BookCoverUnavailable}, provisionalCover: domain.BookCover{State: domain.BookCoverAvailable, Width: 600, Height: 900},
+			provisionalImage: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			goal := testJourneyBook(test.goalID, "Goal cover book", "ready")
+			goal.Cover = test.goalCover
+			provisional := testJourneyBook(test.provisionalID, "Provisional cover book", "ready")
+			provisional.Cover = test.provisionalCover
+			html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{provisional}}, "", "")
+			goalStart := strings.Index(html, `id="journey-book-`+test.goalID+`"`)
+			goalEnd := strings.Index(html[goalStart:], "</article>")
+			provisionalStart := strings.Index(html, `id="journey-book-`+test.provisionalID+`"`)
+			provisionalEnd := strings.Index(html[provisionalStart:], "</article>")
+			require.GreaterOrEqual(t, goalStart, 0)
+			require.Greater(t, goalEnd, 0)
+			require.GreaterOrEqual(t, provisionalStart, 0)
+			require.Greater(t, provisionalEnd, 0)
+
+			goalHTML := html[goalStart : goalStart+goalEnd]
+			provisionalHTML := html[provisionalStart : provisionalStart+provisionalEnd]
+			assertCoverMedia(t, goalHTML, test.goalID, test.goalImage)
+			assertCoverMedia(t, provisionalHTML, test.provisionalID, test.provisionalImage)
+		})
+	}
+}
+
+func assertCoverMedia(t *testing.T, html, bookID string, image bool) {
+	t.Helper()
+	assert.Contains(t, html, `class="journey-book__cover"`)
+	assert.Less(t, strings.Index(html, `class="journey-book__cover"`), strings.Index(html, `class="journey-book__identity"`))
+	if image {
+		assert.Contains(t, html, `<img class="book-cover-media__image" src="/books/`+bookID+`/cover" alt=""`)
+		return
+	}
+	assert.Contains(t, html, `class="book-cover-media__placeholder" aria-hidden="true"`)
+	assert.NotContains(t, html, `<img`)
+}
+
 func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goal.GoalSnapshotSize = 2

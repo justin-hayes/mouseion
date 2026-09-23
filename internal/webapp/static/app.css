@@ -1178,7 +1178,7 @@ progress {
 
 .journey-book {
 	display: grid;
-	grid-template-columns: minmax(14rem, 1fr) minmax(0, 2.2fr);
+	grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 2.2fr);
 	align-items: start;
 	gap: var(--mouseion-space-4);
 	min-width: 0;
@@ -1202,7 +1202,16 @@ progress {
 }
 
 .journey-book__identity {
+	grid-column: 2;
+}
+
+.journey-book__cover {
 	grid-column: 1;
+	width: 4.5rem;
+}
+
+.journey-book__cover .book-cover-media {
+	width: 4.5rem;
 }
 
 .journey-book__author {
@@ -1216,7 +1225,7 @@ progress {
 }
 
 .journey-book__evidence {
-	grid-column: 2;
+	grid-column: 3;
 	min-width: 0;
 	width: 100%;
 }
@@ -1717,6 +1726,10 @@ progress {
 
   .journey-forecast {
     width: 100%;
+  }
+
+  .journey-book__cover {
+    width: 4.5rem;
   }
 
   .journey-forecast__stages,

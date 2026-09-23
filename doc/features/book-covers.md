@@ -1,7 +1,7 @@
 # Book Covers
 
-Status: **My Books cover grid implemented; Reading Journey thumbnails accepted,
-not implemented** · Date: 2026-09-23
+Status: **My Books cover grid and Reading Journey thumbnails implemented** · Date:
+2026-09-23
 
 ## Motivation
 

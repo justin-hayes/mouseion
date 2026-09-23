@@ -133,9 +133,9 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     await page.goto('/journey');
     const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
-      const book = node.children[0].getBoundingClientRect();
+      const book = node.querySelector<HTMLElement>('.journey-book__identity')?.getBoundingClientRect();
       const controls = node.querySelector<HTMLElement>('.journey-book__controls')?.getBoundingClientRect();
-      return { bookWidth: book.width, controlsWidth: controls?.width ?? 0, rowWidth: node.getBoundingClientRect().width };
+      return { bookWidth: book?.width ?? 0, controlsWidth: controls?.width ?? 0, rowWidth: node.getBoundingClientRect().width };
     }));
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
@@ -166,6 +166,31 @@ test.describe('responsive and theme regression coverage', () => {
         expect(button.right).toBeLessThanOrEqual(row.right + 1);
       }
     }
+  });
+
+  test('Journey thumbnails stay aligned, quiet, and outside the keyboard order', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/journey');
+
+    const cards = page.locator('.journey-book');
+    const thumbnails = cards.locator('.journey-book__cover');
+    await expect(thumbnails).toHaveCount(await cards.count());
+    await expect(page.locator('.journey-book--goal .journey-book__cover img')).toHaveAttribute('alt', '');
+    await expect(page.locator('.journey-book--goal .journey-book__cover img')).toHaveAttribute('src', '/books/fixture-book/cover');
+    await expect(page.locator('.journey-book__cover .book-cover-media__placeholder[aria-hidden="true"]').first()).toBeVisible();
+    await expect(page.locator('.journey-book__cover a, .journey-book__cover button, .journey-book__cover summary')).toHaveCount(0);
+
+    const layout = await thumbnails.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      const card = node.parentElement?.getBoundingClientRect();
+      return { width: box.width, height: box.height, right: box.right, cardRight: card?.right ?? 0 };
+    }));
+    for (const item of layout) {
+      expect(item.width).toBeGreaterThan(0);
+      expect(item.height).toBeGreaterThan(0);
+      expect(item.right).toBeLessThanOrEqual(item.cardRight + 1);
+    }
+    await expectNoPageOverflow(page);
   });
 
   test('Journey titles and actions remain reachable at 200 percent text size', async ({ page }) => {

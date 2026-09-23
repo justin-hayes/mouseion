@@ -1,8 +1,8 @@
 # Interface components
 
 Status: **Established implementation components plus shipped learner-facing
-patterns; the My Books cover-grid target is shipped and Reading Journey
-thumbnails remain accepted but not shipped.**
+patterns; the My Books cover-grid and Reading Journey thumbnail targets are
+shipped.**
 Workflow-specific Journey and Primary Goal markup may remain in the owning
 views; ADRs define persistence and historical behavior.
 
@@ -81,8 +81,8 @@ to wrap every region in a card.
 ## Book-cover patterns
 
 [Book Covers](../features/book-covers.md) owns the complete cover experience. The
-My Books cover-grid pattern below is shipped; its Reading Journey thumbnail
-variant remains an accepted target for a later implementation.
+My Books cover-grid pattern below and its Reading Journey thumbnail variant are
+shipped.
 
 ### `BookCoverMedia`
 

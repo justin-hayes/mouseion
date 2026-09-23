@@ -239,6 +239,28 @@ func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyTha
 	assert.Equal(t, BookID, deGoal.BookID, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
 }
 
+func TestFixtureJourneyBooksExposeDeterministicCoverStates(t *testing.T) {
+	store := NewStore()
+	books, err := store.ListMyBooksWithEvidence(context.Background(), OwnerID)
+	require.NoError(t, err)
+
+	want := map[string]string{
+		BookID:             domain.BookCoverAvailable,
+		"fixture-failed":   domain.BookCoverPending,
+		routeMatchBookID:   domain.BookCoverAvailable,
+		routeDiffersBookID: domain.BookCoverNone,
+		routeTieABookID:    domain.BookCoverUnavailable,
+		routeTieBBookID:    domain.BookCoverPending,
+		ItalianGoalBookID:  domain.BookCoverAvailable,
+		"fixture-empty":    domain.BookCoverNone,
+	}
+	for _, book := range books {
+		if expected, ok := want[book.Book.ID]; ok {
+			assert.Equal(t, expected, book.Cover.State, book.Book.ID)
+		}
+	}
+}
+
 func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()

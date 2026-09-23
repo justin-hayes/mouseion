@@ -1,7 +1,7 @@
 # Design system
 
 Status: **Foundation and learner-facing contract documented; My Books cover-grid
-target shipped, Reading Journey thumbnail target accepted but not shipped**
+and Reading Journey thumbnail targets shipped**
 
 Mouseion's design system is a semantic layer above native HTML and Pico CSS. It
 supports a server-rendered, HTMX-enhanced product whose visual character is a
@@ -257,9 +257,9 @@ stages, evidence deltas, and the Where next? outcome. Do not disguise those
 contracts as mere component renames.
 
 The shipped Book Covers slice changes My Books from repeated rows to
-`MyBooksCoverItem` grid items. The accepted Reading Journey slice will add
-`BookCoverMedia` thumbnails without changing the shell, destination set, Journey
-order, or evidence contracts.
+`MyBooksCoverItem` grid items and adds `BookCoverMedia` thumbnails to Reading
+Journey without changing the shell, destination set, Journey order, or evidence
+contracts.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,

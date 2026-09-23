@@ -573,7 +573,7 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 	</section>
 }
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64, expectedGoalBookID string) {
-	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div class="journey-book__identity"><h3>
+	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Cover)</div><div class="journey-book__identity"><h3>
 	if journeyEntryAvailable(item) {
 		<a href={ templ.SafeURL(journeyEntryURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 	} else {
