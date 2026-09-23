@@ -240,7 +240,6 @@ SET state = 'unavailable',
     updated_at = now()
 WHERE cover.owner_id = $1
   AND cover.state = 'pending'
-  AND cover.selected_connection_id = $2
   AND NOT EXISTS (
       SELECT 1
       FROM book_cover_candidates AS candidate
@@ -251,13 +250,8 @@ WHERE cover.owner_id = $1
   )
 `
 
-type ResolveBookCoverAfterConnectionDeletionParams struct {
-	OwnerID      string
-	ConnectionID pgtype.UUID
-}
-
-func (q *Queries) ResolveBookCoverAfterConnectionDeletion(ctx context.Context, arg ResolveBookCoverAfterConnectionDeletionParams) error {
-	_, err := q.db.Exec(ctx, resolveBookCoverAfterConnectionDeletion, arg.OwnerID, arg.ConnectionID)
+func (q *Queries) ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error {
+	_, err := q.db.Exec(ctx, resolveBookCoverAfterConnectionDeletion, ownerID)
 	return err
 }
 

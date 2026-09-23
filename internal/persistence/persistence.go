@@ -318,7 +318,7 @@ func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id st
 		if err := q.DeleteBookCoverCandidatesForConnection(ctx, sqlcgen.DeleteBookCoverCandidatesForConnectionParams{OwnerID: ownerID, ConnectionID: id}); err != nil {
 			return err
 		}
-		return q.ResolveBookCoverAfterConnectionDeletion(ctx, sqlcgen.ResolveBookCoverAfterConnectionDeletionParams{OwnerID: ownerID, ConnectionID: uuidArg(id)})
+		return q.ResolveBookCoverAfterConnectionDeletion(ctx, ownerID)
 	})
 }
 

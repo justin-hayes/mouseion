@@ -12,6 +12,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const bookCoverCandidateExists = `-- name: BookCoverCandidateExists :one
+SELECT EXISTS(
+    SELECT 1
+    FROM book_cover_candidates
+    WHERE owner_id = $1
+      AND book_id = $2
+      AND connection_id = $3
+      AND source_identifier = $4
+      AND advertised_at = $5
+)
+`
+
+type BookCoverCandidateExistsParams struct {
+	Owner            string
+	Book             string
+	Connection       string
+	SourceIdentifier string
+	AdvertisedAt     time.Time
+}
+
+func (q *Queries) BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, bookCoverCandidateExists,
+		arg.Owner,
+		arg.Book,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.AdvertisedAt,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const clearBookCover = `-- name: ClearBookCover :exec
 UPDATE book_covers
 SET state = 'none',
@@ -478,7 +511,7 @@ func (q *Queries) RegisterBookCoverCandidate(ctx context.Context, arg RegisterBo
 }
 
 const saveBookCover = `-- name: SaveBookCover :exec
-UPDATE book_covers
+UPDATE book_covers AS cover
 SET state = 'available',
     selected_connection_id = $1,
     selected_source_identifier = $2,
@@ -490,13 +523,23 @@ SET state = 'available',
     fetched_at = now(),
     failure_reason = NULL,
     updated_at = now()
-WHERE owner_id = $8
-  AND book_id = $9
-  AND advertised_at IS NOT DISTINCT FROM $10
-  AND (state IN ('pending', 'unavailable')
-       OR (selected_connection_id = $1
-           AND selected_source_identifier = $2))
-  AND (state <> 'available' OR content_hash IS DISTINCT FROM $6)
+WHERE cover.owner_id = $8
+  AND cover.book_id = $9
+  AND cover.advertised_at IS NOT DISTINCT FROM $10
+  AND EXISTS (
+      SELECT 1
+      FROM book_cover_candidates AS candidate
+      WHERE candidate.owner_id = cover.owner_id
+        AND candidate.book_id = cover.book_id
+        AND candidate.connection_id = $1
+        AND candidate.source_identifier = $2
+        AND candidate.advertised_at = $10
+        AND candidate.state IN ('pending', 'failed')
+  )
+  AND (cover.state IN ('pending', 'unavailable')
+       OR (cover.selected_connection_id = $1
+           AND cover.selected_source_identifier = $2))
+  AND (cover.state <> 'available' OR cover.content_hash IS DISTINCT FROM $6)
 `
 
 type SaveBookCoverParams struct {

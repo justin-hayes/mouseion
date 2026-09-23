@@ -45,7 +45,6 @@ SET state = 'unavailable',
     updated_at = now()
 WHERE cover.owner_id = sqlc.arg('owner_id')
   AND cover.state = 'pending'
-  AND cover.selected_connection_id = sqlc.arg('connection_id')
   AND NOT EXISTS (
       SELECT 1
       FROM book_cover_candidates AS candidate
