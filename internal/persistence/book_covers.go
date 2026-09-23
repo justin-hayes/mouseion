@@ -56,11 +56,9 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 			case current.State == domain.BookCoverAvailable:
 				retrieve = false
 			case current.State == domain.BookCoverPending && sameSource && advertised:
-				// A selected source can be observed again while its first
-				// retrieval is live. Advance the generation so River accepts a
-				// replacement job instead of deduplicating it with the old one.
+				// Refresh retrieval for the selected source without advancing the
+				// generation; other candidates in this generation remain eligible.
 				retrieve = true
-				err = q.RefreshBookCoverAdvertisement(ctx, sqlcgen.RefreshBookCoverAdvertisementParams{Owner: owner, Book: bookID})
 			case current.State == domain.BookCoverPending && advertised:
 				// Keep one pending generation for concurrent initial candidates;
 				// their first validated completion will select the source atomically.
@@ -113,7 +111,8 @@ func (s *PostgresStore) SaveBookCover(ctx context.Context, owner, bookID, connec
 			return err
 		}
 		if !current.AdvertisedAt.Valid || !current.AdvertisedAt.Time.Equal(advertisedAt) ||
-			(current.State != domain.BookCoverPending && (current.SelectedConnectionID != connectionID || current.SelectedSourceIdentifier != sourceIdentifier)) {
+			(current.State != domain.BookCoverPending && current.State != domain.BookCoverUnavailable &&
+				(current.SelectedConnectionID != connectionID || current.SelectedSourceIdentifier != sourceIdentifier)) {
 			return nil
 		}
 		if err := q.SaveBookCover(ctx, sqlcgen.SaveBookCoverParams{

@@ -169,7 +169,7 @@ SET state = 'available',
 WHERE owner_id = sqlc.arg('owner')
   AND book_id = sqlc.arg('book')
   AND advertised_at IS NOT DISTINCT FROM sqlc.arg('advertised_at')
-  AND (state = 'pending'
+  AND (state IN ('pending', 'unavailable')
        OR (selected_connection_id = sqlc.arg('connection')
            AND selected_source_identifier = sqlc.arg('source_identifier')))
   AND (state <> 'available' OR content_hash IS DISTINCT FROM sqlc.arg('content_hash'));
