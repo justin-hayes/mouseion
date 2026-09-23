@@ -158,7 +158,6 @@ func TestBookCoverConcurrentInitialAdvertisementsChooseOneCandidate(t *testing.T
 		{first.ID, "entry-1", "sha256:first", []byte("first-image")},
 		{second.ID, "entry-2", "sha256:second", []byte("second-image")},
 	} {
-		candidate := candidate
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
