@@ -1,6 +1,6 @@
 # Screen inventory
 
-Status: **Canonical shipped learner-facing screen contract, including Book-cover
+Status: **Canonical shipped learner-facing screen contract, including Book cover
 behavior.** ADR 0074 ships the consolidated Reading
 Journey Book surface and assigns deck work to the focused preparation task. ADR
 0072 continues to own the Goal snapshot and forecast semantics described below.

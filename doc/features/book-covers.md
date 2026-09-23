@@ -41,7 +41,7 @@ The `/library?needs-language` diagnostic state remains a compact text-led list.
 Its task is to identify metadata that must be corrected in the catalog, not to
 browse or mutate the active-language collection.
 
-## Book-cover metadata
+## Book cover metadata
 
 - A Book cover is catalog-supplied, mutable Book metadata with the Catalog entry
   that supplied it retained as provenance.
