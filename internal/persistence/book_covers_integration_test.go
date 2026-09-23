@@ -38,16 +38,20 @@ func TestBookCoverAdvertisementStateMachine(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotFound)
 
 	// A first advertisement creates a pending candidate and requests retrieval.
-	retrieve, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-1", true)
+	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-1", true)
 	require.NoError(t, err)
 	assert.True(t, retrieve)
 	cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverPending, cover.State)
 	assert.Equal(t, first.ID, cover.SelectedConnectionID)
+	advertisedAt := cover.AdvertisedAt
 
-	// Concurrent successful candidates resolve atomically: exactly one source
-	// wins and a later completion cannot displace it.
+	// A second candidate joins the same pending generation. Its first validated
+	// completion may win, while an older generation cannot displace a fallback.
+	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, second.ID, "entry-2", true)
+	require.NoError(t, err)
+	assert.True(t, retrieve)
 	var wg sync.WaitGroup
 	for _, candidate := range []struct {
 		connectionID, source, hash string
@@ -59,7 +63,7 @@ func TestBookCoverAdvertisementStateMachine(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			assert.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, candidate.connectionID, candidate.source, "image/png", 4, 6, candidate.hash, candidate.body))
+			assert.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, candidate.connectionID, candidate.source, advertisedAt, "image/png", 4, 6, candidate.hash, candidate.body))
 		}()
 	}
 	wg.Wait()
@@ -81,26 +85,134 @@ func TestBookCoverAdvertisementStateMachine(t *testing.T) {
 	if winner.SelectedConnectionID == second.ID {
 		loserConnection, loserSource = first.ID, "entry-1"
 	}
-	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, loserConnection, loserSource, "image/png", 4, 6, "sha256:loser", []byte("loser-image")))
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, loserConnection, loserSource, winner.AdvertisedAt, "image/png", 4, 6, "sha256:loser", []byte("loser-image")))
 	afterLoser, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
 	assert.Equal(t, winner.SelectedConnectionID, afterLoser.SelectedConnectionID)
 
 	// A failed replacement preserves the available image but records the failure.
-	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, "replacement failed"))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, winner.SelectedConnectionID, winner.SelectedSourceIdentifier, winner.AdvertisedAt, "replacement failed"))
 	failed, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, failed.State)
 	assert.Equal(t, "replacement failed", failed.FailureReason)
 
 	// Only the selected entry may explicitly remove the retained image.
-	_, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, loserConnection, loserSource, false)
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, loserConnection, loserSource, false)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, mustCoverState(t, store, owner.ID, bookID))
-	retrieve, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, winner.SelectedConnectionID, winner.SelectedSourceIdentifier, false)
+	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, winner.SelectedConnectionID, winner.SelectedSourceIdentifier, false)
 	require.NoError(t, err)
 	assert.False(t, retrieve)
 	assert.Equal(t, domain.BookCoverNone, mustCoverState(t, store, owner.ID, bookID))
+}
+
+func TestBookCoverConcurrentInitialAdvertisementsChooseOneCandidate(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "concurrent cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "concurrent-cover-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-1", "Title", "", "de")
+	require.NoError(t, err)
+
+	type result struct {
+		retrieve bool
+		err      error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	for _, candidate := range []struct {
+		connectionID, source string
+	}{
+		{first.ID, "entry-1"},
+		{second.ID, "entry-2"},
+	} {
+		go func() {
+			<-start
+			retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, candidate.connectionID, candidate.source, true)
+			results <- result{retrieve: retrieve, err: err}
+		}()
+	}
+	close(start)
+	var retrieved int
+	for range 2 {
+		outcome := <-results
+		require.NoError(t, outcome.err)
+		if outcome.retrieve {
+			retrieved++
+		}
+	}
+	assert.GreaterOrEqual(t, retrieved, 1)
+
+	cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, cover.State)
+	assert.Contains(t, []string{first.ID, second.ID}, cover.SelectedConnectionID)
+}
+
+func TestBookCoverStaleRetrievalCompletionsAreIgnored(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "stale book cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "stale-cover-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-1", "Title", "", "de")
+	require.NoError(t, err)
+	bookID := reconciled.Book.ID
+
+	// The old worker may finish after reconciliation explicitly removes its
+	// source. Neither a success nor a failure may recreate that absent state.
+	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-1", true)
+	require.NoError(t, err)
+	assert.True(t, retrieve)
+	initial, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	initialAdvertisedAt := initial.AdvertisedAt
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-1", false)
+	require.NoError(t, err)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "entry-1", initialAdvertisedAt, "image/png", 4, 6, "stale-success", []byte("stale-image")))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-1", initialAdvertisedAt, "stale failure"))
+	cover, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverNone, cover.State)
+	assert.Empty(t, cover.FailureReason)
+
+	// A newer fallback source owns the pending row. Completion and failure from
+	// the old source must not overwrite its presentation or diagnostics.
+	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, second.ID, "entry-2", true)
+	require.NoError(t, err)
+	assert.True(t, retrieve)
+	fallback, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "entry-1", initialAdvertisedAt, "image/png", 4, 6, "stale-fallback-success", []byte("stale-fallback")))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-1", initialAdvertisedAt, "stale fallback failure"))
+	cover, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, cover.State)
+	assert.Equal(t, second.ID, cover.SelectedConnectionID)
+	assert.Equal(t, "entry-2", cover.SelectedSourceIdentifier)
+	assert.Empty(t, cover.FailureReason)
+
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-2", fallback.AdvertisedAt, "image/png", 4, 6, "fallback", []byte("fallback-image")))
+	cover, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	assert.Equal(t, second.ID, cover.SelectedConnectionID)
 }
 
 func mustCoverState(t *testing.T, store *PostgresStore, owner, bookID string) string {

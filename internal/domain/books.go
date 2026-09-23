@@ -89,6 +89,7 @@ type BookCoverRetrieval struct {
 	SelectedConnectionID     string
 	SelectedSourceIdentifier string
 	FailureReason            string
+	AdvertisedAt             time.Time
 }
 
 // MyBook is the complete learner-facing My Books read model. Acquired is nil

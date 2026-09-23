@@ -58,11 +58,13 @@ type SyncArgs struct {
 // CoverArgs deliberately carries no URL, credential, or image data. The
 // worker reloads all mutable catalog state before it fetches anything. The
 // source identifier is the owner-scoped Catalog entry identity, not a URL.
+// AdvertisedAt fences completion against a newer pending source generation.
 type CoverArgs struct {
-	OwnerID          string `json:"owner_id" river:"unique"`
-	BookID           string `json:"book_id" river:"unique"`
-	ConnectionID     string `json:"connection_id" river:"unique"`
-	SourceIdentifier string `json:"source_identifier" river:"unique"`
+	OwnerID          string    `json:"owner_id" river:"unique"`
+	BookID           string    `json:"book_id" river:"unique"`
+	ConnectionID     string    `json:"connection_id" river:"unique"`
+	SourceIdentifier string    `json:"source_identifier" river:"unique"`
+	AdvertisedAt     time.Time `json:"advertised_at" river:"unique"`
 }
 
 func (CoverArgs) Kind() string { return CoverKind }
@@ -131,9 +133,9 @@ type CatalogueStore interface {
 
 type coverStore interface {
 	CatalogueStore
-	RecordBookCoverAdvertisement(context.Context, string, string, string, string, bool) (bool, error)
-	SaveBookCover(context.Context, string, string, string, string, string, int, int, string, []byte) error
-	MarkBookCoverUnavailable(context.Context, string, string, string) error
+	RecordBookCoverAdvertisement(context.Context, string, string, string, string, bool) (bool, time.Time, error)
+	SaveBookCover(context.Context, string, string, string, string, time.Time, string, int, int, string, []byte) error
+	MarkBookCoverUnavailable(context.Context, string, string, string, string, time.Time, string) error
 	GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error)
 }
 
@@ -287,7 +289,7 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 
 // EnqueueCover schedules optional cover retrieval independently of metadata
 // reconciliation. The River payload remains safe to inspect and replay.
-func (s *Service) EnqueueCover(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string) (Handle, error) {
+func (s *Service) EnqueueCover(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time) (Handle, error) {
 	if s == nil || s.connections == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(sourceIdentifier) == "" {
 		return Handle{}, ErrNotFound
 	}
@@ -298,7 +300,7 @@ func (s *Service) EnqueueCover(ctx context.Context, owner, bookID, connectionID,
 	if !exists {
 		return Handle{}, ErrNotFound
 	}
-	inserted, err := s.client.Insert(ctx, CoverArgs{OwnerID: owner, BookID: bookID, ConnectionID: connectionID, SourceIdentifier: sourceIdentifier}, &river.InsertOpts{
+	inserted, err := s.client.Insert(ctx, CoverArgs{OwnerID: owner, BookID: bookID, ConnectionID: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt}, &river.InsertOpts{
 		Queue: Queue, MaxAttempts: defaultMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates},
 	})
 	if err != nil {
@@ -440,14 +442,14 @@ func (s *Service) recordAndEnqueueCover(ctx context.Context, owner, bookID, conn
 		return false, nil
 	}
 	advertised := opds.FindCoverImage(entry) != nil
-	retrieve, err := covers.RecordBookCoverAdvertisement(ctx, owner, bookID, connectionID, entry.ID, advertised)
+	retrieve, advertisedAt, err := covers.RecordBookCoverAdvertisement(ctx, owner, bookID, connectionID, entry.ID, advertised)
 	if err != nil {
 		return false, err
 	}
 	if !retrieve || s.client == nil {
 		return advertised, nil
 	}
-	if _, err := s.EnqueueCover(ctx, owner, bookID, connectionID, entry.ID); err != nil {
+	if _, err := s.EnqueueCover(ctx, owner, bookID, connectionID, entry.ID, advertisedAt); err != nil {
 		return advertised, err
 	}
 	return advertised, nil
@@ -941,7 +943,7 @@ func (s *Service) applyCoverAdvertisements(ctx context.Context, owner, connectio
 		return
 	}
 	for _, advertisement := range advertisements {
-		retrieve, err := covers.RecordBookCoverAdvertisement(ctx, owner, advertisement.bookID, connectionID, advertisement.sourceIdentifier, advertisement.advertised)
+		retrieve, advertisedAt, err := covers.RecordBookCoverAdvertisement(ctx, owner, advertisement.bookID, connectionID, advertisement.sourceIdentifier, advertisement.advertised)
 		if err != nil {
 			log.Printf("record book cover advertisement: %v", err)
 			continue
@@ -949,7 +951,7 @@ func (s *Service) applyCoverAdvertisements(ctx context.Context, owner, connectio
 		if !retrieve || s.client == nil {
 			continue
 		}
-		if _, err := s.EnqueueCover(ctx, owner, advertisement.bookID, connectionID, advertisement.sourceIdentifier); err != nil {
+		if _, err := s.EnqueueCover(ctx, owner, advertisement.bookID, connectionID, advertisement.sourceIdentifier, advertisedAt); err != nil {
 			log.Printf("schedule book cover retrieval: %v", err)
 		}
 	}
@@ -1029,7 +1031,7 @@ func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error
 		return err
 	}
 	if !found {
-		return w.failCoverRetrieval(ctx, owner, bookID)
+		return w.failCoverRetrieval(ctx, owner, bookID, connectionID, sourceIdentifier, job.Args.AdvertisedAt)
 	}
 	links := opds.CoverImages(entry)
 	if len(links) == 0 {
@@ -1052,16 +1054,16 @@ func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error
 		if normalizeErr != nil {
 			continue
 		}
-		return w.Catalogue.SaveBookCover(ctx, owner, bookID, connectionID, sourceIdentifier, mediaType, width, height, contentHash, normalized)
+		return w.Catalogue.SaveBookCover(ctx, owner, bookID, connectionID, sourceIdentifier, job.Args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
 	}
-	return w.failCoverRetrieval(ctx, owner, bookID)
+	return w.failCoverRetrieval(ctx, owner, bookID, connectionID, sourceIdentifier, job.Args.AdvertisedAt)
 }
 
 // failCoverRetrieval preserves any retained image, records the failure for
 // operators, and returns an error so River retries with existing diagnostics.
 // It deliberately does not surface upstream URLs or credentials.
-func (w *CoverWorker) failCoverRetrieval(ctx context.Context, owner, bookID string) error {
-	if err := w.Catalogue.MarkBookCoverUnavailable(context.WithoutCancel(ctx), owner, bookID, "cover retrieval or validation failed"); err != nil {
+func (w *CoverWorker) failCoverRetrieval(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time) error {
+	if err := w.Catalogue.MarkBookCoverUnavailable(context.WithoutCancel(ctx), owner, bookID, connectionID, sourceIdentifier, advertisedAt, "cover retrieval or validation failed"); err != nil {
 		return err
 	}
 	return errors.New("book cover retrieval or validation failed")

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -449,17 +450,17 @@ type recordingCoverStore struct {
 	recordErr      error
 }
 
-func (s *recordingCoverStore) RecordBookCoverAdvertisement(_ context.Context, _, _, _, sourceIdentifier string, advertised bool) (bool, error) {
+func (s *recordingCoverStore) RecordBookCoverAdvertisement(_ context.Context, _, _, _, sourceIdentifier string, advertised bool) (bool, time.Time, error) {
 	s.advertisements = append(s.advertisements, sourceIdentifier)
 	if s.recordErr != nil {
-		return false, s.recordErr
+		return false, time.Time{}, s.recordErr
 	}
-	return advertised, nil
+	return advertised, time.Now(), nil
 }
-func (s *recordingCoverStore) SaveBookCover(context.Context, string, string, string, string, string, int, int, string, []byte) error {
+func (s *recordingCoverStore) SaveBookCover(context.Context, string, string, string, string, time.Time, string, int, int, string, []byte) error {
 	return nil
 }
-func (s *recordingCoverStore) MarkBookCoverUnavailable(context.Context, string, string, string) error {
+func (s *recordingCoverStore) MarkBookCoverUnavailable(context.Context, string, string, string, string, time.Time, string) error {
 	return nil
 }
 func (s *recordingCoverStore) GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error) {
