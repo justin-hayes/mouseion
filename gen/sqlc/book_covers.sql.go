@@ -72,6 +72,27 @@ func (q *Queries) ClearBookCover(ctx context.Context, arg ClearBookCoverParams) 
 	return err
 }
 
+const countBookCoverCandidates = `-- name: CountBookCoverCandidates :one
+SELECT count(*)::int
+FROM book_cover_candidates
+WHERE owner_id = $1
+  AND book_id = $2
+  AND advertised_at = $3
+`
+
+type CountBookCoverCandidatesParams struct {
+	Owner        string
+	Book         string
+	AdvertisedAt time.Time
+}
+
+func (q *Queries) CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error) {
+	row := q.db.QueryRow(ctx, countBookCoverCandidates, arg.Owner, arg.Book, arg.AdvertisedAt)
+	var column_1 int
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countPendingBookCoverCandidates = `-- name: CountPendingBookCoverCandidates :one
 SELECT count(*)::int
 FROM book_cover_candidates
@@ -92,6 +113,35 @@ func (q *Queries) CountPendingBookCoverCandidates(ctx context.Context, arg Count
 	var column_1 int
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const demoteBookCoverToPending = `-- name: DemoteBookCoverToPending :exec
+UPDATE book_covers
+SET state = 'pending',
+    selected_connection_id = NULL,
+    selected_source_identifier = NULL,
+    media_type = NULL,
+    width = NULL,
+    height = NULL,
+    content_hash = NULL,
+    bytes = NULL,
+    fetched_at = NULL,
+    failure_reason = NULL,
+    updated_at = now()
+WHERE owner_id = $1
+  AND book_id = $2
+  AND advertised_at = $3
+`
+
+type DemoteBookCoverToPendingParams struct {
+	Owner        string
+	Book         string
+	AdvertisedAt pgtype.Timestamptz
+}
+
+func (q *Queries) DemoteBookCoverToPending(ctx context.Context, arg DemoteBookCoverToPendingParams) error {
+	_, err := q.db.Exec(ctx, demoteBookCoverToPending, arg.Owner, arg.Book, arg.AdvertisedAt)
+	return err
 }
 
 const getActiveBookCoverResource = `-- name: GetActiveBookCoverResource :one
@@ -408,20 +458,16 @@ SET state = CASE WHEN state = 'available' THEN state ELSE 'unavailable' END,
     height = CASE WHEN state = 'available' THEN height ELSE NULL END,
     content_hash = CASE WHEN state = 'available' THEN content_hash ELSE NULL END,
     failure_reason = $1, updated_at = now()
- WHERE owner_id = $2
+WHERE owner_id = $2
    AND book_id = $3
-   AND selected_connection_id = $4
-   AND selected_source_identifier = $5
-   AND advertised_at IS NOT DISTINCT FROM $6
+   AND advertised_at IS NOT DISTINCT FROM $4
 `
 
 type MarkBookCoverUnavailableParams struct {
-	FailureReason    pgtype.Text
-	Owner            string
-	Book             string
-	Connection       pgtype.UUID
-	SourceIdentifier pgtype.Text
-	AdvertisedAt     pgtype.Timestamptz
+	FailureReason pgtype.Text
+	Owner         string
+	Book          string
+	AdvertisedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCoverUnavailableParams) error {
@@ -429,8 +475,6 @@ func (q *Queries) MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCove
 		arg.FailureReason,
 		arg.Owner,
 		arg.Book,
-		arg.Connection,
-		arg.SourceIdentifier,
 		arg.AdvertisedAt,
 	)
 	return err
@@ -498,6 +542,37 @@ type RegisterBookCoverCandidateParams struct {
 
 func (q *Queries) RegisterBookCoverCandidate(ctx context.Context, arg RegisterBookCoverCandidateParams) (int64, error) {
 	result, err := q.db.Exec(ctx, registerBookCoverCandidate,
+		arg.Owner,
+		arg.Book,
+		arg.Connection,
+		arg.SourceIdentifier,
+		arg.AdvertisedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const retireBookCoverCandidate = `-- name: RetireBookCoverCandidate :execrows
+DELETE FROM book_cover_candidates
+WHERE owner_id = $1
+  AND book_id = $2
+  AND connection_id = $3
+  AND source_identifier = $4
+  AND advertised_at = $5
+`
+
+type RetireBookCoverCandidateParams struct {
+	Owner            string
+	Book             string
+	Connection       string
+	SourceIdentifier string
+	AdvertisedAt     time.Time
+}
+
+func (q *Queries) RetireBookCoverCandidate(ctx context.Context, arg RetireBookCoverCandidateParams) (int64, error) {
+	result, err := q.db.Exec(ctx, retireBookCoverCandidate,
 		arg.Owner,
 		arg.Book,
 		arg.Connection,

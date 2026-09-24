@@ -688,6 +688,77 @@ func TestCatalogueSyncCoverStableMultiAliasSelectionAndFallback(t *testing.T) {
 	assert.Equal(t, second.ID, fallbackCover.SelectedConnectionID)
 }
 
+func TestCatalogueSyncCoverExplicitAbsenceRetiresCurrentGenerationCandidate(t *testing.T) {
+	prepare := func(t *testing.T, f *coverFixture, title, firstID, secondID string) (domain.Book, CoverArgs, CoverArgs) {
+		t.Helper()
+		firstEntry := coverEntry{id: firstID, title: title, imageHref: "/a/image/" + firstID + ".png"}
+		secondEntry := coverEntry{id: secondID, title: title, imageHref: "/b/image/" + secondID + ".png"}
+		f.catalog.setImage(firstEntry.imageHref, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+		f.catalog.setImage(secondEntry.imageHref, coverImage{body: testPNG(t, 20), contentType: "image/png"})
+		f.catalog.setEntries("/a", firstEntry)
+		require.NoError(t, f.sync(f.connection.ID))
+		book := f.bookByTitle(title)
+		second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})
+		require.NoError(t, err)
+		_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
+			f.ownerID, book.ID, second.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, secondID)
+		require.NoError(t, err)
+		f.catalog.setEntries("/b", secondEntry)
+		require.NoError(t, f.sync(second.ID))
+		args := f.pendingCoverArgs()
+		require.Len(t, args, 2)
+		var firstArgs, secondArgs CoverArgs
+		for _, candidate := range args {
+			switch candidate.SourceIdentifier {
+			case firstID:
+				firstArgs = candidate
+			case secondID:
+				secondArgs = candidate
+			}
+		}
+		require.NotEmpty(t, firstArgs.BookID)
+		require.NotEmpty(t, secondArgs.BookID)
+		return book, firstArgs, secondArgs
+	}
+
+	t.Run("absent provisional keeps fallback live", func(t *testing.T) {
+		f := newCoverFixture(t)
+		book, firstArgs, fallbackArgs := prepare(t, f, "Absent provisional", "entry-a", "entry-b")
+		f.catalog.setEntries("/a", coverEntry{id: "entry-a", title: "Absent provisional"})
+		require.NoError(t, f.sync(f.connection.ID))
+		pending := f.coverState(book.ID)
+		assert.Equal(t, domain.BookCoverPending, pending.State)
+		assert.True(t, firstArgs.AdvertisedAt.Equal(pending.AdvertisedAt))
+		// The retired worker is harmless, while the already-advertised fallback
+		// can complete without a second sync of its Catalog.
+		require.NoError(t, f.runCoverJob(firstArgs))
+		assert.Equal(t, domain.BookCoverPending, f.coverState(book.ID).State)
+		require.NoError(t, f.runCoverJob(fallbackArgs))
+		available := f.coverState(book.ID)
+		assert.Equal(t, domain.BookCoverAvailable, available.State)
+		assert.Equal(t, fallbackArgs.ConnectionID, available.SelectedConnectionID)
+	})
+
+	t.Run("absent fallback settles after final failure", func(t *testing.T) {
+		f := newCoverFixture(t)
+		book, firstArgs, fallbackArgs := prepare(t, f, "Absent fallback", "entry-c", "entry-d")
+		f.catalog.setEntries("/b", coverEntry{id: "entry-d", title: "Absent fallback"})
+		require.NoError(t, f.sync(fallbackArgs.ConnectionID))
+		f.catalog.setImage("/a/image/entry-c.png", coverImage{body: []byte("not an image"), contentType: "image/png"})
+		require.NoError(t, f.sync(f.connection.ID))
+		require.Error(t, f.runCoverJob(firstArgs))
+		failed := f.coverState(book.ID)
+		assert.Equal(t, domain.BookCoverUnavailable, failed.State)
+		assert.NotEmpty(t, failed.FailureReason)
+		// A stale completion from the retired fallback cannot change the settled
+		// state or its diagnostic.
+		require.NoError(t, f.runCoverJob(fallbackArgs))
+		stillFailed := f.coverState(book.ID)
+		assert.Equal(t, domain.BookCoverUnavailable, stillFailed.State)
+		assert.Equal(t, failed.FailureReason, stillFailed.FailureReason)
+	})
+}
+
 func TestCatalogueSyncCoverRetainedAcrossMembershipAndConnectionRemoval(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
