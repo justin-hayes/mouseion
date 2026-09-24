@@ -206,7 +206,10 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 
 	bookID, advertisedAt = advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Success before failure", "entry-c", "entry-d")
 	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-d", advertisedAt, "image/png", 4, 6, "second", []byte("second-image")))
+	beforeAliasFailure := snapshotBookCover(t, ctx, store, owner.ID, bookID)
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-c", advertisedAt, "late first failure"))
+	afterAliasFailure := snapshotBookCover(t, ctx, store, owner.ID, bookID)
+	assert.Equal(t, beforeAliasFailure, afterAliasFailure)
 	winner, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, winner.State)
@@ -278,6 +281,7 @@ func TestBookCoverSelectedFailureRequiresPendingCandidate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, failed.State)
 	assert.Equal(t, "replacement failed", failed.FailureReason)
+	failedSnapshot := snapshotBookCover(t, ctx, store, owner.ID, reconciled.Book.ID)
 	resource, err := store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "initial", resource.ContentHash)
@@ -287,17 +291,20 @@ func TestBookCoverSelectedFailureRequiresPendingCandidate(t *testing.T) {
 	failed, err = store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "replacement failed", failed.FailureReason)
+	assert.Equal(t, failedSnapshot, snapshotBookCover(t, ctx, store, owner.ID, reconciled.Book.ID))
 
 	require.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", replacement.AdvertisedAt, "image/png", 4, 6, "replacement", []byte("replacement-image")))
 	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
 	assert.Empty(t, recovered.FailureReason)
+	recoveredSnapshot := snapshotBookCover(t, ctx, store, owner.ID, reconciled.Book.ID)
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", replacement.AdvertisedAt, "late duplicate failure"))
 	recovered, err = store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
 	assert.Empty(t, recovered.FailureReason)
+	assert.Equal(t, recoveredSnapshot, snapshotBookCover(t, ctx, store, owner.ID, reconciled.Book.ID))
 	resource, err = store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "replacement", resource.ContentHash)
@@ -642,6 +649,56 @@ func TestBookCoverSelectedRefreshAdvancesGenerationAndPreservesImage(t *testing.
 	resource, err = store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "replacement", resource.ContentHash)
+}
+
+type bookCoverSnapshot struct {
+	State              string
+	SelectedConnection string
+	SelectedSource     string
+	MediaType          string
+	Width              int
+	Height             int
+	ContentHash        string
+	Bytes              []byte
+	AdvertisedAt       time.Time
+	FetchedAt          time.Time
+	UpdatedAt          time.Time
+	FailureReason      string
+}
+
+func snapshotBookCover(t *testing.T, ctx context.Context, store *PostgresStore, owner, bookID string) bookCoverSnapshot {
+	t.Helper()
+	var snapshot bookCoverSnapshot
+	err := store.Pool().QueryRow(ctx, `
+		SELECT state,
+		       COALESCE(selected_connection_id::text, ''),
+		       COALESCE(selected_source_identifier, ''),
+		       COALESCE(media_type, ''),
+		       COALESCE(width, 0),
+		       COALESCE(height, 0),
+		       COALESCE(content_hash, ''),
+		       COALESCE(bytes, ''::bytea),
+		       COALESCE(advertised_at, 'epoch'::timestamptz),
+		       COALESCE(fetched_at, 'epoch'::timestamptz),
+		       updated_at,
+		       COALESCE(failure_reason, '')
+		FROM book_covers
+		WHERE owner_id = $1 AND book_id = $2`, owner, bookID).Scan(
+		&snapshot.State,
+		&snapshot.SelectedConnection,
+		&snapshot.SelectedSource,
+		&snapshot.MediaType,
+		&snapshot.Width,
+		&snapshot.Height,
+		&snapshot.ContentHash,
+		&snapshot.Bytes,
+		&snapshot.AdvertisedAt,
+		&snapshot.FetchedAt,
+		&snapshot.UpdatedAt,
+		&snapshot.FailureReason,
+	)
+	require.NoError(t, err)
+	return snapshot
 }
 
 func mustCoverState(t *testing.T, store *PostgresStore, owner, bookID string) string {
