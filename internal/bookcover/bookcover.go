@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"image/jpeg"
 	"image/png"
-	"math"
 	"mime"
 	"strings"
+
+	"golang.org/x/image/draw"
 )
 
 const (
@@ -193,57 +193,7 @@ func roundedRatio(value, numerator, denominator int) int {
 }
 
 func resize(source image.Image, width, height int) image.Image {
-	sourceBounds := source.Bounds()
-	sourceWidth, sourceHeight := sourceBounds.Dx(), sourceBounds.Dy()
 	destination := image.NewNRGBA(image.Rect(0, 0, width, height))
-
-	for y := range height {
-		sourceY := (float64(y)+0.5)*float64(sourceHeight)/float64(height) - 0.5
-		y0, y1, fy := interpolationCoordinates(sourceY, sourceHeight)
-		for x := range width {
-			sourceX := (float64(x)+0.5)*float64(sourceWidth)/float64(width) - 0.5
-			x0, x1, fx := interpolationCoordinates(sourceX, sourceWidth)
-
-			c00 := color.NRGBAModel.Convert(source.At(sourceBounds.Min.X+x0, sourceBounds.Min.Y+y0)).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
-			c10 := color.NRGBAModel.Convert(source.At(sourceBounds.Min.X+x1, sourceBounds.Min.Y+y0)).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
-			c01 := color.NRGBAModel.Convert(source.At(sourceBounds.Min.X+x0, sourceBounds.Min.Y+y1)).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
-			c11 := color.NRGBAModel.Convert(source.At(sourceBounds.Min.X+x1, sourceBounds.Min.Y+y1)).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
-			destination.SetNRGBA(x, y, interpolate(c00, c10, c01, c11, fx, fy))
-		}
-	}
+	draw.ApproxBiLinear.Scale(destination, destination.Bounds(), source, source.Bounds(), draw.Src, nil)
 	return destination
-}
-
-func interpolationCoordinates(value float64, limit int) (int, int, float64) {
-	if value <= 0 {
-		return 0, 0, 0
-	}
-	if value >= float64(limit-1) {
-		last := limit - 1
-		return last, last, 0
-	}
-	first := int(math.Floor(value))
-	return first, first + 1, value - float64(first)
-}
-
-func interpolate(c00, c10, c01, c11 color.NRGBA, fx, fy float64) color.NRGBA {
-	alpha := bilerp(float64(c00.A), float64(c10.A), float64(c01.A), float64(c11.A), fx, fy)
-	if alpha == 0 {
-		return color.NRGBA{}
-	}
-
-	red := bilerp(premultiplied(c00.R, c00.A), premultiplied(c10.R, c10.A), premultiplied(c01.R, c01.A), premultiplied(c11.R, c11.A), fx, fy) / alpha
-	green := bilerp(premultiplied(c00.G, c00.A), premultiplied(c10.G, c10.A), premultiplied(c01.G, c01.A), premultiplied(c11.G, c11.A), fx, fy) / alpha
-	blue := bilerp(premultiplied(c00.B, c00.A), premultiplied(c10.B, c10.A), premultiplied(c01.B, c01.A), premultiplied(c11.B, c11.A), fx, fy) / alpha
-	return color.NRGBA{R: byte(math.Round(red)), G: byte(math.Round(green)), B: byte(math.Round(blue)), A: byte(math.Round(alpha))}
-}
-
-func premultiplied(channel, alpha byte) float64 {
-	return float64(channel) * float64(alpha) / 255
-}
-
-func bilerp(c00, c10, c01, c11, fx, fy float64) float64 {
-	top := c00 + (c10-c00)*fx
-	bottom := c01 + (c11-c01)*fx
-	return top + (bottom-top)*fy
 }
