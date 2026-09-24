@@ -202,6 +202,12 @@ func (s *PostgresStore) MarkBookCoverUnavailable(ctx context.Context, owner, boo
 			if current.SelectedConnectionID != connectionID || current.SelectedSourceIdentifier != sourceIdentifier {
 				return nil
 			}
+			failed, err := q.MarkBookCoverCandidateFailed(ctx, sqlcgen.MarkBookCoverCandidateFailedParams{
+				Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt, FailureReason: textArg(reason),
+			})
+			if err != nil || failed == 0 {
+				return err
+			}
 			return q.MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
 				Owner: owner, Book: bookID,
 				AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),

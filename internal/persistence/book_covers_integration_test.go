@@ -83,8 +83,12 @@ func TestBookCoverAdvertisementStateMachine(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, winner.SelectedConnectionID, afterLoser.SelectedConnectionID)
 
-	// A failed replacement preserves the available image but records the failure.
-	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, winner.SelectedConnectionID, winner.SelectedSourceIdentifier, winner.AdvertisedAt, "replacement failed"))
+	// A genuine replacement attempt preserves the available image but records
+	// the current candidate's failure.
+	retrieve, replacementAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, winner.SelectedConnectionID, winner.SelectedSourceIdentifier, true)
+	require.NoError(t, err)
+	assert.True(t, retrieve)
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, winner.SelectedConnectionID, winner.SelectedSourceIdentifier, replacementAt, "replacement failed"))
 	failed, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, failed.State)
@@ -240,6 +244,63 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
 	assert.Equal(t, first.ID, recovered.SelectedConnectionID)
+}
+
+func TestBookCoverSelectedFailureRequiresPendingCandidate(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "selected failure cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "selected-failure-owner", false)
+	require.NoError(t, err)
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Catalog", URL: "https://catalog.example/opds"})
+	require.NoError(t, err)
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-1", "Title", "", "de")
+	require.NoError(t, err)
+
+	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", true)
+	require.NoError(t, err)
+	require.True(t, retrieve)
+	initial, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", initial.AdvertisedAt, "image/png", 4, 6, "initial", []byte("initial-image")))
+
+	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", true)
+	require.NoError(t, err)
+	require.True(t, retrieve)
+	replacement, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", replacement.AdvertisedAt, "replacement failed"))
+
+	failed, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, failed.State)
+	assert.Equal(t, "replacement failed", failed.FailureReason)
+	resource, err := store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "initial", resource.ContentHash)
+
+	// A duplicate failure is fenced after the candidate has already failed.
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", replacement.AdvertisedAt, "duplicate failure"))
+	failed, err = store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "replacement failed", failed.FailureReason)
+
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", replacement.AdvertisedAt, "image/png", 4, 6, "replacement", []byte("replacement-image")))
+	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Empty(t, recovered.FailureReason)
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", replacement.AdvertisedAt, "late duplicate failure"))
+	recovered, err = store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Empty(t, recovered.FailureReason)
+	resource, err = store.GetBookCoverResource(ctx, owner.ID, reconciled.Book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "replacement", resource.ContentHash)
 }
 
 func TestBookCoverPendingConnectionDeletionDoesNotStrandGeneration(t *testing.T) {
