@@ -16,8 +16,8 @@ import (
 // state to the owner-scoped cover row and reports whether retrieval work is
 // needed. The row is locked for the duration so concurrent syncs of the same
 // Book cannot interleave source selection. Only the currently selected Catalog
-// entry may replace or remove a retained image; another alias can only become
-// the candidate while no image is selected.
+// entry may replace a retained image; another alias can only become the
+// candidate while no image is selected.
 func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertised bool) (retrieve bool, advertisedAt time.Time, err error) {
 	if strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(sourceIdentifier) == "" {
 		return false, time.Time{}, errors.New("persistence: book cover advertisement identity is incomplete")
@@ -53,10 +53,11 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 				return err
 			}
 			sameSource := current.SelectedConnectionID == connectionID && current.SelectedSourceIdentifier == sourceIdentifier
-			switch {
-			case current.State == domain.BookCoverAvailable && sameSource && !advertised:
+			if !advertised {
 				retrieve = false
-				err = q.ClearBookCover(ctx, sqlcgen.ClearBookCoverParams{Owner: owner, Book: bookID})
+				return retireBookCoverAdvertisement(ctx, q, current, owner, bookID, connectionID, sourceIdentifier, sameSource)
+			}
+			switch {
 			case current.State == domain.BookCoverAvailable && sameSource:
 				retrieve = true
 				err = q.RefreshBookCoverAdvertisement(ctx, sqlcgen.RefreshBookCoverAdvertisementParams{Owner: owner, Book: bookID})
@@ -70,9 +71,6 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 				// Keep one pending generation for concurrent initial candidates;
 				// their first validated completion will select the source atomically.
 				retrieve = true
-			case sameSource && !advertised:
-				retrieve = false
-				err = q.ClearBookCover(ctx, sqlcgen.ClearBookCoverParams{Owner: owner, Book: bookID})
 			case advertised:
 				retrieve = true
 				err = q.SetBookCoverPending(ctx, sqlcgen.SetBookCoverPendingParams{
@@ -102,6 +100,52 @@ func (s *PostgresStore) RecordBookCoverAdvertisement(ctx context.Context, owner,
 		return false, time.Time{}, err
 	}
 	return retrieve, advertisedAt, nil
+}
+
+func retireBookCoverAdvertisement(ctx context.Context, q *sqlcgen.Queries, current sqlcgen.GetBookCoverForUpdateRow, owner, bookID, connectionID, sourceIdentifier string, sameSource bool) error {
+	if !current.AdvertisedAt.Valid {
+		return nil
+	}
+	retired, err := q.RetireBookCoverCandidate(ctx, sqlcgen.RetireBookCoverCandidateParams{
+		Owner: owner, Book: bookID, Connection: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: current.AdvertisedAt.Time,
+	})
+	if err != nil || retired == 0 {
+		return err
+	}
+	candidateCount, err := q.CountBookCoverCandidates(ctx, sqlcgen.CountBookCoverCandidatesParams{
+		Owner: owner, Book: bookID, AdvertisedAt: current.AdvertisedAt.Time,
+	})
+	if err != nil {
+		return err
+	}
+	if candidateCount == 0 {
+		return q.ClearBookCover(ctx, sqlcgen.ClearBookCoverParams{Owner: owner, Book: bookID})
+	}
+	pending, err := q.CountPendingBookCoverCandidates(ctx, sqlcgen.CountPendingBookCoverCandidatesParams{
+		Owner: owner, Book: bookID, AdvertisedAt: current.AdvertisedAt.Time,
+	})
+	if err != nil {
+		return err
+	}
+	if current.State == domain.BookCoverAvailable && !sameSource {
+		return nil
+	}
+	if current.State == domain.BookCoverAvailable && sameSource {
+		if err = q.DemoteBookCoverToPending(ctx, sqlcgen.DemoteBookCoverToPendingParams{
+			Owner: owner, Book: bookID, AdvertisedAt: current.AdvertisedAt,
+		}); err != nil {
+			return err
+		}
+		if pending > 0 {
+			return nil
+		}
+	}
+	if current.State == domain.BookCoverPending && pending > 0 {
+		return nil
+	}
+	return q.MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
+		Owner: owner, Book: bookID, AdvertisedAt: current.AdvertisedAt, FailureReason: textArg("cover retrieval candidates exhausted"),
+	})
 }
 
 // SaveBookCover persists a retrieval only while its advertisement generation is
@@ -159,7 +203,7 @@ func (s *PostgresStore) MarkBookCoverUnavailable(ctx context.Context, owner, boo
 				return nil
 			}
 			return q.MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
-				Owner: owner, Book: bookID, Connection: uuidArg(connectionID), SourceIdentifier: textArg(sourceIdentifier),
+				Owner: owner, Book: bookID,
 				AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),
 			})
 		}
@@ -182,7 +226,7 @@ func (s *PostgresStore) MarkBookCoverUnavailable(ctx context.Context, owner, boo
 			})
 		}
 		return q.MarkBookCoverUnavailable(ctx, sqlcgen.MarkBookCoverUnavailableParams{
-			Owner: owner, Book: bookID, Connection: uuidArg(current.SelectedConnectionID), SourceIdentifier: textArg(current.SelectedSourceIdentifier),
+			Owner: owner, Book: bookID,
 			AdvertisedAt: pgtype.Timestamptz{Time: advertisedAt, Valid: true}, FailureReason: textArg(reason),
 		})
 	})

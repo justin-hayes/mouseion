@@ -86,6 +86,14 @@ WHERE owner_id = sqlc.arg('owner')
   AND source_identifier = sqlc.arg('source_identifier')
   AND advertised_at = sqlc.arg('advertised_at');
 
+-- name: RetireBookCoverCandidate :execrows
+DELETE FROM book_cover_candidates
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND connection_id = sqlc.arg('connection')
+  AND source_identifier = sqlc.arg('source_identifier')
+  AND advertised_at = sqlc.arg('advertised_at');
+
 -- name: BookCoverCandidateExists :one
 SELECT EXISTS(
     SELECT 1
@@ -114,6 +122,13 @@ WHERE owner_id = sqlc.arg('owner')
   AND book_id = sqlc.arg('book')
   AND advertised_at = sqlc.arg('advertised_at')
   AND state = 'pending';
+
+-- name: CountBookCoverCandidates :one
+SELECT count(*)::int
+FROM book_cover_candidates
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND advertised_at = sqlc.arg('advertised_at');
 
 -- name: RecordBookCoverGenerationFailure :exec
 UPDATE book_covers
@@ -164,6 +179,23 @@ SET state = 'none',
     updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
 
+-- name: DemoteBookCoverToPending :exec
+UPDATE book_covers
+SET state = 'pending',
+    selected_connection_id = NULL,
+    selected_source_identifier = NULL,
+    media_type = NULL,
+    width = NULL,
+    height = NULL,
+    content_hash = NULL,
+    bytes = NULL,
+    fetched_at = NULL,
+    failure_reason = NULL,
+    updated_at = now()
+WHERE owner_id = sqlc.arg('owner')
+  AND book_id = sqlc.arg('book')
+  AND advertised_at = sqlc.arg('advertised_at');
+
 -- name: SaveBookCover :exec
 UPDATE book_covers AS cover
 SET state = 'available',
@@ -204,8 +236,6 @@ SET state = CASE WHEN state = 'available' THEN state ELSE 'unavailable' END,
     height = CASE WHEN state = 'available' THEN height ELSE NULL END,
     content_hash = CASE WHEN state = 'available' THEN content_hash ELSE NULL END,
     failure_reason = sqlc.arg('failure_reason'), updated_at = now()
- WHERE owner_id = sqlc.arg('owner')
+WHERE owner_id = sqlc.arg('owner')
    AND book_id = sqlc.arg('book')
-   AND selected_connection_id = sqlc.arg('connection')
-   AND selected_source_identifier = sqlc.arg('source_identifier')
    AND advertised_at IS NOT DISTINCT FROM sqlc.arg('advertised_at');

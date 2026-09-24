@@ -187,22 +187,7 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
 	require.NoError(t, err)
 
-	advertise := func(t *testing.T, title, firstSource, secondSource string) (string, time.Time) {
-		t.Helper()
-		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, title, title, "", "de")
-		require.NoError(t, err)
-		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, firstSource, true)
-		require.NoError(t, err)
-		require.True(t, retrieve)
-		initial, err := store.GetBookCoverForRetrieval(ctx, owner.ID, reconciled.Book.ID)
-		require.NoError(t, err)
-		retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, second.ID, secondSource, true)
-		require.NoError(t, err)
-		require.True(t, retrieve)
-		return reconciled.Book.ID, initial.AdvertisedAt
-	}
-
-	bookID, advertisedAt := advertise(t, "Failure before success", "entry-a", "entry-b")
+	bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Failure before success", "entry-a", "entry-b")
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-a", advertisedAt, "first candidate failed"))
 	pending, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
 	require.NoError(t, err)
@@ -215,7 +200,7 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	assert.Equal(t, second.ID, winner.SelectedConnectionID)
 	assert.Empty(t, winner.FailureReason)
 
-	bookID, advertisedAt = advertise(t, "Success before failure", "entry-c", "entry-d")
+	bookID, advertisedAt = advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Success before failure", "entry-c", "entry-d")
 	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-d", advertisedAt, "image/png", 4, 6, "second", []byte("second-image")))
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-c", advertisedAt, "late first failure"))
 	winner, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
@@ -224,7 +209,7 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 	assert.Equal(t, second.ID, winner.SelectedConnectionID)
 	assert.Empty(t, winner.FailureReason)
 
-	bookID, advertisedAt = advertise(t, "Every candidate fails", "entry-e", "entry-f")
+	bookID, advertisedAt = advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Every candidate fails", "entry-e", "entry-f")
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-e", advertisedAt, "first candidate failed"))
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, second.ID, "entry-f", advertisedAt, "second candidate failed"))
 	failed, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
@@ -234,7 +219,7 @@ func TestBookCoverCandidateFailuresDoNotCloseInitialGeneration(t *testing.T) {
 
 	// A River retry from the same generation can recover through a non-
 	// provisional candidate after every initial attempt failed.
-	retryBookID, retryAdvertisedAt := advertise(t, "Same-generation retry", "entry-g", "entry-h")
+	retryBookID, retryAdvertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Same-generation retry", "entry-g", "entry-h")
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, retryBookID, first.ID, "entry-g", retryAdvertisedAt, "first candidate failed"))
 	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, retryBookID, second.ID, "entry-h", retryAdvertisedAt, "second candidate failed"))
 	require.NoError(t, store.SaveBookCover(ctx, owner.ID, retryBookID, second.ID, "entry-h", retryAdvertisedAt, "image/png", 4, 6, "retry-fallback", []byte("retry-fallback-image")))
@@ -496,6 +481,62 @@ func TestBookCoverStaleRetrievalCompletionsAreIgnored(t *testing.T) {
 	assert.Equal(t, second.ID, cover.SelectedConnectionID)
 }
 
+func TestBookCoverExplicitAbsenceRetiresCandidatesWithinGeneration(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store, err := Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "explicit absence cover store", store.Close)
+
+	owner, err := store.CreateUser(ctx, "explicit-absence-owner", false)
+	require.NoError(t, err)
+	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First", URL: "https://first.example/opds"})
+	require.NoError(t, err)
+	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
+	require.NoError(t, err)
+
+	// Retiring the provisional source keeps the fallback in the same generation,
+	// so it can win without another catalogue reconciliation.
+	bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Absent provisional", "entry-a", "entry-b")
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, first.ID, "entry-a", false)
+	require.NoError(t, err)
+	pending, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, pending.State)
+	assert.Equal(t, advertisedAt, pending.AdvertisedAt)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-b", advertisedAt, "image/png", 4, 6, "fallback", []byte("fallback-image")))
+	recovered, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Equal(t, second.ID, recovered.SelectedConnectionID)
+	assert.Equal(t, "entry-b", recovered.SelectedSourceIdentifier)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, first.ID, "entry-a", advertisedAt, "image/png", 4, 6, "stale", []byte("stale-image")))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-a", advertisedAt, "stale failure"))
+	resource, err := store.GetBookCoverResource(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback", resource.ContentHash)
+
+	// Retiring a fallback removes it from the generation. Once the remaining
+	// candidate fails, the Book settles instead of remaining pending forever.
+	bookID, advertisedAt = advertiseBookCoverCandidates(t, ctx, store, owner.ID, first, second, "Absent fallback", "entry-c", "entry-d")
+	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, second.ID, "entry-d", false)
+	require.NoError(t, err)
+	pending, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverPending, pending.State)
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, first.ID, "entry-c", advertisedAt, "final candidate failed"))
+	failed, err := store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverUnavailable, failed.State)
+	assert.Equal(t, "final candidate failed", failed.FailureReason)
+	require.NoError(t, store.SaveBookCover(ctx, owner.ID, bookID, second.ID, "entry-d", advertisedAt, "image/png", 4, 6, "stale", []byte("stale-image")))
+	require.NoError(t, store.MarkBookCoverUnavailable(ctx, owner.ID, bookID, second.ID, "entry-d", advertisedAt, "stale failure"))
+	failed, err = store.GetBookCoverForRetrieval(ctx, owner.ID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookCoverUnavailable, failed.State)
+	assert.Equal(t, "final candidate failed", failed.FailureReason)
+}
+
 func TestBookCoverSelectedRefreshAdvancesGenerationAndPreservesImage(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
@@ -547,4 +588,19 @@ func mustCoverState(t *testing.T, store *PostgresStore, owner, bookID string) st
 	cover, err := store.GetBookCoverForRetrieval(context.Background(), owner, bookID)
 	require.NoError(t, err)
 	return cover.State
+}
+
+func advertiseBookCoverCandidates(t *testing.T, ctx context.Context, store *PostgresStore, owner string, first, second domain.OpdsConnection, title, firstSource, secondSource string) (string, time.Time) {
+	t.Helper()
+	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner, first.ID, title, title, "", "de")
+	require.NoError(t, err)
+	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner, reconciled.Book.ID, first.ID, firstSource, true)
+	require.NoError(t, err)
+	require.True(t, retrieve)
+	initial, err := store.GetBookCoverForRetrieval(ctx, owner, reconciled.Book.ID)
+	require.NoError(t, err)
+	retrieve, _, err = store.RecordBookCoverAdvertisement(ctx, owner, reconciled.Book.ID, second.ID, secondSource, true)
+	require.NoError(t, err)
+	require.True(t, retrieve)
+	return reconciled.Book.ID, initial.AdvertisedAt
 }
