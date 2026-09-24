@@ -343,6 +343,64 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
 }
 
+func TestCatalogueSyncCoverDuplicateFailureAfterSuccessIsIgnored(t *testing.T) {
+	f := newCoverFixture(t)
+	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
+	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+	args := f.pendingCoverArgs()
+	require.Len(t, args, 1)
+
+	// A rescued failure from the successful initial job must not add a
+	// diagnostic or alter the retained image.
+	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
+	require.Error(t, f.runCoverJob(args[0]))
+	require.Error(t, f.runCoverJob(args[0]))
+	cover := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	assert.Empty(t, cover.FailureReason)
+	preserved, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, preserved.Bytes)
+
+	// A new selected-source generation is still allowed to record its own
+	// failure while retaining the prior validated image.
+	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
+	require.NoError(t, f.sync(f.connection.ID))
+	replacementArgs := f.pendingCoverArgs()
+	require.Len(t, replacementArgs, 2)
+	var current CoverArgs
+	for _, candidate := range replacementArgs {
+		if candidate.AdvertisedAt.After(current.AdvertisedAt) {
+			current = candidate
+		}
+	}
+	require.NotEmpty(t, current.AdvertisedAt)
+	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("still not an image"), contentType: "image/png"})
+	require.Error(t, f.runCoverJob(current))
+	failed := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, failed.State)
+	assert.NotEmpty(t, failed.FailureReason)
+	require.Error(t, f.runCoverJob(current))
+	repeated := f.coverState(book.ID)
+	assert.Equal(t, failed.FailureReason, repeated.FailureReason)
+	preserved, err = f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, preserved.Bytes)
+
+	// The same replacement candidate can recover, and a later duplicate failure
+	// remains fenced after that success as well.
+	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 220), contentType: "image/png"})
+	require.NoError(t, f.runCoverJob(current))
+	recovered := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
+	assert.Empty(t, recovered.FailureReason)
+	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("late duplicate"), contentType: "image/png"})
+	require.Error(t, f.runCoverJob(current))
+	late := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, late.State)
+	assert.Empty(t, late.FailureReason)
+}
+
 func TestCatalogueSyncCoverStaleWorkerCompletionAfterReplacementReconciliation(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
