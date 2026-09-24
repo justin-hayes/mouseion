@@ -35,6 +35,7 @@ func TestNormalizeJPEG(t *testing.T) {
 	if got := decoded.Bounds().Size(); got != image.Pt(600, 900) {
 		t.Fatalf("normalized JPEG size = %v, want 600x900", got)
 	}
+	assertPixelNear(t, decoded.At(300, 450), color.NRGBA{R: 220, G: 40, B: 30, A: 255}, 12)
 }
 
 func TestNormalizePNGPreservesAspectRatioAndDoesNotUpscale(t *testing.T) {
@@ -60,8 +61,39 @@ func TestNormalizePNGPreservesAspectRatioAndDoesNotUpscale(t *testing.T) {
 			if !bytes.HasPrefix(normalized, pngSignature[:]) {
 				t.Fatal("normalized PNG does not have PNG magic bytes")
 			}
+			decoded, err := png.Decode(bytes.NewReader(normalized))
+			if err != nil {
+				t.Fatalf("decode normalized PNG: %v", err)
+			}
+			assertPixelNear(t, decoded.At(tt.wantWidth/2, tt.wantHeight/2), color.NRGBA{R: 30, G: 100, B: 220, A: 180}, 0)
 		})
 	}
+}
+
+func TestNormalizePNGPreservesMixedColorAndAlphaDuringResize(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 1200, 1800))
+	for y := range 1800 {
+		for x := range 1200 {
+			pixel := color.NRGBA{R: 255, A: 64}
+			if (x+y)%2 == 1 {
+				pixel = color.NRGBA{B: 255, A: 192}
+			}
+			img.SetNRGBA(x, y, pixel)
+		}
+	}
+
+	normalized, _, width, height, _, err := Normalize(encodePNG(t, img), "image/png")
+	if err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
+	if width != 600 || height != 900 {
+		t.Fatalf("Normalize() size = %dx%d, want 600x900", width, height)
+	}
+	decoded, err := png.Decode(bytes.NewReader(normalized))
+	if err != nil {
+		t.Fatalf("decode normalized PNG: %v", err)
+	}
+	assertPixelNear(t, decoded.At(300, 450), color.NRGBA{R: 64, B: 192, A: 128}, 20)
 }
 
 func TestNormalizeAcceptsMatchingMediaTypeClaims(t *testing.T) {
@@ -140,6 +172,24 @@ func encodePNG(t *testing.T, img image.Image) []byte {
 		t.Fatalf("encode PNG fixture: %v", err)
 	}
 	return out.Bytes()
+}
+
+func assertPixelNear(t *testing.T, got color.Color, want color.NRGBA, tolerance uint8) {
+	t.Helper()
+	actual := color.NRGBAModel.Convert(got).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
+	if channelDistance(actual.R, want.R) > tolerance ||
+		channelDistance(actual.G, want.G) > tolerance ||
+		channelDistance(actual.B, want.B) > tolerance ||
+		channelDistance(actual.A, want.A) > tolerance {
+		t.Fatalf("pixel = %#v, want %#v +/- %d", actual, want, tolerance)
+	}
+}
+
+func channelDistance(left, right uint8) uint8 {
+	if left > right {
+		return left - right
+	}
+	return right - left
 }
 
 func insertPNGChunk(raw, chunkType, data []byte) []byte {

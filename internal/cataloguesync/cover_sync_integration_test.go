@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -163,6 +164,28 @@ func testPNG(t *testing.T, value uint8) []byte {
 	var buf bytes.Buffer
 	require.NoError(t, png.Encode(&buf, img))
 	return buf.Bytes()
+}
+
+func testJPEG(t *testing.T, width, height int, pixel color.RGBA) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := range height {
+		for x := range width {
+			img.SetRGBA(x, y, pixel)
+		}
+	}
+	var buf bytes.Buffer
+	require.NoError(t, jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}))
+	return buf.Bytes()
+}
+
+func assertCoverPixelNear(t *testing.T, got color.Color, want color.NRGBA, tolerance uint8) {
+	t.Helper()
+	actual := color.NRGBAModel.Convert(got).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
+	assert.InDelta(t, int(want.R), int(actual.R), float64(tolerance), "red channel")
+	assert.InDelta(t, int(want.G), int(actual.G), float64(tolerance), "green channel")
+	assert.InDelta(t, int(want.B), int(actual.B), float64(tolerance), "blue channel")
+	assert.InDelta(t, int(want.A), int(actual.A), float64(tolerance), "alpha channel")
 }
 
 type coverFixture struct {
@@ -341,6 +364,55 @@ func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
 	afterReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
+}
+
+func TestCatalogueSyncOversizedCalibreWebJPEGPreservesColorAndReplacesRetainedBlackRaster(t *testing.T) {
+	f := newCoverFixture(t)
+	entry := coverEntry{
+		id: "calibre-entry", title: "Calibre-Web Book", imageHref: "/a/image/calibre.jpg", imageType: "image/jpeg",
+	}
+	black := testJPEG(t, 1200, 1800, color.RGBA{A: 255})
+	book, retained := f.establishCover(t, entry, coverImage{body: black, contentType: "image/jpeg"})
+	retainedImage, err := jpeg.Decode(bytes.NewReader(retained))
+	require.NoError(t, err)
+	assert.Equal(t, color.NRGBA{A: 255}, color.NRGBAModel.Convert(retainedImage.At(300, 450)))
+
+	// A normal catalog sync must replace a previously retained legacy raster;
+	// no learner-facing repair action is involved.
+	colored := testJPEG(t, 1200, 1800, color.RGBA{R: 220, G: 40, B: 30, A: 255})
+	f.catalog.setImage(entry.imageHref, coverImage{body: colored, contentType: "image/jpeg"})
+	require.NoError(t, f.sync(f.connection.ID))
+	args := f.pendingCoverArgs()
+	require.Len(t, args, 2)
+	var stale, replacement CoverArgs
+	for _, candidate := range args {
+		if candidate.AdvertisedAt.After(replacement.AdvertisedAt) {
+			if !replacement.AdvertisedAt.IsZero() {
+				stale = replacement
+			}
+			replacement = candidate
+		} else {
+			stale = candidate
+		}
+	}
+	require.NotEmpty(t, stale.BookID)
+	require.NoError(t, f.runCoverJob(stale))
+	stillRetained, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, stillRetained.Bytes, "stale completion replaced the retained raster")
+	require.NoError(t, f.runCoverJob(replacement))
+
+	cover := f.coverState(book.ID)
+	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	assert.Equal(t, f.connection.ID, cover.SelectedConnectionID)
+	assert.Equal(t, entry.id, cover.SelectedSourceIdentifier)
+	resource, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 600, resource.Width)
+	assert.Equal(t, 900, resource.Height)
+	updated, err := jpeg.Decode(bytes.NewReader(resource.Bytes))
+	require.NoError(t, err)
+	assertCoverPixelNear(t, updated.At(300, 450), color.NRGBA{R: 220, G: 40, B: 30, A: 255}, 12)
 }
 
 func TestCatalogueSyncCoverDuplicateFailureAfterSuccessIsIgnored(t *testing.T) {

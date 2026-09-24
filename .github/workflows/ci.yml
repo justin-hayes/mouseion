@@ -102,7 +102,8 @@ jobs:
       - name: Set up uv
         if: |
           github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+          steps.changes.outputs.python == 'true' ||
+          steps.changes.outputs.generated == 'true'
         uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
         with:
           # uv's cache persists on the self-hosted runner; do not use an
@@ -113,13 +114,15 @@ jobs:
       - name: Set up Python 3.11
         if: |
           github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+          steps.changes.outputs.python == 'true' ||
+          steps.changes.outputs.generated == 'true'
         run: uv python install 3.11
 
       - name: Create Python environment
         if: |
           github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+          steps.changes.outputs.python == 'true' ||
+          steps.changes.outputs.generated == 'true'
         run: uv venv --python 3.11 .venv
 
       - name: Install Python dev dependencies
