@@ -166,6 +166,9 @@ BEFORE UPDATE ON primary_goals FOR EACH ROW EXECUTE FUNCTION test_current_readin
 	reading, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID, firstSnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, second.ID, reading.BookID)
+	replayedSwitch, err := store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID, firstSnapshotID)
+	require.NoError(t, err, "replaying switch is idempotent")
+	assert.Equal(t, reading.SnapshotID, replayedSwitch.SnapshotID, "retry retains the switched snapshot")
 	releasedOldSnapshot = 0
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NOT NULL`, alice.ID, firstSnapshotID).Scan(&releasedOldSnapshot))
 	assert.Equal(t, 1, releasedOldSnapshot, "successful switch releases only the former active snapshot")

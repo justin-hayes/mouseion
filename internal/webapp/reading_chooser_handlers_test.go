@@ -167,6 +167,16 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", current.BookID)
 	snapshotID := current.SnapshotID
+	retriedSwitch := goalRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {fixtures.BookID},
+		"expected_current_snapshot_id": {initialSnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, retriedSwitch.Code)
+	assert.NotContains(t, retriedSwitch.Header().Get("Location"), "error=")
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, snapshotID, current.SnapshotID, "retry leaves the switched reading unchanged")
 
 	stopped := goalRequest(t, h, "/reading/stop", url.Values{
 		"csrf_token":                   {csrf},
