@@ -1404,8 +1404,8 @@ templ ReadingChooserBook(item readingChooserBookView, csrf string) {
 					<button type="submit">Start reading</button>
 				</form>
 			} else {
-				<p><strong>{ item.State }</strong> — { item.Description }</p>
-				if item.State == "Needs attention" {
+				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
+				if item.State == readingChooserNeedsAttention {
 					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button type="submit">Retry acquisition or analysis</button>

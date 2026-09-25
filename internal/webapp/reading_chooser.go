@@ -18,9 +18,16 @@ type readingChooserBookView struct {
 	Book        domain.MyBook
 	Coverage    *domain.AnalysisCoverage
 	Band        domain.CoverageBand
-	State       string
+	State       readingChooserState
 	Description string
 }
+
+type readingChooserState string
+
+const (
+	readingChooserInProgress     readingChooserState = "in_progress"
+	readingChooserNeedsAttention readingChooserState = "needs_attention"
+)
 
 type readingChooserPageView struct {
 	Language, LanguageLabel string
@@ -104,22 +111,22 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 		if book.Acquired == nil || book.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*book.Acquired) {
 			candidate.State, candidate.Description = readingChooserEvidenceState(book)
 			switch candidate.State {
-			case "in-progress":
+			case readingChooserInProgress:
 				view.InProgress = append(view.InProgress, candidate)
-			default:
+			case readingChooserNeedsAttention:
 				view.Attention = append(view.Attention, candidate)
 			}
 			continue
 		}
 		if h.services.AnalysisInsights == nil || strings.TrimSpace(book.Acquired.CorpusID) == "" {
-			candidate.State = "Needs attention"
+			candidate.State = readingChooserNeedsAttention
 			candidate.Description = "Completed analysis statistics are unavailable. Refresh the page or retry analysis."
 			view.Attention = append(view.Attention, candidate)
 			continue
 		}
 		coverage, coverageErr := h.services.AnalysisInsights.Coverage(ctx, owner, book.Acquired.CorpusID)
 		if errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
-			candidate.State = "Needs attention"
+			candidate.State = readingChooserNeedsAttention
 			candidate.Description = "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence."
 			view.Attention = append(view.Attention, candidate)
 			continue
@@ -168,25 +175,32 @@ func normalizedBookSortKey(book readingChooserBookView) string {
 	return strings.ToLower(title)
 }
 
-func readingChooserEvidenceState(book domain.MyBook) (string, string) {
+func readingChooserEvidenceState(book domain.MyBook) (readingChooserState, string) {
 	if book.Acquired == nil {
-		return "Needs attention", "Book content has not been acquired yet. Return to My Books to review its catalog entry."
+		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
 	}
 	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
 	if strings.Contains(status, "queued") || strings.Contains(status, "running") {
-		return "in-progress", "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
+		return readingChooserInProgress, "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
 	}
 	evidenceState := book.Acquired.EvidenceState()
 	if evidenceState == domain.BookStale {
-		return "Needs attention", "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."
+		return readingChooserNeedsAttention, "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."
 	}
 	if evidenceState == domain.BookUnavailable || evidenceState == domain.BookNotAcquired {
-		return "Needs attention", "Current book content is unavailable. Retry acquisition or analysis from My Books."
+		return readingChooserNeedsAttention, "Current book content is unavailable. Retry acquisition or analysis from My Books."
 	}
 	if strings.Contains(status, "failed") || strings.Contains(status, "cancelled") {
-		return "Needs attention", "The last analysis did not complete. Retry analysis to refresh its evidence."
+		return readingChooserNeedsAttention, "The last analysis did not complete. Retry analysis to refresh its evidence."
 	}
-	return "Needs attention", "Current analysis is not complete. Retry analysis to produce usable evidence."
+	return readingChooserNeedsAttention, "Current analysis is not complete. Retry analysis to produce usable evidence."
+}
+
+func readingChooserStateLabel(state readingChooserState) string {
+	if state == readingChooserInProgress {
+		return "Analysis in progress"
+	}
+	return "Needs attention"
 }
 
 func readingChooserTitle(view readingChooserPageView) string {
@@ -201,18 +215,15 @@ func readingChooserCandidateCount(view readingChooserPageView) int {
 }
 
 func readingChooserNextMarkerText(coverage domain.AnalysisCoverage, band domain.CoverageBand) string {
-	var marker int
-	switch band {
-	case domain.CoverageBandBelow95:
-		marker = 95
-	case domain.CoverageBand95To97:
-		marker = 97
-	case domain.CoverageBand97To99:
-		marker = 99
-	case domain.CoverageBand99Plus:
-		return "At least 99% of analyzable tokens are already Known."
-	case domain.CoverageBandNoComparison:
-		return "Coverage cannot be compared because there are no analyzable tokens."
+	marker, hasNextMarker := readingChooserNextMarkers[band]
+	if !hasNextMarker {
+		if band == domain.CoverageBand99Plus {
+			return "At least 99% of analyzable tokens are already Known."
+		}
+		if band == domain.CoverageBandNoComparison {
+			return "Coverage cannot be compared because there are no analyzable tokens."
+		}
+		return "Next-marker investment is unavailable."
 	}
 	for _, threshold := range coverage.Thresholds {
 		if threshold.TargetPercent == marker {
@@ -220,6 +231,12 @@ func readingChooserNextMarkerText(coverage domain.AnalysisCoverage, band domain.
 		}
 	}
 	return fmt.Sprintf("Investment to reach %d%% is unavailable.", marker)
+}
+
+var readingChooserNextMarkers = map[domain.CoverageBand]int{
+	domain.CoverageBandBelow95: 95,
+	domain.CoverageBand95To97:  97,
+	domain.CoverageBand97To99:  99,
 }
 
 func readingChooserThresholdText(threshold domain.CoverageThreshold) string {
