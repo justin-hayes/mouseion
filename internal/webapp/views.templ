@@ -787,41 +787,6 @@ func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	return min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
 }
 
-func reservedCoveragePercent(coverage domain.AnalysisCoverage) float64 {
-	if coverage.AnalyzableTokenCount == 0 { return 0 }
-	return min(float64(coverage.KnownTokenCount+coverage.ReservedTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
-}
-
-func concentrationPercent(projection domain.CoverageProjection) float64 {
-	if projection.EligibleTokenCount == 0 {
-		return 0
-	}
-	return float64(projection.OccurrenceCount) * 100 / float64(projection.EligibleTokenCount)
-}
-
-func projectedCoveragePercent(projection domain.CoverageProjection, analyzableTokens int64) float64 {
-	if analyzableTokens == 0 {
-		return 0
-	}
-	return min(float64(projection.ProjectedTokenCount)*100/float64(analyzableTokens), 100)
-}
-
-func longSentencePercent(profile domain.TextProfile) float64 {
-	if profile.SentenceCount == 0 {
-		return 0
-	}
-	return float64(profile.LongSentenceCount) * 100 / float64(profile.SentenceCount)
-}
-
-func hasAnalysisWarnings(coverage domain.AnalysisCoverage) bool {
-	if coverage.TextProfile == nil {
-		return false
-	}
-	return coverage.TextProfile.SentenceCount == 0 ||
-		coverage.TextProfile.EmptySentenceCount > 0 ||
-		(coverage.TextProfile.NormalizedTokenCount > 0 && coverage.AnalyzableTokenCount == 0)
-}
-
 func corpusUnitLabel(unit domain.CorpusSelectedUnit) string {
 	if strings.TrimSpace(unit.Title) != "" {
 		return unit.Title

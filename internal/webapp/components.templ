@@ -103,20 +103,6 @@ templ Confirmation(summary, description string, tone StatusTone) {
 	</details>
 }
 
-templ StatGroup(items []StatItem) {
-	<div class="stat-group" role="list">
-		for _, item := range items {
-			<article class="stat-group__item" role="listitem">
-				<strong class="stat-group__value numeric">{ item.Value }</strong>
-				<span class="stat-group__label">{ item.Label }</span>
-				if item.Detail != "" {
-					<small class="stat-group__detail">{ item.Detail }</small>
-				}
-			</article>
-		}
-	</div>
-}
-
 templ MetadataList(items []MetadataItem) {
 	<dl class="metadata-list">
 		for _, item := range items {

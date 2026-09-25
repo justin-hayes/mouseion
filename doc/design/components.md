@@ -47,7 +47,6 @@ markup.
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
 | `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Vocabulary           |
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and Goal completion                            |
-| `StatGroup`       | Compare a small set of labeled numeric or categorical facts                | Optional detail per item                          | Coverage thresholds, Journey projections, preparation progress |
 | `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Book and job facts                                         |
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and import rejection details                          |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
@@ -204,9 +203,7 @@ At the compact breakpoint:
   surrounding workflow requires it.
 
 Tables retain semantic table markup. Their labeled region owns horizontal
-overflow; the page must not scroll horizontally. Stat groups use auto-fitting
-columns and expand at the wide-data breakpoint without increasing reading-line
-length.
+overflow; the page must not scroll horizontally.
 
 ## Pattern contracts
 
@@ -312,19 +309,6 @@ or background.
 Group actions that affect the same resource or transition. The primary action
 comes first in document order. Destructive or abandonment actions are visually
 secondary and use `Confirmation` when the consequence is material.
-
-### `StatGroup`
-
-Use for two or more facts that benefit from comparison. Each item has a value,
-a concise label, and optional detail. Numeric values use tabular numerals. A stat
-group summarizes data; explanatory methodology and provenance remain prose or
-details immediately after it.
-
-Do not use `StatGroup` as the hero of My Books, Reading Journey, Primary Goal, or
-Where next? Forecast values are supporting evidence after the books and the
-plain-language consequence. Current, after-Goal, on-arrival, lower-bound, and
-remaining values use full labels and units rather than color or a bare signed
-number.
 
 ### `MetadataList`
 
