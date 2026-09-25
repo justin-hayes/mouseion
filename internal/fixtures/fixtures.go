@@ -909,6 +909,29 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 	s.dispositions[fixtureDispositionKey(owner, bookID)] = disposition
 	return nil
 }
+
+func (s *Store) SetBookAsideAtJourneyRevision(_ context.Context, owner, language, bookID string, expectedRevision int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	language = normalizeFixtureLanguage(language)
+	journey := s.readingJourneys[fixtureJourneyKey(owner, language)]
+	if journey.Revision != expectedRevision {
+		return persistence.ErrJourneyStale
+	}
+	for _, entry := range journey.Entries {
+		if entry.BookID == bookID {
+			return persistence.ErrJourneyStale
+		}
+	}
+	if goal := s.primaryGoals[fixtureGoalKey(owner, language)]; goal.BookID == bookID {
+		return persistence.ErrJourneyStale
+	}
+	if !s.fixtureBookExists(owner, bookID) {
+		return errNotFound
+	}
+	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
+	return nil
+}
 func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

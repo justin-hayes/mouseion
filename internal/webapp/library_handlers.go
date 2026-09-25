@@ -249,7 +249,11 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 			fail(w, errors.New("book dispositions are unavailable"))
 			return
 		}
-		if err = dispositions.SetBookDisposition(r.Context(), owner, detail.Book.ID, domain.BookDispositionSetAside); err != nil {
+		if err = dispositions.SetBookAsideAtJourneyRevision(r.Context(), owner, language, detail.Book.ID, expectedRevision); err != nil {
+			if errors.Is(err, persistence.ErrJourneyStale) {
+				redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
+				return
+			}
 			if errors.Is(err, persistence.ErrNotFound) {
 				http.NotFound(w, r)
 				return
