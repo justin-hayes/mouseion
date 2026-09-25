@@ -31,6 +31,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,6 +56,47 @@ func readyGerman() staticCapabilities {
 
 type metadataBookAcquisitionStub struct {
 	target cataloguesync.AcquisitionTarget
+}
+
+type catalogueLanguageCorrectionRefresher struct {
+	store        *persistence.PostgresStore
+	connectionID string
+}
+
+type emptyCatalogueSyncReader struct{}
+
+func (emptyCatalogueSyncReader) Languages(context.Context, string, string) (opds.Feed, error) {
+	return opds.Feed{Entries: []opds.Entry{
+		{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://language.example/opds/language/7"}}},
+		{Title: "Italian", Links: []opds.Link{{Rel: "subsection", Href: "https://language.example/opds/language/9"}}},
+	}}, nil
+}
+
+func (emptyCatalogueSyncReader) BrowseLanguage(context.Context, string, string, string) (opds.Feed, error) {
+	return opds.Feed{}, nil
+}
+
+func (reader emptyCatalogueSyncReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
+	return reader.BrowseLanguage(ctx, owner, connection, language)
+}
+
+func (catalogueLanguageCorrectionRefresher) RegisterConnection(context.Context, string, string) error {
+	return nil
+}
+
+func (catalogueLanguageCorrectionRefresher) UnregisterConnection(string, string) error { return nil }
+
+func (r catalogueLanguageCorrectionRefresher) RefreshEntry(ctx context.Context, owner, bookID string) (cataloguesync.RefreshResult, error) {
+	book, err := r.store.GetBook(ctx, owner, bookID)
+	if err != nil {
+		return cataloguesync.RefreshResult{}, err
+	}
+	alias, err := r.store.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	if err != nil {
+		return cataloguesync.RefreshResult{}, err
+	}
+	reconciled, err := r.store.ReconcileCatalogueEntry(ctx, owner, r.connectionID, alias.Value, book.Title, book.Author, "it")
+	return cataloguesync.RefreshResult{Book: reconciled.Book, Updated: reconciled.LanguageChanged}, err
 }
 
 func (metadataBookAcquisitionStub) RegisterConnection(context.Context, string, string) error {
@@ -331,6 +373,131 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	assert.Len(t, books, 1)
 	assert.Equal(t, bookResult.Book.ID, books[0].Book.ID)
 	assert.NotNil(t, books[0].Acquired)
+}
+
+func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "catalogue-language-http-integration-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "language-refresh-owner", "owner-password", false)
+	book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "http-language-correction", "Language correction", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Language catalog", URL: "https://language.example/opds"})
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,connection_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5,$6)`, owner.ID, book.ID, connection.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "language-entry")
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	_, err = store.ImportPreviouslyRead(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	syncWorker := &cataloguesync.Worker{
+		Connections: store, Catalogue: store, Statuses: store, Reader: emptyCatalogueSyncReader{},
+		Capabilities: staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
+			{Language: "de", DisplayName: "German", Ready: true},
+			{Language: "it", DisplayName: "Italian", Ready: true},
+		}}},
+	}
+	require.NoError(t, syncWorker.Work(ctx, &river.Job[cataloguesync.SyncArgs]{Args: cataloguesync.SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
+	var retainedHistory, vanishedAnalysis int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedHistory)
+	require.NoError(t, err)
+	assert.Equal(t, 1, retainedHistory, "upstream disappearance erased reading history")
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&vanishedAnalysis)
+	require.NoError(t, err)
+	assert.Equal(t, 1, vanishedAnalysis, "upstream disappearance erased analysis provenance")
+	sourcesBeforeRefresh, err := store.ListSourceMaterials(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, sourcesBeforeRefresh, 1)
+	preparationsBeforeRefresh, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, sourcesBeforeRefresh[0].Source.ID)
+	require.NoError(t, err)
+	assert.Len(t, preparationsBeforeRefresh, 1, "upstream disappearance erased local deck state")
+
+	authService := auth.New(store, time.Hour)
+	h := New(Services{
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
+		CatalogueSync: catalogueLanguageCorrectionRefresher{store: store, connectionID: connection.ID}, SessionLifetime: time.Hour,
+	})
+	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
+	refreshed := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/refresh", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, refreshed.Code)
+
+	corrected, err := store.GetBook(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "it", corrected.LanguageTag)
+	disposition, err := store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	for _, language := range []string{"de", "it"} {
+		current, getErr := store.GetCurrentReading(ctx, owner.ID, language)
+		require.NoError(t, getErr)
+		assert.Empty(t, current.BookID, "metadata refresh left the book in a %s current-reading role", language)
+	}
+	var releasedAt *time.Time
+	err = store.Pool().QueryRow(ctx, `SELECT released_at FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2`, owner.ID, reading.SnapshotID).Scan(&releasedAt)
+	require.NoError(t, err)
+	assert.NotNil(t, releasedAt)
+	italian, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "it", "", false, 0, 20)
+	require.NoError(t, err)
+	assert.Len(t, italian.Items, 1, "corrected Book was not placed in its new language collection")
+	german, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
+	require.NoError(t, err)
+	assert.Empty(t, german.Items, "corrected Book remained in its old language collection")
+	deleted := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, deleted.Code)
+	_, err = store.GetOpdsConnection(ctx, owner.ID, connection.ID)
+	require.ErrorIs(t, err, persistence.ErrNotFound)
+	disposition, err = store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "connection deletion erased learner disposition")
+	var retainedCompletions, retainedAnalysis int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedCompletions)
+	require.NoError(t, err)
+	assert.Equal(t, 1, retainedCompletions, "connection deletion erased reading history")
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedAnalysis)
+	require.NoError(t, err)
+	assert.Equal(t, 1, retainedAnalysis, "connection deletion erased analysis provenance")
+	sources, err := store.ListSourceMaterials(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, sources, 1, "connection deletion erased acquired provenance")
+	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, sources[0].Source.ID)
+	require.NoError(t, err)
+	assert.Len(t, preparations, 1, "connection deletion erased local deck state")
+}
+
+func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "needs-language-actionable-integration-secret")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "needs-language-owner", "owner-password", false)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Awaiting a language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	require.NoError(t, err)
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, owner.Username, "owner-password")
+	page := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
+	assert.Equal(t, http.StatusOK, page.Code)
+	assert.Contains(t, page.Body.String(), "Awaiting a language")
+	assert.Contains(t, page.Body.String(), "Fix the language in the catalog, then re-sync")
+	assert.Contains(t, page.Body.String(), `href="/catalogs"`)
+
+	unknown, err := store.ListMyBooksBrowse(ctx, owner.ID, "", domain.LanguageUnknown, "", false, 0, 20)
+	require.NoError(t, err)
+	assert.Len(t, unknown.Items, 1)
+	assert.Equal(t, book.ID, unknown.Items[0].Book.ID)
+	for _, language := range []string{"de", "it"} {
+		books, browseErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", false, 0, 20)
+		require.NoError(t, browseErr)
+		assert.Empty(t, books.Items, "needs-language Book appeared in the chosen %s collection", language)
+	}
+	studyLanguages, err := store.ListStudyLanguages(ctx, owner.ID)
+	require.NoError(t, err)
+	assert.Empty(t, studyLanguages, "needs-language Book produced a misleading study-language scope")
 }
 
 func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
