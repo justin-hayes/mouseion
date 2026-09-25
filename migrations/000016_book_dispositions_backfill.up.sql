@@ -3,6 +3,8 @@
 -- The migration runner executes this statement transactionally; ON CONFLICT
 -- makes a separately retried application preserve any disposition already
 -- written by an earlier attempt or by a learner.
+-- Ownership is with the release operator; recovery is to retry this migration
+-- after a failed transaction, not to run a partial ad-hoc backfill.
 INSERT INTO public.book_dispositions (owner_id, book_id, disposition)
 SELECT b.owner_id,
        b.id,
@@ -12,8 +14,8 @@ SELECT b.owner_id,
                FROM public.primary_goals AS goal
                WHERE goal.owner_id = b.owner_id
                  AND goal.book_id = b.id
-           ) THEN 'to_read'
-           WHEN EXISTS (
+           )
+           OR EXISTS (
                SELECT 1
                FROM public.reading_journey_membership AS journey
                WHERE journey.owner_id = b.owner_id

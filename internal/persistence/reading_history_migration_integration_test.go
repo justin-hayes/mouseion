@@ -50,7 +50,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	moveApplicationMigrations(t, databaseURL, 2)
 	forceApplicationMigration(t, databaseURL, 4)
 	moveApplicationMigrations(t, databaseURL, 1)
-	moveApplicationMigrations(t, databaseURL, 6)
+	moveApplicationMigrations(t, databaseURL, 5)
 	var historyCount int
 	var migratedAt time.Time
 	err = pool.QueryRow(ctx, `SELECT count(*), max(completed_at) FROM reading_history WHERE owner_id=$1`, owner.ID).Scan(&historyCount, &migratedAt)
@@ -59,7 +59,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	assert.True(t, completedAt.Equal(migratedAt), "completion timestamp changed: got %s want %s", migratedAt, completedAt)
 	// The historical assertions above stop at version 10. Restore the current
 	// schema before exercising the current persistence methods below.
-	moveApplicationMigrations(t, databaseURL, 5)
+	moveApplicationMigrations(t, databaseURL, 6)
 	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal survived backfill")
