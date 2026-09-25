@@ -610,6 +610,30 @@ progress {
   box-shadow: none;
 }
 
+.reading-chooser-list {
+  display: grid;
+  gap: var(--mouseion-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reading-chooser-book .resource-card {
+  padding: var(--mouseion-space-4);
+}
+
+.reading-chooser-book h3 {
+  margin-bottom: var(--mouseion-space-1);
+}
+
+.reading-chooser-book details {
+  margin-block: var(--mouseion-space-3);
+}
+
+.reading-chooser-book form {
+  margin-bottom: 0;
+}
+
 .settings-language-list {
   display: grid;
   gap: var(--mouseion-space-4);

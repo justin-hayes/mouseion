@@ -74,6 +74,9 @@ func (h *Handler) respondGoal(w http.ResponseWriter, r *http.Request, message, p
 		query.Set("error", pageError)
 	}
 	location := "/journey"
+	if r.FormValue("return_to") == "/reading" {
+		location = "/reading"
+	}
 	if encoded := query.Encode(); encoded != "" {
 		location += "?" + encoded
 	}
