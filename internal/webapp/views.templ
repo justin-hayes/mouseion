@@ -270,14 +270,6 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 						<p class="metadata">Choose a language in the catalog before moving this Book to To Read.</p>
 					}
 				}
-				if (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.JourneyGoal {
-					@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
-						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
-							<button type="submit" class="outline secondary">Confirm set aside</button>
-						</form>
-					}
-				}
 			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL(journeyAddURL(book.Book.ID)) }>
 					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
@@ -292,6 +284,14 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<button type="submit" class="outline">Refresh metadata</button>
 						</form>
+					}
+					if book.Disposition != "" && (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.JourneyGoal {
+						@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
+							<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
+								<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
+								<button type="submit" class="outline secondary">Confirm set aside</button>
+							</form>
+						}
 					}
 					@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
 						<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>

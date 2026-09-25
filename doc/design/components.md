@@ -109,9 +109,9 @@ with it?
 Use `BookCoverMedia`, then full title and available author, a restrained **In
 Reading Journey** marker when applicable, one labeled **Add to Reading Journey**
 or **View in Reading Journey** action, and a labeled native **More actions**
-disclosure. The disclosure owns eligible metadata refresh and confirmed My Books
-removal. Do not add analysis, acquired-content, evidence, Primary Goal, or
-next-action status to this pattern.
+disclosure. The disclosure owns workflow disposition changes, eligible metadata
+refresh, and confirmed My Books removal. Do not add analysis, acquired-content,
+evidence, Primary Goal, or next-action status to this pattern.
 
 Repeated items form a native unordered list laid out with CSS Grid, not an ARIA
 grid. Compact layouts retain two ordinary columns where the viewport permits,
