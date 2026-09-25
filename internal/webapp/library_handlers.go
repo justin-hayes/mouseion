@@ -163,12 +163,21 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
+	owner := user(r).ID
+	bookID := r.PathValue("id")
+	if _, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		fail(w, err)
+		return
+	}
 	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
 	if err != nil {
 		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
 		return
 	}
-	action, err := h.addBookToReadingJourney(r.Context(), user(r).ID, "", r.PathValue("id"), expectedRevision)
+	action, err := h.addBookToReadingJourney(r.Context(), owner, "", bookID, expectedRevision)
 	if err != nil {
 		fail(w, err)
 		return
@@ -209,58 +218,23 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	language := strings.TrimSpace(detail.Book.LanguageTag)
-	journey, err := h.services.Store.Journey.GetReadingJourney(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
+	dispositions, ok := h.services.Store.Books.(persistence.BookDispositionStore)
+	if !ok {
+		fail(w, errors.New("book dispositions are unavailable"))
 		return
 	}
-	if expectedRevision != journey.Revision {
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
-		return
-	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if goal.IsActive() && goal.BookID == detail.Book.ID {
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("The current Primary Goal cannot be set aside. Finish or clear it first."))
-		return
-	}
-	journeyMember := false
-	for _, entry := range journey.Entries {
-		if entry.BookID == detail.Book.ID {
-			journeyMember = true
-			break
-		}
-	}
-	if journeyMember {
-		if _, err = h.services.Store.Journey.RemoveFromReadingJourney(r.Context(), owner, language, detail.Book.ID, expectedRevision); err != nil {
-			if errors.Is(err, persistence.ErrJourneyStale) {
-				redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
-				return
-			}
+	if err = dispositions.SetBookAsideAtJourneyRevision(r.Context(), owner, language, detail.Book.ID, expectedRevision); err != nil {
+		switch {
+		case errors.Is(err, persistence.ErrJourneyStale):
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
+		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("The current Primary Goal cannot be set aside. Finish or clear it first."))
+		case errors.Is(err, persistence.ErrNotFound):
+			http.NotFound(w, r)
+		default:
 			fail(w, err)
-			return
 		}
-	} else {
-		dispositions, ok := h.services.Store.Books.(persistence.BookDispositionStore)
-		if !ok {
-			fail(w, errors.New("book dispositions are unavailable"))
-			return
-		}
-		if err = dispositions.SetBookAsideAtJourneyRevision(r.Context(), owner, language, detail.Book.ID, expectedRevision); err != nil {
-			if errors.Is(err, persistence.ErrJourneyStale) {
-				redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
-				return
-			}
-			if errors.Is(err, persistence.ErrNotFound) {
-				http.NotFound(w, r)
-				return
-			}
-			fail(w, err)
-			return
-		}
+		return
 	}
 	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
 }

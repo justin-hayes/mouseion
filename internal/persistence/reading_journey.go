@@ -237,6 +237,13 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return 0, err
 	}
+	membershipState, err := sqlcgen.New(tx).GetBookMembershipForUpdate(ctx, sqlcgen.GetBookMembershipForUpdateParams{Owner: owner, Book: bookID})
+	if errors.Is(err, pgx.ErrNoRows) || membershipState != "active" {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
 	book, err := sqlcgen.New(tx).GetBookLanguageState(ctx, sqlcgen.GetBookLanguageStateParams{Owner: owner, Book: bookID})
 	if err != nil {
 		return 0, err

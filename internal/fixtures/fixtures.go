@@ -918,16 +918,32 @@ func (s *Store) SetBookAsideAtJourneyRevision(_ context.Context, owner, language
 	if journey.Revision != expectedRevision {
 		return persistence.ErrJourneyStale
 	}
-	for _, entry := range journey.Entries {
-		if entry.BookID == bookID {
-			return persistence.ErrJourneyStale
-		}
+	goalKey := fixtureGoalKey(owner, language)
+	if goal := s.primaryGoals[goalKey]; goal.BookID == bookID {
+		return persistence.ErrBookIsPrimaryGoal
 	}
-	if goal := s.primaryGoals[fixtureGoalKey(owner, language)]; goal.BookID == bookID {
-		return persistence.ErrJourneyStale
+	member := -1
+	for i, entry := range journey.Entries {
+		if entry.BookID == bookID {
+			member = i
+			break
+		}
 	}
 	if !s.fixtureBookExists(owner, bookID) {
 		return errNotFound
+	}
+	if member >= 0 {
+		journey.Entries = append(journey.Entries[:member], journey.Entries[member+1:]...)
+		for i := range journey.Entries {
+			journey.Entries[i].Position = i + 1
+		}
+		journey.Revision++
+		journey.UpdatedAt = time.Now()
+		if len(journey.Entries) == 0 && !s.fixtureLanguageDerived(owner, language) {
+			delete(s.readingJourneys, fixtureJourneyKey(owner, language))
+		} else {
+			s.readingJourneys[fixtureJourneyKey(owner, language)] = journey
+		}
 	}
 	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
 	return nil
@@ -1054,6 +1070,9 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, language, bookID s
 		return 0, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
+	if !s.fixtureMyBookActive(owner, bookID) {
+		return 0, errNotFound
+	}
 	if !s.fixtureBookHasChosenLanguage(owner, bookID) || s.fixtureBookLanguage(owner, bookID) != language {
 		return 0, persistence.ErrBookLanguageRequired
 	}
@@ -1070,6 +1089,27 @@ func (s *Store) AddToReadingJourney(_ context.Context, owner, language, bookID s
 	journey.UpdatedAt = time.Now()
 	s.readingJourneys[key] = journey
 	return journey.Revision, nil
+}
+
+func (s *Store) fixtureMyBookActive(owner, bookID string) bool {
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID == owner && book.Book.ID == bookID {
+			return true
+		}
+	}
+	for _, source := range s.books {
+		if source.Source.OwnerID != owner {
+			continue
+		}
+		resolved := source.BookID
+		if resolved == "" {
+			resolved = source.Source.ID
+		}
+		if resolved == bookID {
+			return true
+		}
+	}
+	return false
 }
 func (s *Store) RemoveFromReadingJourney(_ context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
 	s.mu.Lock()

@@ -63,6 +63,14 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 	}
 }
 
+func TestNeedsLanguageClearSearchResetsQueryAndPreservesDisposition(t *testing.T) {
+	state := MyBooksBrowseState{Enabled: true, Query: "missing", NeedsLanguage: true, Disposition: domain.BookDispositionInbox, TextNoMatch: true}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `href="/library?disposition=inbox&amp;needs-language"`)
+}
+
 type browseRecordingStore struct {
 	*fixtures.Store
 	result      persistence.MyBooksBrowseResult
@@ -231,6 +239,13 @@ func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	analysisService := &journeyIntentAnalysis{}
 	requireHandler(t, h).services.Analysis = analysisService
+	currentGoal := goalRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"1"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, currentGoal.Code)
+	assert.Contains(t, currentGoal.Header().Get("Location"), "cannot+be+set+aside")
+	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, fixtures.BookID))
+
 	setAside := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {"1"},
 	}, cookies)
@@ -277,6 +292,13 @@ func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition, "stale write changed disposition")
+}
+
+func mustFixtureBookDisposition(t *testing.T, store *fixtures.Store, owner, bookID string) domain.BookDisposition {
+	t.Helper()
+	disposition, err := store.GetBookDisposition(context.Background(), owner, bookID)
+	require.NoError(t, err)
+	return disposition
 }
 
 func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {

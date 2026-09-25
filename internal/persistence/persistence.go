@@ -36,6 +36,7 @@ var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrJourneyStale = errors.New("persistence: reading journey state is stale")
+var ErrBookIsPrimaryGoal = errors.New("persistence: current Primary Goal cannot be set aside")
 var ErrGoalExists = errors.New("persistence: primary goal already exists")
 
 var ErrGoalStale = errors.New("persistence: primary goal state is stale")

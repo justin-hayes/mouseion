@@ -340,7 +340,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
 				if browse.TextNoMatch && browse.NeedsLanguage {
-					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksResultsURL(browse, 1)) } hx-get={ myBooksResultsURL(browse, 1) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, true, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, true, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.TextNoMatch {
 					No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.NeedsLanguage {

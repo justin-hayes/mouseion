@@ -301,6 +301,25 @@ func (q *Queries) GetBookCatalogEntryAliasForConnection(ctx context.Context, arg
 	return i, err
 }
 
+const getBookMembershipForUpdate = `-- name: GetBookMembershipForUpdate :one
+SELECT state
+FROM book_membership
+WHERE owner_id = $1 AND book_id = $2
+FOR UPDATE
+`
+
+type GetBookMembershipForUpdateParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) GetBookMembershipForUpdate(ctx context.Context, arg GetBookMembershipForUpdateParams) (string, error) {
+	row := q.db.QueryRow(ctx, getBookMembershipForUpdate, arg.Owner, arg.Book)
+	var state string
+	err := row.Scan(&state)
+	return state, err
+}
+
 const getBookMetadata = `-- name: GetBookMetadata :one
 SELECT title, author, language_state, COALESCE(language_tag, '') AS language_tag
 FROM books WHERE owner_id = $1 AND id = $2

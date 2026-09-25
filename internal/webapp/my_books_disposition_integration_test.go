@@ -75,4 +75,13 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	actualDisposition, err = store.GetBookDisposition(ctx, alice.ID, otherInbox.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionSetAside, actualDisposition)
+	removedBook := create("Removed from My Books")
+	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, removedBook.ID))
+	staleMove := perform(t, h, http.MethodPost, "/library/books/"+removedBook.ID+"/to-read", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"2"},
+	}, cookies)
+	assert.Equal(t, http.StatusNotFound, staleMove.Code, "a stale Inbox form must not restore removed My Books membership")
+	actualDisposition, err = store.GetBookDisposition(ctx, alice.ID, removedBook.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, actualDisposition)
 }
