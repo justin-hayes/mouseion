@@ -283,7 +283,8 @@ WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 -- name: GetReadingCompletion :one
 SELECT owner_id::text, language, book_id::text, completed_at,
        COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
-       snapshot_vocabulary_count, eligible_vocabulary_count,
+       completion_source,
+        snapshot_vocabulary_count, eligible_vocabulary_count,
        graduated_vocabulary_count, already_known_vocabulary_count
 FROM reading_history
 WHERE owner_id = sqlc.arg('owner')
@@ -314,7 +315,42 @@ ON CONFLICT DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
           snapshot_vocabulary_count, eligible_vocabulary_count,
-          graduated_vocabulary_count, already_known_vocabulary_count;
+           graduated_vocabulary_count, already_known_vocabulary_count, completion_source;
+
+-- name: GetPreviouslyReadImport :one
+SELECT owner_id::text, language, book_id::text, completed_at,
+       COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
+       snapshot_vocabulary_count, eligible_vocabulary_count,
+       graduated_vocabulary_count, already_known_vocabulary_count, completion_source
+FROM reading_history
+WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
+  AND completion_source = 'previously_read_import'
+ORDER BY completed_at DESC, completion_id DESC
+LIMIT 1;
+
+-- name: InsertPreviouslyReadImport :one
+INSERT INTO reading_history(
+    owner_id, language, book_id, completed_at, goal_snapshot_id,
+    snapshot_vocabulary_count, eligible_vocabulary_count,
+    graduated_vocabulary_count, already_known_vocabulary_count, completion_source
+)
+SELECT sqlc.arg('owner'), b.language_tag, b.id, sqlc.arg('completed_at'), NULL,
+       0, 0, 0, 0, 'previously_read_import'
+FROM books b
+JOIN book_membership m ON m.owner_id = b.owner_id AND m.book_id = b.id AND m.state = 'active'
+WHERE b.owner_id = sqlc.arg('owner') AND b.id = sqlc.arg('book')
+  AND b.language_state = 'chosen'
+  AND NOT EXISTS (
+      SELECT 1 FROM primary_goals g WHERE g.owner_id = b.owner_id AND g.book_id = b.id
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM reading_history h WHERE h.owner_id = b.owner_id AND h.book_id = b.id
+  )
+ON CONFLICT DO NOTHING
+RETURNING owner_id::text, language, book_id::text, completed_at,
+          COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
+          snapshot_vocabulary_count, eligible_vocabulary_count,
+          graduated_vocabulary_count, already_known_vocabulary_count, completion_source;
 
 -- name: CountPrimaryGoalSnapshotVocabulary :one
 SELECT count(*)::int AS snapshot_count,

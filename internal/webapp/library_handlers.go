@@ -23,8 +23,9 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
 		return
 	}
-	query, page, needsLanguage, disposition := parseMyBooksBrowseRequestWithDisposition(r.URL)
+	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(r.URL)
 	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
+		// #nosec G710 -- myBooksFilteredURL constructs only a local /library URL and escapes query values.
 		http.Redirect(w, r, myBooksFilteredURL(query, page, needsLanguage, disposition), http.StatusSeeOther)
 		return
 	}
@@ -36,9 +37,9 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var browse MyBooksBrowseState
 	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksBrowse(context.Context, string, string, string, string, int, int) (persistence.MyBooksBrowseResult, error)
+		ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
 	}); ok {
-		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, string(disposition), myBooksPageOffset(page), myBooksPageSize)
+		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, string(disposition), history, myBooksPageOffset(page), myBooksPageSize)
 		err = readErr
 		books = result.Items
 		if activeLanguage == "" && !needsLanguage {
@@ -46,9 +47,10 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 			result.Total = 0
 		}
 		browse = myBooksBrowseState(query, page, needsLanguage, disposition, activeLanguage, activeLanguageLabel, result)
+		browse.History = history
 		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
 			lastPage := myBooksPageCount(result.Total)
-			http.Redirect(w, r, myBooksFilteredURL(query, lastPage, needsLanguage, disposition), http.StatusSeeOther)
+			http.Redirect(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history), http.StatusSeeOther)
 			return
 		}
 		if err == nil && page > 1 && result.Total == 0 {
@@ -59,7 +61,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 					lastPage = 1
 				}
 			}
-			http.Redirect(w, r, myBooksFilteredURL(query, lastPage, needsLanguage, disposition), http.StatusSeeOther)
+			http.Redirect(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history), http.StatusSeeOther)
 			return
 		}
 	} else if reader, ok := h.services.Store.Books.(interface {
@@ -105,6 +107,36 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
 }
 
+func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner, bookID := user(r).ID, r.PathValue("id")
+	if _, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		fail(w, err)
+		return
+	}
+	importer, ok := h.services.Store.Books.(interface {
+		ImportPreviouslyRead(context.Context, string, string) (domain.ReadingCompletion, error)
+	})
+	if !ok {
+		fail(w, errors.New("reading history import is unavailable"))
+		return
+	}
+	if _, err := importer.ImportPreviouslyRead(r.Context(), owner, bookID); err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/library?history=read&message="+url.QueryEscape("Previously read history recorded. Vocabulary was not changed."))
+}
+
 func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result persistence.MyBooksBrowseResult) MyBooksBrowseState {
 	browse := MyBooksBrowseState{
 		Enabled:            true,
@@ -115,6 +147,7 @@ func myBooksBrowseState(query string, page int, needsLanguage bool, disposition 
 		NeedsLanguage:      needsLanguage,
 		NeedsLanguageCount: needsLanguageCount(result.Counts),
 		AllCount:           result.AllCount,
+		ReadCount:          result.ReadCount,
 		ScopeTotal:         result.ScopeTotal,
 		Total:              result.Total,
 		Page:               page,

@@ -82,7 +82,7 @@ type browseRecordingStore struct {
 	limit       int
 }
 
-func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	s.owner, s.query, s.language, s.disposition, s.offset, s.limit = owner, query, language, disposition, offset, limit
 	return s.result, nil
 }

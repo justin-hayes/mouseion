@@ -34,8 +34,18 @@ ORDER BY e.book_title, e.book_id;
 
 -- name: BrowseMyBooksEvidence :many
 SELECT e.*
+     , COALESCE(history.completion_count, 0)::bigint AS completion_count
+     , history.latest_completed_at
+     , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN LATERAL (
+    SELECT count(*) AS completion_count,
+           COALESCE((SELECT h.completed_at FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), 'epoch'::timestamptz) AS latest_completed_at,
+           (SELECT h.completion_source FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1) AS latest_completion_source
+    FROM reading_history h
+    WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+) history ON true
 WHERE e.book_owner_id = sqlc.arg('owner')
   AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
   AND (
@@ -44,6 +54,9 @@ WHERE e.book_owner_id = sqlc.arg('owner')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
   )
   AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'))
+  AND (NOT sqlc.arg('history')::boolean OR EXISTS (
+    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+  ))
 ORDER BY lower(e.book_title), e.book_title, e.book_id
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
@@ -57,7 +70,10 @@ WHERE e.book_owner_id = sqlc.arg('owner')
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
   )
-  AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'));
+  AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'))
+  AND (NOT sqlc.arg('history')::boolean OR EXISTS (
+    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+  ));
 
 -- name: CountMyBooksScope :one
 SELECT count(*) FROM my_books_evidence e
@@ -91,6 +107,18 @@ WHERE e.book_owner_id = sqlc.arg('owner')
     OR (e.book_language_state = 'chosen' AND e.book_language_tag = sqlc.arg('language'))
   )
 GROUP BY d.disposition;
+
+-- name: CountMyBooksWithHistory :one
+SELECT count(*) FROM my_books_evidence e
+WHERE e.book_owner_id = sqlc.arg('owner')
+  AND (
+    sqlc.arg('language')::text = ''
+    OR (sqlc.arg('language')::text = 'unknown' AND e.book_language_state = 'unknown')
+    OR (e.book_language_state = 'chosen' AND e.book_language_tag = sqlc.arg('language'))
+  )
+  AND EXISTS (
+    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+  );
 
 -- name: GetMyBookDetail :one
 SELECT e.*

@@ -35,6 +35,7 @@ type MyBooksBrowseResult struct {
 	Counts            []LanguageCount
 	DispositionCounts []DispositionCount
 	AllCount          int
+	ReadCount         int
 }
 
 func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain.Book, error) {
@@ -103,7 +104,7 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 // "unknown" for the unknown bucket, or otherwise a canonical chosen tag.
 // disposition is empty for all workflow buckets or one validated disposition.
 // Items use deterministic title ordering; offset and limit select the page.
-func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, offset, limit int) (MyBooksBrowseResult, error) {
+func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (MyBooksBrowseResult, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
 	disposition = strings.TrimSpace(disposition)
@@ -133,7 +134,7 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 
 	q := s.queries()
 	rows, err := q.BrowseMyBooksEvidence(ctx, sqlcgen.BrowseMyBooksEvidenceParams{
-		Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition,
+		Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition, History: history,
 		Offset: sqlOffset, Limit: sqlLimit,
 	})
 	if err != nil {
@@ -142,7 +143,7 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 
 	var result MyBooksBrowseResult
 	for _, row := range rows {
-		result.Items = append(result.Items, myBookFromEvidence(row))
+		result.Items = append(result.Items, myBookFromBrowseRow(row))
 	}
 	dispositions, err := s.bookDispositionMap(ctx, owner)
 	if err != nil {
@@ -151,7 +152,7 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	for i := range result.Items {
 		result.Items[i].Disposition = dispositions[result.Items[i].Book.ID]
 	}
-	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition})
+	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition, History: history})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
@@ -174,6 +175,14 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	result.AllCount, err = checked.IntFromInt64(allCount)
 	if err != nil {
 		return MyBooksBrowseResult{}, fmt.Errorf("invalid total book count: %w", err)
+	}
+	readCount, err := q.CountMyBooksWithHistory(ctx, sqlcgen.CountMyBooksWithHistoryParams{Owner: owner, Language: language})
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	result.ReadCount, err = checked.IntFromInt64(readCount)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid read history count: %w", err)
 	}
 	counts, err := q.CountMyBooksByLanguage(ctx, owner)
 	if err != nil {

@@ -52,10 +52,17 @@ const (
 
 type BookDisposition string
 
+type ReadingCompletionSource string
+
 const (
 	BookDispositionInbox    BookDisposition = "inbox"
 	BookDispositionToRead   BookDisposition = "to_read"
 	BookDispositionSetAside BookDisposition = "set_aside"
+)
+
+const (
+	ReadingCompletionPrimaryGoal    ReadingCompletionSource = "primary_goal"
+	ReadingCompletionPreviouslyRead ReadingCompletionSource = "previously_read_import"
 )
 
 type Book struct {
@@ -104,13 +111,16 @@ type BookCoverRetrieval struct {
 // for metadata-only membership; when present it contains only the current
 // owner-scoped acquired source and its derived analysis state.
 type MyBook struct {
-	Book            Book
-	Cover           BookCover
-	Acquired        *SourceMaterialSummary
-	Disposition     BookDisposition
-	JourneyMember   bool
-	JourneyGoal     bool
-	JourneyRevision int64
+	Book                   Book
+	Cover                  BookCover
+	Acquired               *SourceMaterialSummary
+	Disposition            BookDisposition
+	JourneyMember          bool
+	JourneyGoal            bool
+	JourneyRevision        int64
+	CompletionCount        int
+	LatestCompletionAt     *time.Time
+	LatestCompletionSource ReadingCompletionSource
 }
 
 // EvidenceState classifies the acquired evidence shown in My Books.

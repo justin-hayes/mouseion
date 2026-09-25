@@ -20,7 +20,7 @@ type Querier interface {
 	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error
 	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
 	BookExists(ctx context.Context, arg BookExistsParams) (bool, error)
-	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]MyBooksEvidence, error)
+	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error)
 	BumpReadingJourneyRevision(ctx context.Context, arg BumpReadingJourneyRevisionParams) (int64, error)
 	CancelDeckPreparation(ctx context.Context, arg CancelDeckPreparationParams) (DeckPreparation, error)
 	CancelPreparedDeckBatchChunks(ctx context.Context, arg CancelPreparedDeckBatchChunksParams) error
@@ -45,6 +45,7 @@ type Querier interface {
 	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
+	CountMyBooksWithHistory(ctx context.Context, arg CountMyBooksWithHistoryParams) (int64, error)
 	CountPendingBookCoverCandidates(ctx context.Context, arg CountPendingBookCoverCandidatesParams) (int, error)
 	CountPreparedDeckRunOutcomeStates(ctx context.Context, arg CountPreparedDeckRunOutcomeStatesParams) (CountPreparedDeckRunOutcomeStatesRow, error)
 	CountPrimaryGoalSnapshotVocabulary(ctx context.Context, arg CountPrimaryGoalSnapshotVocabularyParams) (CountPrimaryGoalSnapshotVocabularyRow, error)
@@ -151,6 +152,7 @@ type Querier interface {
 	GetPreparedDeckTranslationCoverage(ctx context.Context, arg GetPreparedDeckTranslationCoverageParams) (GetPreparedDeckTranslationCoverageRow, error)
 	GetPreparedDeckTranslationOutcome(ctx context.Context, arg GetPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error)
+	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
 	GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error)
 	GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBookIDParams) (string, error)
 	GetPrimaryGoalCandidateIdentity(ctx context.Context, arg GetPrimaryGoalCandidateIdentityParams) (GetPrimaryGoalCandidateIdentityRow, error)
@@ -193,6 +195,7 @@ type Querier interface {
 	InsertPreparedDeckManifestItem(ctx context.Context, arg InsertPreparedDeckManifestItemParams) error
 	InsertPreparedDeckRun(ctx context.Context, arg InsertPreparedDeckRunParams) error
 	InsertPreparedDeckTranslationOutcome(ctx context.Context, arg InsertPreparedDeckTranslationOutcomeParams) error
+	InsertPreviouslyReadImport(ctx context.Context, arg InsertPreviouslyReadImportParams) (InsertPreviouslyReadImportRow, error)
 	InsertPrimaryGoal(ctx context.Context, arg InsertPrimaryGoalParams) (InsertPrimaryGoalRow, error)
 	InsertPrimaryGoalSnapshotVocabulary(ctx context.Context, arg InsertPrimaryGoalSnapshotVocabularyParams) error
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error

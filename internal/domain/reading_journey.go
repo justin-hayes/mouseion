@@ -62,6 +62,7 @@ type ReadingCompletion struct {
 	EligibleVocabularyCount     int
 	GraduatedVocabularyCount    int
 	AlreadyKnownVocabularyCount int
+	Source                      ReadingCompletionSource
 }
 
 // Validate checks each entry for non-empty identity and position >= 1.

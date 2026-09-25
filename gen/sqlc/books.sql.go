@@ -12,8 +12,18 @@ import (
 
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
+     , COALESCE(history.completion_count, 0)::bigint AS completion_count
+     , history.latest_completed_at
+     , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN LATERAL (
+    SELECT count(*) AS completion_count,
+           COALESCE((SELECT h.completed_at FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), 'epoch'::timestamptz) AS latest_completed_at,
+           (SELECT h.completion_source FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1) AS latest_completion_source
+    FROM reading_history h
+    WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+) history ON true
 WHERE e.book_owner_id = $1
   AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || $2 || '%' ESCAPE '\')
   AND (
@@ -22,8 +32,11 @@ WHERE e.book_owner_id = $1
     OR (book_language_state = 'chosen' AND book_language_tag = $3)
   )
   AND ($4::text = '' OR d.disposition = $4)
+  AND (NOT $5::boolean OR EXISTS (
+    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+  ))
 ORDER BY lower(e.book_title), e.book_title, e.book_id
-LIMIT $6 OFFSET $5
+LIMIT $7 OFFSET $6
 `
 
 type BrowseMyBooksEvidenceParams struct {
@@ -31,16 +44,54 @@ type BrowseMyBooksEvidenceParams struct {
 	Query       string
 	Language    string
 	Disposition string
+	History     bool
 	Offset      int32
 	Limit       int32
 }
 
-func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]MyBooksEvidence, error) {
+type BrowseMyBooksEvidenceRow struct {
+	BookID                  string
+	BookOwnerID             string
+	BookTitle               string
+	BookMetadataProvenance  string
+	BookLanguageState       string
+	BookLanguageTag         string
+	BookCreatedAt           time.Time
+	BookUpdatedAt           time.Time
+	SourceID                string
+	SourceOwnerID           string
+	SourceLanguage          string
+	SourceIdentifier        string
+	SourceTitle             string
+	SourceMediaType         string
+	SourceContentHash       string
+	SourceContentDigest     string
+	SourceContentRevisionID string
+	SourceContentSnapshotID string
+	SourceDigestVersion     int
+	SourceCreatedAt         *time.Time
+	Acquired                bool
+	AnalysisStatus          string
+	AnalysisState           string
+	AnalysisRunID           string
+	CorpusID                string
+	AnalysisJobID           int64
+	BookAuthor              string
+	BookCoverState          string
+	BookCoverWidth          int
+	BookCoverHeight         int
+	CompletionCount         int64
+	LatestCompletedAt       interface{}
+	LatestCompletionSource  string
+}
+
+func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error) {
 	rows, err := q.db.Query(ctx, browseMyBooksEvidence,
 		arg.Owner,
 		arg.Query,
 		arg.Language,
 		arg.Disposition,
+		arg.History,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -48,9 +99,9 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 		return nil, err
 	}
 	defer rows.Close()
-	items := []MyBooksEvidence{}
+	items := []BrowseMyBooksEvidenceRow{}
 	for rows.Next() {
-		var i MyBooksEvidence
+		var i BrowseMyBooksEvidenceRow
 		if err := rows.Scan(
 			&i.BookID,
 			&i.BookOwnerID,
@@ -82,6 +133,9 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.BookCoverState,
 			&i.BookCoverWidth,
 			&i.BookCoverHeight,
+			&i.CompletionCount,
+			&i.LatestCompletedAt,
+			&i.LatestCompletionSource,
 		); err != nil {
 			return nil, err
 		}
@@ -192,6 +246,9 @@ WHERE e.book_owner_id = $1
     OR (book_language_state = 'chosen' AND book_language_tag = $3)
   )
   AND ($4::text = '' OR d.disposition = $4)
+  AND (NOT $5::boolean OR EXISTS (
+    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+  ))
 `
 
 type CountMyBooksFilteredParams struct {
@@ -199,6 +256,7 @@ type CountMyBooksFilteredParams struct {
 	Query       string
 	Language    string
 	Disposition string
+	History     bool
 }
 
 func (q *Queries) CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error) {
@@ -207,6 +265,7 @@ func (q *Queries) CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilt
 		arg.Query,
 		arg.Language,
 		arg.Disposition,
+		arg.History,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -231,6 +290,31 @@ type CountMyBooksScopeParams struct {
 
 func (q *Queries) CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countMyBooksScope, arg.Owner, arg.Language)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countMyBooksWithHistory = `-- name: CountMyBooksWithHistory :one
+SELECT count(*) FROM my_books_evidence e
+WHERE e.book_owner_id = $1
+  AND (
+    $2::text = ''
+    OR ($2::text = 'unknown' AND e.book_language_state = 'unknown')
+    OR (e.book_language_state = 'chosen' AND e.book_language_tag = $2)
+  )
+  AND EXISTS (
+    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
+  )
+`
+
+type CountMyBooksWithHistoryParams struct {
+	Owner    string
+	Language string
+}
+
+func (q *Queries) CountMyBooksWithHistory(ctx context.Context, arg CountMyBooksWithHistoryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countMyBooksWithHistory, arg.Owner, arg.Language)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
