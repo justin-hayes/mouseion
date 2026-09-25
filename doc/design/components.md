@@ -203,9 +203,7 @@ At the compact breakpoint:
   surrounding workflow requires it.
 
 Tables retain semantic table markup. Their labeled region owns horizontal
-overflow; the page must not scroll horizontally. Stat groups use auto-fitting
-columns and expand at the wide-data breakpoint without increasing reading-line
-length.
+overflow; the page must not scroll horizontally.
 
 ## Pattern contracts
 
