@@ -145,6 +145,8 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 && h.services.PreparedDeck != nil {
 		if _, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID); prepareErr != nil {
 			log.Printf("current reading deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
+			redirect(w, r, "/reading?error="+url.QueryEscape("The book is current and its snapshot is frozen, but local deck preparation could not be queued. The reading is unchanged; open its deck task to retry."))
+			return
 		}
 	}
 	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
