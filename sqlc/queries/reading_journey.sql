@@ -27,14 +27,15 @@ FROM reading_journeys
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
 FOR UPDATE;
 
--- name: DeleteNonChosenJourneyMembers :execrows
+-- name: DeleteNonChosenJourneyMembers :many
 DELETE FROM reading_journey_membership m
 USING books b
 WHERE m.owner_id = sqlc.arg('owner')
   AND m.language = sqlc.arg('language')::text
   AND m.book_id = b.id
   AND b.owner_id = sqlc.arg('owner')
-  AND (b.language_state <> 'chosen' OR b.language_tag <> sqlc.arg('language')::text);
+  AND (b.language_state <> 'chosen' OR b.language_tag <> sqlc.arg('language')::text)
+RETURNING m.book_id::text AS book_id;
 
 -- name: ListReadingJourneyMembersForUpdate :many
 SELECT m.book_id::text AS book_id, m.position, m.created_at

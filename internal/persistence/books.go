@@ -500,7 +500,16 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	}
 	aliasBook, err := q.GetCatalogueAliasBookForUpdate(ctx, sqlcgen.GetCatalogueAliasBookForUpdateParams{OwnerID: owner, ConnectionID: uuidArg(connectionID), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
 	if errors.Is(err, pgx.ErrNoRows) {
-		aliasBook = ""
+		identityBook, identityErr := q.GetCatalogueEntryIdentityBookForUpdate(ctx, sqlcgen.GetCatalogueEntryIdentityBookForUpdateParams{
+			OwnerID: owner, AliasType: domain.AliasStrongBibliographic, Namespace: domain.NamespaceCatalogueEntryIdentity, Value: sourceIdentifier,
+		})
+		if errors.Is(identityErr, pgx.ErrNoRows) {
+			aliasBook = ""
+		} else if identityErr != nil {
+			return CatalogueEntryReconcileResult{}, identityErr
+		} else {
+			aliasBook = identityBook
+		}
 	} else if err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
@@ -534,6 +543,11 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	}
 	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
+	}
+	if err = q.InsertCatalogueEntryIdentity(ctx, sqlcgen.InsertCatalogueEntryIdentityParams{
+		OwnerID: owner, BookID: bookID, AliasType: domain.AliasStrongBibliographic, Namespace: domain.NamespaceCatalogueEntryIdentity, Value: sourceIdentifier,
+	}); err != nil {
+		return CatalogueEntryReconcileResult{}, aliasConflictError(err)
 	}
 	if created {
 		if err = q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: bookID}); err != nil {

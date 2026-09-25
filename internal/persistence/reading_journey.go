@@ -75,6 +75,11 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 	if err != nil {
 		return rollback(err)
 	}
+	for _, bookID := range cleanupRows {
+		if err = synchronizeBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionSetAside); err != nil {
+			return rollback(err)
+		}
+	}
 	rows, err := sqlcgen.New(tx).ListReadingJourneyMembersForUpdate(ctx, sqlcgen.ListReadingJourneyMembersForUpdateParams{Owner: owner, Language: language})
 	if err != nil {
 		return rollback(err)
@@ -82,7 +87,7 @@ func (s *PostgresStore) beginReadingJourneyMutation(ctx context.Context, owner, 
 	for _, row := range rows {
 		members = append(members, readingJourneyMembership{bookID: row.BookID, position: row.Position, createdAt: row.CreatedAt})
 	}
-	return tx, revision, members, true, cleanupRows > 0, nil
+	return tx, revision, members, true, len(cleanupRows) > 0, nil
 }
 
 func rewriteReadingJourneyPositions(ctx context.Context, q interface {

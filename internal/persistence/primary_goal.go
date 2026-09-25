@@ -397,6 +397,9 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	if err = removeCompletedGoalFromJourney(ctx, q, owner, language, expectedBookID); err != nil {
 		return ReadingFinishResult{}, err
 	}
+	if err = synchronizeBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionSetAside); err != nil {
+		return ReadingFinishResult{}, err
+	}
 	if err = releasePrimaryGoalSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return ReadingFinishResult{}, err
 	}

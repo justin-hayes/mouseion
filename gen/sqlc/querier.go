@@ -60,7 +60,7 @@ type Querier interface {
 	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
-	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error)
+	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) ([]string, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error
 	DeletePrimaryGoalForBook(ctx context.Context, arg DeletePrimaryGoalForBookParams) error
@@ -109,6 +109,7 @@ type Querier interface {
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
+	GetCatalogueEntryIdentityBookForUpdate(ctx context.Context, arg GetCatalogueEntryIdentityBookForUpdateParams) (string, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
 	// Card export and generated-vocabulary persistence queries.
@@ -181,6 +182,7 @@ type Querier interface {
 	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) (int64, error)
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
+	InsertCatalogueEntryIdentity(ctx context.Context, arg InsertCatalogueEntryIdentityParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
 	InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error
 	InsertInboxBookDisposition(ctx context.Context, arg InsertInboxBookDispositionParams) error

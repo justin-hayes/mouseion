@@ -190,7 +190,7 @@ func (q *Queries) CreatePrimaryGoalSnapshot(ctx context.Context, arg CreatePrima
 	return i, err
 }
 
-const deleteNonChosenJourneyMembers = `-- name: DeleteNonChosenJourneyMembers :execrows
+const deleteNonChosenJourneyMembers = `-- name: DeleteNonChosenJourneyMembers :many
 DELETE FROM reading_journey_membership m
 USING books b
 WHERE m.owner_id = $1
@@ -198,6 +198,7 @@ WHERE m.owner_id = $1
   AND m.book_id = b.id
   AND b.owner_id = $1
   AND (b.language_state <> 'chosen' OR b.language_tag <> $2::text)
+RETURNING m.book_id::text AS book_id
 `
 
 type DeleteNonChosenJourneyMembersParams struct {
@@ -205,12 +206,24 @@ type DeleteNonChosenJourneyMembersParams struct {
 	Language string
 }
 
-func (q *Queries) DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteNonChosenJourneyMembers, arg.Owner, arg.Language)
+func (q *Queries) DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteNonChosenJourneyMembers, arg.Owner, arg.Language)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var book_id string
+		if err := rows.Scan(&book_id); err != nil {
+			return nil, err
+		}
+		items = append(items, book_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deletePrimaryGoal = `-- name: DeletePrimaryGoal :exec
