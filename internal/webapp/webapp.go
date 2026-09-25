@@ -74,6 +74,18 @@ type GoalStore interface {
 	ClearPrimaryGoal(context.Context, string, string, string) error
 }
 
+// CurrentReadingStore is the cohesive lifecycle seam for new reading
+// surfaces. GoalStore remains available to the existing handlers through the
+// compatibility methods on the production and fixture stores.
+type CurrentReadingStore interface {
+	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
+	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
+	SwitchCurrentReading(context.Context, string, string, string, string) (domain.CurrentReading, error)
+	StopCurrentReading(context.Context, string, string, string) error
+	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
+}
+
 // CatalogStore provides owner-scoped OPDS connection management.
 type CatalogStore interface {
 	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
@@ -95,6 +107,7 @@ type StoreDependencies struct {
 	Books          BookStore
 	Journey        JourneyStore
 	Goals          GoalStore
+	CurrentReading CurrentReadingStore
 	Catalog        CatalogStore
 	AnalysisJobs   AnalysisJobStore
 	Covers         BookCoverStore

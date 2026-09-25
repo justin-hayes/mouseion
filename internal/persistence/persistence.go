@@ -50,6 +50,13 @@ var ErrAliasConflict = errors.New("persistence: book alias conflict")
 var ErrSourceBookConflict = errors.New("persistence: source material belongs to a different book")
 var ErrBookNotFound = ErrNotFound
 
+// Current-reading names are the canonical vocabulary for new callers. The
+// Goal names remain aliases so the shipped handlers keep their behavior until
+// route cutover.
+var ErrCurrentReadingExists = ErrGoalExists
+var ErrCurrentReadingStale = ErrGoalStale
+var ErrCurrentReadingIneligible = ErrGoalIneligible
+
 type Store interface {
 	Ping(context.Context) error
 	Close() error

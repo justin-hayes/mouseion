@@ -239,6 +239,34 @@ func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyTha
 	assert.Equal(t, BookID, deGoal.BookID, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
 }
 
+func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, BookID, reading.BookID)
+	assert.Equal(t, "fixture-de-goal-snapshot", reading.SnapshotID)
+
+	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, "stale-book")
+	require.ErrorIs(t, err, persistence.ErrCurrentReadingStale)
+
+	require.NoError(t, store.StopCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID))
+	reading, err = store.GetCurrentReading(ctx, OwnerID, "it")
+	require.NoError(t, err)
+	assert.False(t, reading.IsActive())
+
+	reading, err = store.StartCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID)
+	require.NoError(t, err)
+	assert.Equal(t, ItalianGoalBookID, reading.BookID)
+
+	finished, err := store.FinishCurrentReading(ctx, OwnerID, "it", reading.BookID, reading.SnapshotID)
+	require.NoError(t, err)
+	replayed, err := store.FinishCurrentReading(ctx, OwnerID, "it", reading.BookID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, finished, replayed)
+}
+
 func TestFixtureJourneyBooksExposeDeterministicCoverStates(t *testing.T) {
 	store := NewStore()
 	books, err := store.ListMyBooksWithEvidence(context.Background(), OwnerID)

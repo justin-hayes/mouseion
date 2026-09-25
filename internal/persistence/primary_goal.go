@@ -89,10 +89,8 @@ func releasePrimaryGoalSnapshots(ctx context.Context, q *sqlcgen.Queries, owner 
 	return nil
 }
 
-// ReadingFinishResult is the webapp-facing result of recording reading.
-type ReadingFinishResult struct {
-	Completion domain.ReadingCompletion
-}
+// ReadingFinishResult is retained for the existing Goal handlers.
+type ReadingFinishResult = domain.CurrentReadingFinishResult
 
 func readingCompletionFromValues(ownerID, language, bookID string, completedAt time.Time, snapshotID string, snapshotCount, eligibleCount, graduatedCount, alreadyKnownCount int) domain.ReadingCompletion {
 	return domain.ReadingCompletion{
