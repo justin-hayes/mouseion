@@ -85,6 +85,7 @@ type BookCatalogueEntryIdentity struct {
 	OwnerID          string
 	BookID           string
 	ConnectionUrl    string
+	ConnectionName   string
 	SourceIdentifier string
 	CreatedAt        pgtype.Timestamptz
 }

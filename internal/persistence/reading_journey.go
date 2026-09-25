@@ -350,16 +350,16 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 				}
 				return 0, nil
 			}
-			if cleaned {
-				if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
-					return 0, err
-				}
-				if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
-					return 0, err
-				}
-				if err = tx.Commit(ctx); err != nil {
-					return 0, err
-				}
+		}
+		if cleaned {
+			if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
+				return 0, err
+			}
+			if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
+				return 0, err
+			}
+			if err = tx.Commit(ctx); err != nil {
+				return 0, err
 			}
 		}
 		return revision, nil

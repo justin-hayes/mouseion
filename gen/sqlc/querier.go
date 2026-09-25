@@ -145,6 +145,7 @@ type Querier interface {
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
 	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
 	GetOpdsConnectionURL(ctx context.Context, arg GetOpdsConnectionURLParams) (string, error)
+	GetOpdsConnectionURLForUpdate(ctx context.Context, arg GetOpdsConnectionURLForUpdateParams) (string, error)
 	GetPreparedDeckBatchChunkForUpdate(ctx context.Context, arg GetPreparedDeckBatchChunkForUpdateParams) (DeckPreparationBatchChunk, error)
 	GetPreparedDeckManifest(ctx context.Context, arg GetPreparedDeckManifestParams) (DeckPreparationManifest, error)
 	GetPreparedDeckManifestDigest(ctx context.Context, arg GetPreparedDeckManifestDigestParams) (string, error)

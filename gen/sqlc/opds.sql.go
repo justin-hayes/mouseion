@@ -152,6 +152,24 @@ func (q *Queries) GetOpdsConnectionURL(ctx context.Context, arg GetOpdsConnectio
 	return url, err
 }
 
+const getOpdsConnectionURLForUpdate = `-- name: GetOpdsConnectionURLForUpdate :one
+SELECT url
+FROM opds_connections WHERE owner_id = $1 AND id = $2
+FOR UPDATE
+`
+
+type GetOpdsConnectionURLForUpdateParams struct {
+	OwnerID pgtype.UUID
+	ID      string
+}
+
+func (q *Queries) GetOpdsConnectionURLForUpdate(ctx context.Context, arg GetOpdsConnectionURLForUpdateParams) (string, error) {
+	row := q.db.QueryRow(ctx, getOpdsConnectionURLForUpdate, arg.OwnerID, arg.ID)
+	var url string
+	err := row.Scan(&url)
+	return url, err
+}
+
 const listAllOpdsConnectionIDs = `-- name: ListAllOpdsConnectionIDs :many
 SELECT id::text, owner_id::text FROM opds_connections WHERE owner_id IS NOT NULL ORDER BY owner_id, id
 `
