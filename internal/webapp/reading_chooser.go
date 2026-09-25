@@ -1,0 +1,208 @@
+package webapp
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+type readingChooserBookView struct {
+	Book        domain.MyBook
+	Coverage    *domain.AnalysisCoverage
+	Band        domain.CoverageBand
+	State       string
+	Description string
+}
+
+type readingChooserPageView struct {
+	Language, LanguageLabel string
+	At99Plus, At97To99      []readingChooserBookView
+	At95To97, Below95       []readingChooserBookView
+	NoComparison            []readingChooserBookView
+	InProgress, Attention   []readingChooserBookView
+}
+
+func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
+	owner := user(r)
+	language, languageLabel := activeStudyLanguageForContext(r.Context())
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner.ID, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if goal.IsActive() {
+		journey, buildErr := h.buildJourneyView(r.Context(), owner.ID, language)
+		if buildErr != nil {
+			fail(w, buildErr)
+			return
+		}
+		journey.Language = language
+		journey.LanguageLabel = languageLabel
+		render(w, r, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+		return
+	}
+	view, err := h.buildReadingChooser(r.Context(), owner.ID, language, languageLabel)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view))
+}
+
+func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, languageLabel string) (readingChooserPageView, error) {
+	reader, ok := h.services.Store.Books.(interface {
+		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+	})
+	if !ok {
+		return readingChooserPageView{}, errors.New("reading chooser is unavailable")
+	}
+	books, err := reader.ListMyBooksWithEvidence(ctx, owner)
+	if err != nil {
+		return readingChooserPageView{}, err
+	}
+	view := readingChooserPageView{Language: language, LanguageLabel: languageLabel}
+	for _, book := range books {
+		if book.Disposition != domain.BookDispositionToRead || language == "" || book.Book.LanguageTag != language {
+			continue
+		}
+		candidate := readingChooserBookView{Book: book}
+		if book.Acquired == nil || book.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*book.Acquired) {
+			candidate.State, candidate.Description = readingChooserEvidenceState(book)
+			switch candidate.State {
+			case "in-progress":
+				view.InProgress = append(view.InProgress, candidate)
+			default:
+				view.Attention = append(view.Attention, candidate)
+			}
+			continue
+		}
+		if h.services.AnalysisInsights == nil || strings.TrimSpace(book.Acquired.CorpusID) == "" {
+			candidate.State = "Needs attention"
+			candidate.Description = "Completed analysis statistics are unavailable. Refresh the page or retry analysis."
+			view.Attention = append(view.Attention, candidate)
+			continue
+		}
+		coverage, coverageErr := h.services.AnalysisInsights.Coverage(ctx, owner, book.Acquired.CorpusID)
+		if errors.Is(coverageErr, analysisinsights.ErrStatisticsUnavailable) {
+			candidate.State = "Needs attention"
+			candidate.Description = "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence."
+			view.Attention = append(view.Attention, candidate)
+			continue
+		}
+		if coverageErr != nil {
+			return readingChooserPageView{}, coverageErr
+		}
+		candidate.Coverage = &coverage
+		candidate.Band = domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount)
+		switch candidate.Band {
+		case domain.CoverageBand99Plus:
+			view.At99Plus = append(view.At99Plus, candidate)
+		case domain.CoverageBand97To99:
+			view.At97To99 = append(view.At97To99, candidate)
+		case domain.CoverageBand95To97:
+			view.At95To97 = append(view.At95To97, candidate)
+		case domain.CoverageBandBelow95:
+			view.Below95 = append(view.Below95, candidate)
+		case domain.CoverageBandNoComparison:
+			view.NoComparison = append(view.NoComparison, candidate)
+		}
+	}
+	for _, group := range [][]readingChooserBookView{view.At99Plus, view.At97To99, view.At95To97, view.Below95, view.NoComparison, view.InProgress, view.Attention} {
+		sort.Slice(group, func(i, j int) bool { return readingChooserLess(group[i], group[j]) })
+	}
+	return view, nil
+}
+
+func readingChooserLess(left, right readingChooserBookView) bool {
+	leftTitle, rightTitle := normalizedBookSortKey(left), normalizedBookSortKey(right)
+	if leftTitle != rightTitle {
+		return leftTitle < rightTitle
+	}
+	leftAuthor, rightAuthor := strings.ToLower(strings.TrimSpace(left.Book.Book.Author)), strings.ToLower(strings.TrimSpace(right.Book.Book.Author))
+	if leftAuthor != rightAuthor {
+		return leftAuthor < rightAuthor
+	}
+	return left.Book.Book.ID < right.Book.Book.ID
+}
+
+func normalizedBookSortKey(book readingChooserBookView) string {
+	title := strings.TrimSpace(book.Book.Book.Title)
+	if book.Book.Acquired != nil && strings.TrimSpace(book.Book.Acquired.BookTitle) != "" {
+		title = strings.TrimSpace(book.Book.Acquired.BookTitle)
+	}
+	return strings.ToLower(title)
+}
+
+func readingChooserEvidenceState(book domain.MyBook) (string, string) {
+	if book.Acquired == nil {
+		return "Needs attention", "Book content has not been acquired yet. Return to My Books to review its catalog entry."
+	}
+	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
+	if strings.Contains(status, "queued") || strings.Contains(status, "running") {
+		return "in-progress", "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
+	}
+	evidenceState := book.Acquired.EvidenceState()
+	if evidenceState == domain.BookStale {
+		return "Needs attention", "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."
+	}
+	if evidenceState == domain.BookUnavailable || evidenceState == domain.BookNotAcquired {
+		return "Needs attention", "Current book content is unavailable. Retry acquisition or analysis from My Books."
+	}
+	if strings.Contains(status, "failed") || strings.Contains(status, "cancelled") {
+		return "Needs attention", "The last analysis did not complete. Retry analysis to refresh its evidence."
+	}
+	return "Needs attention", "Current analysis is not complete. Retry analysis to produce usable evidence."
+}
+
+func readingChooserTitle(view readingChooserPageView) string {
+	if strings.TrimSpace(view.LanguageLabel) == "" {
+		return "Choose your next book"
+	}
+	return "Choose your next book in " + view.LanguageLabel
+}
+
+func readingChooserCandidateCount(view readingChooserPageView) int {
+	return len(view.At99Plus) + len(view.At97To99) + len(view.At95To97) + len(view.Below95) + len(view.NoComparison) + len(view.InProgress) + len(view.Attention)
+}
+
+func readingChooserNextMarkerText(coverage domain.AnalysisCoverage, band domain.CoverageBand) string {
+	var marker int
+	switch band {
+	case domain.CoverageBandBelow95:
+		marker = 95
+	case domain.CoverageBand95To97:
+		marker = 97
+	case domain.CoverageBand97To99:
+		marker = 99
+	case domain.CoverageBand99Plus:
+		return "At least 99% of analyzable tokens are already Known."
+	case domain.CoverageBandNoComparison:
+		return "Coverage cannot be compared because there are no analyzable tokens."
+	}
+	for _, threshold := range coverage.Thresholds {
+		if threshold.TargetPercent == marker {
+			return readingChooserThresholdText(threshold)
+		}
+	}
+	return fmt.Sprintf("Investment to reach %d%% is unavailable.", marker)
+}
+
+func readingChooserThresholdText(threshold domain.CoverageThreshold) string {
+	if !threshold.Reachable {
+		return fmt.Sprintf("%d%%: not reachable from currently eligible vocabulary.", threshold.TargetPercent)
+	}
+	return fmt.Sprintf("%d%%: %d additional eligible vocabulary identities.", threshold.TargetPercent, threshold.LemmaCount)
+}
+
+func readingChooserCoverageDisplay(coverage domain.AnalysisCoverage) string {
+	if coverage.AnalyzableTokenCount <= 0 {
+		return "No analyzable tokens"
+	}
+	return fmt.Sprintf("%.1f%%", min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100))
+}

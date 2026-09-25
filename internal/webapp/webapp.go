@@ -210,6 +210,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
+	h.mux.Handle("GET /reading", h.user(http.HandlerFunc(h.reading)))
 	h.mux.Handle("GET /journey", h.user(http.HandlerFunc(h.journey)))
 	h.mux.Handle("GET /journey/{bookID}", h.user(http.HandlerFunc(h.journeyEntry)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))

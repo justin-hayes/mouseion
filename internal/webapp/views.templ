@@ -1303,3 +1303,109 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 		</section>
 	}
 }
+
+templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView) {
+	@ShellLayout("Choose your next book", &user, csrf, NavigationReadingJourney) {
+		@PageHeader(readingChooserTitle(chooser), "Choose a To Read book when you are ready. Coverage groups describe vocabulary evidence; they are not difficulty ratings or recommendations.", nil) {
+			<a role="button" class="outline" href="/library?disposition=to_read">Review To Read books</a>
+		}
+		if chooser.Language == "" {
+			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">
+				<h2 id="reading-chooser-no-language-heading">Choose a study language</h2>
+				<p>Reading candidates appear after My Books has a book with a chosen language.</p>
+				<a href="/library">Open My Books</a>
+			</section>
+		}
+		if chooser.Language != "" && readingChooserCandidateCount(chooser) == 0 {
+			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-empty-heading">
+				<h2 id="reading-chooser-empty-heading">No To Read books yet</h2>
+				<p>Move a book to To Read in My Books when you may want to read it. You can leave other books in Inbox or set them aside.</p>
+				<a role="button" href="/library">Browse My Books</a>
+			</section>
+		}
+		if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
+			if len(chooser.At99Plus)+len(chooser.At97To99)+len(chooser.At95To97)+len(chooser.Below95)+len(chooser.NoComparison) > 0 {
+				<p>Coverage compares currently Known vocabulary with analyzable tokens in each current analysis. Bands use exact token counts; displayed percentages are rounded.</p>
+			}
+			@ReadingChooserBand("99% or above", "At least 99% of analyzable tokens match Known vocabulary.", chooser.At99Plus, csrf)
+			@ReadingChooserBand("97% to below 99%", "At least 97% and below 99% of analyzable tokens match Known vocabulary.", chooser.At97To99, csrf)
+			@ReadingChooserBand("95% to below 97%", "At least 95% and below 97% of analyzable tokens match Known vocabulary.", chooser.At95To97, csrf)
+			@ReadingChooserBand("Below 95%", "Below 95% of analyzable tokens match Known vocabulary.", chooser.Below95, csrf)
+			@ReadingChooserBand("No vocabulary comparison", "Analysis completed, but there are no analyzable tokens for a numeric coverage comparison.", chooser.NoComparison, csrf)
+			if len(chooser.InProgress) > 0 {
+				<section aria-labelledby="reading-chooser-in-progress-heading">
+					<h2 id="reading-chooser-in-progress-heading">Analysis in progress</h2>
+					<p>Accepted analysis work remains visible here while it runs.</p>
+					<ul class="reading-chooser-list">
+						for _, item := range chooser.InProgress {
+							@ReadingChooserBook(item, csrf)
+						}
+					</ul>
+				</section>
+			}
+			if len(chooser.Attention) > 0 {
+				<section aria-labelledby="reading-chooser-attention-heading">
+					<h2 id="reading-chooser-attention-heading">Needs attention</h2>
+					<p>These candidates need current content or usable analysis before their coverage can be compared.</p>
+					<ul class="reading-chooser-list">
+						for _, item := range chooser.Attention {
+							@ReadingChooserBook(item, csrf)
+						}
+					</ul>
+				</section>
+			}
+		}
+	}
+}
+
+templ ReadingChooserBand(title, description string, books []readingChooserBookView, csrf string) {
+	if len(books) > 0 {
+		<section aria-label={ title }>
+			<h2>{ title }</h2>
+			<p>{ description }</p>
+			<ul class="reading-chooser-list">
+				for _, item := range books {
+					@ReadingChooserBook(item, csrf)
+				}
+			</ul>
+		</section>
+	}
+}
+
+templ ReadingChooserBook(item readingChooserBookView, csrf string) {
+	<li class="reading-chooser-book">
+		<article class="resource-card">
+			<h3 class="bibliographic-title">{ canonicalBookTitle(domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: item.Book.Book.ID, Title: item.Book.Book.Title}, BookTitle: item.Book.Book.Title}) }</h3>
+			if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
+				<p>By { author }</p>
+			}
+			if item.Coverage != nil {
+				<p><strong>Current coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ item.Coverage.KnownTokenCount } of { item.Coverage.AnalyzableTokenCount } analyzable tokens)</p>
+				<p>{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
+				<details>
+					<summary>Coverage investment at 95%, 97%, and 99%</summary>
+					<ul>
+					for _, threshold := range item.Coverage.Thresholds {
+						if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
+							<li>{ readingChooserThresholdText(threshold) }</li>
+						}
+					}
+					</ul>
+					<p>Investment counts eligible vocabulary identities, not deck size.</p>
+				</details>
+				<form method="post" action={ templ.SafeURL("/goal/books/" + item.Book.Book.ID) }>
+					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/>
+					<button type="submit">Start reading</button>
+				</form>
+			} else {
+				<p><strong>{ item.State }</strong> — { item.Description }</p>
+				if item.State == "Needs attention" {
+					<form method="post" action={ templ.SafeURL("/journey/books/" + item.Book.Book.ID + "/reanalyze") }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<button type="submit">Retry acquisition or analysis</button>
+					</form>
+				}
+			}
+		</article>
+	</li>
+}
