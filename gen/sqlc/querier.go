@@ -18,6 +18,7 @@ type Querier interface {
 	AttachDeckPreparationVocabulary(ctx context.Context, arg AttachDeckPreparationVocabularyParams) error
 	AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error
+	BookCatalogueEntryIdentityConflictForConnection(ctx context.Context, arg BookCatalogueEntryIdentityConflictForConnectionParams) (bool, error)
 	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
 	BookExists(ctx context.Context, arg BookExistsParams) (bool, error)
 	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]MyBooksEvidence, error)

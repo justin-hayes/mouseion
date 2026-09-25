@@ -15,6 +15,6 @@ CREATE TABLE public.book_catalogue_entry_identities (
     connection_url text NOT NULL,
     source_identifier text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT book_catalogue_entry_identities_pkey PRIMARY KEY (owner_id, connection_url, source_identifier, book_id),
+    CONSTRAINT book_catalogue_entry_identities_pkey PRIMARY KEY (owner_id, connection_url, source_identifier),
     CONSTRAINT book_catalogue_entry_identities_owner_book_fkey FOREIGN KEY (owner_id, book_id) REFERENCES public.books(owner_id, id) ON DELETE CASCADE
 );

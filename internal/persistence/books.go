@@ -506,17 +506,20 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		return CatalogueEntryReconcileResult{}, err
 	}
 	aliasBook, err := q.GetCatalogueAliasBookForUpdate(ctx, sqlcgen.GetCatalogueAliasBookForUpdateParams{OwnerID: owner, ConnectionID: uuidArg(connectionID), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
-	if errors.Is(err, pgx.ErrNoRows) {
-		identityBook, identityErr := q.GetBookCatalogueEntryIdentityForConnection(ctx, sqlcgen.GetBookCatalogueEntryIdentityForConnectionParams{OwnerID: owner, ID: connectionID, SourceIdentifier: sourceIdentifier})
-		if errors.Is(identityErr, pgx.ErrNoRows) {
-			aliasBook = ""
-		} else if identityErr != nil {
-			return CatalogueEntryReconcileResult{}, identityErr
-		} else {
-			aliasBook = identityBook
-		}
-	} else if err != nil {
+	if !errors.Is(err, pgx.ErrNoRows) && err != nil {
 		return CatalogueEntryReconcileResult{}, err
+	}
+	identityBook, identityErr := q.GetBookCatalogueEntryIdentityForConnection(ctx, sqlcgen.GetBookCatalogueEntryIdentityForConnectionParams{OwnerID: owner, ID: connectionID, SourceIdentifier: sourceIdentifier})
+	if errors.Is(identityErr, pgx.ErrNoRows) {
+		identityBook = ""
+	} else if identityErr != nil {
+		return CatalogueEntryReconcileResult{}, identityErr
+	}
+	if aliasBook != "" && identityBook != "" && aliasBook != identityBook {
+		return CatalogueEntryReconcileResult{}, ErrAliasConflict
+	}
+	if aliasBook == "" {
+		aliasBook = identityBook
 	}
 	bookID := ""
 	if aliasBook != "" {
