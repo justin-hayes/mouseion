@@ -79,7 +79,6 @@ func TestAppStylesExposeMouseionFoundations(t *testing.T) {
 		"overflow-x: auto",
 		".table-region td",
 		"@media (max-width: 40rem)",
-		"@media (min-width: 72rem)",
 	} {
 		assert.True(t, strings.Contains(css, want), "application CSS missing foundation %q", want)
 	}

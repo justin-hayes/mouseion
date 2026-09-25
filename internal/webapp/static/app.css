@@ -92,10 +92,6 @@
   }
 }
 
-/* Wide: data-dense summaries can use additional horizontal space. */
-@media (min-width: 72rem) {
-}
-
 body {
   min-height: 100vh;
   color: var(--mouseion-color-text);
