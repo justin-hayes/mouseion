@@ -103,6 +103,60 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 
 }
 
+func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+
+	alice, err := store.CreateUser(ctx, "current-reading-alice", false)
+	require.NoError(t, err)
+	bob, err := store.CreateUser(ctx, "current-reading-bob", false)
+	require.NoError(t, err)
+	first, firstSource, _ := createJourneyFixture(t, ctx, store, alice.ID, "current-reading-first")
+	second, secondSource, _ := createJourneyFixture(t, ctx, store, alice.ID, "current-reading-second")
+	makeJourneyMemberAnalyzed(t, ctx, store, first, firstSource)
+	makeJourneyMemberAnalyzed(t, ctx, store, second, secondSource)
+	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", first.ID, journey.Revision)
+	require.NoError(t, err)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", second.ID, journey.Revision)
+	require.NoError(t, err)
+
+	reading, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, reading.BookID)
+	assert.NotEmpty(t, reading.SnapshotID)
+	_, err = store.FinishCurrentReading(ctx, alice.ID, "de", second.ID, reading.SnapshotID)
+	require.ErrorIs(t, err, ErrCurrentReadingStale)
+
+	other, err := store.GetCurrentReading(ctx, bob.ID, "de")
+	require.NoError(t, err)
+	assert.False(t, other.IsActive(), "current reading is owner-scoped")
+	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, "stale-book")
+	require.ErrorIs(t, err, ErrCurrentReadingStale)
+
+	reading, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID)
+	require.NoError(t, err)
+	assert.Equal(t, second.ID, reading.BookID)
+	require.ErrorIs(t, store.StopCurrentReading(ctx, alice.ID, "de", first.ID), ErrCurrentReadingStale)
+	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", second.ID))
+
+	reading, err = store.GetCurrentReading(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	assert.False(t, reading.IsActive())
+	reading, err = store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
+	require.NoError(t, err)
+	finished, err := store.FinishCurrentReading(ctx, alice.ID, "de", first.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, reading.SnapshotID, finished.Completion.SnapshotID)
+	replayed, err := store.FinishCurrentReading(ctx, alice.ID, "de", first.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, finished, replayed)
+}
+
 func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)

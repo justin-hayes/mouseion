@@ -1129,6 +1129,17 @@ func (s *Store) GetPrimaryGoal(_ context.Context, owner, language string) (domai
 	return goal, nil
 }
 
+// The current-reading methods are the fixture adapter for the new lifecycle
+// seam. They delegate to the behavior used by the existing Goal handlers so
+// browser fixtures exercise the same state transitions during the cutover.
+func (s *Store) GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error) {
+	return s.GetPrimaryGoal(ctx, owner, language)
+}
+
+func (s *Store) CountCurrentReadingVocabularyToAccept(ctx context.Context, owner, language string) (int, error) {
+	return s.CountPrimaryGoalVocabularyToGraduate(ctx, owner, language)
+}
+
 func (s *Store) ListPrimaryGoalSnapshotVocabulary(_ context.Context, owner, snapshotID string) ([]domain.SelectionCandidate, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1167,6 +1178,10 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID str
 	s.primaryGoals[key] = goal
 	return goal, nil
 }
+
+func (s *Store) StartCurrentReading(ctx context.Context, owner, language, bookID string) (domain.CurrentReading, error) {
+	return s.CreatePrimaryGoal(ctx, owner, language, bookID)
+}
 func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, expectedBookID string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1190,6 +1205,10 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, ex
 	goal.UpdatedAt = time.Now()
 	s.primaryGoals[key] = goal
 	return goal, nil
+}
+
+func (s *Store) SwitchCurrentReading(ctx context.Context, owner, language, bookID, expectedBookID string) (domain.CurrentReading, error) {
+	return s.ChangePrimaryGoal(ctx, owner, language, bookID, expectedBookID)
 }
 
 func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt time.Time) domain.PrimaryGoal {
@@ -1245,6 +1264,10 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, language, expectedBoo
 	}
 	delete(s.primaryGoals, key)
 	return nil
+}
+
+func (s *Store) StopCurrentReading(ctx context.Context, owner, language, expectedBookID string) error {
+	return s.ClearPrimaryGoal(ctx, owner, language, expectedBookID)
 }
 
 // RecordReadingFinishedPrimaryGoal records the reading fact and clears the
@@ -1329,6 +1352,25 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 	}
 	delete(s.primaryGoals, key)
 	return persistence.ReadingFinishResult{Completion: completion}, nil
+}
+
+func (s *Store) FinishCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (persistence.CurrentReadingFinishResult, error) {
+	result, err := s.RecordReadingFinishedPrimaryGoal(ctx, owner, language, expectedBookID, expectedSnapshotID)
+	if err != nil {
+		return persistence.CurrentReadingFinishResult{}, err
+	}
+	if result.Completion.BookID != expectedBookID {
+		return persistence.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
+	}
+	completion := result.Completion
+	return persistence.CurrentReadingFinishResult{Completion: domain.CurrentReadingCompletion{
+		OwnerID: completion.OwnerID, Language: completion.Language, BookID: completion.BookID,
+		CompletedAt: completion.CompletedAt, SnapshotID: completion.GoalSnapshotID,
+		SnapshotVocabularyCount:     completion.SnapshotVocabularyCount,
+		EligibleVocabularyCount:     completion.EligibleVocabularyCount,
+		GraduatedVocabularyCount:    completion.GraduatedVocabularyCount,
+		AlreadyKnownVocabularyCount: completion.AlreadyKnownVocabularyCount,
+	}}, nil
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
