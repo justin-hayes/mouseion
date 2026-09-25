@@ -315,21 +315,6 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id string) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
-		if _, err := q.GetOpdsConnectionURLForUpdate(ctx, sqlcgen.GetOpdsConnectionURLForUpdateParams{OwnerID: uuidArg(ownerID), ID: id}); errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		} else if err != nil {
-			return err
-		}
-		conflict, err := q.BookCatalogueEntryIdentityConflictForConnection(ctx, sqlcgen.BookCatalogueEntryIdentityConflictForConnectionParams{OwnerID: ownerID, ConnectionID: uuidArg(id)})
-		if err != nil {
-			return err
-		}
-		if conflict {
-			return ErrAliasConflict
-		}
-		if err := q.PreserveBookCatalogueEntryIdentitiesForConnection(ctx, sqlcgen.PreserveBookCatalogueEntryIdentitiesForConnectionParams{OwnerID: ownerID, ConnectionID: uuidArg(id)}); err != nil {
-			return err
-		}
 		affected, err := q.DeleteOpdsConnection(ctx, sqlcgen.DeleteOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
 		if err != nil {
 			return err
