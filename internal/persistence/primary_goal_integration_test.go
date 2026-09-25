@@ -131,20 +131,23 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, first.ID, reading.BookID)
 	assert.NotEmpty(t, reading.SnapshotID)
+	firstSnapshotID := reading.SnapshotID
 	_, err = store.FinishCurrentReading(ctx, alice.ID, "de", second.ID, reading.SnapshotID)
 	require.ErrorIs(t, err, ErrCurrentReadingStale)
 
 	other, err := store.GetCurrentReading(ctx, bob.ID, "de")
 	require.NoError(t, err)
 	assert.False(t, other.IsActive(), "current reading is owner-scoped")
-	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, "stale-book")
+	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, "stale-book", reading.SnapshotID)
+	require.ErrorIs(t, err, ErrCurrentReadingStale)
+	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID, "stale-snapshot")
 	require.ErrorIs(t, err, ErrCurrentReadingStale)
 
-	reading, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID)
+	reading, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID, firstSnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, second.ID, reading.BookID)
-	require.ErrorIs(t, store.StopCurrentReading(ctx, alice.ID, "de", first.ID), ErrCurrentReadingStale)
-	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", second.ID))
+	require.ErrorIs(t, store.StopCurrentReading(ctx, alice.ID, "de", first.ID, reading.SnapshotID), ErrCurrentReadingStale)
+	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", second.ID, reading.SnapshotID))
 
 	reading, err = store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
@@ -200,6 +203,74 @@ func TestCurrentReadingCanStartAnalyzedToReadBookOutsideJourney(t *testing.T) {
 	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, journey.Entries, "starting a To Read candidate does not require or create Journey membership")
+}
+
+func TestCurrentReadingStopAndSetAsideReleaseOnlyActiveSnapshotIdempotently(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "current-reading-transitions", false)
+	require.NoError(t, err)
+	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "current-reading-transition")
+	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+
+	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, reading.SnapshotID)
+	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID))
+	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID), "replaying stop is idempotent")
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.False(t, current.IsActive())
+	disposition, err := store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	var releasedSnapshots int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NOT NULL`, owner.ID, reading.SnapshotID).Scan(&releasedSnapshots))
+	assert.Equal(t, 1, releasedSnapshots)
+	var preservedVocabulary int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, owner.ID, reading.SnapshotID).Scan(&preservedVocabulary))
+	assert.Equal(t, reading.SnapshotSize, preservedVocabulary, "released snapshots remain durable")
+
+	reading, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	rollbackFailure := errors.New("forced current-reading transition rollback")
+	_, err = store.Pool().Exec(ctx, `
+CREATE FUNCTION test_current_reading_transition_failure() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced current-reading transition rollback'; END; $$;
+CREATE TRIGGER test_current_reading_transition_failure
+BEFORE DELETE ON primary_goals FOR EACH ROW EXECUTE FUNCTION test_current_reading_transition_failure();`)
+	require.NoError(t, err)
+	err = store.SetAsideCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID)
+	require.ErrorContains(t, err, rollbackFailure.Error())
+	current, err = store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, book.ID, current.BookID, "failed transition preserves the current reading")
+	assert.Equal(t, reading.SnapshotID, current.SnapshotID)
+	disposition, err = store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "failed transition preserves disposition")
+	releasedSnapshots = 0
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NOT NULL`, owner.ID, reading.SnapshotID).Scan(&releasedSnapshots))
+	assert.Zero(t, releasedSnapshots, "failed transition preserves active reservation")
+	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_current_reading_transition_failure ON primary_goals; DROP FUNCTION test_current_reading_transition_failure()`)
+	require.NoError(t, err)
+	require.NoError(t, store.SetAsideCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID))
+	require.NoError(t, store.SetAsideCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID), "replaying set aside is idempotent")
+	current, err = store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.False(t, current.IsActive())
+	disposition, err = store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, disposition)
+	releasedSnapshots = 0
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NOT NULL`, owner.ID, reading.SnapshotID).Scan(&releasedSnapshots))
+	assert.Equal(t, 1, releasedSnapshots)
 }
 
 func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {

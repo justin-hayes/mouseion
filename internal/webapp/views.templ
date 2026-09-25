@@ -712,6 +712,13 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
 				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
 			}
+			<a role="button" class="outline" href="/reading/switch">Switch current reading</a>
+			@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book returns to To Read; its analysis, decks, and history remain.", StatusNeutral) {
+				<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="outline">Confirm stop for now</button></form>
+			}
+			@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain.", StatusDanger) {
+				<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="outline secondary">Confirm set aside</button></form>
+			}
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
@@ -1305,9 +1312,13 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 }
 
 templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView, message string, pageError string) {
-	@ShellLayout("Choose your next book", &user, csrf, NavigationReadingJourney) {
-		@PageHeader(readingChooserTitle(chooser), "Choose a To Read book when you are ready. Coverage groups describe vocabulary evidence; they are not difficulty ratings or recommendations.", nil) {
+	@ShellLayout(readingChooserPageTitle(chooser), &user, csrf, NavigationReadingJourney) {
+		@PageHeader(readingChooserPageTitle(chooser), readingChooserPageDescription(chooser), nil) {
+			if chooser.CurrentBookID != "" {
+				<a role="button" class="outline" href="/reading">Return to current reading</a>
+			} else {
 			<a role="button" class="outline" href="/library?disposition=to_read">Review To Read books</a>
+			}
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -1324,27 +1335,33 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 		}
 		if chooser.Language != "" && readingChooserCandidateCount(chooser) == 0 {
 			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-empty-heading">
-				<h2 id="reading-chooser-empty-heading">No To Read books yet</h2>
-				<p>Move a book to To Read in My Books when you may want to read it. You can leave other books in Inbox or set them aside.</p>
-				<a role="button" href="/library">Browse My Books</a>
+				if chooser.CurrentBookID != "" {
+					<h2 id="reading-chooser-empty-heading">No other eligible To Read books</h2>
+					<p>Your current book remains unchanged. Move another book to To Read or return to your current reading.</p>
+					<a role="button" class="outline" href="/reading">Return to current reading</a>
+				} else {
+					<h2 id="reading-chooser-empty-heading">No To Read books yet</h2>
+					<p>Move a book to To Read in My Books when you may want to read it. You can leave other books in Inbox or set them aside.</p>
+					<a role="button" href="/library">Browse My Books</a>
+				}
 			</section>
 		}
 		if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
 			if len(chooser.At99Plus)+len(chooser.At97To99)+len(chooser.At95To97)+len(chooser.Below95)+len(chooser.NoComparison) > 0 {
 				<p>Coverage compares currently Known vocabulary with analyzable tokens in each current analysis. Bands use exact token counts; displayed percentages are rounded.</p>
 			}
-			@ReadingChooserBand("99% or above", "At least 99% of analyzable tokens match Known vocabulary.", chooser.At99Plus, csrf)
-			@ReadingChooserBand("97% to below 99%", "At least 97% and below 99% of analyzable tokens match Known vocabulary.", chooser.At97To99, csrf)
-			@ReadingChooserBand("95% to below 97%", "At least 95% and below 97% of analyzable tokens match Known vocabulary.", chooser.At95To97, csrf)
-			@ReadingChooserBand("Below 95%", "Below 95% of analyzable tokens match Known vocabulary.", chooser.Below95, csrf)
-			@ReadingChooserBand("No vocabulary comparison", "Analysis completed, but there are no analyzable tokens for a numeric coverage comparison.", chooser.NoComparison, csrf)
+			@ReadingChooserBand("99% or above", "At least 99% of analyzable tokens match Known vocabulary.", chooser.At99Plus, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("97% to below 99%", "At least 97% and below 99% of analyzable tokens match Known vocabulary.", chooser.At97To99, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("95% to below 97%", "At least 95% and below 97% of analyzable tokens match Known vocabulary.", chooser.At95To97, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("Below 95%", "Below 95% of analyzable tokens match Known vocabulary.", chooser.Below95, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("No vocabulary comparison", "Analysis completed, but there are no analyzable tokens for a numeric coverage comparison.", chooser.NoComparison, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 			if len(chooser.InProgress) > 0 {
 				<section aria-labelledby="reading-chooser-in-progress-heading">
 					<h2 id="reading-chooser-in-progress-heading">Analysis in progress</h2>
 					<p>Accepted analysis work remains visible here while it runs.</p>
 					<ul class="reading-chooser-list">
 						for _, item := range chooser.InProgress {
-							@ReadingChooserBook(item, csrf)
+							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 						}
 					</ul>
 				</section>
@@ -1355,7 +1372,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 					<p>These candidates need current content or usable analysis before their coverage can be compared.</p>
 					<ul class="reading-chooser-list">
 						for _, item := range chooser.Attention {
-							@ReadingChooserBook(item, csrf)
+							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 						}
 					</ul>
 				</section>
@@ -1364,21 +1381,21 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 	}
 }
 
-templ ReadingChooserBand(title, description string, books []readingChooserBookView, csrf string) {
+templ ReadingChooserBand(title, description string, books []readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	if len(books) > 0 {
 		<section aria-label={ title }>
 			<h2>{ title }</h2>
 			<p>{ description }</p>
 			<ul class="reading-chooser-list">
 				for _, item := range books {
-					@ReadingChooserBook(item, csrf)
+					@ReadingChooserBook(item, csrf, currentBookID, currentSnapshotID)
 				}
 			</ul>
 		</section>
 	}
 }
 
-templ ReadingChooserBook(item readingChooserBookView, csrf string) {
+templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<li class="reading-chooser-book">
 		<article class="resource-card">
 			<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
@@ -1399,11 +1416,22 @@ templ ReadingChooserBook(item readingChooserBookView, csrf string) {
 					</ul>
 					<p>Investment counts eligible vocabulary identities, not deck size.</p>
 				</details>
-				@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
-					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button type="submit">Confirm start reading</button>
-					</form>
+				if currentBookID != "" {
+					@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot.", StatusNeutral) {
+						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
+							<input type="hidden" name="expected_current_snapshot_id" value={ currentSnapshotID }/>
+							<button type="submit">Confirm switch to this book</button>
+						</form>
+					}
+				} else {
+					@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
+						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<button type="submit">Confirm start reading</button>
+						</form>
+					}
 				}
 			} else {
 				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>

@@ -127,6 +127,99 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	assert.Contains(t, page.Body.String(), "After Primary Goal coverage")
 }
 
+func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	handler, ok := h.(*Handler)
+	require.True(t, ok)
+	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
+	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	for _, cookie := range cookies {
+		readingRequest.AddCookie(cookie)
+	}
+	readingPage := httptest.NewRecorder()
+	h.ServeHTTP(readingPage, readingRequest)
+	require.Equal(t, http.StatusOK, readingPage.Code)
+	assert.Contains(t, readingPage.Body.String(), "Stop reading for now")
+	assert.Contains(t, readingPage.Body.String(), "Set aside this Book")
+	assert.Contains(t, readingPage.Body.String(), `name="expected_current_snapshot_id"`)
+
+	switchRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading/switch", nil)
+	for _, cookie := range cookies {
+		switchRequest.AddCookie(cookie)
+	}
+	switchPage := httptest.NewRecorder()
+	h.ServeHTTP(switchPage, switchRequest)
+	require.Equal(t, http.StatusOK, switchPage.Code)
+	assert.Contains(t, switchPage.Body.String(), "Switch current reading")
+	assert.Contains(t, switchPage.Body.String(), `action="/reading/books/fixture-route-match/switch"`)
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	initialSnapshotID := current.SnapshotID
+
+	switched := goalRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {fixtures.BookID},
+		"expected_current_snapshot_id": {initialSnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, switched.Code)
+	assert.Contains(t, switched.Header().Get("Location"), "is+now+your+current+reading")
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, "fixture-route-match", current.BookID)
+	snapshotID := current.SnapshotID
+
+	stopped := goalRequest(t, h, "/reading/stop", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {current.BookID},
+		"expected_current_snapshot_id": {snapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, stopped.Code)
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.False(t, current.IsActive())
+	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-route-match")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+
+	retriedStop := goalRequest(t, h, "/reading/stop", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {"fixture-route-match"},
+		"expected_current_snapshot_id": {snapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, retriedStop.Code)
+	assert.NotContains(t, retriedStop.Header().Get("Location"), "error=")
+
+	started := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, started.Code)
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	setAsideSnapshotID := current.SnapshotID
+	setAside := goalRequest(t, h, "/reading/set-aside", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {"fixture-route-match"},
+		"expected_current_snapshot_id": {setAsideSnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, setAside.Code)
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.False(t, current.IsActive())
+	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-route-match")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, disposition)
+	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	for _, entry := range journey.Entries {
+		assert.NotEqual(t, "fixture-route-match", entry.BookID, "setting aside removes the Book from the active Journey")
+	}
+	retriedSetAside := goalRequest(t, h, "/reading/set-aside", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {"fixture-route-match"},
+		"expected_current_snapshot_id": {setAsideSnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, retriedSetAside.Code)
+	assert.NotContains(t, retriedSetAside.Header().Get("Location"), "error=")
+}
+
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
