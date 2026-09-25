@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -89,6 +90,64 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
+}
+
+func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	bookID := strings.TrimSpace(r.PathValue("id"))
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if language == "" {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language before starting a book."))
+		return
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if detail.Disposition != domain.BookDispositionToRead || detail.Book.LanguageTag != language {
+		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
+		return
+	}
+	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if current.IsActive() {
+		redirect(w, r, "/reading?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
+		return
+	}
+	selected, err := h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
+	if errors.Is(err, persistence.ErrGoalExists) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Another book became current while you were choosing. Review Reading before trying again."))
+		return
+	}
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if errors.Is(err, persistence.ErrGoalIneligible) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 && h.services.PreparedDeck != nil {
+		if _, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID); prepareErr != nil {
+			log.Printf("current reading deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
+		}
+	}
+	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 }
 
 func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, languageLabel string) (readingChooserPageView, error) {

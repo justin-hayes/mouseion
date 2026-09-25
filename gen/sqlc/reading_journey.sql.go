@@ -509,24 +509,24 @@ func (q *Queries) GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBo
 const getPrimaryGoalCandidateIdentity = `-- name: GetPrimaryGoalCandidateIdentity :one
 SELECT ca.source_material_id::text, ca.analysis_run_id::text,
        ca.content_revision_id::text, ca.snapshot_id::text, ca.corpus_id::text
-FROM reading_journey_membership jm
-JOIN books b ON b.owner_id = jm.owner_id AND b.id = jm.book_id
-JOIN source_materials s ON s.owner_id = jm.owner_id AND s.book_id = jm.book_id
+FROM books b
+JOIN book_dispositions bd ON bd.owner_id = b.owner_id AND bd.book_id = b.id
+JOIN source_materials s ON s.owner_id = b.owner_id AND s.book_id = b.id
 JOIN current_analysis_identity ca
-  ON ca.owner_id = jm.owner_id AND ca.book_id = jm.book_id
+  ON ca.owner_id = b.owner_id AND ca.book_id = b.id
  AND ca.source_material_id = s.id
-WHERE jm.owner_id = $1
-  AND jm.language = $2
-  AND jm.book_id = $3
+WHERE b.owner_id = $1
+  AND b.id = $2
+  AND bd.disposition = 'to_read'
   AND b.language_state = 'chosen'
-  AND b.language_tag = $2
+  AND b.language_tag = $3::text
   AND lower(s.media_type) = 'application/epub+zip'
 `
 
 type GetPrimaryGoalCandidateIdentityParams struct {
 	Owner    string
-	Language string
 	Book     string
+	Language string
 }
 
 type GetPrimaryGoalCandidateIdentityRow struct {
@@ -538,7 +538,7 @@ type GetPrimaryGoalCandidateIdentityRow struct {
 }
 
 func (q *Queries) GetPrimaryGoalCandidateIdentity(ctx context.Context, arg GetPrimaryGoalCandidateIdentityParams) (GetPrimaryGoalCandidateIdentityRow, error) {
-	row := q.db.QueryRow(ctx, getPrimaryGoalCandidateIdentity, arg.Owner, arg.Language, arg.Book)
+	row := q.db.QueryRow(ctx, getPrimaryGoalCandidateIdentity, arg.Owner, arg.Book, arg.Language)
 	var i GetPrimaryGoalCandidateIdentityRow
 	err := row.Scan(
 		&i.CaSourceMaterialID,
@@ -1413,32 +1413,32 @@ func (q *Queries) LockPrimaryGoalsForBook(ctx context.Context, arg LockPrimaryGo
 const primaryGoalCandidateEligible = `-- name: PrimaryGoalCandidateEligible :one
 SELECT EXISTS(
   SELECT 1
-  FROM reading_journey_membership jm
-  JOIN books b
-    ON b.owner_id = jm.owner_id AND b.id = jm.book_id
+  FROM books b
+  JOIN book_dispositions bd
+    ON bd.owner_id = b.owner_id AND bd.book_id = b.id
   JOIN source_materials s
-    ON s.owner_id = jm.owner_id AND s.book_id = jm.book_id
+    ON s.owner_id = b.owner_id AND s.book_id = b.id
   JOIN current_analysis_identity ca
-    ON ca.owner_id = jm.owner_id
-   AND ca.book_id = jm.book_id
+    ON ca.owner_id = b.owner_id
+   AND ca.book_id = b.id
    AND ca.source_material_id = s.id
-  WHERE jm.owner_id = $1
-    AND jm.language = $2
-    AND jm.book_id = $3
+  WHERE b.owner_id = $1
+    AND b.id = $2
+    AND bd.disposition = 'to_read'
     AND b.language_state = 'chosen'
-    AND b.language_tag = $2
+    AND b.language_tag = $3::text
     AND lower(s.media_type) = 'application/epub+zip'
 )
 `
 
 type PrimaryGoalCandidateEligibleParams struct {
 	Owner    string
-	Language string
 	Book     string
+	Language string
 }
 
 func (q *Queries) PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryGoalCandidateEligibleParams) (bool, error) {
-	row := q.db.QueryRow(ctx, primaryGoalCandidateEligible, arg.Owner, arg.Language, arg.Book)
+	row := q.db.QueryRow(ctx, primaryGoalCandidateEligible, arg.Owner, arg.Book, arg.Language)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err

@@ -157,6 +157,38 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	assert.Equal(t, finished, replayed)
 }
 
+func TestCurrentReadingCanStartAnalyzedToReadBookOutsideJourney(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "current-reading-to-read", false)
+	require.NoError(t, err)
+	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "to-read-only")
+	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+
+	current, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, book.ID, current.BookID)
+	assert.Equal(t, source.ID, current.SourceMaterialID)
+	assert.NotEmpty(t, current.AnalysisRunID)
+	assert.NotEmpty(t, current.SnapshotID)
+	assert.Zero(t, current.SnapshotSize, "empty eligible snapshot is persisted without inventing vocabulary")
+
+	loaded, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, current, loaded)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.ErrorIs(t, err, ErrGoalExists)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, journey.Entries, "starting a To Read candidate does not require or create Journey membership")
+}
+
 func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
