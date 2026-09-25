@@ -155,6 +155,10 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, alice.ID, retryBookID).Scan(&inboxDispositionRows)
 	require.NoError(t, err)
 	assert.Equal(t, 1, inboxDispositionRows, "retried first discovery created duplicate Inbox disposition rows")
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, retryBookID, domain.BookDispositionSetAside))
+	reader.feeds["11"] = opds.Feed{Entries: []opds.Entry{testEntry("greek-entry", "Refreshed Greek title")}}
+	require.NoError(t, worker.Work(ctx, job))
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, retryBookID), "metadata resync reset Set Aside")
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Updated title", "Updated author")}}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
@@ -165,7 +169,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 		updatedTitles[book.Title] = book.LanguageTag
 	}
 	assert.Equal(t, "de", updatedTitles["Updated title"])
-	assert.Equal(t, "el", updatedTitles["Greek title"])
+	assert.Equal(t, "el", updatedTitles["Refreshed Greek title"])
 	assert.Equal(t, "fr", updatedTitles["French title"])
 	for _, book := range books {
 		if book.Title == "Updated title" {
