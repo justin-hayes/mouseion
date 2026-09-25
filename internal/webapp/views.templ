@@ -257,7 +257,28 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
 				<a class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading Journey</a>
-			} else {
+			}
+			if book.Disposition != "" {
+				<p class="metadata"><strong>Workflow</strong>: { myBooksDispositionLabel(myBookDisposition(book)) }</p>
+				if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
+					if book.Book.LanguageState == domain.LanguageChosen {
+						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
+							<button type="submit" class="outline library-book__journey-action">Move to To Read</button>
+						</form>
+					} else {
+						<p class="metadata">Choose a language in the catalog before moving this Book to To Read.</p>
+					}
+				}
+				if (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.JourneyGoal {
+					@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
+						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
+							<button type="submit" class="outline secondary">Confirm set aside</button>
+						</form>
+					}
+				}
+			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL(journeyAddURL(book.Book.ID)) }>
 					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
 					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Add to Reading Journey</button>
@@ -300,19 +321,36 @@ templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selec
 	<a class="outline" data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">{ label }</a>
 }
 
+templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
+	<nav class="library-filters" aria-label="My Books filters">
+		@MyBooksDispositionFilterLink(browse, "All", "", myBooksAllDispositionCount(browse))
+		@MyBooksDispositionFilterLink(browse, "Inbox", domain.BookDispositionInbox, myBooksDispositionCount(browse, domain.BookDispositionInbox))
+		@MyBooksDispositionFilterLink(browse, "To Read", domain.BookDispositionToRead, myBooksDispositionCount(browse, domain.BookDispositionToRead))
+		@MyBooksDispositionFilterLink(browse, "Set Aside", domain.BookDispositionSetAside, myBooksDispositionCount(browse, domain.BookDispositionSetAside))
+	</nav>
+}
+
+templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
+	<a class="outline" { myBooksSelectedAttributes(browse.Disposition == disposition)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
+}
+
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
 		<h2 id="library-books-heading" tabindex="-1">{ myBooksResultsHeading(browse) }</h2>
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
 				if browse.TextNoMatch && browse.NeedsLanguage {
-					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksURL("", 1, true)) } hx-get={ myBooksURL("", 1, true) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksResultsURL(browse, 1)) } hx-get={ myBooksResultsURL(browse, 1) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.TextNoMatch {
-					No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksURL("", 1, browse.NeedsLanguage)) } hx-get={ myBooksURL("", 1, browse.NeedsLanguage) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+					No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.NeedsLanguage {
 					No books are awaiting a language in the local collection.
 				} else if browse.Language != "" {
-					No books in your local collection are in { myBooksLanguageName(browse) }.
+					if browse.Disposition != "" {
+						No { myBooksDispositionLabel(browse.Disposition) } books in your local collection are in { myBooksLanguageName(browse) }.
+					} else {
+						No books in your local collection are in { myBooksLanguageName(browse) }.
+					}
 				}
 			</p>
 		} else {
@@ -403,8 +441,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			}
+			@MyBooksDispositionFilters(browse)
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksURL("", 1, browse.NeedsLanguage)) } hx-get={ myBooksURL("", 1, browse.NeedsLanguage) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
 					<label for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>

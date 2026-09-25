@@ -23,12 +23,18 @@ type LanguageCount struct {
 	Count int
 }
 
+type DispositionCount struct {
+	Disposition domain.BookDisposition
+	Count       int
+}
+
 type MyBooksBrowseResult struct {
-	Items      []domain.MyBook
-	ScopeTotal int
-	Total      int
-	Counts     []LanguageCount
-	AllCount   int
+	Items             []domain.MyBook
+	ScopeTotal        int
+	Total             int
+	Counts            []LanguageCount
+	DispositionCounts []DispositionCount
+	AllCount          int
 }
 
 func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain.Book, error) {
@@ -76,24 +82,36 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 	if err != nil {
 		return nil, err
 	}
+	dispositions, err := s.bookDispositionMap(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
 	var books []domain.MyBook
 	for _, row := range rows {
-		books = append(books, myBookFromEvidence(row))
+		book := myBookFromEvidence(row)
+		book.Disposition = dispositions[book.Book.ID]
+		books = append(books, book)
 	}
 	return books, nil
 }
 
-// ListMyBooksBrowse returns one owner-scoped page of the active My Books
-// collection and counts for its unfiltered language pills. query is trimmed
-// and lowercased, then matched as a case-insensitive literal substring of the
-// locally stored title; backslash, percent, and underscore are escaped before
-// the SQL LIKE expression. It does not tokenize, stem, or query OPDS. language
-// is empty for all languages, "unknown" for the unknown bucket, or otherwise
-// matches a canonical chosen tag. Items are ordered deterministically
-// by lower(title), title, and id, and offset/limit select the requested page.
-func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language string, offset, limit int) (MyBooksBrowseResult, error) {
+// ListMyBooksBrowse returns one owner-scoped page of My Books and counts for
+// the selected language's dispositions. query is trimmed and lowercased, then
+// matched as a case-insensitive literal substring of the locally stored title
+// or author; backslash, percent, and underscore are escaped for SQL LIKE. It
+// does not tokenize, stem, or query OPDS. language is empty for all languages,
+// "unknown" for the unknown bucket, or otherwise a canonical chosen tag.
+// disposition is empty for all workflow buckets or one validated disposition.
+// Items use deterministic title ordering; offset and limit select the page.
+func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, offset, limit int) (MyBooksBrowseResult, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
+	disposition = strings.TrimSpace(disposition)
+	if disposition != "" {
+		if err := domain.BookDisposition(disposition).Validate(); err != nil {
+			return MyBooksBrowseResult{}, err
+		}
+	}
 	if language != domain.LanguageUnknown {
 		language = canonicalization.NormalizeLanguage(language)
 	}
@@ -115,7 +133,7 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 
 	q := s.queries()
 	rows, err := q.BrowseMyBooksEvidence(ctx, sqlcgen.BrowseMyBooksEvidenceParams{
-		Owner: owner, Query: escapedQuery, Language: language,
+		Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition,
 		Offset: sqlOffset, Limit: sqlLimit,
 	})
 	if err != nil {
@@ -126,7 +144,14 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	for _, row := range rows {
 		result.Items = append(result.Items, myBookFromEvidence(row))
 	}
-	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language})
+	dispositions, err := s.bookDispositionMap(ctx, owner)
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	for i := range result.Items {
+		result.Items[i].Disposition = dispositions[result.Items[i].Book.ID]
+	}
+	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
@@ -161,6 +186,17 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 		}
 		result.Counts = append(result.Counts, LanguageCount{Tag: count.LanguageTag, Count: bookCount})
 	}
+	dispositionCounts, err := q.CountMyBooksByDisposition(ctx, sqlcgen.CountMyBooksByDispositionParams{Owner: owner, Language: language})
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	for _, count := range dispositionCounts {
+		bookCount, conversionErr := checked.IntFromInt64(count.BookCount)
+		if conversionErr != nil {
+			return MyBooksBrowseResult{}, fmt.Errorf("invalid book count for disposition %q: %w", count.Disposition, conversionErr)
+		}
+		result.DispositionCounts = append(result.DispositionCounts, DispositionCount{Disposition: domain.BookDisposition(count.Disposition), Count: bookCount})
+	}
 	sort.Slice(result.Counts, func(i, j int) bool {
 		if result.Counts[i].Tag == "unknown" {
 			return false
@@ -184,7 +220,24 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	if err != nil {
 		return domain.MyBook{}, missing(err)
 	}
-	return myBookFromEvidence(row), nil
+	book := myBookFromEvidence(row)
+	book.Disposition, err = s.GetBookDisposition(ctx, owner, book.Book.ID)
+	if err != nil {
+		return domain.MyBook{}, err
+	}
+	return book, nil
+}
+
+func (s *PostgresStore) bookDispositionMap(ctx context.Context, owner string) (map[string]domain.BookDisposition, error) {
+	rows, err := s.queries().ListBookDispositions(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	dispositions := make(map[string]domain.BookDisposition, len(rows))
+	for _, row := range rows {
+		dispositions[row.BookID] = domain.BookDisposition(row.Disposition)
+	}
+	return dispositions, nil
 }
 
 func (s *PostgresStore) GetBook(ctx context.Context, owner, bookID string) (domain.Book, error) {
@@ -271,7 +324,10 @@ func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.B
 			return err
 		}
 		created = domain.Book(row)
-		return q.InsertBookMembership(ctx, sqlcgen.InsertBookMembershipParams{OwnerID: created.OwnerID, BookID: created.ID})
+		if err := q.InsertBookMembership(ctx, sqlcgen.InsertBookMembershipParams{OwnerID: created.OwnerID, BookID: created.ID}); err != nil {
+			return err
+		}
+		return q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: created.OwnerID, BookID: created.ID})
 	})
 	return created, err
 }
@@ -656,6 +712,9 @@ func (s *PostgresStore) resolveOrCreateBookForAcquisition(ctx context.Context, o
 		return "", err
 	}
 	if err = activateMembership(ctx, tx, owner, createdRow.ID); err != nil {
+		return "", err
+	}
+	if err = q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: createdRow.ID}); err != nil {
 		return "", err
 	}
 	if err = tx.Commit(ctx); err != nil {

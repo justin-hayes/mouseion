@@ -6,6 +6,11 @@ SELECT disposition
 FROM book_dispositions
 WHERE owner_id = $1 AND book_id = $2;
 
+-- name: ListBookDispositions :many
+SELECT book_id::text, disposition
+FROM book_dispositions
+WHERE owner_id = $1;
+
 -- name: InsertInboxBookDisposition :exec
 INSERT INTO book_dispositions(owner_id, book_id, disposition)
 VALUES ($1, $2, 'inbox')

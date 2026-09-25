@@ -165,7 +165,7 @@ func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	store.myBooks = []domain.MyBook{
 		{Book: domain.Book{ID: "regional", OwnerID: OwnerID, Title: "Regional", LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"}},
 	}
-	result, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "DE_de", 0, 10)
+	result, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "DE_de", "", 0, 10)
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.Total, "canonical browse result=%+v", result)
 	require.Len(t, result.Items, 1, "canonical browse result=%+v", result)
@@ -476,15 +476,15 @@ func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 	sync := NewCatalogueSync(store)
-	before, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
+	before, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, "", 0, 25)
 	require.NoError(t, err, "initial needs-language browse=%+v err=%v", before, err)
 	assert.GreaterOrEqual(t, before.Total, 1, "initial needs-language browse=%+v err=%v", before, err)
 	_, err = sync.Enqueue(ctx, OwnerID, "fixture-browser-sync-connection")
 	require.NoError(t, err)
-	afterUnknown, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, 0, 25)
+	afterUnknown, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, "", 0, 25)
 	require.NoError(t, err, "needs-language book remained after sync=%+v err=%v", afterUnknown, err)
 	assert.Equal(t, before.Total-1, afterUnknown.Total, "needs-language book remained after sync=%+v err=%v", afterUnknown, err)
-	afterGerman, err := store.ListMyBooksBrowse(ctx, OwnerID, "", "de", 0, 25)
+	afterGerman, err := store.ListMyBooksBrowse(ctx, OwnerID, "", "de", "", 0, 25)
 	require.NoError(t, err, "re-synced book missing from German browse=%+v err=%v", afterGerman, err)
 	assert.NotZero(t, afterGerman.Total, "re-synced book missing from German browse=%+v err=%v", afterGerman, err)
 	found := false

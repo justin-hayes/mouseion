@@ -26,35 +26,43 @@ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
 FOR UPDATE;
 
 -- name: ListMyBooksEvidence :many
-SELECT * FROM my_books_evidence
-WHERE book_owner_id = sqlc.arg('owner')
-ORDER BY book_title, book_id;
+SELECT e.*
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner')
+ORDER BY e.book_title, e.book_id;
 
 -- name: BrowseMyBooksEvidence :many
-SELECT * FROM my_books_evidence
-WHERE book_owner_id = sqlc.arg('owner')
+SELECT e.*
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner')
   AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
   AND (
     sqlc.arg('language')::text = ''
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
   )
-ORDER BY lower(book_title), book_title, book_id
+  AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'))
+ORDER BY lower(e.book_title), e.book_title, e.book_id
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: CountMyBooksFiltered :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = sqlc.arg('owner')
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner')
   AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
   AND (
     sqlc.arg('language')::text = ''
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
-  );
+  )
+  AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'));
 
 -- name: CountMyBooksScope :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = sqlc.arg('owner')
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner')
   AND (
     sqlc.arg('language')::text = ''
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
@@ -72,8 +80,22 @@ FROM my_books_evidence
 WHERE book_owner_id = sqlc.arg('owner') AND book_language_state IN ('chosen', 'unknown')
 GROUP BY 1;
 
+-- name: CountMyBooksByDisposition :many
+SELECT d.disposition, count(*) AS book_count
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner')
+  AND (
+    sqlc.arg('language')::text = ''
+    OR (sqlc.arg('language')::text = 'unknown' AND e.book_language_state = 'unknown')
+    OR (e.book_language_state = 'chosen' AND e.book_language_tag = sqlc.arg('language'))
+  )
+GROUP BY d.disposition;
+
 -- name: GetMyBookDetail :one
-SELECT e.* FROM my_books_evidence e
+SELECT e.*
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 WHERE e.book_owner_id = sqlc.arg('owner') AND (e.book_id = sqlc.arg('id') OR EXISTS (
   SELECT 1 FROM source_materials requested_source
   WHERE requested_source.owner_id::text = e.book_owner_id

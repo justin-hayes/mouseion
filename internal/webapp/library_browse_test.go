@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -64,16 +65,17 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 
 type browseRecordingStore struct {
 	*fixtures.Store
-	result   persistence.MyBooksBrowseResult
-	owner    string
-	query    string
-	language string
-	offset   int
-	limit    int
+	result      persistence.MyBooksBrowseResult
+	owner       string
+	query       string
+	language    string
+	disposition string
+	offset      int
+	limit       int
 }
 
-func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language string, offset, limit int) (persistence.MyBooksBrowseResult, error) {
-	s.owner, s.query, s.language, s.offset, s.limit = owner, query, language, offset, limit
+func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+	s.owner, s.query, s.language, s.disposition, s.offset, s.limit = owner, query, language, disposition, offset, limit
 	return s.result, nil
 }
 
@@ -139,6 +141,14 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.False(t, strings.Contains(response.Body.String(), `href="/books/unknown-book"`), "needs-language browse exposed mutation actions: %s", response.Body.String())
 	assert.False(t, strings.Contains(response.Body.String(), "Add to Reading Journey"), "needs-language browse exposed mutation actions: %s", response.Body.String())
 	assert.False(t, strings.Contains(response.Body.String(), "Remove from My Books"), "needs-language browse exposed mutation actions: %s", response.Body.String())
+	response = request("/library?disposition=set_aside")
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, string(domain.BookDispositionSetAside), store.disposition)
+	store.result.Total = 0
+	store.result.ScopeTotal = 26
+	response = request("/library?disposition=set_aside&page=2")
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/library?disposition=set_aside", response.Header().Get("Location"), "empty filtered pages should clamp to page one")
 }
 
 func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.T) {
@@ -181,6 +191,92 @@ func TestMyBooksBrowseRequestDefaults(t *testing.T) {
 	assert.Equal(t, 2, page)
 	assert.True(t, needsLanguage)
 	assert.Equal(t, "/library?needs-language&page=2&q=title", myBooksURL("title", 2, true))
+	query, page, needsLanguage, disposition := parseMyBooksBrowseRequestWithDisposition(&url.URL{RawQuery: "q=title&disposition=to_read&page=2"})
+	assert.Equal(t, "title", query)
+	assert.Equal(t, 2, page)
+	assert.False(t, needsLanguage)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	assert.Equal(t, "/library?disposition=to_read&q=title", myBooksDispositionURL(MyBooksBrowseState{Query: "title", Disposition: disposition}, disposition))
+	_, _, _, disposition = parseMyBooksBrowseRequestWithDisposition(&url.URL{RawQuery: "disposition=invalid"})
+	assert.Empty(t, disposition)
+}
+
+func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 6, ScopeTotal: 6, Total: 2, Disposition: domain.BookDispositionToRead, InboxCount: 2, ToReadCount: 3, SetAsideCount: 1}
+	var output bytes.Buffer
+	books := []domain.MyBook{
+		{Book: domain.Book{ID: "to-read", OwnerID: "owner", Title: "To read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionToRead},
+		{Book: domain.Book{ID: "inbox-book", OwnerID: "owner", Title: "Inbox book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionInbox},
+	}
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `href="/library?disposition=inbox"`)
+	assert.Contains(t, html, `aria-current="page" href="/library?disposition=to_read"`)
+	assert.Contains(t, html, `href="/library?disposition=set_aside"`)
+	assert.Contains(t, html, "Inbox (2)")
+	assert.Contains(t, html, "To Read (3)")
+	assert.Contains(t, html, "Set Aside (1)")
+	assert.Contains(t, html, `action="/library/books/to-read/set-aside"`)
+	assert.Contains(t, html, `action="/library/books/inbox-book/set-aside"`)
+	assert.Contains(t, html, "This sets aside the Book without adding it to Reading Journey.")
+	filtersStart := strings.Index(html, `<nav class="library-filters"`)
+	require.GreaterOrEqual(t, filtersStart, 0)
+	filtersEnd := strings.Index(html[filtersStart:], `</nav>`)
+	require.Greater(t, filtersEnd, 0)
+	filters := html[filtersStart : filtersStart+filtersEnd]
+	assert.NotContains(t, filters, "hx-get=")
+}
+
+func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	analysisService := &journeyIntentAnalysis{}
+	requireHandler(t, h).services.Analysis = analysisService
+	setAside := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"1"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, setAside.Code)
+	assert.Contains(t, setAside.Header().Get("Location"), "disposition=set_aside")
+	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, disposition)
+
+	repeated := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"2"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, repeated.Code)
+	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, disposition)
+
+	toRead := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"2"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, toRead.Code)
+	assert.NotContains(t, toRead.Header().Get("Location"), "error=")
+	assert.Contains(t, toRead.Header().Get("Location"), "disposition=to_read")
+	assert.Equal(t, 1, analysisService.calls, "moving to To Read should ensure analysis once")
+	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+
+	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	repeated = goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, repeated.Code)
+	assert.Equal(t, 1, analysisService.calls, "idempotent move should not submit duplicate analysis")
+	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	stale := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {"2"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, stale.Code)
+	assert.Contains(t, stale.Header().Get("Location"), "error=")
+	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "stale write changed disposition")
 }
 
 func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
