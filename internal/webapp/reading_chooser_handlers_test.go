@@ -43,7 +43,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 		if books[i].Acquired != nil {
 			switch books[i].Acquired.Source.ID {
 			case "fixture-route-match":
-				books[i].Acquired.AnalysisStatus = "analysis running"
+				books[i].Acquired.AnalysisStatus = "analyzing"
 			case "fixture-route-differs":
 				books[i].Acquired.AnalysisStatus = "stale"
 			}
@@ -67,7 +67,10 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Contains(t, body, "Current coverage:")
 	assert.Contains(t, body, "eligible vocabulary identities")
 	assert.Contains(t, body, "Start reading")
+	assert.Contains(t, body, "Confirm start reading")
+	assert.Contains(t, body, `name="return_to" value="/reading"`)
 	assert.Contains(t, body, "Analysis in progress")
+	assert.Contains(t, body, "Review To Read books")
 	assert.Contains(t, body, "Needs attention")
 	assert.Contains(t, body, "The last analysis did not complete.")
 	assert.Contains(t, body, `action="/reading/books/fixture-failed/reanalyze"`)
@@ -96,6 +99,18 @@ func TestReadingChooserRecoveryDoesNotRequireJourneyMembership(t *testing.T) {
 	response := goalRequest(t, h, "/reading/books/fixture-failed/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "/reading?message=Analysis+")
+}
+
+func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	response := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
+		"csrf_token":            {csrf},
+		"expected_goal_book_id": {""},
+		"return_to":             {"/reading"},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Contains(t, response.Header().Get("Location"), "/reading?message=")
 }
 
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {

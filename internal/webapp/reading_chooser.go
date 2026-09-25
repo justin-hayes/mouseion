@@ -156,7 +156,7 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 }
 
 func readingChooserLess(left, right readingChooserBookView) bool {
-	leftTitle, rightTitle := normalizedBookSortKey(left), normalizedBookSortKey(right)
+	leftTitle, rightTitle := strings.ToLower(readingChooserBookTitle(left.Book)), strings.ToLower(readingChooserBookTitle(right.Book))
 	if leftTitle != rightTitle {
 		return leftTitle < rightTitle
 	}
@@ -167,12 +167,16 @@ func readingChooserLess(left, right readingChooserBookView) bool {
 	return left.Book.Book.ID < right.Book.Book.ID
 }
 
-func normalizedBookSortKey(book readingChooserBookView) string {
-	title := strings.TrimSpace(book.Book.Book.Title)
-	if book.Book.Acquired != nil && strings.TrimSpace(book.Book.Acquired.BookTitle) != "" {
-		title = strings.TrimSpace(book.Book.Acquired.BookTitle)
+func readingChooserBookTitle(book domain.MyBook) string {
+	if title := strings.TrimSpace(book.Book.Title); title != "" {
+		return title
 	}
-	return strings.ToLower(title)
+	if book.Acquired != nil {
+		if title := strings.TrimSpace(book.Acquired.BookTitle); title != "" {
+			return title
+		}
+	}
+	return book.Book.ID
 }
 
 func readingChooserEvidenceState(book domain.MyBook) (readingChooserState, string) {
@@ -180,7 +184,7 @@ func readingChooserEvidenceState(book domain.MyBook) (readingChooserState, strin
 		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
 	}
 	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
-	if strings.Contains(status, "queued") || strings.Contains(status, "running") {
+	if strings.Contains(status, "queued") || strings.Contains(status, "running") || status == "analyzing" {
 		return readingChooserInProgress, "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
 	}
 	evidenceState := book.Acquired.EvidenceState()
@@ -244,6 +248,13 @@ func readingChooserThresholdText(threshold domain.CoverageThreshold) string {
 		return fmt.Sprintf("%d%%: not reachable from currently eligible vocabulary.", threshold.TargetPercent)
 	}
 	return fmt.Sprintf("%d%%: %d additional eligible vocabulary identities.", threshold.TargetPercent, threshold.LemmaCount)
+}
+
+func readingChooserAnalysisJobURL(jobID int64) string {
+	if jobID <= 0 {
+		return "/library?disposition=to_read"
+	}
+	return fmt.Sprintf("/jobs/%d", jobID)
 }
 
 func readingChooserCoverageDisplay(coverage domain.AnalysisCoverage) string {

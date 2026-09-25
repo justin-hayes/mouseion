@@ -1381,31 +1381,41 @@ templ ReadingChooserBand(title, description string, books []readingChooserBookVi
 templ ReadingChooserBook(item readingChooserBookView, csrf string) {
 	<li class="reading-chooser-book">
 		<article class="resource-card">
-			<h3 class="bibliographic-title">{ canonicalBookTitle(domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: item.Book.Book.ID, Title: item.Book.Book.Title}, BookTitle: item.Book.Book.Title}) }</h3>
+			<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
 			if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
 				<p>By { author }</p>
 			}
 			if item.Coverage != nil {
-				<p><strong>Current coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ item.Coverage.KnownTokenCount } of { item.Coverage.AnalyzableTokenCount } analyzable tokens)</p>
-				<p>{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
+				<p class="numeric"><strong>Current coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ item.Coverage.KnownTokenCount } of { item.Coverage.AnalyzableTokenCount } analyzable tokens)</p>
+				<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
 				<details>
 					<summary>Coverage investment at 95%, 97%, and 99%</summary>
 					<ul>
 					for _, threshold := range item.Coverage.Thresholds {
 						if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
-							<li>{ readingChooserThresholdText(threshold) }</li>
+							<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
 						}
 					}
 					</ul>
 					<p>Investment counts eligible vocabulary identities, not deck size.</p>
 				</details>
-				<form method="post" action={ templ.SafeURL("/goal/books/" + item.Book.Book.ID) }>
-					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/>
-					<button type="submit">Start reading</button>
-				</form>
+				@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
+					<form method="post" action={ templ.SafeURL("/goal/books/" + item.Book.Book.ID) }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<input type="hidden" name="expected_goal_book_id" value=""/>
+						<input type="hidden" name="return_to" value="/reading"/>
+						<button type="submit">Confirm start reading</button>
+					</form>
+				}
 			} else {
 				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
-				if item.State == readingChooserNeedsAttention {
+				if item.State == readingChooserInProgress {
+					if item.Book.Acquired.AnalysisJobID > 0 {
+						<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
+					} else {
+						<a href="/library?disposition=to_read">Review To Read books</a>
+					}
+				} else if item.State == readingChooserNeedsAttention {
 					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button type="submit">Retry acquisition or analysis</button>
