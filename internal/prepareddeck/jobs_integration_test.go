@@ -183,8 +183,16 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
 	require.NoError(t, err)
-	firstGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	var firstGoalPreparation Handle
+	firstGoal, err := store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.PrimaryGoal) error {
+		var queueErr error
+		firstGoalPreparation, queueErr = service.SubmitForGoalTx(ctx, tx, owner.ID, analysisID, reading.SnapshotID)
+		return queueErr
+	})
 	require.NoError(t, err)
+	require.Equal(t, domain.DeckPreparationQueued, firstGoalPreparation.Preparation.State)
+	require.NotZero(t, firstGoalPreparation.JobID)
+	assert.Equal(t, firstGoal.SnapshotID, firstGoalPreparation.Preparation.GoalSnapshotID)
 	var goalSubmissions sync.WaitGroup
 	goalResults := make(chan Handle, 8)
 	goalErrors := make(chan error, 8)
@@ -209,11 +217,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	for submitErr := range goalErrors {
 		assert.NoError(t, submitErr, "concurrent Goal submission") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
 	}
-	var firstGoalPreparation Handle
 	for result := range goalResults {
-		if firstGoalPreparation.Preparation.ID == "" {
-			firstGoalPreparation = result
-		}
 		assert.Equal(t, firstGoalPreparation.Preparation.ID, result.Preparation.ID)
 		assert.Equal(t, firstGoalPreparation.JobID, result.JobID)
 	}

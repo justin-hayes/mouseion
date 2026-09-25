@@ -145,6 +145,26 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	result, err = s.submitTx(ctx, tx, owner, analysisID, consent, goalSnapshotID)
+	if err != nil {
+		return Handle{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Handle{}, err
+	}
+	return result, nil
+}
+
+// SubmitForGoalTx creates or ensures local preparation and its durable job in
+// tx. Callers can include the current-reading snapshot in the same commit.
+func (s *Service) SubmitForGoalTx(ctx context.Context, tx pgx.Tx, owner, analysisID, snapshotID string) (Handle, error) {
+	if s == nil || tx == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" || strings.TrimSpace(snapshotID) == "" {
+		return Handle{}, ErrInvalidInput
+	}
+	return s.submitTx(ctx, tx, owner, analysisID, false, snapshotID)
+}
+
+func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID string, consent bool, goalSnapshotID string) (result Handle, err error) {
 	analysis, err := loadCompletedAnalysis(ctx, tx, owner, analysisID)
 	if err != nil {
 		return Handle{}, err
@@ -197,15 +217,9 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 			if err != nil {
 				return Handle{}, err
 			}
-			if err = tx.Commit(ctx); err != nil {
-				return Handle{}, err
-			}
 			return Handle{Preparation: p}, nil
 		}
 		return Handle{}, fmt.Errorf("enqueue prepared deck: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return Handle{}, err
 	}
 	return Handle{Preparation: p, JobID: jobID}, nil
 }

@@ -110,6 +110,11 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", current.BookID)
 	assert.NotEmpty(t, current.SnapshotID)
+	retry := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, retry.Code)
+	retried, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, current.SnapshotID, retried.SnapshotID, "retry reuses the frozen snapshot")
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
