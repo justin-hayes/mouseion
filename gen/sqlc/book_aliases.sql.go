@@ -356,32 +356,6 @@ func (q *Queries) GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCat
 	return book_id, err
 }
 
-const getCatalogueEntryIdentityBookForUpdate = `-- name: GetCatalogueEntryIdentityBookForUpdate :one
-SELECT book_id::text
-FROM book_aliases
-WHERE owner_id = $1 AND alias_type = $2 AND namespace = $3 AND value = $4 AND connection_id IS NULL
-FOR UPDATE
-`
-
-type GetCatalogueEntryIdentityBookForUpdateParams struct {
-	OwnerID   string
-	AliasType string
-	Namespace string
-	Value     string
-}
-
-func (q *Queries) GetCatalogueEntryIdentityBookForUpdate(ctx context.Context, arg GetCatalogueEntryIdentityBookForUpdateParams) (string, error) {
-	row := q.db.QueryRow(ctx, getCatalogueEntryIdentityBookForUpdate,
-		arg.OwnerID,
-		arg.AliasType,
-		arg.Namespace,
-		arg.Value,
-	)
-	var book_id string
-	err := row.Scan(&book_id)
-	return book_id, err
-}
-
 const getSourceMaterialBookByIdentifierForUpdate = `-- name: GetSourceMaterialBookByIdentifierForUpdate :one
 SELECT (COALESCE(book_id::text, ''))::text AS book_id
 FROM source_materials
@@ -554,31 +528,6 @@ func (q *Queries) InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatal
 		arg.OwnerID,
 		arg.BookID,
 		arg.ConnectionID,
-		arg.AliasType,
-		arg.Namespace,
-		arg.Value,
-	)
-	return err
-}
-
-const insertCatalogueEntryIdentity = `-- name: InsertCatalogueEntryIdentity :exec
-INSERT INTO book_aliases(owner_id, book_id, alias_type, namespace, value)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (owner_id, namespace, value) WHERE connection_id IS NULL DO NOTHING
-`
-
-type InsertCatalogueEntryIdentityParams struct {
-	OwnerID   string
-	BookID    string
-	AliasType string
-	Namespace string
-	Value     string
-}
-
-func (q *Queries) InsertCatalogueEntryIdentity(ctx context.Context, arg InsertCatalogueEntryIdentityParams) error {
-	_, err := q.db.Exec(ctx, insertCatalogueEntryIdentity,
-		arg.OwnerID,
-		arg.BookID,
 		arg.AliasType,
 		arg.Namespace,
 		arg.Value,

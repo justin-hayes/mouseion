@@ -16,7 +16,6 @@ const (
 	AliasCatalogEntry               = "catalog_entry"
 	AliasStrongBibliographic        = "strong_bibliographic"
 	NamespaceSourceIdentifier       = "source_identifier"
-	NamespaceCatalogueEntryIdentity = "catalogue_entry_identity"
 	MetadataProvenanceBackfill      = "source_materials_backfill"
 	BookCoverNone                   = "none"
 	BookCoverPending                = "pending"

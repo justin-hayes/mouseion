@@ -10,6 +10,10 @@ RETURNING id::text, owner_id::text, name, url, username, password_encrypted, lan
 SELECT id::text, owner_id::text, name, url, username, password_encrypted, language, created_at, updated_at
 FROM opds_connections WHERE owner_id = $1 AND id = $2;
 
+-- name: GetOpdsConnectionURL :one
+SELECT url
+FROM opds_connections WHERE owner_id = $1 AND id = $2;
+
 -- name: ListOpdsConnections :many
 SELECT id::text, owner_id::text, name, url, username, password_encrypted, language, created_at, updated_at
 FROM opds_connections WHERE owner_id = $1 ORDER BY name, id;

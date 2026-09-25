@@ -315,6 +315,9 @@ func (s *PostgresStore) UpdateOpdsConnection(ctx context.Context, ownerID string
 func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id string) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
+		if err := q.PreserveBookCatalogueEntryIdentitiesForConnection(ctx, sqlcgen.PreserveBookCatalogueEntryIdentitiesForConnectionParams{OwnerID: ownerID, ConnectionID: uuidArg(id)}); err != nil {
+			return err
+		}
 		affected, err := q.DeleteOpdsConnection(ctx, sqlcgen.DeleteOpdsConnectionParams{OwnerID: uuidArg(ownerID), ID: id})
 		if err != nil {
 			return err

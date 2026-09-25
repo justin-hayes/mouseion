@@ -94,6 +94,9 @@ type Querier interface {
 	GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error)
 	GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatalogEntryAliasParams) (GetBookCatalogEntryAliasRow, error)
 	GetBookCatalogEntryAliasForConnection(ctx context.Context, arg GetBookCatalogEntryAliasForConnectionParams) (GetBookCatalogEntryAliasForConnectionRow, error)
+	// Connection-independent catalogue identity preserves a Book when a source
+	// connection is deleted and later recreated with the same URL.
+	GetBookCatalogueEntryIdentityForConnection(ctx context.Context, arg GetBookCatalogueEntryIdentityForConnectionParams) (string, error)
 	// Cover metadata is projected into my_books_evidence; bytes are read only by
 	// the authenticated cover endpoint. The selected source is the Catalog entry
 	// that owns the retained display image; only that source may replace or
@@ -109,7 +112,6 @@ type Querier interface {
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
-	GetCatalogueEntryIdentityBookForUpdate(ctx context.Context, arg GetCatalogueEntryIdentityBookForUpdateParams) (string, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
 	// Card export and generated-vocabulary persistence queries.
@@ -141,6 +143,7 @@ type Querier interface {
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
 	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
+	GetOpdsConnectionURL(ctx context.Context, arg GetOpdsConnectionURLParams) (string, error)
 	GetPreparedDeckBatchChunkForUpdate(ctx context.Context, arg GetPreparedDeckBatchChunkForUpdateParams) (DeckPreparationBatchChunk, error)
 	GetPreparedDeckManifest(ctx context.Context, arg GetPreparedDeckManifestParams) (DeckPreparationManifest, error)
 	GetPreparedDeckManifestDigest(ctx context.Context, arg GetPreparedDeckManifestDigestParams) (string, error)
@@ -179,10 +182,10 @@ type Querier interface {
 	HasUsers(ctx context.Context) (bool, error)
 	InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error)
 	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
+	InsertBookCatalogueEntryIdentity(ctx context.Context, arg InsertBookCatalogueEntryIdentityParams) error
 	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) (int64, error)
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
-	InsertCatalogueEntryIdentity(ctx context.Context, arg InsertCatalogueEntryIdentityParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
 	InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error
 	InsertInboxBookDisposition(ctx context.Context, arg InsertInboxBookDispositionParams) error
@@ -289,6 +292,7 @@ type Querier interface {
 	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)
 	PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckCacheExistsParams) (bool, error)
 	PreparedDeckRunExists(ctx context.Context, arg PreparedDeckRunExistsParams) (bool, error)
+	PreserveBookCatalogueEntryIdentitiesForConnection(ctx context.Context, arg PreserveBookCatalogueEntryIdentitiesForConnectionParams) error
 	PrimaryGoalCandidateEligible(ctx context.Context, arg PrimaryGoalCandidateEligibleParams) (bool, error)
 	PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error)
 	PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error)

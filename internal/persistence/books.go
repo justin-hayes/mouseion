@@ -493,16 +493,21 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	connectionURL, err := q.GetOpdsConnectionURL(ctx, sqlcgen.GetOpdsConnectionURLParams{OwnerID: uuidArg(owner), ID: connectionID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CatalogueEntryReconcileResult{}, ErrNotFound
+	}
+	if err != nil {
+		return CatalogueEntryReconcileResult{}, err
+	}
 	// Advisory lock serializes catalogue identity reconciliation; it is a
 	// domain fence rather than a data query and therefore remains raw SQL.
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionID+":"+sourceIdentifier); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,468))`, owner+":"+connectionURL+":"+sourceIdentifier); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
 	aliasBook, err := q.GetCatalogueAliasBookForUpdate(ctx, sqlcgen.GetCatalogueAliasBookForUpdateParams{OwnerID: owner, ConnectionID: uuidArg(connectionID), Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier})
 	if errors.Is(err, pgx.ErrNoRows) {
-		identityBook, identityErr := q.GetCatalogueEntryIdentityBookForUpdate(ctx, sqlcgen.GetCatalogueEntryIdentityBookForUpdateParams{
-			OwnerID: owner, AliasType: domain.AliasStrongBibliographic, Namespace: domain.NamespaceCatalogueEntryIdentity, Value: sourceIdentifier,
-		})
+		identityBook, identityErr := q.GetBookCatalogueEntryIdentityForConnection(ctx, sqlcgen.GetBookCatalogueEntryIdentityForConnectionParams{OwnerID: owner, ID: connectionID, SourceIdentifier: sourceIdentifier})
 		if errors.Is(identityErr, pgx.ErrNoRows) {
 			aliasBook = ""
 		} else if identityErr != nil {
@@ -544,10 +549,10 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	if err = q.InsertCatalogueEntryIdentity(ctx, sqlcgen.InsertCatalogueEntryIdentityParams{
-		OwnerID: owner, BookID: bookID, AliasType: domain.AliasStrongBibliographic, Namespace: domain.NamespaceCatalogueEntryIdentity, Value: sourceIdentifier,
+	if err = q.InsertBookCatalogueEntryIdentity(ctx, sqlcgen.InsertBookCatalogueEntryIdentityParams{
+		OwnerID: owner, BookID: bookID, ID: connectionID, SourceIdentifier: sourceIdentifier,
 	}); err != nil {
-		return CatalogueEntryReconcileResult{}, aliasConflictError(err)
+		return CatalogueEntryReconcileResult{}, err
 	}
 	if created {
 		if err = q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: bookID}); err != nil {

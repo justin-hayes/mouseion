@@ -129,17 +129,6 @@ FROM book_aliases
 WHERE owner_id = $1 AND connection_id = $2 AND namespace = $3 AND value = $4
 FOR UPDATE;
 
--- name: GetCatalogueEntryIdentityBookForUpdate :one
-SELECT book_id::text
-FROM book_aliases
-WHERE owner_id = $1 AND alias_type = $2 AND namespace = $3 AND value = $4 AND connection_id IS NULL
-FOR UPDATE;
-
--- name: InsertCatalogueEntryIdentity :exec
-INSERT INTO book_aliases(owner_id, book_id, alias_type, namespace, value)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (owner_id, namespace, value) WHERE connection_id IS NULL DO NOTHING;
-
 -- name: GetBookMetadata :one
 SELECT title, author, language_state, COALESCE(language_tag, '') AS language_tag
 FROM books WHERE owner_id = $1 AND id = $2;

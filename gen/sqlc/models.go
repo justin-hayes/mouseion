@@ -81,6 +81,14 @@ type BookAlias struct {
 	ConnectionID pgtype.UUID
 }
 
+type BookCatalogueEntryIdentity struct {
+	OwnerID          string
+	BookID           string
+	ConnectionUrl    string
+	SourceIdentifier string
+	CreatedAt        pgtype.Timestamptz
+}
+
 type BookCover struct {
 	OwnerID                  string
 	BookID                   string
