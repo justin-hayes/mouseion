@@ -60,7 +60,7 @@ type Querier interface {
 	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
-	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) (int64, error)
+	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) ([]string, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error
 	DeletePrimaryGoalForBook(ctx context.Context, arg DeletePrimaryGoalForBookParams) error
@@ -102,6 +102,9 @@ type Querier interface {
 	GetBookCover(ctx context.Context, arg GetBookCoverParams) (GetBookCoverRow, error)
 	GetBookCoverForRetrieval(ctx context.Context, arg GetBookCoverForRetrievalParams) (GetBookCoverForRetrievalRow, error)
 	GetBookCoverForUpdate(ctx context.Context, arg GetBookCoverForUpdateParams) (GetBookCoverForUpdateRow, error)
+	// Book dispositions are owner-scoped learner intent. Legacy workflow
+	// mutations synchronize this row until the Journey cutover is complete.
+	GetBookDisposition(ctx context.Context, arg GetBookDispositionParams) (string, error)
 	GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error)
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
@@ -180,6 +183,7 @@ type Querier interface {
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
 	InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error
+	InsertInboxBookDisposition(ctx context.Context, arg InsertInboxBookDispositionParams) error
 	InsertPreparedDeckBatchChunk(ctx context.Context, arg InsertPreparedDeckBatchChunkParams) error
 	InsertPreparedDeckBatchChunkItem(ctx context.Context, arg InsertPreparedDeckBatchChunkItemParams) error
 	InsertPreparedDeckBatchChunkItemFromManifest(ctx context.Context, arg InsertPreparedDeckBatchChunkItemFromManifestParams) error
@@ -347,6 +351,7 @@ type Querier interface {
 	UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) error
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
 	UpdateReadingCompletionOutcome(ctx context.Context, arg UpdateReadingCompletionOutcomeParams) error
+	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)

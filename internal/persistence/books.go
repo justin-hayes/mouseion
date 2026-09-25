@@ -368,6 +368,9 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 	if err = sqlcgen.New(tx).RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: bookID}); err != nil {
 		return err
 	}
+	if err = synchronizeBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionSetAside); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -531,6 +534,11 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	}
 	if err = activateMembership(ctx, tx, owner, bookID); err != nil {
 		return CatalogueEntryReconcileResult{}, err
+	}
+	if created {
+		if err = q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: bookID}); err != nil {
+			return CatalogueEntryReconcileResult{}, err
+		}
 	}
 	if aliasBook == "" {
 		if err = q.InsertCatalogueEntryAlias(ctx, sqlcgen.InsertCatalogueEntryAliasParams{OwnerID: owner, BookID: bookID, ConnectionID: uuidArg(connectionID), AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: sourceIdentifier}); err != nil {

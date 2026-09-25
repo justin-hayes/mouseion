@@ -26,7 +26,9 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	// The re-preparation and cover migrations are newer than this historical
 	// scenario; go back to the same pre-reading-history version before
 	// replaying its steps.
-	moveApplicationMigrations(t, databaseURL, -11)
+	// Rewind to version 3; the current schema has one additional successor
+	// migration after this historical replay scenario.
+	moveApplicationMigrations(t, databaseURL, -12)
 	owner, err := store.CreateUser(ctx, "history-migration-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "history-migration-other", false)
@@ -54,6 +56,9 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, 1, historyCount)
 	assert.True(t, completedAt.Equal(migratedAt), "completion timestamp changed: got %s want %s", migratedAt, completedAt)
+	// The historical assertions above stop at version 10. Restore the current
+	// schema before exercising the current persistence methods below.
+	moveApplicationMigrations(t, databaseURL, 5)
 	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal survived backfill")
