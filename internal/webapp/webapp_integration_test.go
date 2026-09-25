@@ -404,6 +404,28 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	german, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
 	require.NoError(t, err)
 	assert.Empty(t, german.Items, "corrected Book remained in its old language collection")
+	_, err = store.ImportPreviouslyRead(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	deleted := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, deleted.Code)
+	_, err = store.GetOpdsConnection(ctx, owner.ID, connection.ID)
+	assert.ErrorIs(t, err, persistence.ErrNotFound)
+	disposition, err = store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "connection deletion erased learner disposition")
+	var retainedCompletions, retainedAnalysis int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedCompletions)
+	require.NoError(t, err)
+	assert.Equal(t, 1, retainedCompletions, "connection deletion erased reading history")
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedAnalysis)
+	require.NoError(t, err)
+	assert.Equal(t, 1, retainedAnalysis, "connection deletion erased analysis provenance")
+	sources, err := store.ListSourceMaterials(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, sources, 1, "connection deletion erased acquired provenance")
+	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, sources[0].Source.ID)
+	require.NoError(t, err)
+	assert.Len(t, preparations, 1, "connection deletion erased local deck state")
 }
 
 func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
