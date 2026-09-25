@@ -129,6 +129,8 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, first.ID, reading.BookID)
 	assert.NotEmpty(t, reading.SnapshotID)
+	_, err = store.FinishCurrentReading(ctx, alice.ID, "de", second.ID, reading.SnapshotID)
+	require.ErrorIs(t, err, ErrCurrentReadingStale)
 
 	other, err := store.GetCurrentReading(ctx, bob.ID, "de")
 	require.NoError(t, err)
@@ -149,6 +151,7 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	require.NoError(t, err)
 	finished, err := store.FinishCurrentReading(ctx, alice.ID, "de", first.ID, reading.SnapshotID)
 	require.NoError(t, err)
+	assert.Equal(t, reading.SnapshotID, finished.Completion.SnapshotID)
 	replayed, err := store.FinishCurrentReading(ctx, alice.ID, "de", first.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, finished, replayed)

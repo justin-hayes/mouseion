@@ -1355,7 +1355,22 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 }
 
 func (s *Store) FinishCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (persistence.CurrentReadingFinishResult, error) {
-	return s.RecordReadingFinishedPrimaryGoal(ctx, owner, language, expectedBookID, expectedSnapshotID)
+	result, err := s.RecordReadingFinishedPrimaryGoal(ctx, owner, language, expectedBookID, expectedSnapshotID)
+	if err != nil {
+		return persistence.CurrentReadingFinishResult{}, err
+	}
+	if result.Completion.BookID != expectedBookID {
+		return persistence.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
+	}
+	completion := result.Completion
+	return persistence.CurrentReadingFinishResult{Completion: domain.CurrentReadingCompletion{
+		OwnerID: completion.OwnerID, Language: completion.Language, BookID: completion.BookID,
+		CompletedAt: completion.CompletedAt, SnapshotID: completion.GoalSnapshotID,
+		SnapshotVocabularyCount:     completion.SnapshotVocabularyCount,
+		EligibleVocabularyCount:     completion.EligibleVocabularyCount,
+		GraduatedVocabularyCount:    completion.GraduatedVocabularyCount,
+		AlreadyKnownVocabularyCount: completion.AlreadyKnownVocabularyCount,
+	}}, nil
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {

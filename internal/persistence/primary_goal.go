@@ -90,7 +90,9 @@ func releasePrimaryGoalSnapshots(ctx context.Context, q *sqlcgen.Queries, owner 
 }
 
 // ReadingFinishResult is retained for the existing Goal handlers.
-type ReadingFinishResult = domain.CurrentReadingFinishResult
+type ReadingFinishResult struct {
+	Completion domain.ReadingCompletion
+}
 
 func readingCompletionFromValues(ownerID, language, bookID string, completedAt time.Time, snapshotID string, snapshotCount, eligibleCount, graduatedCount, alreadyKnownCount int) domain.ReadingCompletion {
 	return domain.ReadingCompletion{

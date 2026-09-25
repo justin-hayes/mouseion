@@ -10,6 +10,18 @@ import (
 // reading completion outcome.
 type CurrentReadingFinishResult = domain.CurrentReadingFinishResult
 
+func currentReadingFinishResult(result ReadingFinishResult) CurrentReadingFinishResult {
+	completion := result.Completion
+	return CurrentReadingFinishResult{Completion: domain.CurrentReadingCompletion{
+		OwnerID: completion.OwnerID, Language: completion.Language, BookID: completion.BookID,
+		CompletedAt: completion.CompletedAt, SnapshotID: completion.GoalSnapshotID,
+		SnapshotVocabularyCount:     completion.SnapshotVocabularyCount,
+		EligibleVocabularyCount:     completion.EligibleVocabularyCount,
+		GraduatedVocabularyCount:    completion.GraduatedVocabularyCount,
+		AlreadyKnownVocabularyCount: completion.AlreadyKnownVocabularyCount,
+	}}
+}
+
 // GetCurrentReading reads one owner's current reading for a study language.
 // The implementation deliberately delegates to the existing Goal repository
 // until the learner-facing handlers are cut over.
@@ -38,7 +50,11 @@ func (s *PostgresStore) StopCurrentReading(ctx context.Context, owner, language,
 // FinishCurrentReading accepts the frozen snapshot and records the same
 // idempotent completion outcome as the existing Goal lifecycle.
 func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (CurrentReadingFinishResult, error) {
-	return s.RecordReadingFinishedPrimaryGoal(ctx, owner, language, expectedBookID, expectedSnapshotID)
+	result, err := s.RecordReadingFinishedPrimaryGoal(ctx, owner, language, expectedBookID, expectedSnapshotID)
+	if err != nil {
+		return CurrentReadingFinishResult{}, err
+	}
+	return currentReadingFinishResult(result), nil
 }
 
 // CountCurrentReadingVocabularyToAccept reports the frozen identities that
