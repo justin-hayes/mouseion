@@ -31,6 +31,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,6 +61,23 @@ type metadataBookAcquisitionStub struct {
 type catalogueLanguageCorrectionRefresher struct {
 	store        *persistence.PostgresStore
 	connectionID string
+}
+
+type emptyCatalogueSyncReader struct{}
+
+func (emptyCatalogueSyncReader) Languages(context.Context, string, string) (opds.Feed, error) {
+	return opds.Feed{Entries: []opds.Entry{
+		{Title: "German", Links: []opds.Link{{Rel: "subsection", Href: "https://language.example/opds/language/7"}}},
+		{Title: "Italian", Links: []opds.Link{{Rel: "subsection", Href: "https://language.example/opds/language/9"}}},
+	}}, nil
+}
+
+func (emptyCatalogueSyncReader) BrowseLanguage(context.Context, string, string, string) (opds.Feed, error) {
+	return opds.Feed{}, nil
+}
+
+func (reader emptyCatalogueSyncReader) BrowseLanguageUnfiltered(ctx context.Context, owner, connection, language string) (opds.Feed, error) {
+	return reader.BrowseLanguage(ctx, owner, connection, language)
 }
 
 func (catalogueLanguageCorrectionRefresher) RegisterConnection(context.Context, string, string) error {
@@ -371,8 +389,31 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_aliases(owner_id,book_id,connection_id,alias_type,namespace,value) VALUES($1,$2,$3,$4,$5,$6)`, owner.ID, book.ID, connection.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "language-entry")
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	_, err = store.ImportPreviouslyRead(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
+	syncWorker := &cataloguesync.Worker{
+		Connections: store, Catalogue: store, Statuses: store, Reader: emptyCatalogueSyncReader{},
+		Capabilities: staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
+			{Language: "de", DisplayName: "German", Ready: true},
+			{Language: "it", DisplayName: "Italian", Ready: true},
+		}}},
+	}
+	require.NoError(t, syncWorker.Work(ctx, &river.Job[cataloguesync.SyncArgs]{Args: cataloguesync.SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
+	var retainedHistory, vanishedAnalysis int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedHistory)
+	require.NoError(t, err)
+	assert.Equal(t, 1, retainedHistory, "upstream disappearance erased reading history")
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&vanishedAnalysis)
+	require.NoError(t, err)
+	assert.Equal(t, 1, vanishedAnalysis, "upstream disappearance erased analysis provenance")
+	sourcesBeforeRefresh, err := store.ListSourceMaterials(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, sourcesBeforeRefresh, 1)
+	preparationsBeforeRefresh, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, sourcesBeforeRefresh[0].Source.ID)
+	require.NoError(t, err)
+	assert.Len(t, preparationsBeforeRefresh, 1, "upstream disappearance erased local deck state")
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
@@ -404,8 +445,6 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	german, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
 	require.NoError(t, err)
 	assert.Empty(t, german.Items, "corrected Book remained in its old language collection")
-	_, err = store.ImportPreviouslyRead(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
 	deleted := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, deleted.Code)
 	_, err = store.GetOpdsConnection(ctx, owner.ID, connection.ID)
