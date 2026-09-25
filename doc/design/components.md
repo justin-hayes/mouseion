@@ -106,10 +106,11 @@ link, and never make cover content or actions hover-only.
 **Answers:** Which Book is this, is it in my Reading Journey, and what can I do
 with it?
 
-Use `BookCoverMedia`, then full title and available author, a restrained **In
-Reading Journey** marker when applicable, one labeled **Add to Reading Journey**
-or **View in Reading Journey** action, and a labeled native **More actions**
-disclosure. The disclosure owns workflow disposition changes, eligible metadata
+Use `BookCoverMedia`, then full title and available author, a restrained workflow
+placement and **In Reading Journey** marker when applicable, one labeled primary
+action, and a labeled native **More actions** disclosure. The primary action is
+**Move to To Read** for Inbox or Set Aside Books, and **View in Reading Journey**
+for a Journey member. The disclosure owns **Set aside**, eligible metadata
 refresh, and confirmed My Books removal. Do not add analysis, acquired-content,
 evidence, Primary Goal, or next-action status to this pattern.
 
