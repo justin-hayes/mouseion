@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -68,6 +69,8 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Contains(t, body, "Start reading")
 	assert.Contains(t, body, "Analysis in progress")
 	assert.Contains(t, body, "Needs attention")
+	assert.Contains(t, body, "The last analysis did not complete.")
+	assert.Contains(t, body, `action="/reading/books/fixture-failed/reanalyze"`)
 	assert.Contains(t, body, "The analysis no longer matches the current book content")
 	assert.Contains(t, body, "No vocabulary comparison")
 	assert.Contains(t, body, "No analyzable tokens")
@@ -76,6 +79,23 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.NotContains(t, body, "Metadata-only migration book")
 	assert.True(t, strings.Contains(body, `action="/goal/books/`) && strings.Contains(body, `name="csrf_token"`))
 	assert.Less(t, strings.Index(body, "Der lange Weg nach Hause"), strings.Index(body, "Route differs: new German"), "same-band candidates should be in neutral title order")
+}
+
+func TestReadingChooserRecoveryDoesNotRequireJourneyMembership(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	_, err = store.RemoveFromReadingJourney(context.Background(), fixtures.OwnerID, "de", "fixture-failed", journey.Revision)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionToRead))
+	handler, ok := h.(*Handler)
+	require.True(t, ok)
+	handler.services.Analysis = fixtures.Analysis{}
+
+	response := goalRequest(t, h, "/reading/books/fixture-failed/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Contains(t, response.Header().Get("Location"), "/reading?message=Analysis+")
 }
 
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {

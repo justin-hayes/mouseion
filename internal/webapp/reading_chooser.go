@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 type readingChooserBookView struct {
@@ -52,7 +54,34 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view))
+	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+}
+
+func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	bookID := r.PathValue("id")
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if detail.Disposition != domain.BookDispositionToRead {
+		http.NotFound(w, r)
+		return
+	}
+	handle, _, _, _, err := h.ensureJourneyAnalysis(r.Context(), owner, bookID)
+	if err != nil {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Acquisition or analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."))
+		return
+	}
+	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
 }
 
 func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, languageLabel string) (readingChooserPageView, error) {

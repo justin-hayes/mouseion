@@ -1304,10 +1304,16 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 	}
 }
 
-templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView) {
+templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView, message string, pageError string) {
 	@ShellLayout("Choose your next book", &user, csrf, NavigationReadingJourney) {
 		@PageHeader(readingChooserTitle(chooser), "Choose a To Read book when you are ready. Coverage groups describe vocabulary evidence; they are not difficulty ratings or recommendations.", nil) {
 			<a role="button" class="outline" href="/library?disposition=to_read">Review To Read books</a>
+		}
+		if message != "" {
+			@Feedback(FeedbackSuccess, "", message)
+		}
+		if pageError != "" {
+			@Feedback(FeedbackError, "Action needed", pageError)
 		}
 		if chooser.Language == "" {
 			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">
@@ -1400,7 +1406,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf string) {
 			} else {
 				<p><strong>{ item.State }</strong> — { item.Description }</p>
 				if item.State == "Needs attention" {
-					<form method="post" action={ templ.SafeURL("/journey/books/" + item.Book.Book.ID + "/reanalyze") }>
+					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button type="submit">Retry acquisition or analysis</button>
 					</form>

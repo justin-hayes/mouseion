@@ -60,6 +60,13 @@ separate Book or analysis view. Focused deck preparation and operational history
 remain supporting surfaces. No parallel learner-facing queue, campaign, or plan
 is exposed.
 
+The between-Books coverage chooser is also shipped at `GET /reading`: when there
+is no current Primary Goal, it presents the active language's To Read candidates
+in exact lexical coverage bands and separates candidates with incomplete evidence.
+The primary navigation and legacy `/journey` route remain in place until the
+broader route and lifecycle cutover is complete; the chooser temporarily uses
+the existing Goal presentation whenever a current Goal is active.
+
 ## Authentication
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
@@ -124,6 +131,7 @@ metadata refresh never invalidates or re-triggers analysis.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | Reading Journey | Shipped `GET /journey` | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current, after-Goal, and on-arrival evidence for the active language. | Primary Goal/book context, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unavailable evidence, recalculating, recalculation failure, stale evidence, lower-bound forecast, long content, narrow viewport |
+| Between-Books chooser | Shipped `GET /reading` when no current Primary Goal exists | Choose among active-language To Read books using trustworthy coverage evidence without a suggested order. | Start reading or My Books | Empty To Read collection, exact coverage bands, no vocabulary comparison, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
 | Journey forecast and reorder preview | Embedded in Reading Journey | See the three labeled coverage meanings in **Your order** and make a manual change within the active language's Journey. | Updated Reading Journey | No Goal, active Goal snapshot, unavailable predecessor, lower-bound forecast, neutral recalculation, failed recalculation |
 | Primary Goal outcome / Where next? | Embedded target state in Reading Journey | Understand the exact modeled vocabulary and reading changes from completing the Goal, then choose whether or where to commit next. | Choose as Primary Goal, reorder, My Books, or no new Goal | Goal completion with non-empty or empty snapshot, changed forecasts, lower-bound evidence, no remaining Journey book, no next choice; one Goal per language, other languages' Goals unaffected |
 | Historical artifact context | Supporting operational status and history surfaces | Inspect prepared-deck and legacy provenance without creating a separate learner workflow. | Reading Journey anchor or focused preparation task | Empty history, preparing, ready, failed artifact, historical provenance |
