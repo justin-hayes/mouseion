@@ -49,7 +49,7 @@ markup.
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and Goal completion                            |
 | `StatGroup`       | Compare a small set of labeled numeric or categorical facts                | Optional detail per item                          | Coverage thresholds, Journey projections, preparation progress |
 | `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Book and job facts                                         |
-| `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and known vocabulary                                  |
+| `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and import rejection details                          |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis job status                                        |
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Goal completion and catalog connections                  |
 | Active language switcher | Change the learner's stored active study language from the authenticated shell | Active, no active language, newly arrived, no books/read-only | Every authenticated screen |

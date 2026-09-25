@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -36,15 +35,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	if !learnerLanguagePresent(languages, knownLanguages, language) {
 		language = ""
 	}
-	var known []domain.KnownVocabulary
-	if language != "" {
-		known, err = h.services.Store.StudyLanguages.ListKnownVocabulary(r.Context(), u.ID, language)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-	}
-	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, knownLanguages, language, nil, known, ""))
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), languages, knownLanguages, language, nil, ""))
 }
 
 func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +45,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	//nolint:gosec // MaxBytesReader above bounds the complete multipart request.
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
 		language := knownVocabImportLanguage(r)
-		h.renderKnownVocabResult(w, r, language, nil, nil, "The import is too large or could not be read.")
+		h.renderKnownVocabResult(w, r, language, nil, "The import is too large or could not be read.")
 		return
 	}
 	if !h.checkCSRF(w, r) {
@@ -74,20 +65,20 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		if contentType := header.Header.Get("Content-Type"); contentType != "" {
 			mediaType, _, mediaErr := mime.ParseMediaType(contentType)
 			if mediaErr != nil || (mediaType != "text/plain" && mediaType != "application/octet-stream") {
-				h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a UTF-8 plain text file to import.")
+				h.renderKnownVocabResult(w, r, language, nil, "Choose a UTF-8 plain text file to import.")
 				return
 			}
 		}
 		if _, err = io.Copy(&input, file); err != nil {
-			h.renderKnownVocabResult(w, r, language, nil, nil, "The uploaded file could not be read.")
+			h.renderKnownVocabResult(w, r, language, nil, "The uploaded file could not be read.")
 			return
 		}
 	} else if !errors.Is(err, http.ErrMissingFile) {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "The uploaded file could not be read.")
+		h.renderKnownVocabResult(w, r, language, nil, "The uploaded file could not be read.")
 		return
 	}
 	if language == "" {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a language before importing.")
+		h.renderKnownVocabResult(w, r, language, nil, "Choose a language before importing.")
 		return
 	}
 	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
@@ -100,11 +91,11 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		selected = selected || studyLanguage.Language == language
 	}
 	if !selected {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a study language present in your library before importing.")
+		h.renderKnownVocabResult(w, r, language, nil, "Choose a study language present in your library before importing.")
 		return
 	}
 	if input.Len() == 0 {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Choose a non-empty UTF-8 text file to import.")
+		h.renderKnownVocabResult(w, r, language, nil, "Choose a non-empty UTF-8 text file to import.")
 		return
 	}
 	if h.services.KnownVocab == nil {
@@ -113,7 +104,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 	}
 	handle, err := h.services.KnownVocab.Submit(r.Context(), u.ID, language, input.String())
 	if err != nil {
-		h.renderKnownVocabResult(w, r, language, nil, nil, "Import failed: "+err.Error())
+		h.renderKnownVocabResult(w, r, language, nil, "Import failed: "+err.Error())
 		return
 	}
 	if r.Header.Get("Hx-Request") == "true" {
@@ -141,17 +132,9 @@ func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request)
 	render(w, r, KnownVocabImportStatus(status))
 }
 
-func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
-	if known == nil && language != "" {
-		var err error
-		known, err = h.services.Store.StudyLanguages.ListKnownVocabulary(r.Context(), user(r).ID, language)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-	}
+func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language string, result *knownvocab.ImportResult, message string) {
 	if r.Header.Get("Hx-Request") == "true" {
-		render(w, r, KnownVocabResult(language, result, known, message))
+		render(w, r, KnownVocabResult(result, message))
 		return
 	}
 	u := user(r)
@@ -167,9 +150,8 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 	}
 	if !learnerLanguagePresent(studyLanguages, knownLanguages, language) {
 		language = ""
-		known = nil
 	}
-	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, knownLanguages, language, result, known, message))
+	render(w, r, VocabularyPageWithResult(u, h.csrf(w, r), studyLanguages, knownLanguages, language, result, message))
 }
 
 func knownVocabImportLanguage(r *http.Request) string {
@@ -209,11 +191,4 @@ func knownVocabJobBusy(status string) bool {
 	default:
 		return true
 	}
-}
-
-func knownVocabUPOS(upos string) string {
-	if upos == "" {
-		return "Any"
-	}
-	return upos
 }

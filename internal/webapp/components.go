@@ -62,13 +62,6 @@ func bookCoverLabel(cover domain.BookCover) string {
 	}
 }
 
-func knownVocabProvenance(entry domain.KnownVocabulary) string {
-	if entry.Provenance != "" {
-		return entry.Provenance
-	}
-	return "Explicitly recorded"
-}
-
 type StatusTone string
 
 const (
@@ -499,7 +492,7 @@ func knownVocabImportSummary(status knownvocab.Status) string {
 	//nolint:exhaustive // River's JobState is an open upstream enumeration; unknown states use the generic summary.
 	switch status.State {
 	case "completed":
-		return "The import is complete. Review the updated known vocabulary in Vocabulary."
+		return "The import is complete. New rows are now counted as known vocabulary."
 	case "cancelled":
 		return "The import was cancelled before a complete result was available. Upload the file again when ready."
 	case "discarded":

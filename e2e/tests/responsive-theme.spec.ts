@@ -102,7 +102,9 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
     await page.goto('/vocabulary');
-    await expect(page.getByText(/Known vocabulary/).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
   });
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {

@@ -130,7 +130,7 @@ func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 
 func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	var upload bytes.Buffer
-	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, nil, "").Render(context.Background(), &upload))
+	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &upload))
 	for _, want := range []string{`method="post"`, `action="/vocabulary/import"`, `enctype="multipart/form-data"`, `hx-encoding="multipart/form-data"`, `id="vocabulary-results"`} {
 		assert.True(t, strings.Contains(upload.String(), want), "known-vocabulary upload missing %q: %s", want, upload.String())
 	}
@@ -152,7 +152,7 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 
 func TestVocabularyPageUsesActiveLanguageWithoutPicker(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, nil, "").Render(context.Background(), &output))
+	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &output))
 	html := output.String()
 	assert.True(t, strings.Contains(html, "Viewing <strong>German</strong> <code>de</code>"), "active language context missing: %s", html)
 	assert.False(t, strings.Contains(html, `<select name="language"`), "Vocabulary page exposes a per-page language control: %s", html)
@@ -160,19 +160,32 @@ func TestVocabularyPageUsesActiveLanguageWithoutPicker(t *testing.T) {
 	assert.False(t, strings.Contains(html, "return_to"), "Vocabulary page exposes a per-page language control: %s", html)
 }
 
-func TestVocabularyPageKeepsHistoricalVocabularyDisplayable(t *testing.T) {
+func TestVocabularyPageDoesNotDisplayKnownVocabulary(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "it", DisplayName: "Italian"}}, "it", nil, []domain.KnownVocabulary{{Language: "it", CanonicalLemma: "casa"}}, "").Render(context.Background(), &output))
+	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "it", DisplayName: "Italian"}}, "it", nil, "").Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, "Viewing <strong>Italian</strong> <code>it</code>"), "historical vocabulary is not displayable: %s", html)
-	assert.True(t, strings.Contains(html, "casa"), "historical vocabulary is not displayable: %s", html)
-	assert.True(t, strings.Contains(html, "Importing is unavailable"), "historical vocabulary is not displayable: %s", html)
-	assert.False(t, strings.Contains(html, `enctype="multipart/form-data"`), "historical vocabulary exposes an import form: %s", html)
+	assert.True(t, strings.Contains(html, "Viewing <strong>Italian</strong> <code>it</code>"), "active language context missing: %s", html)
+	assert.True(t, strings.Contains(html, "Importing is unavailable"), "historical language state missing: %s", html)
+	assert.False(t, strings.Contains(html, "Known vocabulary</h2>"), "Vocabulary page renders a known-vocabulary heading: %s", html)
+	assert.False(t, strings.Contains(html, `class="table-region"`), "Vocabulary page renders a known-vocabulary table: %s", html)
+	assert.False(t, strings.Contains(html, `enctype="multipart/form-data"`), "historical language exposes an import form: %s", html)
+}
+
+func TestKnownVocabResultShowsImportSummaryWithoutKnownList(t *testing.T) {
+	var output bytes.Buffer
+	result := &knownvocab.ImportResult{Imported: 2, AlreadyKnown: 1, Rejected: []knownvocab.Rejection{{Row: 4, Original: "bad line", Error: "invalid lemma"}}}
+	require.NoError(t, KnownVocabResult(result, "").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "2 new")
+	assert.Contains(t, html, "1 duplicates")
+	assert.Contains(t, html, "Rejected rows")
+	assert.NotContains(t, html, "Known vocabulary</h2>")
+	assert.NotContains(t, html, "Known vocabulary\"")
 }
 
 func TestVocabularyPageEmptyLibraryPointsToCatalogsAndHidesImport(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", nil, nil, "", nil, nil, "").Render(context.Background(), &output))
+	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", nil, nil, "", nil, "").Render(context.Background(), &output))
 	html := output.String()
 	assert.True(t, strings.Contains(html, "No study languages yet"), "empty Vocabulary state missing catalogue guidance: %s", html)
 	assert.True(t, strings.Contains(html, `href="/catalogs"`), "empty Vocabulary state missing catalogue guidance: %s", html)
@@ -241,9 +254,6 @@ type knownVocabContextStore struct {
 	StudyLanguageStore
 }
 
-func (knownVocabContextStore) ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error) {
-	return []domain.KnownVocabulary{}, nil
-}
 func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }

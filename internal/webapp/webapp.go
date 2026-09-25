@@ -41,7 +41,6 @@ type StudyLanguageStore interface {
 	GetStoredActiveStudyLanguage(context.Context, string) (string, error)
 	SetActiveStudyLanguage(context.Context, string, string) error
 	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)
-	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 }
 
 // BookStore provides the owner-scoped book reads and My Books membership

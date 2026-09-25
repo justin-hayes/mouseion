@@ -225,8 +225,8 @@ scrollable data table must label and contain its own overflow.
 - Goal choice, Goal clearing/changing, and completion retain distinct
   consequential confirmations in Reading Journey; Goal snapshot and forecast
   behavior is defined by ADR 0072.
-- Vocabulary is canonical for known vocabulary; study languages are derived from
-  chosen-language Books rather than maintained on a Settings route.
+- Vocabulary is canonical for importing known vocabulary; study languages are
+  derived from chosen-language Books rather than maintained on a Settings route.
 - Loading, empty, error, disabled, success, degraded, historical, and
   asynchronous states are explicit.
 - Errors explain what happened and the next available action.
@@ -251,7 +251,7 @@ frozen My Books / Reading Journey / Primary Goal architecture.
 
 Current implementation adoption covers My Books (`/library`), Reading Journey
 anchors and scope review, Reading Journey (`/journey`), analysis jobs, and
-known-vocabulary management. The accepted target patterns preserve bibliographic book identity,
+known-vocabulary import. The accepted target patterns preserve bibliographic book identity,
 the one Primary Goal per language, a fluid Journey order, explicit forecast
 stages, evidence deltas, and the Where next? outcome. Do not disguise those
 contracts as mere component renames.

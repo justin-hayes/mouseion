@@ -259,9 +259,12 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
     await expect(page.getByText(/Viewing German/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
+    await expect(page.locator('.table-region')).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
     await expect(page).toHaveURL('/vocabulary');
-    await expect(page.getByText('bonjour')).toBeVisible();
+    await expect(page.getByText(/Viewing fr/)).toBeVisible();
+    await expect(page.getByText('bonjour')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /import known vocabulary/i })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByText(/Viewing German/)).toBeVisible();

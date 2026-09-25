@@ -11,7 +11,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
-	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 )
 
 templ Layout(title string, user *domain.User, csrf string) {
@@ -951,7 +950,7 @@ templ JobStatus(csrf string, status analysis.Status, journeyEntryURL string) {
 		}
 	}
 }
-templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, message string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary", "Import words you already know so pre-learning decks focus on new vocabulary.", nil)
 		if language == "" {
@@ -960,7 +959,7 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLa
 					<a href="/catalogs">Connect a catalog</a>
 				}
 			} else {
-				<p>Choose a study language in the shell to view known vocabulary or import a lemma file.</p>
+				<p>Choose a study language in the shell before importing a lemma file.</p>
 			}
 		} else {
 			if len(languages) == 0 {
@@ -973,10 +972,10 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLa
 				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
 			}
 		}
-		<section id="vocabulary-results">@KnownVocabResult(language, result, known, message)</section>
+		<section id="vocabulary-results">@KnownVocabResult(result, message)</section>
 	}
 }
-templ KnownVocabResult(language string, result *knownvocab.ImportResult, known []domain.KnownVocabulary, message string) {
+templ KnownVocabResult(result *knownvocab.ImportResult, message string) {
 	if message != "" {
 		@Feedback(FeedbackError, "Import not completed", message)
 	}
@@ -991,26 +990,8 @@ templ KnownVocabResult(language string, result *knownvocab.ImportResult, known [
 				}
 				</tbody>
 			}
-		}
-		</article>
-	}
-	<h2>Known vocabulary
-	if language != "" {
-		<small> · language code { language }</small>
-	}
-	</h2>
-	if language == "" {
-		<p>Choose a language to view known vocabulary.</p>
-	} else if len(known) == 0 {
-		<p>No known vocabulary has been recorded for this language yet. This does not mean the language is unavailable or that the learner knows no words.</p>
-	} else {
-		@ResponsiveTable("Known vocabulary") {
-			<thead><tr><th>Lemma</th><th>Part of speech</th><th>Provenance</th><th>Recorded</th></tr></thead><tbody>
-			for _, entry := range known {
-				<tr><td>{ lemmadisplay.Format(entry.Language, entry.CanonicalLemma, entry.UPOS) }</td><td>{ knownVocabUPOS(entry.UPOS) }</td><td>{ knownVocabProvenance(entry) }</td><td>{ entry.CreatedAt.Format("2006-01-02") }</td></tr>
 			}
-			</tbody>
-		}
+		</article>
 	}
 }
 templ KnownVocabImportStatus(status knownvocab.Status) {
@@ -1047,7 +1028,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 					</tbody>
 				}
 				}
-				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Review known vocabulary</a></p>
+				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to import more known vocabulary</a></p>
 		}
 		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
 			<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
