@@ -179,11 +179,30 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, aliases)
 	assert.Equal(t, 3, memberships)
+	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	_, err = store.RemoveFromReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID))
 	reader.feeds["7"] = opds.Feed{}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
 	assert.Len(t, books, 3)
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "upstream disappearance changed disposition")
+	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Reappeared title", "Reappeared author")}}
+	require.NoError(t, worker.Work(ctx, job))
+	require.NoError(t, worker.Work(ctx, job), "replayed catalogue discovery failed")
+	books, err = store.ListMyBooks(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Len(t, books, 3, "reappearing entry created a duplicate Book")
+	for _, book := range books {
+		if book.ID == journeyBookID {
+			assert.Equal(t, "Reappeared title", book.Title)
+			assert.Equal(t, "Reappeared author", book.Author)
+		}
+	}
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "reappearing entry reset disposition")
 	require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}))
 	bobBooks, listErr := store.ListMyBooks(ctx, bob.ID)
 	require.NoError(t, listErr)
@@ -195,6 +214,13 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "catalog-secret", got.Password)
+}
+
+func mustCatalogueDisposition(t *testing.T, store *persistence.PostgresStore, owner, bookID string) domain.BookDisposition {
+	t.Helper()
+	disposition, err := store.GetBookDisposition(context.Background(), owner, bookID)
+	require.NoError(t, err)
+	return disposition
 }
 
 func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T) {
