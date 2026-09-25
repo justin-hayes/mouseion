@@ -467,6 +467,39 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	assert.Len(t, preparations, 1, "connection deletion erased local deck state")
 }
 
+func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "needs-language-actionable-integration-secret")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "needs-language-owner", "owner-password", false)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Awaiting a language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	require.NoError(t, err)
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, owner.Username, "owner-password")
+	page := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
+	assert.Equal(t, http.StatusOK, page.Code)
+	assert.Contains(t, page.Body.String(), "Awaiting a language")
+	assert.Contains(t, page.Body.String(), "Fix the language in the catalog, then re-sync")
+	assert.Contains(t, page.Body.String(), `href="/catalogs"`)
+
+	unknown, err := store.ListMyBooksBrowse(ctx, owner.ID, "", domain.LanguageUnknown, "", false, 0, 20)
+	require.NoError(t, err)
+	assert.Len(t, unknown.Items, 1)
+	assert.Equal(t, book.ID, unknown.Items[0].Book.ID)
+	for _, language := range []string{"de", "it"} {
+		books, browseErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", false, 0, 20)
+		require.NoError(t, browseErr)
+		assert.Empty(t, books.Items, "needs-language Book appeared in the chosen %s collection", language)
+	}
+	studyLanguages, err := store.ListStudyLanguages(ctx, owner.ID)
+	require.NoError(t, err)
+	assert.Empty(t, studyLanguages, "needs-language Book produced a misleading study-language scope")
+}
+
 func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "prepared-deck-web-secret-0123456789")
 	ctx := context.Background()

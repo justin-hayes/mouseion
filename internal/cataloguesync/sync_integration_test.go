@@ -151,6 +151,10 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, status.LastUpsertedCount)
 	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, retryBookID), "resync reset first-discovery disposition")
+	var inboxDispositionRows int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, alice.ID, retryBookID).Scan(&inboxDispositionRows)
+	require.NoError(t, err)
+	assert.Equal(t, 1, inboxDispositionRows, "retried first discovery created duplicate Inbox disposition rows")
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Updated title", "Updated author")}}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
