@@ -2,8 +2,14 @@ package persistence
 
 import (
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 // CurrentReadingFinishResult is the current-reading name for the existing
@@ -37,14 +43,74 @@ func (s *PostgresStore) StartCurrentReading(ctx context.Context, owner, language
 
 // SwitchCurrentReading replaces the current reading only when the caller's
 // expected Book still owns the language slot.
-func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, language, bookID, expectedBookID string) (domain.CurrentReading, error) {
-	return s.ChangePrimaryGoal(ctx, owner, language, bookID, expectedBookID)
+func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.CurrentReading, error) {
+	return s.changePrimaryGoal(ctx, owner, language, bookID, expectedBookID, expectedSnapshotID, true)
 }
 
 // StopCurrentReading releases the current reading while preserving its
 // immutable snapshot and operational provenance.
-func (s *PostgresStore) StopCurrentReading(ctx context.Context, owner, language, expectedBookID string) error {
-	return s.ClearPrimaryGoal(ctx, owner, language, expectedBookID)
+func (s *PostgresStore) StopCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
+	return s.transitionCurrentReading(ctx, owner, language, expectedBookID, expectedSnapshotID, domain.BookDispositionToRead)
+}
+
+// SetAsideCurrentReading ends the active reading and moves its Book to Set Aside
+// in the same transaction. Replaying the same request after it has committed is
+// a no-op.
+func (s *PostgresStore) SetAsideCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
+	return s.transitionCurrentReading(ctx, owner, language, expectedBookID, expectedSnapshotID, domain.BookDispositionSetAside)
+}
+
+func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string, disposition domain.BookDisposition) (err error) {
+	language = canonicalization.NormalizeLanguage(language)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	q := sqlcgen.New(tx)
+	if disposition == domain.BookDispositionSetAside {
+		if err = lockReadingJourneyForCompletion(ctx, q, owner, language); err != nil {
+			return err
+		}
+	}
+	if err = lockPrimaryGoalBook(ctx, q, owner, expectedBookID); err != nil {
+		return err
+	}
+	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	if errors.Is(err, pgx.ErrNoRows) {
+		actual, dispositionErr := q.GetBookDisposition(ctx, sqlcgen.GetBookDispositionParams{OwnerID: owner, BookID: expectedBookID})
+		if dispositionErr != nil {
+			return dispositionErr
+		}
+		if domain.BookDisposition(actual) == disposition {
+			return tx.Commit(ctx)
+		}
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if current.GBookID != expectedBookID {
+		return ErrGoalStale
+	}
+	if expectedSnapshotID != "" && current.SnapshotID != expectedSnapshotID {
+		return ErrGoalStale
+	}
+	if err = synchronizeBookDisposition(ctx, q, owner, expectedBookID, disposition); err != nil {
+		return err
+	}
+	if disposition == domain.BookDispositionSetAside {
+		if err = removeCompletedGoalFromJourney(ctx, q, owner, language, expectedBookID); err != nil {
+			return err
+		}
+	}
+	if err = releasePrimaryGoalSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
+		return err
+	}
+	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: owner, Language: language}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // FinishCurrentReading accepts the frozen snapshot and records the same

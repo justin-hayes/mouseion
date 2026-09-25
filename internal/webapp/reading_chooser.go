@@ -41,11 +41,12 @@ type transactionalGoalDeckPreparer interface {
 }
 
 type readingChooserPageView struct {
-	Language, LanguageLabel string
-	At99Plus, At97To99      []readingChooserBookView
-	At95To97, Below95       []readingChooserBookView
-	NoComparison            []readingChooserBookView
-	InProgress, Attention   []readingChooserBookView
+	Language, LanguageLabel          string
+	CurrentBookID, CurrentSnapshotID string
+	At99Plus, At97To99               []readingChooserBookView
+	At95To97, Below95                []readingChooserBookView
+	NoComparison                     []readingChooserBookView
+	InProgress, Attention            []readingChooserBookView
 }
 
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +74,167 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+}
+
+func (h *Handler) switchReadingPage(w http.ResponseWriter, r *http.Request) {
+	owner := user(r).ID
+	language, languageLabel := activeStudyLanguageForContext(r.Context())
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !current.IsActive() {
+		redirect(w, r, "/reading?error="+url.QueryEscape("There is no current book to switch from. Choose a book from Reading first."))
+		return
+	}
+	view, err := h.buildReadingChooser(r.Context(), owner, language, languageLabel)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	view.CurrentBookID = current.BookID
+	view.CurrentSnapshotID = current.SnapshotID
+	view.At99Plus = withoutReadingBook(view.At99Plus, current.BookID)
+	view.At97To99 = withoutReadingBook(view.At97To99, current.BookID)
+	view.At95To97 = withoutReadingBook(view.At95To97, current.BookID)
+	view.Below95 = withoutReadingBook(view.Below95, current.BookID)
+	view.NoComparison = withoutReadingBook(view.NoComparison, current.BookID)
+	view.InProgress = withoutReadingBook(view.InProgress, current.BookID)
+	view.Attention = withoutReadingBook(view.Attention, current.BookID)
+	render(w, r, ReadingChooserPage(user(r), h.csrf(w, r), view, "", ""))
+}
+
+func withoutReadingBook(books []readingChooserBookView, bookID string) []readingChooserBookView {
+	filtered := books[:0]
+	for _, book := range books {
+		if book.Book.Book.ID != bookID {
+			filtered = append(filtered, book)
+		}
+	}
+	return filtered
+}
+
+func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	bookID := strings.TrimSpace(r.PathValue("id"))
+	language, _ := activeStudyLanguageForContext(r.Context())
+	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
+	if language == "" || expectedBookID == "" || expectedSnapshotID == "" {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language and refresh Reading before switching books."))
+		return
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if detail.Disposition != domain.BookDispositionToRead || detail.Book.LanguageTag != language {
+		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read choice. No changes were made; refresh Reading and try again."))
+		return
+	}
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if current.BookID == bookID {
+		redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
+		return
+	}
+	if current.BookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
+		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
+		return
+	}
+	selected, err := h.services.Store.CurrentReading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
+	if errors.Is(err, persistence.ErrCurrentReadingStale) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
+		return
+	}
+	if errors.Is(err, persistence.ErrCurrentReadingIneligible) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has current analyzed content or is no longer To Read. No changes were made; refresh Reading and try again."))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 && h.services.PreparedDeck != nil {
+		if _, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID); prepareErr != nil {
+			log.Printf("current reading switch deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
+		}
+	}
+	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
+}
+
+func (h *Handler) stopReading(w http.ResponseWriter, r *http.Request) {
+	h.transitionCurrentReading(w, r, false)
+}
+
+func (h *Handler) setAsideCurrentReading(w http.ResponseWriter, r *http.Request) {
+	h.transitionCurrentReading(w, r, true)
+}
+
+func (h *Handler) transitionCurrentReading(w http.ResponseWriter, r *http.Request, setAside bool) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	language, _ := activeStudyLanguageForContext(r.Context())
+	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
+	if language == "" || expectedBookID == "" || expectedSnapshotID == "" {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language and refresh Reading before changing the current book."))
+		return
+	}
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	disposition := domain.BookDispositionToRead
+	message := "Reading paused. The book remains To Read; its analysis and history are preserved."
+	if setAside {
+		disposition = domain.BookDispositionSetAside
+		message = "Book set aside. Its analysis, deck, and history are preserved."
+	}
+	if !current.IsActive() {
+		actual, dispositionErr := h.services.Store.Books.GetBookDetail(r.Context(), owner, expectedBookID)
+		if dispositionErr != nil {
+			fail(w, dispositionErr)
+			return
+		}
+		if actual.Disposition == disposition {
+			redirect(w, r, "/reading?message="+url.QueryEscape(message))
+			return
+		}
+	}
+	if current.BookID != expectedBookID || (current.IsActive() && current.SnapshotID != expectedSnapshotID) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed before this action. No changes were made; review Reading and try again."))
+		return
+	}
+	if setAside {
+		err = h.services.Store.CurrentReading.SetAsideCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
+	} else {
+		err = h.services.Store.CurrentReading.StopCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
+	}
+	if errors.Is(err, persistence.ErrCurrentReadingStale) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed before this action. No changes were made; review Reading and try again."))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/reading?message="+url.QueryEscape(message))
 }
 
 func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
@@ -306,6 +468,20 @@ func readingChooserTitle(view readingChooserPageView) string {
 		return "Choose your next book"
 	}
 	return "Choose your next book in " + view.LanguageLabel
+}
+
+func readingChooserPageTitle(view readingChooserPageView) string {
+	if view.CurrentBookID != "" {
+		return "Switch current reading"
+	}
+	return readingChooserTitle(view)
+}
+
+func readingChooserPageDescription(view readingChooserPageView) string {
+	if view.CurrentBookID != "" {
+		return "Choose another eligible To Read book in this study language. The switch replaces the current book and its active reservation atomically."
+	}
+	return "Choose a To Read book when you are ready. Coverage groups describe vocabulary evidence; they are not difficulty ratings or recommendations."
 }
 
 func readingChooserCandidateCount(view readingChooserPageView) int {

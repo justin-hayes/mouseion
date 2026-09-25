@@ -298,6 +298,10 @@ func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language,
 // ChangePrimaryGoal changes the language's Goal only when expectedBookID still
 // names the current Goal, protecting callers from overwriting stale state.
 func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, bookID, expectedBookID string) (result domain.PrimaryGoal, err error) {
+	return s.changePrimaryGoal(ctx, owner, language, bookID, expectedBookID, "", false)
+}
+
+func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, bookID, expectedBookID, expectedSnapshotID string, idempotent bool) (result domain.PrimaryGoal, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if err := (domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
@@ -319,7 +323,20 @@ func (s *PostgresStore) ChangePrimaryGoal(ctx context.Context, owner, language, 
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
+	if idempotent && current.GBookID == bookID && current.GBookID != expectedBookID {
+		snapshotSize, sizeErr := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
+		if sizeErr != nil {
+			return domain.PrimaryGoal{}, sizeErr
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return domain.PrimaryGoal{}, err
+		}
+		return primaryGoalFromValues(current.GOwnerID, current.Language, current.GBookID, current.SnapshotID, current.SourceMaterialID, current.AnalysisRunID, current.ContentRevisionID, current.ContentSnapshotID, current.CorpusID, snapshotSize, current.CreatedAt, current.UpdatedAt), nil
+	}
 	if current.GBookID != expectedBookID {
+		return domain.PrimaryGoal{}, ErrGoalStale
+	}
+	if expectedSnapshotID != "" && current.SnapshotID != expectedSnapshotID {
 		return domain.PrimaryGoal{}, ErrGoalStale
 	}
 	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, language, bookID); err != nil {

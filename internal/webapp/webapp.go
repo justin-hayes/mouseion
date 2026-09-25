@@ -81,8 +81,9 @@ type CurrentReadingStore interface {
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
-	SwitchCurrentReading(context.Context, string, string, string, string) (domain.CurrentReading, error)
-	StopCurrentReading(context.Context, string, string, string) error
+	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
+	StopCurrentReading(context.Context, string, string, string, string) error
+	SetAsideCurrentReading(context.Context, string, string, string, string) error
 	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
 }
 
@@ -211,7 +212,11 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /reading", h.user(http.HandlerFunc(h.reading)))
+	h.mux.Handle("GET /reading/switch", h.user(http.HandlerFunc(h.switchReadingPage)))
 	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.startReading)))
+	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
+	h.mux.Handle("POST /reading/stop", h.user(http.HandlerFunc(h.stopReading)))
+	h.mux.Handle("POST /reading/set-aside", h.user(http.HandlerFunc(h.setAsideCurrentReading)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))
 	h.mux.Handle("GET /journey", h.user(http.HandlerFunc(h.journey)))
 	h.mux.Handle("GET /journey/{bookID}", h.user(http.HandlerFunc(h.journeyEntry)))

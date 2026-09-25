@@ -21,6 +21,7 @@ type allStoreCapabilities interface {
 	BookStore
 	JourneyStore
 	GoalStore
+	CurrentReadingStore
 	CatalogStore
 	AnalysisJobStore
 	BookCoverStore
@@ -32,6 +33,7 @@ func storeDependencies(store allStoreCapabilities) StoreDependencies {
 		Books:          store,
 		Journey:        store,
 		Goals:          store,
+		CurrentReading: store,
 		Catalog:        store,
 		AnalysisJobs:   store,
 		Covers:         store,
