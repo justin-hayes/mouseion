@@ -713,10 +713,10 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
 			}
 			<a role="button" class="outline" href="/reading/switch">Switch current reading</a>
-			@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book returns to To Read; its analysis, decks, and history remain.", StatusNeutral) {
+			@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
 				<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="outline">Confirm stop for now</button></form>
 			}
-			@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain.", StatusDanger) {
+			@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain. You can move it back to To Read from My Books.", StatusDanger) {
 				<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="outline secondary">Confirm set aside</button></form>
 			}
 			<details class="more-actions">
@@ -1417,7 +1417,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 					<p>Investment counts eligible vocabulary identities, not deck size.</p>
 				</details>
 				if currentBookID != "" {
-					@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot.", StatusNeutral) {
+					@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis, decks, and history remain. You can start either book again later.", StatusNeutral) {
 						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
