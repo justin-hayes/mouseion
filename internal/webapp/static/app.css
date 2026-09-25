@@ -92,6 +92,10 @@
   }
 }
 
+/* Wide: data-dense summaries can use additional horizontal space. */
+@media (min-width: 72rem) {
+}
+
 body {
   min-height: 100vh;
   color: var(--mouseion-color-text);
@@ -680,43 +684,6 @@ progress {
 
 .confirmation__body {
   padding-top: var(--mouseion-space-3);
-}
-
-.stat-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0;
-  margin-bottom: var(--mouseion-space-6);
-  border-block: 1px solid var(--mouseion-color-border);
-}
-
-.stat-group__item {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  border: 0;
-  border-right: 1px solid var(--mouseion-color-border);
-  border-radius: 0;
-  padding: var(--mouseion-space-4);
-  background: transparent;
-  box-shadow: none;
-  text-align: left;
-}
-
-.stat-group__item:last-child {
-  border-right: 0;
-}
-
-.stat-group__value {
-  font-family: var(--mouseion-font-reading);
-  font-size: clamp(1.75rem, 4vw, 2.45rem);
-  font-weight: 500;
-  letter-spacing: -0.045em;
-  line-height: 1.05;
-}
-
-.stat-group__detail {
-  color: var(--mouseion-color-text-muted);
 }
 
 .metadata-list {
@@ -1476,37 +1443,6 @@ progress {
   margin-top: auto;
 }
 
-.coverage-summary,
-.coverage-thresholds {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0;
-  margin-bottom: var(--mouseion-space-6);
-  border-block: 1px solid var(--mouseion-color-border);
-}
-
-.coverage-summary article,
-.coverage-thresholds article {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  border: 0;
-  border-right: 1px solid var(--mouseion-color-border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  text-align: left;
-}
-
-.coverage-summary strong,
-.coverage-thresholds strong {
-  font-family: var(--mouseion-font-reading);
-  font-size: clamp(1.75rem, 4vw, 2.45rem);
-  font-weight: 500;
-  letter-spacing: -0.045em;
-  font-variant-numeric: tabular-nums;
-}
-
 .top-unknown {
   max-width: 36rem;
   border-top: 1px solid var(--mouseion-color-border);
@@ -1769,27 +1705,5 @@ progress {
 
   .vocabulary-language-picker {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .stat-group,
-  .coverage-summary,
-  .coverage-thresholds {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .stat-group__item:nth-child(even),
-  .coverage-summary article:nth-child(even),
-  .coverage-thresholds article:nth-child(even) {
-    border-right: 0;
-  }
-}
-
-/* Wide: data-dense summaries can use additional horizontal space. */
-@media (min-width: 72rem) {
-  .stat-group,
-  .coverage-summary,
-  .coverage-thresholds {
-    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    gap: var(--mouseion-space-5);
   }
 }

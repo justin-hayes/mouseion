@@ -81,12 +81,6 @@ const (
 	FeedbackError   FeedbackKind = "error"
 )
 
-type StatItem struct {
-	Label  string
-	Value  string
-	Detail string
-}
-
 type MetadataItem struct {
 	Term        string
 	Description string
@@ -524,36 +518,4 @@ func maxOne(value int) int {
 		return 1
 	}
 	return value
-}
-
-func coverageStatItems(coverage domain.AnalysisCoverage) []StatItem {
-	return []StatItem{
-		{Label: "current-known coverage", Value: fmt.Sprintf("%.1f%%", knownCoveragePercent(coverage))},
-		{Label: "reserved projected coverage", Value: fmt.Sprintf("%.1f%%", reservedCoveragePercent(coverage))},
-		{Label: "analyzable tokens", Value: strconv.FormatInt(coverage.AnalyzableTokenCount, 10)},
-		{Label: "distinct lemmas", Value: strconv.FormatInt(coverage.DistinctLemmaCount, 10)},
-	}
-}
-
-func thresholdStatItems(thresholds []domain.CoverageThreshold) []StatItem {
-	items := make([]StatItem, 0, len(thresholds))
-	for _, threshold := range thresholds {
-		if threshold.Reachable {
-			items = append(items, StatItem{Label: fmt.Sprintf("lemmas for %d%% of analyzed text", threshold.TargetPercent), Value: strconv.FormatInt(threshold.LemmaCount, 10)})
-			continue
-		}
-		items = append(items, StatItem{Label: fmt.Sprintf("%d%% of analyzed text cannot be reached with deck-eligible vocabulary", threshold.TargetPercent), Value: "Unavailable"})
-	}
-	return items
-}
-
-func projectionStatItems(projections []domain.CoverageProjection, analyzableTokenCount int64) []StatItem {
-	items := make([]StatItem, 0, len(projections))
-	for _, projection := range projections {
-		items = append(items, StatItem{
-			Label: fmt.Sprintf("after top %d lemmas", projection.TopLemmaCount),
-			Value: fmt.Sprintf("%.1f%%", projectedCoveragePercent(projection, analyzableTokenCount)),
-		})
-	}
-	return items
 }

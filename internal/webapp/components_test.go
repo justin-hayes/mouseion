@@ -178,15 +178,6 @@ func TestActionAndConfirmationPatterns(t *testing.T) {
 }
 
 func TestDataDisplayPatterns(t *testing.T) {
-	stats := renderPattern(t, StatGroup([]StatItem{{Label: "Current-known coverage", Value: "93.4%", Detail: "Analyzed scope"}}), "")
-	requireMarkup(t, stats,
-		`class="stat-group"`,
-		`class="stat-group__value numeric"`,
-		`93.4%`,
-		`Current-known coverage`,
-		`Analyzed scope`,
-	)
-
 	metadata := renderPattern(t, MetadataList([]MetadataItem{{Term: "Language", Description: "German"}}), "")
 	requireMarkup(t, metadata,
 		`<dl class="metadata-list">`,
@@ -202,27 +193,6 @@ func TestDataDisplayPatterns(t *testing.T) {
 		`tabindex="0"`,
 		`<table>`,
 	)
-}
-
-func TestCoveragePercentagesUseWholeAnalyzableDenominator(t *testing.T) {
-	coverage := domain.AnalysisCoverage{
-		AnalyzableTokenCount: 100,
-		KnownTokenCount:      80,
-		ReservedTokenCount:   5,
-	}
-	stats := coverageStatItems(coverage)
-	assert.Equal(t, "80.0%", stats[0].Value)
-	assert.Equal(t, "85.0%", stats[1].Value)
-
-	projection := projectionStatItems([]domain.CoverageProjection{{
-		TopLemmaCount: 3, EligibleTokenCount: 10, ProjectedTokenCount: 90,
-	}}, coverage.AnalyzableTokenCount)
-	require.Len(t, projection, 1)
-	assert.Equal(t, "90.0%", projection[0].Value)
-
-	thresholds := thresholdStatItems([]domain.CoverageThreshold{{TargetPercent: 97, LemmaCount: 2, Reachable: true}})
-	require.Len(t, thresholds, 1)
-	assert.Equal(t, "lemmas for 97% of analyzed text", thresholds[0].Label)
 }
 
 func TestAsyncStatusPattern(t *testing.T) {
@@ -256,7 +226,6 @@ func TestComponentStylesAvailable(t *testing.T) {
 		".action-group",
 		".resource-card",
 		".confirmation",
-		".stat-group",
 		".metadata-list",
 		".table-region",
 		".async-status",
