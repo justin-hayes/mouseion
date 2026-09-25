@@ -269,6 +269,54 @@ func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T
 	assert.Equal(t, 2, aliasCount, "same entry ID aliases=%d, want 2", aliasCount)
 }
 
+func TestSyncWorkerLanguageCorrectionEndsIncompatibleCurrentReading(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("MOUSEION_SECRET", "catalogue-sync-language-correction-secret")
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "catalogue sync store", store.Close)
+	owner, err := store.CreateUser(ctx, "sync-language-correction", false)
+	require.NoError(t, err)
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Language catalog", URL: "https://catalog.example/opds"})
+	require.NoError(t, err)
+	reader := &fakeReader{feeds: map[string]opds.Feed{
+		"7": {Entries: []opds.Entry{testEntry("language-entry", "German title")}},
+		"9": {},
+	}}
+	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
+		{Language: "de", DisplayName: "German", Ready: true},
+		{Language: "it", DisplayName: "Italian", Ready: true},
+	}}}
+	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: capabilities}
+	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}
+	require.NoError(t, worker.Work(ctx, job))
+	books, err := store.ListMyBooks(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, books, 1)
+	book := books[0]
+	require.Equal(t, "de", book.LanguageTag)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	// Seed the active slot directly so this worker-level test focuses on the
+	// catalogue reconciliation path; the lifecycle test verifies full snapshot
+	// reservation and release behavior.
+	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, owner.ID, book.ID)
+	require.NoError(t, err)
+
+	reader.feeds["7"] = opds.Feed{}
+	reader.feeds["9"] = opds.Feed{Entries: []opds.Entry{testEntry("language-entry", "Italian title")}}
+	require.NoError(t, worker.Work(ctx, job))
+	corrected, err := store.GetBook(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "it", corrected.LanguageTag)
+	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, owner.ID, book.ID))
+	for _, language := range []string{"de", "it"} {
+		current, getErr := store.GetCurrentReading(ctx, owner.ID, language)
+		require.NoError(t, getErr)
+		assert.Empty(t, current.BookID, "sync left the corrected Book in a %s current-reading role", language)
+	}
+}
+
 func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
