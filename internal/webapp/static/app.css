@@ -871,11 +871,27 @@ progress {
 }
 
 .library-language-pills,
+.library-filters,
 .library-paging {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
   align-items: center;
+}
+
+.library-filters {
+  margin-bottom: var(--mouseion-space-4);
+}
+
+.library-filters a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.library-filters a[aria-current="page"] {
+  border-color: var(--mouseion-color-accent);
+  background: var(--mouseion-color-accent);
+  color: var(--mouseion-color-surface-raised);
 }
 
 .library-language-pills {

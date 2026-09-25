@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -21,9 +23,9 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
 		return
 	}
-	query, page, needsLanguage := parseMyBooksBrowseRequest(r.URL)
+	query, page, needsLanguage, disposition := parseMyBooksBrowseRequestWithDisposition(r.URL)
 	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
-		http.Redirect(w, r, myBooksURL(query, page, needsLanguage), http.StatusSeeOther)
+		http.Redirect(w, r, myBooksFilteredURL(query, page, needsLanguage, disposition), http.StatusSeeOther)
 		return
 	}
 	requestedLanguage := activeLanguage
@@ -34,43 +36,30 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var browse MyBooksBrowseState
 	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksBrowse(context.Context, string, string, string, int, int) (persistence.MyBooksBrowseResult, error)
+		ListMyBooksBrowse(context.Context, string, string, string, string, int, int) (persistence.MyBooksBrowseResult, error)
 	}); ok {
-		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, myBooksPageOffset(page), myBooksPageSize)
+		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, string(disposition), myBooksPageOffset(page), myBooksPageSize)
 		err = readErr
 		books = result.Items
 		if activeLanguage == "" && !needsLanguage {
 			books = nil
 			result.Total = 0
 		}
-		browse = MyBooksBrowseState{
-			Enabled:            true,
-			Query:              query,
-			Language:           activeLanguage,
-			LanguageLabel:      activeLanguageLabel,
-			NeedsLanguage:      needsLanguage,
-			NeedsLanguageCount: needsLanguageCount(result.Counts),
-			AllCount:           result.AllCount,
-			ScopeTotal:         result.ScopeTotal,
-			Total:              result.Total,
-			Page:               page,
-			PageCount:          myBooksPageCount(result.Total),
-			TextNoMatch:        query != "" && result.Total == 0,
-		}
+		browse = myBooksBrowseState(query, page, needsLanguage, disposition, activeLanguage, activeLanguageLabel, result)
 		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
 			lastPage := myBooksPageCount(result.Total)
-			http.Redirect(w, r, myBooksURL(query, lastPage, needsLanguage), http.StatusSeeOther)
+			http.Redirect(w, r, myBooksFilteredURL(query, lastPage, needsLanguage, disposition), http.StatusSeeOther)
 			return
 		}
 		if err == nil && page > 1 && result.Total == 0 {
 			lastPage := 1
-			if query == "" && requestedLanguage != "" {
+			if query == "" && requestedLanguage != "" && disposition == "" {
 				lastPage = myBooksPageCount(result.ScopeTotal)
 				if lastPage == 0 {
 					lastPage = 1
 				}
 			}
-			http.Redirect(w, r, myBooksURL(query, lastPage, needsLanguage), http.StatusSeeOther)
+			http.Redirect(w, r, myBooksFilteredURL(query, lastPage, needsLanguage, disposition), http.StatusSeeOther)
 			return
 		}
 	} else if reader, ok := h.services.Store.Books.(interface {
@@ -116,6 +105,35 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
 }
 
+func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result persistence.MyBooksBrowseResult) MyBooksBrowseState {
+	browse := MyBooksBrowseState{
+		Enabled:            true,
+		Query:              query,
+		Disposition:        disposition,
+		Language:           language,
+		LanguageLabel:      languageLabel,
+		NeedsLanguage:      needsLanguage,
+		NeedsLanguageCount: needsLanguageCount(result.Counts),
+		AllCount:           result.AllCount,
+		ScopeTotal:         result.ScopeTotal,
+		Total:              result.Total,
+		Page:               page,
+		PageCount:          myBooksPageCount(result.Total),
+		TextNoMatch:        query != "" && result.Total == 0,
+	}
+	for _, count := range result.DispositionCounts {
+		switch count.Disposition {
+		case domain.BookDispositionInbox:
+			browse.InboxCount = count.Count
+		case domain.BookDispositionToRead:
+			browse.ToReadCount = count.Count
+		case domain.BookDispositionSetAside:
+			browse.SetAsideCount = count.Count
+		}
+	}
+	return browse
+}
+
 func needsLanguageCount(counts []persistence.LanguageCount) int {
 	for _, count := range counts {
 		if count.Tag == domain.LanguageUnknown {
@@ -139,4 +157,84 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	redirect(w, r, "/library?message="+url.QueryEscape("Book removed from My Books. Acquired content and history remain."))
+}
+
+func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	bookID := r.PathValue("id")
+	if _, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		fail(w, err)
+		return
+	}
+	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
+	if err != nil {
+		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
+		return
+	}
+	action, err := h.addBookToReadingJourney(r.Context(), owner, "", bookID, expectedRevision)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if action.Error != "" || action.Message == journeyStaleMessage {
+		errorMessage := action.Error
+		if errorMessage == "" {
+			errorMessage = action.Message
+		}
+		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(errorMessage))
+		return
+	}
+	message := action.Message
+	if message == "" {
+		message = "Book moved to To Read."
+	}
+	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&message="+url.QueryEscape(message))
+}
+
+func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r).ID
+	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
+	if err != nil {
+		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
+		return
+	}
+	bookID := r.PathValue("id")
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	language := strings.TrimSpace(detail.Book.LanguageTag)
+	dispositions, ok := h.services.Store.Books.(persistence.BookDispositionStore)
+	if !ok {
+		fail(w, errors.New("book dispositions are unavailable"))
+		return
+	}
+	if err = dispositions.SetBookAsideAtJourneyRevision(r.Context(), owner, language, detail.Book.ID, expectedRevision); err != nil {
+		switch {
+		case errors.Is(err, persistence.ErrJourneyStale):
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
+		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("The current Primary Goal cannot be set aside. Finish or clear it first."))
+		case errors.Is(err, persistence.ErrNotFound):
+			http.NotFound(w, r)
+		default:
+			fail(w, err)
+		}
+		return
+	}
+	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
 }

@@ -107,6 +107,7 @@ type MyBook struct {
 	Book            Book
 	Cover           BookCover
 	Acquired        *SourceMaterialSummary
+	Disposition     BookDisposition
 	JourneyMember   bool
 	JourneyGoal     bool
 	JourneyRevision int64

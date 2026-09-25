@@ -41,6 +41,7 @@ type Querier interface {
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error)
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
+	CountMyBooksByDisposition(ctx context.Context, arg CountMyBooksByDispositionParams) ([]CountMyBooksByDispositionRow, error)
 	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
@@ -107,6 +108,7 @@ type Querier interface {
 	GetBookDisposition(ctx context.Context, arg GetBookDispositionParams) (string, error)
 	GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error)
 	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
+	GetBookMembershipForUpdate(ctx context.Context, arg GetBookMembershipForUpdateParams) (string, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
@@ -217,6 +219,7 @@ type Querier interface {
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
 	ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error)
+	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
 	// Concordance occurrence queries read from the shared occurrence model. Book
 	// position is the learner's Reading Journey position; analyzed Books outside
 	// the Journey remain in study-language results with no position.

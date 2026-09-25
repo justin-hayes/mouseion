@@ -46,6 +46,37 @@ func (q *Queries) InsertInboxBookDisposition(ctx context.Context, arg InsertInbo
 	return err
 }
 
+const listBookDispositions = `-- name: ListBookDispositions :many
+SELECT book_id::text, disposition
+FROM book_dispositions
+WHERE owner_id = $1
+`
+
+type ListBookDispositionsRow struct {
+	BookID      string
+	Disposition string
+}
+
+func (q *Queries) ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error) {
+	rows, err := q.db.Query(ctx, listBookDispositions, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBookDispositionsRow{}
+	for rows.Next() {
+		var i ListBookDispositionsRow
+		if err := rows.Scan(&i.BookID, &i.Disposition); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertBookDisposition = `-- name: UpsertBookDisposition :exec
 INSERT INTO book_dispositions(owner_id, book_id, disposition)
 VALUES ($1, $2, $3)

@@ -225,6 +225,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /journey/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
+	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
+	h.mux.Handle("POST /library/books/{id}/set-aside", h.user(http.HandlerFunc(h.setBookAside)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
 	h.mux.Handle("GET /journey/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.newJourneyDeckPreparation)))
 	h.mux.Handle("POST /journey/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createJourneyEntryDeckPreparation)))

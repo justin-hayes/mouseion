@@ -71,7 +71,7 @@ is exposed.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection and understand whether it is in Reading Journey. | Add to Reading Journey, View in Reading Journey, Catalogs, Refresh metadata, or Remove from My Books | Empty collection with no connections, metadata-only Book, valid cover, no cover, retrieval pending, replacement pending, cover unavailable, in/out of Journey, needs-language text list, scoped search, paging, no match, later page removed, long content, enhancement unavailable |
+| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection, understand its Inbox, To Read, or Set Aside placement, and distinguish Reading Journey membership. | Move to To Read, Set aside, View in Reading Journey, Catalogs, Refresh metadata, or Remove from My Books | All, Inbox, To Read, and Set Aside filters with counts; empty disposition; metadata-only Book, valid cover, no cover, retrieval pending, replacement pending, cover unavailable, in/out of Journey, needs-language text list, scoped search, paging, no match, later page removed, long content, enhancement unavailable |
 | Reading Journey book anchor | Embedded in `GET /journey`; `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, supporting cover thumbnail, Journey/Goal relationship, current evidence, forecast, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Journey actions | Valid, missing, pending, unavailable, or retained replacement cover; current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, reading and Goal state |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Reading Journey when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Reading Journey | Empty history, mixed states, historical/legacy records |
@@ -81,14 +81,16 @@ is exposed.
 My Books is the canonical home and a moderately dense bibliographic catalog.
 The shipped [Book Covers](../features/book-covers.md) surface uses a responsive
 grid led by the cover while title and author remain visible beneath it. My Books
-communicates only Reading Journey membership; Primary Goal and analysis evidence
-remain concerns of Reading Journey. Generic large cards and metric-first sorting
-are not the default.
+communicates workflow placement and Reading Journey membership; Primary Goal and
+analysis evidence remain concerns of Reading Journey. Generic large cards and
+metric-first sorting are not the default.
 
 The My Books model includes metadata-only and currently unassessable works.
-Catalog sync creates metadata-only membership; adding a Book to Reading
-Journey acquires and validates EPUB content when needed. Metadata-only rows retain
-refresh, Journey, and removal actions without opening a detail page.
+Each Book occupies exactly one workflow disposition, while reading completion
+remains an independent history projection. Catalog sync creates metadata-only
+membership; adding a Book to Reading Journey acquires and validates EPUB content
+when needed. Metadata-only rows retain refresh, disposition, Journey, and removal
+actions without opening a detail page.
 
 ### Analysis continuity
 

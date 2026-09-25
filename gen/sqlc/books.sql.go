@@ -11,24 +11,28 @@ import (
 )
 
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
-SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id, book_author, book_cover_state, book_cover_width, book_cover_height FROM my_books_evidence
-WHERE book_owner_id = $1
+SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
   AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || $2 || '%' ESCAPE '\')
   AND (
     $3::text = ''
     OR ($3::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = $3)
   )
-ORDER BY lower(book_title), book_title, book_id
-LIMIT $5 OFFSET $4
+  AND ($4::text = '' OR d.disposition = $4)
+ORDER BY lower(e.book_title), e.book_title, e.book_id
+LIMIT $6 OFFSET $5
 `
 
 type BrowseMyBooksEvidenceParams struct {
-	Owner    string
-	Query    string
-	Language string
-	Offset   int32
-	Limit    int32
+	Owner       string
+	Query       string
+	Language    string
+	Disposition string
+	Offset      int32
+	Limit       int32
 }
 
 func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]MyBooksEvidence, error) {
@@ -36,6 +40,7 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 		arg.Owner,
 		arg.Query,
 		arg.Language,
+		arg.Disposition,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -100,6 +105,49 @@ func (q *Queries) CountMyBooksAll(ctx context.Context, owner string) (int64, err
 	return count, err
 }
 
+const countMyBooksByDisposition = `-- name: CountMyBooksByDisposition :many
+SELECT d.disposition, count(*) AS book_count
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
+  AND (
+    $2::text = ''
+    OR ($2::text = 'unknown' AND e.book_language_state = 'unknown')
+    OR (e.book_language_state = 'chosen' AND e.book_language_tag = $2)
+  )
+GROUP BY d.disposition
+`
+
+type CountMyBooksByDispositionParams struct {
+	Owner    string
+	Language string
+}
+
+type CountMyBooksByDispositionRow struct {
+	Disposition string
+	BookCount   int64
+}
+
+func (q *Queries) CountMyBooksByDisposition(ctx context.Context, arg CountMyBooksByDispositionParams) ([]CountMyBooksByDispositionRow, error) {
+	rows, err := q.db.Query(ctx, countMyBooksByDisposition, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountMyBooksByDispositionRow{}
+	for rows.Next() {
+		var i CountMyBooksByDispositionRow
+		if err := rows.Scan(&i.Disposition, &i.BookCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countMyBooksByLanguage = `-- name: CountMyBooksByLanguage :many
 SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_language_tag END)::text AS language_tag,
        count(*) AS book_count
@@ -134,32 +182,41 @@ func (q *Queries) CountMyBooksByLanguage(ctx context.Context, owner string) ([]C
 }
 
 const countMyBooksFiltered = `-- name: CountMyBooksFiltered :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = $1
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
   AND ($2::text = '' OR lower(book_title) LIKE '%' || $2 || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || $2 || '%' ESCAPE '\')
   AND (
     $3::text = ''
     OR ($3::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = $3)
   )
+  AND ($4::text = '' OR d.disposition = $4)
 `
 
 type CountMyBooksFilteredParams struct {
-	Owner    string
-	Query    string
-	Language string
+	Owner       string
+	Query       string
+	Language    string
+	Disposition string
 }
 
 func (q *Queries) CountMyBooksFiltered(ctx context.Context, arg CountMyBooksFilteredParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countMyBooksFiltered, arg.Owner, arg.Query, arg.Language)
+	row := q.db.QueryRow(ctx, countMyBooksFiltered,
+		arg.Owner,
+		arg.Query,
+		arg.Language,
+		arg.Disposition,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const countMyBooksScope = `-- name: CountMyBooksScope :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = $1
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
   AND (
     $2::text = ''
     OR ($2::text = 'unknown' AND book_language_state = 'unknown')
@@ -199,7 +256,9 @@ func (q *Queries) GetBookForUpdate(ctx context.Context, arg GetBookForUpdatePara
 }
 
 const getMyBookDetail = `-- name: GetMyBookDetail :one
-SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height FROM my_books_evidence e
+SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 WHERE e.book_owner_id = $1 AND (e.book_id = $2 OR EXISTS (
   SELECT 1 FROM source_materials requested_source
   WHERE requested_source.owner_id::text = e.book_owner_id
@@ -318,9 +377,11 @@ func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActi
 }
 
 const listMyBooksEvidence = `-- name: ListMyBooksEvidence :many
-SELECT book_id, book_owner_id, book_title, book_metadata_provenance, book_language_state, book_language_tag, book_created_at, book_updated_at, source_id, source_owner_id, source_language, source_identifier, source_title, source_media_type, source_content_hash, source_content_digest, source_content_revision_id, source_content_snapshot_id, source_digest_version, source_created_at, acquired, analysis_status, analysis_state, analysis_run_id, corpus_id, analysis_job_id, book_author, book_cover_state, book_cover_width, book_cover_height FROM my_books_evidence
-WHERE book_owner_id = $1
-ORDER BY book_title, book_id
+SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
+FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
+ORDER BY e.book_title, e.book_id
 `
 
 func (q *Queries) ListMyBooksEvidence(ctx context.Context, owner string) ([]MyBooksEvidence, error) {

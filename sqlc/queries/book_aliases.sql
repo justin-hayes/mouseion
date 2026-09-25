@@ -61,6 +61,12 @@ RETURNING id::text, owner_id::text, title, author, metadata_provenance, language
 INSERT INTO book_membership(owner_id, book_id, state, activated_at)
 VALUES ($1, $2, 'active', now());
 
+-- name: GetBookMembershipForUpdate :one
+SELECT state
+FROM book_membership
+WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
+FOR UPDATE;
+
 -- name: UpdateBookMetadata :one
 UPDATE books
 SET title = $3, author = $4, language_state = $5, language_tag = $6, updated_at = now()
