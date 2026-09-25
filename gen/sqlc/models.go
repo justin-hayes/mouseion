@@ -699,6 +699,7 @@ type ReadingHistory struct {
 	GraduatedVocabularyCount    int
 	AlreadyKnownVocabularyCount int
 	CompletionID                string
+	CompletionSource            string
 }
 
 type ReadingJourney struct {

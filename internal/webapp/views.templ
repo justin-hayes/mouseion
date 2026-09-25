@@ -254,6 +254,10 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		if myBookInJourney(book) {
 			<p class="library-book__membership"><span aria-hidden="true">+</span> In Reading Journey</p>
 		}
+		if book.CompletionCount > 0 {
+			<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
+			<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>
+		}
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
 				<a class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading Journey</a>
@@ -279,6 +283,14 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
+					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.JourneyGoal {
+						@Confirmation("Mark as previously read", "This records one completion from before Mouseion. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
+							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm previously read</button></form>
+						}
+					}
+					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
+						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/><button type="submit" class="outline secondary">Read again</button></form>
+					}
 					if refreshEligible {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
 							<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -327,11 +339,12 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 		@MyBooksDispositionFilterLink(browse, "Inbox", domain.BookDispositionInbox, myBooksDispositionCount(browse, domain.BookDispositionInbox))
 		@MyBooksDispositionFilterLink(browse, "To Read", domain.BookDispositionToRead, myBooksDispositionCount(browse, domain.BookDispositionToRead))
 		@MyBooksDispositionFilterLink(browse, "Set Aside", domain.BookDispositionSetAside, myBooksDispositionCount(browse, domain.BookDispositionSetAside))
+		<a class="outline" { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
 	</nav>
 }
 
 templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
-	<a class="outline" { myBooksSelectedAttributes(browse.Disposition == disposition)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
+	<a class="outline" { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
@@ -342,9 +355,16 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 				if browse.TextNoMatch && browse.NeedsLanguage {
 					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, true, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, true, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.TextNoMatch {
-					No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+					if browse.History {
+						No books with reading history in { myBooksLanguageName(browse) } match “{ browse.Query }”.
+					} else {
+						No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”.
+					}
+					<a data-focus-results="true" href={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
 				} else if browse.NeedsLanguage {
 					No books are awaiting a language in the local collection.
+				} else if browse.History {
+					No books with reading history are in this local collection.
 				} else if browse.Language != "" {
 					if browse.Disposition != "" {
 						No { myBooksDispositionLabel(browse.Disposition) } books in your local collection are in { myBooksLanguageName(browse) }.
@@ -443,7 +463,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			}
 			@MyBooksDispositionFilters(browse)
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, browse.NeedsLanguage, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
 					<label for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>

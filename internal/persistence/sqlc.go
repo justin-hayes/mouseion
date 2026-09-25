@@ -273,6 +273,38 @@ func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
 	return item
 }
 
+func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
+	book := myBookFromEvidence(sqlcgen.MyBooksEvidence{
+		BookID: row.BookID, BookOwnerID: row.BookOwnerID, BookTitle: row.BookTitle,
+		BookMetadataProvenance: row.BookMetadataProvenance, BookLanguageState: row.BookLanguageState,
+		BookLanguageTag: row.BookLanguageTag, BookCreatedAt: row.BookCreatedAt, BookUpdatedAt: row.BookUpdatedAt,
+		SourceID: row.SourceID, SourceOwnerID: row.SourceOwnerID, SourceLanguage: row.SourceLanguage,
+		SourceIdentifier: row.SourceIdentifier, SourceTitle: row.SourceTitle, SourceMediaType: row.SourceMediaType,
+		SourceContentHash: row.SourceContentHash, SourceContentDigest: row.SourceContentDigest,
+		SourceContentRevisionID: row.SourceContentRevisionID, SourceContentSnapshotID: row.SourceContentSnapshotID,
+		SourceDigestVersion: row.SourceDigestVersion, SourceCreatedAt: row.SourceCreatedAt, Acquired: row.Acquired,
+		AnalysisStatus: row.AnalysisStatus, AnalysisState: row.AnalysisState, AnalysisRunID: row.AnalysisRunID,
+		CorpusID: row.CorpusID, AnalysisJobID: row.AnalysisJobID, BookAuthor: row.BookAuthor,
+		BookCoverState: row.BookCoverState, BookCoverWidth: row.BookCoverWidth, BookCoverHeight: row.BookCoverHeight,
+	})
+	book.CompletionCount = int(row.CompletionCount)
+	book.LatestCompletionAt = completionTime(row.LatestCompletedAt)
+	book.LatestCompletionSource = domain.ReadingCompletionSource(row.LatestCompletionSource)
+	return book
+}
+
+func completionTime(value any) *time.Time {
+	switch completedAt := value.(type) {
+	case time.Time:
+		return &completedAt
+	case pgtype.Timestamptz:
+		if completedAt.Valid {
+			return &completedAt.Time
+		}
+	}
+	return nil
+}
+
 func sourceMaterialSummaryFromRow(row sqlcgen.ListSourceMaterialsRow) domain.SourceMaterialSummary {
 	return domain.SourceMaterialSummary{
 		Source: domain.SourceMaterial{

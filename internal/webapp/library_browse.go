@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -19,6 +20,7 @@ type MyBooksBrowseState struct {
 	Enabled            bool
 	Query              string
 	Disposition        domain.BookDisposition
+	History            bool
 	Language           string
 	LanguageLabel      string
 	NeedsLanguage      bool
@@ -32,6 +34,7 @@ type MyBooksBrowseState struct {
 	InboxCount         int
 	ToReadCount        int
 	SetAsideCount      int
+	ReadCount          int
 	RefreshableBookIDs map[string]bool
 }
 
@@ -40,6 +43,10 @@ func myBooksURL(query string, page int, needsLanguage bool) string {
 }
 
 func myBooksFilteredURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition) string {
+	return myBooksHistoryURL(query, page, needsLanguage, disposition, false)
+}
+
+func myBooksHistoryURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition, history bool) string {
 	values := url.Values{}
 	if needsLanguage {
 		values.Set("needs-language", "")
@@ -52,6 +59,9 @@ func myBooksFilteredURL(query string, page int, needsLanguage bool, disposition 
 	}
 	if disposition != "" {
 		values.Set("disposition", string(disposition))
+	}
+	if history {
+		values.Set("history", "read")
 	}
 	if encoded := values.Encode(); encoded != "" {
 		if needsLanguage {
@@ -81,8 +91,18 @@ func parseMyBooksBrowseRequestWithDisposition(rURL *url.URL) (query string, page
 	return query, page, needsLanguage, disposition
 }
 
+func parseMyBooksBrowseRequestWithHistory(rURL *url.URL) (query string, page int, needsLanguage bool, disposition domain.BookDisposition, history bool) {
+	query, page, needsLanguage, disposition = parseMyBooksBrowseRequestWithDisposition(rURL)
+	history = rURL.Query().Get("history") == "read"
+	return query, page, needsLanguage, disposition, history
+}
+
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksFilteredURL(browse.Query, page, browse.NeedsLanguage, browse.Disposition)
+	return myBooksHistoryURL(browse.Query, page, browse.NeedsLanguage, browse.Disposition, browse.History)
+}
+
+func myBooksHistoryFilterURL(browse MyBooksBrowseState, history bool) string {
+	return myBooksHistoryURL(browse.Query, 1, browse.NeedsLanguage, "", history)
 }
 
 func myBooksDispositionURL(browse MyBooksBrowseState, disposition domain.BookDisposition) string {
@@ -100,6 +120,27 @@ func myBooksDispositionCount(browse MyBooksBrowseState, disposition domain.BookD
 	default:
 		return browse.ScopeTotal
 	}
+}
+
+func myBooksReadCountLabel(count int) string {
+	if count == 1 {
+		return "1 completion"
+	}
+	return fmt.Sprintf("%d completions", count)
+}
+
+func myBooksCompletionSourceLabel(source domain.ReadingCompletionSource) string {
+	if source == domain.ReadingCompletionPreviouslyRead {
+		return "Read before Mouseion"
+	}
+	return "Finished in Mouseion"
+}
+
+func myBooksCompletionDateLabel(completedAt *time.Time) string {
+	if completedAt == nil {
+		return "Date unavailable"
+	}
+	return completedAt.Local().Format("2 Jan 2006")
 }
 
 func myBooksDispositionLabel(disposition domain.BookDisposition) string {
@@ -168,6 +209,12 @@ func myBooksResultAnnouncementAttributes() templ.Attributes {
 func myBooksResultsHeading(browse MyBooksBrowseState) string {
 	if browse.NeedsLanguage {
 		return "Books awaiting a language"
+	}
+	if browse.History {
+		if browse.Query != "" {
+			return fmt.Sprintf("Read history in %s matching “%s”", myBooksLanguageName(browse), browse.Query)
+		}
+		return "Read history in " + myBooksLanguageName(browse)
 	}
 	workflow := ""
 	if browse.Disposition != "" {

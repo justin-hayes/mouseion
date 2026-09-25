@@ -113,6 +113,7 @@ type Store struct {
 	readingJourneys        map[string]domain.ReadingJourney
 	primaryGoals           map[string]domain.PrimaryGoal
 	readingHistory         map[string]domain.ReadingCompletion
+	importedHistory        map[string]domain.ReadingCompletion
 	syncStatuses           []domain.CatalogueSyncStatus
 	storedActiveLanguage   *string
 	mostRecentLanguage     string
@@ -197,6 +198,7 @@ func NewStore() *Store {
 				},
 			},
 		},
+		importedHistory: make(map[string]domain.ReadingCompletion),
 		primaryGoals: map[string]domain.PrimaryGoal{
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
@@ -563,7 +565,7 @@ func (s *Store) bookDispositionLocked(owner, bookID string) domain.BookDispositi
 // the shared browser fixture store: literal case-insensitive title substring
 // search, one language filter, lowercased deterministic title ordering, and
 // counts over the complete active owner collection.
-func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	query = strings.ToLower(strings.TrimSpace(query))
@@ -574,6 +576,16 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	}
 	all := s.myBooksForOwner(owner)
 	result := persistence.MyBooksBrowseResult{AllCount: len(all)}
+	for i := range all {
+		if completion, ok := s.importedHistory[fixtureDispositionKey(owner, all[i].Book.ID)]; ok {
+			all[i].CompletionCount = 1
+			all[i].LatestCompletionAt = &completion.CompletedAt
+			all[i].LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
+		}
+		if all[i].CompletionCount > 0 && (language == "" || (language == domain.LanguageUnknown && all[i].Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && all[i].Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(all[i].Book.LanguageTag) == language)) {
+			result.ReadCount++
+		}
+	}
 	counts := map[string]int{}
 	for _, book := range all {
 		tag := domain.LanguageUnknown
@@ -623,6 +635,9 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 			continue
 		}
 		if disposition != "" && book.Disposition != domain.BookDisposition(disposition) {
+			continue
+		}
+		if history && book.CompletionCount == 0 {
 			continue
 		}
 		filtered = append(filtered, book)
@@ -908,6 +923,32 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 	}
 	s.dispositions[fixtureDispositionKey(owner, bookID)] = disposition
 	return nil
+}
+
+func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (domain.ReadingCompletion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := fixtureDispositionKey(owner, bookID)
+	if completion, ok := s.importedHistory[key]; ok {
+		return completion, nil
+	}
+	var book domain.MyBook
+	found := false
+	for _, candidate := range s.myBooksForOwner(owner) {
+		if candidate.Book.ID == bookID {
+			book, found = candidate, true
+			break
+		}
+	}
+	if !found || book.Book.LanguageState != domain.LanguageChosen || book.JourneyGoal {
+		return domain.ReadingCompletion{}, persistence.ErrNotFound
+	}
+	completion := domain.ReadingCompletion{
+		OwnerID: owner, BookID: bookID, Language: book.Book.LanguageTag,
+		CompletedAt: time.Now().UTC(), Source: domain.ReadingCompletionPreviouslyRead,
+	}
+	s.importedHistory[key] = completion
+	return completion, nil
 }
 
 func (s *Store) SetBookAsideAtJourneyRevision(_ context.Context, owner, language, bookID string, expectedRevision int64) error {

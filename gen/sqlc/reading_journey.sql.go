@@ -389,6 +389,54 @@ func (q *Queries) GetBookLanguageState(ctx context.Context, arg GetBookLanguageS
 	return i, err
 }
 
+const getPreviouslyReadImport = `-- name: GetPreviouslyReadImport :one
+SELECT owner_id::text, language, book_id::text, completed_at,
+       COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
+       snapshot_vocabulary_count, eligible_vocabulary_count,
+       graduated_vocabulary_count, already_known_vocabulary_count, completion_source
+FROM reading_history
+WHERE owner_id = $1 AND book_id = $2
+  AND completion_source = 'previously_read_import'
+ORDER BY completed_at DESC, completion_id DESC
+LIMIT 1
+`
+
+type GetPreviouslyReadImportParams struct {
+	Owner string
+	Book  string
+}
+
+type GetPreviouslyReadImportRow struct {
+	OwnerID                     string
+	Language                    string
+	BookID                      string
+	CompletedAt                 time.Time
+	GoalSnapshotID              string
+	SnapshotVocabularyCount     int
+	EligibleVocabularyCount     int
+	GraduatedVocabularyCount    int
+	AlreadyKnownVocabularyCount int
+	CompletionSource            string
+}
+
+func (q *Queries) GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error) {
+	row := q.db.QueryRow(ctx, getPreviouslyReadImport, arg.Owner, arg.Book)
+	var i GetPreviouslyReadImportRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CompletedAt,
+		&i.GoalSnapshotID,
+		&i.SnapshotVocabularyCount,
+		&i.EligibleVocabularyCount,
+		&i.GraduatedVocabularyCount,
+		&i.AlreadyKnownVocabularyCount,
+		&i.CompletionSource,
+	)
+	return i, err
+}
+
 const getPrimaryGoal = `-- name: GetPrimaryGoal :one
 SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
        COALESCE(s.id::text, '')::text AS snapshot_id,
@@ -557,7 +605,8 @@ func (q *Queries) GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoa
 const getReadingCompletion = `-- name: GetReadingCompletion :one
 SELECT owner_id::text, language, book_id::text, completed_at,
        COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
-       snapshot_vocabulary_count, eligible_vocabulary_count,
+       completion_source,
+        snapshot_vocabulary_count, eligible_vocabulary_count,
        graduated_vocabulary_count, already_known_vocabulary_count
 FROM reading_history
 WHERE owner_id = $1
@@ -579,6 +628,7 @@ type GetReadingCompletionRow struct {
 	BookID                      string
 	CompletedAt                 time.Time
 	GoalSnapshotID              string
+	CompletionSource            string
 	SnapshotVocabularyCount     int
 	EligibleVocabularyCount     int
 	GraduatedVocabularyCount    int
@@ -599,6 +649,7 @@ func (q *Queries) GetReadingCompletion(ctx context.Context, arg GetReadingComple
 		&i.BookID,
 		&i.CompletedAt,
 		&i.GoalSnapshotID,
+		&i.CompletionSource,
 		&i.SnapshotVocabularyCount,
 		&i.EligibleVocabularyCount,
 		&i.GraduatedVocabularyCount,
@@ -730,6 +781,68 @@ func (q *Queries) GraduatePrimaryGoalSnapshotVocabulary(ctx context.Context, arg
 	return graduated_count, err
 }
 
+const insertPreviouslyReadImport = `-- name: InsertPreviouslyReadImport :one
+INSERT INTO reading_history(
+    owner_id, language, book_id, completed_at, goal_snapshot_id,
+    snapshot_vocabulary_count, eligible_vocabulary_count,
+    graduated_vocabulary_count, already_known_vocabulary_count, completion_source
+)
+SELECT $1, b.language_tag, b.id, $2, NULL,
+       0, 0, 0, 0, 'previously_read_import'
+FROM books b
+JOIN book_membership m ON m.owner_id = b.owner_id AND m.book_id = b.id AND m.state = 'active'
+WHERE b.owner_id = $1 AND b.id = $3
+  AND b.language_state = 'chosen'
+  AND NOT EXISTS (
+      SELECT 1 FROM primary_goals g WHERE g.owner_id = b.owner_id AND g.book_id = b.id
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM reading_history h WHERE h.owner_id = b.owner_id AND h.book_id = b.id
+  )
+ON CONFLICT DO NOTHING
+RETURNING owner_id::text, language, book_id::text, completed_at,
+          COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
+          snapshot_vocabulary_count, eligible_vocabulary_count,
+          graduated_vocabulary_count, already_known_vocabulary_count, completion_source
+`
+
+type InsertPreviouslyReadImportParams struct {
+	Owner       string
+	CompletedAt time.Time
+	Book        string
+}
+
+type InsertPreviouslyReadImportRow struct {
+	OwnerID                     string
+	Language                    string
+	BookID                      string
+	CompletedAt                 time.Time
+	GoalSnapshotID              string
+	SnapshotVocabularyCount     int
+	EligibleVocabularyCount     int
+	GraduatedVocabularyCount    int
+	AlreadyKnownVocabularyCount int
+	CompletionSource            string
+}
+
+func (q *Queries) InsertPreviouslyReadImport(ctx context.Context, arg InsertPreviouslyReadImportParams) (InsertPreviouslyReadImportRow, error) {
+	row := q.db.QueryRow(ctx, insertPreviouslyReadImport, arg.Owner, arg.CompletedAt, arg.Book)
+	var i InsertPreviouslyReadImportRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.Language,
+		&i.BookID,
+		&i.CompletedAt,
+		&i.GoalSnapshotID,
+		&i.SnapshotVocabularyCount,
+		&i.EligibleVocabularyCount,
+		&i.GraduatedVocabularyCount,
+		&i.AlreadyKnownVocabularyCount,
+		&i.CompletionSource,
+	)
+	return i, err
+}
+
 const insertPrimaryGoal = `-- name: InsertPrimaryGoal :one
 INSERT INTO primary_goals(owner_id, language, book_id, snapshot_id)
 VALUES ($1, $2, $3, $4)
@@ -839,7 +952,7 @@ ON CONFLICT DO NOTHING
 RETURNING owner_id::text, language, book_id::text, completed_at,
           COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
           snapshot_vocabulary_count, eligible_vocabulary_count,
-          graduated_vocabulary_count, already_known_vocabulary_count
+           graduated_vocabulary_count, already_known_vocabulary_count, completion_source
 `
 
 type InsertReadingCompletionParams struct {
@@ -864,6 +977,7 @@ type InsertReadingCompletionRow struct {
 	EligibleVocabularyCount     int
 	GraduatedVocabularyCount    int
 	AlreadyKnownVocabularyCount int
+	CompletionSource            string
 }
 
 func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error) {
@@ -889,6 +1003,7 @@ func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReading
 		&i.EligibleVocabularyCount,
 		&i.GraduatedVocabularyCount,
 		&i.AlreadyKnownVocabularyCount,
+		&i.CompletionSource,
 	)
 	return i, err
 }

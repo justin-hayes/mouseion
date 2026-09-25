@@ -100,6 +100,36 @@ func readingCompletionFromValues(ownerID, language, bookID string, completedAt t
 		GoalSnapshotID: snapshotID, SnapshotVocabularyCount: snapshotCount,
 		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
 		AlreadyKnownVocabularyCount: alreadyKnownCount,
+		Source:                      domain.ReadingCompletionPrimaryGoal,
+	}
+}
+
+// ImportPreviouslyRead records one owner-and-Book-scoped completion without
+// creating vocabulary evidence. The partial unique index makes concurrent
+// retries converge on the same imported fact.
+func (s *PostgresStore) ImportPreviouslyRead(ctx context.Context, owner, bookID string) (domain.ReadingCompletion, error) {
+	row, err := s.queries().InsertPreviouslyReadImport(ctx, sqlcgen.InsertPreviouslyReadImportParams{
+		Owner: owner, Book: bookID, CompletedAt: time.Now().UTC(),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		existing, getErr := s.queries().GetPreviouslyReadImport(ctx, sqlcgen.GetPreviouslyReadImportParams{Owner: owner, Book: bookID})
+		if getErr != nil {
+			return domain.ReadingCompletion{}, missing(getErr)
+		}
+		return importedReadingCompletion(existing.OwnerID, existing.Language, existing.BookID, existing.CompletedAt, existing.GoalSnapshotID, existing.SnapshotVocabularyCount, existing.EligibleVocabularyCount, existing.GraduatedVocabularyCount, existing.AlreadyKnownVocabularyCount), nil
+	}
+	if err != nil {
+		return domain.ReadingCompletion{}, missing(err)
+	}
+	return importedReadingCompletion(row.OwnerID, row.Language, row.BookID, row.CompletedAt, row.GoalSnapshotID, row.SnapshotVocabularyCount, row.EligibleVocabularyCount, row.GraduatedVocabularyCount, row.AlreadyKnownVocabularyCount), nil
+}
+
+func importedReadingCompletion(owner, language, book string, completedAt time.Time, snapshotID string, snapshotCount, eligibleCount, graduatedCount, knownCount int) domain.ReadingCompletion {
+	return domain.ReadingCompletion{
+		OwnerID: owner, Language: language, BookID: book, CompletedAt: completedAt,
+		GoalSnapshotID: snapshotID, SnapshotVocabularyCount: snapshotCount,
+		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
+		AlreadyKnownVocabularyCount: knownCount, Source: domain.ReadingCompletionPreviouslyRead,
 	}
 }
 
