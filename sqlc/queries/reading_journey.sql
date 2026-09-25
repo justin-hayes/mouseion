@@ -147,17 +147,17 @@ FOR UPDATE OF g;
 -- name: GetPrimaryGoalCandidateIdentity :one
 SELECT ca.source_material_id::text, ca.analysis_run_id::text,
        ca.content_revision_id::text, ca.snapshot_id::text, ca.corpus_id::text
-FROM reading_journey_membership jm
-JOIN books b ON b.owner_id = jm.owner_id AND b.id = jm.book_id
-JOIN source_materials s ON s.owner_id = jm.owner_id AND s.book_id = jm.book_id
+FROM books b
+JOIN book_dispositions bd ON bd.owner_id = b.owner_id AND bd.book_id = b.id
+JOIN source_materials s ON s.owner_id = b.owner_id AND s.book_id = b.id
 JOIN current_analysis_identity ca
-  ON ca.owner_id = jm.owner_id AND ca.book_id = jm.book_id
+  ON ca.owner_id = b.owner_id AND ca.book_id = b.id
  AND ca.source_material_id = s.id
-WHERE jm.owner_id = sqlc.arg('owner')
-  AND jm.language = sqlc.arg('language')
-  AND jm.book_id = sqlc.arg('book')
+WHERE b.owner_id = sqlc.arg('owner')
+  AND b.id = sqlc.arg('book')
+  AND bd.disposition = 'to_read'
   AND b.language_state = 'chosen'
-  AND b.language_tag = sqlc.arg('language')
+  AND b.language_tag = sqlc.arg('language')::text
   AND lower(s.media_type) = 'application/epub+zip';
 
 -- name: CreatePrimaryGoalSnapshot :one
@@ -439,19 +439,19 @@ WHERE owner_id = sqlc.arg('owner')
 -- name: PrimaryGoalCandidateEligible :one
 SELECT EXISTS(
   SELECT 1
-  FROM reading_journey_membership jm
-  JOIN books b
-    ON b.owner_id = jm.owner_id AND b.id = jm.book_id
+  FROM books b
+  JOIN book_dispositions bd
+    ON bd.owner_id = b.owner_id AND bd.book_id = b.id
   JOIN source_materials s
-    ON s.owner_id = jm.owner_id AND s.book_id = jm.book_id
+    ON s.owner_id = b.owner_id AND s.book_id = b.id
   JOIN current_analysis_identity ca
-    ON ca.owner_id = jm.owner_id
-   AND ca.book_id = jm.book_id
+    ON ca.owner_id = b.owner_id
+   AND ca.book_id = b.id
    AND ca.source_material_id = s.id
-  WHERE jm.owner_id = sqlc.arg('owner')
-    AND jm.language = sqlc.arg('language')
-    AND jm.book_id = sqlc.arg('book')
+  WHERE b.owner_id = sqlc.arg('owner')
+    AND b.id = sqlc.arg('book')
+    AND bd.disposition = 'to_read'
     AND b.language_state = 'chosen'
-    AND b.language_tag = sqlc.arg('language')
+    AND b.language_tag = sqlc.arg('language')::text
     AND lower(s.media_type) = 'application/epub+zip'
 );

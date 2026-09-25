@@ -1400,10 +1400,8 @@ templ ReadingChooserBook(item readingChooserBookView, csrf string) {
 					<p>Investment counts eligible vocabulary identities, not deck size.</p>
 				</details>
 				@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
-					<form method="post" action={ templ.SafeURL("/goal/books/" + item.Book.Book.ID) }>
+					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<input type="hidden" name="expected_goal_book_id" value=""/>
-						<input type="hidden" name="return_to" value="/reading"/>
 						<button type="submit">Confirm start reading</button>
 					</form>
 				}

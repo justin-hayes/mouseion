@@ -196,9 +196,16 @@ func snapshotSizeForGoal(ctx context.Context, q *sqlcgen.Queries, snapshotID, ow
 	return len(rows), nil
 }
 
-// CreatePrimaryGoal creates the owner's current Goal for an analyzed Reading
-// Journey member in language.
+// CreatePrimaryGoal creates the owner's current reading for an eligible To Read
+// Book in language.
 func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, bookID string) (goal domain.PrimaryGoal, err error) {
+	return s.CreatePrimaryGoalWith(ctx, owner, language, bookID, nil)
+}
+
+// CreatePrimaryGoalWith creates the current reading and runs beforeCommit in
+// the same transaction after its immutable snapshot has been populated. The
+// callback can atomically attach durable work that depends on that snapshot.
+func (s *PostgresStore) CreatePrimaryGoalWith(ctx context.Context, owner, language, bookID string, beforeCommit func(context.Context, pgx.Tx, domain.PrimaryGoal) error) (goal domain.PrimaryGoal, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	goalInput := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}
 	if err := goalInput.Validate(); err != nil {
@@ -239,15 +246,20 @@ func (s *PostgresStore) CreatePrimaryGoal(ctx context.Context, owner, language, 
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return domain.PrimaryGoal{}, err
-	}
 	goal.SourceMaterialID = identity.CaSourceMaterialID
 	goal.AnalysisRunID = identity.CaAnalysisRunID
 	goal.ContentRevisionID = identity.CaContentRevisionID
 	goal.ContentSnapshotID = identity.CaSnapshotID
 	goal.CorpusID = identity.CaCorpusID
 	goal.SnapshotSize = len(candidates)
+	if beforeCommit != nil {
+		if err = beforeCommit(ctx, tx, goal); err != nil {
+			return domain.PrimaryGoal{}, err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
 	return goal, nil
 }
 

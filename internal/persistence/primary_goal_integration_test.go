@@ -4,9 +4,11 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -155,6 +157,49 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	replayed, err := store.FinishCurrentReading(ctx, alice.ID, "de", first.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, finished, replayed)
+}
+
+func TestCurrentReadingCanStartAnalyzedToReadBookOutsideJourney(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "current-reading-to-read", false)
+	require.NoError(t, err)
+	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "to-read-only")
+	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	queueFailure := errors.New("prepared deck queue unavailable")
+	_, err = store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(context.Context, pgx.Tx, domain.PrimaryGoal) error {
+		return queueFailure
+	})
+	require.ErrorIs(t, err, queueFailure)
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, current.BookID, "failed durable enqueue rolls back the current reading")
+	var snapshots int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&snapshots))
+	assert.Zero(t, snapshots, "failed durable enqueue rolls back the frozen snapshot")
+
+	current, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, book.ID, current.BookID)
+	assert.Equal(t, source.ID, current.SourceMaterialID)
+	assert.NotEmpty(t, current.AnalysisRunID)
+	assert.NotEmpty(t, current.SnapshotID)
+	assert.Zero(t, current.SnapshotSize, "empty eligible snapshot is persisted without inventing vocabulary")
+
+	loaded, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, current, loaded)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.ErrorIs(t, err, ErrGoalExists)
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Empty(t, journey.Entries, "starting a To Read candidate does not require or create Journey membership")
 }
 
 func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {

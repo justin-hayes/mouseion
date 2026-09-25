@@ -48,6 +48,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		Analysis: fixtures.Analysis{}, AnalysisInsights: analysisinsights.NewService(store), Capabilities: capabilities,
+		PreparedDeck:    &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)},
 		SessionLifetime: time.Hour,
 	})
 	aliceCookies, csrf := loginCookies(t, h, "migration-alice", "alice-password")
@@ -117,8 +118,25 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", secondBook.ID, journey.Revision)
 	require.NoError(t, err)
-	goal, err := store.CreatePrimaryGoal(ctx, alice.ID, "de", book.ID)
+	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, aliceCookies)
+	require.Equal(t, http.StatusSeeOther, started.Code)
+	assert.Contains(t, started.Header().Get("Location"), "/reading?message=")
+	goal, err := store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
+	assert.Equal(t, book.ID, goal.BookID)
+	queuedDecks, ok := h.services.PreparedDeck.(*recordingPreparedDeck)
+	require.True(t, ok)
+	assert.False(t, queuedDecks.consent, "current-reading preparation stays local")
+	require.Len(t, queuedDecks.preparations, 1)
+	for _, preparation := range queuedDecks.preparations {
+		assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
+		assert.Equal(t, goal.AnalysisRunID, preparation.AnalysisRunID)
+	}
+	currentPage := perform(t, h, http.MethodGet, "/reading", nil, aliceCookies)
+	require.Equal(t, http.StatusOK, currentPage.Code)
+	assert.Contains(t, currentPage.Body.String(), "Migrated primary goal")
+	assert.Contains(t, currentPage.Body.String(), "Current coverage")
+	assert.Contains(t, currentPage.Body.String(), "After Primary Goal coverage")
 	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "legacy-state", "ADJ")
 	require.NoError(t, err)
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)

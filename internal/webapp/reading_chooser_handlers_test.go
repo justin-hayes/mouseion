@@ -68,7 +68,6 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Contains(t, body, "eligible vocabulary identities")
 	assert.Contains(t, body, "Start reading")
 	assert.Contains(t, body, "Confirm start reading")
-	assert.Contains(t, body, `name="return_to" value="/reading"`)
 	assert.Contains(t, body, "Analysis in progress")
 	assert.Contains(t, body, "Review To Read books")
 	assert.Contains(t, body, "Needs attention")
@@ -80,7 +79,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.NotContains(t, body, "Current coverage: 0.0%")
 	assert.NotContains(t, body, "Italian goal")
 	assert.NotContains(t, body, "Metadata-only migration book")
-	assert.True(t, strings.Contains(body, `action="/goal/books/`) && strings.Contains(body, `name="csrf_token"`))
+	assert.True(t, strings.Contains(body, `action="/reading/books/`) && strings.Contains(body, `/start"`) && strings.Contains(body, `name="csrf_token"`))
 	assert.Less(t, strings.Index(body, "Der lange Weg nach Hause"), strings.Index(body, "Route differs: new German"), "same-band candidates should be in neutral title order")
 }
 
@@ -104,13 +103,28 @@ func TestReadingChooserRecoveryDoesNotRequireJourneyMembership(t *testing.T) {
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
-	response := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
-		"csrf_token":            {csrf},
-		"expected_goal_book_id": {""},
-		"return_to":             {"/reading"},
-	}, cookies)
+	response := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "/reading?message=")
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, "fixture-route-match", current.BookID)
+	assert.NotEmpty(t, current.SnapshotID)
+	retry := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, retry.Code)
+	retried, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, current.SnapshotID, retried.SnapshotID, "retry reuses the frozen snapshot")
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	page := httptest.NewRecorder()
+	h.ServeHTTP(page, request)
+	require.Equal(t, http.StatusOK, page.Code)
+	assert.Contains(t, page.Body.String(), "Route match: familiar German")
+	assert.Contains(t, page.Body.String(), "Current coverage")
+	assert.Contains(t, page.Body.String(), "After Primary Goal coverage")
 }
 
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
