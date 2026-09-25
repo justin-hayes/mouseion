@@ -117,6 +117,14 @@ type BookCurrentAnalysis struct {
 	PromotedAt       time.Time
 }
 
+type BookDisposition struct {
+	OwnerID     string
+	BookID      string
+	Disposition string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
 type BookMembership struct {
 	OwnerID     string
 	BookID      string

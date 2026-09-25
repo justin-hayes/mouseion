@@ -50,6 +50,14 @@ const (
 	BookStale              BookEvidenceState = "stale"
 )
 
+type BookDisposition string
+
+const (
+	BookDispositionInbox    BookDisposition = "inbox"
+	BookDispositionToRead   BookDisposition = "to_read"
+	BookDispositionSetAside BookDisposition = "set_aside"
+)
+
 type Book struct {
 	ID, OwnerID, Title, Author, MetadataProvenance, LanguageState, LanguageTag string
 	CreatedAt, UpdatedAt                                                       time.Time
@@ -110,6 +118,15 @@ func (m MyBook) EvidenceState() BookEvidenceState {
 		return BookNotAcquired
 	}
 	return m.Acquired.EvidenceState()
+}
+
+func (d BookDisposition) Validate() error {
+	switch d {
+	case BookDispositionInbox, BookDispositionToRead, BookDispositionSetAside:
+		return nil
+	default:
+		return errors.New("domain: invalid book disposition")
+	}
 }
 
 func NewBook(ownerID, title, metadataProvenance, languageState, languageTag string) (Book, error) {

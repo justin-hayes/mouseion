@@ -241,6 +241,9 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 	}
 	for _, member := range members {
 		if member.bookID == bookID {
+			if err = synchronizeBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionToRead); err != nil {
+				return 0, err
+			}
 			if cleaned {
 				if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
 					return 0, err
@@ -255,6 +258,9 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 			}
 			return revision, nil
 		}
+	}
+	if err = synchronizeBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionToRead); err != nil {
+		return 0, err
 	}
 	members = append(members, readingJourneyMembership{bookID: bookID})
 	if err = rewriteReadingJourneyPositions(ctx, sqlcgen.New(tx), owner, language, members); err != nil {
@@ -365,6 +371,9 @@ func (s *PostgresStore) RemoveFromReadingJourney(ctx context.Context, owner, lan
 		return 0, err
 	}
 	if err = q.DeletePrimaryGoalForBook(ctx, sqlcgen.DeletePrimaryGoalForBookParams{Owner: owner, Language: language, Book: bookID}); err != nil {
+		return 0, err
+	}
+	if err = synchronizeBookDisposition(ctx, q, owner, bookID, domain.BookDispositionSetAside); err != nil {
 		return 0, err
 	}
 	members = append(members[:memberIndex], members[memberIndex+1:]...)
