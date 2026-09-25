@@ -26,9 +26,10 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	// The re-preparation and cover migrations are newer than this historical
 	// scenario; go back to the same pre-reading-history version before
 	// replaying its steps.
-	// Rewind to version 3; the current schema has one additional successor
-	// migration after this historical replay scenario.
-	moveApplicationMigrations(t, databaseURL, -12)
+	// Rewind to version 3 before replaying the historical migrations. The
+	// disposition backfill is a later successor and must not run before the
+	// legacy state is seeded.
+	moveApplicationMigrations(t, databaseURL, -13)
 	owner, err := store.CreateUser(ctx, "history-migration-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "history-migration-other", false)
@@ -49,7 +50,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	moveApplicationMigrations(t, databaseURL, 2)
 	forceApplicationMigration(t, databaseURL, 4)
 	moveApplicationMigrations(t, databaseURL, 1)
-	moveApplicationMigrations(t, databaseURL, 5)
+	moveApplicationMigrations(t, databaseURL, 6)
 	var historyCount int
 	var migratedAt time.Time
 	err = pool.QueryRow(ctx, `SELECT count(*), max(completed_at) FROM reading_history WHERE owner_id=$1`, owner.ID).Scan(&historyCount, &migratedAt)

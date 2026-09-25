@@ -1,0 +1,72 @@
+//go:build integration
+
+package persistence
+
+import (
+	"context"
+	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+
+	// Migration 15 creates the target table; seed legacy state at that version
+	// so migration 16 is exercised as a real successor data migration.
+	moveApplicationMigrations(t, databaseURL, -1)
+	owner, err := store.CreateUser(ctx, "disposition-backfill-owner", false)
+	require.NoError(t, err)
+	otherOwner, err := store.CreateUser(ctx, "disposition-backfill-other", false)
+	require.NoError(t, err)
+
+	goalBook := insertLegacyBook(t, ctx, store, owner.ID, "Goal book", "de")
+	journeyBook := insertLegacyBook(t, ctx, store, owner.ID, "Journey book", "de")
+	historyBook := insertLegacyBook(t, ctx, store, owner.ID, "History book", "de")
+	removedBook := insertLegacyBook(t, ctx, store, owner.ID, "Removed book", "de")
+	inboxBook := insertLegacyBook(t, ctx, store, owner.ID, "Inbox book", "de")
+	otherBook := insertLegacyBook(t, ctx, store, otherOwner.ID, "Other owner's book", "de")
+
+	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id) VALUES ($1, 'de', $2)`, owner.ID, goalBook.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO reading_journeys(owner_id, language) VALUES ($1, 'de'), ($2, 'de')`, owner.ID, otherOwner.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO reading_journey_membership(owner_id, language, book_id, position) VALUES ($1, 'de', $2, 1), ($1, 'de', $3, 2), ($4, 'de', $5, 1)`, owner.ID, goalBook.ID, journeyBook.ID, otherOwner.ID, otherBook.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO reading_history(owner_id, language, book_id, completed_at) VALUES ($1, 'de', $2, now()), ($1, 'de', $3, now()), ($1, 'de', $4, now())`, owner.ID, goalBook.ID, journeyBook.ID, historyBook.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE book_membership SET state = 'removed', removed_at = now() WHERE owner_id=$1 AND book_id=$2`, owner.ID, removedBook.ID)
+	require.NoError(t, err)
+
+	moveApplicationMigrations(t, databaseURL, 1)
+
+	assertMigrationDisposition(t, pool, owner.ID, goalBook.ID, domain.BookDispositionToRead)
+	assertMigrationDisposition(t, pool, owner.ID, journeyBook.ID, domain.BookDispositionToRead)
+	assertMigrationDisposition(t, pool, owner.ID, historyBook.ID, domain.BookDispositionSetAside)
+	assertMigrationDisposition(t, pool, owner.ID, removedBook.ID, domain.BookDispositionSetAside)
+	assertMigrationDisposition(t, pool, owner.ID, inboxBook.ID, domain.BookDispositionInbox)
+	assertMigrationDisposition(t, pool, otherOwner.ID, otherBook.ID, domain.BookDispositionToRead)
+
+	// Reapplying after the no-op down migration must not reinterpret or change
+	// an existing learner decision, proving retry safety independently of the
+	// migration runner's normal all-or-nothing transaction.
+	_, err = pool.Exec(ctx, `UPDATE book_dispositions SET disposition='set_aside' WHERE owner_id=$1 AND book_id=$2`, owner.ID, inboxBook.ID)
+	require.NoError(t, err)
+	moveApplicationMigrations(t, databaseURL, -1)
+	moveApplicationMigrations(t, databaseURL, 1)
+	assertMigrationDisposition(t, pool, owner.ID, inboxBook.ID, domain.BookDispositionSetAside)
+}
+
+func assertMigrationDisposition(t *testing.T, pool *pgxpool.Pool, owner, book string, want domain.BookDisposition) {
+	t.Helper()
+	var got string
+	err := pool.QueryRow(context.Background(), `SELECT disposition FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, owner, book).Scan(&got)
+	require.NoError(t, err)
+	assert.Equal(t, string(want), got)
+}

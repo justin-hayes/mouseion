@@ -1,0 +1,4 @@
+-- The backfill is intentionally irreversible. Deleting these rows would
+-- destroy recovered learner intent and cannot distinguish migration output
+-- from later learner decisions. Recovery is restoring a backup and retrying
+-- the migration; rollback is an operator decision, not a destructive down.
