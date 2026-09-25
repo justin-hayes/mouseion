@@ -171,6 +171,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, status.LastUpsertedCount)
+	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "metadata resync reset To Read")
 	var analysisRuns, analysisJobs int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, alice.ID).Scan(&analysisRuns)
 	require.NoError(t, err)
@@ -190,12 +191,18 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	_, err = store.RemoveFromReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID))
+	_, err = store.ImportPreviouslyRead(ctx, alice.ID, journeyBookID)
+	require.NoError(t, err)
 	reader.feeds["7"] = opds.Feed{}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
 	assert.Len(t, books, 3)
 	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "upstream disappearance changed disposition")
+	var historyCount int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, journeyBookID).Scan(&historyCount)
+	require.NoError(t, err)
+	assert.Equal(t, 1, historyCount, "upstream disappearance erased reading history")
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Reappeared title", "Reappeared author")}}
 	require.NoError(t, worker.Work(ctx, job))
 	require.NoError(t, worker.Work(ctx, job), "replayed catalogue discovery failed")
