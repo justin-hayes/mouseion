@@ -237,8 +237,11 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, deVocabulary.Code)
-	assert.True(t, strings.Contains(deVocabulary.Body.String(), "Haus"), "body=%s", deVocabulary.Body.String())
-	assert.True(t, strings.Contains(deVocabulary.Body.String(), "Explicitly recorded"), "body=%s", deVocabulary.Body.String())
+	body := deVocabulary.Body.String()
+	assert.True(t, strings.Contains(body, `enctype="multipart/form-data"`), "import form missing: body=%s", body)
+	assert.False(t, strings.Contains(body, "Known vocabulary</h2>"), "known-vocabulary heading rendered: body=%s", body)
+	assert.False(t, strings.Contains(body, "Haus"), "known-vocabulary row rendered: body=%s", body)
+	assert.False(t, strings.Contains(body, "Explicitly recorded"), "known-vocabulary provenance rendered: body=%s", body)
 }
 
 func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {

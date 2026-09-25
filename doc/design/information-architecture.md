@@ -34,7 +34,7 @@ The product supports these top-level goals:
 4. commit to finishing one Primary Goal per language, when desired;
 5. understand current, after-Goal, and on-arrival preparation evidence;
 6. accept completed-Goal vocabulary into the modeled knowledge used by books ahead;
-7. understand derived study languages and maintain known vocabulary;
+7. understand derived study languages and import known vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
 
 The recurring experience rhythm is:
@@ -199,7 +199,7 @@ The authenticated shell exposes four principal destinations:
   surface for synced catalog metadata;
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
   evidence, and Where next? transition;
-- **Vocabulary** — known vocabulary and its import workflow.
+- **Vocabulary** — the known-vocabulary import workflow and its durable status.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
 Catalogs is a configuration and sync destination, not a book-browse surface.
@@ -250,7 +250,7 @@ Catalogs
     connection setup and sync status
 
 Vocabulary
-    known vocabulary and import
+    known-vocabulary import and status
 
 Secondary history
     operational analysis history
@@ -420,10 +420,12 @@ to the active Reading Journey anchor; they never render a separate language-scop
 page or auto-switch the mode. A newly arrived study language appears passively
 in the switcher (marked "new") without changing the mode.
 
-Vocabulary owns known vocabulary and its additive import workflow, scoped to the
-active language; import is always eligible there. Import eligibility remains
-limited to the derived study-language set, and known-vocabulary-only languages
-stay selectable in the switcher as read-only "no books" entries. Catalog
+Vocabulary owns the additive known-vocabulary import workflow, scoped to the
+active language; import is always eligible there. The page presents import
+status and result summaries but does not display the known-vocabulary read model.
+Import eligibility remains limited to the derived study-language set, and
+known-vocabulary-only languages stay selectable in the switcher as read-only
+"no books" entries. Catalog
 metadata changes do not delete known-vocabulary rows, books, analyses, decks, or
 artifact provenance. Journey and Goal relationships remain independent of
 vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0072,

@@ -1,6 +1,6 @@
 # ADR 0043: Study languages are derived from the library and Settings is removed
 
-Status: **Accepted** · Date: 2026-09-04 · Author: Justin + opencode
+Status: **Accepted; Vocabulary presentation amended by issue #1183** · Date: 2026-09-04 · Author: Justin + opencode
 
 ## Context
 
@@ -37,6 +37,11 @@ and removes the Settings destination.
   `/vocabulary/import`, and `/vocabulary/imports/{id}/status`; `GET /known-vocab`
   redirects to `/vocabulary`; the `return_to` mechanism and the legacy
   standalone `KnownVocabPageWithResult` page are removed.
+- **Vocabulary is import-only.** The Vocabulary destination confirms the active
+  study language, accepts additive lemma imports, and reports durable processing
+  and import results. It does not render the known-vocabulary read model; that
+  list query remains a backend input for selection, coverage, forecast, and
+  history consumers.
 - **`supported_languages` remains the server-wide display-name reference**,
   now populated whenever capabilities are fetched (not on language add). Derived
   languages LEFT JOIN it, falling back to the raw tag when NLP is unavailable.
@@ -90,11 +95,6 @@ and removes the Settings destination.
 
 ## Open questions
 
-- Does the **Vocabulary** destination also present the learner's current
-  known-vocabulary inventory per language, or only the import flow? The
-  Settings page showed a per-language known table and the retained
-  `KnownVocabResult` component renders one, so the page is expected to keep
-  that inventory — but it is not yet part of a settled contract.
 - Should the first-sync volume increase (full ready-language library) surface a
   pagination or cap adjustment when walking each language feed, or does the
   existing `BrowseLanguage` pagination already cover it?

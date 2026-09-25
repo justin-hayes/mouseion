@@ -160,14 +160,15 @@ language does not touch other languages' Goals.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | View and import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Updated known-vocabulary list | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to the active language with no per-page picker |
+| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to the active language with no per-page picker and no known-vocabulary list |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
-Vocabulary is the canonical destination for known vocabulary, scoped to the
+Vocabulary is the canonical destination for known-vocabulary import, scoped to the
 active study language; its per-page language picker is removed in favour of the
 shell-level switcher. Known-vocabulary-only languages (no current chosen-language
 Book) remain selectable there as read-only "no books" entries; import stays
-limited to the derived study-language set. Changing a Book's language state does
+limited to the derived study-language set. The page does not display the
+known-vocabulary read model. Changing a Book's language state does
 not remove books, analyses, prepared artifacts, or historical vocabulary
 provenance,
 known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a

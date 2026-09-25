@@ -2,7 +2,8 @@
 
 Status: **Canonical supporting workflow.** Study languages are derived from My
 Books and Vocabulary is the sole learner-facing home for known-vocabulary
-import. Primary Goals own active snapshots and per-language Reserved vocabulary;
+import. It is an import-and-status surface, not a display of the known-vocabulary
+read model. Primary Goals own active snapshots and per-language Reserved vocabulary;
 completion acceptance adds modeled Known vocabulary under [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
 Learner-facing copy uses reading, preparation, and forecast facts as defined in
 [`terminology.md`](../terminology.md).
@@ -25,11 +26,11 @@ The product behavior is defined primarily by:
 
 ## Canonical destination
 
-**Vocabulary** is the primary-navigation destination for known vocabulary. It has
-one explicit workflow:
+**Vocabulary** is the primary-navigation destination for known-vocabulary import.
+It has one explicit workflow:
 
-1. **Known vocabulary** — owner-scoped vocabulary by derived study language,
-   including file import.
+1. **Known-vocabulary import** — submit an additive lemma file for the active
+   study language and understand its durable processing result.
 
 The retained `/known-vocab` route is compatibility surface, not an independent
 product area. The implementation redirects `GET /known-vocab` to `/vocabulary`.
@@ -78,7 +79,6 @@ Confirm the active study language in the shell switcher
     -> Start import
     -> Processing status
     -> Imported, duplicate, and rejected summary
-    -> Updated known-vocabulary list
 ```
 
 The result distinguishes:
@@ -93,11 +93,11 @@ leave and return while durable processing continues.
 
 ## Vocabulary provenance and correction boundary
 
-The Vocabulary list may contain explicitly imported vocabulary and vocabulary
-accepted through completed Goal snapshots. It must not label generated or
-Reserved vocabulary as Known. Where provenance is available, the interface may
-distinguish imported entries from completed-Goal entries without implying
-different coverage weight.
+Known vocabulary may contain explicitly imported vocabulary and vocabulary
+accepted through completed Goal snapshots. The import surface reports only the
+import outcome; it does not display the known-vocabulary read model or label
+generated or Reserved vocabulary as Known. Provenance remains available to the
+selection, coverage, forecast, and history consumers that need it.
 
 The current product supports additive import but not learner-facing removal of
 individual known-vocabulary entries. Vocabulary must not imply that changing a
@@ -111,10 +111,8 @@ coverage recalculation.
 Vocabulary answers questions in this order:
 
 1. Which study language am I currently working in?
-2. Which study language's known vocabulary am I viewing?
-3. How can I import additional known lemmas?
-4. What happened during the latest import?
-5. Which entries are currently counted as known?
+2. How can I import additional known lemmas?
+3. What happened during the latest import?
 
 Account identity may appear as supporting context but should not displace these
 learner tasks.
@@ -124,14 +122,13 @@ learner tasks.
 | State | Required presentation | Primary action |
 |---|---|---|
 | No study languages | Explain that chosen-language books define available vocabulary languages. | Connect a catalog |
-| Active study language available | Show that language's known vocabulary; the shell switcher carries the context. | Import lemma file |
-| Known-vocabulary-only language | Show read-only entries marked "no books"; import disabled. | Switch back to a study language |
-| No known vocabulary | Explain current coverage implications without implying no language ability. | Import lemma file |
+| Active study language available | Show the language context and import form; the shell switcher carries the context. | Import lemma file |
+| Known-vocabulary-only language | Explain that importing is unavailable until a chosen-language Book exists. | Switch back to a study language |
+| No prior import | Keep the import form available without making a claim about language ability. | Import lemma file |
 | Import ready | Show the active language and file contract. | Import known vocabulary |
 | Import processing | Show durable status and safe-leave guidance. | Cancel only when supported |
-| Import complete | Separate new, duplicate, and rejected counts. | Review known vocabulary |
+| Import complete | Separate new, duplicate, and rejected counts. | Import another file |
 | Import failed/cancelled | Preserve the active language and actionable recovery detail. | Retry when safe |
-| Known list | Identify the active language and provenance where available. | Import additional entries |
 
 ## Accessibility and responsive contract
 
@@ -142,7 +139,7 @@ learner tasks.
   focus.
 - Rejected-row detail remains associated with its summary and is usable without
   color.
-- On narrow screens, controls precede long vocabulary lists; lists or tables do
-  not force page-level horizontal scrolling.
-- The server-rendered form, processing result, and final list remain coherent
-  before HTMX enhancement.
+- On narrow screens, the import controls and status summary remain in document
+  order and rejected-row tables do not force page-level horizontal scrolling.
+- The server-rendered form, processing result, and final import summary remain
+  coherent before HTMX enhancement.
