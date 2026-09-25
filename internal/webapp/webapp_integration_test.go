@@ -409,7 +409,7 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	deleted := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, deleted.Code)
 	_, err = store.GetOpdsConnection(ctx, owner.ID, connection.ID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound)
+	require.ErrorIs(t, err, persistence.ErrNotFound)
 	disposition, err = store.GetBookDisposition(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition, "connection deletion erased learner disposition")
