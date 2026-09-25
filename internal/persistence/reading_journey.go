@@ -256,10 +256,9 @@ func (s *PostgresStore) AddToReadingJourney(ctx context.Context, owner, language
 				if revision, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
 					return 0, err
 				}
-				if err = tx.Commit(ctx); err != nil {
-					return 0, err
-				}
-				return revision, nil
+			}
+			if err = tx.Commit(ctx); err != nil {
+				return 0, err
 			}
 			return revision, nil
 		}

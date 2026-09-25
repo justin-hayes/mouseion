@@ -121,8 +121,8 @@ type BookDisposition struct {
 	OwnerID     string
 	BookID      string
 	Disposition string
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type BookMembership struct {
