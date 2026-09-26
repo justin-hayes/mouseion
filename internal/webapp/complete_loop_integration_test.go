@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -186,7 +187,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, metadataOnly.Acquired, "synced catalogue book was acquired before Journey action")
 
-	added := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	added := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(metadataOnly.DispositionRevision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, added.Code)
 
 	var detail domain.MyBook
@@ -262,8 +263,10 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	assert.Equal(t, http.StatusOK, chooser.Code)
 	assert.Contains(t, chooser.Body.String(), "Choose a To Read book when you are ready.")
+	readAgainState, err := store.GetBookDetail(ctx, owner.ID, bookID)
+	require.NoError(t, err)
 	readAgain := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/read-again", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(readAgainState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, readAgain.Code)
 	assert.Contains(t, readAgain.Header().Get("Location"), "disposition=to_read")

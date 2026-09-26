@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -334,21 +335,27 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 		Analysis: recorder, CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
+	bookState, err := store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
+	require.NoError(t, err)
 	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
 	assert.Equal(t, http.StatusNotFound, bookPage.Code)
-	added := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	added := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, added.Code)
 	assert.Equal(t, 1, downloads)
 	assert.Equal(t, 1, recorder.calls)
-	readded := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	readded := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, readded.Code)
 	assert.Equal(t, 1, downloads)
 	assert.Equal(t, 1, recorder.calls)
-	removed := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/set-aside", url.Values{"csrf_token": {csrf}}, cookies)
+	bookState, err = store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
+	require.NoError(t, err)
+	removed := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/set-aside", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, removed.Code)
 	assert.Contains(t, removed.Header().Get("Location"), "disposition=set_aside", "location=%q body=%s", removed.Header().Get("Location"), removed.Body.String())
 	assert.Equal(t, 1, recorder.calls)
-	alreadyAcquired := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	bookState, err = store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
+	require.NoError(t, err)
+	alreadyAcquired := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, alreadyAcquired.Code)
 	assert.Equal(t, 1, downloads)
 	assert.Equal(t, 2, recorder.calls)
