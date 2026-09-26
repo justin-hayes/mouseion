@@ -527,7 +527,7 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView) {
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
 		<h2>Vocabulary transition</h2>
 		<p>{ finishGraduationText(outcome) }</p>
-		<p><a role="button" href="/reading">Choose what to read next</a></p>
+		<p><a href="/reading">Choose what to read next</a></p>
 	</section>
 }
 templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMessage string) {
