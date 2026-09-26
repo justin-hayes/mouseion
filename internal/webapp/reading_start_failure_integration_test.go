@@ -95,24 +95,6 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
 	assert.Contains(t, readingPage.Body.String(), `action="/goal/books/`+book.ID+`/deck/retry"`)
 
-	existingPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
-		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: reading.AnalysisRunID,
-		GoalSnapshotID: reading.SnapshotID, Filename: "Start enqueue failure.apkg",
-		DeckName: "Mouseion::de::Start enqueue failure", ContentHash: source.ContentHash,
-	})
-	require.NoError(t, err)
-	duplicateStart := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, duplicateStart.Code)
-	assert.Contains(t, duplicateStart.Header().Get("Location"), "deck+preparation+could+not+be+queued")
-	var preparationID, preparationState string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT id::text,state FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2`, owner.ID, reading.SnapshotID).Scan(&preparationID, &preparationState))
-	assert.Equal(t, existingPreparation.ID, preparationID)
-	assert.Equal(t, domain.DeckPreparationQueued, domain.DeckPreparationState(preparationState))
-	queuedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, queuedPage.Code)
-	assert.Contains(t, queuedPage.Body.String(), `action="/goal/books/`+book.ID+`/deck/retry"`)
-	assert.Contains(t, queuedPage.Body.String(), "Retry deck preparation")
-
 	_, err = store.Pool().Exec(ctx, `DROP TRIGGER reject_prepared_deck_enqueue ON river_job; DROP FUNCTION reject_prepared_deck_enqueue()`)
 	require.NoError(t, err)
 	retry := perform(t, h, http.MethodPost, "/goal/books/"+book.ID+"/deck/retry", url.Values{
@@ -137,4 +119,31 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	retriedVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, frozenVocabulary, retriedVocabulary, "retry changed the frozen vocabulary snapshot")
+
+	completedJob, err := store.Pool().Exec(ctx, `UPDATE river_job SET state='completed',finalized_at=now() WHERE args->>'preparation_id'=$1 AND state IN ('available','pending','running','retryable','scheduled')`, preparation.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, completedJob.RowsAffected())
+	_, err = store.Pool().Exec(ctx, `
+		CREATE FUNCTION reject_prepared_deck_enqueue() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN
+			IF NEW.kind = 'prepared_deck' THEN RAISE EXCEPTION 'prepared deck queue unavailable'; END IF;
+			RETURN NEW;
+		END $$;
+		CREATE TRIGGER reject_prepared_deck_enqueue BEFORE INSERT ON river_job
+		FOR EACH ROW EXECUTE FUNCTION reject_prepared_deck_enqueue()`)
+	require.NoError(t, err)
+	duplicateStart := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, duplicateStart.Code)
+	assert.Contains(t, duplicateStart.Header().Get("Location"), "deck+preparation+could+not+be+queued")
+	queuedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	require.Equal(t, http.StatusOK, queuedPage.Code)
+	assert.Contains(t, queuedPage.Body.String(), `action="/goal/books/`+book.ID+`/deck/retry"`)
+	assert.Contains(t, queuedPage.Body.String(), "Retry deck preparation")
+	_, err = store.Pool().Exec(ctx, `DROP TRIGGER reject_prepared_deck_enqueue ON river_job; DROP FUNCTION reject_prepared_deck_enqueue()`)
+	require.NoError(t, err)
+	retryExisting := perform(t, h, http.MethodPost, "/goal/books/"+book.ID+"/deck/retry", url.Values{
+		"csrf_token": {csrf}, "expected_goal_snapshot_id": {reading.SnapshotID},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, retryExisting.Code)
+	assert.Contains(t, retryExisting.Header().Get("Location"), "Deck+preparation+retry+queued")
 }
