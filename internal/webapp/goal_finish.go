@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
@@ -16,22 +14,10 @@ type primaryGoalFinisher interface {
 	RecordReadingFinishedPrimaryGoal(context.Context, string, string, string, string) (persistence.ReadingFinishResult, error)
 }
 
-type finishEvidenceView struct {
-	Book      journeyBookView
-	Before    journeyBookView
-	HasBefore bool
-	Changed   bool
-}
-
 type primaryGoalFinishView struct {
 	BookTitle                string
-	SnapshotVocabularyCount  int
-	EligibleVocabularyCount  int
 	GraduatedVocabularyCount int
 	AlreadyKnownCount        int
-	Evidence                 []finishEvidenceView
-	Journey                  journeyPageView
-	Error                    string
 }
 
 func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
@@ -56,11 +42,6 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	before, err := h.buildJourneyView(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
 	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
@@ -75,105 +56,31 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	after, afterErr := h.buildJourneyView(r.Context(), owner, language)
 	outcome := primaryGoalFinishView{
-		BookTitle:                h.finishBookTitle(r.Context(), owner, before, result.Completion.BookID),
-		SnapshotVocabularyCount:  result.Completion.SnapshotVocabularyCount,
-		EligibleVocabularyCount:  result.Completion.EligibleVocabularyCount,
+		BookTitle:                h.finishBookTitle(r.Context(), owner, result.Completion.BookID),
 		GraduatedVocabularyCount: result.Completion.GraduatedVocabularyCount,
 		AlreadyKnownCount:        result.Completion.AlreadyKnownVocabularyCount,
-		Journey:                  after,
-	}
-	if afterErr != nil {
-		outcome.Error = "Reading finished was saved, but the recalculated Journey evidence is temporarily unavailable. Return to Reading Journey and try again."
-		outcome.Journey = journeyPageView{}
-	} else {
-		outcome.Evidence = finishEvidence(before, after)
 	}
 
 	if isHTMX(r) {
-		render(w, r, PrimaryGoalFinish(outcome, h.csrf(w, r)))
+		render(w, r, PrimaryGoalFinish(outcome))
 		return
 	}
 	render(w, r, PrimaryGoalFinishPage(user(r), h.csrf(w, r), outcome))
 }
 
-func (h *Handler) finishBookTitle(ctx context.Context, owner string, before journeyPageView, bookID string) string {
-	if before.Goal != nil && journeyBookID(*before.Goal) == bookID {
-		return canonicalBookTitle(before.Goal.Book)
+func (h *Handler) finishBookTitle(ctx context.Context, owner, bookID string) string {
+	book, err := h.services.Store.Books.GetBook(ctx, owner, bookID)
+	if err == nil && strings.TrimSpace(book.Title) != "" {
+		return book.Title
 	}
-	return h.goalBookTitle(ctx, owner, bookID)
-}
-
-func finishEvidence(before, after journeyPageView) []finishEvidenceView {
-	beforeByID := make(map[string]journeyBookView, len(before.Provisional))
-	for _, item := range before.Provisional {
-		beforeByID[journeyBookID(item)] = item
-	}
-	evidence := make([]finishEvidenceView, 0, len(after.Provisional))
-	for _, item := range after.Provisional {
-		beforeItem, hadBefore := beforeByID[journeyBookID(item)]
-		view := finishEvidenceView{
-			Book:      item,
-			HasBefore: hadBefore,
-		}
-		if hadBefore {
-			view.Before = beforeItem
-			view.Changed = !sameFinishEvidence(beforeItem, item)
-		} else {
-			view.Before = journeyBookView{Book: item.Book, ForecastUnavailable: true}
-			view.Changed = true
-		}
-		evidence = append(evidence, view)
-	}
-	return evidence
-}
-
-func sameFinishEvidence(left, right journeyBookView) bool {
-	return journeyEvidenceLabel(left) == journeyEvidenceLabel(right) &&
-		left.StatisticsUnavailable == right.StatisticsUnavailable &&
-		left.ForecastUnavailable == right.ForecastUnavailable &&
-		left.ForecastHasGoal == right.ForecastHasGoal &&
-		sameJourneyForecastEntry(left.Forecast, right.Forecast) &&
-		sameJourneyCoverage(left.Coverage, right.Coverage)
-}
-
-func sameJourneyForecastEntry(left, right *domain.JourneyForecastEntry) bool {
-	if left == nil || right == nil {
-		return left == right
-	}
-	return sameJourneyForecastCoverage(left.Current, right.Current) &&
-		sameJourneyForecastCoverage(left.AfterGoal, right.AfterGoal) &&
-		sameJourneyForecastCoverage(left.OnArrival, right.OnArrival) &&
-		left.LowerBound == right.LowerBound &&
-		left.UnavailableReason == right.UnavailableReason
-}
-
-func sameJourneyForecastCoverage(left, right *domain.JourneyForecastCoverage) bool {
-	if left == nil || right == nil {
-		return left == right
-	}
-	return left.KnownTokenCount == right.KnownTokenCount && left.AnalyzableTokenCount == right.AnalyzableTokenCount
-}
-
-func sameJourneyCoverage(left, right *domain.AnalysisCoverage) bool {
-	if left == nil || right == nil {
-		return left == right
-	}
-	return left.KnownTokenCount == right.KnownTokenCount && left.AnalyzableTokenCount == right.AnalyzableTokenCount
+	return bookID
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {
-	if outcome.SnapshotVocabularyCount == 0 {
-		return "0 vocabulary identities were added to modeled Known vocabulary. No deck artifact was required for this empty snapshot."
-	}
-	return fmt.Sprintf("%d frozen Reserved identities were currently eligible to become Known vocabulary; %d newly accepted identities were added. %d identities were already Known. This is a modeled vocabulary consequence, not verified per-card mastery.", outcome.EligibleVocabularyCount, outcome.GraduatedVocabularyCount, outcome.AlreadyKnownCount)
+	return fmt.Sprintf("Vocabulary: %d identities newly Known; %d identities already Known. These are modeled counts, not a mastery measure.", outcome.GraduatedVocabularyCount, outcome.AlreadyKnownCount)
 }
 
 func goalCompletionConfirmationText(item journeyBookView) string {
 	return fmt.Sprintf("Record the reading achievement and accept %d currently eligible frozen Reserved identities into Known vocabulary. This is a modeled vocabulary consequence, not verified per-card mastery.", item.GoalVocabularyEligible)
-}
-
-func finishOutcomeWhereNextURL(item journeyBookView) string {
-	return "/goal/books/" + url.PathEscape(journeyBookID(item))
 }

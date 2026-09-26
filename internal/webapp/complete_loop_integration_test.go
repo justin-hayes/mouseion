@@ -263,6 +263,29 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
+	assert.Contains(t, finished.Body.String(), `href="/reading">Choose what to read next</a>`)
+
+	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	assert.Equal(t, http.StatusOK, chooser.Code)
+	assert.Contains(t, chooser.Body.String(), "Choose a To Read book when you are ready.")
+	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
+	require.NoError(t, err)
+
+	readAgain := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/read-again", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, readAgain.Code)
+	assert.Contains(t, readAgain.Header().Get("Location"), "disposition=to_read")
+	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	assert.Equal(t, http.StatusOK, readPage.Code)
+	assert.Contains(t, readPage.Body.String(), "Read again")
+	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: To Read")
+
+	startAgain := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, startAgain.Code)
+	newGoal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.NotEqual(t, goal.SnapshotID, newGoal.SnapshotID, "starting the reread must freeze a fresh snapshot")
 
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -271,9 +294,8 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Equal(t, "NOUN", known[0].UPOS)
 	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	for _, entry := range journey.Entries {
-		assert.NotEqual(t, bookID, entry.BookID, "completed Goal remained in Journey")
-	}
+	require.Len(t, journey.Entries, 1, "Read again should restore Journey membership")
+	assert.Equal(t, bookID, journey.Entries[0].BookID)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), coverage.KnownTokenCount)
@@ -284,15 +306,10 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, historyCount)
 	assert.Equal(t, bookID, historyBookID)
-	resurrected := perform(t, h, http.MethodPost, "/goal/books/"+bookID, url.Values{
-		"csrf_token":            {csrf},
-		"expected_goal_book_id": {""},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, resurrected.Code)
-	assert.Contains(t, resurrected.Header().Get("Location"), "error=")
 	goal, err = store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.Empty(t, goal.BookID)
+	assert.Equal(t, bookID, goal.BookID)
+	assert.NotEqual(t, "", goal.SnapshotID)
 }
 
 func completeLoopAnalysis(ctx context.Context, request analyzer.AnalyzeRequest) (analyzer.Result, error) {

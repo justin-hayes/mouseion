@@ -253,7 +253,8 @@ Current implementation adoption covers My Books (`/library`), Reading Journey
 anchors and scope review, Reading Journey (`/journey`), analysis jobs, and
 known-vocabulary import. The accepted target patterns preserve bibliographic book identity,
 the one Primary Goal per language, a fluid Journey order, explicit forecast
-stages, evidence deltas, and the Where next? outcome. Do not disguise those
+  stages, evidence deltas, and a restrained completion receipt that returns to
+  the candidate chooser. Do not disguise those
 contracts as mere component renames.
 
 The shipped Book Covers slice changes My Books from repeated rows to
