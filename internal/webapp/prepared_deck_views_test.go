@@ -16,17 +16,17 @@ func TestJourneyDeckPreparationPageShowsExactAnalysisAndConsent(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1126", Title: "The Exact Journey Book", Language: "de", ContentSnapshotID: "snapshot-1126"}}
 	task := journeyDeckPreparationView{Book: book, BookID: "book-1126", AnalysisRunID: "run-1126"}
 	var output bytes.Buffer
-	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/journey#journey-book-book-1126").Render(context.Background(), &output))
+	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-1126").Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		"The Exact Journey Book",
 		"run-1126",
 		"snapshot-1126",
-		`action="/journey/books/book-1126/deck/preparations"`,
+		`action="/reading/books/book-1126/deck/preparations"`,
 		`name="external_translation_consent"`,
 		"outside Mouseion",
 		"Declining still permits local preparation",
-		`href="/journey#journey-book-book-1126"`,
+		`href="/reading#journey-book-book-1126"`,
 	} {
 		assert.Contains(t, html, want)
 	}
@@ -36,7 +36,7 @@ func TestJourneyDeckPreparationPageKeepsGoalRetrySnapshotBound(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-1126", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
 	task := journeyDeckPreparationView{Book: book, BookID: "book-goal-1126", AnalysisRunID: "run-goal-1126", Goal: true, GoalSnapshotID: "goal-snapshot-1126", GoalSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-1126", SourceMaterialID: "source-goal-1126", AnalysisRunID: "run-goal-1126", GoalSnapshotID: "goal-snapshot-1126", State: domain.DeckPreparationFailed}}
 	var output bytes.Buffer
-	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/journey#journey-book-book-goal-1126").Render(context.Background(), &output))
+	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-1126").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, "goal-snapshot-1126")
 	assert.Contains(t, html, `action="/goal/books/book-goal-1126/deck/retry"`)
@@ -48,7 +48,7 @@ func TestJourneyDeckPreparationPageRepreparesReadyGoalDeckBySnapshot(t *testing.
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-reprepare", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
 	task := journeyDeckPreparationView{Book: book, BookID: "book-goal-reprepare", AnalysisRunID: "run-goal-reprepare", Goal: true, GoalSnapshotID: "goal-snapshot-reprepare", GoalSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-reprepare", SourceMaterialID: "source-goal-reprepare", AnalysisRunID: "run-goal-reprepare", GoalSnapshotID: "goal-snapshot-reprepare", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError}}
 	var output bytes.Buffer
-	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/journey#journey-book-book-goal-reprepare").Render(context.Background(), &output))
+	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-reprepare").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, "Re-preparation required")
 	assert.Contains(t, html, `action="/goal/books/book-goal-reprepare/deck/retry"`)
@@ -124,7 +124,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, CardsWithFallbackGloss: 2, QualityOmissions: 1}
-			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/journey#journey-book-book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/reading#journey-book-book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
 			html := output.String()
 			assert.True(t, strings.Contains(html, "Return to book") || test.name != "queued", "status missing return-to-book link: %s", html)
 			for _, want := range test.want {
@@ -164,9 +164,9 @@ func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T)
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/journey#journey-book-book-1", action).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/reading#journey-book-book-1", action).Render(context.Background(), &output))
 	html := output.String()
-	assert.Equal(t, 3, strings.Count(html, `href="/journey#journey-book-book-1"`), "Journey anchor link count=%d: %s", strings.Count(html, `href="/journey#journey-book-book-1"`), html)
+	assert.Equal(t, 3, strings.Count(html, `href="/reading#journey-book-book-1"`), "Journey anchor link count=%d: %s", strings.Count(html, `href="/reading#journey-book-book-1"`), html)
 	assert.False(t, strings.Contains(html, "/books/source-1"), "status page contains retired book link: %s", html)
 }
 
@@ -230,9 +230,9 @@ func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 		want  []string
 		omit  []string
 	}{
-		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in Reading Journey", "Add to Reading Journey", `method="post" action="/journey/books/book-372/add"`, `name="expected_revision"`}, omit: []string{"View this book in Reading Journey", "Primary Goal"}},
-		{name: "already in Journey", state: deckJourneyMember, want: []string{"In Reading Journey", "This book is already in your Reading Journey", `href="/journey#journey-book-book-372"`}, omit: []string{"Add to Reading Journey", "Primary Goal"}},
-		{name: "Primary Goal", state: deckJourneyGoal, want: []string{"Primary Goal", "This deck is preparation for your current Primary Goal", "View Primary Goal in Reading Journey"}, omit: []string{"Add to Reading Journey", "View in Reading Journey"}},
+		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in Reading Journey", "Add to Reading Journey", `method="post" action="/reading/books/book-372/journey/add"`, `name="expected_revision"`}, omit: []string{"View this book in Reading Journey", "Primary Goal"}},
+		{name: "already in Journey", state: deckJourneyMember, want: []string{"In Reading Journey", "This book is already in your Reading Journey", `href="/reading#journey-book-book-372"`}, omit: []string{"Add to Reading Journey", "Primary Goal"}},
+		{name: "current reading", state: deckJourneyGoal, want: []string{"Primary Goal", "This deck is preparation for your current Primary Goal", "View current book in Reading"}, omit: []string{"Add to Reading Journey", "View in Reading Journey"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

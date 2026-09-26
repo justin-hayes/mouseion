@@ -29,7 +29,7 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 		`aria-label="Move First provisional book earlier"`,
 		`aria-label="Move Second provisional book later"`,
 		`<details class="more-actions"><summary>More actions</summary>`,
-		`action="/journey/books/first/remove"`,
+		`action="/reading/books/first/journey/remove"`,
 	} {
 		assert.True(t, strings.Contains(html, want), "journey reorder markup missing %q: %s", want, html)
 	}
@@ -50,5 +50,5 @@ func TestJourneyForecastFailureKeepsSavedOrderActionable(t *testing.T) {
 	}
 	html := renderJourney(t, view, "Moved First provisional book to position 1 in Your order. Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey.", "")
 	assert.Contains(t, html, "saved order remains in place")
-	assert.Contains(t, html, `href="/journey">Retry forecast</a>`)
+	assert.Contains(t, html, `href="/reading">Retry forecast</a>`)
 }

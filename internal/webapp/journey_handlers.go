@@ -74,19 +74,42 @@ func journeyMoveURL(bookID string, earlier bool) string {
 	if earlier {
 		direction = "move-earlier"
 	}
-	return "/journey/entries/" + bookID + "/" + direction
+	return "/reading/entries/" + url.PathEscape(bookID) + "/" + direction
 }
 
 func journeyRemoveURL(bookID string) string {
-	return "/journey/books/" + url.PathEscape(bookID) + "/remove"
+	return "/reading/books/" + url.PathEscape(bookID) + "/journey/remove"
 }
 
 func journeyReanalyzeURL(bookID string) string {
-	return "/journey/books/" + url.PathEscape(bookID) + "/reanalyze"
+	return "/reading/books/" + url.PathEscape(bookID) + "/journey/reanalyze"
 }
 
 func journeyEntryURL(bookID string) string {
-	return "/journey#" + url.PathEscape(journeyBookAnchorID(bookID))
+	return "/reading#" + url.PathEscape(journeyBookAnchorID(bookID))
+}
+
+func rejectLegacyJourneyMutation(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, "Journey actions have moved to Reading. Reload the Reading page and try again.", http.StatusGone)
+}
+
+func (h *Handler) legacyJourney(w http.ResponseWriter, r *http.Request) {
+	query := url.Values{}
+	for _, key := range []string{"message", "error", "language_handoff_book", "language_handoff_language"} {
+		if value := r.URL.Query().Get(key); value != "" {
+			query.Set(key, value)
+		}
+	}
+	location := "/reading"
+	if encoded := query.Encode(); encoded != "" {
+		location += "?" + encoded
+	}
+	redirect(w, r, location)
+}
+
+func (h *Handler) legacyJourneyDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	bookID := url.PathEscape(strings.TrimSpace(r.PathValue("bookID")))
+	redirect(w, r, "/reading/books/"+bookID+"/deck/preparations/new")
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -260,7 +283,7 @@ func journeyLanguageHandoffURL(bookID, language string) string {
 	query := url.Values{}
 	query.Set("language_handoff_book", bookID)
 	query.Set("language_handoff_language", language)
-	return "/journey?" + query.Encode()
+	return "/reading?" + query.Encode()
 }
 
 func journeyPageTitle(journey journeyPageView) string {
@@ -301,7 +324,7 @@ func deckJourneyActionID(bookID string) string {
 }
 
 func journeyAddURL(bookID string) string {
-	return "/journey/books/" + url.PathEscape(bookID) + "/add"
+	return "/reading/books/" + url.PathEscape(bookID) + "/journey/add"
 }
 
 func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparationID, bookID string) (deckJourneyActionView, error) {
@@ -565,14 +588,14 @@ func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
 	handle, target, title, acquisitionFailed, err := h.ensureJourneyAnalysis(r.Context(), u.ID, detail.Book.ID)
 	if err != nil {
 		message := journeyAnalysisError(r.Context(), h.services.Store.Catalog, u.ID, detail.Book.ID, title, target, acquisitionFailed, err)
-		redirect(w, r, "/journey?error="+url.QueryEscape(message))
+		redirect(w, r, "/reading?error="+url.QueryEscape(message))
 		return
 	}
-	redirect(w, r, "/journey?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
+	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
 }
 
 func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Request, message, pageError string) {
-	location := "/journey"
+	location := "/reading"
 	query := url.Values{}
 	if message != "" {
 		query.Set("message", message)
@@ -584,27 +607,6 @@ func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Reque
 		location += "?" + encoded
 	}
 	redirect(w, r, location)
-}
-
-func (h *Handler) journey(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	language, languageLabel := activeStudyLanguageForContext(r.Context())
-	view, err := h.buildJourneyView(r.Context(), u.ID, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	view.Language = language
-	view.LanguageLabel = languageLabel
-	handoff, hasHandoff, err := h.journeyLanguageHandoff(r.Context(), u.ID, language, r.URL.Query().Get("language_handoff_book"), r.URL.Query().Get("language_handoff_language"))
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if hasHandoff {
-		view.LanguageHandoff = &handoff
-	}
-	render(w, r, JourneyPage(u, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 }
 
 func (h *Handler) journeyLanguageHandoff(ctx context.Context, owner, activeLanguage, bookID, targetLanguage string) (journeyLanguageHandoffView, bool, error) {

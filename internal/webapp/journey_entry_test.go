@@ -52,13 +52,32 @@ func TestJourneyEntryRedirectsCompletedMemberUsingBookLanguage(t *testing.T) {
 	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey?language_handoff_book=fixture-route-match&language_handoff_language=de", response.Header().Get("Location"))
+	assert.Equal(t, "/reading?language_handoff_book=fixture-route-match&language_handoff_language=de", response.Header().Get("Location"))
 	assert.NotContains(t, response.Body.String(), "<h1>")
 
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
 	response = journeyEntryRequest(t, h, "/journey/fixture-book", cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/reading#journey-book-fixture-book", response.Header().Get("Location"))
+}
+
+func TestLegacyJourneyGETRedirectsToReadingAndDropsObsoleteParameters(t *testing.T) {
+	h, cookies, _, _ := goalFixtureSession(t)
+	response := journeyEntryRequest(t, h, "/journey?message=kept&expected_revision=old&book_id=foreign", cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/reading?message=kept", response.Header().Get("Location"))
+}
+
+func TestLegacyJourneyMutationIsGoneAndDoesNotChangeMembership(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
+	before, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	response := goalRequest(t, h, "/journey/books/fixture-route-match/remove", url.Values{"expected_revision": {"1"}}, cookies)
+	assert.Equal(t, http.StatusGone, response.Code)
+	after, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, before.Entries, after.Entries)
+	assert.Contains(t, response.Body.String(), "moved to Reading")
 }
 
 func TestJourneyPageRendersValidatedCrossLanguageHandoff(t *testing.T) {
@@ -74,7 +93,7 @@ func TestJourneyPageRendersValidatedCrossLanguageHandoff(t *testing.T) {
 	assert.Equal(t, http.StatusOK, handoff.Code)
 	assert.Contains(t, handoff.Body.String(), "This Book is in German")
 	assert.Contains(t, handoff.Body.String(), `name="language" value="de"`)
-	assert.Contains(t, handoff.Body.String(), `name="return_to" value="/journey#journey-book-fixture-route-match"`)
+	assert.Contains(t, handoff.Body.String(), `name="return_to" value="/reading#journey-book-fixture-route-match"`)
 	assert.NotContains(t, handoff.Body.String(), `id="journey-book-fixture-route-match"`)
 }
 
@@ -82,7 +101,7 @@ func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
-	response := goalRequest(t, h, "/journey/books/fixture-route-match/remove", url.Values{
+	response := goalRequest(t, h, "/reading/books/fixture-route-match/journey/remove", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {"1"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -212,7 +231,7 @@ func TestAnalysisCompatibilityRouteRedirectsToReadingJourneyAnchor(t *testing.T)
 	h, cookies, _, _ := goalFixtureSession(t)
 	response := journeyEntryRequest(t, h, "/books/fixture-book/analyses/fixture-run", cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/reading#journey-book-fixture-book", response.Header().Get("Location"))
 }
 
 func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
@@ -237,9 +256,9 @@ func TestReanalyzeJourneyMemberUsesSharedAnalysisTrigger(t *testing.T) {
 	handler.services.Store = storeDependencies(store)
 	handler.services.Analysis = analysisService
 
-	response := goalRequest(t, h, "/journey/books/stale-book/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	response := goalRequest(t, h, "/reading/books/stale-book/journey/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey?message=Analysis+job+%231+submitted.", response.Header().Get("Location"))
+	assert.Equal(t, "/reading?message=Analysis+job+%231+submitted.", response.Header().Get("Location"))
 	assert.Equal(t, 1, analysisService.calls)
 }
 
@@ -256,7 +275,7 @@ func TestReanalyzeJourneyMemberAcceptsUnavailableAcquisition(t *testing.T) {
 	handler := requireHandler(t, h)
 	handler.services.Store = storeDependencies(store)
 
-	response := goalRequest(t, h, "/journey/books/"+bookID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	response := goalRequest(t, h, "/reading/books/"+bookID+"/journey/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "Could+not+acquire")
 }

@@ -42,11 +42,11 @@ window.showJourneyReorderError = function (target, text) {
   window.resetJourneyReorder(list);
   var status = list.querySelector('#provisional-journey-status');
   if (status) {
-    status.textContent = 'Reading Journey order could not be updated. Reload Reading Journey and try again.';
+    status.textContent = 'Reading order could not be updated. Reload Reading and try again.';
   }
   var previousError = target.querySelector('[data-journey-reorder-error]');
   if (previousError) previousError.remove();
-  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading Journey order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/journey">Reload Reading Journey and try again.</a></p></article>');
+  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/reading">Reload Reading and try again.</a></p></article>');
   target.querySelector('[data-journey-reorder-error]').focus();
   return true;
 };
@@ -93,7 +93,7 @@ document.addEventListener('submit', function (evt) {
   content.setAttribute('aria-busy', 'true');
   var status = document.getElementById('provisional-journey-status');
   if (status) {
-    status.textContent = 'Recalculating Reading Journey order...';
+    status.textContent = 'Updating Reading order...';
   }
   list.querySelectorAll('form[data-journey-reorder] button[type="submit"]').forEach(function (button) {
     if (!button.disabled) {
@@ -203,7 +203,7 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
 		<li class="site-header__account"><small>{ user.Username }</small></li><li class="site-header__session"><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
@@ -215,7 +215,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 templ JourneyMembershipAction(bookID string, member bool, revision int64, csrf string) {
 	if bookID != "" {
 		if member {
-			<p><strong>In Reading Journey.</strong> <a href={ templ.SafeURL("/journey#" + journeyBookAnchorID(bookID)) }>View in Reading Journey</a></p>
+			<p><strong>In Reading.</strong> <a href={ templ.SafeURL("/reading#" + journeyBookAnchorID(bookID)) }>View in Reading</a></p>
 			@RemoveJourneyMembershipAction(bookID, revision, csrf)
 		} else {
 			<form method="post" action={ templ.SafeURL(journeyAddURL(bookID)) }>
@@ -543,7 +543,7 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 			<div hx-swap-oob="innerHTML:#provisional-journey-status">{ statusMessage }</div>
 		}
 		if journey.ForecastUnavailable {
-			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/journey">Retry forecast</a>.</p>
+			<p role="status"><strong>Reading forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/reading">Retry forecast</a>.</p>
 		}
 		if len(journey.Provisional) == 0 {
 			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.") {
@@ -785,7 +785,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 }
 
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
-func journeyDeckPreparationTaskURL(bookID string) string { return "/journey/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
+func journeyDeckPreparationTaskURL(bookID string) string { return "/reading/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
@@ -1053,10 +1053,10 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 				</form>
 			} else if action.State == deckJourneyMember {
 				<p><strong>In Reading Journey.</strong> This book is already in your Reading Journey.</p>
-				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View in Reading Journey</a></p>
+				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View in Reading</a></p>
 			} else if action.State == deckJourneyGoal {
 				<p><strong>Primary Goal.</strong> This deck is preparation for your current Primary Goal.</p>
-				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View Primary Goal in Reading Journey</a></p>
+				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View current book in Reading</a></p>
 			}
 		</div>
 	}
@@ -1241,7 +1241,7 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 				<p role="note"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>
 			}
 			<p>Choose whether this preparation may use the configured external translation provider. Declining still permits local preparation.</p>
-			<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
+			<form method="post" action={ templ.SafeURL("/reading/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
 				<input type="hidden" name="csrf_token" value={ csrf }/>
 				<fieldset><legend>Optional external translation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
 				<button type="submit">Prepare deck</button>
@@ -1267,6 +1267,13 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 		}
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
+		}
+		if chooser.LanguageHandoff != nil {
+			<section aria-labelledby="reading-language-handoff-heading">
+				<h2 id="reading-language-handoff-heading">This Book is in { chooser.LanguageHandoff.LanguageLabel }</h2>
+				<p><strong>{ chooser.LanguageHandoff.BookTitle }</strong> belongs to your { chooser.LanguageHandoff.LanguageLabel } Reading Journey, while this page is showing { chooser.LanguageLabel }. Switching language is explicit so a bookmark never changes your study context by itself.</p>
+				<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ chooser.LanguageHandoff.Language }/><input type="hidden" name="return_to" value={ journeyEntryURL(chooser.LanguageHandoff.BookID) }/><button type="submit">Switch to { chooser.LanguageHandoff.LanguageLabel } and open this Book</button></form>
+			</section>
 		}
 		if chooser.Language == "" {
 			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">

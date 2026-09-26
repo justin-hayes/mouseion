@@ -16,7 +16,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 	}
 	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
 	if err != nil {
-		redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
+		redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
 		return
 	}
 	owner := user(r).ID
@@ -45,7 +45,7 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 	}
 	if _, err = h.services.Store.Journey.RemoveFromReadingJourney(r.Context(), owner, language, bookID, expectedRevision); err != nil {
 		if errors.Is(err, persistence.ErrJourneyStale) {
-			redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
+			redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
 			return
 		}
 		fail(w, err)
@@ -55,5 +55,5 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 	if book, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); bookErr == nil && strings.TrimSpace(book.Title) != "" {
 		title = book.Title
 	}
-	redirect(w, r, "/journey?message="+url.QueryEscape(title+" removed from Reading Journey. Analysis and acquired content were retained."))
+	redirect(w, r, "/reading?message="+url.QueryEscape(title+" removed from Reading. Analysis and acquired content were retained."))
 }

@@ -197,8 +197,9 @@ The authenticated shell exposes four principal destinations:
 
 - **My Books** — the canonical home, broad book collection, and sole browse
   surface for synced catalog metadata;
-- **Reading Journey** — the current Primary Goal, provisional sequence, route
-  evidence, and completion receipt linking to the candidate chooser;
+- **Reading** — the current book and the To Read candidate chooser. Transitional
+  Journey and Primary Goal behavior is hosted here until its retirement work is
+  complete; it is not a separate navigation destination;
 - **Vocabulary** — the known-vocabulary import workflow and its durable status.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
@@ -259,14 +260,16 @@ Secondary history
 
 ### Current route compatibility
 
-The shipped application uses `/library` for My Books and `/journey` for Reading
-Journey. `/` redirects to `/library`. A former `/journey/{bookID}` URL is a
-compatibility bookmark: after the same owner, language, membership, and current
-evidence checks, it redirects to `/journey#journey-book-{bookID}`. Historical
-artifacts remain supporting records. The application does not present a duplicate
-Book-detail, analysis-result, queue, campaign, or plan surface.
+The shipped application uses `/library` for My Books and `/reading` for Reading.
+`/` redirects to `/library`. `/journey` is a safe-GET compatibility alias to
+`/reading`; obsolete Journey mutation forms return `410 Gone` and do not mutate
+state. A former `/journey/{bookID}` URL is a compatibility bookmark: after the
+same owner, language, membership, and current-evidence checks, it redirects to
+`/reading#journey-book-{bookID}`. Historical artifacts remain supporting records.
+The application does not present a duplicate Book-detail, analysis-result, queue,
+campaign, or plan surface.
 
-The authenticated shell therefore exposes exactly My Books, Reading Journey,
+The authenticated shell therefore exposes exactly My Books, Reading,
 Vocabulary, and Catalogs in the top navigation. `/jobs` remains a supporting
 surface reached from direct routes, not a navigation destination. Historical My Library, Learning,
 queue, and learner-facing Campaign labels are not active navigation concepts;

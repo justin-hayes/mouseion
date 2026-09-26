@@ -73,7 +73,7 @@ func (h *Handler) respondGoal(w http.ResponseWriter, r *http.Request, message, p
 	if pageError != "" {
 		query.Set("error", pageError)
 	}
-	location := "/journey"
+	location := "/reading"
 	if r.FormValue("return_to") == "/reading" {
 		location = "/reading"
 	}

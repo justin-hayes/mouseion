@@ -182,7 +182,7 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	action := journeyAnalysisAction(stale)
 	assert.Equal(t, "Stale analysis", action.Status)
 	assert.Equal(t, "Re-analyze", action.Label)
-	assert.Equal(t, "/journey/books/stale/reanalyze", action.URL)
+	assert.Equal(t, "/reading/books/stale/journey/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 	unassessed := testJourneyBook("unassessed", "Unassessed book", "not analyzed")
 	unassessed.Book.Source.MediaType = "application/epub+zip"
@@ -191,7 +191,7 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	action = journeyAnalysisAction(unassessed)
 	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
-	assert.Equal(t, "/journey/books/unassessed/reanalyze", action.URL)
+	assert.Equal(t, "/reading/books/unassessed/journey/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 
 	missingSnapshot := testJourneyBook("missing-snapshot", "Missing snapshot", "analyzed")
@@ -229,7 +229,7 @@ func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
 	book.Book.AnalysisRunID = "run"
 	book.Book.CorpusID = "corpus"
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{book}}, "", "")
-	assert.True(t, strings.Contains(html, `href="/journey#journey-book-canonical-book"`) && !strings.Contains(html, `href="/books/source-book"`), "Journey card used a non-canonical book link: %s", html)
+	assert.True(t, strings.Contains(html, `href="/reading#journey-book-canonical-book"`) && !strings.Contains(html, `href="/books/source-book"`), "Journey card used a non-canonical book link: %s", html)
 }
 
 func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
@@ -386,7 +386,7 @@ func TestJourneyIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
 	action := journeyAnalysisAction(item)
 	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
-	assert.Equal(t, "/journey/books/incomplete/reanalyze", action.URL)
+	assert.Equal(t, "/reading/books/incomplete/journey/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 }
 
@@ -422,7 +422,7 @@ func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T)
 
 	assert.Contains(t, eligibleCard, ">Choose as Primary Goal</button>")
 	assert.Contains(t, eligibleCard, `<details class="more-actions"><summary>More actions</summary>`)
-	assert.Contains(t, eligibleCard, `action="/journey/books/eligible/remove"`)
+	assert.Contains(t, eligibleCard, `action="/reading/books/eligible/journey/remove"`)
 	assert.NotContains(t, ineligibleCard, "Choose as Primary Goal")
 	assert.Contains(t, ineligibleCard, ineligible.GoalEligibilityReason)
 }
@@ -453,14 +453,14 @@ func TestJourneyProvisionalBookExposesAnalysisBoundDeckActions(t *testing.T) {
 
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{missing, ready, active, failed, empty, reprepare}}, "", "")
 	for _, want := range []string{
-		`href="/journey/books/missing-deck/deck/preparations/new"`,
+		`href="/reading/books/missing-deck/deck/preparations/new"`,
 		`href="/deck-preparations/ready-prep/download"`,
 		`action="/deck-preparations/active-prep/cancel"`,
-		`href="/journey/books/failed-deck/deck/preparations/new"`,
+		`href="/reading/books/failed-deck/deck/preparations/new"`,
 		"No recurring vocabulary",
 		"Re-preparation required",
 		"Re-prepare deck",
-		`href="/journey/books/reprepare-deck/deck/preparations/new"`,
+		`href="/reading/books/reprepare-deck/deck/preparations/new"`,
 	} {
 		assert.Contains(t, html, want)
 	}

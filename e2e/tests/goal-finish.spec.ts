@@ -14,7 +14,7 @@ async function signIn(page: Page) {
 // desktop, compact, light, and dark projects.
 test('Primary Goal exposes an accessible reading-finish action', async ({ page }) => {
   await signIn(page);
-  await page.goto('/journey');
+  await page.goto('/reading');
 
   const goal = page.locator('#primary-goal-section');
   const finishDisclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();

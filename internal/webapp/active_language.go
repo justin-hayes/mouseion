@@ -173,7 +173,10 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 		}
 		return legacyJourneyURL
 	}
-	if u.Path == "/library" || u.Path == "/journey" || u.Path == "/vocabulary" {
+	if u.Path == "/library" || u.Path == "/reading" || u.Path == "/journey" || u.Path == "/vocabulary" {
+		if u.Path == "/journey" {
+			u.Path = "/reading"
+		}
 		query := u.Query()
 		if u.Path == "/library" {
 			query.Del("language")

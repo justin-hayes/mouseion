@@ -24,7 +24,7 @@ test.describe('Primary Goal selection', () => {
         await switcher.selectOption('de');
         await expect(page).toHaveURL(/\/library$/);
       }
-      await page.goto('/journey');
+      await page.goto('/reading');
 
     const goal = page.locator('#primary-goal-section');
       await expect(goal).toContainText('Der lange Weg nach Hause');
@@ -111,42 +111,26 @@ test.describe('Primary Goal selection', () => {
       await page.goto('/library');
       const goalBook = page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
       await expect(goalBook.locator('.library-book__membership')).toHaveText(/In Reading Journey/);
-      await expect(goalBook.getByRole('link', { name: 'View in Reading Journey' })).toHaveAttribute('href', '/journey#journey-book-fixture-book');
+      await expect(goalBook.getByRole('link', { name: 'View in Reading Journey' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
       await expect(goalBook.getByText('Current Primary Goal')).toHaveCount(0);
       await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Choose as Primary Goal' })).toHaveCount(0);
   });
 
-  test('promotes and clears the active language Goal without touching another language', async ({ page }) => {
+  test('clearing current reading returns to the language-specific chooser', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture Goal runs once per browser suite.');
     await signIn(page);
     await page.getByLabel('Study language').selectOption('it');
     await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/journey');
+    await page.goto('/reading');
     await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
 
     const goalMoreActions = page.locator('#primary-goal-section details.more-actions');
     await goalMoreActions.locator(':scope > summary').click();
     await goalMoreActions.locator('.confirmation > summary').first().click();
     await page.locator('#primary-goal-section form[action="/goal/clear"] button').click();
-    await expect(page).toHaveURL(/\/journey\?message=/);
-    await expect(page.locator('#primary-goal-section')).toContainText('No Primary Goal yet');
-    await expect(page.locator('#provisional-journey-content .journey-forecast').first()).toContainText('No active Primary Goal');
-
-    const noGoalUnchanged = page.locator('#provisional-journey-list .journey-list > li').filter({ hasText: 'Italian route baseline' }).getByRole('region', { name: 'Journey coverage forecast' });
-    await expect(noGoalUnchanged).toContainText('No change');
-    await expect(noGoalUnchanged).not.toContainText('Change from After Primary Goal coverage');
-
-    const noGoalChanged = page.locator('#provisional-journey-list .journey-list > li').filter({ hasText: 'Una meta italiana' }).getByRole('region', { name: 'Journey coverage forecast' });
-    await expect(noGoalChanged).toContainText('Change from Current coverage: +5.0 percentage points');
-    await expect(noGoalChanged).not.toContainText('Change from After Primary Goal coverage');
-
-    await page.locator('#journey-book-fixture-italian-goal').getByRole('button', { name: 'Choose as Primary Goal' }).click();
-    await expect(page).toHaveURL(/\/journey\?message=/);
-    await expect(page.locator('#primary-goal-section')).toContainText('Una meta italiana');
-
-    await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/journey(?:\?|$)/);
-    await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
-    await expect(page.locator('#primary-goal-section')).not.toContainText('Una meta italiana');
+    await expect(page).toHaveURL(/\/reading\?message=/);
+    await expect(page.getByRole('heading', { name: 'Choose your next book in Italian', exact: true })).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toHaveCount(0);
+    await expect(page.getByLabel('Study language')).toHaveValue('it');
   });
 });

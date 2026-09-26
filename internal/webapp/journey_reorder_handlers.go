@@ -11,7 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-const journeyStaleMessage = "This Journey changed since this page was loaded. No changes were made; review Reading Journey before trying again."
+const journeyStaleMessage = "Reading changed since this page was loaded. No changes were made; review Reading before trying again."
 
 func (h *Handler) moveJourneyEntryEarlier(w http.ResponseWriter, r *http.Request) {
 	h.moveJourneyEntry(w, r, true)
@@ -38,7 +38,7 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 
 	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
 	if err != nil {
-		redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
+		redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
 		return
 	}
 	owner := user(r).ID
@@ -82,18 +82,18 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 		}
 		_, err = h.services.Store.Journey.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, 1, expectedRevision)
 		if errors.Is(err, persistence.ErrJourneyStale) {
-			redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
+			redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
 			return
 		}
 		if errors.Is(err, persistence.ErrNotFound) {
-			redirect(w, r, "/journey?error="+url.QueryEscape("This book is no longer in your Reading Journey."))
+			redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer in Reading."))
 			return
 		}
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		redirect(w, r, "/journey?message="+url.QueryEscape(bookID+" did not move."))
+		redirect(w, r, "/reading?message="+url.QueryEscape(bookID+" did not move."))
 		return
 	}
 
@@ -111,11 +111,11 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	// deterministic no-op, which is announced without changing the order.
 	newRevision, err := h.services.Store.Journey.MoveReadingJourneyEntry(r.Context(), owner, language, bookID, newPosition, expectedRevision)
 	if errors.Is(err, persistence.ErrJourneyStale) {
-		redirect(w, r, "/journey?error="+url.QueryEscape(journeyStaleMessage))
+		redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
 		return
 	}
 	if errors.Is(err, persistence.ErrNotFound) {
-		redirect(w, r, "/journey?error="+url.QueryEscape("This book is no longer in your Reading Journey."))
+		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer in Reading."))
 		return
 	}
 	if err != nil {
@@ -139,14 +139,14 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 	}
 	forecastMessage := "Coverage forecast recalculated for the saved order."
 	if view.ForecastUnavailable {
-		forecastMessage = "Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey."
+		forecastMessage = "Coverage forecast unavailable; the saved order remains in place. Retry Reading."
 	}
 	if !isHTMX(r) {
 		message := title + " moved. " + forecastMessage
 		if newRevision == journey.Revision {
 			message = title + " did not move. " + forecastMessage
 		}
-		redirect(w, r, "/journey?message="+url.QueryEscape(message))
+		redirect(w, r, "/reading?message="+url.QueryEscape(message))
 		return
 	}
 	status := "Moved " + title + " to position " + strconv.Itoa(position) + " in Your order. " + forecastMessage
@@ -157,5 +157,5 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 }
 
 func (h *Handler) redirectJourneyMove(w http.ResponseWriter, r *http.Request, bookID, outcome string) {
-	redirect(w, r, "/journey?message="+url.QueryEscape(bookID+" "+outcome+"."))
+	redirect(w, r, "/reading?message="+url.QueryEscape(bookID+" "+outcome+"."))
 }

@@ -42,6 +42,7 @@ type transactionalGoalDeckPreparer interface {
 
 type readingChooserPageView struct {
 	Language, LanguageLabel          string
+	LanguageHandoff                  *journeyLanguageHandoffView
 	CurrentBookID, CurrentSnapshotID string
 	At99Plus, At97To99               []readingChooserBookView
 	At95To97, Below95                []readingChooserBookView
@@ -52,6 +53,11 @@ type readingChooserPageView struct {
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
+	handoff, hasHandoff, handoffErr := h.journeyLanguageHandoff(r.Context(), owner.ID, language, r.URL.Query().Get("language_handoff_book"), r.URL.Query().Get("language_handoff_language"))
+	if handoffErr != nil {
+		fail(w, handoffErr)
+		return
+	}
 	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner.ID, language)
 	if err != nil {
 		fail(w, err)
@@ -65,6 +71,9 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		}
 		journey.Language = language
 		journey.LanguageLabel = languageLabel
+		if hasHandoff {
+			journey.LanguageHandoff = &handoff
+		}
 		render(w, r, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 		return
 	}
@@ -72,6 +81,9 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, err)
 		return
+	}
+	if hasHandoff {
+		view.LanguageHandoff = &handoff
 	}
 	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 }

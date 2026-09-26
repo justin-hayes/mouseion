@@ -142,7 +142,7 @@ type NavigationContext string
 const (
 	NavigationNone           NavigationContext = ""
 	NavigationLibrary        NavigationContext = "library"
-	NavigationReadingJourney NavigationContext = "reading-journey"
+	NavigationReadingJourney NavigationContext = "reading"
 	NavigationLearning       NavigationContext = NavigationReadingJourney
 	NavigationVocabulary     NavigationContext = "vocabulary"
 	NavigationCatalogs       NavigationContext = "catalogs"

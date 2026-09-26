@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('shows one learner order and concise forecast evidence', async ({ page }) => {
-    await page.goto('/journey');
+    await page.goto('/reading');
     await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
     await expect(page.locator('#provisional-journey-heading')).toHaveText('Your order');
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
@@ -48,7 +48,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/journey');
+    await page.goto('/reading');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();

@@ -17,7 +17,7 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -33,15 +33,15 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 func TestActiveStudyLanguageEmptySubmissionIsNoOp(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	response := goalRequest(t, h, "/active-study-language", url.Values{
-		"csrf_token": {csrf}, "language": {""}, "return_to": {"/journey"},
+		"csrf_token": {csrf}, "language": {""}, "return_to": {"/reading"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey", response.Header().Get("Location"))
+	assert.Equal(t, "/reading", response.Header().Get("Location"))
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Equal(t, "de", stored)
 }
 
 func TestActiveStudyLanguageReturnPathPreservesJourneyAnchor(t *testing.T) {
-	assert.Equal(t, "/journey#journey-book-book-1", activeStudyLanguageReturnPath("/journey#journey-book-book-1", "de"))
+	assert.Equal(t, "/reading#journey-book-book-1", activeStudyLanguageReturnPath("/reading#journey-book-book-1", "de"))
 }

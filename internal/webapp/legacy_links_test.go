@@ -21,7 +21,7 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 		sourceID string
 		expected string
 	}{
-		{name: "current analyzed source", owner: fixtures.OwnerID, sourceID: fixtures.SourceID, expected: "/journey#journey-book-fixture-book"},
+		{name: "current analyzed source", owner: fixtures.OwnerID, sourceID: fixtures.SourceID, expected: "/reading#journey-book-fixture-book"},
 		{name: "unassessed source", owner: fixtures.OwnerID, sourceID: "fixture-empty", expected: ""},
 		{name: "failed source", owner: fixtures.OwnerID, sourceID: "fixture-failed", expected: ""},
 		{name: "other owner", owner: "other-owner", sourceID: fixtures.SourceID, expected: ""},
@@ -46,7 +46,7 @@ func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
 	}
 	var jobsHTML bytes.Buffer
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", urls).Render(context.Background(), &jobsHTML))
-	assert.True(t, strings.Contains(jobsHTML.String(), `href="/journey#journey-book-fixture-book"`) && !strings.Contains(jobsHTML.String(), `href="/books/fixture-failed"`), "jobs rendered legacy or dead result link: %s", jobsHTML.String())
+	assert.True(t, strings.Contains(jobsHTML.String(), `href="/reading#journey-book-fixture-book"`) && !strings.Contains(jobsHTML.String(), `href="/books/fixture-failed"`), "jobs rendered legacy or dead result link: %s", jobsHTML.String())
 
 }
 
