@@ -10,11 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 type readingChooserBookView struct {
@@ -31,14 +29,6 @@ const (
 	readingChooserInProgress     readingChooserState = "in_progress"
 	readingChooserNeedsAttention readingChooserState = "needs_attention"
 )
-
-type transactionalCurrentReadingStarter interface {
-	CreatePrimaryGoalWith(context.Context, string, string, string, func(context.Context, pgx.Tx, domain.PrimaryGoal) error) (domain.PrimaryGoal, error)
-}
-
-type transactionalGoalDeckPreparer interface {
-	SubmitForGoalTx(context.Context, pgx.Tx, string, string, string) (prepareddeck.Handle, error)
-}
 
 type readingChooserPageView struct {
 	Language, LanguageLabel          string
@@ -325,24 +315,8 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	selected := current
-	queuedWithSnapshot := false
 	if !current.IsActive() {
-		if starter, ok := h.services.Store.Goals.(transactionalCurrentReadingStarter); ok {
-			if deck, canQueueAtomically := h.services.PreparedDeck.(transactionalGoalDeckPreparer); canQueueAtomically {
-				selected, err = starter.CreatePrimaryGoalWith(r.Context(), owner, language, bookID, func(ctx context.Context, tx pgx.Tx, reading domain.PrimaryGoal) error {
-					if reading.SnapshotSize == 0 {
-						return nil
-					}
-					_, queueErr := deck.SubmitForGoalTx(ctx, tx, owner, reading.AnalysisRunID, reading.SnapshotID)
-					return queueErr
-				})
-				queuedWithSnapshot = err == nil && selected.SnapshotSize > 0
-			} else {
-				selected, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
-			}
-		} else {
-			selected, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
-		}
+		selected, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
 		if errors.Is(err, persistence.ErrGoalExists) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("Another book became current while you were choosing. Review Reading before trying again."))
 			return
@@ -360,7 +334,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 && !queuedWithSnapshot {
+	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 {
 		if h.services.PreparedDeck == nil {
 			redirect(w, r, "/reading?error="+url.QueryEscape("The book is current, but local deck preparation is unavailable. Its snapshot is preserved; retry preparation when the service is available."))
 			return
