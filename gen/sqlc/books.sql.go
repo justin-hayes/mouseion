@@ -277,6 +277,24 @@ func (q *Queries) GetBookForUpdate(ctx context.Context, arg GetBookForUpdatePara
 	return id, err
 }
 
+const getMyBookCompletionCount = `-- name: GetMyBookCompletionCount :one
+SELECT count(*)::bigint
+FROM reading_history
+WHERE owner_id = $1 AND book_id = $2
+`
+
+type GetMyBookCompletionCountParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) GetMyBookCompletionCount(ctx context.Context, arg GetMyBookCompletionCountParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getMyBookCompletionCount, arg.Owner, arg.Book)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getMyBookDetail = `-- name: GetMyBookDetail :one
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
 FROM my_books_evidence e

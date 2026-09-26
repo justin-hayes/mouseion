@@ -242,6 +242,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Contains(t, inboxPage.Body.String(), "Workflow</strong>: Inbox")
 	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
 	assert.NotContains(t, readPage.Body.String(), "Previously read book", "Read filter follows the visible bucket, not history alone")
+	assert.Contains(t, inboxPage.Body.String(), "Read (0)", "Inbox history is not counted in Read")
 
 	var historyCount, knownCount, snapshotCount, eligibleCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*), max(snapshot_vocabulary_count), max(eligible_vocabulary_count) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount, &snapshotCount, &eligibleCount))
@@ -262,10 +263,51 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, readDisposition)
 	readPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
-	assert.Contains(t, readPage.Body.String(), "Previously read book", "Read remains an independent history projection")
+	assert.Contains(t, readPage.Body.String(), "Previously read book")
 	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: To Read")
+	assert.Contains(t, readPage.Body.String(), "To Read (1)")
+	assert.Contains(t, readPage.Body.String(), "Read (0)", "To Read history is not counted in Read")
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount))
 	assert.Equal(t, 1, historyCount, "rereading must preserve prior history")
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, alice.ID).Scan(&knownCount))
 	assert.Zero(t, knownCount, "rereading must not mark vocabulary Known")
+
+	// A historical Set Aside Book projects into Read. Moving it back to To Read
+	// and setting it aside again changes only the visible bucket, not history.
+	detail, err = store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	setAside := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/set-aside", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, setAside.Code)
+	assert.Contains(t, setAside.Header().Get("Location"), "history=read", "setting aside a historical Book returns to its visible Read bucket")
+	readPage = perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	assert.Contains(t, readPage.Body.String(), "Previously read book")
+	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: Read")
+	assert.Contains(t, readPage.Body.String(), "Read (1)")
+	assert.Contains(t, readPage.Body.String(), "Reading history</strong>: 1 completion")
+	assert.NotContains(t, readPage.Body.String(), "Set Aside (1)", "history has one visible bucket")
+
+	detail, err = store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	reconsider := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/read-again", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, reconsider.Code)
+	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	assert.Contains(t, toReadPage.Body.String(), "Workflow</strong>: To Read")
+	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
+	assert.Contains(t, toReadPage.Body.String(), "Read (0)")
+
+	detail, err = store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	setAside = perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/set-aside", url.Values{
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, setAside.Code)
+	readPage = perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: Read")
+	assert.Contains(t, readPage.Body.String(), "Read (1)")
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount))
+	assert.Equal(t, 1, historyCount, "visible bucket transitions must not rewrite append-only history")
 }

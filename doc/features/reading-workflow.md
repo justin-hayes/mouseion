@@ -26,11 +26,17 @@ language, or presents the learner with an unordered chooser between Books.
    completion, accepts eligible snapshot identities into modeled Known
    vocabulary, and returns a receipt with the next-choice link. It does not
    automatically select another Book.
-5. My Books **Read history** remains independent of Inbox / To Read / Set Aside.
-   **Read again** returns a previously read Book to To Read; starting it creates
-   a fresh current-reading snapshot while retaining the earlier completion.
-6. Set Aside keeps a Book visible in My Books and reversible to To Read. There is
-   no ordinary Remove from My Books action; the retired removal request cannot
+5. My Books shows each Book in exactly one visible workflow bucket. In
+   precedence order, that is **Currently reading**, **To Read**, **Inbox**,
+   **Read** when completion history exists, then **Set Aside**. Thus a historical
+   Inbox or To Read Book stays in its disposition bucket, while a historical Set
+   Aside Book appears in Read without changing its persisted disposition or
+   completion provenance. **Read again** moves a Read Book to To Read; setting it
+   aside again returns it to Read. Starting it creates a fresh current-reading
+   snapshot while retaining earlier completions.
+6. Set Aside keeps a Book visible in My Books and reversible to To Read. Read
+   history is append-only and does not imply Known vocabulary. There is no
+   ordinary Remove from My Books action; the retired removal request cannot
    remove membership or erase the Book, its evidence, history, or artifacts.
 
 The current product and architecture decision is [ADR

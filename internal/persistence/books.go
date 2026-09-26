@@ -248,6 +248,14 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	}
 	book.Disposition = state.disposition
 	book.DispositionRevision = state.revision
+	completionCount, err := s.queries().GetMyBookCompletionCount(ctx, sqlcgen.GetMyBookCompletionCountParams{Owner: owner, Book: book.Book.ID})
+	if err != nil {
+		return domain.MyBook{}, err
+	}
+	book.CompletionCount, err = checked.IntFromInt64(completionCount)
+	if err != nil {
+		return domain.MyBook{}, fmt.Errorf("invalid reading completion count: %w", err)
+	}
 	return book, nil
 }
 

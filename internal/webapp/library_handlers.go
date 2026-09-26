@@ -264,7 +264,11 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
+	location := myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)
+	if detail.CompletionCount > 0 {
+		location = myBooksHistoryURL("", 1, false, "", true)
+	}
+	redirect(w, r, location+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
 }
 
 func expectedDispositionRevision(r *http.Request) (int64, bool) {
