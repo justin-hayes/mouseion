@@ -137,9 +137,12 @@ test.describe('Current reading selection', () => {
 
       await page.goto('/library');
       const goalBook = page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
-      await expect(goalBook.locator('.library-book__membership')).toHaveText(/To Read/);
+      await expect(goalBook.locator('.library-book__membership')).toHaveText('Currently reading');
       await expect(goalBook.getByRole('link', { name: 'View in Reading' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
-      await expect(goalBook.getByText('Current reading')).toHaveCount(0);
+      await expect(goalBook.getByText('To Read', { exact: true })).toHaveCount(0);
+      await page.goto('/library?disposition=to_read');
+      await expect(page.getByRole('link', { name: 'To Read (6)' })).toBeVisible();
+      await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' })).toHaveCount(0);
       await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
    });
 

@@ -41,18 +41,18 @@ FROM books
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
 FOR UPDATE;
 
--- name: ListMyBooksEvidence :many
-SELECT e.*
-FROM my_books_evidence e
-JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
-WHERE e.book_owner_id = sqlc.arg('owner')
-ORDER BY e.book_title, e.book_id;
-
 -- name: BrowseMyBooksEvidence :many
 SELECT e.*
+      , lower(e.book_title)::text AS sort_title
+      , d.disposition::text AS disposition
+     , d.revision AS disposition_revision
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
      , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
+     , EXISTS (
+         SELECT 1 FROM primary_goals g
+         WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
+       ) AS is_current_reading
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 LEFT JOIN LATERAL (
@@ -63,33 +63,21 @@ LEFT JOIN LATERAL (
     WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
 ) history ON true
 WHERE e.book_owner_id = sqlc.arg('owner')
-  AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
   AND (
     sqlc.arg('language')::text = ''
     OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
   )
-  AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'))
-  AND (NOT sqlc.arg('history')::boolean OR EXISTS (
-    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
-  ))
+  AND (
+    NOT sqlc.arg('has_cursor')::boolean
+    OR ROW(lower(e.book_title), e.book_title, e.book_id) > ROW(
+      sqlc.arg('after_sort_title')::text,
+      sqlc.arg('after_book_title')::text,
+      sqlc.arg('after_book_id')::text
+    )
+  )
 ORDER BY lower(e.book_title), e.book_title, e.book_id
-LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
-
--- name: CountMyBooksFiltered :one
-SELECT count(*) FROM my_books_evidence e
-JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
-WHERE e.book_owner_id = sqlc.arg('owner')
-  AND (sqlc.arg('query')::text = '' OR lower(book_title) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\' OR lower(book_author) LIKE '%' || sqlc.arg('query') || '%' ESCAPE '\')
-  AND (
-    sqlc.arg('language')::text = ''
-    OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
-    OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
-  )
-  AND (sqlc.arg('disposition')::text = '' OR d.disposition = sqlc.arg('disposition'))
-  AND (NOT sqlc.arg('history')::boolean OR EXISTS (
-    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
-  ));
+LIMIT sqlc.arg('limit');
 
 -- name: CountMyBooksScope :one
 SELECT count(*) FROM my_books_evidence e
@@ -111,30 +99,6 @@ SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_langu
 FROM my_books_evidence
 WHERE book_owner_id = sqlc.arg('owner') AND book_language_state IN ('chosen', 'unknown')
 GROUP BY 1;
-
--- name: CountMyBooksByDisposition :many
-SELECT d.disposition, count(*) AS book_count
-FROM my_books_evidence e
-JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
-WHERE e.book_owner_id = sqlc.arg('owner')
-  AND (
-    sqlc.arg('language')::text = ''
-    OR (sqlc.arg('language')::text = 'unknown' AND e.book_language_state = 'unknown')
-    OR (e.book_language_state = 'chosen' AND e.book_language_tag = sqlc.arg('language'))
-  )
-GROUP BY d.disposition;
-
--- name: CountMyBooksWithHistory :one
-SELECT count(*) FROM my_books_evidence e
-WHERE e.book_owner_id = sqlc.arg('owner')
-  AND (
-    sqlc.arg('language')::text = ''
-    OR (sqlc.arg('language')::text = 'unknown' AND e.book_language_state = 'unknown')
-    OR (e.book_language_state = 'chosen' AND e.book_language_tag = sqlc.arg('language'))
-  )
-  AND EXISTS (
-    SELECT 1 FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
-  );
 
 -- name: GetMyBookDetail :one
 SELECT e.*

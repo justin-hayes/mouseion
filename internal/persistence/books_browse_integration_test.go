@@ -126,6 +126,129 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	assert.False(t, strings.Contains(fmt.Sprint(remaining.Items), percent.ID), "removed membership remained in browse")
 }
 
+func TestMyBooksBrowseUsesKeysetBatchesAcrossLargeCollection(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "browse-keyset", false)
+	require.NoError(t, err)
+	for i := range 260 {
+		input, createErr := domain.NewBook(owner.ID, fmt.Sprintf("Batch Book %03d", i), domain.MetadataProvenanceCatalogueSync, domain.LanguageUnknown, "")
+		require.NoError(t, createErr)
+		_, createErr = store.CreateBook(ctx, input)
+		require.NoError(t, createErr)
+	}
+
+	page, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "", "", false, 250, 20)
+	require.NoError(t, err)
+	assert.Equal(t, 260, page.Total)
+	require.Len(t, page.Items, 10)
+	assert.Equal(t, "Batch Book 250", page.Items[0].Book.Title)
+	assert.Equal(t, "Batch Book 259", page.Items[9].Book.Title)
+
+	filtered, err := store.ListMyBooksBrowse(ctx, owner.ID, "Batch Book 25", "", "", false, 5, 5)
+	require.NoError(t, err)
+	assert.Equal(t, 10, filtered.Total)
+	require.Len(t, filtered.Items, 5)
+	assert.Equal(t, "Batch Book 255", filtered.Items[0].Book.Title)
+	assert.Equal(t, "Batch Book 259", filtered.Items[4].Book.Title)
+}
+
+func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "browse-buckets", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "bucket-german")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	current, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+
+	toRead, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
+	require.NoError(t, err)
+	assert.Zero(t, toRead.Total, "current reading is not in the To Read filter")
+	assert.Zero(t, dispositionCountForBucket(toRead.DispositionCounts, domain.BookDispositionToRead))
+	all, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, all.Items, 1)
+	assert.True(t, all.Items[0].IsCurrentReading)
+	assert.Equal(t, domain.MyBookBucketCurrentReading, all.Items[0].WorkflowBucket())
+	assert.Equal(t, domain.BookDispositionToRead, all.Items[0].Disposition, "visible bucket does not rewrite persisted disposition")
+
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID)
+	require.NoError(t, err)
+	read, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", true, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, read.Items, 1)
+	assert.Equal(t, domain.MyBookBucketRead, read.Items[0].WorkflowBucket())
+	assert.Equal(t, 1, read.ReadCount)
+
+	italian, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "bucket-italian")
+	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
+	italianCurrent, err := store.StartCurrentReading(ctx, owner.ID, "it", italian.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	for language, bookID := range map[string]string{"de": book.ID, "it": italian.ID} {
+		currentBooks, browseErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", false, 0, 25)
+		require.NoError(t, browseErr)
+		if language == "de" {
+			assert.Zero(t, currentBooks.ReadCount, "current reading with history is not also counted in Read")
+		}
+		var currentCount int
+		for _, item := range currentBooks.Items {
+			if item.WorkflowBucket() == domain.MyBookBucketCurrentReading {
+				currentCount++
+				assert.Equal(t, bookID, item.Book.ID)
+			}
+		}
+		assert.Equal(t, 1, currentCount, "current reading remains independent in %s", language)
+	}
+	stopped, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, stopped.SnapshotID))
+	toRead, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, toRead.Items, 1)
+	assert.Equal(t, domain.MyBookBucketToRead, toRead.Items[0].WorkflowBucket(), "stopping preserves To Read intent")
+
+	stopped, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	replacement, replacementSource, _ := createReadingFixture(t, ctx, store, owner.ID, "bucket-switch")
+	makeAnalyzedToReadBook(t, ctx, store, replacement, replacementSource)
+	switched, err := store.SwitchCurrentReading(ctx, owner.ID, "de", replacement.ID, book.ID, stopped.SnapshotID)
+	require.NoError(t, err)
+	all, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
+	require.NoError(t, err)
+	buckets := make(map[string]domain.MyBookBucket, len(all.Items))
+	for _, item := range all.Items {
+		buckets[item.Book.ID] = item.WorkflowBucket()
+	}
+	assert.Equal(t, domain.MyBookBucketToRead, buckets[book.ID], "switch returns the former current Book to To Read")
+	assert.Equal(t, domain.MyBookBucketCurrentReading, buckets[replacement.ID])
+	require.NoError(t, store.SetAsideCurrentReading(ctx, owner.ID, "de", replacement.ID, switched.SnapshotID))
+	all, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
+	require.NoError(t, err)
+	for _, item := range all.Items {
+		if item.Book.ID == replacement.ID {
+			assert.Equal(t, domain.BookDispositionSetAside, item.Disposition)
+			assert.Equal(t, domain.MyBookBucketSetAside, item.WorkflowBucket(), "setting aside ends current reading and preserves the explicit disposition")
+		}
+	}
+	assert.NotEmpty(t, italianCurrent.SnapshotID)
+}
+
+func dispositionCountForBucket(counts []DispositionCount, disposition domain.BookDisposition) int {
+	for _, count := range counts {
+		if count.Disposition == disposition {
+			return count.Count
+		}
+	}
+	return 0
+}
+
 func minString(left, right string) string {
 	if left < right {
 		return left

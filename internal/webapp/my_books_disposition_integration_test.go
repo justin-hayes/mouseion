@@ -207,8 +207,8 @@ func TestRetiredRemoveRequestCannotChangeMyBooksData(t *testing.T) {
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&histories))
 	assert.Equal(t, 1, analyses)
 	assert.Equal(t, 1, histories)
-	setAsidePage := perform(t, h, http.MethodGet, "/library?disposition=set_aside", nil, cookies)
-	assert.Contains(t, setAsidePage.Body.String(), "Retained book")
+	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	assert.Contains(t, readPage.Body.String(), "Retained book")
 }
 
 func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
@@ -233,13 +233,15 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	retry := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/previously-read", mark, cookies)
 	assert.Equal(t, http.StatusSeeOther, retry.Code)
 
+	inboxPage := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
+	assert.Equal(t, http.StatusOK, inboxPage.Code)
+	assert.Contains(t, inboxPage.Body.String(), "Previously read book")
+	assert.Contains(t, inboxPage.Body.String(), "Read before Mouseion")
+	assert.Contains(t, inboxPage.Body.String(), "1 completion")
+	assert.Contains(t, inboxPage.Body.String(), "Read again")
+	assert.Contains(t, inboxPage.Body.String(), "Workflow</strong>: Inbox")
 	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
-	assert.Equal(t, http.StatusOK, readPage.Code)
-	assert.Contains(t, readPage.Body.String(), "Previously read book")
-	assert.Contains(t, readPage.Body.String(), "Read before Mouseion")
-	assert.Contains(t, readPage.Body.String(), "1 completion")
-	assert.Contains(t, readPage.Body.String(), "Read again")
-	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: Inbox")
+	assert.NotContains(t, readPage.Body.String(), "Previously read book", "Read filter follows the visible bucket, not history alone")
 
 	var historyCount, knownCount, snapshotCount, eligibleCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*), max(snapshot_vocabulary_count), max(eligible_vocabulary_count) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount, &snapshotCount, &eligibleCount))
@@ -259,7 +261,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	readDisposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, readDisposition)
-	readPage = perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	readPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
 	assert.Contains(t, readPage.Body.String(), "Previously read book", "Read remains an independent history projection")
 	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: To Read")
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount))

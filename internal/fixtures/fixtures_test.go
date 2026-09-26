@@ -150,6 +150,41 @@ func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	assert.Equal(t, "de", result.Counts[0].Tag, "canonical browse result=%+v", result)
 }
 
+func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
+	store := NewStore()
+	toRead, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
+	require.NoError(t, err)
+	assert.NotContains(t, fixtureBookIDs(toRead.Items), BookID, "current reading should not be counted as To Read")
+	assert.Equal(t, 6, dispositionCount(toRead.DispositionCounts, domain.BookDispositionToRead))
+	all, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "de", "", false, 0, 25)
+	require.NoError(t, err)
+	var current domain.MyBook
+	for _, book := range all.Items {
+		if book.Book.ID == BookID {
+			current = book
+		}
+	}
+	assert.True(t, current.IsCurrentReading)
+	assert.Equal(t, domain.MyBookBucketCurrentReading, current.WorkflowBucket())
+}
+
+func fixtureBookIDs(books []domain.MyBook) []string {
+	ids := make([]string, 0, len(books))
+	for _, book := range books {
+		ids = append(ids, book.Book.ID)
+	}
+	return ids
+}
+
+func dispositionCount(counts []persistence.DispositionCount, disposition domain.BookDisposition) int {
+	for _, count := range counts {
+		if count.Disposition == disposition {
+			return count.Count
+		}
+	}
+	return 0
+}
+
 func TestStoreCurrentReadingIsIndependentByLanguage(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()

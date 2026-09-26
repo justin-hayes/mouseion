@@ -145,10 +145,10 @@ func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
 	require.True(t, goalStart >= 0 && otherStart >= 0, "book cards missing: %s", html)
 	goalCard := html[goalStart:otherStart]
 	otherCard := html[otherStart:]
-	for _, want := range []string{"To Read", "View in Reading", "/reading#journey-book-goal-book"} {
+	for _, want := range []string{"Currently reading", "View in Reading", "/reading#journey-book-goal-book"} {
 		assert.True(t, strings.Contains(goalCard, want), "current Book card missing %q: %s", want, goalCard)
 	}
-	assert.False(t, strings.Contains(goalCard, "current reading"), "My Books exposed Goal state: %s", goalCard)
+	assert.False(t, strings.Contains(goalCard, "To Read"), "current Book was also presented as To Read: %s", goalCard)
 	assert.False(t, strings.Contains(otherCard, "Start reading") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
 }
 

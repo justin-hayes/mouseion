@@ -73,9 +73,9 @@ func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/to-read"`) || strings.Contains(html, "Move to To Read"), "current reading still exposed add action: %s", html)
-	assert.Contains(t, html, "To Read")
+	assert.Contains(t, html, "Currently reading")
 	assert.Contains(t, html, `href="/reading#journey-book-goal-book"`)
-	assert.NotContains(t, html, "current reading")
+	assert.NotContains(t, html, "To Read")
 }
 
 func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.T) {
