@@ -509,8 +509,10 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	createAccount(t, ctx, store, "alice", "alice-password", false)
+	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
 	createAccount(t, ctx, store, "bob", "bob-password", false)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Disposition from My Books", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
@@ -522,6 +524,9 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, created.Code)
 	assert.Equal(t, "/deck-preparations/prep-1/status", created.Header().Get("Location"))
 	assert.True(t, decks.consent)
+	preparation := decks.preparations["prep-1"]
+	preparation.SourceMaterialID = book.ID
+	decks.preparations[preparation.ID] = preparation
 	statusPage := perform(t, h, "GET", created.Header().Get("Location"), nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, statusPage.Code)
 	assert.True(t, strings.Contains(statusPage.Body.String(), "Deck preparation queued"), "body=%s", statusPage.Body.String())
@@ -559,6 +564,10 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	assert.Equal(t, http.StatusOK, updatedPage.Code)
 	assert.Contains(t, updatedPage.Body.String(), "Updated deck revision available")
 	assert.Contains(t, updatedPage.Body.String(), "revision 2")
+	assert.Contains(t, updatedPage.Body.String(), "Not in To Read")
+	assert.Contains(t, updatedPage.Body.String(), `href="/library"`, "focused deck disposition action leads to My Books")
+	assert.NotContains(t, updatedPage.Body.String(), "Move to To Read")
+	assert.NotContains(t, updatedPage.Body.String(), `action="/reading/books/`)
 	for i := range 2 {
 		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
 		assert.Equal(t, http.StatusOK, download.Code, "download %d", i)

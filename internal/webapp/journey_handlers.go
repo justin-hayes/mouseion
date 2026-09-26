@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"sort"
 	"strings"
@@ -63,10 +62,6 @@ func journeyBookID(item journeyBookView) string {
 		return item.BookID
 	}
 	return item.Book.Source.ID
-}
-
-func journeyRemoveURL(bookID string) string {
-	return "/reading/books/" + url.PathEscape(bookID) + "/set-aside"
 }
 
 func readingReanalyzeURL(bookID string) string {
@@ -265,11 +260,10 @@ const (
 )
 
 type deckJourneyActionView struct {
-	BookID        string
-	PreparationID string
-	State         deckJourneyState
-	Message       string
-	Error         string
+	BookID  string
+	State   deckJourneyState
+	Message string
+	Error   string
 }
 
 func emptyDeckJourneyAction() deckJourneyActionView {
@@ -280,11 +274,7 @@ func deckJourneyActionID(bookID string) string {
 	return "deck-preparation-journey-action-" + bookID
 }
 
-func toReadURL(bookID string) string {
-	return "/reading/books/" + url.PathEscape(bookID) + "/to-read"
-}
-
-func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparationID, bookID string) (deckJourneyActionView, error) {
+func (h *Handler) deckJourneyStatus(ctx context.Context, owner, bookID string) (deckJourneyActionView, error) {
 	// Deck preparation surfaces are keyed by source_materials.id while Journey
 	// membership and the current reading are keyed by books.id, so every action
 	// identity is resolved to its canonical book first. A source material with
@@ -302,7 +292,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
-	action := deckJourneyActionView{BookID: bookID, PreparationID: preparationID, State: deckJourneyNotMember}
+	action := deckJourneyActionView{BookID: bookID, State: deckJourneyNotMember}
 	if goal.IsActive() && goal.BookID == bookID {
 		action.State = deckIsCurrentReading
 		return action, nil
@@ -318,66 +308,6 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 		action.State = deckIsToRead
 	}
 	return action, nil
-}
-
-func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparationID, bookID string) (deckJourneyActionView, error) {
-	resolved, ok, err := h.resolveBookID(ctx, owner, bookID)
-	if err != nil {
-		return deckJourneyActionView{}, err
-	}
-	if !ok {
-		return deckJourneyActionView{}, nil
-	}
-	bookID = resolved
-	action, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
-	if err != nil {
-		return deckJourneyActionView{}, err
-	}
-	// A current reading is intentionally not changed by a ready-deck action. This
-	// guard also keeps a forged direct POST from adding or reordering the Goal.
-	if action.State == deckIsCurrentReading {
-		return action, nil
-	}
-	dispositions, supported := h.services.Store.Books.(persistence.BookDispositionStore)
-	if !supported {
-		return deckJourneyActionView{}, errors.New("book dispositions are unavailable")
-	} else {
-		err = dispositions.SetBookDisposition(ctx, owner, bookID, domain.BookDispositionToRead)
-	}
-	if err != nil {
-		log.Print("mouseion: add book to Reading failed")
-		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
-		if refreshErr != nil {
-			return deckJourneyActionView{}, refreshErr
-		}
-		if errors.Is(err, persistence.ErrBookLanguageRequired) {
-			refreshed.Error = "This book needs a language before it can be moved to To Read. Fix the language in the catalog, then re-sync."
-			return refreshed, nil
-		}
-		refreshed.Error = "The book could not be moved to To Read. No changes were made; try again."
-		return refreshed, nil
-	}
-	refreshed, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
-	if err != nil {
-		return deckJourneyActionView{}, err
-	}
-	if action.State == deckJourneyNotMember && h.services.Analysis != nil {
-		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(ctx, owner, bookID)
-		if analysisErr != nil {
-			refreshed.Error = toReadAnalysisError(ctx, h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
-		} else {
-			refreshed.Message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
-		}
-		return refreshed, nil
-	}
-	if refreshed.State == deckIsToRead {
-		if action.State == deckIsToRead {
-			refreshed.Message = "This book is already in To Read."
-		} else {
-			refreshed.Message = "Book moved to To Read."
-		}
-	}
-	return refreshed, nil
 }
 
 func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
@@ -474,40 +404,6 @@ func (h *Handler) currentReading(ctx context.Context, owner, language string) (d
 		return h.services.Store.CurrentReading.GetCurrentReading(ctx, owner, language)
 	}
 	return h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
-}
-
-func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	owner := user(r).ID
-	bookID := r.PathValue("id")
-	preparationID := strings.TrimSpace(r.FormValue("deck_preparation_id"))
-	action, err := h.addBookToReadingJourney(r.Context(), owner, preparationID, bookID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if isHTMX(r) {
-		render(w, r, DeckJourneyAction(action, h.csrf(w, r)))
-		return
-	}
-	h.redirectDeckJourneyAction(w, r, action.Message, action.Error)
-}
-
-func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Request, message, pageError string) {
-	location := "/reading"
-	query := url.Values{}
-	if message != "" {
-		query.Set("message", message)
-	}
-	if pageError != "" {
-		query.Set("error", pageError)
-	}
-	if encoded := query.Encode(); encoded != "" {
-		location += "?" + encoded
-	}
-	redirect(w, r, location)
 }
 
 func (h *Handler) journeyLanguageHandoff(ctx context.Context, owner, activeLanguage, bookID, targetLanguage string) (journeyLanguageHandoffView, bool, error) {

@@ -107,14 +107,16 @@ test.describe('Current reading selection', () => {
        await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
        await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
 
-      const eligible = provisional.filter({ hasText: 'Route match: familiar German' });
-      const moreActions = eligible.locator('details.more-actions');
-      await expect(moreActions).toBeVisible();
-      await expect(moreActions).not.toHaveAttribute('open', '');
-      await expect(moreActions.getByRole('button', { name: 'Confirm removal' })).toBeHidden();
-      await moreActions.locator(':scope > summary').click();
-      await moreActions.locator('.confirmation > summary').click();
-      await expect(moreActions.getByRole('button', { name: 'Confirm removal' })).toBeVisible();
+       const eligible = provisional.filter({ hasText: 'Route match: familiar German' });
+       const moreActions = eligible.locator('details.more-actions');
+       await expect(moreActions).toBeVisible();
+       await expect(moreActions).not.toHaveAttribute('open', '');
+       await expect(provisional.getByRole('button', { name: 'Confirm removal' })).toHaveCount(0);
+       await moreActions.locator(':scope > summary').click();
+       await expect(moreActions.getByRole('link', { name: 'My Books' })).toHaveAttribute('href', '/library');
+       const currentSetAside = goal.locator('details').filter({ hasText: 'Set aside this Book' });
+       await currentSetAside.locator('summary').click();
+       await expect(currentSetAside.getByRole('button', { name: 'Confirm set aside' })).toBeVisible();
 
       const ineligible = provisional.filter({ hasText: 'Route evidence pending' });
       await expect(ineligible).toContainText('cannot be started');
