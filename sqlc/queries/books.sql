@@ -112,3 +112,8 @@ WHERE e.book_owner_id = sqlc.arg('owner') AND (e.book_id = sqlc.arg('id') OR EXI
 ))
 ORDER BY CASE WHEN e.book_id = sqlc.arg('id') THEN 0 ELSE 1 END
 LIMIT 1;
+
+-- name: GetMyBookCompletionCount :one
+SELECT count(*)::bigint
+FROM reading_history
+WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');

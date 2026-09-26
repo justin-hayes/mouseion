@@ -66,4 +66,12 @@ test('finishing current reading records Read history and supports reading again'
   const reread = page.locator('.library-grid .library-book').filter({ hasText: title });
   await expect(reread).toContainText('To Read');
   await expect(reread.getByRole('link', { name: 'View in Reading' })).toBeVisible();
+
+  await reread.getByText('More actions', { exact: true }).click();
+  await reread.getByText('Set aside', { exact: true }).click();
+  await reread.getByRole('button', { name: 'Confirm set aside' }).click();
+  await expect(page).toHaveURL(/\/library\?history=read&message=/);
+  const readAgainLater = page.locator('.library-grid .library-book').filter({ hasText: title });
+  await expect(readAgainLater).toContainText('Workflow');
+  await expect(readAgainLater).toContainText('Read');
 });

@@ -183,6 +183,30 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.Len(t, read.Items, 1)
 	assert.Equal(t, domain.MyBookBucketRead, read.Items[0].WorkflowBucket())
 	assert.Equal(t, 1, read.ReadCount)
+	assert.Equal(t, domain.BookDispositionSetAside, read.Items[0].Disposition, "Read is a projection and preserves the underlying disposition")
+
+	// Reconsideration retains append-only history but moves the visible Book to
+	// To Read. Setting it aside again projects that same Book back into Read.
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	read, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", true, 0, 25)
+	require.NoError(t, err)
+	assert.Empty(t, read.Items, "To Read history is not also in Read")
+	assert.Zero(t, read.ReadCount)
+	toRead, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, toRead.Items, 1)
+	assert.Equal(t, domain.MyBookBucketToRead, toRead.Items[0].WorkflowBucket())
+	assert.Equal(t, 1, toRead.Items[0].CompletionCount, "reconsideration retains history")
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionSetAside))
+	read, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", true, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, read.Items, 1)
+	assert.Equal(t, domain.MyBookBucketRead, read.Items[0].WorkflowBucket())
+	assert.Equal(t, 1, read.ReadCount)
+	all, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, all.Items, 1, "a Book with history appears once in All")
+	assert.Equal(t, book.ID, all.Items[0].Book.ID)
 
 	italian, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "bucket-italian")
 	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
@@ -196,6 +220,9 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 		require.NoError(t, browseErr)
 		if language == "de" {
 			assert.Zero(t, currentBooks.ReadCount, "current reading with history is not also counted in Read")
+			readBooks, readErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", true, 0, 25)
+			require.NoError(t, readErr)
+			assert.Empty(t, readBooks.Items, "current reading with history is excluded from Read")
 		}
 		var currentCount int
 		for _, item := range currentBooks.Items {
