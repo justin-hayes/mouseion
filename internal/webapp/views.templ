@@ -594,6 +594,9 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		}
 	} else if deckPreparationActive(preparation) {
 		<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button class="outline secondary">Cancel preparation</button></form>
+		if preparation.State == domain.DeckPreparationQueued {
+			<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
+		}
 	} else {
 		if preparation.State == domain.DeckPreparationFailed {
 			@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
