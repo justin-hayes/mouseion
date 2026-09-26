@@ -224,9 +224,6 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 							</form>
 						}
 					}
-					@Confirmation("Remove from My Books", "This removes only My Books membership. Acquired content, aliases, and immutable history remain.", StatusDanger) {
-						<form method="post" action={ templ.SafeURL("/library/books/"+book.Book.ID+"/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm removal</button></form>
-					}
 				</div>
 			</details>
 		</div>

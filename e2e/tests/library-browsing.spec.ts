@@ -32,7 +32,7 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
     const firstBook = page.locator('.library-grid .library-book').first();
     await firstBook.getByText('More actions', { exact: true }).click();
-    await expect(firstBook.getByText('Remove from My Books', { exact: true })).toBeVisible();
+    await expect(firstBook.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
 
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
@@ -61,10 +61,19 @@ test.describe('My Books collection browsing', () => {
       await page.goto('/library?q=Der%20lange');
       await expect(page.locator('ul.library-grid')).toBeVisible();
       await expect(page.locator('.library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
-      await page.getByLabel('Search My Books').fill('Route evidence pending');
-      await page.getByRole('button', { name: 'Search' }).press('Enter');
-      await expect(page).toHaveURL(/q=Route\+evidence\+pending/);
-      await expect(page.locator('.library-grid').getByText('Route evidence pending')).toBeVisible();
+      await page.goto('/library?q=Fehlgeschlagene');
+      const book = page.locator('.library-grid .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
+      await expect(book).toBeVisible();
+      await book.getByText('More actions', { exact: true }).click();
+      await expect(book.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
+      await book.getByText('Set aside', { exact: true }).click();
+      await book.getByRole('button', { name: 'Confirm set aside' }).click();
+      await expect(page).toHaveURL(/disposition=set_aside/);
+      const setAsideBook = page.locator('.library-grid .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
+      await expect(setAsideBook).toBeVisible();
+      await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
+      await expect(page).toHaveURL(/disposition=to_read/);
+      await expect(page.locator('.library-grid').getByText('Fehlgeschlagene Analyse')).toBeVisible();
     } finally {
       await context.close();
     }

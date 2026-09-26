@@ -29,6 +29,9 @@ language, or presents the learner with an unordered chooser between Books.
 5. My Books **Read history** remains independent of Inbox / To Read / Set Aside.
    **Read again** returns a previously read Book to To Read; starting it creates
    a fresh current-reading snapshot while retaining the earlier completion.
+6. Set Aside keeps a Book visible in My Books and reversible to To Read. There is
+   no ordinary Remove from My Books action; the retired removal request cannot
+   remove membership or erase the Book, its evidence, history, or artifacts.
 
 ## Interaction and recovery contract
 

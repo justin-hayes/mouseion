@@ -43,13 +43,12 @@ type StudyLanguageStore interface {
 	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)
 }
 
-// BookStore provides the owner-scoped book reads and My Books membership
-// operations shared by the library, Reading Journey, and Primary Goal surfaces.
+// BookStore provides the owner-scoped book reads shared by the library and
+// Reading surfaces.
 type BookStore interface {
 	GetBook(context.Context, string, string) (domain.Book, error)
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
-	RemoveBookFromMyBooks(context.Context, string, string) error
 }
 
 type BookCoverStore interface {
@@ -216,7 +215,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /goal/finish", h.user(http.HandlerFunc(h.finishPrimaryGoal)))
 	h.mux.Handle("POST /reading/books/{id}/to-read", h.user(http.HandlerFunc(h.addDeckBookToJourney)))
 	h.mux.Handle("POST /reading/books/{id}/set-aside", h.user(http.HandlerFunc(h.setAsideReadingBook)))
-	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("POST /library/books/{id}/set-aside", h.user(http.HandlerFunc(h.setBookAside)))
