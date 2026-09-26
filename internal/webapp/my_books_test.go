@@ -25,9 +25,11 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/reading/books/metadata-book/to-read"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/reading/books/metadata-book/to-read"`} {
 		assert.True(t, strings.Contains(html, want), "metadata-only My Books item missing %q: %s", want, html)
 	}
+	assert.NotContains(t, html, "Remove from My Books")
+	assert.NotContains(t, html, `action="/library/books/metadata-book/remove"`)
 	assert.False(t, strings.Contains(html, `href="/books/metadata-book"`), "metadata-only My Books row linked to the retired Book detail page: %s", html)
 	row := html
 	if start := strings.Index(row, `aria-labelledby="book-title-metadata-book"`); start >= 0 {
@@ -221,7 +223,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 }
 
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
-	h, cookies, _, _ := goalFixtureSession(t)
+	h, cookies, csrf, _ := goalFixtureSession(t)
 	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search", "/library/books/book-id"} {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, route, nil)
 		for _, cookie := range cookies {
@@ -238,6 +240,7 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusNotFound, response.Code)
+	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/library/books/fixture-book/remove", url.Values{"csrf_token": {csrf}}, cookies).Code)
 }
 
 func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {

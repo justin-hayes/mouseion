@@ -176,22 +176,6 @@ func needsLanguageCount(counts []persistence.LanguageCount) int {
 	return 0
 }
 
-func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	if err := h.services.Store.Books.RemoveBookFromMyBooks(r.Context(), u.ID, r.PathValue("id")); err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
-			http.NotFound(w, r)
-			return
-		}
-		fail(w, err)
-		return
-	}
-	redirect(w, r, "/library?message="+url.QueryEscape("Book removed from My Books. Acquired content and history remain."))
-}
-
 func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return

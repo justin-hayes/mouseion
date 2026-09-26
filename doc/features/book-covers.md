@@ -121,8 +121,10 @@ Each Book item presents, in order:
 4. One visible, labeled Reading action: **Move to To Read** or **View in
    Reading**, accompanied by an icon.
 5. A labeled native **More actions** disclosure containing textual **Refresh
-   metadata** and **Remove from My Books** actions when each is eligible. Removal
-   retains its existing consequential confirmation.
+   metadata** actions when eligible, and **Set Aside** for eligible non-current
+   Books. There is no ordinary Remove from My Books action; use Set Aside to
+   deemphasize a Book without hiding it from My Books or discarding its durable
+   history and artifacts.
 
 Every catalog-backed Book whose source connection remains available offers
 **Refresh metadata**, whether or not EPUB content has been acquired. Refresh can
