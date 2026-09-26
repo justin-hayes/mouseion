@@ -3,9 +3,9 @@ package webapp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -81,7 +81,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
 	}
-	if err = h.annotateMyBooksWithJourney(r.Context(), u.ID, books); err != nil {
+	if err = h.annotateMyBooksWithDisposition(r.Context(), u.ID, books); err != nil {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
 		return
 	}
@@ -198,34 +198,32 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	bookID := r.PathValue("id")
-	if _, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
 		fail(w, err)
 		return
 	}
-	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
-	if err != nil {
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
+	dispositions, ok := h.services.Store.Books.(persistence.BookDispositionStore)
+	if !ok {
+		fail(w, errors.New("book dispositions are unavailable"))
 		return
 	}
-	action, err := h.addBookToReadingJourney(r.Context(), owner, "", bookID, expectedRevision)
-	if err != nil {
+	wasToRead := detail.Disposition == domain.BookDispositionToRead
+	if err = dispositions.SetBookDisposition(r.Context(), owner, bookID, domain.BookDispositionToRead); err != nil {
 		fail(w, err)
 		return
 	}
-	if action.Error != "" || action.Message == journeyStaleMessage {
-		errorMessage := action.Error
-		if errorMessage == "" {
-			errorMessage = action.Message
+	message := "Book moved to To Read."
+	if !wasToRead && h.services.Analysis != nil {
+		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(r.Context(), owner, bookID)
+		if analysisErr != nil {
+			message = toReadAnalysisError(r.Context(), h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
+		} else {
+			message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
 		}
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(errorMessage))
-		return
-	}
-	message := action.Message
-	if message == "" {
-		message = "Book moved to To Read."
 	}
 	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&message="+url.QueryEscape(message))
 }
@@ -235,11 +233,6 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r).ID
-	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
-	if err != nil {
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
-		return
-	}
 	bookID := r.PathValue("id")
 	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
@@ -256,10 +249,8 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		fail(w, errors.New("book dispositions are unavailable"))
 		return
 	}
-	if err = dispositions.SetBookAsideAtJourneyRevision(r.Context(), owner, language, detail.Book.ID, expectedRevision); err != nil {
+	if err = dispositions.SetBookAside(r.Context(), owner, language, detail.Book.ID); err != nil {
 		switch {
-		case errors.Is(err, persistence.ErrJourneyStale):
-			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
 		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
 			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("Current reading cannot be set aside. Finish or clear it first."))
 		case errors.Is(err, persistence.ErrNotFound):

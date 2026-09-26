@@ -15,13 +15,13 @@ async function signIn(page: Page) {
 
 const representativePages: Array<[string, RegExp]> = [
   ['/library', /My Books/],
-  ['/journey/fixture-book', /Der lange Weg nach Hause/],
+  ['/reading#journey-book-fixture-book', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalogs/],
-  ['/journey', /Reading/],
+  ['/reading', /Reading/],
   ['/vocabulary', /Vocabulary/],
 ];
 
@@ -89,14 +89,13 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('dense analysis, deck provenance, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
-    await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
+    await page.goto('/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/jobs');
     await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(18);
-    await page.goto('/journey/fixture-book');
+    await page.goto('/reading#journey-book-fixture-book');
     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
@@ -125,8 +124,7 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.left, control.text).toBeGreaterThanOrEqual(-1);
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
-    await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
+    await page.goto('/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toBeVisible();
   });
 
@@ -143,30 +141,6 @@ test.describe('responsive and theme regression coverage', () => {
     for (const row of rows) {
       expect(row.bookWidth).toBeGreaterThan(200);
       expect(row.controlsWidth).toBeLessThan(row.rowWidth * 0.6);
-    }
-  });
-
-  test('compact Journey move controls stay adjacent and contained', async ({ page }) => {
-    test.skip(!test.info().project.name.startsWith('compact'), 'This contract applies to the compact layout.');
-    await signIn(page);
-    await page.goto('/reading');
-    const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
-      const reorder = node.querySelector<HTMLElement>('.journey-book__reorder');
-      const buttons = Array.from(reorder?.querySelectorAll('button') ?? []).map((button) => {
-        const box = button.getBoundingClientRect();
-        return { top: box.top, left: box.left, right: box.right };
-      });
-      const bounds = reorder?.getBoundingClientRect();
-      return { buttons, left: bounds?.left ?? 0, right: bounds?.right ?? 0 };
-    }));
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.buttons).toHaveLength(2);
-      expect(Math.abs(row.buttons[0].top - row.buttons[1].top)).toBeLessThanOrEqual(1);
-      for (const button of row.buttons) {
-        expect(button.left).toBeGreaterThanOrEqual(row.left - 1);
-        expect(button.right).toBeLessThanOrEqual(row.right + 1);
-      }
     }
   });
 

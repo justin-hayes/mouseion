@@ -31,10 +31,10 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 	erin, err := store.CreateUser(ctx, "goal-erin", false)
 	require.NoError(t, err)
 
-	aliceBook, _, _ := createJourneyFixture(t, ctx, store, alice.ID, "goal-active")
-	bobBook, _, _ := createJourneyFixture(t, ctx, store, bob.ID, "goal-queued")
-	_, _, _ = createJourneyFixture(t, ctx, store, dave.ID, "goal-complete")
-	_, _, _ = createJourneyFixture(t, ctx, store, erin.ID, "goal-abandoned")
+	aliceBook, _, _ := createReadingFixture(t, ctx, store, alice.ID, "goal-active")
+	bobBook, _, _ := createReadingFixture(t, ctx, store, bob.ID, "goal-queued")
+	_, _, _ = createReadingFixture(t, ctx, store, dave.ID, "goal-complete")
+	_, _, _ = createReadingFixture(t, ctx, store, erin.ID, "goal-abandoned")
 
 	goal, err := store.GetPrimaryGoal(ctx, carol.ID, "de")
 	require.NoError(t, err)
@@ -84,8 +84,8 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 	changed, err := store.ChangePrimaryGoal(ctx, carol.ID, "de", otherAliceBook.ID, noDeckBook.ID)
 	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
 	assert.Equal(t, domain.PrimaryGoal{}, changed, "cross-owner change goal")
-	replacementBook, replacementSource, _ := createJourneyFixture(t, ctx, store, carol.ID, "goal-replacement")
-	makeJourneyMemberAnalyzed(t, ctx, store, replacementBook, replacementSource)
+	replacementBook, replacementSource, _ := createReadingFixture(t, ctx, store, carol.ID, "goal-replacement")
+	makeAnalyzedToReadBook(t, ctx, store, replacementBook, replacementSource)
 	_, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, "stale-book")
 	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
 	changed, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, noDeckBook.ID)
@@ -114,18 +114,10 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "current-reading-bob", false)
 	require.NoError(t, err)
-	first, firstSource, _ := createJourneyFixture(t, ctx, store, alice.ID, "current-reading-first")
-	second, secondSource, _ := createJourneyFixture(t, ctx, store, alice.ID, "current-reading-second")
-	makeJourneyMemberAnalyzed(t, ctx, store, first, firstSource)
-	makeJourneyMemberAnalyzed(t, ctx, store, second, secondSource)
-	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", first.ID, journey.Revision)
-	require.NoError(t, err)
-	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", second.ID, journey.Revision)
-	require.NoError(t, err)
+	first, firstSource, _ := createReadingFixture(t, ctx, store, alice.ID, "current-reading-first")
+	second, secondSource, _ := createReadingFixture(t, ctx, store, alice.ID, "current-reading-second")
+	makeAnalyzedToReadBook(t, ctx, store, first, firstSource)
+	makeAnalyzedToReadBook(t, ctx, store, second, secondSource)
 
 	reading, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
 	require.NoError(t, err)
@@ -188,18 +180,14 @@ BEFORE UPDATE ON primary_goals FOR EACH ROW EXECUTE FUNCTION test_current_readin
 	assert.Equal(t, finished, replayed)
 }
 
-func TestCurrentReadingCanStartAnalyzedToReadBookOutsideJourney(t *testing.T) {
+func TestCurrentReadingCanStartAnalyzedToReadBookWithoutOrdering(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "current-reading-to-read", false)
 	require.NoError(t, err)
-	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "to-read-only")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
-	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "to-read-only")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	queueFailure := errors.New("prepared deck queue unavailable")
 	_, err = store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(context.Context, pgx.Tx, domain.PrimaryGoal) error {
@@ -226,9 +214,6 @@ func TestCurrentReadingCanStartAnalyzedToReadBookOutsideJourney(t *testing.T) {
 	assert.Equal(t, current, loaded)
 	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.ErrorIs(t, err, ErrGoalExists)
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, journey.Entries, "starting a To Read candidate does not require or create Journey membership")
 }
 
 func TestCurrentReadingStopAndSetAsideReleaseOnlyActiveSnapshotIdempotently(t *testing.T) {
@@ -237,12 +222,8 @@ func TestCurrentReadingStopAndSetAsideReleaseOnlyActiveSnapshotIdempotently(t *t
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "current-reading-transitions", false)
 	require.NoError(t, err)
-	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "current-reading-transition")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
-	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "current-reading-transition")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
@@ -307,13 +288,10 @@ func TestConcurrentCurrentReadingSwitchesKeepOneWinnerAndOneReservation(t *testi
 	require.NoError(t, err)
 	books := make([]domain.Book, 3)
 	for i, suffix := range []string{"switch-first", "switch-second", "switch-third"} {
-		book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, suffix)
-		makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+		book, source, _ := createReadingFixture(t, ctx, store, owner.ID, suffix)
+		makeAnalyzedToReadBook(t, ctx, store, book, source)
 		books[i] = book
-		journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-		require.NoError(t, err)
-		_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-		require.NoError(t, err)
+		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	}
 	initial, err := store.StartCurrentReading(ctx, owner.ID, "de", books[0].ID)
 	require.NoError(t, err)
@@ -365,25 +343,17 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 
 	owner, err := store.CreateUser(ctx, "goal-finish", false)
 	require.NoError(t, err)
-	book, bookSource, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish")
-	replacement, replacementSource, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish-replacement")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, bookSource)
-	makeJourneyMemberAnalyzed(t, ctx, store, replacement, replacementSource)
-	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", replacement.ID, journey.Revision)
-	require.NoError(t, err)
+	book, bookSource, _ := createReadingFixture(t, ctx, store, owner.ID, "finish")
+	replacement, replacementSource, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-replacement")
+	makeAnalyzedToReadBook(t, ctx, store, book, bookSource)
+	makeAnalyzedToReadBook(t, ctx, store, replacement, replacementSource)
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `
 CREATE FUNCTION test_reading_completion_failure() RETURNS trigger
 LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced reading completion failure'; END; $$;
 CREATE TRIGGER test_reading_completion_failure
-BEFORE DELETE ON reading_journey_membership
+BEFORE UPDATE ON book_dispositions
 FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
 	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
@@ -396,13 +366,10 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	goalAfterRollback, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, goalAfterRollback.BookID, "failed completion cleared Goal")
-	journeyAfterRollback, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	assert.Contains(t, journeyBookIDs(journeyAfterRollback), book.ID, "failed completion removed Book from Journey")
 	knownAfterRollback, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, knownAfterRollback, "failed completion changed Known vocabulary")
-	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_reading_completion_failure ON reading_journey_membership; DROP FUNCTION test_reading_completion_failure();`)
+	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_reading_completion_failure ON book_dispositions; DROP FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
 
 	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
@@ -419,9 +386,6 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	assert.Equal(t, book.ID, historyBook)
 	assert.Equal(t, "de", historyLanguage)
 	assert.False(t, completedAt.IsZero())
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	assert.NotContains(t, journeyBookIDs(journey), book.ID, "completed Book removed from Journey")
 
 	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
@@ -435,10 +399,7 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	assert.Equal(t, replacement.ID, goalAfterStale.BookID, "stale completion changed replacement Goal")
 	err = store.ClearPrimaryGoal(ctx, owner.ID, "de", replacement.ID)
 	require.NoError(t, err)
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	secondGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	second, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, secondGoal.SnapshotID)
@@ -458,8 +419,8 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-finish-concurrent", false)
 	require.NoError(t, err)
-	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "finish-concurrent")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-concurrent")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
@@ -510,12 +471,4 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, persisted.BookID)
-}
-
-func journeyBookIDs(journey domain.ReadingJourney) []string {
-	ids := make([]string, 0, len(journey.Entries))
-	for _, entry := range journey.Entries {
-		ids = append(ids, entry.BookID)
-	}
-	return ids
 }

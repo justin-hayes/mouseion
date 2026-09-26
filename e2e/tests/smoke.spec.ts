@@ -45,12 +45,6 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toHaveCount(0);
   });
 
-  test('legacy Journey entry redirects to the canonical Reading destination', async ({ page }) => {
-    await page.goto('/journey?expected_revision=obsolete');
-    await expect(page).toHaveURL('/reading');
-    await expect(page.getByRole('link', { name: 'Reading', exact: true })).toHaveAttribute('aria-current', 'page');
-  });
-
   test('active study language persists and marks new and no-book languages', async ({ page }) => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
@@ -91,90 +85,11 @@ test.describe('authenticated learner smoke', () => {
     await expect(page).toHaveURL(/\/reading$/);
     await expect(page.locator('main h1')).toContainText(/Reading in German|Choose your next book in German/);
 
-    await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
-    await expect(page.getByLabel('Study language')).toHaveValue('de');
   });
 
-  test('Journey bookmarks resolve from their canonical Book ID', async ({ page }) => {
-    await setStudyLanguage(page, 'de');
-    await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
-    await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
-    await expect(page.getByText('Acquire EPUB content')).toHaveCount(0);
-  });
-
-  test('completed Journey members open their Reading Journey anchor', async ({ page }) => {
-    await setStudyLanguage(page, 'de');
-    await page.goto('/journey/fixture-route-match');
-
-    await expect(page).toHaveURL('/reading#journey-book-fixture-route-match');
-    await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
-    await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Deck preparation', exact: true })).toHaveCount(1);
-  });
-
-  test('Journey books open the focused deck preparation task', async ({ page }) => {
-    await setStudyLanguage(page, 'de');
-    await page.goto('/reading');
-    const card = page.locator('#journey-book-fixture-route-match');
-    const deckLink = card.getByRole('button', { name: /Prepare deck|View deck preparation/ }).first();
-    await expect(deckLink).toHaveAttribute('href', '/reading/books/fixture-route-match/deck/preparations/new');
-    await deckLink.click();
-
-    await expect(page).toHaveURL('/reading/books/fixture-route-match/deck/preparations/new');
-    await expect(page.getByRole('heading', { name: 'Deck preparation task', exact: true })).toBeVisible();
-    await expect(page.getByText('fixture-route-match-run', { exact: true })).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: /sending selected vocabulary/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Back to this Book in Reading', exact: true })).toHaveAttribute('href', '/reading#journey-book-fixture-route-match');
-
-    const form = page.locator('form[action="/reading/books/fixture-route-match/deck/preparations"]');
-    await form.evaluate((element) => (element as HTMLFormElement).submit());
-    await expect(page).toHaveURL(/\/deck-preparations\/fixture-submitted-fixture-route-match-run\/status$/);
-    await expect(page.locator('#deck-preparation-status').getByText('Deck preparation queued', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', '/reading#journey-book-fixture-route-match');
-  });
-
-  test('Reading Journey bookmarks retain the active study language', async ({ page }) => {
-    await setStudyLanguage(page, 'de');
-    await page.goto('/journey/fixture-route-match');
-
-    await expect(page).toHaveURL('/reading#journey-book-fixture-route-match');
-    await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
-  });
-
-  test('cross-language Journey bookmarks offer an explicit language handoff', async ({ page }) => {
-    await setStudyLanguage(page, 'de');
-    await page.goto('/library');
-    await page.getByLabel('Study language').selectOption('it');
-    await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
-    await expect(page.getByRole('link', { name: 'Back to this Book in Reading', exact: true })).toHaveAttribute(
-      'href',
-      '/reading?language=de&language_handoff_book=fixture-route-match&language_handoff_language=de',
-    );
-    await page.goto('/journey/fixture-route-match');
-
-    await expect(page).toHaveURL(/\/reading\?language=de&language_handoff_book=fixture-route-match&language_handoff_language=de/);
-    await expect(page.getByRole('heading', { name: 'This Book is in German', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Switch to German and open this Book', exact: true })).toBeVisible();
-    await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
-
-    await page.getByRole('button', { name: 'Switch to German and open this Book', exact: true }).click();
-    await expect(page).toHaveURL('/reading#journey-book-fixture-route-match');
-    await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page.locator('#journey-book-fixture-route-match')).toBeVisible();
-  });
-
-  test('unavailable and non-member Journey bookmarks remain unavailable', async ({ page }) => {
-    const unavailable = await page.goto('/journey/fixture-empty');
-    expect(unavailable?.status()).toBe(404);
-    const nonMember = await page.goto('/journey/fixture-metadata-only');
-    expect(nonMember?.status()).toBe(404);
-    const unknown = await page.goto('/journey/not-owned-book');
-    expect(unknown?.status()).toBe(404);
+  test('retired Journey endpoints are unavailable', async ({ page }) => {
+    const route = await page.goto('/journey/fixture-book');
+    expect(route?.status()).toBe(404);
   });
 
   test('metadata-only book detail URLs are retired', async ({ page }) => {
@@ -233,7 +148,7 @@ test.describe('authenticated learner smoke', () => {
       await addToJourney.click();
     }
     // Idempotent end state for every project run over the shared fixture server:
-    // the book is (or just became) a Journey member, linked to its exact entry.
+    // the book is (or just became) To Read and links to its Reading card.
     await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
     await expect(page.locator('a[href="/reading#journey-book-fixture-failed"]')).toBeVisible();
   });
@@ -257,13 +172,12 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByRole('button', { name: 'Start learning' })).toHaveCount(0);
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
     await expect(page.getByText('To Read books', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('How coverage is shown', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
-    await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
+    await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/vocabulary');

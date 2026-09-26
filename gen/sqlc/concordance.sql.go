@@ -34,8 +34,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   JOIN corpus_tokens governor
     ON governor.owner_id = o.owner_id
@@ -86,7 +85,6 @@ type ListBookDependentsByGovernorLemmaRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error) {
@@ -129,7 +127,6 @@ func (q *Queries) ListBookDependentsByGovernorLemma(ctx context.Context, arg Lis
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -165,8 +162,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = $1
    AND o.language = $2
@@ -208,12 +204,9 @@ type ListBookOccurrencesByLemmaRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
-// Concordance occurrence queries read from the shared occurrence model. Book
-// position is the learner's Reading Journey position; analyzed Books outside
-// the Journey remain in study-language results with no position.
+// Concordance occurrence queries read from the shared occurrence model.
 func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error) {
 	rows, err := q.db.Query(ctx, listBookOccurrencesByLemma,
 		arg.Owner,
@@ -253,7 +246,6 @@ func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOc
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -288,8 +280,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = $1
     AND o.language = $2
@@ -333,7 +324,6 @@ type ListBookOccurrencesByLemmaAndDependencyRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListBookOccurrencesByLemmaAndDependency(ctx context.Context, arg ListBookOccurrencesByLemmaAndDependencyParams) ([]ListBookOccurrencesByLemmaAndDependencyRow, error) {
@@ -376,7 +366,6 @@ func (q *Queries) ListBookOccurrencesByLemmaAndDependency(ctx context.Context, a
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -411,8 +400,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = $1
    AND o.language = $2
@@ -452,7 +440,6 @@ type ListBookOccurrencesBySurfaceRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListBookOccurrencesBySurface(ctx context.Context, arg ListBookOccurrencesBySurfaceParams) ([]ListBookOccurrencesBySurfaceRow, error) {
@@ -493,7 +480,6 @@ func (q *Queries) ListBookOccurrencesBySurface(ctx context.Context, arg ListBook
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -528,8 +514,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = $1
     AND o.language = $2
@@ -571,7 +556,6 @@ type ListBookOccurrencesBySurfaceAndDependencyRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListBookOccurrencesBySurfaceAndDependency(ctx context.Context, arg ListBookOccurrencesBySurfaceAndDependencyParams) ([]ListBookOccurrencesBySurfaceAndDependencyRow, error) {
@@ -613,7 +597,6 @@ func (q *Queries) ListBookOccurrencesBySurfaceAndDependency(ctx context.Context,
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -648,8 +631,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   JOIN corpus_tokens governor
     ON governor.owner_id = o.owner_id
@@ -663,9 +645,7 @@ SELECT o.surface,
    AND governor.canonical_lemma = $3
    AND governor.upos = $4
    AND o.dependency = $5
- ORDER BY o.book_position NULLS LAST,
-          o.book_position_created_at NULLS LAST,
-          lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
@@ -701,7 +681,6 @@ type ListStudyLanguageDependentsByGovernorLemmaRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListStudyLanguageDependentsByGovernorLemma(ctx context.Context, arg ListStudyLanguageDependentsByGovernorLemmaParams) ([]ListStudyLanguageDependentsByGovernorLemmaRow, error) {
@@ -743,7 +722,6 @@ func (q *Queries) ListStudyLanguageDependentsByGovernorLemma(ctx context.Context
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -778,16 +756,13 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = $1
    AND o.language = $2
    AND o.canonical_lemma = $3
    AND o.upos = $4
- ORDER BY o.book_position NULLS LAST,
-          o.book_position_created_at NULLS LAST,
-          lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
@@ -822,7 +797,6 @@ type ListStudyLanguageOccurrencesByLemmaRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaParams) ([]ListStudyLanguageOccurrencesByLemmaRow, error) {
@@ -863,7 +837,6 @@ func (q *Queries) ListStudyLanguageOccurrencesByLemma(ctx context.Context, arg L
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -898,17 +871,14 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = $1
     AND o.language = $2
     AND o.canonical_lemma = $3
     AND o.upos = $4
     AND o.dependency = $5
-  ORDER BY o.book_position NULLS LAST,
-           o.book_position_created_at NULLS LAST,
-           lower(o.book_title), o.book_title, o.book_id,
+  ORDER BY lower(o.book_title), o.book_title, o.book_id,
            o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
@@ -944,7 +914,6 @@ type ListStudyLanguageOccurrencesByLemmaAndDependencyRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListStudyLanguageOccurrencesByLemmaAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesByLemmaAndDependencyParams) ([]ListStudyLanguageOccurrencesByLemmaAndDependencyRow, error) {
@@ -986,7 +955,6 @@ func (q *Queries) ListStudyLanguageOccurrencesByLemmaAndDependency(ctx context.C
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -1021,15 +989,12 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = $1
    AND o.language = $2
    AND o.surface = $3
- ORDER BY o.book_position NULLS LAST,
-          o.book_position_created_at NULLS LAST,
-          lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
@@ -1063,7 +1028,6 @@ type ListStudyLanguageOccurrencesBySurfaceRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceParams) ([]ListStudyLanguageOccurrencesBySurfaceRow, error) {
@@ -1099,7 +1063,6 @@ func (q *Queries) ListStudyLanguageOccurrencesBySurface(ctx context.Context, arg
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -1134,16 +1097,13 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = $1
     AND o.language = $2
     AND o.surface = $3
     AND o.dependency = $4
-  ORDER BY o.book_position NULLS LAST,
-           o.book_position_created_at NULLS LAST,
-           lower(o.book_title), o.book_title, o.book_id,
+  ORDER BY lower(o.book_title), o.book_title, o.book_id,
            o.unit_order, o.sentence_ordinal, o.token_ordinal
 `
 
@@ -1178,7 +1138,6 @@ type ListStudyLanguageOccurrencesBySurfaceAndDependencyRow struct {
 	UnitOrder           int64
 	SentenceOrdinal     int64
 	TokenOrdinal        int64
-	BookPosition        pgtype.Int4
 }
 
 func (q *Queries) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx context.Context, arg ListStudyLanguageOccurrencesBySurfaceAndDependencyParams) ([]ListStudyLanguageOccurrencesBySurfaceAndDependencyRow, error) {
@@ -1219,7 +1178,6 @@ func (q *Queries) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx context
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
-			&i.BookPosition,
 		); err != nil {
 			return nil, err
 		}

@@ -19,7 +19,6 @@ func requireHandler(t *testing.T, h http.Handler) *Handler {
 type allStoreCapabilities interface {
 	StudyLanguageStore
 	BookStore
-	JourneyStore
 	GoalStore
 	CurrentReadingStore
 	CatalogStore
@@ -31,7 +30,6 @@ func storeDependencies(store allStoreCapabilities) StoreDependencies {
 	return StoreDependencies{
 		StudyLanguages: store,
 		Books:          store,
-		Journey:        store,
 		Goals:          store,
 		CurrentReading: store,
 		Catalog:        store,

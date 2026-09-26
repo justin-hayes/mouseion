@@ -4,6 +4,22 @@
 -- analysis status/state classification are one SQL artifact instead of Go
 -- string stitching.
 
+-- name: BookExists :one
+SELECT EXISTS(
+  SELECT 1 FROM books
+  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('book')
+);
+
+-- name: ResolveLinkedSourceBook :one
+SELECT (COALESCE(sm.book_id::text, b.id::text, ''))::text AS linked_book_id
+FROM source_materials sm
+LEFT JOIN book_aliases a
+  ON a.owner_id = sm.owner_id
+ AND a.namespace = sqlc.arg('namespace')
+ AND a.value = sm.source_identifier
+LEFT JOIN books b ON b.owner_id = a.owner_id AND b.id = a.book_id
+WHERE sm.owner_id = sqlc.arg('owner') AND sm.id = sqlc.arg('source');
+
 -- name: ListActiveBooks :many
 SELECT b.id::text,
        b.owner_id::text,

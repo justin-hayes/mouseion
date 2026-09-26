@@ -28,7 +28,7 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := h.journeyEntryURLForSource(context.Background(), test.owner, test.sourceID)
+			got, err := h.readingBookURLForSource(context.Background(), test.owner, test.sourceID)
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, got, test.name)
 		})
@@ -37,7 +37,7 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 
 func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
 	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
-	urls, err := h.journeyEntryURLs(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
+	urls, err := h.readingBookURLs(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
 	require.NoError(t, err)
 
 	jobs := []domain.AnalysisJob{

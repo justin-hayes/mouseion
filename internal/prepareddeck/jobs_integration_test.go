@@ -179,10 +179,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.Equal(t, []byte("new-artifact"), newArtifact.Artifact)
 
-	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	var firstGoalPreparation Handle
 	firstGoal, err := store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.PrimaryGoal) error {
 		var queueErr error

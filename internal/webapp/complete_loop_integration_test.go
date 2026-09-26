@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
@@ -187,12 +186,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, metadataOnly.Acquired, "synced catalogue book was acquired before Journey action")
 
-	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	added := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/journey/add", url.Values{
-		"csrf_token":        {csrf},
-		"expected_revision": {strconv.FormatInt(journey.Revision, 10)},
-	}, cookies)
+	added := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, added.Code)
 
 	var detail domain.MyBook
@@ -268,11 +262,8 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	assert.Equal(t, http.StatusOK, chooser.Code)
 	assert.Contains(t, chooser.Body.String(), "Choose a To Read book when you are ready.")
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-
 	readAgain := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/read-again", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, readAgain.Code)
 	assert.Contains(t, readAgain.Header().Get("Location"), "disposition=to_read")
@@ -292,10 +283,6 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.Equal(t, 1, len(known))
 	assert.Equal(t, "haus", known[0].CanonicalLemma)
 	assert.Equal(t, "NOUN", known[0].UPOS)
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	require.Len(t, journey.Entries, 1, "Read again should restore Journey membership")
-	assert.Equal(t, bookID, journey.Entries[0].BookID)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), coverage.KnownTokenCount)

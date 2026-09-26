@@ -1,0 +1,80 @@
+//go:build integration
+
+package persistence
+
+import (
+	"context"
+	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+
+	// Seed the latest pre-cutover schema so migration 18 itself proves the
+	// membership-to-disposition contract and preserves unrelated durable state.
+	moveApplicationMigrations(t, databaseURL, -1)
+	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
+	require.NoError(t, err)
+	active, activeSource, deck := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
+	makeAnalyzedToReadBook(t, ctx, store, active, activeSource)
+	current, err := store.StartCurrentReading(ctx, owner.ID, "de", active.ID)
+	require.NoError(t, err)
+
+	finished, finishedSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "cutover-finished")
+	makeAnalyzedToReadBook(t, ctx, store, finished, finishedSource)
+	finishedReading, err := store.StartCurrentReading(ctx, owner.ID, "it", finished.ID)
+	require.NoError(t, err)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "it", finished.ID, finishedReading.SnapshotID)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `INSERT INTO reading_journeys(owner_id, language) VALUES ($1, 'de'), ($1, 'it') ON CONFLICT DO NOTHING`, owner.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO reading_journey_membership(owner_id, language, book_id, position) VALUES ($1, 'de', $2, 1), ($1, 'it', $3, 1)`, owner.ID, active.ID, finished.ID)
+	require.NoError(t, err)
+	// Delete the active book's disposition to model a legacy membership row
+	// without its successor representation.
+	_, err = pool.Exec(ctx, `DELETE FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, owner.ID, active.ID)
+	require.NoError(t, err)
+
+	moveApplicationMigrations(t, databaseURL, 1)
+
+	var tablePresent bool
+	require.NoError(t, pool.QueryRow(ctx, `SELECT to_regclass('public.reading_journey_membership') IS NOT NULL`).Scan(&tablePresent))
+	assert.False(t, tablePresent, "ordered membership table survived cutover")
+	require.NoError(t, pool.QueryRow(ctx, `SELECT to_regclass('public.reading_journeys') IS NOT NULL`).Scan(&tablePresent))
+	assert.False(t, tablePresent, "Journey revision table survived cutover")
+
+	disposition, err := store.GetBookDisposition(ctx, owner.ID, active.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "legacy membership was not contracted to To Read")
+	disposition, err = store.GetBookDisposition(ctx, owner.ID, finished.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, disposition, "cutover overwrote the finished Book's existing disposition")
+
+	loaded, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, current, loaded, "current reading changed during cutover")
+	var activeSnapshotCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NULL`, owner.ID, current.SnapshotID).Scan(&activeSnapshotCount))
+	assert.Equal(t, 1, activeSnapshotCount, "active reservation snapshot was not preserved")
+
+	var historyRows int
+	var historyBookID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*), max(book_id::text) FROM reading_history WHERE owner_id=$1 AND language='it'`, owner.ID).Scan(&historyRows, &historyBookID))
+	assert.Equal(t, 1, historyRows)
+	assert.Equal(t, finished.ID, historyBookID)
+
+	persistedDeck, err := store.GetDeckPreparation(ctx, owner.ID, deck.ID)
+	require.NoError(t, err)
+	assert.Equal(t, deck.ID, persistedDeck.ID)
+	artifact, err := store.DownloadDeckPreparation(ctx, owner.ID, deck.ID)
+	require.NoError(t, err)
+	assert.NotEmpty(t, artifact.Artifact)
+}

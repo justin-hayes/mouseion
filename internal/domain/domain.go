@@ -132,17 +132,16 @@ type SourceMaterialSummary struct {
 	Source SourceMaterial
 	// BookTitle is the canonical catalogue title when this source is projected
 	// onto its learner-facing Book identity.
-	BookTitle       string
-	BookAuthor      string
-	BookID          string
-	AnalysisStatus  string
-	AnalysisState   string
-	AnalysisRunID   string
-	CorpusID        string
-	AnalysisJobID   int64
-	JourneyMember   bool
-	JourneyGoal     bool
-	JourneyRevision int64
+	BookTitle      string
+	BookAuthor     string
+	BookID         string
+	AnalysisStatus string
+	AnalysisState  string
+	AnalysisRunID  string
+	CorpusID       string
+	AnalysisJobID  int64
+	IsToRead  bool
+	IsCurrentReading    bool
 }
 
 // EvidenceState classifies the raw acquisition and analysis signals for a
@@ -258,9 +257,6 @@ type ConcordanceOccurrence struct {
 	SourceMaterialID, AnalysisRunID, CorpusID string
 	UnitID, ChapterTitle                      string
 	UnitOrder, SentenceOrdinal, TokenOrdinal  int64
-	// BookPosition is the Reading Journey position, when the Book is a
-	// member; analyzed Books outside the Journey have no position.
-	BookPosition *int
 }
 
 type AnalysisJob struct {

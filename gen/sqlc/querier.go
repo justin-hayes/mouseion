@@ -19,9 +19,13 @@ type Querier interface {
 	AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) error
 	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
+	// Book identity and My Books evidence queries. The read models select from
+	// the my_books_evidence view (migration 000066, rebuilt over the shared
+	// source_material_evidence view in 000068) so the composed projection and its
+	// analysis status/state classification are one SQL artifact instead of Go
+	// string stitching.
 	BookExists(ctx context.Context, arg BookExistsParams) (bool, error)
 	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error)
-	BumpReadingJourneyRevision(ctx context.Context, arg BumpReadingJourneyRevisionParams) (int64, error)
 	CancelDeckPreparation(ctx context.Context, arg CancelDeckPreparationParams) (DeckPreparation, error)
 	CancelPreparedDeckBatchChunks(ctx context.Context, arg CancelPreparedDeckBatchChunksParams) error
 	CancelPreparedDeckOutcomes(ctx context.Context, arg CancelPreparedDeckOutcomesParams) error
@@ -62,17 +66,12 @@ type Querier interface {
 	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
-	DeleteNonChosenJourneyMembers(ctx context.Context, arg DeleteNonChosenJourneyMembersParams) ([]string, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error
-	DeletePrimaryGoalForBook(ctx context.Context, arg DeletePrimaryGoalForBookParams) error
-	DeleteReadingJourney(ctx context.Context, arg DeleteReadingJourneyParams) error
-	DeleteReadingJourneyMember(ctx context.Context, arg DeleteReadingJourneyMemberParams) error
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
 	DemoteBookCoverToPending(ctx context.Context, arg DemoteBookCoverToPendingParams) error
-	DerivedJourneyBooksExist(ctx context.Context, arg DerivedJourneyBooksExistParams) (bool, error)
 	DownloadDeckPreparation(ctx context.Context, arg DownloadDeckPreparationParams) (DeckPreparation, error)
 	EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error)
 	FailDeckPreparationTranslation(ctx context.Context, arg FailDeckPreparationTranslationParams) (int64, error)
@@ -108,7 +107,6 @@ type Querier interface {
 	// mutations synchronize this row until the Journey cutover is complete.
 	GetBookDisposition(ctx context.Context, arg GetBookDispositionParams) (string, error)
 	GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error)
-	GetBookLanguageState(ctx context.Context, arg GetBookLanguageStateParams) (GetBookLanguageStateRow, error)
 	GetBookMembershipForUpdate(ctx context.Context, arg GetBookMembershipForUpdateParams) (string, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
@@ -154,15 +152,13 @@ type Querier interface {
 	GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context, arg GetPreparedDeckTranslationOutcomeForUpdateParams) (DeckPreparationTranslationOutcome, error)
 	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
 	GetPrimaryGoal(ctx context.Context, arg GetPrimaryGoalParams) (GetPrimaryGoalRow, error)
+	// Reading Journey and Primary Goal queries. Current analysis eligibility comes
+	// from the current_analysis_identity view so the identity chain is not
+	// duplicated in application SQL.
 	GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBookIDParams) (string, error)
 	GetPrimaryGoalCandidateIdentity(ctx context.Context, arg GetPrimaryGoalCandidateIdentityParams) (GetPrimaryGoalCandidateIdentityRow, error)
 	GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
-	// Reading Journey and Primary Goal queries. Current analysis eligibility comes
-	// from the current_analysis_identity view so the identity chain is not
-	// duplicated in application SQL.
-	GetReadingJourney(ctx context.Context, arg GetReadingJourneyParams) (GetReadingJourneyRow, error)
-	GetReadingJourneyRevisionForUpdate(ctx context.Context, arg GetReadingJourneyRevisionForUpdateParams) (int64, error)
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
 	GetSourceContentRevisionByDigest(ctx context.Context, arg GetSourceContentRevisionByDigestParams) (string, error)
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
@@ -201,7 +197,6 @@ type Querier interface {
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error
 	InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error)
-	InsertReadingJourneyIfAbsent(ctx context.Context, arg InsertReadingJourneyIfAbsentParams) error
 	InsertSelectedSentence(ctx context.Context, arg InsertSelectedSentenceParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error)
@@ -210,22 +205,14 @@ type Querier interface {
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
 	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
-	// Book identity and My Books evidence queries. The read models select from
-	// the my_books_evidence view (migration 000066, rebuilt over the shared
-	// source_material_evidence view in 000068) so the composed projection and its
-	// analysis status/state classification are one SQL artifact instead of Go
-	// string stitching.
 	ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error)
 	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
-	ListAllReadingJourneyMembersForUpdate(ctx context.Context, arg ListAllReadingJourneyMembersForUpdateParams) ([]ListAllReadingJourneyMembersForUpdateRow, error)
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
 	ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error)
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
-	// Concordance occurrence queries read from the shared occurrence model. Book
-	// position is the learner's Reading Journey position; analyzed Books outside
-	// the Journey remain in study-language results with no position.
+	// Concordance occurrence queries read from the shared occurrence model.
 	ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error)
 	ListBookOccurrencesByLemmaAndDependency(ctx context.Context, arg ListBookOccurrencesByLemmaAndDependencyParams) ([]ListBookOccurrencesByLemmaAndDependencyRow, error)
 	ListBookOccurrencesBySurface(ctx context.Context, arg ListBookOccurrencesBySurfaceParams) ([]ListBookOccurrencesBySurfaceRow, error)
@@ -250,8 +237,6 @@ type Querier interface {
 	ListPreparedDeckTranslationOutcomes(ctx context.Context, arg ListPreparedDeckTranslationOutcomesParams) ([]DeckPreparationTranslationOutcome, error)
 	ListPrimaryGoalSnapshotCandidates(ctx context.Context, arg ListPrimaryGoalSnapshotCandidatesParams) ([]ListPrimaryGoalSnapshotCandidatesRow, error)
 	ListPrimaryGoalSnapshotVocabulary(ctx context.Context, arg ListPrimaryGoalSnapshotVocabularyParams) ([]ListPrimaryGoalSnapshotVocabularyRow, error)
-	ListReadingJourneyMembers(ctx context.Context, arg ListReadingJourneyMembersParams) ([]ListReadingJourneyMembersRow, error)
-	ListReadingJourneyMembersForUpdate(ctx context.Context, arg ListReadingJourneyMembersForUpdateParams) ([]ListReadingJourneyMembersForUpdateRow, error)
 	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
@@ -318,7 +303,7 @@ type Querier interface {
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error
-	ResolveJourneyLinkedBook(ctx context.Context, arg ResolveJourneyLinkedBookParams) (string, error)
+	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
 	RetireBookCoverCandidate(ctx context.Context, arg RetireBookCoverCandidateParams) (int64, error)
 	RetireDeckPreparationForGoalSnapshot(ctx context.Context, arg RetireDeckPreparationForGoalSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
@@ -361,7 +346,6 @@ type Querier interface {
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
 	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
-	UpsertReadingJourneyMemberPosition(ctx context.Context, arg UpsertReadingJourneyMemberPositionParams) error
 	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)

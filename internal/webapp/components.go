@@ -48,7 +48,7 @@ func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(boo
 func bookCoverURL(bookID string) string { return "/books/" + url.PathEscape(bookID) + "/cover" }
 
 func myBookInJourney(book domain.MyBook) bool {
-	return book.JourneyMember || book.JourneyGoal
+	return book.IsToRead || book.IsCurrentReading
 }
 
 func bookCoverLabel(cover domain.BookCover) string {
@@ -267,7 +267,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 	}
 	switch state {
 	case "stale":
-		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence in Reading.", "Re-analyze", journeyReanalyzeURL(bookID), StatusWarning, true}
+		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence in Reading.", "Re-analyze", readingReanalyzeURL(bookID), StatusWarning, true}
 	case "queued":
 		return bookLifecycleAction{"Analysis queued", "The EPUB snapshot is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
 	case "running":
@@ -278,7 +278,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", journeyEntryURL(bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", readingBookURL(bookID), StatusSuccess, false}
 		}
 	}
 

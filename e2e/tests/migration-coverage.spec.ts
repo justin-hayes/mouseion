@@ -30,21 +30,19 @@ test.describe('migration and epistemic regression coverage', () => {
     await expectPostFormsCarryCSRF(page);
   });
 
-  test('shows one learner order and concise forecast evidence', async ({ page }) => {
+  test('shows current reading and unordered To Read choices without forecasts', async ({ page }) => {
     await page.goto('/reading');
     await expect(page.locator('#primary-goal-heading')).toHaveText('Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveText('To Read books');
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
-    await expect(page.getByText('How coverage is shown', { exact: true })).toBeVisible();
     await expect(page.getByRole('list', { name: 'To Read books' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Reading coverage forecast' }).first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.locator('#provisional-journey-status')).toHaveAttribute('aria-live', 'polite');
     await expectPostFormsCarryCSRF(page);
-    await page.goto('/journey/fixture-book');
-    await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Study this Book's vocabulary|Confirm deck review|Release study/ })).toHaveCount(0);
+    const retiredJourneyRoute = await page.goto('/journey/fixture-book');
+    expect(retiredJourneyRoute?.status()).toBe(404);
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {

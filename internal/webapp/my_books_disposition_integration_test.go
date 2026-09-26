@@ -35,11 +35,8 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 		return book
 	}
 	inbox := create("Inbox book")
-	journeyBook := create("Journey book")
-	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", journeyBook.ID, journey.Revision)
-	require.NoError(t, err)
+	toReadBook := create("To Read book")
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionToRead))
 	setAside := create("Set aside book")
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, setAside.ID, domain.BookDispositionSetAside))
 	otherInbox := create("Another inbox book")
@@ -48,11 +45,11 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	inboxPage := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusOK, inboxPage.Code)
 	assert.Contains(t, inboxPage.Body.String(), "Inbox book")
-	assert.NotContains(t, inboxPage.Body.String(), "Journey book")
+	assert.NotContains(t, inboxPage.Body.String(), "To Read book")
 	assert.Contains(t, inboxPage.Body.String(), "Inbox (2)")
 
 	toRead := perform(t, h, http.MethodPost, "/library/books/"+inbox.ID+"/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"1"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
 	assert.Contains(t, toRead.Header().Get("Location"), "disposition=to_read")
@@ -63,12 +60,12 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
 	assert.Equal(t, http.StatusOK, toReadPage.Code)
 	assert.Contains(t, toReadPage.Body.String(), "Inbox book")
-	assert.Contains(t, toReadPage.Body.String(), "Journey book")
+	assert.Contains(t, toReadPage.Body.String(), "To Read book")
 	assert.NotContains(t, toReadPage.Body.String(), "Set aside book")
 	assert.Contains(t, toReadPage.Body.String(), "Set Aside")
 
 	setAsideResponse := perform(t, h, http.MethodPost, "/library/books/"+otherInbox.ID+"/set-aside", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"2"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, setAsideResponse.Code)
 	assert.Contains(t, setAsideResponse.Header().Get("Location"), "disposition=set_aside")
@@ -78,7 +75,7 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	removedBook := create("Removed from My Books")
 	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, removedBook.ID))
 	staleMove := perform(t, h, http.MethodPost, "/library/books/"+removedBook.ID+"/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"2"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusNotFound, staleMove.Code, "a stale Inbox form must not restore removed My Books membership")
 	actualDisposition, err = store.GetBookDisposition(ctx, alice.ID, removedBook.ID)
@@ -125,7 +122,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Zero(t, knownCount, "importing reading history must not mark vocabulary known")
 
 	reread := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/read-again", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"0"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, reread.Code)
 	assert.Contains(t, reread.Header().Get("Location"), "disposition=to_read")
@@ -137,10 +134,6 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: To Read")
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount))
 	assert.Equal(t, 1, historyCount, "rereading must preserve prior history")
-	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	require.Len(t, journey.Entries, 1, "reading again should return the Book to the Reading")
-	assert.Equal(t, book.ID, journey.Entries[0].BookID)
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, alice.ID).Scan(&knownCount))
 	assert.Zero(t, knownCount, "rereading must not mark vocabulary Known")
 }

@@ -25,7 +25,7 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/reading/books/metadata-book/journey/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/reading/books/metadata-book/to-read"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		assert.True(t, strings.Contains(html, want), "metadata-only My Books item missing %q: %s", want, html)
 	}
 	assert.False(t, strings.Contains(html, `href="/books/metadata-book"`), "metadata-only My Books row linked to the retired Book detail page: %s", html)
@@ -50,14 +50,13 @@ func TestMyBooksMetadataOnlyRowHidesRefreshWhenIneligible(t *testing.T) {
 
 func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 	book := domain.MyBook{
-		Book:            domain.Book{ID: "journey-book", OwnerID: "owner", Title: "Journey book"},
-		JourneyMember:   true,
-		JourneyRevision: 7,
+		Book:     domain.Book{ID: "journey-book", OwnerID: "owner", Title: "Journey book"},
+		IsToRead: true,
 	}
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, `action="/reading/books/journey-book/journey/add"`) || strings.Contains(html, "Move to To Read"), "existing Journey member still exposed add action: %s", html)
+	assert.False(t, strings.Contains(html, `action="/reading/books/journey-book/to-read"`) || strings.Contains(html, "Move to To Read"), "existing To Read book still exposed add action: %s", html)
 	assert.Contains(t, html, "To Read")
 	assert.Contains(t, html, "View in Reading")
 	assert.Contains(t, html, `href="/reading#journey-book-journey-book"`)
@@ -65,13 +64,13 @@ func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 
 func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 	book := domain.MyBook{
-		Book:        domain.Book{ID: "goal-book", OwnerID: "owner", Title: "Goal book"},
-		JourneyGoal: true,
+		Book:             domain.Book{ID: "goal-book", OwnerID: "owner", Title: "Goal book"},
+		IsCurrentReading: true,
 	}
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/journey/add"`) || strings.Contains(html, "Move to To Read"), "Goal member still exposed add action: %s", html)
+	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/to-read"`) || strings.Contains(html, "Move to To Read"), "current reading still exposed add action: %s", html)
 	assert.Contains(t, html, "To Read")
 	assert.Contains(t, html, `href="/reading#journey-book-goal-book"`)
 	assert.NotContains(t, html, "current reading")
@@ -79,8 +78,8 @@ func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 
 func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.T) {
 	book := domain.MyBook{
-		Book:          domain.Book{ID: "analyzed-book", OwnerID: "owner", Title: "Analyzed book"},
-		JourneyMember: true,
+		Book:     domain.Book{ID: "analyzed-book", OwnerID: "owner", Title: "Analyzed book"},
+		IsToRead: true,
 		Acquired: &domain.SourceMaterialSummary{
 			Source:         domain.SourceMaterial{ID: "source-analyzed-book", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
 			AnalysisStatus: "analyzed",
@@ -167,7 +166,7 @@ func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
 
 func TestMyBooksCoverGridUsesNativeListAndStablePresentationStates(t *testing.T) {
 	books := []domain.MyBook{
-		{Book: domain.Book{ID: "available", OwnerID: "owner", Title: "A very long title that remains fully visible", Author: "An author with a name long enough to wrap in a narrow grid item"}, Cover: domain.BookCover{State: domain.BookCoverAvailable, Width: 600, Height: 900}, JourneyMember: true},
+		{Book: domain.Book{ID: "available", OwnerID: "owner", Title: "A very long title that remains fully visible", Author: "An author with a name long enough to wrap in a narrow grid item"}, Cover: domain.BookCover{State: domain.BookCoverAvailable, Width: 600, Height: 900}, IsToRead: true},
 		{Book: domain.Book{ID: "pending", OwnerID: "owner", Title: "Pending cover"}, Cover: domain.BookCover{State: domain.BookCoverPending}},
 		{Book: domain.Book{ID: "unavailable", OwnerID: "owner", Title: "Unavailable cover"}, Cover: domain.BookCover{State: domain.BookCoverUnavailable}},
 		{Book: domain.Book{ID: "none", OwnerID: "owner", Title: "No advertised cover"}},

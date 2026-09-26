@@ -368,9 +368,9 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 }
 
 // RecordReadingFinishedPrimaryGoal atomically records completion, graduates the
-// frozen snapshot, removes the Book from the active Journey, and clears the
-// current Goal. The snapshot is the completion request identity, so retries
-// remain idempotent even after the Book is completed again in the future.
+// frozen snapshot, sets the Book aside, and clears the current reading. The
+// snapshot is the completion request identity, so retries remain idempotent
+// even after the Book is completed again in the future.
 func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (result ReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	tx, err := s.pool.Begin(ctx)
@@ -379,10 +379,6 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if err = lockReadingJourneyForCompletion(ctx, q, owner, language); err != nil {
-		return ReadingFinishResult{}, err
-	}
-
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		row, completionErr := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
@@ -453,10 +449,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		}
 		alreadyKnownCount = counts.SnapshotCount - graduatedCount
 	}
-	if err = removeCompletedGoalFromJourney(ctx, q, owner, language, expectedBookID); err != nil {
-		return ReadingFinishResult{}, err
-	}
-	if err = synchronizeBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionSetAside); err != nil {
+	if err = upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionSetAside); err != nil {
 		return ReadingFinishResult{}, err
 	}
 	if err = releasePrimaryGoalSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
@@ -469,55 +462,6 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		return ReadingFinishResult{}, err
 	}
 	return ReadingFinishResult{Completion: readingCompletionFromValues(completionRow.OwnerID, completionRow.Language, completionRow.BookID, completionRow.CompletedAt, completionRow.GoalSnapshotID, completionRow.SnapshotVocabularyCount, completionRow.EligibleVocabularyCount, graduatedCount, alreadyKnownCount)}, nil
-}
-
-func lockReadingJourneyForCompletion(ctx context.Context, q *sqlcgen.Queries, owner, language string) error {
-	_, err := q.GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: owner, Language: language})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	return err
-}
-
-func removeCompletedGoalFromJourney(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) error {
-	_, err := q.GetReadingJourneyRevisionForUpdate(ctx, sqlcgen.GetReadingJourneyRevisionForUpdateParams{Owner: owner, Language: language})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	members, err := q.ListAllReadingJourneyMembersForUpdate(ctx, sqlcgen.ListAllReadingJourneyMembersForUpdateParams{Owner: owner, Language: language})
-	if err != nil {
-		return err
-	}
-	memberIndex := -1
-	journeyMembers := make([]readingJourneyMembership, 0, len(members))
-	for _, member := range members {
-		journeyMembers = append(journeyMembers, readingJourneyMembership{bookID: member.BookID, position: member.Position, createdAt: member.CreatedAt})
-		if member.BookID == bookID {
-			memberIndex = len(journeyMembers) - 1
-		}
-	}
-	if memberIndex < 0 {
-		return nil
-	}
-	if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: owner, Language: language, Book: bookID}); err != nil {
-		return err
-	}
-	journeyMembers = append(journeyMembers[:memberIndex], journeyMembers[memberIndex+1:]...)
-	if err = rewriteReadingJourneyPositions(ctx, q, owner, language, journeyMembers); err != nil {
-		return err
-	}
-	derived, err := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})
-	if err != nil {
-		return err
-	}
-	if len(journeyMembers) == 0 && !derived {
-		return q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: owner, Language: language})
-	}
-	_, err = q.BumpReadingJourneyRevision(ctx, sqlcgen.BumpReadingJourneyRevisionParams{Owner: owner, Language: language})
-	return err
 }
 
 // ClearPrimaryGoal removes the language's Goal only when expectedBookID still

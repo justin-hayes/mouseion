@@ -119,10 +119,10 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	}
 	assert.Equal(t, "el", tags["Greek title"])
 	assert.Equal(t, "fr", tags["French title"])
-	var journeyBookID, retryBookID string
+	var toReadBookID, retryBookID string
 	for _, book := range books {
 		if book.Title == "First title" {
-			journeyBookID = book.ID
+			toReadBookID = book.ID
 			assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, book.ID), "first discovery did not enter Inbox")
 		}
 		if book.Title == "Greek title" {
@@ -130,12 +130,9 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 			assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, book.ID), "first discovery did not enter Inbox")
 		}
 	}
-	require.NotEmpty(t, journeyBookID, "first synced book was not found for Journey lifecycle check")
+	require.NotEmpty(t, toReadBookID, "first synced book was not found for disposition lifecycle check")
 	require.NotEmpty(t, retryBookID, "Greek synced book was not found for resync check")
-	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision)
-	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBookID, domain.BookDispositionToRead))
 	require.Len(t, reader.visited, 3)
 	assert.Equal(t, "7", reader.visited[0])
 	assert.Equal(t, "11", reader.visited[1])
@@ -179,7 +176,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, status.LastUpsertedCount)
-	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "metadata resync reset To Read")
+	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "metadata resync reset To Read")
 	var analysisRuns, analysisJobs int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, alice.ID).Scan(&analysisRuns)
 	require.NoError(t, err)
@@ -194,21 +191,18 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, aliases)
 	assert.Equal(t, 3, memberships)
-	journey, err = store.GetReadingJourney(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(ctx, alice.ID, "de", journeyBookID, journey.Revision)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID))
-	_, err = store.ImportPreviouslyRead(ctx, alice.ID, journeyBookID)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBookID, domain.BookDispositionSetAside))
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, toReadBookID))
+	_, err = store.ImportPreviouslyRead(ctx, alice.ID, toReadBookID)
 	require.NoError(t, err)
 	reader.feeds["7"] = opds.Feed{}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
 	assert.Len(t, books, 3)
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "upstream disappearance changed disposition")
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "upstream disappearance changed disposition")
 	var historyCount int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, journeyBookID).Scan(&historyCount)
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, toReadBookID).Scan(&historyCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, historyCount, "upstream disappearance erased reading history")
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Reappeared title", "Reappeared author")}}
@@ -218,12 +212,12 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, books, 3, "reappearing entry created a duplicate Book")
 	for _, book := range books {
-		if book.ID == journeyBookID {
+		if book.ID == toReadBookID {
 			assert.Equal(t, "Reappeared title", book.Title)
 			assert.Equal(t, "Reappeared author", book.Author)
 		}
 	}
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, journeyBookID), "reappearing entry reset disposition")
+	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "reappearing entry reset disposition")
 	require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}))
 	bobBooks, listErr := store.ListMyBooks(ctx, bob.ID)
 	require.NoError(t, listErr)

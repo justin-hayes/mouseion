@@ -283,7 +283,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	handle, _, _, _, err := h.ensureJourneyAnalysis(r.Context(), owner, bookID)
+	handle, _, _, _, err := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 	if err != nil {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Acquisition or analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."))
 		return

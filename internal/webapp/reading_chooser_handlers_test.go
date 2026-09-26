@@ -52,7 +52,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	dependencies := handler.services.Store
 	dependencies.Books = readingChooserBooks{Store: store, books: books}
 	handler.services.Store = dependencies
-	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{JourneyStore: store}}
+	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
@@ -83,13 +83,9 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Less(t, strings.Index(body, "Der lange Weg nach Hause"), strings.Index(body, "Route differs: new German"), "same-band candidates should be in neutral title order")
 }
 
-func TestReadingChooserRecoveryDoesNotRequireJourneyMembership(t *testing.T) {
+func TestReadingChooserRecoveryDoesNotRequireIsToReadship(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
-	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(context.Background(), fixtures.OwnerID, "de", "fixture-failed", journey.Revision)
-	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionToRead))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
@@ -123,15 +119,15 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	h.ServeHTTP(page, request)
 	require.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), "Route match: familiar German")
-	assert.Contains(t, page.Body.String(), "Current coverage")
-	assert.Contains(t, page.Body.String(), "After current reading coverage")
+	assert.NotContains(t, page.Body.String(), "On arrival")
+	assert.NotContains(t, page.Body.String(), "Lower bound")
 }
 
 func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
-	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
+	handler.services.AnalysisInsights = fixtures.Insights{}
 	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
 		readingRequest.AddCookie(cookie)
@@ -216,11 +212,6 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-route-match")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionSetAside, disposition)
-	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	for _, entry := range journey.Entries {
-		assert.NotEqual(t, "fixture-route-match", entry.BookID, "setting aside removes the Book from the active Journey")
-	}
 	retriedSetAside := goalRequest(t, h, "/reading/set-aside", url.Values{
 		"csrf_token":                   {csrf},
 		"expected_current_book_id":     {"fixture-route-match"},

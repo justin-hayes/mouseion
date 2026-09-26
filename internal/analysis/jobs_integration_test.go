@@ -593,7 +593,7 @@ func TestAnalysisCancellationKeepsDurableStateWhenRiverCleanupFails(t *testing.T
 	}
 }
 
-func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
+func TestAnalysisRunSurvivesDispositionChanges(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -610,10 +610,7 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startOnce, releaseOnce sync.Once
@@ -641,20 +638,11 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	case <-ctx.Done():
 		require.Fail(t, "analysis did not reach running state")
 	}
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
-	goal, goalErr := store.GetPrimaryGoal(ctx, owner.ID, "de")
-	require.NoError(t, goalErr)
-	assert.Empty(t, goal.BookID, "Goal after Journey removal")
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionSetAside))
 	var state string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&state))
-	assert.Equal(t, "running", state, "analysis state after Journey removal")
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	assert.Equal(t, "running", state, "analysis state after disposition change")
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	reused, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	require.NoError(t, err)
 	assert.Equal(t, handle.ID, reused.ID)
@@ -663,14 +651,8 @@ func TestAnalysisRunSurvivesJourneyRemovalAndReAdd(t *testing.T) {
 	status, err := service.Wait(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, status.State)
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
-	journey, err = store.GetReadingJourney(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, owner.ID, "de", book.ID, journey.Revision)
-	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	reusedCompleted, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	require.NoError(t, err)
 	assert.Equal(t, handle.ID, reusedCompleted.ID)

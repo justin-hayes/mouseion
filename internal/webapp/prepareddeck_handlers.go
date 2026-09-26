@@ -32,7 +32,7 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 	if !ok {
 		return
 	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, journeyBookLanguage(detail))
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
@@ -64,11 +64,11 @@ func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, o
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), owner, journeyBookLanguage(detail), &detail); err != nil {
+	if err := h.annotateBookToReadLanguage(r.Context(), owner, bookStudyLanguage(detail), &detail); err != nil {
 		fail(w, err)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	if !detail.JourneyMember {
+	if !detail.IsToRead {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -115,7 +115,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 	book.BookID = detail.Book.ID
 	book.BookTitle = detail.Book.Title
 	task := journeyDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, journeyBookLanguage(detail))
+	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
@@ -162,7 +162,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, journeyEntryOrLanguageHandoffURL(r.Context(), detail)))
+	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookOrLanguageHandoffURL(r.Context(), detail)))
 }
 
 func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
@@ -406,13 +406,13 @@ func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner strin
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
 		return "", nil
 	}
-	if err := h.annotateBookWithJourneyLanguage(ctx, owner, journeyBookLanguage(detail), &detail); err != nil {
+	if err := h.annotateBookToReadLanguage(ctx, owner, bookStudyLanguage(detail), &detail); err != nil {
 		return "", err
 	}
-	if !detail.JourneyMember {
+	if !detail.IsToRead {
 		return "", nil
 	}
-	return journeyEntryOrLanguageHandoffURL(ctx, detail), nil
+	return readingBookOrLanguageHandoffURL(ctx, detail), nil
 }
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {
