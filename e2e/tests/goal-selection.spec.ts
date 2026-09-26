@@ -9,13 +9,10 @@ async function signIn(page: Page) {
 }
 
 // The fixture server is shared by every project/worker, and other specs mutate
-// it (e.g. keyboard-focus completes the active learning campaign). This spec
-// therefore only asserts Goal facts that are stable across those mutations and
-// never changes the Goal: the goal book identity, the Clear affordance (present
-// directly or behind the residual-work confirmation), eligible To Read
-// controls, and the My Books disposition/link. The change/clear/reading-only/
-// residual transitions are covered by Go unit and integration tests against
-// isolated databases.
+// it (e.g. keyboard-focus completes a current reading). This spec asserts facts
+// stable across those mutations and never changes the current reading: its
+// identity, canonical controls, switch confirmation, and My Books disposition.
+// Reading lifecycle mutations are covered by Go tests against isolated stores.
 test.describe('Current reading selection', () => {
     test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
       await signIn(page);
@@ -87,10 +84,10 @@ test.describe('Current reading selection', () => {
       await expect(goal).toContainText('Current commitment');
       await expect(goal).toContainText('Reading state');
       await expect(goal).toContainText('Not yet marked finished');
-    // The goal card always offers a Clear form (directly, or via the
-    // residual-work confirmation when an active campaign still reserves
-    // vocabulary). It never offers to re-choose itself.
-     await expect(goal.locator('form[action="/goal/clear"]')).toHaveCount(1);
+    // Lifecycle controls are canonical Reading mutations; retired Goal forms
+    // are not present on the page.
+     await expect(goal.locator('form[action="/goal/clear"], form[action="/goal/finish"]')).toHaveCount(0);
+     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
      await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
       await expect(goal).toContainText('Deck preparation');
       await expect(goal).toContainText('Deck ready');
@@ -107,8 +104,8 @@ test.describe('Current reading selection', () => {
       await expect(provisional.filter({ hasText: 'Route evidence pending' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
       await expect(provisional.filter({ hasText: 'Route match: familiar German' })).toContainText('By Anja Roth');
       await expect(provisional.filter({ hasText: 'Route evidence pending' }).locator('.journey-book__author')).toHaveCount(0);
-      await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Start reading' })).toBeVisible();
-      await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Start reading' })).toBeVisible();
+       await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+       await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
 
       const eligible = provisional.filter({ hasText: 'Route match: familiar German' });
       const moreActions = eligible.locator('details.more-actions');
@@ -194,22 +191,4 @@ test.describe('Current reading selection', () => {
      await startBook(title);
    });
 
-   test('clearing current reading returns to the language-specific chooser', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture Goal runs once per browser suite.');
-    await signIn(page);
-    await page.getByLabel('Study language').selectOption('it');
-    await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/reading');
-    const currentReading = page.locator('#primary-goal-section');
-    if (await currentReading.count()) {
-      const goalMoreActions = currentReading.locator('details.more-actions');
-      await goalMoreActions.locator(':scope > summary').click();
-      await goalMoreActions.locator('.confirmation > summary').first().click();
-      await currentReading.locator('form[action="/goal/clear"] button').click();
-      await expect(page).toHaveURL(/\/reading\?message=/);
-      await expect(currentReading).toHaveCount(0);
-    }
-    await expect(page.getByRole('heading', { name: 'Choose your next book in Italian', exact: true })).toBeVisible();
-    await expect(page.getByLabel('Study language')).toHaveValue('it');
-  });
 });

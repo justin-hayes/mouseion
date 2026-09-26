@@ -23,9 +23,6 @@ type goalSectionView struct {
 
 const (
 	goalStaleMessage            = "This current reading changed since this page was loaded. No changes were made; review Reading before trying again."
-	goalConcurrentMessage       = "Another book became your current reading while you were choosing. No changes were made; review Reading before trying again."
-	goalUnavailableMessage      = "This book is not available in My Books."
-	goalIneligibleMessage       = "This book must be in To Read and have a successfully completed current analysis before it can be started."
 	goalLanguageRequiredMessage = "Choose a study language before starting a book."
 	goalDeckRetryMessage        = "Deck preparation retry queued."
 	goalDeckCancelledMessage    = "Deck preparation cancelled."
@@ -83,118 +80,12 @@ func (h *Handler) respondGoal(w http.ResponseWriter, r *http.Request, message, p
 	redirect(w, r, location)
 }
 
-func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) retryCurrentReadingDeck(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
-	language, _ := activeStudyLanguageForContext(r.Context())
-	bookID := strings.TrimSpace(r.PathValue("id"))
-	if bookID == "" {
-		h.respondGoal(w, r, "", "Choose a book before starting to read.", "")
-		return
-	}
-	if language == "" {
-		if _, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
-			h.respondGoal(w, r, "", goalUnavailableMessage, "")
-			return
-		} else if bookErr != nil {
-			fail(w, bookErr)
-			return
-		}
-		h.respondGoal(w, r, "", goalLanguageRequiredMessage, bookID)
-		return
-	}
-	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	var selectedGoal domain.PrimaryGoal
-	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	title := h.goalBookTitle(r.Context(), owner, bookID)
-	currentActive := current.IsActive()
-	if currentActive && current.BookID == bookID {
-		h.respondGoal(w, r, title+" is already your current reading.", "", bookID)
-		return
-	}
-	if currentActive && current.BookID != expectedBookID {
-		h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
-		return
-	}
-	if !currentActive {
-		if expectedBookID != "" {
-			h.respondGoal(w, r, "", goalStaleMessage, "")
-			return
-		}
-		selectedGoal, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
-		if errors.Is(err, persistence.ErrGoalExists) {
-			latest, readErr := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
-			if readErr != nil {
-				fail(w, readErr)
-				return
-			}
-			if latest.BookID == bookID {
-				h.respondGoal(w, r, title+" is already your current reading.", "", bookID)
-				return
-			}
-			h.respondGoal(w, r, "", goalConcurrentMessage, latest.BookID)
-			return
-		}
-		if errors.Is(err, persistence.ErrNotFound) {
-			h.respondGoal(w, r, "", goalUnavailableMessage, "")
-			return
-		}
-		if errors.Is(err, persistence.ErrGoalIneligible) {
-			h.respondGoal(w, r, "", goalIneligibleMessage, bookID)
-			return
-		}
-		if err != nil {
-			fail(w, err)
-			return
-		}
-	} else {
-		selectedGoal, err = h.services.Store.Goals.ChangePrimaryGoal(r.Context(), owner, language, bookID, expectedBookID)
-		if errors.Is(err, persistence.ErrGoalStale) {
-			h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
-			return
-		}
-		if errors.Is(err, persistence.ErrNotFound) {
-			if _, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); errors.Is(bookErr, persistence.ErrNotFound) {
-				h.respondGoal(w, r, "", goalUnavailableMessage, current.BookID)
-				return
-			} else if bookErr != nil {
-				fail(w, bookErr)
-				return
-			}
-			h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
-			return
-		}
-		if errors.Is(err, persistence.ErrGoalIneligible) {
-			h.respondGoal(w, r, "", goalIneligibleMessage, bookID)
-			return
-		}
-		if err != nil {
-			fail(w, err)
-			return
-		}
-	}
-	if selectedGoal.AnalysisRunID != "" && selectedGoal.SnapshotSize > 0 && h.services.PreparedDeck != nil {
-		_, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selectedGoal.AnalysisRunID, selectedGoal.SnapshotID)
-		if prepareErr != nil {
-			log.Printf("primary goal deck preparation owner=%s language=%s book=%s: %v", owner, language, selectedGoal.BookID, prepareErr)
-		}
-	}
-	message := title + " is your current reading."
-	h.respondGoal(w, r, message, "", bookID)
-}
-
-func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	owner := user(r).ID
-	goal, ok := h.currentPrimaryGoalForDeckAction(w, r, owner)
+	goal, ok := h.currentReadingForDeckAction(w, r, owner)
 	if !ok {
 		return
 	}
@@ -206,7 +97,7 @@ func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
 		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
 		return
 	}
-	_, err := h.submitOrRetryGoalDeck(r.Context(), owner, goal)
+	_, err := h.submitOrRetryCurrentReadingDeck(r.Context(), owner, goal)
 	if err != nil {
 		log.Printf("primary goal deck retry owner=%s book=%s: %v", owner, goal.BookID, err)
 		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
@@ -215,12 +106,12 @@ func (h *Handler) retryPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
 	h.respondGoal(w, r, goalDeckRetryMessage, "", goal.BookID)
 }
 
-func (h *Handler) cancelPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) cancelCurrentReadingDeck(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
-	goal, ok := h.currentPrimaryGoalForDeckAction(w, r, owner)
+	goal, ok := h.currentReadingForDeckAction(w, r, owner)
 	if !ok {
 		return
 	}
@@ -230,7 +121,7 @@ func (h *Handler) cancelPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	preparation, err := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID)
-	if err != nil || !goalPreparationMatches(preparation, owner, goal) {
+	if err != nil || !currentReadingPreparationMatches(preparation, owner, goal) {
 		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 			log.Printf("primary goal deck cancel lookup owner=%s book=%s: %v", owner, goal.BookID, err)
 		}
@@ -245,35 +136,40 @@ func (h *Handler) cancelPrimaryGoalDeck(w http.ResponseWriter, r *http.Request) 
 	h.respondGoal(w, r, goalDeckCancelledMessage, "", goal.BookID)
 }
 
-func (h *Handler) currentPrimaryGoalForDeckAction(w http.ResponseWriter, r *http.Request, owner string) (domain.PrimaryGoal, bool) {
+func (h *Handler) currentReadingForDeckAction(w http.ResponseWriter, r *http.Request, owner string) (domain.CurrentReading, bool) {
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
 		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
-		return domain.PrimaryGoal{}, false
+		return domain.CurrentReading{}, false
 	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
+	goal, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
-		return domain.PrimaryGoal{}, false
+		return domain.CurrentReading{}, false
 	}
 	if !goal.IsActive() || goal.BookID != strings.TrimSpace(r.PathValue("id")) {
 		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
-		return domain.PrimaryGoal{}, false
+		return domain.CurrentReading{}, false
 	}
-	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
+	if expectedSnapshotID == "" {
+		// Old focused-deck bookmarks remain safe: this identifies the same
+		// immutable snapshot and cannot mutate the current-reading lifecycle.
+		expectedSnapshotID = strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
+	}
 	if expectedSnapshotID == "" || goal.SnapshotID != expectedSnapshotID {
 		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
-		return domain.PrimaryGoal{}, false
+		return domain.CurrentReading{}, false
 	}
 	return goal, true
 }
 
-func (h *Handler) submitOrRetryGoalDeck(ctx context.Context, owner string, goal domain.PrimaryGoal) (prepareddeck.Handle, error) {
+func (h *Handler) submitOrRetryCurrentReadingDeck(ctx context.Context, owner string, goal domain.CurrentReading) (prepareddeck.Handle, error) {
 	if reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot); ok {
 		preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
 		switch {
 		case err == nil:
-			if !goalPreparationMatches(preparation, owner, goal) {
+			if !currentReadingPreparationMatches(preparation, owner, goal) {
 				return prepareddeck.Handle{}, persistence.ErrInvalidTransition
 			}
 			return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID, false)
@@ -284,54 +180,9 @@ func (h *Handler) submitOrRetryGoalDeck(ctx context.Context, owner string, goal 
 	return h.services.PreparedDeck.SubmitForGoal(ctx, owner, goal.AnalysisRunID, goal.SnapshotID)
 }
 
-func goalPreparationMatches(preparation domain.DeckPreparation, owner string, goal domain.PrimaryGoal) bool {
+func currentReadingPreparationMatches(preparation domain.DeckPreparation, owner string, goal domain.CurrentReading) bool {
 	return (preparation.OwnerID == "" || preparation.OwnerID == owner) &&
 		preparation.SourceMaterialID == goal.SourceMaterialID &&
 		preparation.AnalysisRunID == goal.AnalysisRunID &&
 		preparation.GoalSnapshotID == goal.SnapshotID
-}
-
-func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	owner := user(r).ID
-	language, _ := activeStudyLanguageForContext(r.Context())
-	if language == "" {
-		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
-		return
-	}
-	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if current.BookID == "" {
-		if expectedBookID != "" {
-			h.respondGoal(w, r, "", goalStaleMessage, "")
-		} else {
-			h.respondGoal(w, r, "No current reading was set.", "", "")
-		}
-		return
-	}
-	if current.BookID != expectedBookID {
-		h.respondGoal(w, r, "", goalStaleMessage, current.BookID)
-		return
-	}
-	err = h.services.Store.Goals.ClearPrimaryGoal(r.Context(), owner, language, expectedBookID)
-	if errors.Is(err, persistence.ErrGoalStale) {
-		h.respondGoal(w, r, "", goalStaleMessage, "")
-		return
-	}
-	if errors.Is(err, persistence.ErrNotFound) {
-		h.respondGoal(w, r, "Current reading cleared.", "", "")
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	message := "Current reading cleared."
-	h.respondGoal(w, r, message, "", "")
 }

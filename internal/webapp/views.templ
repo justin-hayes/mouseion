@@ -464,7 +464,7 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 		}
 		<ol class="journey-list" aria-label="To Read books">
 			for _, item := range journey.Provisional {
-				<li>@JourneyBookCard(item, false, csrf, journeyExpectedGoalBookID(journey))</li>
+				<li>@JourneyBookCard(item, false, csrf)</li>
 			}
 		</ol>
 	</div>
@@ -480,11 +480,11 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 		if goal == nil {
 			@EmptyState("No current Book yet", "Start an analyzed To Read book when you are ready to begin reading.")
 		} else {
-			@JourneyBookCard(*goal, true, csrf, "")
+			@JourneyBookCard(*goal, true, csrf)
 		}
 	</section>
 }
-templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedGoalBookID string) {
+templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Cover)</div><div class="journey-book__identity"><h3>
 	if journeyEntryAvailable(item) {
 		<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
@@ -529,10 +529,10 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedG
 				@GoalDeckPreparationStatus(csrf, journeyBookID(item), item.GoalSnapshotID, *item.GoalPreparation)
 			} else if item.GoalDeckMissing {
 				<p role="note" aria-live="polite"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The current reading and snapshot remain unchanged.</p>
-				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
 			} else if item.GoalDeckUnavailable {
 				<p role="note" aria-live="polite"><strong>Deck state: Unavailable.</strong> The current reading and snapshot remain unchanged.</p>
-				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
 			}
 		</section>
 	}
@@ -540,7 +540,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedG
 	if !primary {
 		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
 			if item.CanChooseGoal {
-				<form class="journey-book__goal-action" method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit">Start reading</button></form>
+				<a role="button" class="outline" href="/reading/switch">Switch current reading</a>
 			} else if item.GoalEligibilityReason != "" {
 				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
@@ -554,7 +554,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedG
 	} else {
 		<div class="goal-card__actions">
 				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
-				<form method="post" action="/goal/finish" hx-post="/goal/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
+				<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
 			}
 			<a role="button" class="outline" href="/reading/switch">Switch current reading</a>
 			@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
@@ -566,9 +566,6 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedG
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-				@Confirmation("Clear Current reading", "Clearing ends this current reading and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger) {
-					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Confirm clearing</button></form>
-				}
 				@SetAsideToReadAction(journeyBookID(item), csrf)
 				</div>
 			</details>
@@ -583,16 +580,16 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		if preparation.State == domain.DeckPreparationReady {
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-				<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Re-prepare deck</button></form>
+		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit">Re-prepare deck</button></form>
 			} else if deckPreparationEmpty(preparation) {
 				<p>No cards were created from this snapshot.</p>
 			} else {
 			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 		}
 	} else if deckPreparationActive(preparation) {
-		<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button class="outline secondary">Cancel preparation</button></form>
+		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="outline secondary">Cancel preparation</button></form>
 		if preparation.State == domain.DeckPreparationQueued {
-			<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
+			<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
 		}
 	} else {
 		if preparation.State == domain.DeckPreparationFailed {
@@ -600,7 +597,7 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		} else if preparation.State == domain.DeckPreparationCancelled {
 			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact reading snapshot when ready.")
 		}
-		<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
+		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
 	}
 }
 
@@ -649,7 +646,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
 				if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
-					<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare deck</button></form>
+					<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare deck</button></form>
 				} else {
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -676,7 +673,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
 			}
 			if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
-				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
 			} else {
 				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -1083,7 +1080,7 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 				@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckIsCurrentReading})
 			} else {
 				<p role="note"><strong>Deck state: Missing.</strong> This exact reading snapshot remains unchanged. Prepare it when ready.</p>
-				<form method="post" action={ templ.SafeURL("/goal/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
 			}
 		} else if task.Preparation != nil {
 			@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckIsToRead})

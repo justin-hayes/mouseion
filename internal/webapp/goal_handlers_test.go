@@ -105,7 +105,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goalHTML := renderGoalSection(t, &goal, "", "", "goal")
-	assert.True(t, strings.Contains(goalHTML, "Clear Current reading"), "Goal omitted clear action: %s", goalHTML)
+	assert.False(t, strings.Contains(goalHTML, "Clear Current reading"), "retired Goal clear action remained visible: %s", goalHTML)
 }
 
 func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) {
@@ -122,14 +122,14 @@ func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) 
 	first.CanChooseGoal = true
 	second.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a current reading."
 	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}}, "", "")
-	assert.Equal(t, 1, strings.Count(html, `action="/goal/books/first"`), "expected a choose form only for the eligible provisional card: %s", html)
-	assert.False(t, strings.Contains(html, `action="/goal/books/second"`), "expected a choose form only for the eligible provisional card: %s", html)
-	assert.True(t, strings.Contains(html, `name="expected_goal_book_id" value="goal"`), "provisional choose forms did not carry the current Book: %s", html)
-	assert.True(t, strings.Contains(html, `name="expected_goal_snapshot_id" value="goal-snapshot"`), "finish form did not carry the current Book snapshot: %s", html)
+	assert.NotContains(t, html, `action="/goal/books/`)
+	assert.Contains(t, html, `action="/reading/finish"`)
+	assert.True(t, strings.Contains(html, `name="expected_current_book_id" value="goal"`), "finish form did not carry the current Book: %s", html)
+	assert.True(t, strings.Contains(html, `name="expected_current_snapshot_id" value="goal-snapshot"`), "finish form did not carry the current Book snapshot: %s", html)
 	goalStart := strings.Index(html, `id="journey-book-goal"`)
 	goalEnd := strings.Index(html[goalStart:], "</article>")
 	goalCard := html[goalStart : goalStart+goalEnd]
-	assert.False(t, strings.Contains(goalCard, `action="/goal/books/`), "current Book card exposed a choose control: %s", goalCard)
+	assert.False(t, strings.Contains(goalCard, `action="/goal/books/`), "current Book card exposed a legacy Goal control: %s", goalCard)
 }
 
 func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
@@ -195,40 +195,46 @@ func goalRequest(t *testing.T, h http.Handler, path string, form url.Values, coo
 	return response
 }
 
-func TestGoalMutationRoutesAreIdempotent(t *testing.T) {
+func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	idempotent := goalRequest(t, h, "/goal/books/"+fixtures.BookID, url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+	idempotent := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, idempotent.Code)
-	assert.True(t, strings.Contains(idempotent.Header().Get("Location"), "already+your+current+reading"), "idempotent choose location=%q", idempotent.Header().Get("Location"))
+	assert.Contains(t, idempotent.Header().Get("Location"), "is+now+your+current+reading")
 
-	changed := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	changed := goalRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, changed.Code)
-	assert.True(t, strings.Contains(changed.Header().Get("Location"), "is+your+current+reading"), "change location=%q", changed.Header().Get("Location"))
+	assert.Contains(t, changed.Header().Get("Location"), "is+now+your+current+reading")
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", goal.BookID)
 
-	cleared := goalRequest(t, h, "/goal/clear", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {"fixture-route-match"},
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	cleared := goalRequest(t, h, "/reading/stop", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, cleared.Code)
-	clearedAgain := goalRequest(t, h, "/goal/clear", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {""}}, cookies)
+	clearedAgain := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
-	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+current+reading+was+set"), "idempotent clear location=%q", clearedAgain.Header().Get("Location"))
+	assert.NotContains(t, clearedAgain.Header().Get("Location"), "error=")
 }
 
-func TestGoalSelectionBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
+func TestReadingStartBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	store.SetGoalSnapshotVocabulary("fixture-goal-de-fixture-route-match", []domain.DeckPreparationVocabulary{{OwnerID: fixtures.OwnerID, Language: "de", CanonicalLemma: "snapshot-word", UPOS: "NOUN"}})
 
-	cleared := goalRequest(t, h, "/goal/clear", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}}, cookies)
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	cleared := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)
-	chosen := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {""}, "external_translation_consent": {"on"},
+	chosen := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{
+		"csrf_token": {csrf},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, chosen.Code)
 
@@ -240,8 +246,8 @@ func TestGoalSelectionBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
 	assert.Equal(t, goal.AnalysisRunID, preparation.AnalysisRunID)
 }
 
-func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
@@ -263,19 +269,6 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 		assert.True(t, strings.Contains(body, want), "Italian Journey page missing %q: %s", want, body)
 	}
 	assert.True(t, strings.Contains(body, `id="journey-book-fixture-italian-goal"`) && !strings.Contains(body, `id="journey-book-fixture-book"`), "Italian Journey page exposed the German Goal: %s", body)
-	cleared := goalRequest(t, h, "/goal/clear", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.ItalianGoalBookID},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, cleared.Code)
-	chosen := goalRequest(t, h, "/goal/books/"+fixtures.ItalianGoalBookID, url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {""},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, chosen.Code)
-	assert.True(t, strings.Contains(chosen.Header().Get("Location"), "is+your+current+reading"), "choose Italian Goal location=%q", chosen.Header().Get("Location"))
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, fixtures.BookID, goal.BookID)
-
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
@@ -307,9 +300,9 @@ func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 
-	response := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/retry", url.Values{
-		"csrf_token":                {csrf},
-		"expected_goal_snapshot_id": {"stale-snapshot"},
+	response := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/retry", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_snapshot_id": {"stale-snapshot"},
 	}, cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -334,9 +327,9 @@ func TestGoalDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
 	handler.services.Analysis = fixtures.Analysis{}
 	handler.services.PreparedDeck = preparedDeck
 
-	response := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/retry", url.Values{
-		"csrf_token":                {csrf},
-		"expected_goal_snapshot_id": {goal.SnapshotID},
+	response := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/retry", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -359,14 +352,14 @@ func TestGoalDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
 	handler := requireHandler(t, h)
 	handler.services.PreparedDeck = preparedDeck
 
-	stale := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/cancel", url.Values{
-		"csrf_token": {csrf}, "expected_goal_snapshot_id": {"stale-snapshot"},
+	stale := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/cancel", url.Values{
+		"csrf_token": {csrf}, "expected_current_snapshot_id": {"stale-snapshot"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
 	assert.Zero(t, preparedDeck.cancellations)
 
-	current := goalRequest(t, h, "/goal/books/"+goal.BookID+"/deck/cancel", url.Values{
-		"csrf_token": {csrf}, "expected_goal_snapshot_id": {goal.SnapshotID},
+	current := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/cancel", url.Values{
+		"csrf_token": {csrf}, "expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, current.Code)
 	assert.Equal(t, 1, preparedDeck.cancellations)
@@ -448,12 +441,12 @@ func performReadingRequest(t *testing.T, h http.Handler, method, path string, fo
 	return response
 }
 
-func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
+func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	goalBefore, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	finished := goalRequest(t, h, "/goal/finish", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {goalBefore.SnapshotID},
+	finished := goalRequest(t, h, "/reading/finish", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goalBefore.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
@@ -481,25 +474,25 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 2, graduated)
-	repeated := goalRequest(t, h, "/goal/finish", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {goalBefore.SnapshotID},
+	repeated := goalRequest(t, h, "/reading/finish", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goalBefore.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, repeated.Code)
 	assert.True(t, strings.Contains(repeated.Body.String(), "Reading finished"), "idempotent finish body=%s", repeated.Body.String())
 	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
 }
 
-func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
+func TestCurrentReadingFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	stale := goalRequest(t, h, "/goal/finish", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {"stale-book"},
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	stale := goalRequest(t, h, "/reading/finish", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {"stale-book"}, "expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
 	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+current+reading+changed"), "stale finish location=%q", stale.Header().Get("Location"))
-	missingCSRF := goalRequest(t, h, "/goal/finish", url.Values{"expected_goal_book_id": {fixtures.BookID}}, cookies)
+	missingCSRF := goalRequest(t, h, "/reading/finish", url.Values{"expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goal.SnapshotID}}, cookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 	assert.Equal(t, fixtures.BookID, goal.BookID, "rejected finish changed Goal=%+v", goal)
 }
 
@@ -529,22 +522,24 @@ func TestPrimaryGoalFinishOutcomeExplainsEmptySnapshot(t *testing.T) {
 	assert.NotContains(t, html, "celebrat")
 }
 
-func TestPrimaryGoalFinishEmptySnapshotThroughAuthenticatedHandler(t *testing.T) {
+func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	cleared := goalRequest(t, h, "/goal/clear", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	cleared := goalRequest(t, h, "/reading/stop", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)
-	chosen := goalRequest(t, h, "/goal/books/"+fixtures.BookID, url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {""},
+	chosen := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{
+		"csrf_token": {csrf},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, chosen.Code)
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Zero(t, goal.SnapshotSize)
 
-	finished := goalRequest(t, h, "/goal/finish", url.Values{
-		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {goal.SnapshotID},
+	finished := goalRequest(t, h, "/reading/finish", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{

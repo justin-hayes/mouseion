@@ -55,8 +55,9 @@ test.describe('migration and epistemic regression coverage', () => {
     await disclosure.locator('summary').press('Enter');
     await expect(goal).toContainText('Record the reading achievement');
     await expect(goal).toContainText(/accept \d+ currently eligible frozen Reserved identities into Known vocabulary/);
-    await expect(goal.locator('form[action="/goal/finish"] input[name="csrf_token"]')).toHaveCount(1);
-    await expect(goal.locator('form[action="/goal/finish"] input[name="expected_goal_book_id"]')).toHaveCount(1);
+    await expect(goal.locator('form[action="/reading/finish"] input[name="csrf_token"]')).toHaveCount(1);
+    await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_book_id"]')).toHaveCount(1);
+    await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
 
     await page.goto('/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();

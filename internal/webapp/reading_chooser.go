@@ -305,7 +305,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
 		return
 	}
-	current, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, language)
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -316,8 +316,8 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 	}
 	selected := current
 	if !current.IsActive() {
-		selected, err = h.services.Store.Goals.CreatePrimaryGoal(r.Context(), owner, language, bookID)
-		if errors.Is(err, persistence.ErrGoalExists) {
+		selected, err = h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner, language, bookID)
+		if errors.Is(err, persistence.ErrCurrentReadingExists) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("Another book became current while you were choosing. Review Reading before trying again."))
 			return
 		}
@@ -325,7 +325,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		if errors.Is(err, persistence.ErrGoalIneligible) {
+		if errors.Is(err, persistence.ErrCurrentReadingIneligible) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."))
 			return
 		}

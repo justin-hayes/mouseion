@@ -94,13 +94,6 @@ func canonicalBookAuthor(book domain.SourceMaterialSummary) string {
 	return strings.TrimSpace(book.BookAuthor)
 }
 
-func journeyExpectedGoalBookID(journey journeyPageView) string {
-	if journey.Goal == nil {
-		return ""
-	}
-	return journeyBookID(*journey.Goal)
-}
-
 func goalSectionFocusID(bookID string) string {
 	// On full-page renders no HTMX swap will run, so an empty focus target keeps
 	// the section free of a stale data-focus-id that could redirect attention
@@ -692,7 +685,7 @@ func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book
 	preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
 	switch {
 	case err == nil:
-		if !goalPreparationMatches(preparation, owner, goal) {
+		if !currentReadingPreparationMatches(preparation, owner, goal) {
 			log.Printf("mouseion: Goal deck provenance mismatch for owner %s snapshot %s", owner, goal.SnapshotID)
 			return
 		}

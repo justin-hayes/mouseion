@@ -19,12 +19,13 @@ test('Current reading exposes an accessible reading-finish action', async ({ pag
   const finishDisclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
   if (await finishDisclosure.count() === 0) return;
 
-  const finishForm = finishDisclosure.locator('form[action="/goal/finish"]');
+  const finishForm = finishDisclosure.locator('form[action="/reading/finish"]');
   await finishDisclosure.locator('summary').click();
   await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
   await expect(goal).toContainText('Record the reading achievement');
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);
-  await expect(finishForm.locator('input[name="expected_goal_book_id"]')).toHaveCount(1);
+  await expect(finishForm.locator('input[name="expected_current_book_id"]')).toHaveCount(1);
+  await expect(finishForm.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(1);
 });
 
 test('finishing current reading records Read history and supports reading again', async ({ page }) => {

@@ -206,10 +206,8 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NotEmpty(t, detail.Acquired.AnalysisRunID, "completed current analysis=%+v", detail.Acquired)
 	require.NotEmpty(t, detail.Acquired.CorpusID, "completed current analysis=%+v", detail.Acquired)
 
-	chosen := perform(t, h, http.MethodPost, "/goal/books/"+bookID, url.Values{
-		"csrf_token":                   {csrf},
-		"expected_goal_book_id":        {""},
-		"external_translation_consent": {"on"},
+	chosen := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/start", url.Values{
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, chosen.Code)
 	assert.Contains(t, chosen.Header().Get("Location"), "/reading")
@@ -251,10 +249,10 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), reservedCoverage.KnownTokenCount)
 	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount)
-	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{
-		"csrf_token":                {csrf},
-		"expected_goal_book_id":     {bookID},
-		"expected_goal_snapshot_id": {goal.SnapshotID},
+	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {bookID},
+		"expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
