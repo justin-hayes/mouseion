@@ -42,11 +42,6 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	before, err := h.buildJourneyView(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
 	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrGoalStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
@@ -62,7 +57,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outcome := primaryGoalFinishView{
-		BookTitle:                h.finishBookTitle(r.Context(), owner, before, result.Completion.BookID),
+		BookTitle:                h.finishBookTitle(r.Context(), owner, result.Completion.BookID),
 		GraduatedVocabularyCount: result.Completion.GraduatedVocabularyCount,
 		AlreadyKnownCount:        result.Completion.AlreadyKnownVocabularyCount,
 	}
@@ -74,11 +69,12 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	render(w, r, PrimaryGoalFinishPage(user(r), h.csrf(w, r), outcome))
 }
 
-func (h *Handler) finishBookTitle(ctx context.Context, owner string, before journeyPageView, bookID string) string {
-	if before.Goal != nil && journeyBookID(*before.Goal) == bookID {
-		return canonicalBookTitle(before.Goal.Book)
+func (h *Handler) finishBookTitle(ctx context.Context, owner, bookID string) string {
+	book, err := h.services.Store.Books.GetBook(ctx, owner, bookID)
+	if err == nil && strings.TrimSpace(book.Title) != "" {
+		return book.Title
 	}
-	return h.goalBookTitle(ctx, owner, bookID)
+	return bookID
 }
 
 func finishGraduationText(outcome primaryGoalFinishView) string {

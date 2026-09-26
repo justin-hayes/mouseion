@@ -54,7 +54,6 @@ My Books
     -> Prepare and read, preserving independent facts
     -> Record Reading finished
     -> Accept the Goal snapshot into modeled Known vocabulary
-    -> Recalculate remaining Journey from actual state
     -> Choose what to read next (`/reading`)
     -> Choose, reorder, add/remove, or remain between Goals
 ```

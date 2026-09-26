@@ -585,8 +585,6 @@ func journeyCardForecast(t *testing.T, html, bookID string) string {
 
 func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	handler := requireHandler(t, h)
-	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
 	goalBefore, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	finished := goalRequest(t, h, "/goal/finish", url.Values{
