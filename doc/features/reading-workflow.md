@@ -33,6 +33,10 @@ language, or presents the learner with an unordered chooser between Books.
    no ordinary Remove from My Books action; the retired removal request cannot
    remove membership or erase the Book, its evidence, history, or artifacts.
 
+The current product and architecture decision is [ADR
+0078](../adr/0078-book-dispositions-and-current-reading.md). ADR 0072 records
+the superseded Goal/ordered-Journey model as historical context.
+
 ## Interaction and recovery contract
 
 - The chooser has no learner-authored sequence, ranking, forecast, or suggested
