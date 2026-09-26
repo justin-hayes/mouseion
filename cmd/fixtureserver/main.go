@@ -29,10 +29,10 @@ func main() {
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Journey: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store}
+	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store}
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
-		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{JourneyStore: store}, KnownVocab: fixtures.KnownVocab{},
+		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{Store: store}, Capabilities: fixtures.Capabilities{},
 		CatalogueSync: catalogueSync,
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,

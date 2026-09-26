@@ -35,15 +35,13 @@ var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for
 var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
-var ErrJourneyStale = errors.New("persistence: reading journey state is stale")
 var ErrBookIsPrimaryGoal = errors.New("persistence: current Primary Goal cannot be set aside")
 var ErrGoalExists = errors.New("persistence: primary goal already exists")
 
 var ErrGoalStale = errors.New("persistence: primary goal state is stale")
-var ErrGoalIneligible = errors.New("persistence: primary goal requires an analyzed Journey member")
+var ErrGoalIneligible = errors.New("persistence: current reading requires an analyzed To Read book")
 var ErrReadingAlreadyCompleted = errors.New("persistence: Book has already been completed")
-var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before adding to Reading Journey")
-var ErrJourneyLanguageRequired = errors.New("persistence: Journey language is required")
+var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before moving to To Read")
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
 var ErrFenced = ErrPreparedDeckClaimLost
 var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")

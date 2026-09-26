@@ -10,6 +10,31 @@ import (
 	"time"
 )
 
+const bookExists = `-- name: BookExists :one
+
+SELECT EXISTS(
+  SELECT 1 FROM books
+  WHERE owner_id = $1 AND id = $2
+)
+`
+
+type BookExistsParams struct {
+	Owner string
+	Book  string
+}
+
+// Book identity and My Books evidence queries. The read models select from
+// the my_books_evidence view (migration 000066, rebuilt over the shared
+// source_material_evidence view in 000068) so the composed projection and its
+// analysis status/state classification are one SQL artifact instead of Go
+// string stitching.
+func (q *Queries) BookExists(ctx context.Context, arg BookExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, bookExists, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
@@ -397,7 +422,6 @@ func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams
 }
 
 const listActiveBooks = `-- name: ListActiveBooks :many
-
 SELECT b.id::text,
        b.owner_id::text,
        b.title,
@@ -425,11 +449,6 @@ type ListActiveBooksRow struct {
 	UpdatedAt          time.Time
 }
 
-// Book identity and My Books evidence queries. The read models select from
-// the my_books_evidence view (migration 000066, rebuilt over the shared
-// source_material_evidence view in 000068) so the composed projection and its
-// analysis status/state classification are one SQL artifact instead of Go
-// string stitching.
 func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error) {
 	rows, err := q.db.Query(ctx, listActiveBooks, owner)
 	if err != nil {
@@ -517,4 +536,28 @@ func (q *Queries) ListMyBooksEvidence(ctx context.Context, owner string) ([]MyBo
 		return nil, err
 	}
 	return items, nil
+}
+
+const resolveLinkedSourceBook = `-- name: ResolveLinkedSourceBook :one
+SELECT (COALESCE(sm.book_id::text, b.id::text, ''))::text AS linked_book_id
+FROM source_materials sm
+LEFT JOIN book_aliases a
+  ON a.owner_id = sm.owner_id
+ AND a.namespace = $1
+ AND a.value = sm.source_identifier
+LEFT JOIN books b ON b.owner_id = a.owner_id AND b.id = a.book_id
+WHERE sm.owner_id = $2 AND sm.id = $3
+`
+
+type ResolveLinkedSourceBookParams struct {
+	Namespace string
+	Owner     string
+	Source    string
+}
+
+func (q *Queries) ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error) {
+	row := q.db.QueryRow(ctx, resolveLinkedSourceBook, arg.Namespace, arg.Owner, arg.Source)
+	var linked_book_id string
+	err := row.Scan(&linked_book_id)
+	return linked_book_id, err
 }

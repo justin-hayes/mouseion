@@ -145,13 +145,7 @@ func concordanceOccurrenceFromFields(
 	bookStartOffset, bookEndOffset int64,
 	bookID, bookTitle, sourceMaterialID, analysisRunID, corpusID, unitID, chapterTitle string,
 	unitOrder, sentenceOrdinal, tokenOrdinal int64,
-	bookPosition int,
-	bookPositionValid bool,
 ) domain.ConcordanceOccurrence {
-	var position *int
-	if bookPositionValid {
-		position = &bookPosition
-	}
 	return domain.ConcordanceOccurrence{
 		Surface: surface, CanonicalLemma: canonicalLemma, UPOS: upos,
 		Dependency: dependency, HeadOrdinal: headOrdinal, HeadSurface: headSurface,
@@ -162,7 +156,7 @@ func concordanceOccurrenceFromFields(
 		BookID: bookID, BookTitle: bookTitle, SourceMaterialID: sourceMaterialID,
 		AnalysisRunID: analysisRunID, CorpusID: corpusID, UnitID: unitID,
 		ChapterTitle: chapterTitle, UnitOrder: unitOrder, SentenceOrdinal: sentenceOrdinal,
-		TokenOrdinal: tokenOrdinal, BookPosition: position,
+		TokenOrdinal: tokenOrdinal,
 	}
 }
 
@@ -192,7 +186,7 @@ func mapConcordanceRows[T concordanceSQLRow](rows []T) []domain.ConcordanceOccur
 			commonRow.BookID, commonRow.BookTitle, commonRow.SourceMaterialID,
 			commonRow.AnalysisRunID, commonRow.CorpusID, commonRow.UnitID,
 			commonRow.ChapterTitle, commonRow.UnitOrder, commonRow.SentenceOrdinal,
-			commonRow.TokenOrdinal, int(commonRow.BookPosition.Int32), commonRow.BookPosition.Valid,
+			commonRow.TokenOrdinal,
 		))
 	}
 	return occurrences

@@ -2,8 +2,6 @@ package fixtures
 
 import (
 	"context"
-	"errors"
-	"sync"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
@@ -12,27 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestStoreMoveReadingJourneyEntryMutatesAndProtectsRevision(t *testing.T) {
-	store := NewStore()
-	ctx := context.Background()
-	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	revision, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 1, journey.Revision)
-	require.NoError(t, err, "move revision=%d err=%v", revision, err)
-	assert.Equal(t, journey.Revision+1, revision, "move revision=%d err=%v", revision, err)
-	journey, err = store.GetReadingJourney(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	require.Len(t, journey.Entries, 4, "reordered journey=%+v", journey.Entries)
-	assert.Equal(t, edgeBookID, journey.Entries[0].BookID, "reordered journey=%+v", journey.Entries)
-	assert.Equal(t, 1, journey.Entries[0].Position, "reordered journey=%+v", journey.Entries)
-	assert.Equal(t, 2, journey.Entries[1].Position, "reordered journey=%+v", journey.Entries)
-	_, err = store.MoveReadingJourneyEntry(ctx, OwnerID, "it", "fixture-empty", 1, revision-1)
-	assert.ErrorIs(t, err, persistence.ErrJourneyStale, "stale move error=%v", err) //nolint:testifylint // Stale-write classification and the following clamped move are independent.
-	unchanged, err := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 0, revision)
-	require.NoError(t, err, "clamped move revision=%d err=%v", unchanged, err)
-	assert.Equal(t, revision, unchanged, "clamped move revision=%d err=%v", unchanged, err)
-}
 
 func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	ctx := context.Background()
@@ -173,39 +150,7 @@ func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	assert.Equal(t, "de", result.Counts[0].Tag, "canonical browse result=%+v", result)
 }
 
-func TestStoreConcurrentJourneyMovesAcceptOnlyOneRevision(t *testing.T) {
-	store := NewStore()
-	ctx := context.Background()
-	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	var wait sync.WaitGroup
-	results := make(chan error, 2)
-	wait.Add(2)
-	for range 2 {
-		go func() {
-			defer wait.Done()
-			_, moveErr := store.MoveReadingJourneyEntry(ctx, OwnerID, "it", edgeBookID, 1, journey.Revision)
-			results <- moveErr
-		}()
-	}
-	wait.Wait()
-	close(results)
-	var successes, stale int
-	for moveErr := range results {
-		switch {
-		case moveErr == nil:
-			successes++
-		case errors.Is(moveErr, persistence.ErrJourneyStale):
-			stale++
-		default:
-			require.Failf(t, "concurrent move produced an unexpected error", "concurrent move error=%v", moveErr)
-		}
-	}
-	assert.Equal(t, 1, successes, "concurrent move results successes=%d stale=%d", successes, stale)
-	assert.Equal(t, 1, stale, "concurrent move results successes=%d stale=%d", successes, stale)
-}
-
-func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyThatLanguage(t *testing.T) {
+func TestStoreCurrentReadingIsIndependentByLanguage(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
@@ -225,18 +170,6 @@ func TestStorePrimaryGoalsAreIndependentByLanguageAndJourneyRemovalClearsOnlyTha
 	require.NoError(t, err, "Italian Goal after clear=%+v err=%v", itGoal, err)
 	assert.Empty(t, itGoal.BookID, "Italian Goal after clear=%+v err=%v", itGoal, err)
 
-	_, err = store.CreatePrimaryGoal(ctx, OwnerID, "it", ItalianGoalBookID)
-	require.NoError(t, err, "recreate Italian Goal: %v", err)
-	journey, err := store.GetReadingJourney(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	_, err = store.RemoveFromReadingJourney(ctx, OwnerID, "it", ItalianGoalBookID, journey.Revision)
-	require.NoError(t, err, "remove Italian Goal member: %v", err)
-	itGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "it")
-	require.NoError(t, err, "Italian Goal after Journey removal=%+v err=%v", itGoal, err)
-	assert.Empty(t, itGoal.BookID, "Italian Goal after Journey removal=%+v err=%v", itGoal, err)
-	deGoal, err = store.GetPrimaryGoal(ctx, OwnerID, "de")
-	require.NoError(t, err, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
-	assert.Equal(t, BookID, deGoal.BookID, "German Goal after Italian Journey removal=%+v err=%v", deGoal, err)
 }
 
 func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
@@ -283,7 +216,7 @@ func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
 	assert.Equal(t, finished, replayed)
 }
 
-func TestFixtureJourneyBooksExposeDeterministicCoverStates(t *testing.T) {
+func TestFixtureToReadBooksExposeDeterministicCoverStates(t *testing.T) {
 	store := NewStore()
 	books, err := store.ListMyBooksWithEvidence(context.Background(), OwnerID)
 	require.NoError(t, err)
@@ -337,10 +270,7 @@ func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testin
 	first, err := store.RecordReadingFinishedPrimaryGoal(ctx, OwnerID, "de", BookID, firstGoal.SnapshotID)
 	require.NoError(t, err)
 
-	journey, err := store.GetReadingJourney(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, OwnerID, "de", BookID, journey.Revision)
-	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, OwnerID, BookID, domain.BookDispositionToRead))
 	secondGoal, err := store.CreatePrimaryGoal(ctx, OwnerID, "de", BookID)
 	require.NoError(t, err)
 	assert.NotEqual(t, firstGoal.SnapshotID, secondGoal.SnapshotID)
@@ -440,18 +370,6 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 	require.NoError(t, err, "wrong connection refresh=%+v err=%v", result, err)
 	assert.True(t, result.Missing, "wrong connection refresh=%+v err=%v", result, err)
 	assert.False(t, result.Failed, "wrong connection refresh=%+v err=%v", result, err)
-}
-
-func TestFixtureNeedsLanguageBookCannotJoinJourney(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	journey, err := store.GetReadingJourney(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	_, err = store.AddToReadingJourney(ctx, OwnerID, "de", "fixture-metadata-only", journey.Revision)
-	assert.ErrorIs(t, err, persistence.ErrBookLanguageRequired, "unknown-language Journey add error=%v", err) //nolint:testifylint // Rejection and unchanged-Journey lookup are independent expectations.
-	unchanged, err := store.GetReadingJourney(ctx, OwnerID, "de")
-	require.NoError(t, err, "unknown-language add changed Journey=%+v err=%v", unchanged, err)
-	assert.Equal(t, journey.Revision, unchanged.Revision, "unknown-language add changed Journey=%+v err=%v", unchanged, err)
 }
 
 func TestFixtureReservedVocabularyFollowsPrimaryGoalSnapshot(t *testing.T) {

@@ -15,28 +15,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-func (h *Handler) journeyEntry(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("bookID"))
-	if !ok {
-		return
-	}
-	if detail.Acquired == nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, journeyBookLanguage(detail), &detail); err != nil {
-		fail(w, err)
-		return
-	}
-	if !detail.JourneyMember || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
-		http.NotFound(w, r)
-		return
-	}
-	redirect(w, r, journeyEntryOrLanguageHandoffURL(r.Context(), detail))
-}
-
 func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
 	reader := h.services.Store.Covers
 	bookID := strings.TrimSpace(r.PathValue("id"))
@@ -162,7 +140,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 			fail(w, readErr)
 			return
 		}
-		if err := h.annotateBookWithJourney(r.Context(), u.ID, &row); err != nil {
+		if err := h.annotateBookToRead(r.Context(), u.ID, &row); err != nil {
 			fail(w, err)
 			return
 		}
@@ -184,7 +162,7 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 		if !ok {
 			return
 		}
-		if err := h.annotateBookWithJourney(r.Context(), u.ID, &book); err != nil {
+		if err := h.annotateBookToRead(r.Context(), u.ID, &book); err != nil {
 			fail(w, err)
 			return
 		}
@@ -229,15 +207,15 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, journeyBookLanguage(detail), &detail); err != nil {
+	if err := h.annotateBookToReadLanguage(r.Context(), u.ID, bookStudyLanguage(detail), &detail); err != nil {
 		fail(w, err)
 		return
 	}
-	if !detail.JourneyMember {
+	if !detail.IsToRead {
 		http.NotFound(w, r)
 		return
 	}
-	redirect(w, r, journeyEntryOrLanguageHandoffURL(r.Context(), detail))
+	redirect(w, r, readingBookOrLanguageHandoffURL(r.Context(), detail))
 }
 
 func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {

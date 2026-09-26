@@ -24,83 +24,19 @@ window.escapeHtml = function (s) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 };
-window.resetJourneyReorder = function (list) {
-  if (!list) return;
-  list.removeAttribute('aria-busy');
-  var content = list.querySelector('#provisional-journey-content');
-  if (content) content.removeAttribute('aria-busy');
-  var status = list.querySelector('#provisional-journey-status');
-  if (status) status.removeAttribute('aria-busy');
-  list.querySelectorAll('button[data-journey-reorder-was-enabled]').forEach(function (button) {
-    button.disabled = false;
-    button.removeAttribute('data-journey-reorder-was-enabled');
-  });
-};
-window.showJourneyReorderError = function (target, text) {
-  var list = target && target.closest && target.closest('#provisional-journey-list');
-  if (!list) return false;
-  window.resetJourneyReorder(list);
-  var status = list.querySelector('#provisional-journey-status');
-  if (status) {
-    status.textContent = 'Reading order could not be updated. Reload Reading and try again.';
-  }
-  var previousError = target.querySelector('[data-journey-reorder-error]');
-  if (previousError) previousError.remove();
-  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/reading">Reload Reading and try again.</a></p></article>');
-  target.querySelector('[data-journey-reorder-error]').focus();
-  return true;
-};
-window.recoverJourneyReorderRequest = function (source, message) {
-  var targetSelector = source && source.getAttribute('hx-target');
-  var target = targetSelector ? document.querySelector(targetSelector) : null;
-  if (target) window.showJourneyReorderError(target, message);
-};
 document.addEventListener('htmx:responseError', function (evt) {
   var target = evt.detail.target;
   if (!target) return;
   var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
-  if (window.showJourneyReorderError(target, text)) return;
   var workflowNode = target.closest && target.closest('[data-workflow]');
   var workflow = workflowNode ? workflowNode.getAttribute('data-workflow') : 'This operation';
   target.innerHTML = '<article role="alert"><strong>' + window.escapeHtml(workflow) + ' could not be updated:</strong> ' + window.escapeHtml(text) + '<p><small>Review this operation or try again.</small></p></article>';
-});
-document.addEventListener('htmx:sendError', function (evt) {
-  var source = evt.detail && evt.detail.elt;
-  window.recoverJourneyReorderRequest(source, 'The request could not reach the server.');
-});
-document.addEventListener('htmx:timeout', function (evt) {
-  var source = evt.detail && evt.detail.elt;
-  window.recoverJourneyReorderRequest(source, 'The request timed out before the saved order was returned.');
 });
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
   if (!form) return;
   var button = form.querySelector('button[type="submit"]');
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }
-});
-document.addEventListener('submit', function (evt) {
-  var form = evt.target.closest && evt.target.closest('form[data-journey-reorder]');
-  if (!form) return;
-  var list = form.closest('#provisional-journey-list');
-  if (!list) return;
-  var content = list.querySelector('#provisional-journey-content');
-  if (!content) return;
-  if (content.getAttribute('aria-busy') === 'true') {
-    evt.preventDefault();
-    evt.stopImmediatePropagation();
-    return;
-  }
-  content.setAttribute('aria-busy', 'true');
-  var status = document.getElementById('provisional-journey-status');
-  if (status) {
-    status.textContent = 'Updating Reading order...';
-  }
-  list.querySelectorAll('form[data-journey-reorder] button[type="submit"]').forEach(function (button) {
-    if (!button.disabled) {
-      button.disabled = true;
-      button.setAttribute('data-journey-reorder-was-enabled', 'true');
-    }
-  });
 });
 document.addEventListener('submit', async function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');
@@ -184,9 +120,6 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 			if (!focusID) return;
 			var swappedTarget = evt.detail && evt.detail.target;
 			if (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;
-			if (id === 'provisional-journey-content' && swappedTarget && swappedTarget.id === id) {
-				window.resetJourneyReorder(document.getElementById('provisional-journey-list'));
-			}
 			var source = evt.detail && evt.detail.elt;
 			var targetSelector = source && source.getAttribute('hx-target');
 			var target = targetSelector ? document.querySelector(targetSelector) : null;
@@ -212,24 +145,10 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
-templ JourneyMembershipAction(bookID string, member bool, revision int64, csrf string) {
-	if bookID != "" {
-		if member {
-			<p><strong>To Read.</strong> <a href={ templ.SafeURL("/reading#" + journeyBookAnchorID(bookID)) }>View in Reading</a></p>
-			@RemoveJourneyMembershipAction(bookID, revision, csrf)
-		} else {
-			<form method="post" action={ templ.SafeURL(journeyAddURL(bookID)) }>
-				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
-				<button type="submit">Move to To Read</button>
-			</form>
-		}
-	}
-}
-
-templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) {
+templ SetAsideToReadAction(bookID, csrf string) {
 	@Confirmation("Remove from To Read", "This changes only the Book's To Read status. Queued or running analysis continues, acquired content and completed analysis remain, and the current Book cannot be removed from To Read.", StatusDanger) {
 		<form method="post" action={ templ.SafeURL(journeyRemoveURL(bookID)) }>
-			<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
+			<input type="hidden" name="csrf_token" value={ csrf }/>
 			<button type="submit" class="outline secondary">Confirm removal</button>
 		</form>
 	}
@@ -238,7 +157,7 @@ templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) 
 templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) {
 	<li id={ myBookRowID(book.Book.ID) } class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 		if myBookInJourney(book) {
-			<a class="library-book__identity-link" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }>
+			<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
 				@BookCoverMedia(book.Book.ID, book.Cover)
 				<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
 			</a>
@@ -260,14 +179,14 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		}
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
-				<a class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
+				<a class="outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
 			}
 			if book.Disposition != "" {
 				<p class="metadata"><strong>Workflow</strong>: { myBooksDispositionLabel(myBookDisposition(book)) }</p>
 				if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
 					if book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<button type="submit" class="outline library-book__journey-action">Move to To Read</button>
 						</form>
 					} else {
@@ -275,21 +194,21 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					}
 				}
 			} else if !myBookInJourney(book) {
-				<form method="post" action={ templ.SafeURL(journeyAddURL(book.Book.ID)) }>
-					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
+				<form method="post" action={ templ.SafeURL(toReadURL(book.Book.ID)) }>
+					<input type="hidden" name="csrf_token" value={ csrf }/>
 					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.JourneyGoal {
+					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.IsCurrentReading {
 						@Confirmation("Mark as previously read", "This records one completion from before Mouseion. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
 							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm previously read</button></form>
 						}
 					}
 					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
-						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/><button type="submit" class="outline secondary">Read again</button></form>
+						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Read again</button></form>
 					}
 					if refreshEligible {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
@@ -297,10 +216,10 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 							<button type="submit" class="outline">Refresh metadata</button>
 						</form>
 					}
-					if book.Disposition != "" && (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.JourneyGoal {
+					if book.Disposition != "" && (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.IsCurrentReading {
 						@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
 							<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
-								<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
+								<input type="hidden" name="csrf_token" value={ csrf }/>
 								<button type="submit" class="outline secondary">Confirm set aside</button>
 							</form>
 						}
@@ -500,11 +419,6 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			@ReadingLanguageHandoff(*journey.LanguageHandoff, journey.LanguageLabel, journey.ActiveLanguageLabel, csrf)
 		}
 		@GoalSection(journey.Goal, csrf, "", "", "")
-		<details class="journey-coverage-note">
-			<summary>How coverage is shown</summary>
-			<p><strong>Current coverage</strong> is the present coverage from Known vocabulary. <strong>After finishing this Book</strong> models its frozen Reserved vocabulary after it is accepted into Known vocabulary.</p>
-			<p><strong>On arrival coverage</strong> models trustworthy recurring vocabulary from earlier To Read books. It is a forecast, not a claim about what you know now.</p>
-		</details>
 		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">To Read books</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
@@ -515,7 +429,7 @@ templ ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLab
 	<section class="language-handoff" aria-labelledby="language-handoff-heading">
 		<h2 id="language-handoff-heading">This Book is in { handoff.LanguageLabel }</h2>
 		<p><strong>{ handoff.BookTitle }</strong> is in { handoff.LanguageLabel }. This Reading page is showing { pageLanguageLabel }, while your saved study language is { activeLanguageLabel }. This request does not change the saved language; switch it if you want { handoff.LanguageLabel } to become active.</p>
-		<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ handoff.Language }/><input type="hidden" name="return_to" value={ journeyEntryURL(handoff.BookID) }/><button type="submit">Switch to { handoff.LanguageLabel } and open this Book</button></form>
+		<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ handoff.Language }/><input type="hidden" name="return_to" value={ readingBookURL(handoff.BookID) }/><button type="submit">Switch to { handoff.LanguageLabel } and open this Book</button></form>
 	</section>
 }
 
@@ -546,9 +460,6 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 		if announce && statusMessage != "" {
 			<div hx-swap-oob="innerHTML:#provisional-journey-status">{ statusMessage }</div>
 		}
-		if journey.ForecastUnavailable {
-			<p role="status"><strong>Reading forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/reading">Retry forecast</a>.</p>
-		}
 		if len(journey.Provisional) == 0 {
 			@EmptyState("No other To Read books", "There are no other To Read books in this language. Add or reconsider books from My Books when you are ready.") {
 				<a role="button" class="outline" href="/library">Browse My Books</a>
@@ -556,7 +467,7 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 		}
 		<ol class="journey-list" aria-label="To Read books">
 			for _, item := range journey.Provisional {
-				<li>@JourneyBookCard(item, false, csrf, journey.Revision, journeyExpectedGoalBookID(journey))</li>
+				<li>@JourneyBookCard(item, false, csrf, journeyExpectedGoalBookID(journey))</li>
 			}
 		</ol>
 	</div>
@@ -572,14 +483,14 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 		if goal == nil {
 			@EmptyState("No current Book yet", "Start an analyzed To Read book when you are ready to begin reading.")
 		} else {
-			@JourneyBookCard(*goal, true, csrf, 0, "")
+			@JourneyBookCard(*goal, true, csrf, "")
 		}
 	</section>
 }
-templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedRevision int64, expectedGoalBookID string) {
+templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedGoalBookID string) {
 	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Cover)</div><div class="journey-book__identity"><h3>
 	if journeyEntryAvailable(item) {
-		<a href={ templ.SafeURL(journeyEntryURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+		<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 	} else {
 		{ canonicalBookTitle(item.Book) }
 	}
@@ -636,20 +547,10 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			} else if item.GoalEligibilityReason != "" {
 				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
-			<div class="journey-book__reorder" role="group" aria-label={ "Move "+canonicalBookTitle(item.Book) }>
-				<form method="post" action={ journeyMoveURL(journeyBookID(item), true) } hx-post={ journeyMoveURL(journeyBookID(item), true) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
-					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
-					<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" earlier" } disabled?={ !item.CanMoveEarlier }>Move earlier</button>
-				</form>
-				<form method="post" action={ journeyMoveURL(journeyBookID(item), false) } hx-post={ journeyMoveURL(journeyBookID(item), false) } hx-target="#provisional-journey-content" hx-swap="outerHTML" data-journey-reorder>
-					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", expectedRevision) }/>
-					<button type="submit" class="outline" aria-label={ "Move "+canonicalBookTitle(item.Book)+" later" } disabled?={ !item.CanMoveLater }>Move later</button>
-				</form>
-			</div>
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-				@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
+				@SetAsideToReadAction(journeyBookID(item), csrf)
 				</div>
 			</details>
 		</div>
@@ -671,7 +572,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 				@Confirmation("Clear Current reading", "Clearing ends this current reading and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger) {
 					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Confirm clearing</button></form>
 				}
-				@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
+				@SetAsideToReadAction(journeyBookID(item), csrf)
 				</div>
 			</details>
 			<p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p>
@@ -715,7 +616,6 @@ templ JourneyEvidence(item journeyBookView, csrf string, primary bool) {
 			}
 		}
 	}
-	@JourneyForecast(item, primary)
 }
 
 func journeyEntryAvailable(item journeyBookView) bool {
@@ -860,7 +760,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		</div>
 	}
 }
-templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, journeyEntryURLs map[string]string) {
+templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, readingBookURLs map[string]string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
 		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
 		if message != "" {
@@ -876,7 +776,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 				<thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>
-						if url := journeyEntryURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+						if url := readingBookURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
 							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
@@ -889,13 +789,13 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 	}
 }
 
-templ JobPage(user domain.User, csrf string, status analysis.Status, journeyEntryURL string) {
+templ JobPage(user domain.User, csrf string, status analysis.Status, readingBookURL string) {
 	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
-		@JobStatus(csrf, status, journeyEntryURL)
+		@JobStatus(csrf, status, readingBookURL)
 	}
 }
-templ JobStatus(csrf string, status analysis.Status, journeyEntryURL string) {
+templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status)) {
 		if status.Error != "" {
 			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when you are ready.")
@@ -910,9 +810,9 @@ templ JobStatus(csrf string, status analysis.Status, journeyEntryURL string) {
 		}
 		if status.CorpusID != "" {
 			if status.LogicalState == "completed" {
-					if status.SourceMaterialID != "" && status.RunID != "" && journeyEntryURL != "" {
+					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
 						<p>Analysis complete. Continue with this book in Reading.</p>
-						<a role="button" class="outline" href={ templ.SafeURL(journeyEntryURL) }>View in Reading</a>
+						<a role="button" class="outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
@@ -1048,17 +948,17 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 			}
 			if action.State == deckJourneyNotMember {
 				<p><strong>Not in To Read.</strong> Move this book to To Read from My Books when you are ready.</p>
-				<form method="post" action={ templ.SafeURL(journeyAddURL(action.BookID)) } hx-post={ templ.SafeURL(journeyAddURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
-					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", action.Revision) }/>
+				<form method="post" action={ templ.SafeURL(toReadURL(action.BookID)) } hx-post={ templ.SafeURL(toReadURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
+					<input type="hidden" name="csrf_token" value={ csrf }/>
 					if action.PreparationID != "" {
 						<input type="hidden" name="deck_preparation_id" value={ action.PreparationID }/>
 					}
 					<button type="submit">Move to To Read</button>
 				</form>
-			} else if action.State == deckJourneyMember {
+			} else if action.State == deckIsToRead {
 				<p><strong>To Read.</strong> This book is already in To Read.</p>
 				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View in Reading</a></p>
-			} else if action.State == deckJourneyGoal {
+			} else if action.State == deckIsCurrentReading {
 				<p><strong>Current Book.</strong> This deck is preparation for the Book you are reading now.</p>
 				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View current book in Reading</a></p>
 			}
@@ -1066,7 +966,7 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 	}
 }
 
-templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, journeyEntryURLs map[string]string) {
+templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, readingBookURLs map[string]string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
 		@PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil)
 		if message != "" {
@@ -1089,7 +989,7 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 				<thead><tr><th>Kind</th><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>Analysis</td><td>
-						if url := journeyEntryURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+						if url := readingBookURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
 							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
@@ -1124,59 +1024,6 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 		}
 		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>
 	}
-}
-
-templ JourneyForecast(item journeyBookView, primary bool) {
-	<section class="journey-forecast" aria-label="Reading coverage forecast">
-		<ol class="journey-forecast__stages" aria-label="Coverage stages">
-			for _, stage := range journeyForecastStages(item, primary) {
-				<li class="journey-forecast__stage">
-					<span class="journey-forecast__label">{ stage.Label }</span>
-					<div class="journey-forecast__detail">
-						if stage.Coverage != nil {
-							<span class="journey-forecast__value numeric">{ journeyForecastCoverageLabel(stage.Coverage) }</span>
-							if delta := journeyForecastDeltaLabel(stage.Coverage, stage.Comparison); delta != "" {
-								if delta == "No change" {
-									<span class="journey-forecast__delta">{ delta }</span>
-								} else {
-									<span class="journey-forecast__delta">Change from { stage.ComparisonLabel }: { delta }</span>
-								}
-							}
-						} else if stage.Qualifier == "No current Book" {
-							<span class="journey-forecast__unavailable">{ stage.Qualifier }</span>
-						} else {
-							<span class="journey-forecast__unavailable">Unavailable</span>
-						}
-						if stage.UnavailableReason != "" {
-							<span class="journey-forecast__qualifier">{ stage.UnavailableReason }</span>
-						}
-						if stage.Qualifier != "" && stage.Qualifier != "No current Book" {
-							<span class="journey-forecast__qualifier">{ stage.Qualifier }</span>
-						}
-					</div>
-				</li>
-			}
-		</ol>
-		<details class="journey-coverage-evidence">
-			<summary>Evidence and calculation</summary>
-			<p>Percentages use modeled Known vocabulary tokens divided by this Book's analyzable tokens.</p>
-			<dl>
-				for _, stage := range journeyForecastStages(item, primary) {
-					if stage.Coverage != nil {
-						<div><dt>{ stage.Label }</dt><dd>{ fmt.Sprintf("%d of %d analyzable tokens (%s). %s", stage.Coverage.KnownTokenCount, stage.Coverage.AnalyzableTokenCount, journeyForecastCoverageLabel(stage.Coverage), stage.Context) }</dd></div>
-					}
-				}
-			</dl>
-			if item.Forecast != nil && item.Forecast.UnavailableReason != "" {
-				<p><strong>Unavailable evidence:</strong> { item.Forecast.UnavailableReason }</p>
-			}
-			<p class="metadata">Current uses Known vocabulary. After finishing this Book assumes acceptance of its frozen Reserved vocabulary.
-				if !primary {
-					<span> On arrival includes trustworthy recurring vocabulary from earlier To Read books.</span>
-				}
-			</p>
-		</details>
-	</section>
 }
 
 templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
@@ -1233,13 +1080,13 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 			if task.GoalSnapshotSize == 0 {
 				@EmptyState("No deck needed", "This frozen reading snapshot contains no vocabulary identities, so no cards will be created.")
 			} else if task.Preparation != nil {
-				@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckJourneyGoal})
+				@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckIsCurrentReading})
 			} else {
 				<p role="note"><strong>Deck state: Missing.</strong> This exact reading snapshot remains unchanged. Prepare it when ready.</p>
 				<form method="post" action={ templ.SafeURL("/goal/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
 			}
 		} else if task.Preparation != nil {
-			@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckJourneyMember})
+			@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckIsToRead})
 		} else {
 			if task.Missing {
 				<p role="note"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>

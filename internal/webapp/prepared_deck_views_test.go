@@ -162,7 +162,7 @@ func TestDeckPreparationStatusOmitsUpdatedRevisionIndicatorForCurrentDeck(t *tes
 
 func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
-	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyMember}
+	action := deckJourneyActionView{BookID: "book-1", State: deckIsToRead}
 	var output bytes.Buffer
 	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/reading#journey-book-book-1", action).Render(context.Background(), &output))
 	html := output.String()
@@ -230,14 +230,14 @@ func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 		want  []string
 		omit  []string
 	}{
-		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in To Read", "Move to To Read", `method="post" action="/reading/books/book-372/journey/add"`, `name="expected_revision"`}, omit: []string{"View this book in Reading", "current reading"}},
-		{name: "already in Journey", state: deckJourneyMember, want: []string{"To Read", "This book is already in To Read", `href="/reading#journey-book-book-372"`}, omit: []string{"Move to To Read", "current reading"}},
-		{name: "current reading", state: deckJourneyGoal, want: []string{"Current Book", "This deck is preparation for the Book you are reading now", "View current book in Reading"}, omit: []string{"Move to To Read", "View in Reading"}},
+		{name: "not in To Read", state: deckJourneyNotMember, want: []string{"Not in To Read", "Move to To Read", `method="post" action="/reading/books/book-372/to-read"`}, omit: []string{"View this book in Reading", "current reading"}},
+		{name: "already in Journey", state: deckIsToRead, want: []string{"To Read", "This book is already in To Read", `href="/reading#journey-book-book-372"`}, omit: []string{"Move to To Read", "current reading"}},
+		{name: "current reading", state: deckIsCurrentReading, want: []string{"Current Book", "This deck is preparation for the Book you are reading now", "View current book in Reading"}, omit: []string{"Move to To Read", "View in Reading"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, Revision: 9, State: test.state}
+			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, State: test.state}
 			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range test.want {

@@ -158,33 +158,31 @@ type CatalogueSyncStatus struct {
 }
 
 type ConcordanceOccurrence struct {
-	OwnerID               string
-	Language              string
-	Surface               string
-	CanonicalLemma        string
-	Upos                  string
-	Dependency            string
-	HeadOrdinal           int64
-	HeadSurface           pgtype.Text
-	SentenceText          string
-	SentenceStartOffset   int64
-	SentenceEndOffset     int64
-	UnitStartOffset       int64
-	UnitEndOffset         int64
-	BookStartOffset       int64
-	BookEndOffset         int64
-	BookID                string
-	BookTitle             string
-	SourceMaterialID      string
-	AnalysisRunID         string
-	CorpusID              string
-	UnitID                string
-	ChapterTitle          string
-	UnitOrder             int64
-	SentenceOrdinal       int64
-	TokenOrdinal          int64
-	BookPosition          pgtype.Int4
-	BookPositionCreatedAt pgtype.Timestamptz
+	OwnerID             string
+	Language            string
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
 }
 
 type Corpora struct {
@@ -700,21 +698,6 @@ type ReadingHistory struct {
 	AlreadyKnownVocabularyCount int
 	CompletionID                string
 	CompletionSource            string
-}
-
-type ReadingJourney struct {
-	OwnerID   string
-	Revision  int64
-	UpdatedAt time.Time
-	Language  string
-}
-
-type ReadingJourneyMembership struct {
-	OwnerID   string
-	BookID    string
-	Position  int
-	CreatedAt time.Time
-	Language  string
 }
 
 type SelectionCandidate struct {

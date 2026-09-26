@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
+	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -24,7 +24,6 @@ type journeyBookView struct {
 	BookID                  string
 	Cover                   domain.BookCover
 	Position                int
-	JourneyRevision         int64
 	PrimaryGoal             bool
 	GoalReadingOnly         bool
 	GoalUnassessed          bool
@@ -43,9 +42,6 @@ type journeyBookView struct {
 	GoalEligibilityReason   string
 	Coverage                *domain.AnalysisCoverage
 	StatisticsUnavailable   bool
-	Forecast                *domain.JourneyForecastEntry
-	ForecastHasGoal         bool
-	ForecastUnavailable     bool
 }
 
 func journeyBookClass(primary bool) string {
@@ -69,47 +65,16 @@ func journeyBookID(item journeyBookView) string {
 	return item.Book.Source.ID
 }
 
-func journeyMoveURL(bookID string, earlier bool) string {
-	direction := "move-later"
-	if earlier {
-		direction = "move-earlier"
-	}
-	return "/reading/entries/" + url.PathEscape(bookID) + "/" + direction
-}
-
 func journeyRemoveURL(bookID string) string {
-	return "/reading/books/" + url.PathEscape(bookID) + "/journey/remove"
+	return "/reading/books/" + url.PathEscape(bookID) + "/set-aside"
 }
 
-func journeyReanalyzeURL(bookID string) string {
-	return "/reading/books/" + url.PathEscape(bookID) + "/journey/reanalyze"
+func readingReanalyzeURL(bookID string) string {
+	return "/reading/books/" + url.PathEscape(bookID) + "/reanalyze"
 }
 
-func journeyEntryURL(bookID string) string {
+func readingBookURL(bookID string) string {
 	return "/reading#" + url.PathEscape(journeyBookAnchorID(bookID))
-}
-
-func rejectLegacyJourneyMutation(w http.ResponseWriter, _ *http.Request) {
-	http.Error(w, "Journey actions have moved to Reading. Reload the Reading page and try again.", http.StatusGone)
-}
-
-func (h *Handler) legacyJourney(w http.ResponseWriter, r *http.Request) {
-	query := url.Values{}
-	for _, key := range []string{"message", "error", "language", "language_handoff_book", "language_handoff_language"} {
-		if value := r.URL.Query().Get(key); value != "" {
-			query.Set(key, value)
-		}
-	}
-	location := "/reading"
-	if encoded := query.Encode(); encoded != "" {
-		location += "?" + encoded
-	}
-	redirect(w, r, location)
-}
-
-func (h *Handler) legacyJourneyDeckPreparation(w http.ResponseWriter, r *http.Request) {
-	bookID := url.PathEscape(strings.TrimSpace(r.PathValue("bookID")))
-	redirect(w, r, "/reading/books/"+bookID+"/deck/preparations/new")
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -205,7 +170,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 			Status:      "Assessment unavailable",
 			Description: "No current EPUB content is available for this book in Reading. Retry acquisition when the catalog can provide it.",
 			Label:       "Retry acquisition",
-			URL:         journeyReanalyzeURL(bookID),
+			URL:         readingReanalyzeURL(bookID),
 			Submit:      true,
 			Tone:        StatusWarning,
 		}
@@ -216,7 +181,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		action.Status = "Analysis incomplete"
 		action.Description = journeyEvidenceDescription(item)
 		action.Label = "Retry analysis"
-		action.URL = journeyReanalyzeURL(bookID)
+		action.URL = readingReanalyzeURL(bookID)
 		action.Submit = true
 		action.Tone = StatusWarning
 		if journeyEvidenceState(item) == "failed" {
@@ -225,10 +190,10 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		}
 	} else if action.Status == "Analysis not started" {
 		action.Label = "Retry analysis"
-		action.URL = journeyReanalyzeURL(bookID)
+		action.URL = readingReanalyzeURL(bookID)
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book) {
-		action.URL = journeyEntryURL(bookID)
+		action.URL = readingBookURL(bookID)
 		action.Label = "View in Reading"
 	}
 	return action
@@ -269,8 +234,6 @@ type journeyPageView struct {
 	LanguageHandoff     *journeyLanguageHandoffView
 	Goal                *journeyBookView
 	Provisional         []journeyBookView
-	Revision            int64
-	ForecastUnavailable bool
 }
 
 type journeyLanguageHandoffView struct {
@@ -304,14 +267,13 @@ type deckJourneyState string
 const (
 	deckJourneyUnknown   deckJourneyState = ""
 	deckJourneyNotMember deckJourneyState = "not-member"
-	deckJourneyMember    deckJourneyState = "member"
-	deckJourneyGoal      deckJourneyState = "primary-goal"
+	deckIsToRead         deckJourneyState = "member"
+	deckIsCurrentReading deckJourneyState = "primary-goal"
 )
 
 type deckJourneyActionView struct {
 	BookID        string
 	PreparationID string
-	Revision      int64
 	State         deckJourneyState
 	Message       string
 	Error         string
@@ -325,8 +287,8 @@ func deckJourneyActionID(bookID string) string {
 	return "deck-preparation-journey-action-" + bookID
 }
 
-func journeyAddURL(bookID string) string {
-	return "/reading/books/" + url.PathEscape(bookID) + "/journey/add"
+func toReadURL(bookID string) string {
+	return "/reading/books/" + url.PathEscape(bookID) + "/to-read"
 }
 
 func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparationID, bookID string) (deckJourneyActionView, error) {
@@ -334,7 +296,7 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 	// membership and the current reading are keyed by books.id, so every action
 	// identity is resolved to its canonical book first. A source material with
 	// no book identity cannot join the Journey, so no action is offered.
-	resolved, ok, err := h.services.Store.Journey.ResolveJourneyBookID(ctx, owner, bookID)
+	resolved, ok, err := h.resolveBookID(ctx, owner, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -343,30 +305,30 @@ func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparati
 	}
 	bookID = resolved
 	language, _ := activeStudyLanguageForContext(ctx)
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
+	goal, err := h.currentReading(ctx, owner, language)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
-	if err != nil {
-		return deckJourneyActionView{}, err
-	}
-	action := deckJourneyActionView{BookID: bookID, PreparationID: preparationID, Revision: journey.Revision, State: deckJourneyNotMember}
+	action := deckJourneyActionView{BookID: bookID, PreparationID: preparationID, State: deckJourneyNotMember}
 	if goal.IsActive() && goal.BookID == bookID {
-		action.State = deckJourneyGoal
+		action.State = deckIsCurrentReading
 		return action, nil
 	}
-	for _, entry := range journey.Entries {
-		if entry.BookID == bookID {
-			action.State = deckJourneyMember
-			break
-		}
+	if h.services.Store.Books == nil {
+		return action, nil
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
+		return deckJourneyActionView{}, err
+	}
+	if err == nil && detail.Disposition == domain.BookDispositionToRead {
+		action.State = deckIsToRead
 	}
 	return action, nil
 }
 
-func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparationID, bookID string, expectedRevision int64) (deckJourneyActionView, error) {
-	resolved, ok, err := h.services.Store.Journey.ResolveJourneyBookID(ctx, owner, bookID)
+func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparationID, bookID string) (deckJourneyActionView, error) {
+	resolved, ok, err := h.resolveBookID(ctx, owner, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -374,25 +336,26 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		return deckJourneyActionView{}, nil
 	}
 	bookID = resolved
-	language, _ := activeStudyLanguageForContext(ctx)
 	action, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
 	// A current reading is intentionally not changed by a ready-deck action. This
 	// guard also keeps a forged direct POST from adding or reordering the Goal.
-	if action.State == deckJourneyGoal {
+	if action.State == deckIsCurrentReading {
 		return action, nil
 	}
-	if _, err = h.services.Store.Journey.AddToReadingJourney(ctx, owner, language, bookID, expectedRevision); err != nil {
+	dispositions, supported := h.services.Store.Books.(persistence.BookDispositionStore)
+	if !supported {
+		return deckJourneyActionView{}, errors.New("book dispositions are unavailable")
+	} else {
+		err = dispositions.SetBookDisposition(ctx, owner, bookID, domain.BookDispositionToRead)
+	}
+	if err != nil {
 		log.Print("mouseion: add book to Reading failed")
 		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 		if refreshErr != nil {
 			return deckJourneyActionView{}, refreshErr
-		}
-		if errors.Is(err, persistence.ErrJourneyStale) {
-			refreshed.Message = journeyStaleMessage
-			return refreshed, nil
 		}
 		if errors.Is(err, persistence.ErrBookLanguageRequired) {
 			refreshed.Error = "This book needs a language before it can be moved to To Read. Fix the language in the catalog, then re-sync."
@@ -406,16 +369,16 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		return deckJourneyActionView{}, err
 	}
 	if action.State == deckJourneyNotMember && h.services.Analysis != nil {
-		handle, target, title, acquisitionFailed, analysisErr := h.ensureJourneyAnalysis(ctx, owner, bookID)
+		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(ctx, owner, bookID)
 		if analysisErr != nil {
-			refreshed.Error = journeyAnalysisError(ctx, h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
+			refreshed.Error = toReadAnalysisError(ctx, h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
 		} else {
 			refreshed.Message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
 		}
 		return refreshed, nil
 	}
-	if refreshed.State == deckJourneyMember {
-		if action.State == deckJourneyMember {
+	if refreshed.State == deckIsToRead {
+		if action.State == deckIsToRead {
 			refreshed.Message = "This book is already in To Read."
 		} else {
 			refreshed.Message = "Book moved to To Read."
@@ -424,7 +387,17 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 	return refreshed, nil
 }
 
-func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID string) (analysis.Handle, cataloguesync.AcquisitionTarget, string, bool, error) {
+func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
+	resolver, ok := h.services.Store.Books.(interface {
+		ResolveBookID(context.Context, string, string) (string, bool, error)
+	})
+	if !ok {
+		return "", false, nil
+	}
+	return resolver.ResolveBookID(ctx, owner, id)
+}
+
+func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string) (analysis.Handle, cataloguesync.AcquisitionTarget, string, bool, error) {
 	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
 		return analysis.Handle{}, cataloguesync.AcquisitionTarget{}, "", false, err
@@ -449,7 +422,7 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 	return handle, target, detail.Book.Title, false, err
 }
 
-func journeyAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
+func toReadAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
 		return "Book moved to To Read, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
 	}
@@ -459,13 +432,9 @@ func journeyAnalysisError(ctx context.Context, catalog CatalogStore, owner, book
 	return "Book moved to To Read, but analysis could not start. Retry analysis from Reading when ready."
 }
 
-func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {
+func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
-	if err != nil {
-		return err
-	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
+	goal, err := h.currentReading(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -473,51 +442,41 @@ func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, 
 	if goal.IsActive() {
 		goalBookID = goal.BookID
 	}
-	members := make(map[string]bool, len(journey.Entries))
-	for _, entry := range journey.Entries {
-		members[entry.BookID] = true
-	}
 	for i := range books {
-		books[i].JourneyMember = members[books[i].Book.ID]
-		books[i].JourneyGoal = books[i].Book.ID == goalBookID
-		books[i].JourneyRevision = journey.Revision
+		books[i].IsToRead = books[i].Disposition == domain.BookDispositionToRead
+		books[i].IsCurrentReading = books[i].Book.ID == goalBookID
 		if books[i].Acquired != nil {
-			books[i].Acquired.JourneyMember = books[i].JourneyMember
-			books[i].Acquired.JourneyGoal = books[i].JourneyGoal
-			books[i].Acquired.JourneyRevision = journey.Revision
+			books[i].Acquired.IsToRead = books[i].IsToRead
+			books[i].Acquired.IsCurrentReading = books[i].IsCurrentReading
 		}
 	}
 	return nil
 }
 
-func (h *Handler) annotateBookWithJourney(ctx context.Context, owner string, book *domain.MyBook) error {
+func (h *Handler) annotateBookToRead(ctx context.Context, owner string, book *domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
-	return h.annotateBookWithJourneyLanguage(ctx, owner, language, book)
+	return h.annotateBookToReadLanguage(ctx, owner, language, book)
 }
 
-func (h *Handler) annotateBookWithJourneyLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
+func (h *Handler) annotateBookToReadLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
+	goal, err := h.currentReading(ctx, owner, language)
 	if err != nil {
 		return err
 	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
-	if err != nil {
-		return err
-	}
-	for _, entry := range journey.Entries {
-		if entry.BookID == book.Book.ID {
-			book.JourneyMember = true
-			break
-		}
-	}
-	book.JourneyGoal = goal.IsActive() && goal.BookID == book.Book.ID
-	book.JourneyRevision = journey.Revision
+	book.IsToRead = book.Disposition == domain.BookDispositionToRead
+	book.IsCurrentReading = goal.IsActive() && goal.BookID == book.Book.ID
 	if book.Acquired != nil {
-		book.Acquired.JourneyMember = book.JourneyMember
-		book.Acquired.JourneyGoal = book.JourneyGoal
-		book.Acquired.JourneyRevision = journey.Revision
+		book.Acquired.IsToRead = book.IsToRead
+		book.Acquired.IsCurrentReading = book.IsCurrentReading
 	}
 	return nil
+}
+
+func (h *Handler) currentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error) {
+	if h.services.Store.CurrentReading != nil {
+		return h.services.Store.CurrentReading.GetCurrentReading(ctx, owner, language)
+	}
+	return h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
 }
 
 func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
@@ -527,22 +486,7 @@ func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
 	owner := user(r).ID
 	bookID := r.PathValue("id")
 	preparationID := strings.TrimSpace(r.FormValue("deck_preparation_id"))
-	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
-	if err != nil {
-		if isHTMX(r) {
-			action, actionErr := h.deckJourneyAction(r.Context(), owner, preparationID, bookID)
-			if actionErr != nil {
-				fail(w, actionErr)
-				return
-			}
-			action.Message = journeyStaleMessage
-			render(w, r, DeckJourneyAction(action, h.csrf(w, r)))
-			return
-		}
-		h.redirectDeckJourneyAction(w, r, "", journeyStaleMessage)
-		return
-	}
-	action, err := h.addBookToReadingJourney(r.Context(), owner, preparationID, bookID, expectedRevision)
+	action, err := h.addBookToReadingJourney(r.Context(), owner, preparationID, bookID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -552,48 +496,6 @@ func (h *Handler) addDeckBookToJourney(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.redirectDeckJourneyAction(w, r, action.Message, action.Error)
-}
-
-func (h *Handler) reanalyzeJourneyBook(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
-	if !ok {
-		return
-	}
-	if err := h.annotateBookWithJourneyLanguage(r.Context(), u.ID, detail.Book.LanguageTag, &detail); err != nil {
-		fail(w, err)
-		return
-	}
-	if !detail.JourneyMember {
-		http.NotFound(w, r)
-		return
-	}
-	recoverable := detail.Acquired == nil
-	if detail.Acquired != nil {
-		recoverable = detail.Acquired.EvidenceState() == domain.BookStale || detail.Acquired.EvidenceState() == domain.BookUnavailable || detail.Acquired.EvidenceState() == domain.BookAcquiredUnassessed
-	}
-	if detail.Acquired != nil && detail.Acquired.EvidenceState() == domain.BookAnalyzed {
-		item := journeyBookView{Book: *detail.Acquired, BookID: detail.Book.ID}
-		if evidenceErr := h.addJourneyEvidence(r.Context(), u.ID, &item); evidenceErr != nil {
-			fail(w, evidenceErr)
-			return
-		}
-		recoverable = journeyEvidenceState(item) == "incomplete"
-	}
-	if !recoverable {
-		http.NotFound(w, r)
-		return
-	}
-	handle, target, title, acquisitionFailed, err := h.ensureJourneyAnalysis(r.Context(), u.ID, detail.Book.ID)
-	if err != nil {
-		message := journeyAnalysisError(r.Context(), h.services.Store.Catalog, u.ID, detail.Book.ID, title, target, acquisitionFailed, err)
-		redirect(w, r, "/reading?error="+url.QueryEscape(message))
-		return
-	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
 }
 
 func (h *Handler) redirectDeckJourneyAction(w http.ResponseWriter, r *http.Request, message, pageError string) {
@@ -627,21 +529,10 @@ func (h *Handler) journeyLanguageHandoff(ctx context.Context, owner, activeLangu
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
 		return journeyLanguageHandoffView{}, false, nil
 	}
-	if canonicalization.NormalizeLanguage(journeyBookLanguage(detail)) != targetLanguage {
+	if canonicalization.NormalizeLanguage(bookStudyLanguage(detail)) != targetLanguage {
 		return journeyLanguageHandoffView{}, false, nil
 	}
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, targetLanguage)
-	if err != nil {
-		return journeyLanguageHandoffView{}, false, err
-	}
-	member := false
-	for _, entry := range journey.Entries {
-		if entry.BookID == detail.Book.ID {
-			member = true
-			break
-		}
-	}
-	if !member {
+	if detail.Disposition != domain.BookDispositionToRead {
 		return journeyLanguageHandoffView{}, false, nil
 	}
 	label := targetLanguage
@@ -661,10 +552,6 @@ func (h *Handler) journeyLanguageHandoff(ctx context.Context, owner, activeLangu
 }
 
 func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, language)
-	if err != nil {
-		return journeyPageView{}, err
-	}
 	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
 	if err != nil {
 		return journeyPageView{}, err
@@ -705,7 +592,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		}
 	}
 
-	view := journeyPageView{Revision: journey.Revision}
+	view := journeyPageView{}
 	if goal.IsActive() {
 		book, bookErr := h.journeyBook(ctx, owner, goal.BookID, bookByID)
 		if bookErr != nil {
@@ -713,7 +600,6 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		}
 		book.PrimaryGoal = true
 		book.Cover = coverByBookID[goal.BookID]
-		book.JourneyRevision = journey.Revision
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
@@ -728,19 +614,36 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		h.addGoalDeckPreparation(ctx, owner, &book, goal)
 		view.Goal = &book
 	}
-	for _, entry := range journey.Entries {
-		// A Goal is anchored in the first section and must not be duplicated as
-		// a provisional membership when the two relationships overlap.
-		if entry.BookID == goal.BookID {
+	toReadIDs := make([]string, 0, len(coverByBookID))
+	if reader, ok := h.services.Store.Books.(interface {
+		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+	}); ok {
+		myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner)
+		if readErr != nil {
+			return journeyPageView{}, readErr
+		}
+		for _, myBook := range myBooks {
+			if myBook.Disposition == domain.BookDispositionToRead && myBook.Book.LanguageTag == language && myBook.Book.ID != goal.BookID {
+				toReadIDs = append(toReadIDs, myBook.Book.ID)
+			}
+		}
+	}
+	sort.Slice(toReadIDs, func(i, j int) bool {
+		left, right := canonicalBookTitle(bookByID[toReadIDs[i]]), canonicalBookTitle(bookByID[toReadIDs[j]])
+		if left == right {
+			return toReadIDs[i] < toReadIDs[j]
+		}
+		return left < right
+	})
+	for _, bookID := range toReadIDs {
+		if bookID == goal.BookID {
 			continue
 		}
-		book, bookErr := h.journeyBook(ctx, owner, entry.BookID, bookByID)
+		book, bookErr := h.journeyBook(ctx, owner, bookID, bookByID)
 		if bookErr != nil {
 			return journeyPageView{}, bookErr
 		}
-		book.Position = entry.Position
-		book.Cover = coverByBookID[entry.BookID]
-		book.JourneyRevision = journey.Revision
+		book.Cover = coverByBookID[bookID]
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}
@@ -748,59 +651,6 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		h.addJourneyDeckPreparation(ctx, owner, &book)
 		view.Provisional = append(view.Provisional, book)
 	}
-	for i := range view.Provisional {
-		view.Provisional[i].CanMoveEarlier = i > 0
-		view.Provisional[i].CanMoveLater = i < len(view.Provisional)-1
-		view.Provisional[i].ForecastHasGoal = goal.IsActive()
-	}
-	if view.Goal != nil {
-		view.Goal.ForecastHasGoal = goal.IsActive()
-	}
-	// A reorder must never announce success when the forecast capability is
-	// absent or returns an incomplete read model. Unavailable evidence is still
-	// a valid forecast entry; a missing Journey member is not.
-	view.ForecastUnavailable = view.Goal != nil || len(view.Provisional) > 0
-	if provider, ok := h.services.AnalysisInsights.(journeyForecastProvider); ok {
-		forecast, forecastErr := provider.JourneyForecast(ctx, owner, language)
-		if forecastErr != nil {
-			log.Printf("mouseion: Journey forecast unavailable for owner %s: %v", owner, forecastErr)
-		} else {
-			forecastByBook := make(map[string]*domain.JourneyForecastEntry, len(forecast.Entries))
-			for i := range forecast.Entries {
-				forecastByBook[forecast.Entries[i].BookID] = &forecast.Entries[i]
-			}
-			if view.Goal != nil {
-				view.Goal.Forecast = forecastByBook[view.Goal.BookID]
-			}
-			for i := range view.Provisional {
-				view.Provisional[i].Forecast = forecastByBook[view.Provisional[i].BookID]
-			}
-			view.ForecastUnavailable = false
-			if goal.IsActive() && forecast.Goal == nil {
-				view.ForecastUnavailable = true
-			}
-			if view.Goal != nil && view.Goal.Forecast == nil {
-				view.ForecastUnavailable = true
-			}
-			for i := range view.Provisional {
-				if view.Provisional[i].Forecast == nil {
-					view.ForecastUnavailable = true
-					break
-				}
-			}
-		}
-	}
-	if view.ForecastUnavailable {
-		if view.Goal != nil {
-			view.Goal.Forecast = nil
-			view.Goal.ForecastUnavailable = true
-		}
-		for i := range view.Provisional {
-			view.Provisional[i].Forecast = nil
-			view.Provisional[i].ForecastUnavailable = true
-		}
-	}
-
 	return view, nil
 }
 

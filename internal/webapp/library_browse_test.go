@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -235,19 +234,19 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 	assert.NotContains(t, filters, "hx-get=")
 }
 
-func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
+func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	analysisService := &journeyIntentAnalysis{}
 	requireHandler(t, h).services.Analysis = analysisService
 	currentGoal := goalRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"1"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, currentGoal.Code)
 	assert.Contains(t, currentGoal.Header().Get("Location"), "cannot+be+set+aside")
 	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, fixtures.BookID))
 
 	setAside := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"1"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, setAside.Code)
 	assert.Contains(t, setAside.Header().Get("Location"), "disposition=set_aside")
@@ -256,7 +255,7 @@ func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionSetAside, disposition)
 
 	repeated := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"2"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
@@ -264,7 +263,7 @@ func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionSetAside, disposition)
 
 	toRead := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"2"},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
 	assert.NotContains(t, toRead.Header().Get("Location"), "error=")
@@ -274,24 +273,17 @@ func TestMyBooksDispositionTransitionsAreIdempotentAndStaleSafe(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
 
-	journey, err := store.GetReadingJourney(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 	repeated = goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(journey.Revision, 10)},
+		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	assert.Equal(t, 1, analysisService.calls, "idempotent move should not submit duplicate analysis")
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
-	stale := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {"2"},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, stale.Code)
-	assert.Contains(t, stale.Header().Get("Location"), "error=")
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionToRead, disposition, "stale write changed disposition")
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "repeated disposition write changed state")
 }
 
 func mustFixtureBookDisposition(t *testing.T, store *fixtures.Store, owner, bookID string) domain.BookDisposition {
@@ -311,7 +303,7 @@ func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
 }
 
 func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
-	h, cookies, _, store := goalFixtureSession(t)
+	h, cookies, _, _ := goalFixtureSession(t)
 	handler := requireHandler(t, h)
 	request := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
@@ -323,7 +315,7 @@ func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 		return response
 	}
 
-	handler.services.AnalysisInsights = fixtures.Insights{JourneyStore: store}
+	handler.services.AnalysisInsights = fixtures.Insights{}
 	response := request("/library")
 	assert.Equal(t, http.StatusOK, response.Code)
 	for _, forbidden := range []string{`id="language-view-panel"`, "Coverage across", "Language view", "Highest-impact unknown vocabulary", "Per-book spread"} {

@@ -199,7 +199,7 @@ func concordanceUnit(spine uint64, manifest, text string, start, end uint64) dom
 	}
 }
 
-func createConcordanceBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, title, suffix string, journey bool, units []domain.ExtractedUnit) (domain.Book, domain.SourceMaterial) {
+func createConcordanceBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, title, suffix string, toRead bool, units []domain.ExtractedUnit) (domain.Book, domain.SourceMaterial) {
 	t.Helper()
 	book, err := store.CreateBook(ctx, domain.Book{
 		OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync,
@@ -220,11 +220,8 @@ func createConcordanceBook(t *testing.T, ctx context.Context, store *PostgresSto
 	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: units})
 	require.NoError(t, err)
 	require.NoError(t, store.LinkSourceToBook(ctx, owner, book.ID, source.ID))
-	if journey {
-		journeyState, journeyErr := store.GetReadingJourney(ctx, owner, "de")
-		require.NoError(t, journeyErr)
-		_, journeyErr = store.AddToReadingJourney(ctx, owner, "de", book.ID, journeyState.Revision)
-		require.NoError(t, journeyErr)
+	if toRead {
+		require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))
 	}
 	return book, source
 }
@@ -279,7 +276,7 @@ func insertConcordanceAnalysis(t *testing.T, ctx context.Context, store *Postgre
 	}
 }
 
-func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, bookID, bookTitle, sourceID, unitID, chapterTitle, sentenceText string, sentenceStart, sentenceEnd, unitStart, unitEnd, bookStart, bookEnd, unitOrder int64, bookPosition int, dependency string, headOrdinal int64, headSurface string) {
+func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, bookID, bookTitle, sourceID, unitID, chapterTitle, sentenceText string, sentenceStart, sentenceEnd, unitStart, unitEnd, bookStart, bookEnd, unitOrder int64, _ int, dependency string, headOrdinal int64, headSurface string) {
 	t.Helper()
 	assert.Equal(t, bookID, occurrence.BookID)
 	assert.Equal(t, bookTitle, occurrence.BookTitle)
@@ -299,7 +296,5 @@ func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, boo
 	assert.Equal(t, unitEnd, occurrence.UnitEndOffset)
 	assert.Equal(t, bookStart, occurrence.BookStartOffset)
 	assert.Equal(t, bookEnd, occurrence.BookEndOffset)
-	require.NotNil(t, occurrence.BookPosition)
-	assert.Equal(t, bookPosition, *occurrence.BookPosition)
 	assert.Equal(t, unitOrder, occurrence.UnitOrder)
 }

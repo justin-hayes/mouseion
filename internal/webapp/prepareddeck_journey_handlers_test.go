@@ -14,7 +14,7 @@ import (
 func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t *testing.T) {
 	store := fixtures.NewStore()
 	h := &Handler{services: Services{
-		Store:    StoreDependencies{Books: store, Journey: store, Goals: store},
+		Store:    StoreDependencies{Books: store, Goals: store},
 		Analysis: fixtures.Analysis{},
 	}}
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/reading/books/fixture-route-match/deck/preparations/new", nil)
@@ -22,7 +22,7 @@ func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t 
 	detail, result, ok := h.validJourneyDeckBook(recorder, r, fixtures.OwnerID, "fixture-route-match")
 	require.True(t, ok)
 	assert.Equal(t, fixtures.OwnerID, detail.Book.OwnerID)
-	assert.True(t, detail.JourneyMember)
+	assert.True(t, detail.IsToRead)
 	assert.Equal(t, "fixture-route-match-run", result.RunID)
 	assert.Equal(t, "fixture-route-match", result.SourceMaterialID)
 

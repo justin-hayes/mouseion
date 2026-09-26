@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +44,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	aliceCookies, aliceCSRF := loginCookies(t, h, alice.Username, "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 
-	initialJourney, err := store.GetReadingJourney(ctx, alice.ID, "de")
+	initialDisposition, err := store.GetBookDisposition(ctx, alice.ID, readingOnly.ID)
 	require.NoError(t, err)
 	chosen := perform(t, h, http.MethodPost, "/goal/books/"+readingOnly.ID, url.Values{
 		"csrf_token":            {aliceCSRF},
@@ -56,17 +55,16 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
-	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
+	actualDisposition, err := store.GetBookDisposition(ctx, alice.ID, readingOnly.ID)
 	require.NoError(t, err)
-	assert.Len(t, journey.Entries, len(initialJourney.Entries))
-	assert.Equal(t, initialJourney.Revision, journey.Revision)
+	assert.Equal(t, initialDisposition, actualDisposition)
 	jobs, listErr := store.ListAnalysisJobs(ctx, alice.ID)
 	require.NoError(t, listErr)
 	assert.Empty(t, jobs)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "de", readingOnly.ID)
 	require.NoError(t, err)
 	setAsideGoal := perform(t, h, http.MethodPost, "/library/books/"+readingOnly.ID+"/set-aside", url.Values{
-		"csrf_token": {aliceCSRF}, "expected_revision": {strconv.FormatInt(initialJourney.Revision, 10)},
+		"csrf_token": {aliceCSRF},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, setAsideGoal.Code)
 	assert.Contains(t, setAsideGoal.Header().Get("Location"), "cannot+be+set+aside")

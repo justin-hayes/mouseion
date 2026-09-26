@@ -92,7 +92,7 @@ func assertCoverMedia(t *testing.T, html, bookID string, image bool) {
 	assert.NotContains(t, html, `<img`)
 }
 
-func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
+func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goal.GoalSnapshotSize = 2
 	goal.GoalSnapshotID = "snapshot"
@@ -113,7 +113,7 @@ func TestJourneyGoalShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
 	assert.NotContains(t, html[goalCardStart:goalCardStart+goalCardEnd], "external_translation_consent")
 }
 
-func TestJourneyGoalRendersEmptyReservedVocabularyCount(t *testing.T) {
+func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
 	goal := testJourneyBook("empty-goal", "Empty Goal book", "analyzed")
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
 	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.")
@@ -121,7 +121,7 @@ func TestJourneyGoalRendersEmptyReservedVocabularyCount(t *testing.T) {
 	assert.NotContains(t, html, "Retry deck preparation")
 }
 
-func TestJourneyGoalShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
+func TestIsCurrentReadingShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
 	goal := testJourneyBook("unavailable-goal", "Unavailable Goal book", "analyzed")
 	goal.GoalSnapshotSize = 2
 	goal.GoalDeckUnavailable = true
@@ -131,7 +131,7 @@ func TestJourneyGoalShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
 	assert.Contains(t, html, "Retry deck preparation")
 }
 
-func TestJourneyGoalShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) {
+func TestIsCurrentReadingShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) {
 	goal := testJourneyBook("missing-goal", "Missing Goal deck", "analyzed")
 	goal.GoalSnapshotSize = 2
 	goal.GoalSnapshotID = "missing-snapshot"
@@ -143,7 +143,7 @@ func TestJourneyGoalShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) {
 	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="missing-snapshot"`)
 }
 
-func TestJourneyGoalShowsReadingStateAndPageAction(t *testing.T) {
+func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	goal := testJourneyBook("goal-state", "Goal state book", "analyzed")
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
 	assert.Contains(t, html, "Reading state")
@@ -182,7 +182,7 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	action := journeyAnalysisAction(stale)
 	assert.Equal(t, "Stale analysis", action.Status)
 	assert.Equal(t, "Re-analyze", action.Label)
-	assert.Equal(t, "/reading/books/stale/journey/reanalyze", action.URL)
+	assert.Equal(t, "/reading/books/stale/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 	unassessed := testJourneyBook("unassessed", "Unassessed book", "not analyzed")
 	unassessed.Book.Source.MediaType = "application/epub+zip"
@@ -191,7 +191,7 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 	action = journeyAnalysisAction(unassessed)
 	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
-	assert.Equal(t, "/reading/books/unassessed/journey/reanalyze", action.URL)
+	assert.Equal(t, "/reading/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 
 	missingSnapshot := testJourneyBook("missing-snapshot", "Missing snapshot", "analyzed")
@@ -243,94 +243,6 @@ func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
 	assert.Equal(t, "50.0%", journeyCurrentCoverage(item))
 }
 
-func TestJourneyPageRendersSequentialForecastMeaningsAndLowerBound(t *testing.T) {
-	item := testJourneyBook("forecast", "Forecast book", "analyzed")
-	item.Forecast = &domain.JourneyForecastEntry{
-		BookID:     "forecast",
-		Current:    &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
-		AfterGoal:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		OnArrival:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		LowerBound: true,
-	}
-	item.ForecastHasGoal = true
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
-	for _, want := range []string{
-		`aria-label="Reading coverage forecast"`,
-		"Current coverage",
-		"After current reading",
-		"On arrival",
-		"40.0%",
-		"60.0%",
-		"No change",
-		"Lower bound:",
-	} {
-		assert.Contains(t, html, want)
-	}
-	assert.NotContains(t, html, "same as after Goal")
-}
-
-func TestJourneyForecastLedgerShowsSignedChangesAndNoActiveGoal(t *testing.T) {
-	item := testJourneyBook("delta", "Delta book", "analyzed")
-	item.Forecast = &domain.JourneyForecastEntry{
-		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
-		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 75, AnalyzableTokenCount: 100},
-	}
-	item.ForecastHasGoal = true
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
-	assert.Contains(t, html, "+20.0 percentage points")
-	assert.Contains(t, html, "+15.0 percentage points")
-	assert.Contains(t, html, "Evidence and calculation")
-	assert.Contains(t, html, "40 of 100 analyzable tokens")
-
-	item.ForecastHasGoal = false
-	html = renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
-	assert.Contains(t, html, "There is no current Book")
-	assert.Contains(t, html, "Change from Current coverage: +35.0 percentage points")
-	assert.NotContains(t, html, "Change from After current reading coverage")
-}
-
-func TestJourneyForecastLedgerShowsNoChangeFromCurrentWithoutGoal(t *testing.T) {
-	item := testJourneyBook("no-goal", "No Goal book", "analyzed")
-	item.Forecast = &domain.JourneyForecastEntry{
-		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
-		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
-	}
-
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
-	assert.Contains(t, html, "There is no current Book")
-	assert.Contains(t, html, "No change")
-	assert.NotContains(t, html, "Change from After current reading coverage")
-}
-
-func TestJourneyForecastDeltaDoesNotHideSmallChanges(t *testing.T) {
-	left := &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 100000}
-	right := &domain.JourneyForecastCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 100000}
-
-	assert.Equal(t, "+0.00 percentage points", journeyForecastDeltaLabel(left, right))
-}
-
-func TestJourneyGoalForecastOmitsOnArrivalStage(t *testing.T) {
-	goal := testJourneyBook("goal-forecast", "Goal forecast book", "analyzed")
-	goal.Forecast = &domain.JourneyForecastEntry{
-		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
-		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 75, AnalyzableTokenCount: 100},
-	}
-	goal.ForecastHasGoal = true
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	goalStart := strings.Index(html, `id="journey-book-goal-forecast"`)
-	goalEnd := strings.Index(html[goalStart:], "</article>")
-	require.GreaterOrEqual(t, goalStart, 0)
-	require.Greater(t, goalEnd, 0)
-	goalHTML := html[goalStart : goalStart+goalEnd]
-	assert.Contains(t, goalHTML, "Current coverage")
-	assert.Contains(t, goalHTML, "After current reading")
-	assert.Contains(t, goalHTML, "After completion of this current reading")
-	assert.NotContains(t, goalHTML, "On arrival")
-}
-
 func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
 	item := testJourneyBook("healthy", "Healthy book", "analyzed")
 	item.Book.Source.MediaType = "application/epub+zip"
@@ -340,12 +252,12 @@ func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
 	item.Book.AnalysisRunID = "run"
 	item.Book.CorpusID = "corpus"
 	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
-	item.Forecast = &domain.JourneyForecastEntry{Current: &domain.JourneyForecastCoverage{KnownTokenCount: 5, AnalyzableTokenCount: 10}}
 	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
 	assert.NotContains(t, html, "Current evidence")
 	assert.NotContains(t, html, "Assessment:")
 	assert.NotContains(t, html, "Analysis result ready")
-	assert.Contains(t, html, "Current coverage")
+	assert.NotContains(t, html, "Current coverage")
+	assert.NotContains(t, html, "On arrival")
 }
 
 func TestJourneyExceptionalEvidenceNamesStateAndRecovery(t *testing.T) {
@@ -386,7 +298,7 @@ func TestJourneyIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
 	action := journeyAnalysisAction(item)
 	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
-	assert.Equal(t, "/reading/books/incomplete/journey/reanalyze", action.URL)
+	assert.Equal(t, "/reading/books/incomplete/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 }
 
@@ -422,7 +334,7 @@ func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T)
 
 	assert.Contains(t, eligibleCard, ">Start reading</button>")
 	assert.Contains(t, eligibleCard, `<details class="more-actions"><summary>More actions</summary>`)
-	assert.Contains(t, eligibleCard, `action="/reading/books/eligible/journey/remove"`)
+	assert.Contains(t, eligibleCard, `action="/reading/books/eligible/set-aside"`)
 	assert.NotContains(t, ineligibleCard, "Start reading")
 	assert.Contains(t, ineligibleCard, ineligible.GoalEligibilityReason)
 }

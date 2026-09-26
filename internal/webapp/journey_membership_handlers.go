@@ -4,23 +4,17 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) setAsideReadingBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	expectedRevision, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("expected_revision")), 10, 64)
-	if err != nil {
-		redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
-		return
-	}
 	owner := user(r).ID
-	bookID, ok, err := h.services.Store.Journey.ResolveJourneyBookID(r.Context(), owner, r.PathValue("id"))
+	bookID, ok, err := h.resolveBookID(r.Context(), owner, r.PathValue("id"))
 	if err != nil {
 		fail(w, err)
 		return
@@ -43,9 +37,14 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 		http.NotFound(w, r)
 		return
 	}
-	if _, err = h.services.Store.Journey.RemoveFromReadingJourney(r.Context(), owner, language, bookID, expectedRevision); err != nil {
-		if errors.Is(err, persistence.ErrJourneyStale) {
-			redirect(w, r, "/reading?error="+url.QueryEscape(journeyStaleMessage))
+	dispositions, supported := h.services.Store.Books.(persistence.BookDispositionStore)
+	if !supported {
+		fail(w, errors.New("book dispositions are unavailable"))
+		return
+	}
+	if err = dispositions.SetBookAside(r.Context(), owner, language, bookID); err != nil {
+		if errors.Is(err, persistence.ErrBookIsPrimaryGoal) {
+			redirect(w, r, "/reading?error="+url.QueryEscape("Current reading cannot be set aside here. Use its current-reading controls."))
 			return
 		}
 		fail(w, err)
@@ -55,5 +54,5 @@ func (h *Handler) removeBookFromReadingJourney(w http.ResponseWriter, r *http.Re
 	if book, bookErr := h.services.Store.Books.GetBook(r.Context(), owner, bookID); bookErr == nil && strings.TrimSpace(book.Title) != "" {
 		title = book.Title
 	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(title+" removed from Reading. Analysis and acquired content were retained."))
+	redirect(w, r, "/reading?message="+url.QueryEscape(title+" moved to Set Aside. Analysis and acquired content were retained."))
 }

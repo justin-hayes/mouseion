@@ -23,7 +23,7 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	journeyEntryURLs, err := h.journeyEntryURLs(r.Context(), u.ID, analysisJobSourceIDs(jobs))
+	readingBookURLs, err := h.readingBookURLs(r.Context(), u.ID, analysisJobSourceIDs(jobs))
 	if err != nil {
 		fail(w, err)
 		return
@@ -36,10 +36,10 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 			fail(w, syncErr)
 			return
 		}
-		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), journeyEntryURLs))
+		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), readingBookURLs))
 		return
 	}
-	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message"), journeyEntryURLs))
+	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message"), readingBookURLs))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -53,7 +53,7 @@ func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	journeyURL, err := h.journeyEntryURLForSource(r.Context(), u.ID, status.SourceMaterialID)
+	journeyURL, err := h.readingBookURLForSource(r.Context(), u.ID, status.SourceMaterialID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -71,7 +71,7 @@ func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	journeyURL, err := h.journeyEntryURLForSource(r.Context(), user(r).ID, status.SourceMaterialID)
+	journeyURL, err := h.readingBookURLForSource(r.Context(), user(r).ID, status.SourceMaterialID)
 	if err != nil {
 		fail(w, err)
 		return

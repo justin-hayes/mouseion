@@ -426,10 +426,33 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 	if err = sqlcgen.New(tx).RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: bookID}); err != nil {
 		return err
 	}
-	if err = synchronizeBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionSetAside); err != nil {
+	if err = upsertBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionSetAside); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// ResolveBookID maps an owner-scoped Book or source-material identity to its
+// canonical Book ID. Source materials may link directly to a Book or through
+// the legacy source-identifier alias.
+func (s *PostgresStore) ResolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
+	exists, err := s.queries().BookExists(ctx, sqlcgen.BookExistsParams{Owner: owner, Book: id})
+	if err != nil {
+		return "", false, err
+	}
+	if exists {
+		return id, true, nil
+	}
+	linked, err := s.queries().ResolveLinkedSourceBook(ctx, sqlcgen.ResolveLinkedSourceBookParams{
+		Owner: owner, Source: id, Namespace: domain.NamespaceSourceIdentifier,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return linked, linked != "", nil
 }
 
 func (s *PostgresStore) ResolveBookByAlias(ctx context.Context, owner, namespace, value string) (domain.Book, bool, error) {

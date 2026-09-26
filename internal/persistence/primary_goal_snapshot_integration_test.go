@@ -18,8 +18,8 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-snapshot", false)
 	require.NoError(t, err)
-	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "snapshot-one")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "snapshot-one")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
@@ -63,8 +63,8 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-graduation", false)
 	require.NoError(t, err)
-	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "graduation")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "graduation")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 CREATE FUNCTION test_goal_graduation_failure() RETURNS trigger
 LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced goal completion failure'; END; $$;
 CREATE TRIGGER test_goal_graduation_failure
-BEFORE DELETE ON reading_journey_membership
+BEFORE UPDATE ON book_dispositions
 FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
 	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
@@ -121,7 +121,7 @@ FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	goalAfterRollback, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, goalAfterRollback.BookID)
-	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_goal_graduation_failure ON reading_journey_membership; DROP FUNCTION test_goal_graduation_failure();`)
+	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_goal_graduation_failure ON book_dispositions; DROP FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
 
 	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
@@ -173,8 +173,8 @@ func TestPrimaryGoalCompletionAcceptsEmptySnapshot(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-empty-completion", false)
 	require.NoError(t, err)
-	book, source, _ := createJourneyFixture(t, ctx, store, owner.ID, "empty-completion")
-	makeJourneyMemberAnalyzed(t, ctx, store, book, source)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "empty-completion")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	assert.Zero(t, goal.SnapshotSize)
@@ -197,9 +197,9 @@ func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 	otherOwner, err := store.CreateUser(ctx, "goal-missing-snapshot-other", false)
 	require.NoError(t, err)
 
-	book, _, _ := createJourneyFixture(t, ctx, store, owner.ID, "missing-snapshot")
-	italianBook, _, _ := createJourneyFixtureInLanguage(t, ctx, store, owner.ID, "it", "missing-snapshot-italian")
-	otherBook, _, _ := createJourneyFixture(t, ctx, store, otherOwner.ID, "missing-snapshot-other")
+	book, _, _ := createReadingFixture(t, ctx, store, owner.ID, "missing-snapshot")
+	italianBook, _, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "missing-snapshot-italian")
+	otherBook, _, _ := createReadingFixture(t, ctx, store, otherOwner.ID, "missing-snapshot-other")
 	for _, item := range []struct {
 		owner, language, book string
 	}{
@@ -207,10 +207,7 @@ func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 		{owner.ID, "it", italianBook.ID},
 		{otherOwner.ID, "de", otherBook.ID},
 	} {
-		journey, journeyErr := store.GetReadingJourney(ctx, item.owner, item.language)
-		require.NoError(t, journeyErr)
-		_, journeyErr = store.AddToReadingJourney(ctx, item.owner, item.language, item.book, journey.Revision)
-		require.NoError(t, journeyErr)
+		require.NoError(t, store.SetBookDisposition(ctx, item.owner, item.book, domain.BookDispositionToRead))
 	}
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id) VALUES ($1, 'de', $2), ($1, 'it', $3), ($4, 'de', $5)`, owner.ID, book.ID, italianBook.ID, otherOwner.ID, otherBook.ID)
 	require.NoError(t, err)

@@ -10,7 +10,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-func journeyBookLanguage(detail domain.MyBook) string {
+func bookStudyLanguage(detail domain.MyBook) string {
 	language := strings.TrimSpace(detail.Book.LanguageTag)
 	if language == "" && detail.Acquired != nil {
 		language = strings.TrimSpace(detail.Acquired.Source.Language)
@@ -18,10 +18,10 @@ func journeyBookLanguage(detail domain.MyBook) string {
 	return language
 }
 
-// journeyEntryURLForSource returns a link only when the owner's current Book
+// readingBookURLForSource returns a link only when the owner's current Book
 // evidence can be served in Reading Journey. Source material IDs are accepted
 // because Jobs and deck history retain acquisition identities.
-func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID string) (string, error) {
+func (h *Handler) readingBookURLForSource(ctx context.Context, owner, sourceID string) (string, error) {
 	if sourceID == "" {
 		return "", nil
 	}
@@ -35,36 +35,30 @@ func (h *Handler) journeyEntryURLForSource(ctx context.Context, owner, sourceID 
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
 		return "", nil
 	}
-	journey, err := h.services.Store.Journey.GetReadingJourney(ctx, owner, journeyBookLanguage(detail))
-	if err != nil {
-		return "", err
-	}
-	for _, entry := range journey.Entries {
-		if entry.BookID == detail.Book.ID {
-			return journeyEntryOrLanguageHandoffURL(ctx, detail), nil
-		}
+	if detail.Disposition == domain.BookDispositionToRead {
+		return readingBookOrLanguageHandoffURL(ctx, detail), nil
 	}
 	return "", nil
 }
 
-func journeyEntryOrLanguageHandoffURL(ctx context.Context, detail domain.MyBook) string {
+func readingBookOrLanguageHandoffURL(ctx context.Context, detail domain.MyBook) string {
 	if shellViewFromContext(ctx) != nil {
-		bookLanguage := canonicalization.NormalizeLanguage(journeyBookLanguage(detail))
+		bookLanguage := canonicalization.NormalizeLanguage(bookStudyLanguage(detail))
 		activeLanguage, _ := activeStudyLanguageForContext(ctx)
 		if bookLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != bookLanguage {
 			return journeyLanguageHandoffURL(detail.Book.ID, bookLanguage)
 		}
 	}
-	return journeyEntryURL(detail.Book.ID)
+	return readingBookURL(detail.Book.ID)
 }
 
-func (h *Handler) journeyEntryURLs(ctx context.Context, owner string, sourceIDs []string) (map[string]string, error) {
+func (h *Handler) readingBookURLs(ctx context.Context, owner string, sourceIDs []string) (map[string]string, error) {
 	urls := make(map[string]string, len(sourceIDs))
 	for _, sourceID := range sourceIDs {
 		if _, seen := urls[sourceID]; seen {
 			continue
 		}
-		url, err := h.journeyEntryURLForSource(ctx, owner, sourceID)
+		url, err := h.readingBookURLForSource(ctx, owner, sourceID)
 		if err != nil {
 			return nil, err
 		}

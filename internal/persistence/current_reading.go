@@ -68,11 +68,6 @@ func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, lan
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
-	if disposition == domain.BookDispositionSetAside {
-		if err = lockReadingJourneyForCompletion(ctx, q, owner, language); err != nil {
-			return err
-		}
-	}
 	if err = lockPrimaryGoalBook(ctx, q, owner, expectedBookID); err != nil {
 		return err
 	}
@@ -96,13 +91,8 @@ func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, lan
 	if expectedSnapshotID != "" && current.SnapshotID != expectedSnapshotID {
 		return ErrGoalStale
 	}
-	if err = synchronizeBookDisposition(ctx, q, owner, expectedBookID, disposition); err != nil {
+	if err = upsertBookDisposition(ctx, q, owner, expectedBookID, disposition); err != nil {
 		return err
-	}
-	if disposition == domain.BookDispositionSetAside {
-		if err = removeCompletedGoalFromJourney(ctx, q, owner, language, expectedBookID); err != nil {
-			return err
-		}
 	}
 	if err = releasePrimaryGoalSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return err

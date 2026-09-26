@@ -12,12 +12,10 @@ import (
 )
 
 // BookDispositionStore exposes the durable owner-and-Book workflow state.
-// These methods are deliberately separate from the legacy Journey interfaces
-// so the synchronization calls can be deleted during the cutover.
 type BookDispositionStore interface {
 	GetBookDisposition(context.Context, string, string) (domain.BookDisposition, error)
 	SetBookDisposition(context.Context, string, string, domain.BookDisposition) error
-	SetBookAsideAtJourneyRevision(context.Context, string, string, string, int64) error
+	SetBookAside(context.Context, string, string, string) error
 }
 
 func (s *PostgresStore) GetBookDisposition(ctx context.Context, owner, bookID string) (domain.BookDisposition, error) {
@@ -43,20 +41,18 @@ func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID st
 	if err = ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
-	if err = synchronizeBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, disposition); err != nil {
+	if err = upsertBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, disposition); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
-// SetBookAsideAtJourneyRevision sets a non-current Book aside in the same
-// transaction that fences Journey membership, revision, and Goal state.
-func (s *PostgresStore) SetBookAsideAtJourneyRevision(ctx context.Context, owner, language, bookID string, expectedRevision int64) (err error) {
+// SetBookAside changes only the Book's disposition and refuses to change the
+// current reading. The Book lock serializes this transition with starting or
+// switching current reading.
+func (s *PostgresStore) SetBookAside(ctx context.Context, owner, language, bookID string) (err error) {
 	language = canonicalization.NormalizeLanguage(language)
-	// Creating the language header also serializes this write with the first
-	// concurrent Journey add when the language has no Journey yet.
-	createJourney := language != ""
-	tx, revision, members, _, cleaned, err := s.beginReadingJourneyMutation(ctx, owner, language, createJourney)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -67,91 +63,24 @@ func (s *PostgresStore) SetBookAsideAtJourneyRevision(ctx context.Context, owner
 	} else if err != nil {
 		return err
 	}
-	goalBookID, err := readingJourneyGoalBookID(ctx, tx, owner, language)
-	if err != nil {
+	goal, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	if errors.Is(err, pgx.ErrNoRows) {
+		goal.GBookID = ""
+	} else if err != nil {
 		return err
 	}
-	memberIndex := -1
-	for i, member := range members {
-		if member.bookID == bookID {
-			memberIndex = i
-			break
-		}
-	}
-	if expectedRevision != revision {
-		if !cleaned && goalBookID != bookID && memberIndex < 0 {
-			currentDisposition, dispositionErr := q.GetBookDisposition(ctx, sqlcgen.GetBookDispositionParams{OwnerID: owner, BookID: bookID})
-			if dispositionErr != nil {
-				return dispositionErr
-			}
-			if domain.BookDisposition(currentDisposition) == domain.BookDispositionSetAside {
-				return tx.Commit(ctx)
-			}
-		}
-		return ErrJourneyStale
-	}
-	if goalBookID == bookID {
+	if goal.GBookID == bookID {
 		return ErrBookIsPrimaryGoal
 	}
-	if memberIndex >= 0 {
-		if err = q.DeleteReadingJourneyMember(ctx, sqlcgen.DeleteReadingJourneyMemberParams{Owner: owner, Language: language, Book: bookID}); err != nil {
-			return err
-		}
-		members = append(members[:memberIndex], members[memberIndex+1:]...)
-		if err = synchronizeBookDisposition(ctx, q, owner, bookID, domain.BookDispositionSetAside); err != nil {
-			return err
-		}
-		if err = rewriteReadingJourneyPositions(ctx, q, owner, language, members); err != nil {
-			return err
-		}
-		derived, queryErr := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})
-		if queryErr != nil {
-			return queryErr
-		}
-		if len(members) == 0 && !derived {
-			if err = q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: owner, Language: language}); err != nil {
-				return err
-			}
-			return tx.Commit(ctx)
-		}
-		if _, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
-			return err
-		}
-		return tx.Commit(ctx)
-	}
-	if cleaned {
-		if err = rewriteReadingJourneyPositions(ctx, q, owner, language, members); err != nil {
-			return err
-		}
-		if len(members) == 0 {
-			derived, queryErr := q.DerivedJourneyBooksExist(ctx, sqlcgen.DerivedJourneyBooksExistParams{Owner: owner, Language: language})
-			if queryErr != nil {
-				return queryErr
-			}
-			if !derived {
-				if err = q.DeleteReadingJourney(ctx, sqlcgen.DeleteReadingJourneyParams{Owner: owner, Language: language}); err != nil {
-					return err
-				}
-				if err = synchronizeBookDisposition(ctx, q, owner, bookID, domain.BookDispositionSetAside); err != nil {
-					return err
-				}
-				return tx.Commit(ctx)
-			}
-		}
-		if _, err = bumpReadingJourneyRevision(ctx, tx, owner, language); err != nil {
-			return err
-		}
-	}
-	if err = synchronizeBookDisposition(ctx, q, owner, bookID, domain.BookDispositionSetAside); err != nil {
+	if err = upsertBookDisposition(ctx, q, owner, bookID, domain.BookDispositionSetAside); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
-// synchronizeBookDisposition is the temporary compatibility fence for shipped
-// Journey and My Books removal mutations. New disposition callers should use
-// SetBookDisposition instead.
-func synchronizeBookDisposition(ctx context.Context, q interface {
+// upsertBookDisposition is the one persistence path for a Book's learner-owned
+// workflow disposition; no legacy membership state is mirrored.
+func upsertBookDisposition(ctx context.Context, q interface {
 	UpsertBookDisposition(context.Context, sqlcgen.UpsertBookDispositionParams) error
 }, owner, bookID string, disposition domain.BookDisposition) error {
 	return q.UpsertBookDisposition(ctx, sqlcgen.UpsertBookDispositionParams{OwnerID: owner, BookID: bookID, Disposition: string(disposition)})

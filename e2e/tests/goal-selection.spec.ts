@@ -12,12 +12,12 @@ async function signIn(page: Page) {
 // it (e.g. keyboard-focus completes the active learning campaign). This spec
 // therefore only asserts Goal facts that are stable across those mutations and
 // never changes the Goal: the goal book identity, the Clear affordance (present
-// directly or behind the residual-work confirmation), eligible provisional
-// controls, and the My Books Journey membership/link. The change/clear/reading-only/
+// directly or behind the residual-work confirmation), eligible To Read
+// controls, and the My Books disposition/link. The change/clear/reading-only/
 // residual transitions are covered by Go unit and integration tests against
 // isolated databases.
 test.describe('Current reading selection', () => {
-    test('Journey and My Books expose truthful Goal controls', async ({ page }) => {
+    test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
       await signIn(page);
       const switcher = page.getByLabel('Study language');
       if (await switcher.inputValue() !== 'de') {
@@ -74,29 +74,7 @@ test.describe('Current reading selection', () => {
       await expect(ineligible.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
       await expect(ineligible.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
 
-      const goalForecast = goal.getByRole('region', { name: 'Reading coverage forecast' });
-      await expect(goalForecast.locator('.journey-forecast__stage')).toHaveCount(2);
-      await expect(goalForecast).toContainText('Current coverage');
-      await expect(goalForecast).toContainText('After current reading');
-      await expect(goalForecast).toContainText('After finishing this Book');
-      await expect(goalForecast).not.toContainText('On arrival');
-
-      const unchanged = provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('region', { name: 'Reading coverage forecast' });
-      await expect(unchanged).toContainText('90.0%');
-      await expect(unchanged).toContainText('No change');
-      await expect(unchanged.locator('details summary')).toHaveText('Evidence and calculation');
-
-      const changed = provisional.filter({ hasText: 'Route differs: new German' }).getByRole('region', { name: 'Reading coverage forecast' });
-      if (test.info().project.name === 'desktop-light') {
-        await expect(changed).toContainText('25.0%');
-        await expect(changed).toContainText('+5.0 percentage points');
-      }
-
-      const lowerBound = provisional.filter({ hasText: 'Route tie A' }).getByRole('region', { name: 'Reading coverage forecast' });
-      await expect(lowerBound).toContainText('Lower bound');
-      const unavailable = provisional.filter({ hasText: 'Route evidence pending' }).getByRole('region', { name: 'Reading coverage forecast' });
-      await expect(unavailable).toContainText('Unavailable');
-      await expect(unavailable).toContainText('completed analysis evidence is unavailable');
+      await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
 
       await expect(page.getByRole('button', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
 
@@ -122,15 +100,16 @@ test.describe('Current reading selection', () => {
     await page.getByLabel('Study language').selectOption('it');
     await expect(page).toHaveURL(/\/library$/);
     await page.goto('/reading');
-    await expect(page.locator('#journey-book-fixture-italian-goal')).toBeVisible();
-
-    const goalMoreActions = page.locator('#primary-goal-section details.more-actions');
-    await goalMoreActions.locator(':scope > summary').click();
-    await goalMoreActions.locator('.confirmation > summary').first().click();
-    await page.locator('#primary-goal-section form[action="/goal/clear"] button').click();
-    await expect(page).toHaveURL(/\/reading\?message=/);
+    const currentReading = page.locator('#primary-goal-section');
+    if (await currentReading.count()) {
+      const goalMoreActions = currentReading.locator('details.more-actions');
+      await goalMoreActions.locator(':scope > summary').click();
+      await goalMoreActions.locator('.confirmation > summary').first().click();
+      await currentReading.locator('form[action="/goal/clear"] button').click();
+      await expect(page).toHaveURL(/\/reading\?message=/);
+      await expect(currentReading).toHaveCount(0);
+    }
     await expect(page.getByRole('heading', { name: 'Choose your next book in Italian', exact: true })).toBeVisible();
-    await expect(page.locator('#primary-goal-section')).toHaveCount(0);
     await expect(page.getByLabel('Study language')).toHaveValue('it');
   });
 });

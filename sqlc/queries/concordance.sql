@@ -1,6 +1,4 @@
--- Concordance occurrence queries read from the shared occurrence model. Book
--- position is the learner's Reading Journey position; analyzed Books outside
--- the Journey remain in study-language results with no position.
+-- Concordance occurrence queries read from the shared occurrence model.
 
 -- name: ListBookOccurrencesByLemma :many
 SELECT o.surface,
@@ -25,8 +23,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = sqlc.arg('owner')
    AND o.language = sqlc.arg('language')
@@ -58,8 +55,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = sqlc.arg('owner')
    AND o.language = sqlc.arg('language')
@@ -90,8 +86,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = sqlc.arg('owner')
     AND o.language = sqlc.arg('language')
@@ -124,8 +119,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = sqlc.arg('owner')
     AND o.language = sqlc.arg('language')
@@ -157,16 +151,13 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = sqlc.arg('owner')
    AND o.language = sqlc.arg('language')
    AND o.canonical_lemma = sqlc.arg('canonical_lemma')
    AND o.upos = sqlc.arg('upos')
- ORDER BY o.book_position NULLS LAST,
-          o.book_position_created_at NULLS LAST,
-          lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal;
 
 -- name: ListBookDependentsByGovernorLemma :many
@@ -192,8 +183,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   JOIN corpus_tokens governor
     ON governor.owner_id = o.owner_id
@@ -233,8 +223,7 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   JOIN corpus_tokens governor
     ON governor.owner_id = o.owner_id
@@ -248,9 +237,7 @@ SELECT o.surface,
    AND governor.canonical_lemma = sqlc.arg('governor_canonical_lemma')
    AND governor.upos = sqlc.arg('governor_upos')
    AND o.dependency = sqlc.arg('dependency')
- ORDER BY o.book_position NULLS LAST,
-          o.book_position_created_at NULLS LAST,
-          lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal;
 
 -- name: ListStudyLanguageOccurrencesBySurface :many
@@ -276,15 +263,12 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
  FROM concordance_occurrences o
  WHERE o.owner_id = sqlc.arg('owner')
    AND o.language = sqlc.arg('language')
    AND o.surface = sqlc.arg('surface')
- ORDER BY o.book_position NULLS LAST,
-          o.book_position_created_at NULLS LAST,
-          lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal;
 
 -- name: ListStudyLanguageOccurrencesByLemmaAndDependency :many
@@ -310,17 +294,14 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = sqlc.arg('owner')
     AND o.language = sqlc.arg('language')
     AND o.canonical_lemma = sqlc.arg('canonical_lemma')
     AND o.upos = sqlc.arg('upos')
     AND o.dependency = sqlc.arg('dependency')
-  ORDER BY o.book_position NULLS LAST,
-           o.book_position_created_at NULLS LAST,
-           lower(o.book_title), o.book_title, o.book_id,
+  ORDER BY lower(o.book_title), o.book_title, o.book_id,
            o.unit_order, o.sentence_ordinal, o.token_ordinal;
 
 -- name: ListStudyLanguageOccurrencesBySurfaceAndDependency :many
@@ -346,14 +327,11 @@ SELECT o.surface,
        o.chapter_title,
        o.unit_order,
        o.sentence_ordinal,
-       o.token_ordinal,
-       o.book_position
+       o.token_ordinal
   FROM concordance_occurrences o
   WHERE o.owner_id = sqlc.arg('owner')
     AND o.language = sqlc.arg('language')
     AND o.surface = sqlc.arg('surface')
     AND o.dependency = sqlc.arg('dependency')
-  ORDER BY o.book_position NULLS LAST,
-           o.book_position_created_at NULLS LAST,
-           lower(o.book_title), o.book_title, o.book_id,
+  ORDER BY lower(o.book_title), o.book_title, o.book_id,
            o.unit_order, o.sentence_ordinal, o.token_ordinal;

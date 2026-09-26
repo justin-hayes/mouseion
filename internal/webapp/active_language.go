@@ -160,7 +160,7 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 	if after, ok := strings.CutPrefix(u.Path, "/books/"); ok {
 		bookID := after
 		if bookID != "" && !strings.Contains(bookID, "/") {
-			legacyJourneyURL = journeyEntryURL(bookID)
+			legacyJourneyURL = readingBookURL(bookID)
 		}
 	}
 	if legacyJourneyURL != "" {
@@ -173,10 +173,7 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 		}
 		return legacyJourneyURL
 	}
-	if u.Path == "/library" || u.Path == "/reading" || u.Path == "/journey" || u.Path == "/vocabulary" {
-		if u.Path == "/journey" {
-			u.Path = "/reading"
-		}
+	if u.Path == "/library" || u.Path == "/reading" || u.Path == "/vocabulary" {
 		query := u.Query()
 		// A saved mode change removes any request-only language override so the
 		// learner's new active language wins.

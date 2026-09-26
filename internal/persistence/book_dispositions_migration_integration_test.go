@@ -18,9 +18,9 @@ func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) 
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	// Migration 15 creates the target table; seed legacy state at that version
-	// so migration 16 is exercised as a real successor data migration.
-	moveApplicationMigrations(t, databaseURL, -2)
+	// Seed legacy state at version 15 so migration 16 is exercised as a real
+	// successor data migration; migrations 17 and 18 are then applied afterward.
+	moveApplicationMigrations(t, databaseURL, -3)
 	owner, err := store.CreateUser(ctx, "disposition-backfill-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "disposition-backfill-other", false)

@@ -28,24 +28,6 @@ type Store interface {
 	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
 }
 
-// JourneyStore, PrimaryGoalStore, and BookEvidenceStore are intentionally
-// separate from Store so existing single-book insight stores remain useful.
-type JourneyStore interface {
-	GetReadingJourney(context.Context, string, string) (domain.ReadingJourney, error)
-}
-
-type PrimaryGoalStore interface {
-	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
-}
-
-type GoalSnapshotStore interface {
-	ListPrimaryGoalSnapshotVocabulary(context.Context, string, string) ([]domain.SelectionCandidate, error)
-}
-
-type BookEvidenceStore interface {
-	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
-}
-
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }

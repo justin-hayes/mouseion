@@ -4,7 +4,6 @@ package fixtures
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -84,12 +82,12 @@ func normalizeFixtureLanguage(raw string) string {
 	return canonicalization.NormalizeLanguage(raw)
 }
 
-func fixtureJourneyKey(owner, language string) string {
+func fixtureLanguageKey(owner, language string) string {
 	return owner + "\x00" + normalizeFixtureLanguage(language)
 }
 
 func fixtureGoalKey(owner, language string) string {
-	return fixtureJourneyKey(owner, language)
+	return fixtureLanguageKey(owner, language)
 }
 
 func fixtureReadingHistoryKey(owner, language, snapshotID string) string {
@@ -110,7 +108,6 @@ type Store struct {
 	legacyGenerated        []domain.GeneratedVocabulary
 	myBooks                []domain.MyBook
 	dispositions           map[string]domain.BookDisposition
-	readingJourneys        map[string]domain.ReadingJourney
 	primaryGoals           map[string]domain.PrimaryGoal
 	readingHistory         map[string]domain.ReadingCompletion
 	importedHistory        map[string]domain.ReadingCompletion
@@ -174,29 +171,18 @@ func NewStore() *Store {
 		}, {
 			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}},
-		dispositions: make(map[string]domain.BookDisposition),
-		readingJourneys: map[string]domain.ReadingJourney{
-			fixtureJourneyKey(OwnerID, "de"): {
-				OwnerID: OwnerID, Language: "de", Revision: 1, UpdatedAt: fixtureJourneyTime,
-				Entries: []domain.ReadingJourneyEntry{
-					{OwnerID: OwnerID, Language: "de", BookID: BookID, Position: 1, CreatedAt: fixtureJourneyTime},
-					{OwnerID: OwnerID, Language: "de", BookID: "fixture-failed", Position: 2, CreatedAt: fixtureJourneyTime.Add(time.Minute)},
-					{OwnerID: OwnerID, Language: "de", BookID: routeMatchBookID, Position: 3, CreatedAt: fixtureJourneyTime.Add(2 * time.Minute)},
-					{OwnerID: OwnerID, Language: "de", BookID: routeDiffersBookID, Position: 4, CreatedAt: fixtureJourneyTime.Add(3 * time.Minute)},
-					{OwnerID: OwnerID, Language: "de", BookID: routeTieABookID, Position: 5, CreatedAt: fixtureJourneyTime.Add(4 * time.Minute)},
-					{OwnerID: OwnerID, Language: "de", BookID: routeTieBBookID, Position: 6, CreatedAt: fixtureJourneyTime.Add(5 * time.Minute)},
-					{OwnerID: OwnerID, Language: "de", BookID: routeUnavailableBookID, Position: 7, CreatedAt: fixtureJourneyTime.Add(6 * time.Minute)},
-				},
-			},
-			fixtureJourneyKey(OwnerID, "it"): {
-				OwnerID: OwnerID, Language: "it", Revision: 1, UpdatedAt: fixtureJourneyTime,
-				Entries: []domain.ReadingJourneyEntry{
-					{OwnerID: OwnerID, Language: "it", BookID: "fixture-empty", Position: 1, CreatedAt: fixtureJourneyTime},
-					{OwnerID: OwnerID, Language: "it", BookID: edgeBookID, Position: 2, CreatedAt: fixtureJourneyTime.Add(time.Minute)},
-					{OwnerID: OwnerID, Language: "it", BookID: italianRouteBookID, Position: 3, CreatedAt: fixtureJourneyTime.Add(2 * time.Minute)},
-					{OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, Position: 4, CreatedAt: fixtureJourneyTime.Add(3 * time.Minute)},
-				},
-			},
+		dispositions: map[string]domain.BookDisposition{
+			fixtureDispositionKey(OwnerID, BookID):                 domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-failed"):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeMatchBookID):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeDiffersBookID):     domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeTieABookID):        domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeTieBBookID):        domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeUnavailableBookID): domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-empty"):        domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, edgeBookID):             domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, italianRouteBookID):     domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, ItalianGoalBookID):      domain.BookDispositionToRead,
 		},
 		importedHistory: make(map[string]domain.ReadingCompletion),
 		primaryGoals: map[string]domain.PrimaryGoal{
@@ -442,9 +428,8 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 	return s.myBooksForOwner(owner), nil
 }
 
-// GetAnalysisCorpusVocabulary provides deterministic corpus facts for the
-// forecast provider. The shared recurring identity makes sequential changes
-// visible in browser smoke tests without involving a real analyzer.
+// GetAnalysisCorpusVocabulary provides deterministic fixture facts for the
+// coverage summary without involving a real analyzer.
 func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusID string) (domain.AnalysisCorpusVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -458,7 +443,7 @@ func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusI
 	if source.CorpusID == "" {
 		return domain.AnalysisCorpusVocabulary{}, errNotFound
 	}
-	knownTokens := fixtureForecastKnownTokens(corpusID)
+	knownTokens := fixtureKnownCorpusTokens(corpusID)
 	sharedTokens := int64(5)
 	if knownTokens+sharedTokens > 100 {
 		sharedTokens = max(100-knownTokens, 0)
@@ -479,7 +464,7 @@ func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusI
 	}, nil
 }
 
-func fixtureForecastKnownTokens(corpusID string) int64 {
+func fixtureKnownCorpusTokens(corpusID string) int64 {
 	switch corpusID {
 	case "fixture-corpus", "fixture-route-match-corpus":
 		return 90
@@ -547,16 +532,6 @@ func fixtureDispositionKey(owner, bookID string) string { return owner + "\x00" 
 func (s *Store) bookDispositionLocked(owner, bookID string) domain.BookDisposition {
 	if disposition, ok := s.dispositions[fixtureDispositionKey(owner, bookID)]; ok {
 		return disposition
-	}
-	for _, journey := range s.readingJourneys {
-		if journey.OwnerID != owner {
-			continue
-		}
-		for _, entry := range journey.Entries {
-			if entry.BookID == bookID {
-				return domain.BookDispositionToRead
-			}
-		}
 	}
 	return domain.BookDispositionInbox
 }
@@ -940,7 +915,7 @@ func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (d
 			break
 		}
 	}
-	if !found || book.Book.LanguageState != domain.LanguageChosen || book.JourneyGoal {
+	if !found || book.Book.LanguageState != domain.LanguageChosen || book.IsCurrentReading {
 		return domain.ReadingCompletion{}, persistence.ErrNotFound
 	}
 	completion := domain.ReadingCompletion{
@@ -951,40 +926,16 @@ func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (d
 	return completion, nil
 }
 
-func (s *Store) SetBookAsideAtJourneyRevision(_ context.Context, owner, language, bookID string, expectedRevision int64) error {
+func (s *Store) SetBookAside(_ context.Context, owner, language, bookID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
-	journey := s.readingJourneys[fixtureJourneyKey(owner, language)]
-	if journey.Revision != expectedRevision {
-		return persistence.ErrJourneyStale
-	}
 	goalKey := fixtureGoalKey(owner, language)
 	if goal := s.primaryGoals[goalKey]; goal.BookID == bookID {
 		return persistence.ErrBookIsPrimaryGoal
 	}
-	member := -1
-	for i, entry := range journey.Entries {
-		if entry.BookID == bookID {
-			member = i
-			break
-		}
-	}
 	if !s.fixtureBookExists(owner, bookID) {
 		return errNotFound
-	}
-	if member >= 0 {
-		journey.Entries = append(journey.Entries[:member], journey.Entries[member+1:]...)
-		for i := range journey.Entries {
-			journey.Entries[i].Position = i + 1
-		}
-		journey.Revision++
-		journey.UpdatedAt = time.Now()
-		if len(journey.Entries) == 0 && !s.fixtureLanguageDerived(owner, language) {
-			delete(s.readingJourneys, fixtureJourneyKey(owner, language))
-		} else {
-			s.readingJourneys[fixtureJourneyKey(owner, language)] = journey
-		}
 	}
 	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
 	return nil
@@ -1080,213 +1031,11 @@ func (s *Store) LinkSourceToBook(context.Context, string, string, string) error 
 func (s *Store) ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error) {
 	return "", errNotFound
 }
-func (s *Store) GetReadingJourney(_ context.Context, owner, language string) (domain.ReadingJourney, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	journey := s.readingJourneys[fixtureJourneyKey(owner, language)]
-	journey.OwnerID, journey.Language = owner, language
-	journey.Entries = append([]domain.ReadingJourneyEntry(nil), journey.Entries...)
-	return journey, nil
-}
-func (s *Store) ResolveJourneyBookID(_ context.Context, owner, id string) (string, bool, error) {
+func (s *Store) ResolveBookID(_ context.Context, owner, id string) (string, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	bookID := s.fixtureBookID(owner, id)
 	return bookID, bookID != "", nil
-}
-func (s *Store) AddToReadingJourney(_ context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	if language == "" {
-		return 0, persistence.ErrJourneyLanguageRequired
-	}
-	key := fixtureJourneyKey(owner, language)
-	journey := s.readingJourneys[key]
-	if expectedRevision != journey.Revision {
-		return 0, persistence.ErrJourneyStale
-	}
-	if !s.fixtureBookExists(owner, bookID) {
-		return 0, errNotFound
-	}
-	bookID = s.fixtureBookID(owner, bookID)
-	if !s.fixtureMyBookActive(owner, bookID) {
-		return 0, errNotFound
-	}
-	if !s.fixtureBookHasChosenLanguage(owner, bookID) || s.fixtureBookLanguage(owner, bookID) != language {
-		return 0, persistence.ErrBookLanguageRequired
-	}
-	for _, entry := range journey.Entries {
-		if entry.BookID == bookID {
-			s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
-			return journey.Revision, nil
-		}
-	}
-	journey.OwnerID, journey.Language = owner, language
-	journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{OwnerID: owner, Language: language, BookID: bookID, Position: len(journey.Entries) + 1, CreatedAt: time.Now()})
-	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
-	journey.Revision++
-	journey.UpdatedAt = time.Now()
-	s.readingJourneys[key] = journey
-	return journey.Revision, nil
-}
-
-func (s *Store) fixtureMyBookActive(owner, bookID string) bool {
-	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.ID == bookID {
-			return true
-		}
-	}
-	for _, source := range s.books {
-		if source.Source.OwnerID != owner {
-			continue
-		}
-		resolved := source.BookID
-		if resolved == "" {
-			resolved = source.Source.ID
-		}
-		if resolved == bookID {
-			return true
-		}
-	}
-	return false
-}
-func (s *Store) RemoveFromReadingJourney(_ context.Context, owner, language, bookID string, expectedRevision int64) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	key := fixtureJourneyKey(owner, language)
-	journey, exists := s.readingJourneys[key]
-	if expectedRevision != journey.Revision {
-		return 0, persistence.ErrJourneyStale
-	}
-	if !exists {
-		return 0, nil
-	}
-	bookID = s.fixtureBookID(owner, bookID)
-	member := -1
-	for i, entry := range journey.Entries {
-		if entry.BookID == bookID {
-			member = i
-			break
-		}
-	}
-	if member < 0 {
-		return journey.Revision, nil
-	}
-	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
-	journey.Entries = append(journey.Entries[:member], journey.Entries[member+1:]...)
-	for i := range journey.Entries {
-		journey.Entries[i].Position = i + 1
-	}
-	journey.Revision++
-	journey.UpdatedAt = time.Now()
-	if goal := s.primaryGoals[fixtureGoalKey(owner, language)]; goal.BookID == bookID {
-		delete(s.primaryGoals, fixtureGoalKey(owner, language))
-	}
-	if len(journey.Entries) == 0 && !s.fixtureLanguageDerived(owner, language) {
-		delete(s.readingJourneys, key)
-		return 0, nil
-	}
-	s.readingJourneys[key] = journey
-	return journey.Revision, nil
-}
-
-// MoveReadingJourneyEntry mirrors the Postgres store: when a Primary Goal book is
-// a Journey member it is anchored and invisible to the provisional order, so
-// newPosition is interpreted within the Goal-excluded order and the Goal entry
-// is never moved.
-func (s *Store) MoveReadingJourneyEntry(_ context.Context, owner, language, bookID string, newPosition int, expectedRevision int64) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	key := fixtureJourneyKey(owner, language)
-	journey, exists := s.readingJourneys[key]
-	if expectedRevision != journey.Revision {
-		return 0, persistence.ErrJourneyStale
-	}
-	if !exists {
-		return 0, persistence.ErrNotFound
-	}
-	memberIndex := -1
-	for i, entry := range journey.Entries {
-		if entry.BookID == bookID {
-			memberIndex = i
-			break
-		}
-	}
-	if memberIndex == -1 {
-		return 0, persistence.ErrNotFound
-	}
-	if newPosition < 1 {
-		newPosition = 1
-	}
-	if newPosition > len(journey.Entries) {
-		newPosition = len(journey.Entries)
-	}
-	goalBookID := s.primaryGoals[fixtureGoalKey(owner, language)].BookID
-	goalIndex := -1
-	if goalBookID != "" && goalBookID != bookID {
-		visible := make([]domain.ReadingJourneyEntry, 0, len(journey.Entries)-1)
-		visibleIndex := 0
-		for index, entry := range journey.Entries {
-			if entry.BookID == goalBookID {
-				goalIndex = index
-				continue
-			}
-			if entry.BookID == bookID {
-				visibleIndex = len(visible)
-			}
-			visible = append(visible, entry)
-		}
-		if goalIndex >= 0 {
-			if newPosition < 1 {
-				newPosition = 1
-			}
-			if newPosition > len(visible) {
-				newPosition = len(visible)
-			}
-			if visibleIndex == newPosition-1 {
-				return journey.Revision, nil
-			}
-			entry := visible[visibleIndex]
-			visible = append(visible[:visibleIndex], visible[visibleIndex+1:]...)
-			visible = append(visible, domain.ReadingJourneyEntry{})
-			copy(visible[newPosition:], visible[newPosition-1:])
-			visible[newPosition-1] = entry
-			journey.Entries = make([]domain.ReadingJourneyEntry, 0, len(visible)+1)
-			visibleIndex = 0
-			for index := range len(visible) + 1 {
-				if index == goalIndex {
-					journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{OwnerID: owner, Language: language, BookID: goalBookID})
-					continue
-				}
-				journey.Entries = append(journey.Entries, visible[visibleIndex])
-				visibleIndex++
-			}
-		} else {
-			goalBookID = ""
-		}
-	}
-	if goalBookID == "" {
-		if memberIndex == newPosition-1 {
-			return journey.Revision, nil
-		}
-		entry := journey.Entries[memberIndex]
-		journey.Entries = append(journey.Entries[:memberIndex], journey.Entries[memberIndex+1:]...)
-		journey.Entries = append(journey.Entries, domain.ReadingJourneyEntry{})
-		copy(journey.Entries[newPosition:], journey.Entries[newPosition-1:])
-		journey.Entries[newPosition-1] = entry
-	}
-	for i := range journey.Entries {
-		journey.Entries[i].OwnerID = owner
-		journey.Entries[i].Position = i + 1
-	}
-	journey.Revision++
-	journey.UpdatedAt = time.Now()
-	s.readingJourneys[key] = journey
-	return journey.Revision, nil
 }
 func (s *Store) GetPrimaryGoal(_ context.Context, owner, language string) (domain.PrimaryGoal, error) {
 	s.mu.Lock()
@@ -1427,18 +1176,12 @@ func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt ti
 
 func (s *Store) fixturePrimaryGoalEligible(owner, language, bookID string) bool {
 	language = normalizeFixtureLanguage(language)
-	journey, exists := s.readingJourneys[fixtureJourneyKey(owner, language)]
-	if !exists {
+	if s.bookDispositionLocked(owner, bookID) != domain.BookDispositionToRead {
 		return false
 	}
-	for _, entry := range journey.Entries {
-		if entry.BookID != bookID {
-			continue
-		}
-		for _, book := range s.books {
-			if s.fixtureBookID(owner, book.Source.ID) == bookID && normalizeFixtureLanguage(book.Source.Language) == language && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {
-				return true
-			}
+	for _, book := range s.books {
+		if s.fixtureBookID(owner, book.Source.ID) == bookID && normalizeFixtureLanguage(book.Source.Language) == language && strings.EqualFold(book.Source.MediaType, opds.EPUBMediaType) && book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" && book.Source.ContentRevisionID != "" {
+			return true
 		}
 	}
 	return false
@@ -1489,22 +1232,6 @@ func (s *Store) transitionFixtureCurrentReading(owner, language, expectedBookID,
 		return persistence.ErrGoalStale
 	}
 	s.dispositions[fixtureDispositionKey(owner, expectedBookID)] = disposition
-	if disposition == domain.BookDispositionSetAside {
-		journeyKey := fixtureJourneyKey(owner, language)
-		journey := s.readingJourneys[journeyKey]
-		entries := journey.Entries[:0]
-		for _, entry := range journey.Entries {
-			if entry.BookID != expectedBookID {
-				entry.Position = len(entries) + 1
-				entries = append(entries, entry)
-			}
-		}
-		if len(entries) != len(journey.Entries) {
-			journey.Entries = entries
-			journey.Revision++
-			s.readingJourneys[journeyKey] = journey
-		}
-	}
 	delete(s.primaryGoals, key)
 	return nil
 }
@@ -1568,27 +1295,6 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 		preparation.ReleasedAt = &now
 		preparation.UpdatedAt = now
 	}
-	journeyKey := fixtureJourneyKey(owner, language)
-	journey, journeyExists := s.readingJourneys[journeyKey]
-	if journeyExists {
-		for index, entry := range journey.Entries {
-			if entry.BookID != expectedBookID {
-				continue
-			}
-			journey.Entries = append(journey.Entries[:index], journey.Entries[index+1:]...)
-			for position := range journey.Entries {
-				journey.Entries[position].Position = position + 1
-			}
-			journey.Revision++
-			journey.UpdatedAt = now
-			if len(journey.Entries) == 0 && !s.fixtureLanguageDerived(owner, language) {
-				delete(s.readingJourneys, journeyKey)
-			} else {
-				s.readingJourneys[journeyKey] = journey
-			}
-			break
-		}
-	}
 	s.dispositions[fixtureDispositionKey(owner, expectedBookID)] = domain.BookDispositionSetAside
 	delete(s.primaryGoals, key)
 	return persistence.ReadingFinishResult{Completion: completion}, nil
@@ -1615,58 +1321,6 @@ func (s *Store) FinishCurrentReading(ctx context.Context, owner, language, expec
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {
 	return s.fixtureBookID(owner, bookID) != ""
-}
-
-func (s *Store) fixtureBookHasChosenLanguage(owner, bookID string) bool {
-	bookID = s.fixtureBookID(owner, bookID)
-	for _, source := range s.books {
-		resolved := source.BookID
-		if resolved == "" {
-			resolved = source.Source.ID
-		}
-		if source.Source.OwnerID == owner && resolved == bookID {
-			return strings.TrimSpace(source.Source.Language) != ""
-		}
-	}
-	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.ID == bookID {
-			return book.Book.LanguageState == domain.LanguageChosen && strings.TrimSpace(book.Book.LanguageTag) != ""
-		}
-	}
-	return false
-}
-
-func (s *Store) fixtureBookLanguage(owner, bookID string) string {
-	bookID = s.fixtureBookID(owner, bookID)
-	for _, source := range s.books {
-		resolved := source.BookID
-		if resolved == "" {
-			resolved = source.Source.ID
-		}
-		if source.Source.OwnerID == owner && resolved == bookID {
-			return normalizeFixtureLanguage(source.Source.Language)
-		}
-	}
-	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.ID == bookID && book.Book.LanguageState == domain.LanguageChosen {
-			return normalizeFixtureLanguage(book.Book.LanguageTag)
-		}
-	}
-	return ""
-}
-
-func (s *Store) fixtureLanguageDerived(owner, language string) bool {
-	for _, book := range s.books {
-		if book.Source.OwnerID == owner && normalizeFixtureLanguage(book.Source.Language) == language {
-			return true
-		}
-	}
-	for _, book := range s.myBooks {
-		if book.Book.OwnerID == owner && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Store) admitFixtureCatalogueLanguage(owner, connectionID string) {
@@ -1789,16 +1443,7 @@ func (Analysis) GetCompletedAnalysis(_ context.Context, _ string, sourceMaterial
 	return result, nil
 }
 
-type Insights struct {
-	JourneyStore *Store
-}
-
-func (insights Insights) JourneyForecast(ctx context.Context, owner, language string) (domain.JourneyForecast, error) {
-	if insights.JourneyStore == nil {
-		return domain.JourneyForecast{}, errors.New("fixture Journey store is unavailable")
-	}
-	return analysisinsights.NewService(insights.JourneyStore).JourneyForecast(ctx, owner, language)
-}
+type Insights struct{}
 
 func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
 	lemmas := make([]domain.LemmaOccurrence, 0, 18)
