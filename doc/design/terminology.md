@@ -20,15 +20,18 @@ language without a product reason.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
-| **Inbox / To Read / Set Aside** | My Books workflow buckets: Inbox is untriaged, To Read expresses reading intent and ensures acquisition/analysis when needed, and Set Aside is not currently intended. Each Book occupies one bucket; completion history is independent. | Reading status, Journey position |
+| **Inbox / To Read / Set Aside** | Persisted Book dispositions: Inbox is untriaged, To Read expresses reading intent and ensures acquisition/analysis when needed, and Set Aside is not currently intended. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position |
 | **Reading** | The current Book or, between Books, the unordered chooser of To Read candidates. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
-| **Read history / Read again** | A completed Book remains in the independent Read history filter. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
+| **Read / Read again** | Read is the visible bucket for a Set Aside Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
 
 Reading intent is expressed through the To Read disposition. Current reading,
-To Read disposition, and Read history are independent facts. A learner may have
-no current Book and no To Read Books; neither state implies failure or urgency.
+disposition, and reading history are independent facts; My Books derives one
+visible bucket in precedence order: Currently reading, To Read, Inbox, Read
+when history exists, then Set Aside. A historical Inbox or To Read Book stays in
+its disposition bucket. A learner may have no current Book and no To Read Books;
+neither state implies failure or urgency.
 
 **Reading Horizon** may remain an internal design metaphor for changing
 possibility. **Campaign**, **milestone**, **destination**, and **Journey
@@ -49,9 +52,9 @@ completion** are not primary learner-facing concepts.
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. **Add to Reading
- **Move to To Read** acquires and validates content when needed as an ensure-once
-consequence of reading intent. Historical compatibility artifacts may retain
+upload unless a shipped route and feature contract support it. **Move to To Read**
+acquires and validates content when needed as an ensure-once consequence of
+reading intent. Historical compatibility artifacts may retain
 **Add to My Books** or **Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
@@ -77,7 +80,7 @@ Book's learner-facing state may be **ready to analyze**, **analysis queued**,
 even when backend state is expressed differently. **Analysis history** is
 operational language for `GET /jobs`, not a learner-facing Book-page section.
 Run-specific analysis URLs remain only as compatibility redirects to the Reading
-Journey anchor.
+anchor.
 
 ## Reading choice and evidence
 
@@ -146,7 +149,8 @@ learner's My Books collection.
 Use complete, factual labels where space permits:
 
 - current reading;
-- Inbox, To Read, Set Aside, and Read history;
+- Inbox, To Read, Read, and Set Aside as mutually exclusive visible buckets;
+- reading history, including prior completions on current, Inbox, or To Read Books;
 - reading in progress;
 - reading finished;
 - vocabulary work in progress;
