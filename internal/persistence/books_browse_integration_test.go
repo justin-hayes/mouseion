@@ -212,6 +212,13 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
 	italianCurrent, err := store.StartCurrentReading(ctx, owner.ID, "it", italian.ID)
 	require.NoError(t, err)
+	italianHistoryInput, err := domain.NewBook(owner.ID, "Italian historical book", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "it")
+	require.NoError(t, err)
+	italianHistoryBook, err := store.CreateBook(ctx, italianHistoryInput)
+	require.NoError(t, err)
+	_, err = store.ImportPreviouslyRead(ctx, owner.ID, italianHistoryBook.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, italianHistoryBook.ID, domain.BookDispositionSetAside))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -223,6 +230,12 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 			readBooks, readErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", true, 0, 25)
 			require.NoError(t, readErr)
 			assert.Empty(t, readBooks.Items, "current reading with history is excluded from Read")
+		} else {
+			readBooks, readErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", true, 0, 25)
+			require.NoError(t, readErr)
+			require.Len(t, readBooks.Items, 1, "Read history is scoped to the selected language")
+			assert.Equal(t, italianHistoryBook.ID, readBooks.Items[0].Book.ID)
+			assert.Equal(t, 1, readBooks.ReadCount)
 		}
 		var currentCount int
 		for _, item := range currentBooks.Items {
