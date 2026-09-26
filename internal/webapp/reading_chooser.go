@@ -339,8 +339,13 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("The book is current, but local deck preparation is unavailable. Its snapshot is preserved; retry preparation when the service is available."))
 			return
 		}
-		if _, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID); prepareErr != nil {
-			log.Printf("current reading deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
+		handle, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID)
+		if prepareErr != nil || handle.Preparation.State == domain.DeckPreparationFailed {
+			if prepareErr != nil {
+				log.Printf("current reading deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
+			} else {
+				log.Printf("current reading deck preparation owner=%s language=%s book=%s: %s", owner, language, selected.BookID, handle.Preparation.Error)
+			}
 			redirect(w, r, "/reading?error="+url.QueryEscape("The book is current and its snapshot is frozen, but local deck preparation could not be queued. The reading is unchanged; open its deck task to retry."))
 			return
 		}
