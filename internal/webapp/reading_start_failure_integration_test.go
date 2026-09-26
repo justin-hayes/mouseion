@@ -87,6 +87,9 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	var reservationCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, owner.ID, reading.SnapshotID).Scan(&reservationCount))
 	assert.Equal(t, reading.SnapshotSize, reservationCount)
+	frozenVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Len(t, frozenVocabulary, reading.SnapshotSize)
 	readingPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
@@ -113,4 +116,7 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	unchanged, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, reading, unchanged, "retry changed current-reading identity or its frozen snapshot")
+	retriedVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, frozenVocabulary, retriedVocabulary, "retry changed the frozen vocabulary snapshot")
 }
