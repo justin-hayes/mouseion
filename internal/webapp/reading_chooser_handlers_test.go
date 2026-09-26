@@ -8,8 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -94,6 +97,62 @@ func TestReadingChooserRecoveryDoesNotRequireIsToReadship(t *testing.T) {
 	response := goalRequest(t, h, "/reading/books/fixture-failed/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "/reading?message=Analysis+")
+}
+
+func TestCurrentReadingRefreshIsRejectedWithoutSubmittingAnalysis(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	currentBefore, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	handler, ok := h.(*Handler)
+	require.True(t, ok)
+	detail, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
+	require.NoError(t, err)
+	detail.Acquired = nil
+	dependencies := handler.services.Store
+	dependencies.Books = unavailableCurrentReadingBook{BookStore: store, detail: detail}
+	handler.services.Store = dependencies
+	opdsStub := &countingToReadOPDS{}
+	handler.services.OPDS = opdsStub
+	analysisStub := &recordingToReadAnalysis{}
+	handler.services.Analysis = analysisStub
+
+	response := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Contains(t, response.Header().Get("Location"), "error=")
+	assert.Zero(t, analysisStub.submissions, "current reading refresh must not submit a new analysis")
+	assert.Zero(t, opdsStub.acquisitions, "current reading refresh must not acquire newer content")
+	currentAfter, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, currentBefore, currentAfter, "rejected refresh must preserve the current reading")
+}
+
+type unavailableCurrentReadingBook struct {
+	BookStore
+	detail domain.MyBook
+}
+
+func (b unavailableCurrentReadingBook) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
+	return b.detail, nil
+}
+
+type countingToReadOPDS struct {
+	fixtures.OPDS
+	acquisitions int
+}
+
+func (o *countingToReadOPDS) AcquireForBook(ctx context.Context, owner, connection, language, bookID string, entry opds.Entry) (epub.ImportResult, error) {
+	o.acquisitions++
+	return o.OPDS.AcquireForBook(ctx, owner, connection, language, bookID, entry)
+}
+
+type recordingToReadAnalysis struct {
+	fixtures.Analysis
+	submissions int
+}
+
+func (a *recordingToReadAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
+	a.submissions++
+	return a.Analysis.SubmitAnalysis(ctx, owner, sourceID)
 }
 
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {

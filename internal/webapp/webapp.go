@@ -109,6 +109,7 @@ type OPDS interface {
 }
 type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
+	SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 }
 

@@ -1482,6 +1482,9 @@ type Analysis struct{}
 func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
 	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
 }
+func (Analysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
+	return (Analysis{}).SubmitAnalysis(ctx, owner, sourceID)
+}
 func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, error) {
 	if id == 43 {
 		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", LogicalState: "failed", Progress: 42}, nil

@@ -102,6 +102,10 @@ func (a *journeyIntentAnalysis) SubmitAnalysis(context.Context, string, string) 
 	a.calls++
 	return analysis.Handle{ID: int64(a.calls), DisplayNumber: int64(a.calls)}, nil
 }
+
+func (a *journeyIntentAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
+	return a.SubmitAnalysis(ctx, owner, sourceID)
+}
 func (*journeyIntentAnalysis) Get(context.Context, string, int64) (analysis.Status, error) {
 	return analysis.Status{}, nil
 }

@@ -37,6 +37,7 @@ const (
 
 var ErrNotFound = errors.New("analysis job: not found")
 var ErrEPUBRequired = errors.New("analysis requires an EPUB source")
+var ErrCurrentBook = errors.New("current reading cannot be refreshed")
 var ErrDependencyParsingUnavailable = errors.New("NLP service is misconfigured: dependency parsing is unavailable")
 
 type JobArgs struct {
@@ -171,6 +172,21 @@ func NewService(pool *pgxpool.Pool, client riverClient) *Service {
 // SubmitAnalysis atomically records one snapshot-bound analysis run and inserts
 // its River job. The worker reloads the immutable extracted snapshot.
 func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (result Handle, err error) {
+	return s.submitAnalysis(ctx, owner, "", sourceID)
+}
+
+// SubmitToReadBookAnalysis submits a recovery attempt only while the Book is
+// still To Read and is not the current Book. The Book row lock is shared with
+// current-reading transitions, so the check and job insertion linearize with
+// a concurrent start.
+func (s *Service) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (result Handle, err error) {
+	if strings.TrimSpace(bookID) == "" {
+		return Handle{}, errors.New("analysis Book is required")
+	}
+	return s.submitAnalysis(ctx, owner, bookID, sourceID)
+}
+
+func (s *Service) submitAnalysis(ctx context.Context, owner, bookID, sourceID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(sourceID) == "" {
 		return Handle{}, errors.New("analysis owner and source are required")
 	}
@@ -179,20 +195,51 @@ func (s *Service) SubmitAnalysis(ctx context.Context, owner, sourceID string) (r
 		return Handle{}, fmt.Errorf("begin analysis submission: %w", err)
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	if bookID != "" {
+		var lockedBook string
+		err = tx.QueryRow(ctx, `SELECT id::text FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, bookID).Scan(&lockedBook)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Handle{}, ErrNotFound
+		}
+		if err != nil {
+			return Handle{}, fmt.Errorf("lock To Read Book for analysis: %w", err)
+		}
+		var disposition string
+		var current bool
+		err = tx.QueryRow(ctx, `SELECT d.disposition, EXISTS(SELECT 1 FROM primary_goals g WHERE g.owner_id=b.owner_id AND g.book_id=b.id)
+			FROM books b JOIN book_dispositions d ON d.owner_id=b.owner_id AND d.book_id=b.id
+			WHERE b.owner_id=$1 AND b.id=$2`, owner, bookID).Scan(&disposition, &current)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Handle{}, ErrNotFound
+		}
+		if err != nil {
+			return Handle{}, fmt.Errorf("check To Read Book for analysis: %w", err)
+		}
+		if current {
+			return Handle{}, ErrCurrentBook
+		}
+		if disposition != "to_read" {
+			return Handle{}, ErrNotFound
+		}
+	}
 	var args JobArgs
 	var revisionID, snapshotID, mediaType string
+	var sourceBookID string
 	err = tx.QueryRow(ctx, `SELECT s.owner_id,s.id,s.language,s.source_identifier,s.title,
 		COALESCE(r.revision_id::text,''),CASE WHEN r.digest_version=1 THEN r.content_digest ELSE s.content_hash END,
-		COALESCE(s.current_snapshot_id::text,''),s.media_type
+		COALESCE(s.current_snapshot_id::text,''),s.media_type,COALESCE(s.book_id::text,'')
 		FROM source_materials s
 		LEFT JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.source_material_id=s.id AND r.revision_id=s.current_content_revision_id
 		WHERE s.owner_id=$1 AND s.id=$2`, owner, sourceID).
-		Scan(&args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &revisionID, &args.ContentHash, &snapshotID, &mediaType)
+		Scan(&args.OwnerID, &args.SourceMaterialID, &args.Language, &args.SourceIdentifier, &args.Title, &revisionID, &args.ContentHash, &snapshotID, &mediaType, &sourceBookID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Handle{}, ErrNotFound
 	}
 	if err != nil {
 		return Handle{}, fmt.Errorf("load EPUB for analysis: %w", err)
+	}
+	if bookID != "" && sourceBookID != bookID {
+		return Handle{}, ErrNotFound
 	}
 	if mediaType != "application/epub+zip" {
 		return Handle{}, ErrEPUBRequired

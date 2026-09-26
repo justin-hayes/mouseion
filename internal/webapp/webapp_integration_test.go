@@ -219,6 +219,10 @@ func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source stri
 	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
 }
 
+func (r *recordingAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, source string) (analysis.Handle, error) {
+	return r.SubmitAnalysis(ctx, owner, source)
+}
+
 func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (analysis.Status, error) {
 	if owner != r.owner || id != 42 {
 		return analysis.Status{}, analysis.ErrNotFound

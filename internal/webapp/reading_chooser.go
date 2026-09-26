@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -269,16 +270,33 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, detail.Book.LanguageTag)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if current.IsActive() && current.BookID == detail.Book.ID {
+		rejectCurrentBookRefresh(w, r)
+		return
+	}
 	if detail.Disposition != domain.BookDispositionToRead {
 		http.NotFound(w, r)
 		return
 	}
 	handle, _, _, _, err := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 	if err != nil {
+		if errors.Is(err, analysis.ErrCurrentBook) {
+			rejectCurrentBookRefresh(w, r)
+			return
+		}
 		redirect(w, r, "/reading?error="+url.QueryEscape("Acquisition or analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."))
 		return
 	}
 	redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis job #%d submitted.", handle.DisplayNumber)))
+}
+
+func rejectCurrentBookRefresh(w http.ResponseWriter, r *http.Request) {
+	redirect(w, r, "/reading?error="+url.QueryEscape("The current book cannot be refreshed. Its frozen evidence remains unchanged."))
 }
 
 func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
