@@ -115,8 +115,9 @@ type MyBook struct {
 	Cover                  BookCover
 	Acquired               *SourceMaterialSummary
 	Disposition            BookDisposition
-	IsToRead          bool
-	IsCurrentReading            bool
+	DispositionRevision    int64
+	IsToRead               bool
+	IsCurrentReading       bool
 	CompletionCount        int
 	LatestCompletionAt     *time.Time
 	LatestCompletionSource ReadingCompletionSource

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -238,15 +239,19 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	analysisService := &journeyIntentAnalysis{}
 	requireHandler(t, h).services.Analysis = analysisService
+	bookState, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
+	require.NoError(t, err)
 	currentGoal := goalRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, currentGoal.Code)
 	assert.Contains(t, currentGoal.Header().Get("Location"), "cannot+be+set+aside")
 	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, fixtures.BookID))
 
+	bookState, err = store.GetBookDetail(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
 	setAside := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, setAside.Code)
 	assert.Contains(t, setAside.Header().Get("Location"), "disposition=set_aside")
@@ -255,7 +260,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionSetAside, disposition)
 
 	repeated := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
@@ -263,7 +268,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionSetAside, disposition)
 
 	toRead := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
 	assert.NotContains(t, toRead.Header().Get("Location"), "error=")
@@ -274,7 +279,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
 
 	repeated = goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	assert.Equal(t, 1, analysisService.calls, "idempotent move should not submit duplicate analysis")

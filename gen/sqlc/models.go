@@ -123,6 +123,7 @@ type BookDisposition struct {
 	Disposition string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Revision    int64
 }
 
 type BookMembership struct {

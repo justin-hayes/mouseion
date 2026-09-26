@@ -108,6 +108,7 @@ type Store struct {
 	legacyGenerated        []domain.GeneratedVocabulary
 	myBooks                []domain.MyBook
 	dispositions           map[string]domain.BookDisposition
+	dispositionRevisions   map[string]int64
 	primaryGoals           map[string]domain.PrimaryGoal
 	readingHistory         map[string]domain.ReadingCompletion
 	importedHistory        map[string]domain.ReadingCompletion
@@ -184,7 +185,8 @@ func NewStore() *Store {
 			fixtureDispositionKey(OwnerID, italianRouteBookID):     domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, ItalianGoalBookID):      domain.BookDispositionToRead,
 		},
-		importedHistory: make(map[string]domain.ReadingCompletion),
+		dispositionRevisions: make(map[string]int64),
+		importedHistory:      make(map[string]domain.ReadingCompletion),
 		primaryGoals: map[string]domain.PrimaryGoal{
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
@@ -516,11 +518,12 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if source.BookTitle == "" {
 			source.BookTitle = source.Source.Title
 		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Cover: fixtureCover(bookID), Acquired: &source, Disposition: s.bookDispositionLocked(source.Source.OwnerID, bookID)})
+		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Cover: fixtureCover(bookID), Acquired: &source, Disposition: s.bookDispositionLocked(source.Source.OwnerID, bookID), DispositionRevision: s.bookDispositionRevisionLocked(source.Source.OwnerID, bookID)})
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {
 			book.Disposition = s.bookDispositionLocked(book.Book.OwnerID, book.Book.ID)
+			book.DispositionRevision = s.bookDispositionRevisionLocked(book.Book.OwnerID, book.Book.ID)
 			out = append(out, book)
 		}
 	}
@@ -552,6 +555,13 @@ func (s *Store) bookDispositionLocked(owner, bookID string) domain.BookDispositi
 		return disposition
 	}
 	return domain.BookDispositionInbox
+}
+
+func (s *Store) bookDispositionRevisionLocked(owner, bookID string) int64 {
+	if revision := s.dispositionRevisions[fixtureDispositionKey(owner, bookID)]; revision > 0 {
+		return revision
+	}
+	return 1
 }
 
 // ListMyBooksBrowse mirrors the production collection browser in memory for
@@ -910,7 +920,36 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 		return errNotFound
 	}
 	s.dispositions[fixtureDispositionKey(owner, bookID)] = disposition
+	s.dispositionRevisions[fixtureDispositionKey(owner, bookID)] = s.bookDispositionRevisionLocked(owner, bookID) + 1
 	return nil
+}
+
+func (s *Store) TransitionBookDisposition(_ context.Context, owner, language, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
+	if err := disposition.Validate(); err != nil {
+		return false, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.fixtureBookExists(owner, bookID) {
+		return false, errNotFound
+	}
+	key := fixtureDispositionKey(owner, bookID)
+	revision := s.bookDispositionRevisionLocked(owner, bookID)
+	current := s.bookDispositionLocked(owner, bookID)
+	if revision == expectedRevision+1 && current == disposition {
+		return false, nil
+	}
+	if revision != expectedRevision {
+		return false, persistence.ErrStaleBookDisposition
+	}
+	if disposition == domain.BookDispositionSetAside {
+		if goal := s.primaryGoals[fixtureGoalKey(owner, normalizeFixtureLanguage(language))]; goal.BookID == bookID {
+			return false, persistence.ErrBookIsPrimaryGoal
+		}
+	}
+	s.dispositions[key] = disposition
+	s.dispositionRevisions[key] = revision + 1
+	return true, nil
 }
 
 func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (domain.ReadingCompletion, error) {
@@ -951,6 +990,7 @@ func (s *Store) SetBookAside(_ context.Context, owner, language, bookID string) 
 		return errNotFound
 	}
 	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
+	s.dispositionRevisions[fixtureDispositionKey(owner, bookID)] = s.bookDispositionRevisionLocked(owner, bookID) + 1
 	return nil
 }
 func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {

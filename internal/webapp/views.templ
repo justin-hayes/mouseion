@@ -186,7 +186,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 				if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
 					if book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 							<button type="submit" class="outline library-book__journey-action">Move to To Read</button>
 						</form>
 					} else {
@@ -195,7 +195,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 				}
 			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL(toReadURL(book.Book.ID)) }>
-					<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
@@ -208,7 +208,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 						}
 					}
 					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
-						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Read again</button></form>
+						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="outline secondary">Read again</button></form>
 					}
 					if refreshEligible {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
@@ -219,7 +219,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					if book.Disposition != "" && (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.IsCurrentReading {
 						@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
 							<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
-								<input type="hidden" name="csrf_token" value={ csrf }/>
+								<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 								<button type="submit" class="outline secondary">Confirm set aside</button>
 							</form>
 						}

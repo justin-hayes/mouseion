@@ -90,7 +90,9 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 	var books []domain.MyBook
 	for _, row := range rows {
 		book := myBookFromEvidence(row)
-		book.Disposition = dispositions[book.Book.ID]
+		state := dispositions[book.Book.ID]
+		book.Disposition = state.disposition
+		book.DispositionRevision = state.revision
 		books = append(books, book)
 	}
 	return books, nil
@@ -150,7 +152,9 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 		return MyBooksBrowseResult{}, err
 	}
 	for i := range result.Items {
-		result.Items[i].Disposition = dispositions[result.Items[i].Book.ID]
+		state := dispositions[result.Items[i].Book.ID]
+		result.Items[i].Disposition = state.disposition
+		result.Items[i].DispositionRevision = state.revision
 	}
 	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition, History: history})
 	if err != nil {
@@ -230,21 +234,32 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 		return domain.MyBook{}, missing(err)
 	}
 	book := myBookFromEvidence(row)
-	book.Disposition, err = s.GetBookDisposition(ctx, owner, book.Book.ID)
+	states, err := s.bookDispositionMap(ctx, owner)
 	if err != nil {
 		return domain.MyBook{}, err
 	}
+	state, ok := states[book.Book.ID]
+	if !ok {
+		return domain.MyBook{}, ErrNotFound
+	}
+	book.Disposition = state.disposition
+	book.DispositionRevision = state.revision
 	return book, nil
 }
 
-func (s *PostgresStore) bookDispositionMap(ctx context.Context, owner string) (map[string]domain.BookDisposition, error) {
+type bookDispositionState struct {
+	disposition domain.BookDisposition
+	revision    int64
+}
+
+func (s *PostgresStore) bookDispositionMap(ctx context.Context, owner string) (map[string]bookDispositionState, error) {
 	rows, err := s.queries().ListBookDispositions(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
-	dispositions := make(map[string]domain.BookDisposition, len(rows))
+	dispositions := make(map[string]bookDispositionState, len(rows))
 	for _, row := range rows {
-		dispositions[row.BookID] = domain.BookDisposition(row.Disposition)
+		dispositions[row.BookID] = bookDispositionState{disposition: domain.BookDisposition(row.Disposition), revision: row.Revision}
 	}
 	return dispositions, nil
 }
