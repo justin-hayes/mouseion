@@ -39,6 +39,19 @@ test.describe('Current reading selection', () => {
         await confirmation.locator('summary').press('Enter');
       }
 
+      const staleStopForm = stop.locator('form');
+      const staleResponse = await page.request.post(new URL('/reading/stop', page.url()).toString(), {
+        maxRedirects: 0,
+        form: {
+          csrf_token: await staleStopForm.locator('input[name="csrf_token"]').inputValue(),
+          expected_current_book_id: 'stale-book-id',
+          expected_current_snapshot_id: await staleStopForm.locator('input[name="expected_current_snapshot_id"]').inputValue(),
+        },
+      });
+      expect(staleResponse.status()).toBe(303);
+      await page.goto('/reading');
+      await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
+
       await expect(current.locator('a[href="/reading/switch"]')).toBeVisible();
     });
 

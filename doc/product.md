@@ -13,13 +13,15 @@ the legacy `GET /connections` route permanently redirects there while preserving
 `book_id`, `message`, and `error`. My Books is the sole browse surface for the synced collection,
 and EPUB content is acquired when a Book is moved to To Read. The upstream catalog
 browser is retired. `/` redirects to My Books. The active vocabulary consequence
-belongs to the current reading (see [ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md)):
-starting a Book freezes its vocabulary snapshot and derives Reserved vocabulary
-from it; finishing accepts that snapshot into modeled Known vocabulary and adds
-an independent Read-history record. The learner can later move a previously read
-Book back to To Read to read it again. Prepared-deck work belongs to the focused
-preparation task, with historical provenance remaining an operational supporting
-artifact rather than a second learner-facing plan.
+belongs to the current reading: starting a Book freezes its vocabulary snapshot
+and derives Reserved vocabulary from it; finishing accepts eligible snapshot
+identities into modeled Known vocabulary and adds an independent Read-history
+record. The learner can later move a previously read Book back to To Read to read
+it again. See the [Reading workflow specification](features/reading-workflow.md);
+[ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md) is historical
+and documents the retired Goal/ordered-Journey model. Prepared-deck work belongs
+to the focused preparation task, with historical provenance remaining an
+operational supporting artifact rather than a second learner-facing plan.
 
 Catalogue synchronization status is part of the learner-owned Catalogs surface
 at `/catalogs`, with detailed work under `/jobs`.
@@ -70,13 +72,13 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
 2. **Reading intent** — move a Book from Inbox to To Read when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it records the disposition, acquires the current EPUB when needed, and ensures one analysis for the current content revision, selecting declared main text when safe and otherwise using the complete snapshot.
 3. **Analysis and evidence** — observe asynchronous analysis producing an immutable completed corpus, then inspect current evidence from the Reading surface. Start, stop, set aside, switch, and finish actions change current-reading state explicitly. Open the focused preparation task separately when deck work is wanted. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-5. **Vocabulary selection** — classify imported and completed-Goal vocabulary as modeled Known, exclude the active Goal's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
+5. **Vocabulary selection** — classify imported and completed-reading vocabulary as modeled Known, exclude the current reading's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
 6. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 7. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
    encounter in the book.
 
-Generated-deck history and modeled Known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its Book/deck provenance, but never by itself adds it to Known vocabulary. A current Book's frozen snapshot is Reserved in its study language but is not Known. Finishing current reading adds the eligible snapshot identities to modeled Known vocabulary using set semantics and records reading completion independently; the transition is idempotent and does not claim verified mastery. See [ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+Generated-deck history and modeled Known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its Book/deck provenance, but never by itself adds it to Known vocabulary. A current Book's frozen snapshot is Reserved in its study language but is not Known. Finishing current reading adds the eligible snapshot identities to modeled Known vocabulary using set semantics and records reading completion independently; the transition is idempotent and does not claim verified mastery. See the [Reading workflow specification](features/reading-workflow.md). ADR 0072 is retained as a historical record of the retired Goal/ordered-Journey model.
 
 ## Current stack
 
@@ -113,7 +115,7 @@ amendments.
 22. [ADR 0022: Asynchronous deck preparation and durable APKG artifacts](adr/0022-prepared-decks.md) — separates preparation from pure download and stores immutable prepared packages durably in PostgreSQL.
 23. [ADR 0023: NLP service owns language capabilities](adr/0023-nlp-capabilities.md) — makes the NLP service authoritative for supported languages and features.
 24. [ADR 0024: Learner-owned catalogs and removal of the admin role](adr/0024-learner-owned-catalogs-no-admin.md) — moves OPDS ownership to learners and removes the obsolete in-app administrator role.
-25. [ADR 0025: Analysis coverage and threshold metric contract](adr/0025-analysis-coverage-threshold-metrics.md) — defines analyzable-token coverage, learner-state categories, threshold denominators, and deterministic selection; amended by ADR 0072 for Goal-owned vocabulary state.
+25. [ADR 0025: Analysis coverage and threshold metric contract](adr/0025-analysis-coverage-threshold-metrics.md) — defines analyzable-token coverage, learner-state categories, threshold denominators, and deterministic selection; ADR 0072's Goal-owned vocabulary amendment is historical.
 26. [ADR 0026: Explainable structural text profile](adr/0026-structural-text-profile.md) — persists sentence-length and analysis-coverage signals without a composite difficulty or proficiency claim.
 28. [ADR 0028: Explicit scoped-analysis lifecycle and immutable artifacts](adr/0028-explicit-scoped-analysis-lifecycle.md) — preserves immutable source and analysis history; its learner-facing scope confirmation is retired.
 29. [ADR 0029: Recognition-card sentence presentation](adr/0029-recognition-card-sentence-presentation.md) — replaces LLM-selected short contexts and cloze presentation with complete bolded recognition sentences and removes duplicate source display.
@@ -157,7 +159,7 @@ amendments.
 73. [ADR 0073: Modern Greek language support](adr/0073-modern-greek-language-support.md) — provisions Modern Greek with Stanza's GDT package (`mwt`) and the accurate Greek-BERT dependency parser, served offline from a Hugging Face cache volume; introduces per-language processor/package selection and a Greek canonicalization profile; amends ADR 0063's provisioned package, ADR 0005's normalization profiles, and ADR 0064's dictionary-index language set.
 74. [ADR 0074: Retire the generic Journey entry surface](adr/0074-retire-generic-journey-entry.md) — historical compatibility decision for `/journey/{bookID}` and exact-analysis links; current Book evidence is presented from Reading, and deck work remains in the focused preparation task.
 75. [ADR 0075: Catalogue-sourced Book author metadata](adr/0075-book-author-metadata.md) — stores the mutable OPDS author display value on each Book, projects it into Reading identity, and leaves missing author metadata absent rather than inferred.
-76. [ADR 0076: Roll forward when a ready deck requires re-preparation](adr/0076-reprepare-ready-deck.md) — preserves the old owner-scoped artifact and exact provenance while creating one new current preparation for the same analysis or Goal snapshot; repeated recovery resolves idempotently to that current generation.
+76. [ADR 0076: Roll forward when a ready deck requires re-preparation](adr/0076-reprepare-ready-deck.md) — preserves the old owner-scoped artifact and exact provenance while creating one new current preparation for the same analysis and applicable reading snapshot; repeated recovery resolves idempotently to that current generation.
 77. [ADR 0077: Retain catalog-supplied Book covers](adr/0077-catalog-supplied-book-covers.md) — retains bounded catalog images in PostgreSQL behind an owner-scoped endpoint, selects a stable Catalog-entry source across aliases, keeps optional retrieval independent from catalog-sync success, and supports the Reading Book-evidence surface alongside the shipped My Books cover grid.
 
 ### Superseded or historical decisions

@@ -93,7 +93,9 @@ test.describe('My Books collection browsing', () => {
       await page.goto('/library?needs-language');
       await expect(page.locator('.library-diagnostic-list').getByText('Browser sync metadata book')).toHaveCount(0);
       await page.goto('/library');
-      await expect(page.locator('.library-grid').getByText('Browser sync metadata book')).toBeVisible();
+      const syncedBook = page.locator('.library-grid .library-book').filter({ hasText: 'Browser sync metadata book' });
+      await expect(syncedBook).toBeVisible();
+      await expect(syncedBook.locator('.metadata').filter({ hasText: 'Workflow' })).toContainText('Inbox');
     }
   });
 });

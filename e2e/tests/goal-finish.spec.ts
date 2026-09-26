@@ -51,6 +51,7 @@ test('finishing current reading records Read history and supports reading again'
   await finishDisclosure.getByRole('button', { name: 'Mark reading finished' }).click();
 
   await expect(page.getByRole('heading', { name: /Reading finished/i })).toBeVisible();
+  await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
   await expect(page.getByRole('link', { name: 'Choose what to read next' })).toHaveAttribute('href', '/reading');
   await page.goto('/library?history=read');
   const history = page.locator('.library-grid .library-book').filter({ hasText: title });

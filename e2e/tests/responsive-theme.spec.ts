@@ -121,12 +121,41 @@ test.describe('responsive and theme regression coverage', () => {
   test('action order and compact touch targets preserve reachability', async ({ page }) => {
     await signIn(page);
     await page.goto('/reading');
+    const current = page.locator('#primary-goal-section');
+    if (await current.locator('.journey-book--goal').count()) {
+      await expect(current.getByRole('button', { name: 'Switch current reading' })).toBeVisible();
+      const finishSummary = current.locator('details').filter({ hasText: 'Mark reading finished' }).locator('summary');
+      await expect(finishSummary).toBeVisible();
+      const primaryActions = await current.locator('.goal-card__actions > a[role="button"], .goal-card__actions > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
+        const box = node.getBoundingClientRect();
+        return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
+      }));
+      expect(primaryActions.length).toBeGreaterThan(0);
+      for (const action of primaryActions) {
+        expect(action.width, action.text).toBeGreaterThanOrEqual(44);
+        expect(action.height, action.text).toBeGreaterThanOrEqual(44);
+        expect(action.left, action.text).toBeGreaterThanOrEqual(-1);
+        expect(action.right, action.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
+      }
+    } else {
+      const eligibleCandidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('button', { name: 'Confirm start reading' }) }).first();
+      await expect(eligibleCandidate).toBeVisible();
+      await eligibleCandidate.locator('details').filter({ hasText: 'Start reading' }).locator('summary').click();
+      const startAction = eligibleCandidate.getByRole('button', { name: 'Confirm start reading' });
+      await expect(startAction).toBeVisible();
+      const box = await startAction.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(44);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(box!.x).toBeGreaterThanOrEqual(-1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
+    }
     const order = await page.locator('.action-group').evaluateAll((groups) => groups.map((group) => {
       const controls = Array.from(group.querySelectorAll('button, a[role="button"]'));
       return controls.map((control) => control.classList.contains('secondary'));
     }));
     for (const controls of order) if (controls.length) expect(controls[0]).toBe(false);
-    const controls = await page.locator('button, a[role="button"]').evaluateAll((nodes) => nodes.map((node) => {
+    const controls = await page.locator('button:visible, a[role="button"]:visible').evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
     }));
