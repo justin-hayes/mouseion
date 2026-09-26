@@ -166,6 +166,23 @@ func myBookDisposition(book domain.MyBook) domain.BookDisposition {
 	return domain.BookDispositionInbox
 }
 
+func myBookWorkflowLabel(book domain.MyBook) string {
+	switch book.WorkflowBucket() {
+	case domain.MyBookBucketCurrentReading:
+		return "Currently reading"
+	case domain.MyBookBucketToRead:
+		return "To Read"
+	case domain.MyBookBucketInbox:
+		return "Inbox"
+	case domain.MyBookBucketRead:
+		return "Read"
+	case domain.MyBookBucketSetAside:
+		return "Set Aside"
+	default:
+		return "Inbox"
+	}
+}
+
 func myBookSetAsideConfirmationText(book domain.MyBook) string {
 	retained := " Acquired content, analysis, provenance, and reading history remain."
 	if myBookDisposition(book) == domain.BookDispositionToRead {

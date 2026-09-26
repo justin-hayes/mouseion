@@ -528,6 +528,12 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		}
 	}
 	for i := range out {
+		for _, reading := range s.primaryGoals {
+			if reading.OwnerID == out[i].Book.OwnerID && reading.BookID == out[i].Book.ID {
+				out[i].IsCurrentReading = true
+				break
+			}
+		}
 		if imported, ok := s.importedHistory[fixtureDispositionKey(out[i].Book.OwnerID, out[i].Book.ID)]; ok {
 			out[i].CompletionCount++
 			out[i].LatestCompletionAt = &imported.CompletedAt
@@ -579,11 +585,6 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	}
 	all := s.myBooksForOwner(owner)
 	result := persistence.MyBooksBrowseResult{AllCount: len(all)}
-	for i := range all {
-		if all[i].CompletionCount > 0 && (language == "" || (language == domain.LanguageUnknown && all[i].Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && all[i].Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(all[i].Book.LanguageTag) == language)) {
-			result.ReadCount++
-		}
-	}
 	counts := map[string]int{}
 	for _, book := range all {
 		tag := domain.LanguageUnknown
@@ -598,7 +599,13 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	dispositionCounts := map[domain.BookDisposition]int{}
 	for _, book := range all {
 		if language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language) {
-			dispositionCounts[book.Disposition]++
+			bucket := book.WorkflowBucket()
+			if bucket == domain.MyBookBucketRead {
+				result.ReadCount++
+			}
+			if disposition, ok := bucket.PersistedDisposition(); ok {
+				dispositionCounts[disposition]++
+			}
 		}
 	}
 	for disposition, count := range dispositionCounts {
@@ -632,10 +639,7 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 		} else if language != "" && (book.Book.LanguageState != domain.LanguageChosen || normalizeFixtureLanguage(book.Book.LanguageTag) != language) {
 			continue
 		}
-		if disposition != "" && book.Disposition != domain.BookDisposition(disposition) {
-			continue
-		}
-		if history && book.CompletionCount == 0 {
+		if !book.WorkflowBucket().MatchesBrowseFilter(domain.BookDisposition(disposition), history) {
 			continue
 		}
 		filtered = append(filtered, book)
@@ -667,6 +671,7 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	}
 	return result, nil
 }
+
 func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

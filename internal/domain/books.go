@@ -52,6 +52,18 @@ const (
 
 type BookDisposition string
 
+// MyBookBucket is the one visible workflow role a Book occupies in My Books.
+// It is derived from current-reading status, persisted disposition, and history.
+type MyBookBucket string
+
+const (
+	MyBookBucketCurrentReading MyBookBucket = "current_reading"
+	MyBookBucketToRead         MyBookBucket = "to_read"
+	MyBookBucketInbox          MyBookBucket = "inbox"
+	MyBookBucketRead           MyBookBucket = "read"
+	MyBookBucketSetAside       MyBookBucket = "set_aside"
+)
+
 type ReadingCompletionSource string
 
 const (
@@ -121,6 +133,73 @@ type MyBook struct {
 	CompletionCount        int
 	LatestCompletionAt     *time.Time
 	LatestCompletionSource ReadingCompletionSource
+}
+
+// WorkflowBucket derives the visible My Books bucket. A current reading keeps
+// its persisted To Read disposition, but presents only as Currently reading.
+func (m MyBook) WorkflowBucket() MyBookBucket {
+	if m.IsCurrentReading {
+		return MyBookBucketCurrentReading
+	}
+	disposition := m.Disposition
+	if disposition == "" {
+		if m.IsToRead {
+			disposition = BookDispositionToRead
+		} else {
+			disposition = BookDispositionInbox
+		}
+	}
+	switch disposition {
+	case BookDispositionToRead:
+		return MyBookBucketToRead
+	case BookDispositionInbox:
+		return MyBookBucketInbox
+	case BookDispositionSetAside:
+		if m.CompletionCount > 0 {
+			return MyBookBucketRead
+		}
+		return MyBookBucketSetAside
+	default:
+		return MyBookBucketInbox
+	}
+}
+
+// MatchesBrowseFilter reports whether a visible bucket belongs in the selected
+// disposition and Read-history filters.
+func (b MyBookBucket) MatchesBrowseFilter(disposition BookDisposition, readHistory bool) bool {
+	if readHistory && b != MyBookBucketRead {
+		return false
+	}
+	if disposition == "" {
+		return true
+	}
+	switch disposition {
+	case BookDispositionInbox:
+		return b == MyBookBucketInbox
+	case BookDispositionToRead:
+		return b == MyBookBucketToRead
+	case BookDispositionSetAside:
+		return b == MyBookBucketSetAside
+	default:
+		return false
+	}
+}
+
+// PersistedDisposition reports the underlying disposition for disposition
+// buckets. Current reading and Read are derived roles without such a value.
+func (b MyBookBucket) PersistedDisposition() (BookDisposition, bool) {
+	switch b {
+	case MyBookBucketInbox:
+		return BookDispositionInbox, true
+	case MyBookBucketToRead:
+		return BookDispositionToRead, true
+	case MyBookBucketSetAside:
+		return BookDispositionSetAside, true
+	case MyBookBucketCurrentReading, MyBookBucketRead:
+		return "", false
+	default:
+		return "", false
+	}
 }
 
 // EvidenceState classifies the acquired evidence shown in My Books.

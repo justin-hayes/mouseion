@@ -235,6 +235,37 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 	assert.NotContains(t, filters, "hx-get=")
 }
 
+func TestLibraryShowsCurrentReadingAsSeparateWorkflowBucket(t *testing.T) {
+	h, cookies, _, store := goalFixtureSession(t)
+	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	_, err = store.FinishCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID, current.SnapshotID)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(t.Context(), fixtures.OwnerID, current.BookID, domain.BookDispositionToRead))
+	_, err = store.StartCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID)
+	require.NoError(t, err)
+	handler := requireHandler(t, h)
+	request := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+		for _, cookie := range cookies {
+			r.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, r)
+		return response
+	}
+
+	all := request("/library")
+	require.Equal(t, http.StatusOK, all.Code)
+	assert.Contains(t, all.Body.String(), "Currently reading")
+	assert.Contains(t, all.Body.String(), "Reading history")
+
+	toRead := request("/library?disposition=to_read")
+	require.Equal(t, http.StatusOK, toRead.Code)
+	assert.Contains(t, toRead.Body.String(), "To Read (6)")
+	assert.NotContains(t, toRead.Body.String(), fixtures.BookID)
+}
+
 func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	analysisService := &journeyIntentAnalysis{}

@@ -79,33 +79,21 @@ func (s *PostgresStore) ListStudyLanguages(ctx context.Context, owner string) ([
 // is the driving table, so metadata-only Books remain visible; the current
 // acquired source and analysis projection are optional evidence on each row.
 func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner string) ([]domain.MyBook, error) {
-	rows, err := s.queries().ListMyBooksEvidence(ctx, owner)
-	if err != nil {
-		return nil, err
-	}
-	dispositions, err := s.bookDispositionMap(ctx, owner)
-	if err != nil {
-		return nil, err
-	}
 	var books []domain.MyBook
-	for _, row := range rows {
-		book := myBookFromEvidence(row)
-		state := dispositions[book.Book.ID]
-		book.Disposition = state.disposition
-		book.DispositionRevision = state.revision
+	err := s.forEachMyBooksBrowseRow(ctx, owner, "", func(row sqlcgen.BrowseMyBooksEvidenceRow) error {
+		book := myBookFromBrowseRow(row)
+		book.Disposition = domain.BookDisposition(row.Disposition)
+		book.DispositionRevision = row.DispositionRevision
 		books = append(books, book)
-	}
-	return books, nil
+		return nil
+	})
+	return books, err
 }
 
-// ListMyBooksBrowse returns one owner-scoped page of My Books and counts for
-// the selected language's dispositions. query is trimmed and lowercased, then
-// matched as a case-insensitive literal substring of the locally stored title
-// or author; backslash, percent, and underscore are escaped for SQL LIKE. It
-// does not tokenize, stem, or query OPDS. language is empty for all languages,
-// "unknown" for the unknown bucket, or otherwise a canonical chosen tag.
-// disposition is empty for all workflow buckets or one validated disposition.
-// Items use deterministic title ordering; offset and limit select the page.
+// ListMyBooksBrowse returns one owner-scoped page of My Books. The domain's
+// WorkflowBucket derivation is the source of truth for both filters and counts;
+// SQL supplies the facts (disposition, current-reading role, and history) but
+// does not independently classify a visible bucket.
 func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (MyBooksBrowseResult, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
@@ -124,46 +112,53 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if limit < 0 {
 		limit = 0
 	}
-	escapedQuery := escapeLikePattern(query)
-	sqlOffset, err := checked.Int32FromInt(offset)
-	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid browse offset: %w", err)
+	var result MyBooksBrowseResult
+	pageEnd := offset + limit
+	if pageEnd < offset { // Guard integer overflow from caller-supplied pagination.
+		pageEnd = int(^uint(0) >> 1)
 	}
-	sqlLimit, err := checked.Int32FromInt(limit)
-	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid browse limit: %w", err)
-	}
-
-	q := s.queries()
-	rows, err := q.BrowseMyBooksEvidence(ctx, sqlcgen.BrowseMyBooksEvidenceParams{
-		Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition, History: history,
-		Offset: sqlOffset, Limit: sqlLimit,
+	dispositionCounts := make(map[domain.MyBookBucket]int)
+	var filteredCount int
+	err := s.forEachMyBooksBrowseRow(ctx, owner, language, func(row sqlcgen.BrowseMyBooksEvidenceRow) error {
+		book := myBookFromBrowseRow(row)
+		book.Disposition = domain.BookDisposition(row.Disposition)
+		book.DispositionRevision = row.DispositionRevision
+		bucket := book.WorkflowBucket()
+		dispositionCounts[bucket]++
+		if bucket == domain.MyBookBucketRead {
+			result.ReadCount++
+		}
+		if query != "" && !strings.Contains(strings.ToLower(book.Book.Title), query) && !strings.Contains(strings.ToLower(book.Book.Author), query) {
+			return nil
+		}
+		if !bucket.MatchesBrowseFilter(domain.BookDisposition(disposition), history) {
+			return nil
+		}
+		if filteredCount >= offset && filteredCount < pageEnd {
+			result.Items = append(result.Items, book)
+		}
+		filteredCount++
+		return nil
 	})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-
-	var result MyBooksBrowseResult
-	for _, row := range rows {
-		result.Items = append(result.Items, myBookFromBrowseRow(row))
+	for _, item := range []struct {
+		bucket domain.MyBookBucket
+	}{
+		{bucket: domain.MyBookBucketInbox},
+		{bucket: domain.MyBookBucketToRead},
+		{bucket: domain.MyBookBucketSetAside},
+	} {
+		if count := dispositionCounts[item.bucket]; count > 0 {
+			persistedDisposition, ok := item.bucket.PersistedDisposition()
+			if ok {
+				result.DispositionCounts = append(result.DispositionCounts, DispositionCount{Disposition: persistedDisposition, Count: count})
+			}
+		}
 	}
-	dispositions, err := s.bookDispositionMap(ctx, owner)
-	if err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	for i := range result.Items {
-		state := dispositions[result.Items[i].Book.ID]
-		result.Items[i].Disposition = state.disposition
-		result.Items[i].DispositionRevision = state.revision
-	}
-	total, err := q.CountMyBooksFiltered(ctx, sqlcgen.CountMyBooksFilteredParams{Owner: owner, Query: escapedQuery, Language: language, Disposition: disposition, History: history})
-	if err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	result.Total, err = checked.IntFromInt64(total)
-	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid filtered book count: %w", err)
-	}
+	result.Total = filteredCount
+	q := s.queries()
 	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
@@ -180,14 +175,6 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if err != nil {
 		return MyBooksBrowseResult{}, fmt.Errorf("invalid total book count: %w", err)
 	}
-	readCount, err := q.CountMyBooksWithHistory(ctx, sqlcgen.CountMyBooksWithHistoryParams{Owner: owner, Language: language})
-	if err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	result.ReadCount, err = checked.IntFromInt64(readCount)
-	if err != nil {
-		return MyBooksBrowseResult{}, fmt.Errorf("invalid read history count: %w", err)
-	}
 	counts, err := q.CountMyBooksByLanguage(ctx, owner)
 	if err != nil {
 		return MyBooksBrowseResult{}, err
@@ -198,17 +185,6 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 			return MyBooksBrowseResult{}, fmt.Errorf("invalid book count for language %q: %w", count.LanguageTag, conversionErr)
 		}
 		result.Counts = append(result.Counts, LanguageCount{Tag: count.LanguageTag, Count: bookCount})
-	}
-	dispositionCounts, err := q.CountMyBooksByDisposition(ctx, sqlcgen.CountMyBooksByDispositionParams{Owner: owner, Language: language})
-	if err != nil {
-		return MyBooksBrowseResult{}, err
-	}
-	for _, count := range dispositionCounts {
-		bookCount, conversionErr := checked.IntFromInt64(count.BookCount)
-		if conversionErr != nil {
-			return MyBooksBrowseResult{}, fmt.Errorf("invalid book count for disposition %q: %w", count.Disposition, conversionErr)
-		}
-		result.DispositionCounts = append(result.DispositionCounts, DispositionCount{Disposition: domain.BookDisposition(count.Disposition), Count: bookCount})
 	}
 	sort.Slice(result.Counts, func(i, j int) bool {
 		if result.Counts[i].Tag == "unknown" {
@@ -222,8 +198,36 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	return result, nil
 }
 
-func escapeLikePattern(value string) string {
-	return strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(value)
+const myBooksBrowseBatchSize = 256
+
+// forEachMyBooksBrowseRow walks the ordered browse projection in bounded
+// keyset batches. Classification remains in the domain; SQL only pages the
+// facts needed by the projection.
+func (s *PostgresStore) forEachMyBooksBrowseRow(ctx context.Context, owner, language string, visit func(sqlcgen.BrowseMyBooksEvidenceRow) error) error {
+	q := s.queries()
+	hasCursor := false
+	var afterSortTitle, afterBookTitle, afterBookID string
+	for {
+		rows, err := q.BrowseMyBooksEvidence(ctx, sqlcgen.BrowseMyBooksEvidenceParams{
+			Owner: owner, Language: language, HasCursor: hasCursor,
+			AfterSortTitle: afterSortTitle, AfterBookTitle: afterBookTitle,
+			AfterBookID: afterBookID, Limit: myBooksBrowseBatchSize,
+		})
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+		if len(rows) < myBooksBrowseBatchSize {
+			return nil
+		}
+		last := rows[len(rows)-1]
+		hasCursor = true
+		afterSortTitle, afterBookTitle, afterBookID = last.SortTitle, last.BookTitle, last.BookID
+	}
 }
 
 // GetBookDetail resolves either the canonical Book ID or a historical source

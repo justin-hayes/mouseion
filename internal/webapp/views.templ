@@ -162,7 +162,11 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			<p class="library-book__author">By { author }</p>
 		}
 		if myBookInJourney(book) {
-			<p class="library-book__membership"><span aria-hidden="true">+</span> To Read</p>
+			if book.WorkflowBucket() == domain.MyBookBucketCurrentReading {
+				<p class="library-book__membership">Currently reading</p>
+			} else {
+				<p class="library-book__membership"><span aria-hidden="true">+</span> To Read</p>
+			}
 		}
 		if book.CompletionCount > 0 {
 			<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
@@ -173,7 +177,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 				<a class="outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
 			}
 			if book.Disposition != "" {
-				<p class="metadata"><strong>Workflow</strong>: { myBooksDispositionLabel(myBookDisposition(book)) }</p>
+				<p class="metadata"><strong>Workflow</strong>: { myBookWorkflowLabel(book) }</p>
 				if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
 					if book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
