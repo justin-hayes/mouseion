@@ -261,7 +261,7 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, persistence.ErrJourneyStale):
 			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape(journeyStaleMessage))
 		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
-			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("The current Primary Goal cannot be set aside. Finish or clear it first."))
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("Current reading cannot be set aside. Finish or clear it first."))
 		case errors.Is(err, persistence.ErrNotFound):
 			http.NotFound(w, r)
 		default:

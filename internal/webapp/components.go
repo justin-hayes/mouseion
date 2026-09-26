@@ -142,7 +142,7 @@ type NavigationContext string
 const (
 	NavigationNone           NavigationContext = ""
 	NavigationLibrary        NavigationContext = "library"
-	NavigationReadingJourney NavigationContext = "reading-journey"
+	NavigationReadingJourney NavigationContext = "reading"
 	NavigationLearning       NavigationContext = NavigationReadingJourney
 	NavigationVocabulary     NavigationContext = "vocabulary"
 	NavigationCatalogs       NavigationContext = "catalogs"
@@ -152,7 +152,7 @@ func navigationContextForTitle(title string) NavigationContext {
 	switch {
 	case title == "My Books", title == "My Library":
 		return NavigationLibrary
-	case title == "Reading Journey", title == "Learning":
+	case title == "Reading", title == "Learning":
 		return NavigationReadingJourney
 	case title == "Vocabulary", title == "Known vocabulary":
 		return NavigationVocabulary
@@ -267,7 +267,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 	}
 	switch state {
 	case "stale":
-		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence in Reading Journey.", "Re-analyze", journeyReanalyzeURL(bookID), StatusWarning, true}
+		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence in Reading.", "Re-analyze", journeyReanalyzeURL(bookID), StatusWarning, true}
 	case "queued":
 		return bookLifecycleAction{"Analysis queued", "The EPUB snapshot is waiting for analysis to begin.", "View analysis status", jobURL, StatusInfo, false}
 	case "running":
@@ -278,7 +278,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading Journey.", "View in Reading Journey", journeyEntryURL(bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", journeyEntryURL(bookID), StatusSuccess, false}
 		}
 	}
 

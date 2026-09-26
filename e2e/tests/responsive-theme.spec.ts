@@ -21,7 +21,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalogs/],
-  ['/journey', /Reading Journey/],
+  ['/journey', /Reading/],
   ['/vocabulary', /Vocabulary/],
 ];
 
@@ -57,11 +57,11 @@ test.describe('responsive and theme regression coverage', () => {
       await switcher.selectOption('de');
       await expect(page).toHaveURL(/\/library$/);
     }
-    await expect(page.locator('.library-grid .library-book__identity-link[href="/journey#journey-book-fixture-book"]')).toBeVisible();
+    await expect(page.locator('.library-grid .library-book__identity-link[href="/reading#journey-book-fixture-book"]')).toBeVisible();
     await expect(page.locator('.library-grid a[href="/books/fixture-failed"]')).toHaveCount(0);
     await expect(page.locator('.library-grid a[href="/books/fixture-edge-content"]')).toHaveCount(0);
     await expect(page.locator('.library-grid a[href="/books/fixture-empty"]')).toHaveCount(0);
-    expect(await page.locator('.library-book').filter({ has: page.locator('.library-book__identity-link[href^="/journey#"]') }).count()).toBeGreaterThan(0);
+    expect(await page.locator('.library-book').filter({ has: page.locator('.library-book__identity-link[href^="/reading#"]') }).count()).toBeGreaterThan(0);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
     const libraryControls = page.locator('.library-grid button:visible, .library-grid a.library-book__journey-action:visible, .library-grid > .library-book > details > summary:visible');
@@ -81,7 +81,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.goto('/library');
       await page.getByLabel('Study language').selectOption('it');
       await expect(page).toHaveURL(/\/library$/);
-      await page.goto('/journey');
+      await page.goto('/reading');
       await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
       await expectNoPageOverflow(page);
     }
@@ -90,7 +90,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('dense analysis, deck provenance, errors, and import surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
     await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/journey#journey-book-fixture-book');
+    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
@@ -109,7 +109,7 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {
     await signIn(page);
-    await page.goto('/journey');
+    await page.goto('/reading');
     const order = await page.locator('.action-group').evaluateAll((groups) => groups.map((group) => {
       const controls = Array.from(group.querySelectorAll('button, a[role="button"]'));
       return controls.map((control) => control.classList.contains('secondary'));
@@ -126,14 +126,14 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
     await page.goto('/journey/fixture-book');
-    await expect(page).toHaveURL('/journey#journey-book-fixture-book');
+    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toBeVisible();
   });
 
   test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {
     test.skip(!test.info().project.name.startsWith('desktop'), 'This contract applies to the standard desktop layout.');
     await signIn(page);
-    await page.goto('/journey');
+    await page.goto('/reading');
     const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
       const book = node.querySelector<HTMLElement>('.journey-book__identity')?.getBoundingClientRect();
       const controls = node.querySelector<HTMLElement>('.journey-book__controls')?.getBoundingClientRect();
@@ -149,7 +149,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('compact Journey move controls stay adjacent and contained', async ({ page }) => {
     test.skip(!test.info().project.name.startsWith('compact'), 'This contract applies to the compact layout.');
     await signIn(page);
-    await page.goto('/journey');
+    await page.goto('/reading');
     const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
       const reorder = node.querySelector<HTMLElement>('.journey-book__reorder');
       const buttons = Array.from(reorder?.querySelectorAll('button') ?? []).map((button) => {
@@ -172,7 +172,7 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('Journey thumbnails stay aligned, quiet, and outside the keyboard order', async ({ page }) => {
     await signIn(page);
-    await page.goto('/journey');
+    await page.goto('/reading');
 
     const cards = page.locator('.journey-book');
     const thumbnails = cards.locator('.journey-book__cover');
@@ -197,9 +197,9 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('Journey titles and actions remain reachable at 200 percent text size', async ({ page }) => {
     await signIn(page);
-    await page.goto('/journey');
+    await page.goto('/reading');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-    await expect(page.getByRole('heading', { name: 'Your order', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'To Read books', exact: true })).toBeVisible();
     await expect(page.locator('.journey-book__controls').first()).toBeVisible();
     await expectNoPageOverflow(page);
   });

@@ -34,7 +34,7 @@ and surface a material conflict rather than silently choosing one.
 ### Product structure
 
 - [`information-architecture.md`](information-architecture.md) — canonical
-  **My Books / Reading Journey / Primary Goal** architecture, navigation,
+  **My Books / Reading** architecture, navigation,
   secondary surfaces, and explicit planner/ADR boundaries.
 - [`terminology.md`](terminology.md) — canonical learner-facing language.
 - [`screen-inventory.md`](screen-inventory.md) — canonical screen goals,

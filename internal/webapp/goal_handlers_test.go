@@ -83,20 +83,20 @@ func renderGoalSection(t *testing.T, goal *journeyBookView, message, pageError, 
 }
 
 func TestGoalSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
-	html := renderGoalSection(t, nil, "Primary Goal cleared.", "", "")
+	html := renderGoalSection(t, nil, "current reading cleared.", "", "")
 	for _, want := range []string{
 		`id="primary-goal-section"`,
 		`id="goal-section-status"`,
 		`role="status"`,
-		"Primary Goal cleared.",
-		"No Primary Goal yet",
-		"analyzed member as your current commitment",
+		"current reading cleared.",
+		"No current Book yet",
+		"Start an analyzed To Read book when you are ready to begin reading.",
 	} {
 		assert.True(t, strings.Contains(html, want), "Goal section missing %q: %s", want, html)
 	}
 
-	html = renderGoalSection(t, nil, "", "This Primary Goal changed since this page was loaded.", "")
-	assert.True(t, strings.Contains(html, `role="alert"`) && strings.Contains(html, "This Primary Goal changed since this page was loaded"), "Goal section did not render an accessible error: %s", html)
+	html = renderGoalSection(t, nil, "", "This current reading changed since this page was loaded.", "")
+	assert.True(t, strings.Contains(html, `role="alert"`) && strings.Contains(html, "This current reading changed since this page was loaded"), "Goal section did not render an accessible error: %s", html)
 }
 
 func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
@@ -104,7 +104,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 	unassessed.GoalReadingOnly = true
 	unassessed.GoalUnassessed = true
 	readingOnlyHTML := renderGoalSection(t, &unassessed, "", "", "reading-only")
-	for _, want := range []string{"Reading-only Goal", "No analysis or deck-eligible vocabulary exists yet", "Reading directly is the current path"} {
+	for _, want := range []string{"Reading only", "No analysis or deck-eligible vocabulary exists yet", "Reading directly is the current path"} {
 		assert.True(t, strings.Contains(readingOnlyHTML, want), "unassessed Goal missing %q: %s", want, readingOnlyHTML)
 	}
 
@@ -112,11 +112,11 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 	assessed.GoalReadingOnly = true
 	assessed.GoalUnassessed = false
 	assessedHTML := renderGoalSection(t, &assessed, "", "", "assessed")
-	assert.True(t, strings.Contains(assessedHTML, "Analysis evidence exists, but this Goal has no deck-eligible vocabulary"), "assessed reading-only copy missing: %s", assessedHTML)
+	assert.True(t, strings.Contains(assessedHTML, "Analysis evidence exists, but this Book has no deck-eligible vocabulary"), "assessed reading-only copy missing: %s", assessedHTML)
 
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goalHTML := renderGoalSection(t, &goal, "", "", "goal")
-	assert.True(t, strings.Contains(goalHTML, "Clear Primary Goal"), "Goal omitted clear action: %s", goalHTML)
+	assert.True(t, strings.Contains(goalHTML, "Clear Current reading"), "Goal omitted clear action: %s", goalHTML)
 }
 
 func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
@@ -131,16 +131,16 @@ func TestJourneyGoalControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	first.Book.AnalysisRunID = "first-run"
 	first.Book.CorpusID = "first-corpus"
 	first.CanChooseGoal = true
-	second.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a Primary Goal."
+	second.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a current reading."
 	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}}, "", "")
 	assert.Equal(t, 1, strings.Count(html, `action="/goal/books/first"`), "expected a choose form only for the eligible provisional card: %s", html)
 	assert.False(t, strings.Contains(html, `action="/goal/books/second"`), "expected a choose form only for the eligible provisional card: %s", html)
-	assert.True(t, strings.Contains(html, `name="expected_goal_book_id" value="goal"`), "provisional choose forms did not carry the current Goal: %s", html)
-	assert.True(t, strings.Contains(html, `name="expected_goal_snapshot_id" value="goal-snapshot"`), "finish form did not carry the current Goal snapshot: %s", html)
+	assert.True(t, strings.Contains(html, `name="expected_goal_book_id" value="goal"`), "provisional choose forms did not carry the current Book: %s", html)
+	assert.True(t, strings.Contains(html, `name="expected_goal_snapshot_id" value="goal-snapshot"`), "finish form did not carry the current Book snapshot: %s", html)
 	goalStart := strings.Index(html, `id="journey-book-goal"`)
 	goalEnd := strings.Index(html[goalStart:], "</article>")
 	goalCard := html[goalStart : goalStart+goalEnd]
-	assert.False(t, strings.Contains(goalCard, `action="/goal/books/`), "Goal card exposed a choose control: %s", goalCard)
+	assert.False(t, strings.Contains(goalCard, `action="/goal/books/`), "current Book card exposed a choose control: %s", goalCard)
 }
 
 func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
@@ -156,11 +156,11 @@ func TestMyBooksGoalControlsAndJourneyLink(t *testing.T) {
 	require.True(t, goalStart >= 0 && otherStart >= 0, "book cards missing: %s", html)
 	goalCard := html[goalStart:otherStart]
 	otherCard := html[otherStart:]
-	for _, want := range []string{"In Reading Journey", "View in Reading Journey", "/journey#journey-book-goal-book"} {
-		assert.True(t, strings.Contains(goalCard, want), "current Goal card missing %q: %s", want, goalCard)
+	for _, want := range []string{"To Read", "View in Reading", "/reading#journey-book-goal-book"} {
+		assert.True(t, strings.Contains(goalCard, want), "current Book card missing %q: %s", want, goalCard)
 	}
-	assert.False(t, strings.Contains(goalCard, "Primary Goal"), "My Books exposed Goal state: %s", goalCard)
-	assert.False(t, strings.Contains(otherCard, "Choose as Primary Goal") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
+	assert.False(t, strings.Contains(goalCard, "current reading"), "My Books exposed Goal state: %s", goalCard)
+	assert.False(t, strings.Contains(otherCard, "Start reading") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
 }
 
 func TestVisibleJourneyEntriesSkipAnchoredGoal(t *testing.T) {
@@ -225,13 +225,13 @@ func TestGoalMutationRoutesAreIdempotent(t *testing.T) {
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, idempotent.Code)
-	assert.True(t, strings.Contains(idempotent.Header().Get("Location"), "already+your+Primary+Goal"), "idempotent choose location=%q", idempotent.Header().Get("Location"))
+	assert.True(t, strings.Contains(idempotent.Header().Get("Location"), "already+your+current+reading"), "idempotent choose location=%q", idempotent.Header().Get("Location"))
 
 	changed := goalRequest(t, h, "/goal/books/fixture-route-match", url.Values{
 		"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, changed.Code)
-	assert.True(t, strings.Contains(changed.Header().Get("Location"), "is+your+Primary+Goal"), "change location=%q", changed.Header().Get("Location"))
+	assert.True(t, strings.Contains(changed.Header().Get("Location"), "is+your+current+reading"), "change location=%q", changed.Header().Get("Location"))
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", goal.BookID)
@@ -242,7 +242,7 @@ func TestGoalMutationRoutesAreIdempotent(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, cleared.Code)
 	clearedAgain := goalRequest(t, h, "/goal/clear", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {""}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
-	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+Primary+Goal+was+set"), "idempotent clear location=%q", clearedAgain.Header().Get("Location"))
+	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+current+reading+was+set"), "idempotent clear location=%q", clearedAgain.Header().Get("Location"))
 }
 
 func TestGoalSelectionBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
@@ -268,7 +268,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -277,11 +277,13 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
+	assert.NotContains(t, body, "Reading Journey")
+	assert.NotContains(t, body, "Primary Goal")
 	for _, want := range []string{
-		"Reading Journey in Italian",
+		"Reading in Italian",
 		`id="journey-book-fixture-empty"`,
 		`name="expected_revision" value="1"`,
-		`action="/journey/entries/fixture-empty/move-later"`,
+		`action="/reading/entries/fixture-empty/move-later"`,
 		"Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.",
 	} {
 		assert.True(t, strings.Contains(body, want), "Italian Journey page missing %q: %s", want, body)
@@ -295,12 +297,12 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 		"csrf_token": {csrf}, "expected_goal_book_id": {""},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, chosen.Code)
-	assert.True(t, strings.Contains(chosen.Header().Get("Location"), "is+your+Primary+Goal"), "choose Italian Goal location=%q", chosen.Header().Get("Location"))
+	assert.True(t, strings.Contains(chosen.Header().Get("Location"), "is+your+current+reading"), "choose Italian Goal location=%q", chosen.Header().Get("Location"))
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, fixtures.BookID, goal.BookID)
 
-	moved := goalRequest(t, h, "/journey/entries/fixture-edge-content/move-earlier", url.Values{
+	moved := goalRequest(t, h, "/reading/entries/fixture-edge-content/move-earlier", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {"1"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, moved.Code)
@@ -308,7 +310,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-edge-content", italianJourney.Entries[0].BookID, "Italian Journey after move=%+v", italianJourney.Entries)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -316,7 +318,7 @@ func TestJourneyPageScopesHeadingGoalAndActionsToActiveLanguage(t *testing.T) {
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	body = response.Body.String()
-	assert.True(t, strings.Contains(body, "Reading Journey in German") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Journey did not remain isolated after Italian move: %s", body)
+	assert.True(t, strings.Contains(body, "Reading in German") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Journey did not remain isolated after Italian move: %s", body)
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
 }
 
@@ -325,12 +327,12 @@ func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T
 	handler := requireHandler(t, h)
 	handler.services.PreparedDeck = unavailableGoalPreparedDeck{PreparedDeck: fixtures.PreparedDeck{Store: store}}
 
-	page := performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	page := performJourneyRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
 	assert.Contains(t, body, "Deck state: Missing")
-	assert.Contains(t, body, "Prepare Goal deck")
+	assert.Contains(t, body, "Prepare deck")
 }
 
 func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
@@ -372,7 +374,7 @@ func TestGoalDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, 1, preparedDeck.retries)
-	assert.Zero(t, preparedDeck.goalSubmissions, "repeated recovery must not retire the current Goal preparation")
+	assert.Zero(t, preparedDeck.goalSubmissions, "repeated recovery must not retire the current Book preparation")
 }
 
 func TestGoalDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
@@ -419,7 +421,7 @@ func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
 	handler.services.Analysis = fixtures.Analysis{}
 	handler.services.PreparedDeck = preparedDeck
 
-	response := goalRequest(t, h, "/journey/books/"+goal.BookID+"/deck/preparations", url.Values{
+	response := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/preparations", url.Values{
 		"csrf_token":                   {csrf},
 		"external_translation_consent": {"on"},
 	}, cookies)
@@ -443,7 +445,7 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/journey", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -451,8 +453,8 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
-	for _, want := range []string{"Reading Journey in Italian", "No provisional books yet", "Browse My Books"} {
-		assert.True(t, strings.Contains(body, want), "empty Italian Journey page missing %q: %s", want, body)
+	for _, want := range []string{"Choose your next book in Italian", "No To Read books yet", "Browse My Books"} {
+		assert.True(t, strings.Contains(body, want), "empty Italian Reading page missing %q: %s", want, body)
 	}
 	assert.False(t, strings.Contains(body, `id="journey-book-fixture-empty"`) || strings.Contains(body, `id="journey-book-fixture-edge-content"`), "empty Italian Journey page exposed a member: %s", body)
 }
@@ -470,30 +472,30 @@ func TestJourneyReorderRecalculatesForecastWithoutChangingLearnerState(t *testin
 	goalBefore, err := store.GetPrimaryGoal(ctx, fixtures.OwnerID, "de")
 	require.NoError(t, err)
 
-	page := performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	page := performJourneyRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	require.Equal(t, http.StatusOK, page.Code)
 	revision := journeyHiddenInputValue(t, page.Body.String(), "expected_revision")
 	before := page.Body.String()
 
-	moved := performJourneyRequest(t, h, http.MethodPost, "/journey/entries/fixture-route-differs/move-earlier", url.Values{
+	moved := performJourneyRequest(t, h, http.MethodPost, "/reading/entries/fixture-route-differs/move-earlier", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {revision},
 	}, cookies, false)
 	require.Equal(t, http.StatusSeeOther, moved.Code)
 	assert.Contains(t, moved.Header().Get("Location"), "Coverage+forecast+recalculated")
 
-	page = performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	page = performJourneyRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	require.Equal(t, http.StatusOK, page.Code)
 	after := page.Body.String()
 	assertJourneyOrder(t, after, "fixture-route-differs", "fixture-route-match")
 	assert.Contains(t, after, "Current coverage")
-	assert.Contains(t, after, "After Primary Goal")
+	assert.Contains(t, after, "After current reading")
 	assert.Contains(t, after, "On arrival")
 	assert.NotEqual(t, journeyCardForecast(t, before, "fixture-route-match"), journeyCardForecast(t, after, "fixture-route-match"), "downstream forecast did not change after reorder")
 
 	journey, err := store.GetReadingJourney(ctx, fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	moveRevision := strconv.FormatInt(journey.Revision, 10)
-	htmx := performJourneyRequest(t, h, http.MethodPost, "/journey/entries/fixture-route-differs/move-later", url.Values{
+	htmx := performJourneyRequest(t, h, http.MethodPost, "/reading/entries/fixture-route-differs/move-later", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {moveRevision},
 	}, cookies, true)
 	require.Equal(t, http.StatusOK, htmx.Code)
@@ -515,16 +517,16 @@ func TestJourneyReorderForecastFailureDoesNotUndoSavedOrder(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	handler := requireHandler(t, h)
 	handler.services.AnalysisInsights = journeyForecastFailureInsights{Insights: fixtures.Insights{JourneyStore: store}}
-	page := performJourneyRequest(t, h, http.MethodGet, "/journey", nil, cookies, false)
+	page := performJourneyRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	require.Equal(t, http.StatusOK, page.Code)
 	revision := journeyHiddenInputValue(t, page.Body.String(), "expected_revision")
 
-	moved := performJourneyRequest(t, h, http.MethodPost, "/journey/entries/fixture-route-differs/move-earlier", url.Values{
+	moved := performJourneyRequest(t, h, http.MethodPost, "/reading/entries/fixture-route-differs/move-earlier", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {revision},
 	}, cookies, true)
 	require.Equal(t, http.StatusOK, moved.Code)
 	assert.Contains(t, moved.Body.String(), "saved order remains in place")
-	assert.Contains(t, moved.Body.String(), `href="/journey">Retry forecast</a>`)
+	assert.Contains(t, moved.Body.String(), `href="/reading">Retry forecast</a>`)
 	assert.Contains(t, moved.Body.String(), "On arrival")
 	assert.Contains(t, moved.Body.String(), "Unavailable")
 	assertJourneyOrder(t, moved.Body.String(), "fixture-route-differs", "fixture-route-match")
@@ -576,7 +578,7 @@ func journeyCardForecast(t *testing.T, html, bookID string) string {
 	end := strings.Index(html[start:], "</article>")
 	require.GreaterOrEqual(t, end, 0, "Journey book %q did not close: %s", bookID, html[start:])
 	card := html[start : start+end]
-	forecastStart := strings.Index(card, `aria-label="Journey coverage forecast"`)
+	forecastStart := strings.Index(card, `aria-label="Reading coverage forecast"`)
 	require.GreaterOrEqual(t, forecastStart, 0, "Journey book %q has no forecast: %s", bookID, card)
 	forecastEnd := strings.Index(card[forecastStart:], "</section>")
 	require.GreaterOrEqual(t, forecastEnd, 0, "Journey book %q forecast did not close: %s", bookID, card[forecastStart:])
@@ -632,7 +634,7 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 		"csrf_token": {csrf}, "expected_goal_book_id": {"stale-book"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
-	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed"), "stale finish location=%q", stale.Header().Get("Location"))
+	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+current+reading+changed"), "stale finish location=%q", stale.Header().Get("Location"))
 	missingCSRF := goalRequest(t, h, "/goal/finish", url.Values{"expected_goal_book_id": {fixtures.BookID}}, cookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")

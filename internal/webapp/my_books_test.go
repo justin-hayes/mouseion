@@ -20,10 +20,12 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{RefreshableBookIDs: map[string]bool{"metadata-book": true}}).Render(context.Background(), &output))
 	html := output.String()
+	assert.NotContains(t, html, "Reading Journey")
+	assert.NotContains(t, html, "Primary Goal")
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Add to Reading Journey", `action="/journey/books/metadata-book/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/reading/books/metadata-book/journey/add"`, `name="expected_revision" value="0"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		assert.True(t, strings.Contains(html, want), "metadata-only My Books item missing %q: %s", want, html)
 	}
 	assert.False(t, strings.Contains(html, `href="/books/metadata-book"`), "metadata-only My Books row linked to the retired Book detail page: %s", html)
@@ -34,7 +36,7 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 			row = row[:end+len("</li>")]
 		}
 	}
-	for _, forbidden := range []string{"Not acquired / metadata only", "Review scope", "Prepare deck", "View analysis result", "Start analysis", `action="/books/metadata-book/analyze"`, "coverage", "Primary Goal", "Analysis evidence"} {
+	for _, forbidden := range []string{"Not acquired / metadata only", "Review scope", "Prepare deck", "View analysis result", "Start analysis", `action="/books/metadata-book/analyze"`, "coverage", "current reading", "Analysis evidence"} {
 		assert.False(t, strings.Contains(row, forbidden), "metadata-only My Books item exposed unsupported state or action %q: %s", forbidden, row)
 	}
 }
@@ -55,10 +57,10 @@ func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, `action="/journey/books/journey-book/add"`) || strings.Contains(html, "Add to Reading Journey"), "existing Journey member still exposed add action: %s", html)
-	assert.Contains(t, html, "In Reading Journey")
-	assert.Contains(t, html, "View in Reading Journey")
-	assert.Contains(t, html, `href="/journey#journey-book-journey-book"`)
+	assert.False(t, strings.Contains(html, `action="/reading/books/journey-book/journey/add"`) || strings.Contains(html, "Move to To Read"), "existing Journey member still exposed add action: %s", html)
+	assert.Contains(t, html, "To Read")
+	assert.Contains(t, html, "View in Reading")
+	assert.Contains(t, html, `href="/reading#journey-book-journey-book"`)
 }
 
 func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
@@ -69,10 +71,10 @@ func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, `action="/journey/books/goal-book/add"`) || strings.Contains(html, "Add to Reading Journey"), "Goal member still exposed add action: %s", html)
-	assert.Contains(t, html, "In Reading Journey")
-	assert.Contains(t, html, `href="/journey#journey-book-goal-book"`)
-	assert.NotContains(t, html, "Primary Goal")
+	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/journey/add"`) || strings.Contains(html, "Move to To Read"), "Goal member still exposed add action: %s", html)
+	assert.Contains(t, html, "To Read")
+	assert.Contains(t, html, `href="/reading#journey-book-goal-book"`)
+	assert.NotContains(t, html, "current reading")
 }
 
 func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.T) {
@@ -90,7 +92,7 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, `href="/journey#journey-book-analyzed-book"`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
+	assert.True(t, strings.Contains(html, `href="/reading#journey-book-analyzed-book"`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
 	assert.NotContains(t, html, "Analysis evidence")
 }
 
@@ -108,7 +110,7 @@ func TestAnalyzedNonJourneyMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, "Analysis evidence") || strings.Contains(html, `href="/journey/analyzed-outside-journey"`) || strings.Contains(html, `href="/books/`) || strings.Contains(html, "View analysis result"), "analyzed non-member My Books item exposed an invalid link or state: %s", html)
+	assert.False(t, strings.Contains(html, "Analysis evidence") || strings.Contains(html, `href="/reading/analyzed-outside-journey"`) || strings.Contains(html, `href="/books/`) || strings.Contains(html, "View analysis result"), "analyzed non-member My Books item exposed an invalid link or state: %s", html)
 }
 
 func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
@@ -156,7 +158,7 @@ func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	for _, label := range []string{"Unavailable", "Not acquired", "Ready to analyze", "Analysis not started", "Analyzed", "Stale analysis", "Primary Goal", "Next action", "Analysis evidence"} {
+	for _, label := range []string{"Unavailable", "Not acquired", "Ready to analyze", "Analysis not started", "Analyzed", "Stale analysis", "current reading", "Next action", "Analysis evidence"} {
 		assert.NotContains(t, html, label)
 	}
 	assert.False(t, strings.Contains(html, `href="/books/`), "learner My Books linked to the retired Book detail page: %s", html)
@@ -184,7 +186,7 @@ func TestMyBooksCoverGridUsesNativeListAndStablePresentationStates(t *testing.T)
 	assert.Contains(t, html, `src="/books/available/cover"`)
 	assert.Contains(t, html, `width="600" height="900" loading="lazy"`)
 	assert.Contains(t, html, "An author with a name long enough to wrap in a narrow grid item")
-	for _, forbidden := range []string{"Analysis evidence", "Not acquired", "Primary Goal", "Next action", "Ready to analyze"} {
+	for _, forbidden := range []string{"Analysis evidence", "Not acquired", "current reading", "Next action", "Ready to analyze"} {
 		assert.NotContains(t, html, forbidden)
 	}
 
@@ -193,15 +195,15 @@ func TestMyBooksCoverGridUsesNativeListAndStablePresentationStates(t *testing.T)
 	end := strings.Index(html[start:], "</li>")
 	require.Greater(t, end, 0)
 	item := html[start : start+end]
-	for _, content := range []string{`<a class="library-book__identity-link"`, "A very long title that remains fully visible", "By An author", "In Reading Journey", "View in Reading Journey", "More actions"} {
+	for _, content := range []string{`<a class="library-book__identity-link"`, "A very long title that remains fully visible", "By An author", "To Read", "View in Reading", "More actions"} {
 		assert.Contains(t, item, content)
 	}
 	assert.Equal(t, 1, strings.Count(item, `class="library-book__identity-link"`), "cover and title must share one identity link")
 	assert.Less(t, strings.Index(item, `class="book-cover-media"`), strings.Index(item, "A very long title"))
 	assert.Less(t, strings.Index(item, "A very long title"), strings.Index(item, "By An author"))
-	assert.Less(t, strings.Index(item, "By An author"), strings.Index(item, "In Reading Journey"))
-	assert.Less(t, strings.Index(item, "In Reading Journey"), strings.Index(item, "View in Reading Journey"))
-	assert.Less(t, strings.Index(item, "View in Reading Journey"), strings.Index(item, "More actions"))
+	assert.Less(t, strings.Index(item, "By An author"), strings.Index(item, "To Read"))
+	assert.Less(t, strings.Index(item, "To Read"), strings.Index(item, "View in Reading"))
+	assert.Less(t, strings.Index(item, "View in Reading"), strings.Index(item, "More actions"))
 }
 
 func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
@@ -264,7 +266,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/journey#journey-book-fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/reading#journey-book-fixture-book", response.Header().Get("Location"))
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)

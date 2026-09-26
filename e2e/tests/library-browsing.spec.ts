@@ -32,7 +32,7 @@ test.describe('My Books collection browsing', () => {
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.locator('#library-results a[href^="/journey#"]').first()).toBeVisible();
+    await expect(page.locator('#library-results a[href^="/reading#"]').first()).toBeVisible();
 
     await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
     await page.getByRole('button', { name: 'Search' }).click();

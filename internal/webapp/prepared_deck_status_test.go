@@ -111,7 +111,7 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJour
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyNotMember}
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)
-	assert.Equal(t, "/journey#journey-book-book-1", got)
+	assert.Equal(t, "/reading#journey-book-book-1", got)
 
 	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{ActiveLanguage: "it"})
 	got, err = h.reachablePreparationReturnURL(crossLanguageContext, "owner-1", action)

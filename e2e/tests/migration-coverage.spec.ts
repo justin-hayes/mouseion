@@ -31,13 +31,13 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('shows one learner order and concise forecast evidence', async ({ page }) => {
-    await page.goto('/journey');
-    await expect(page.locator('#primary-goal-heading')).toHaveText('Primary Goal');
-    await expect(page.locator('#provisional-journey-heading')).toHaveText('Your order');
+    await page.goto('/reading');
+    await expect(page.locator('#primary-goal-heading')).toHaveText('Current reading');
+    await expect(page.locator('#provisional-journey-heading')).toHaveText('To Read books');
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
     await expect(page.getByText('How coverage is shown', { exact: true })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Your order' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Journey coverage forecast' }).first()).toBeVisible();
+    await expect(page.getByRole('list', { name: 'To Read books' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Reading coverage forecast' }).first()).toBeVisible();
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.locator('#provisional-journey-status')).toHaveAttribute('aria-live', 'polite');
@@ -48,7 +48,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/journey');
+    await page.goto('/reading');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();

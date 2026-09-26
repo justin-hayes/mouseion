@@ -42,11 +42,11 @@ window.showJourneyReorderError = function (target, text) {
   window.resetJourneyReorder(list);
   var status = list.querySelector('#provisional-journey-status');
   if (status) {
-    status.textContent = 'Reading Journey order could not be updated. Reload Reading Journey and try again.';
+    status.textContent = 'Reading order could not be updated. Reload Reading and try again.';
   }
   var previousError = target.querySelector('[data-journey-reorder-error]');
   if (previousError) previousError.remove();
-  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading Journey order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/journey">Reload Reading Journey and try again.</a></p></article>');
+  target.insertAdjacentHTML('afterbegin', '<article role="alert" tabindex="-1" data-journey-reorder-error><strong>Reading order could not be updated:</strong> ' + window.escapeHtml(text || 'Request failed') + '<p><a href="/reading">Reload Reading and try again.</a></p></article>');
   target.querySelector('[data-journey-reorder-error]').focus();
   return true;
 };
@@ -93,7 +93,7 @@ document.addEventListener('submit', function (evt) {
   content.setAttribute('aria-busy', 'true');
   var status = document.getElementById('provisional-journey-status');
   if (status) {
-    status.textContent = 'Recalculating Reading Journey order...';
+    status.textContent = 'Updating Reading order...';
   }
   list.querySelectorAll('form[data-journey-reorder] button[type="submit"]').forEach(function (button) {
     if (!button.disabled) {
@@ -203,7 +203,7 @@ document.addEventListener('htmx:afterSwap', function (evt) {
 </script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/journey" { destinationAttributes(context, NavigationReadingJourney)... }>Reading Journey</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
 		<li class="site-header__account"><small>{ user.Username }</small></li><li class="site-header__session"><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
 	}
 	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
@@ -215,19 +215,19 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 templ JourneyMembershipAction(bookID string, member bool, revision int64, csrf string) {
 	if bookID != "" {
 		if member {
-			<p><strong>In Reading Journey.</strong> <a href={ templ.SafeURL("/journey#" + journeyBookAnchorID(bookID)) }>View in Reading Journey</a></p>
+			<p><strong>To Read.</strong> <a href={ templ.SafeURL("/reading#" + journeyBookAnchorID(bookID)) }>View in Reading</a></p>
 			@RemoveJourneyMembershipAction(bookID, revision, csrf)
 		} else {
 			<form method="post" action={ templ.SafeURL(journeyAddURL(bookID)) }>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
-				<button type="submit">Add to Reading Journey</button>
+				<button type="submit">Move to To Read</button>
 			</form>
 		}
 	}
 }
 
 templ RemoveJourneyMembershipAction(bookID string, revision int64, csrf string) {
-	@Confirmation("Remove from Reading Journey", "This changes only Journey membership. Queued or running analysis continues, acquired content and completed analysis remain, and removing the current Primary Goal clears that Goal.", StatusDanger) {
+	@Confirmation("Remove from To Read", "This changes only the Book's To Read status. Queued or running analysis continues, acquired content and completed analysis remain, and the current Book cannot be removed from To Read.", StatusDanger) {
 		<form method="post" action={ templ.SafeURL(journeyRemoveURL(bookID)) }>
 			<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", revision) }/>
 			<button type="submit" class="outline secondary">Confirm removal</button>
@@ -252,7 +252,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			<p class="library-book__author">By { author }</p>
 		}
 		if myBookInJourney(book) {
-			<p class="library-book__membership"><span aria-hidden="true">+</span> In Reading Journey</p>
+			<p class="library-book__membership"><span aria-hidden="true">+</span> To Read</p>
 		}
 		if book.CompletionCount > 0 {
 			<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
@@ -260,7 +260,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		}
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
-				<a class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading Journey</a>
+				<a class="outline library-book__journey-action" href={ templ.SafeURL(journeyEntryURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
 			}
 			if book.Disposition != "" {
 				<p class="metadata"><strong>Workflow</strong>: { myBooksDispositionLabel(myBookDisposition(book)) }</p>
@@ -277,7 +277,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL(journeyAddURL(book.Book.ID)) }>
 					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", book.JourneyRevision) }/>
-					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Add to Reading Journey</button>
+					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
 			<details class="more-actions">
@@ -486,8 +486,8 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 }
 
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
-	@ShellLayout("Reading Journey", &user, csrf, NavigationReadingJourney) {
-		@PageHeader(journeyPageTitle(journey), "Keep one current Primary Goal anchored first, followed by Your order.", nil) {
+	@ShellLayout("Reading", &user, csrf, NavigationReadingJourney) {
+		@PageHeader(journeyPageTitle(journey), "Review your current Book and other books you may want to read.", nil) {
 			<a role="button" class="outline" href="/library">Add books from My Books</a>
 		}
 		if message != "" {
@@ -497,22 +497,26 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			@Feedback(FeedbackError, "Action needed", pageError)
 		}
 		if journey.LanguageHandoff != nil {
-			<section class="language-handoff" aria-labelledby="language-handoff-heading">
-				<h2 id="language-handoff-heading">This Book is in { journey.LanguageHandoff.LanguageLabel }</h2>
-				<p><strong>{ journey.LanguageHandoff.BookTitle }</strong> belongs to your { journey.LanguageHandoff.LanguageLabel } Reading Journey, while this page is showing { journey.LanguageLabel }. Switching language is explicit so a bookmark never changes your study context by itself.</p>
-				<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ journey.LanguageHandoff.Language }/><input type="hidden" name="return_to" value={ journeyEntryURL(journey.LanguageHandoff.BookID) }/><button type="submit">Switch to { journey.LanguageHandoff.LanguageLabel } and open this Book</button></form>
-			</section>
+			@ReadingLanguageHandoff(*journey.LanguageHandoff, journey.LanguageLabel, journey.ActiveLanguageLabel, csrf)
 		}
 		@GoalSection(journey.Goal, csrf, "", "", "")
 		<details class="journey-coverage-note">
 			<summary>How coverage is shown</summary>
-			<p><strong>Current coverage</strong> is the present coverage from Known vocabulary. <strong>After Primary Goal coverage</strong> models the active Goal's Reserved vocabulary after it is accepted into Known vocabulary when the Goal is completed.</p>
-			<p><strong>On arrival coverage</strong> models trustworthy recurring vocabulary from earlier books in Your order. It is a forecast, not a claim about what you know now.</p>
+			<p><strong>Current coverage</strong> is the present coverage from Known vocabulary. <strong>After finishing this Book</strong> models its frozen Reserved vocabulary after it is accepted into Known vocabulary.</p>
+			<p><strong>On arrival coverage</strong> models trustworthy recurring vocabulary from earlier To Read books. It is a forecast, not a claim about what you know now.</p>
 		</details>
-		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Your order</h2>
+		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">To Read books</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
 	}
+}
+
+templ ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabel, activeLanguageLabel, csrf string) {
+	<section class="language-handoff" aria-labelledby="language-handoff-heading">
+		<h2 id="language-handoff-heading">This Book is in { handoff.LanguageLabel }</h2>
+		<p><strong>{ handoff.BookTitle }</strong> is in { handoff.LanguageLabel }. This Reading page is showing { pageLanguageLabel }, while your saved study language is { activeLanguageLabel }. This request does not change the saved language; switch it if you want { handoff.LanguageLabel } to become active.</p>
+		<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ handoff.Language }/><input type="hidden" name="return_to" value={ journeyEntryURL(handoff.BookID) }/><button type="submit">Switch to { handoff.LanguageLabel } and open this Book</button></form>
+	</section>
 }
 
 templ PrimaryGoalFinishPage(user domain.User, csrf string, outcome primaryGoalFinishView) {
@@ -543,14 +547,14 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 			<div hx-swap-oob="innerHTML:#provisional-journey-status">{ statusMessage }</div>
 		}
 		if journey.ForecastUnavailable {
-			<p role="status"><strong>Journey forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/journey">Retry forecast</a>.</p>
+			<p role="status"><strong>Reading forecast unavailable.</strong> Updated coverage could not be calculated. Your saved order remains in place. <a href="/reading">Retry forecast</a>.</p>
 		}
 		if len(journey.Provisional) == 0 {
-			@EmptyState("No provisional books yet", "Your Reading Journey is empty after the Primary Goal. Add or reconsider books from My Books when you are ready.") {
+			@EmptyState("No other To Read books", "There are no other To Read books in this language. Add or reconsider books from My Books when you are ready.") {
 				<a role="button" class="outline" href="/library">Browse My Books</a>
 			}
 		}
-		<ol class="journey-list" aria-label="Your order">
+		<ol class="journey-list" aria-label="To Read books">
 			for _, item := range journey.Provisional {
 				<li>@JourneyBookCard(item, false, csrf, journey.Revision, journeyExpectedGoalBookID(journey))</li>
 			}
@@ -558,7 +562,7 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 	</div>
 }
 templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, focusBookID string) {
-	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-heading" class="journey-goal" data-focus-id={ goalSectionFocusID(focusBookID) }><h2 id="primary-goal-heading">Primary Goal</h2>
+	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-heading" class="journey-goal" data-focus-id={ goalSectionFocusID(focusBookID) }><h2 id="primary-goal-heading">Current reading</h2>
 		if message != "" {
 			<p id="goal-section-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ message }</p>
 		}
@@ -566,7 +570,7 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 			<article role="alert" class="feedback feedback--error"><strong>Action needed</strong><p>{ sectionError }</p></article>
 		}
 		if goal == nil {
-			@EmptyState("No Primary Goal yet", "Choose an analyzed member as your current commitment from your Reading Journey.")
+			@EmptyState("No current Book yet", "Start an analyzed To Read book when you are ready to begin reading.")
 		} else {
 			@JourneyBookCard(*goal, true, csrf, 0, "")
 		}
@@ -584,18 +588,18 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 		<p class="journey-book__author">By { author }</p>
 	}
 	if primary {
-		<p>@StatusBadge("Primary Goal", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
+		<p>@StatusBadge("Current reading", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 		<p class="metadata"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p>
 		<p class="metadata"><strong>Reserved vocabulary</strong>: <span class="numeric">{ fmt.Sprintf("%d", item.GoalSnapshotSize) }</span> frozen identities.</p>
 	} else {
-		<p>@StatusBadge("Your order", StatusNeutral)</p>
+		<p>@StatusBadge("To Read", StatusNeutral)</p>
 	}
 	if primary && item.GoalReadingOnly {
-		@StatusBadge("Reading-only Goal", StatusInfo)
+		@StatusBadge("Reading only", StatusInfo)
 		if item.GoalUnassessed {
-			<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Goal. Reading directly is the current path.</p>
+			<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Book. Reading directly is the current path.</p>
 		} else {
-			<p>Analysis evidence exists, but this Goal has no deck-eligible vocabulary. Reading directly is the current path.</p>
+			<p>Analysis evidence exists, but this Book has no deck-eligible vocabulary. Reading directly is the current path.</p>
 		}
 	}
 	</div>
@@ -606,20 +610,20 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	}
 	if primary {
 		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
-			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Goal deck preparation</h4>
+			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Deck preparation</h4>
 			if bookHasCompletedAnalysis(item.Book) {
 				<p><a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Open focused deck task</a></p>
 			}
 			if item.GoalSnapshotSize == 0 {
-				<p><strong>Deck state</strong>: No deck needed. This Goal has no frozen vocabulary identities to prepare.</p>
+				<p><strong>Deck state</strong>: No deck needed. This Book has no frozen vocabulary identities to prepare.</p>
 			} else if item.GoalPreparation != nil {
 				<p class="metadata"><strong>Deck state</strong>: { deckPreparationTitle(*item.GoalPreparation) }.</p>
 				@GoalDeckPreparationStatus(csrf, journeyBookID(item), item.GoalSnapshotID, *item.GoalPreparation)
 			} else if item.GoalDeckMissing {
-				<p role="note" aria-live="polite"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The Goal, its snapshot, and reading state remain unchanged.</p>
-				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Prepare Goal deck</button></form>
+				<p role="note" aria-live="polite"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The current reading and snapshot remain unchanged.</p>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
 			} else if item.GoalDeckUnavailable {
-				<p role="note" aria-live="polite"><strong>Deck state: Unavailable.</strong> The Goal, its snapshot, and reading state remain unchanged.</p>
+				<p role="note" aria-live="polite"><strong>Deck state: Unavailable.</strong> The current reading and snapshot remain unchanged.</p>
 				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
 			}
 		</section>
@@ -628,7 +632,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 	if !primary {
 		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
 			if item.CanChooseGoal {
-				<form class="journey-book__goal-action" method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit">Choose as Primary Goal</button></form>
+				<form class="journey-book__goal-action" method="post" action={ templ.SafeURL("/goal/books/"+journeyBookID(item)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ expectedGoalBookID }/><button type="submit">Start reading</button></form>
 			} else if item.GoalEligibilityReason != "" {
 				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
@@ -664,13 +668,13 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string, expectedR
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-				@Confirmation("Clear Primary Goal", "Clearing ends this Goal and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger) {
+				@Confirmation("Clear Current reading", "Clearing ends this current reading and cannot be undone. It releases the frozen Reserved vocabulary, but the snapshot, deck, and history remain available.", StatusDanger) {
 					<form method="post" action="/goal/clear"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value={ journeyBookID(item) }/><button type="submit" class="outline secondary">Confirm clearing</button></form>
 				}
 				@RemoveJourneyMembershipAction(journeyBookID(item), item.JourneyRevision, csrf)
 				</div>
 			</details>
-			<p>To choose a different Goal, use Choose as Primary Goal on another eligible book in your provisional order.</p>
+			<p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p>
 		</div>
 	}
 	</article>
@@ -681,11 +685,11 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		if preparation.State == domain.DeckPreparationReady {
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-				<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Re-prepare Goal deck</button></form>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Re-prepare deck</button></form>
 			} else if deckPreparationEmpty(preparation) {
 				<p>No cards were created from this snapshot.</p>
 			} else {
-			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download Goal deck</a>
+			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 		}
 	} else if deckPreparationActive(preparation) {
 		<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button class="outline secondary">Cancel preparation</button></form>
@@ -693,9 +697,9 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		if preparation.State == domain.DeckPreparationFailed {
 			@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
 		} else if preparation.State == domain.DeckPreparationCancelled {
-			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact Goal snapshot when ready.")
+			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact reading snapshot when ready.")
 		}
-		<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Retry Goal deck</button></form>
+		<form method="post" action={ templ.SafeURL("/goal/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
 	}
 }
 
@@ -720,7 +724,7 @@ func journeyEntryAvailable(item journeyBookView) bool {
 templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
 	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary) {
 		if resultURL != "" {
-			@Breadcrumb(resultURL, "Reading Journey")
+			@Breadcrumb(resultURL, "Reading")
 		}
 		@PageHeader("Deck preparation", "Prepare an Anki deck from one exact completed analysis.", StatusBadge(deckPreparationTitle(preparation), deckPreparationStatusTone(preparation)))
 		@DeckPreparationStatus(csrf, preparation, resultURL, journeyAction)
@@ -745,7 +749,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
 				if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
-					<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare Goal deck</button></form>
+					<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare deck</button></form>
 				} else {
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -772,7 +776,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
 			}
 			if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
-				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry Goal deck</button></form>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
 			} else {
 				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -785,7 +789,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 }
 
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
-func journeyDeckPreparationTaskURL(bookID string) string { return "/journey/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
+func journeyDeckPreparationTaskURL(bookID string) string { return "/reading/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
@@ -863,7 +867,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 			@Feedback(FeedbackInfo, "", message)
 		}
 		if len(jobs) == 0 {
-			@EmptyState("No analysis runs yet", "Add a book to Reading Journey to generate analysis evidence.") {
+			@EmptyState("No analysis runs yet", "Add a book to Reading to generate analysis evidence.") {
 				<a href="/library">Go to My Books</a>
 			}
 		}
@@ -873,7 +877,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 				for _, job := range jobs {
 					<tr><td>
 						if url := journeyEntryURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · Reading Journey", job.DisplayNumber) }</a>
+							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
@@ -907,11 +911,11 @@ templ JobStatus(csrf string, status analysis.Status, journeyEntryURL string) {
 		if status.CorpusID != "" {
 			if status.LogicalState == "completed" {
 					if status.SourceMaterialID != "" && status.RunID != "" && journeyEntryURL != "" {
-						<p>Analysis complete. Continue with this book in Reading Journey.</p>
-						<a role="button" class="outline" href={ templ.SafeURL(journeyEntryURL) }>View in Reading Journey</a>
+						<p>Analysis complete. Continue with this book in Reading.</p>
+						<a role="button" class="outline" href={ templ.SafeURL(journeyEntryURL) }>View in Reading</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
-							<p>Analysis complete, but this book is no longer available in Reading Journey.</p>
+							<p>Analysis complete, but this book is no longer available in Reading.</p>
 						} else {
 							<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
 							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
@@ -1043,20 +1047,20 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 				<p role="alert">{ action.Error }</p>
 			}
 			if action.State == deckJourneyNotMember {
-				<p><strong>Not in Reading Journey.</strong> Add this book to your provisional Reading Journey when you are ready.</p>
+				<p><strong>Not in To Read.</strong> Move this book to To Read from My Books when you are ready.</p>
 				<form method="post" action={ templ.SafeURL(journeyAddURL(action.BookID)) } hx-post={ templ.SafeURL(journeyAddURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
 					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprintf("%d", action.Revision) }/>
 					if action.PreparationID != "" {
 						<input type="hidden" name="deck_preparation_id" value={ action.PreparationID }/>
 					}
-					<button type="submit">Add to Reading Journey</button>
+					<button type="submit">Move to To Read</button>
 				</form>
 			} else if action.State == deckJourneyMember {
-				<p><strong>In Reading Journey.</strong> This book is already in your Reading Journey.</p>
-				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View in Reading Journey</a></p>
+				<p><strong>To Read.</strong> This book is already in To Read.</p>
+				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View in Reading</a></p>
 			} else if action.State == deckJourneyGoal {
-				<p><strong>Primary Goal.</strong> This deck is preparation for your current Primary Goal.</p>
-				<p><a href={ templ.SafeURL("/journey#"+journeyBookAnchorID(action.BookID)) }>View Primary Goal in Reading Journey</a></p>
+				<p><strong>Current Book.</strong> This deck is preparation for the Book you are reading now.</p>
+				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View current book in Reading</a></p>
 			}
 		</div>
 	}
@@ -1123,7 +1127,7 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 }
 
 templ JourneyForecast(item journeyBookView, primary bool) {
-	<section class="journey-forecast" aria-label="Journey coverage forecast">
+	<section class="journey-forecast" aria-label="Reading coverage forecast">
 		<ol class="journey-forecast__stages" aria-label="Coverage stages">
 			for _, stage := range journeyForecastStages(item, primary) {
 				<li class="journey-forecast__stage">
@@ -1138,7 +1142,7 @@ templ JourneyForecast(item journeyBookView, primary bool) {
 									<span class="journey-forecast__delta">Change from { stage.ComparisonLabel }: { delta }</span>
 								}
 							}
-						} else if stage.Qualifier == "No active Primary Goal" {
+						} else if stage.Qualifier == "No current Book" {
 							<span class="journey-forecast__unavailable">{ stage.Qualifier }</span>
 						} else {
 							<span class="journey-forecast__unavailable">Unavailable</span>
@@ -1146,7 +1150,7 @@ templ JourneyForecast(item journeyBookView, primary bool) {
 						if stage.UnavailableReason != "" {
 							<span class="journey-forecast__qualifier">{ stage.UnavailableReason }</span>
 						}
-						if stage.Qualifier != "" && stage.Qualifier != "No active Primary Goal" {
+						if stage.Qualifier != "" && stage.Qualifier != "No current Book" {
 							<span class="journey-forecast__qualifier">{ stage.Qualifier }</span>
 						}
 					</div>
@@ -1166,9 +1170,9 @@ templ JourneyForecast(item journeyBookView, primary bool) {
 			if item.Forecast != nil && item.Forecast.UnavailableReason != "" {
 				<p><strong>Unavailable evidence:</strong> { item.Forecast.UnavailableReason }</p>
 			}
-			<p class="metadata">Current uses Known vocabulary. After Primary Goal assumes completion and acceptance of its frozen Reserved vocabulary.
+			<p class="metadata">Current uses Known vocabulary. After finishing this Book assumes acceptance of its frozen Reserved vocabulary.
 				if !primary {
-					<span> On arrival includes trustworthy recurring vocabulary from earlier Books in Your order.</span>
+					<span> On arrival includes trustworthy recurring vocabulary from earlier To Read books.</span>
 				}
 			</p>
 		</details>
@@ -1179,7 +1183,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 	<section class="journey-book__deck" aria-labelledby={ "journey-deck-heading-" + journeyBookID(item) }>
 		<h4 id={ "journey-deck-heading-" + journeyBookID(item) }>Deck</h4>
 		if item.AnalysisDeckUnavailable {
-			<p role="note"><strong>Deck state: Unavailable.</strong> Deck preparation status could not be read. The analysis and Journey membership are unchanged.</p>
+			<p role="note"><strong>Deck state: Unavailable.</strong> Deck preparation status could not be read. The analysis and To Read status are unchanged.</p>
 			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Try the focused deck task</a>
 		} else if item.AnalysisPreparation == nil {
 			<p><strong>Deck state:</strong> Not prepared from this analysis.</p>
@@ -1211,7 +1215,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 
 templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckPreparationView, resultURL string) {
 	@ShellLayout("Prepare deck · "+canonicalBookTitle(task.Book), &user, csrf, NavigationReadingJourney) {
-		@Breadcrumb(resultURL, "Reading Journey")
+		@Breadcrumb(resultURL, "Reading")
 		@PageHeader("Prepare a deck", canonicalBookTitle(task.Book), StatusBadge("Exact source", StatusInfo))
 		<section class="narrow" aria-labelledby="journey-deck-task-heading">
 		<h2 id="journey-deck-task-heading">Deck preparation task</h2>
@@ -1220,19 +1224,19 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 			<dt>Book language</dt><dd>{ task.Book.Source.Language }</dd>
 			<dt>Current analysis</dt><dd><code>{ task.AnalysisRunID }</code> from the current EPUB snapshot <code>{ task.Book.Source.ContentSnapshotID }</code></dd>
 			if task.Goal {
-				<dt>Frozen Goal snapshot</dt><dd><code>{ task.GoalSnapshotID }</code> · { fmt.Sprintf("%d frozen identities", task.GoalSnapshotSize) }</dd>
+				<dt>Frozen reading snapshot</dt><dd><code>{ task.GoalSnapshotID }</code> · { fmt.Sprintf("%d frozen identities", task.GoalSnapshotSize) }</dd>
 			}
 		</dl>
 		if task.Unavailable {
 			@Feedback(FeedbackWarning, "Deck preparation unavailable", "The preparation service could not verify this exact source. No deck action was started.")
 		} else if task.Goal {
 			if task.GoalSnapshotSize == 0 {
-				@EmptyState("No deck needed", "This frozen Goal snapshot contains no vocabulary identities, so no cards will be created.")
+				@EmptyState("No deck needed", "This frozen reading snapshot contains no vocabulary identities, so no cards will be created.")
 			} else if task.Preparation != nil {
 				@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckJourneyGoal})
 			} else {
-				<p role="note"><strong>Deck state: Missing.</strong> This exact Goal snapshot remains unchanged. Prepare it when ready.</p>
-				<form method="post" action={ templ.SafeURL("/goal/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare Goal deck</button></form>
+				<p role="note"><strong>Deck state: Missing.</strong> This exact reading snapshot remains unchanged. Prepare it when ready.</p>
+				<form method="post" action={ templ.SafeURL("/goal/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
 			}
 		} else if task.Preparation != nil {
 			@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckJourneyMember})
@@ -1241,14 +1245,14 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 				<p role="note"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>
 			}
 			<p>Choose whether this preparation may use the configured external translation provider. Declining still permits local preparation.</p>
-			<form method="post" action={ templ.SafeURL("/journey/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
+			<form method="post" action={ templ.SafeURL("/reading/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
 				<input type="hidden" name="csrf_token" value={ csrf }/>
 				<fieldset><legend>Optional external translation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
 				<button type="submit">Prepare deck</button>
 			</form>
 			<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
 		}
-		<p><a href={ templ.SafeURL(resultURL) }>Back to this Book in Reading Journey</a></p>
+		<p><a href={ templ.SafeURL(resultURL) }>Back to this Book in Reading</a></p>
 		</section>
 	}
 }
@@ -1267,6 +1271,9 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 		}
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
+		}
+		if chooser.LanguageHandoff != nil {
+			@ReadingLanguageHandoff(*chooser.LanguageHandoff, chooser.LanguageLabel, chooser.ActiveLanguageLabel, csrf)
 		}
 		if chooser.Language == "" {
 			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">

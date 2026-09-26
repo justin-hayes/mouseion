@@ -624,6 +624,7 @@ progress {
 
 .reading-chooser-book h3 {
   margin-bottom: var(--mouseion-space-1);
+  overflow-wrap: anywhere;
 }
 
 .reading-chooser-book details {

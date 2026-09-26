@@ -22,14 +22,14 @@ type goalSectionView struct {
 }
 
 const (
-	goalStaleMessage            = "This Primary Goal changed since this page was loaded. No changes were made; review Reading Journey before trying again."
-	goalConcurrentMessage       = "Another book became your Primary Goal while you were choosing. No changes were made; review Reading Journey before trying again."
+	goalStaleMessage            = "This current reading changed since this page was loaded. No changes were made; review Reading before trying again."
+	goalConcurrentMessage       = "Another book became your current reading while you were choosing. No changes were made; review Reading before trying again."
 	goalUnavailableMessage      = "This book is not available in My Books."
-	goalIneligibleMessage       = "This book must be an active Reading Journey member with a successfully completed current analysis before it can become a Primary Goal."
-	goalLanguageRequiredMessage = "Choose a study language before setting a Primary Goal."
+	goalIneligibleMessage       = "This book must be in To Read and have a successfully completed current analysis before it can be started."
+	goalLanguageRequiredMessage = "Choose a study language before starting a book."
 	goalDeckRetryMessage        = "Deck preparation retry queued."
 	goalDeckCancelledMessage    = "Deck preparation cancelled."
-	goalDeckUnavailableMessage  = "The Goal deck is unavailable. The Primary Goal and its frozen snapshot remain unchanged; retry preparation when ready."
+	goalDeckUnavailableMessage  = "Deck preparation is unavailable. The current reading and its frozen snapshot remain unchanged; retry preparation when ready."
 )
 
 func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) string {
@@ -73,7 +73,7 @@ func (h *Handler) respondGoal(w http.ResponseWriter, r *http.Request, message, p
 	if pageError != "" {
 		query.Set("error", pageError)
 	}
-	location := "/journey"
+	location := "/reading"
 	if r.FormValue("return_to") == "/reading" {
 		location = "/reading"
 	}
@@ -91,7 +91,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	language, _ := activeStudyLanguageForContext(r.Context())
 	bookID := strings.TrimSpace(r.PathValue("id"))
 	if bookID == "" {
-		h.respondGoal(w, r, "", "Choose a book before setting a Primary Goal.", "")
+		h.respondGoal(w, r, "", "Choose a book before starting to read.", "")
 		return
 	}
 	if language == "" {
@@ -115,7 +115,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	title := h.goalBookTitle(r.Context(), owner, bookID)
 	currentActive := current.IsActive()
 	if currentActive && current.BookID == bookID {
-		h.respondGoal(w, r, title+" is already your Primary Goal.", "", bookID)
+		h.respondGoal(w, r, title+" is already your current reading.", "", bookID)
 		return
 	}
 	if currentActive && current.BookID != expectedBookID {
@@ -135,7 +135,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if latest.BookID == bookID {
-				h.respondGoal(w, r, title+" is already your Primary Goal.", "", bookID)
+				h.respondGoal(w, r, title+" is already your current reading.", "", bookID)
 				return
 			}
 			h.respondGoal(w, r, "", goalConcurrentMessage, latest.BookID)
@@ -185,7 +185,7 @@ func (h *Handler) choosePrimaryGoal(w http.ResponseWriter, r *http.Request) {
 			log.Printf("primary goal deck preparation owner=%s language=%s book=%s: %v", owner, language, selectedGoal.BookID, prepareErr)
 		}
 	}
-	message := title + " is your Primary Goal."
+	message := title + " is your current reading."
 	h.respondGoal(w, r, message, "", bookID)
 }
 
@@ -311,7 +311,7 @@ func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		if expectedBookID != "" {
 			h.respondGoal(w, r, "", goalStaleMessage, "")
 		} else {
-			h.respondGoal(w, r, "No Primary Goal was set.", "", "")
+			h.respondGoal(w, r, "No current reading was set.", "", "")
 		}
 		return
 	}
@@ -325,13 +325,13 @@ func (h *Handler) clearPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, persistence.ErrNotFound) {
-		h.respondGoal(w, r, "Primary Goal cleared.", "", "")
+		h.respondGoal(w, r, "Current reading cleared.", "", "")
 		return
 	}
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	message := "Primary Goal cleared."
+	message := "Current reading cleared."
 	h.respondGoal(w, r, message, "", "")
 }

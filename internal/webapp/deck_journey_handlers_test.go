@@ -88,17 +88,17 @@ func TestAddBookToReadingJourneyHandlesIdempotentStaleAndErrorStates(t *testing.
 		{
 			name:      "idempotent existing member",
 			store:     deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 4, Entries: []domain.ReadingJourneyEntry{{BookID: "book-1", Position: 1}}}},
-			wantState: deckJourneyMember, wantText: "already in your Reading Journey", wantRev: 4, wantAdds: 1,
+			wantState: deckJourneyMember, wantText: "already in To Read", wantRev: 4, wantAdds: 1,
 		},
 		{
 			name:      "stale refetch",
 			store:     deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 4}, addErr: persistence.ErrJourneyStale},
-			wantState: deckJourneyNotMember, wantText: "This Journey changed since this page was loaded", wantRev: 4, wantAdds: 1,
+			wantState: deckJourneyNotMember, wantText: "Reading changed since this page was loaded", wantRev: 4, wantAdds: 1,
 		},
 		{
 			name:      "ordinary error",
 			store:     deckJourneyActionStore{journey: domain.ReadingJourney{Revision: 4}, addErr: errors.New("write failed")},
-			wantState: deckJourneyNotMember, wantText: "No Journey changes were made", wantRev: 4, wantAdds: 1, wantErr: true,
+			wantState: deckJourneyNotMember, wantText: "No changes were made", wantRev: 4, wantAdds: 1, wantErr: true,
 		},
 		{
 			name:      "language required",
@@ -125,7 +125,7 @@ func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T)
 	h := &Handler{services: Services{Store: StoreDependencies{Journey: store, Goals: store}, SessionLifetime: 0}}
 	csrf := strings.Repeat("c", 32)
 	form := url.Values{"csrf_token": {csrf}, "expected_revision": {"8"}, "deck_preparation_id": {"prep-1"}}
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/journey/books/book-1/add", strings.NewReader(form.Encode()))
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/reading/books/book-1/journey/add", strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.Header.Set("Hx-Request", "true")
 	r.AddCookie(&http.Cookie{Name: csrfCookie, Value: csrf, HttpOnly: true, SameSite: http.SameSiteLaxMode}) //nolint:gosec // test cookie mirrors the local CSRF cookie contract.
@@ -133,7 +133,7 @@ func TestAddDeckBookToJourneyRouteRendersConflictAndKeepsRetryForm(t *testing.T)
 	recorder := httptest.NewRecorder()
 	h.addDeckBookToJourney(recorder, r)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	for _, want := range []string{"role=\"alert\"", "This Journey changed since this page was loaded", `name="expected_revision" value="9"`, "Add to Reading Journey"} {
+	for _, want := range []string{"role=\"alert\"", "Reading changed since this page was loaded", `name="expected_revision" value="9"`, "Move to To Read"} {
 		assert.True(t, strings.Contains(recorder.Body.String(), want), "conflict response missing %q: %s", want, recorder.Body.String())
 	}
 }
@@ -255,7 +255,7 @@ func TestAddingJourneyMemberEnsuresAcquisitionAndAnalysisOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyMember, second.State)
 	assert.Equal(t, 1, analysisService.calls)
-	assert.True(t, strings.Contains(second.Message, "already in your Reading Journey"))
+	assert.True(t, strings.Contains(second.Message, "already in To Read"))
 }
 
 func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailable(t *testing.T) {
@@ -272,7 +272,7 @@ func TestAddingMetadataOnlyBookRetainsJourneyMembershipWhenAcquisitionUnavailabl
 	action, err := h.addBookToReadingJourney(context.Background(), "owner-1", "", "book-1", 1)
 	require.NoError(t, err)
 	assert.Equal(t, deckJourneyMember, action.State)
-	assert.True(t, strings.Contains(action.Error, "Journey membership is retained"))
+	assert.True(t, strings.Contains(action.Error, "To Read status is retained"))
 	assert.Equal(t, 1, len(store.journey.Entries))
 }
 

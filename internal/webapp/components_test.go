@@ -79,8 +79,8 @@ func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
 
 func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing.T) {
 	assert.Equal(t, "/library?q=title", activeStudyLanguageReturnPath("/library?language=de&q=title", "it"))
-	assert.Equal(t, "/journey#journey-book-book-1", activeStudyLanguageReturnPath("/books/book-1", "it"))
-	assert.Equal(t, "/journey?message=updated#journey-book-book-1", activeStudyLanguageReturnPath("/books/book-1?message=updated", "it"))
+	assert.Equal(t, "/reading#journey-book-book-1", activeStudyLanguageReturnPath("/books/book-1", "it"))
+	assert.Equal(t, "/reading?message=updated#journey-book-book-1", activeStudyLanguageReturnPath("/books/book-1?message=updated", "it"))
 	assert.Equal(t, "/vocabulary", activeStudyLanguageReturnPath("/vocabulary?language=de", "it"))
 }
 

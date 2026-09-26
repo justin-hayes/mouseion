@@ -17,7 +17,7 @@ func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t 
 		Store:    StoreDependencies{Books: store, Journey: store, Goals: store},
 		Analysis: fixtures.Analysis{},
 	}}
-	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/journey/books/fixture-route-match/deck/preparations/new", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/reading/books/fixture-route-match/deck/preparations/new", nil)
 	recorder := httptest.NewRecorder()
 	detail, result, ok := h.validJourneyDeckBook(recorder, r, fixtures.OwnerID, "fixture-route-match")
 	require.True(t, ok)

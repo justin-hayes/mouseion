@@ -189,7 +189,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 
 	journey, err := store.GetReadingJourney(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	added := perform(t, h, http.MethodPost, "/journey/books/"+bookID+"/add", url.Values{
+	added := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/journey/add", url.Values{
 		"csrf_token":        {csrf},
 		"expected_revision": {strconv.FormatInt(journey.Revision, 10)},
 	}, cookies)
@@ -217,7 +217,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 		"external_translation_consent": {"on"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, chosen.Code)
-	assert.Contains(t, chosen.Header().Get("Location"), "/journey")
+	assert.Contains(t, chosen.Header().Get("Location"), "/reading")
 	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	require.NotEmpty(t, goal.SnapshotID)

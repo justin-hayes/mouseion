@@ -218,7 +218,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /reading/stop", h.user(http.HandlerFunc(h.stopReading)))
 	h.mux.Handle("POST /reading/set-aside", h.user(http.HandlerFunc(h.setAsideCurrentReading)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))
-	h.mux.Handle("GET /journey", h.user(http.HandlerFunc(h.journey)))
+	h.mux.Handle("GET /journey", h.user(http.HandlerFunc(h.legacyJourney)))
+	h.mux.Handle("POST /journey", h.user(http.HandlerFunc(rejectLegacyJourneyMutation)))
 	h.mux.Handle("GET /journey/{bookID}", h.user(http.HandlerFunc(h.journeyEntry)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /goal/books/{id}", h.user(http.HandlerFunc(h.choosePrimaryGoal)))
@@ -226,11 +227,12 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /goal/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryPrimaryGoalDeck)))
 	h.mux.Handle("POST /goal/clear", h.user(http.HandlerFunc(h.clearPrimaryGoal)))
 	h.mux.Handle("POST /goal/finish", h.user(http.HandlerFunc(h.finishPrimaryGoal)))
-	h.mux.Handle("POST /journey/books/{id}/add", h.user(http.HandlerFunc(h.addDeckBookToJourney)))
-	h.mux.Handle("POST /journey/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeJourneyBook)))
-	h.mux.Handle("POST /journey/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromReadingJourney)))
-	h.mux.Handle("POST /journey/entries/{id}/move-earlier", h.user(http.HandlerFunc(h.moveJourneyEntryEarlier)))
-	h.mux.Handle("POST /journey/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
+	h.mux.Handle("POST /reading/books/{id}/journey/add", h.user(http.HandlerFunc(h.addDeckBookToJourney)))
+	h.mux.Handle("POST /reading/books/{id}/journey/reanalyze", h.user(http.HandlerFunc(h.reanalyzeJourneyBook)))
+	h.mux.Handle("POST /reading/books/{id}/journey/remove", h.user(http.HandlerFunc(h.removeBookFromReadingJourney)))
+	h.mux.Handle("POST /reading/entries/{id}/move-earlier", h.user(http.HandlerFunc(h.moveJourneyEntryEarlier)))
+	h.mux.Handle("POST /reading/entries/{id}/move-later", h.user(http.HandlerFunc(h.moveJourneyEntryLater)))
+	h.mux.Handle("POST /journey/{legacyPath...}", h.user(http.HandlerFunc(rejectLegacyJourneyMutation)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
@@ -238,8 +240,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
-	h.mux.Handle("GET /journey/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.newJourneyDeckPreparation)))
-	h.mux.Handle("POST /journey/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createJourneyEntryDeckPreparation)))
+	h.mux.Handle("GET /journey/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.legacyJourneyDeckPreparation)))
+	h.mux.Handle("GET /reading/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.newJourneyDeckPreparation)))
+	h.mux.Handle("POST /reading/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createJourneyEntryDeckPreparation)))
 	h.mux.Handle("POST /jobs/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
 	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
@@ -338,7 +341,8 @@ func (h *Handler) clearSession(w http.ResponseWriter) {
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	// SafeReturnPath preserves local navigation while rejecting absolute and
 	// scheme-relative destinations supplied through request parameters.
-	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther) //nolint:gosec // SafeReturnPath rejects external redirect destinations.
+	//nolint:gosec // SafeReturnPath rejects external redirect destinations.
+	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther)
 }
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
 func isHTMX(r *http.Request) bool      { return r.Header.Get("Hx-Request") == "true" }

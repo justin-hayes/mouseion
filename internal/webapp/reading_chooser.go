@@ -42,6 +42,8 @@ type transactionalGoalDeckPreparer interface {
 
 type readingChooserPageView struct {
 	Language, LanguageLabel          string
+	ActiveLanguageLabel              string
+	LanguageHandoff                  *journeyLanguageHandoffView
 	CurrentBookID, CurrentSnapshotID string
 	At99Plus, At97To99               []readingChooserBookView
 	At95To97, Below95                []readingChooserBookView
@@ -52,6 +54,23 @@ type readingChooserPageView struct {
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
+	activeLanguage := language
+	activeLanguageLabel := languageLabel
+	if requested := strings.TrimSpace(r.URL.Query().Get("language")); requested != "" {
+		if view := shellViewFromContext(r.Context()); view != nil {
+			for _, option := range view.Options {
+				if option.HasBooks && strings.EqualFold(option.Language, requested) {
+					language, languageLabel = option.Language, option.DisplayName
+					break
+				}
+			}
+		}
+	}
+	handoff, hasHandoff, handoffErr := h.journeyLanguageHandoff(r.Context(), owner.ID, activeLanguage, r.URL.Query().Get("language_handoff_book"), r.URL.Query().Get("language_handoff_language"))
+	if handoffErr != nil {
+		fail(w, handoffErr)
+		return
+	}
 	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner.ID, language)
 	if err != nil {
 		fail(w, err)
@@ -65,6 +84,10 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		}
 		journey.Language = language
 		journey.LanguageLabel = languageLabel
+		journey.ActiveLanguageLabel = activeLanguageLabel
+		if hasHandoff {
+			journey.LanguageHandoff = &handoff
+		}
 		render(w, r, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 		return
 	}
@@ -73,6 +96,10 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	if hasHandoff {
+		view.LanguageHandoff = &handoff
+	}
+	view.ActiveLanguageLabel = activeLanguageLabel
 	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 }
 

@@ -37,8 +37,11 @@ defines it.
   navigates to the same screen in the new language; on other screens it merely
   updates the stored mode. When no active language is resolved, its prompt is
   display-only rather than a choice.
-- **Language-scoped surfaces read the mode, not a URL param.** My Books browse
-  and search, Reading Journey, and Vocabulary all render the active language.
+- **Language-scoped surfaces read the mode, not a URL param, except explicit
+  Reading requests.** My Books browse and search and Vocabulary render the
+  active language. `/reading?language=` is a validated, one-request navigation
+  intent for a current study language; it does not change the stored mode. An
+  invalid or non-study language falls back to the active language.
   The `?language=` parameter is removed from `/library` and `/vocabulary`;
   `/library?needs-language` becomes the distinct out-of-band browse state for
   Books awaiting a language (see ADR 0051's partition).
@@ -62,14 +65,18 @@ defines it.
 - **Auto-switch the mode on cross-language navigation or new-language arrival.**
   Rejected: background sync and stale links must not hijack the learner's
   context.
-- **Keep `?language=` alongside the mode.** Rejected: two competing sources of
-  truth that must be reconciled on every request.
+- **Use URL language as a second persistent source of truth.** Rejected: two
+  competing modes that must be reconciled on every request. The narrow Reading
+  exception is non-persistent and exists to make explicit Reading links and
+  bookmarks deterministic; the shell switcher remains the only way to change
+  stored mode.
 
 ## Consequences
 
 - ADR 0043's "no stored selection" is revised for a *context* pointer; the
   derived *set* is untouched.
-- `?language=` URLs for `/library` and `/vocabulary` change; the "All languages"
+- `?language=` is honored only as a validated one-request selector on `/reading`;
+  it does not change stored mode. The "All languages"
   pill and per-row/card redundant language tags are removed (the switcher and
   section headings carry the context).
 - Per-Book evidence remains on My Books rows and current analysis insights remain

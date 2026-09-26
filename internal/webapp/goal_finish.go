@@ -26,7 +26,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	finisher, ok := h.services.Store.Goals.(primaryGoalFinisher)
 	if !ok {
-		h.respondGoal(w, r, "", "Reading finish is not available. No changes were made; review Reading Journey and try again.", "")
+		h.respondGoal(w, r, "", "Reading finish is not available. No changes were made; review Reading and try again.", "")
 		return
 	}
 	owner := user(r).ID
@@ -38,7 +38,7 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if expectedBookID == "" {
-		h.respondGoal(w, r, "", "No Primary Goal is available to finish. Review Reading Journey before trying again.", "")
+		h.respondGoal(w, r, "", "No current reading is available to finish. Review Reading before trying again.", "")
 		return
 	}
 
@@ -48,11 +48,11 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, persistence.ErrNotFound) {
-		h.respondGoal(w, r, "", "No Primary Goal is available to finish. Review Reading Journey before trying again.", "")
+		h.respondGoal(w, r, "", "No current reading is available to finish. Review Reading before trying again.", "")
 		return
 	}
 	if err != nil {
-		h.respondGoal(w, r, "", "Reading could not be marked finished. No changes were made; review Reading Journey and try again.", "")
+		h.respondGoal(w, r, "", "Reading could not be marked finished. No changes were made; review Reading and try again.", "")
 		return
 	}
 
