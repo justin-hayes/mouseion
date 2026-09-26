@@ -420,14 +420,14 @@ comparable. Missing evidence remains explicitly unavailable or lower-bound.
 
 ### `OutcomeSummary`
 
-**Answers:** What happened, what changed in modeled Known vocabulary and the
-forecasts ahead, and what can I choose now?
+**Answers:** Which Book finished, how many vocabulary identities became Known,
+and where can I choose again?
 
-Use this order: factual reading outcome; exact modeled Known-vocabulary change;
-changed/unchanged later forecasts; **Where next?** Avoid celebration chrome,
-Journey completion language, or an automatically emphasized next book. If no
-book remains, provide My Books and a no-new-Goal path without framing the state
-as failure.
+Use this order: identify the completed Book; show exact newly-Known and
+already-Known counts, including zeros; link to the `/reading` candidate chooser.
+Do not replay forecasts, select a Goal, use celebration chrome, or imply Journey
+completion. The chooser handles empty candidate states and the path back to My
+Books.
 
 ## Adding or changing a component
 

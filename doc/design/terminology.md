@@ -23,7 +23,7 @@ language without a product reason.
 | **Inbox / To Read / Set Aside** | My Books workflow buckets: Inbox is untriaged, To Read expresses reading intent through Journey membership, and Set Aside is not currently in the Journey. Every Book occupies one bucket; reading completion remains independent history. | Reading status, Journey position |
 | **Reading Journey** | A fluid, provisional order of learner-selected books they currently imagine reading. Membership and later order are reversible; adding a book expresses reading intent and automatically acquires and analyzes it (ensure-once) so its current and on-arrival coverage can be understood. | Learning queue, backlog, curriculum, plan, roadmap |
 | **Primary Goal** | The one book the learner currently intends to finish, when one exists. It is embedded in Reading Journey, owns one frozen vocabulary snapshot for its study language, and is a promotion of an analyzed Journey member. | Active campaign, target destination, current project |
-| **Where next?** | The choice after a Primary Goal is finished or when no Goal exists. It invites selection or reconsideration without urgency or automatic advancement. | Start next, continue plan, complete Journey |
+| **Choose what to read next** | The completion-receipt action that opens the candidate chooser at `/reading`. It presents To Read candidates without choosing a Goal or advancing automatically. | Where next?, Start next, continue plan, complete Journey |
 
 Only the Primary Goal carries commitment. Reading Journey membership carries
 the consequence of automatic acquisition and analysis, but no commitment. A

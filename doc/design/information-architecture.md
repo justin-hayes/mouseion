@@ -46,8 +46,8 @@ My Books
     -> prepare and read without conflating those facts
     -> finish the book
     -> apply only justified vocabulary transitions
-    -> recalculate the books ahead from actual state
-    -> Where next?
+    -> record the exact vocabulary counts
+    -> choose what to read next from the candidate chooser
 ```
 
 This rhythm does not imply a required pipeline for every Book. Catalog sync,
@@ -198,7 +198,7 @@ The authenticated shell exposes four principal destinations:
 - **My Books** — the canonical home, broad book collection, and sole browse
   surface for synced catalog metadata;
 - **Reading Journey** — the current Primary Goal, provisional sequence, route
-  evidence, and Where next? transition;
+  evidence, and completion receipt linking to the candidate chooser;
 - **Vocabulary** — the known-vocabulary import workflow and its durable status.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
@@ -243,8 +243,8 @@ Reading Journey (active study language)
         focused deck-preparation task
         exact-analysis compatibility redirect to the Book anchor
     current, after-Goal, and on-arrival forecast
-    completion outcome
-    Where next?
+    completion receipt
+        choose what to read next -> Between-Books chooser (`/reading`)
 
 Catalogs
     connection setup and sync status
@@ -349,7 +349,7 @@ learner's chosen position. Mouseion explains the evidence gap, gives no
 fabricated coverage, and labels downstream forecasts as lower bounds when an
 earlier contribution is unavailable rather than moving or demoting books.
 
-## Primary Goal completion and Where next?
+## Primary Goal completion and choosing what to read next
 
 Reading completion and artifact readiness are independent facts. Completing the
 active Goal records the reading fact and accepts its frozen snapshot into modeled
@@ -357,27 +357,24 @@ Known vocabulary; it then removes the Book from the active Journey and clears th
 Goal. The Book remains in My Books, history, and provenance. No next Goal is
 automatic. ADR 0072 defines the atomic transition and forecast semantics.
 
-Completion proceeds in four beats:
+The restrained receipt proceeds in three beats:
 
-1. state the factual reading outcome;
-2. state the exact modeled Known-vocabulary change, including zero for an empty
-   snapshot;
-3. replace old forecasts with recalculation from actual state and show what
-   changed or remains a lower bound;
-4. return attention to Reading Journey with **Where next?**
+1. identify the Book and state **Reading finished**;
+2. show the exact newly-Known and already-Known counts, including zero for an
+   empty snapshot;
+3. link **Choose what to read next** to the candidate chooser at `/reading`.
 
 Two required branches are:
 
-- **Goal completed with a non-empty snapshot.** State the reading outcome, exact
-  modeled Known-vocabulary count, and recalculated later forecasts.
-- **Goal completed with an empty snapshot.** State the reading outcome and that
-  zero identities were added; no deck artifact is required for completion.
+- **Goal completed with a non-empty snapshot.** State the reading outcome and
+  exact newly-Known and already-Known counts.
+- **Goal completed with an empty snapshot.** State the reading outcome and show
+  zero newly-Known and already-Known identities.
 
-The first remaining Journey book may be presented as **first in your current
-order**, never **optimal next text**. **Choose as Primary Goal**, reorder, remove,
-add from My Books, and choose another book are peer choices. No next Goal is
-automatic. An empty Journey returns calmly to My Books; it is not a failed or
-completed plan.
+The receipt does not replay forecasts or choose the next Goal. The candidate
+chooser presents eligible To Read books without an optimality claim; its empty
+state returns calmly to My Books. **Read again** in Read history returns the
+finished Book to To Read, and a later start freezes a fresh snapshot.
 
 ## Analysis continuity
 
