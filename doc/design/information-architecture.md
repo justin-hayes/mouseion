@@ -1,9 +1,9 @@
 # Information architecture
 
-Status: **Canonical route and navigation contract.** Some product-model sections
-retain legacy terms to describe the accepted data model; active Reading screens
-use current-Book and To Read language. ADR 0074 assigns deck work to the focused
-preparation task. ADR 0072 continues to own snapshot and forecast semantics. This document follows
+Status: **Canonical shipped route and navigation contract.** The Reading
+workflow is implemented without Journey ordering, sequential forecasts, or
+Primary Goal. ADR 0074 assigns deck work to the focused preparation task. ADR
+0072 remains historical context for retired snapshot/forecast behavior. This document follows
 the one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
@@ -11,18 +11,16 @@ reading-intent analysis trigger in
 standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 Language is the
 app's organizing mode: [ADR 0050](../adr/0050-active-study-language.md) scopes
-every language-dependent surface to one active study language, and
-[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md) makes Reading
-Journey and Primary Goal one per language, and catalog maintenance is a fourth
+every language-dependent surface to one active study language. Current reading
+is scoped by study language, and catalog maintenance is a fourth
 principal destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md). ADRs
 continue to own persistence and historical decision details.
 
-Mouseion is organized around literature the learner cares about, one current
-reading commitment, and the changed possibilities that follow from justified
-learning. It foregrounds books, bibliographic identity, learner intention, and
-the next decision rather than backend jobs, preparation mechanics, or a generic
-dashboard.
+Mouseion is organized around literature the learner cares about and the next
+reading decision. It foregrounds books, bibliographic identity, learner
+intention, and independent reading history rather than backend jobs,
+preparation mechanics, or a generic dashboard.
 
 ## Learner goals
 
@@ -30,24 +28,18 @@ The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
 2. work in one active study language at a time;
-3. move Books into or out of To Read and revise their order;
-4. choose a current Book to finish, when desired;
-5. understand current, after-current-reading, and on-arrival coverage;
-6. accept a finished Book's frozen vocabulary into the model used by later books;
+3. move Books between Inbox, To Read, and Set Aside;
+4. choose, stop, set aside, or switch the one current Book for the active language;
+5. review current evidence bands for To Read Books without a suggested order;
+6. finish a Book and retain its Read history independently from disposition;
 7. understand derived study languages and import known vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
 
 The recurring experience rhythm is:
 
 ```text
-My Books
-    -> move Books into To Read and revise their order
-    -> choose a current Book
-    -> prepare and read without conflating those facts
-    -> finish the book
-    -> apply only justified vocabulary transitions
-    -> record the exact vocabulary counts
-    -> choose what to read next from the candidate chooser
+Catalog sync -> Inbox -> To Read -> Reading chooser -> Current reading
+                                    <- Read history <- Finish <-
 ```
 
 This rhythm does not imply a required pipeline for every Book. Catalog sync,
@@ -56,8 +48,8 @@ and prepared-deck artifact work remain distinct transitions. Moving a Book to To
 Read is the analysis exception: the learner's intent intentionally acquires the
 current EPUB and ensures whole-book analysis as one action. My Books metadata
 refresh remains separate and never starts analysis. Starting current reading
-freezes the vocabulary snapshot; finishing accepts it into modeled Known
-vocabulary.
+freezes the vocabulary snapshot; finishing accepts eligible identities into
+modeled Known vocabulary and creates an independent completion record.
 
 ## Principal learner-facing model
 
@@ -68,9 +60,8 @@ learner. It can include:
 
 - acquired and metadata-only books;
 - assessed and unassessed books;
-- currently desired, formerly desired, and low-interest books;
-- books in or outside Reading Journey;
-- the current Primary Goal;
+- books in Inbox, To Read, or Set Aside;
+- currently read and previously read books;
 - completed books;
 - books with stale, questionable, incomplete, or unavailable evidence.
 
@@ -88,65 +79,27 @@ state explains catalogue setup and enters `/catalogs`; catalogue setup and sync
 maintenance are owned by the Catalogs destination. Synced catalogue metadata is
 browsed only here.
 
-### Reading Journey
+### Reading
 
-**Reading Journey** is a fluid, provisional ordering of learner-selected books
-they currently imagine reading. It is not a queue, curriculum, project plan,
-calendar, or promise to finish the sequence.
+**Reading** at `/reading` owns the current Book for the active study language or,
+between Books, an unordered chooser of To Read candidates. Coverage bands label
+current evidence and do not rank candidates or predict outcomes. Starting
+freezes a vocabulary snapshot; finishing records a completion without selecting
+the next Book. Stop, set-aside, and switch are explicit reversible actions.
 
-The Journey:
-
-- may be empty;
-- has explicit and reversible membership;
-- can be reordered freely;
-- has no final destination or completion state;
-- has no dates, overdue states, or progress percentage;
-- preserves one clear learner order;
-- shows current, after-Goal, and on-arrival coverage for that order —
-  [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md) fixes
-  the snapshot, forecast, lower-bound, and invalidation rules;
-- responds to changes with neutral recalculation, not warnings;
-  - keeps unassessed or otherwise untrustworthy books visible without inventing readiness.
-
-The first provisional book is a natural candidate for a future Primary Goal,
-not an automatic commitment or recommendation.
-
-There is one Journey per study language, created lazily and shown for the
-active language; a Book with a chosen language joins its language's Journey,
-and an unknown-language Book joins none. Journey identity, owner-scoped
-membership, learner-canonical ordering, concurrency, stale-write behavior, and
-the migration of Campaign queue/history into the Journey are decided in
-[ADR 0034](../adr/0034-reading-journey-identity-ordering.md) and
-[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md).
-
-### Primary Goal
-
-**Primary Goal** is, per study language, the one book in that language's
-Reading Journey the learner currently intends to finish. It is the only
-meaningful commitment in the principal architecture and is embedded at the
-beginning of its Journey rather than exposed as a peer destination. A learner
-may have no Primary Goal; how many Goals are active across languages is the
-learner's own discipline, not an enforced invariant.
-
-The Primary Goal brings together the book's bibliographic identity and the
-ordinary facts needed to serve the current undertaking:
-
-- reading state;
-- preparation and vocabulary-work state;
-- current evidence and explicitly conditional projections;
-- the next available learner decision.
-
-It keeps reading, Goal-owned vocabulary transitions, analysis provenance, and
-prepared artifacts distinct. Historical deck and graduation provenance remains
-available without creating a separate study workflow, and later Journey books
-are not committed.
+There is at most one current Book per owner and study language. The Book's
+My Books disposition remains separate from current-reading state and Read
+history. **Read again** returns a previously completed Book to To Read while
+preserving every earlier completion. See the shipped
+[Reading workflow](../features/reading-workflow.md). Journey ordering and
+Primary Goal terminology in older ADRs is historical only.
 
 ## Supporting product objects
 
 These objects remain important, but they do not define principal navigation:
 
 - **Book** — owner-scoped learner-facing bibliographic identity and the center
-  of My Books membership, reading, analysis, and Journey relationships. It may
+  of My Books membership, reading, analysis, and current-reading relationships. It may
   exist without acquired content; ADR 0035 defines its identity and lifecycle.
 - **Source snapshot** — immutable acquired EPUB content and extracted units;
   provenance rather than a destination. It is linked after acquisition and is
@@ -158,13 +111,13 @@ These objects remain important, but they do not define principal navigation:
 - **Analysis run** — asynchronous analysis attempt; queue and retry details are
   operational state.
 - **Current analysis** — the one completed analysis whose evidence supports the
-  Book anchor in Reading Journey. Its immutable corpus and provenance remain
+  Book anchor in Reading. Its immutable corpus and provenance remain
   backend facts.
 - **Prepared deck** — immutable APKG artifact from the exact analysis that
   supplied its corpus, prepared through the focused deck task.
-- **Goal vocabulary snapshot** — the immutable recurring-vocabulary identity set
-  owned by an active Primary Goal, with its selection and analysis provenance.
-- **Reserved vocabulary** — the active Goal snapshot projected into selection
+- **Reading vocabulary snapshot** — the immutable recurring-vocabulary identity
+  set frozen when current reading starts, with its selection and analysis provenance.
+- **Reserved vocabulary** — the current-reading snapshot projected into selection
   state for that study language; it is not a separate study workflow.
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
   graduated through an accepted transition.
@@ -186,11 +139,10 @@ These objects remain important, but they do not define principal navigation:
   records the retirement.
 
 A relationship graph, not a strict containment hierarchy, connects these
-objects. A book can exist without a Journey or Primary Goal. Reading Journey
-owns the Book anchor but does not own the Book or analysis. A Primary Goal does
-not make a projection actual. Earlier analysis runs remain addressable as
-operational audit records after vocabulary, Journey, source, or scope changes;
-they are not parallel learner result surfaces.
+objects. A Book can exist in My Books without being To Read or current. Current
+reading, workflow disposition, and Read history are independent facts. Earlier
+analysis runs remain addressable as operational audit records after vocabulary,
+source, or scope changes; they are not parallel learner result surfaces.
 
 ## Primary navigation
 
@@ -208,8 +160,8 @@ My Books remains the sole browse surface. Marking a Book To Read expresses the
 learner's reading intent and may trigger acquisition and analysis. The upstream
 catalog browser is retired.
 
-Primary Goal is never a separate top-level destination. Analysis jobs, deck
-preparation, and historical artifact provenance are supporting surfaces.
+Analysis jobs, deck preparation, and historical artifact provenance are
+supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
@@ -240,11 +192,11 @@ My Books
 
 Reading (active study language)
     current Book, when present
-    ordered To Read books
+    unordered To Read candidates grouped by current coverage evidence
     Book anchors for current evidence and recovery
         focused deck-preparation task
         exact-analysis compatibility redirect to the Book anchor
-    current, after-current-reading, and on-arrival coverage
+    current evidence only; no sequential forecast
     finish current reading
         choose what to read next -> Reading chooser (`/reading`)
 
@@ -317,7 +269,7 @@ active language; filtering and sorting support finding Books but do not turn
 readiness into the default ranking. The cover is optional supporting metadata,
 never the sole Book identity or an implicit mutation control.
 
-Reading owns the current Book, To Read ordering, current evidence, coverage, and
+Reading owns the current Book or unordered To Read chooser, current evidence, and
 recovery actions. My Books communicates whether a Book is To Read and keeps its
 explicit disposition, metadata-refresh, and removal actions. Books without a
 reachable Reading anchor remain operable without a detail page. Exact analysis
@@ -325,7 +277,7 @@ history and provenance are operational facts available through `/jobs`, not
 sections on a generic learner-facing Book page. The grid remains moderately
 dense and does not establish a generic large-card pattern.
 
-The current My Books grid presents cover, title, author, To Read membership, and
+The current My Books grid presents cover, title, author, disposition, and
 explicit actions. It does not present evidence or current-reading state; those
 remain on the Reading anchor.
 
@@ -335,37 +287,23 @@ Reading answers questions in this order:
 
 1. Which Book am I reading now, if any?
 2. Which Books might I read next?
-3. Which order is mine and how can I change it?
-4. What current, after-current-reading, and on-arrival coverage evidence is
-   trustworthy?
-5. What happens to my modeled vocabulary when I finish the current Book?
+3. What current coverage evidence is available for each candidate?
+4. What happens to my modeled vocabulary when I finish the current Book?
 
 Current reading is visually distinct but remains book-led rather than a large
-metric card. To Read books are provisional and directly reorderable with
-keyboard-operable controls. Drag may enhance but never replace **Move earlier**
-and **Move later**.
-
-The learner's order is always the only active order. Current,
-after-current-reading, and on-arrival coverage labels must be available,
-including a lower-bound label when an earlier Book cannot contribute
-trustworthy modeled vocabulary. Internal threshold and top-unknown data remain
-available to analysis and forecast
-services, but the learner-facing overview leads with books and the consequence
-of the learner's order.
-
-Unassessed or otherwise untrustworthy books stay in To Read at the learner's
-chosen position. Mouseion explains the evidence gap, gives no fabricated
-coverage, and labels downstream projections as lower bounds when an earlier
-contribution is unavailable rather than moving or demoting books.
+metric card. The between-Books chooser groups candidates by current lexical
+coverage evidence and separates candidates with incomplete evidence. No learner
+order, after-reading projection, forecast, or recommendation is presented.
+Unassessed or otherwise untrustworthy Books remain visible with an explicit
+evidence gap and no fabricated coverage.
 
 ## Finishing current reading and choosing what to read next
 
 Reading completion and artifact readiness are independent facts. Finishing the
-current Book records the reading fact and accepts its frozen snapshot into
-modeled Known vocabulary; it then removes the Book from To Read and clears
-current reading. The Book remains in My Books, history, and provenance. No next
-Book is started automatically. ADR 0072 defines the atomic transition and
-forecast semantics.
+current Book records the reading fact and accepts eligible identities from its
+frozen snapshot into modeled Known vocabulary; it then moves the Book to Set
+Aside and clears current reading. The Book remains in My Books and Read history.
+No next Book is started automatically.
 
 The restrained receipt proceeds in three beats:
 
@@ -388,8 +326,8 @@ finished Book to To Read, and a later start freezes a fresh snapshot.
 
 ## Analysis continuity
 
-The Reading page's Book anchor is the canonical presentation for a To Read
-Book's identity, relationship, current evidence, forecast, and recovery actions.
+The Reading page's Book anchor is the canonical presentation for a Book's
+identity, current-reading state, current evidence, and recovery actions.
 The run-specific route `/books/{book-id}/analyses/{analysis-run-id}` remains only
 as a compatibility redirect to the anchor for reachable members and returns 404
 otherwise, preserving valid deep links without rendering a second insight
@@ -450,26 +388,20 @@ Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
 owner-scoped bibliographic Book and its My Books membership are distinct from
 immutable acquired source evidence. Catalog sync creates metadata-only
-membership; Reading Journey intent acquires validated source evidence when
+membership; moving a Book to To Read acquires validated source evidence when
 needed.
 
-1. **Reading Journey identity and ordering** are resolved by [ADR 0034: One
-   implicit Reading Journey with learner-canonical ordering and campaign-queue
-   migration](../adr/0034-reading-journey-identity-ordering.md). The shipped
-   Journey is the single learner-facing order.
-2. **Primary Goal, snapshot, completion, and forecast** follow [ADR 0072: Goal-owned
-   vocabulary snapshots and sequential Reading Journey forecast](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md),
-   tightened by [ADR 0049: Reading intent triggers analysis](../adr/0049-reading-intent-triggers-analysis.md): one
-   Primary Goal is promoted only from a Journey member with successfully
-   completed current analysis; it owns the immutable snapshot and clears on
-   completion or explicit change/clear.
+1. **Retired Journey ordering** is preserved in [ADR 0034](../adr/0034-reading-journey-identity-ordering.md)
+   as historical architecture context. It is not the shipped Reading model.
+2. **Retired Primary Goal and sequential forecast** are preserved in [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+   Current reading freezes its own vocabulary snapshot and completion history;
+   no ordered Journey forecast is shown.
 3. **Campaign queue retirement and historical artifacts** follow [ADR 0056](../adr/0056-retire-campaign-learner-surface.md):
-   the Journey is the only learner-facing plan, while old campaign and deck
-   records remain supporting provenance.
-4. **Generated vocabulary** follows ADR 0072: generated rows are immutable
+   old campaign and deck records remain supporting provenance, not active plans.
+4. **Generated vocabulary** remains immutable
    provenance, not a current selection exclusion or knowledge claim.
 5. **Per-book analysis evidence** retains the individual threshold and unknown
-   vocabulary contract; the Journey overview uses only the ADR 0072 forecast.
+   vocabulary contract; the Reading chooser uses current coverage bands only.
 6. **Routes and terminology** are reconciled in the shipped shell and supporting
     surfaces: My Books, Reading, Vocabulary, and Catalogs are the active
     navigation destinations; `/known-vocab`
@@ -506,18 +438,16 @@ needed.
     language tags are removed; a shell-level native switcher carries the mode;
     new languages arrive passively; legacy no-language Books surface only
     through a **needs language** strip.
-12. **Per-language Journey and Goal** are resolved by
-    [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): Reading
-    Journey and Primary Goal identity are (owner, study language) with
-     per-language revisions; the ADR 0072 forecast is language-correct by
-     construction; the legacy single Journey is split by a backfill migration
-    under ADR 0038.
+12. **Historical per-language Journey and Goal** are recorded by
+     [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md). The
+     shipped Reading state is independently scoped by owner and study language;
+     it has no Journey order or Goal identity.
 
 ## Cross-linking rules
 
 Every principal or nested screen makes clear:
 
-1. which book, Goal, Journey, analysis, or setting is in context;
+1. which Book, Reading state, analysis, or setting is in context;
 2. which facts are current and which are conditional;
 3. the learner's available next decision and why it is available;
 4. how to return to the parent context without reconstructing the route through

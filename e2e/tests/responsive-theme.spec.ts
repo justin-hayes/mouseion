@@ -44,6 +44,18 @@ async function expectNoPageOverflow(page: Page) {
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('Reading respects the reduced-motion preference', async ({ page }) => {
+    await signIn(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/reading');
+    const motion = await page.evaluate(() => ({
+      requested: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      animations: Array.from(document.querySelectorAll('main h1, main h2, button, a[role="button"]')).map((node) => getComputedStyle(node).animationName),
+    }));
+    expect(motion.requested).toBe(true);
+    expect(motion.animations.every((name) => name === 'none')).toBe(true);
+  });
+
   test('authenticated shell and primary workflows remain readable without compact page overflow', async ({ page }) => {
     await signIn(page);
     for (const [url, heading] of representativePages) {

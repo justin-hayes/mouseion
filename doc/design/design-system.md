@@ -143,9 +143,9 @@ Use when peer content and actions no longer fit comfortably side by side.
 - page headings, bibliographic rows, current-reading summary, Reading controls, and
   sticky scope summaries stack vertically;
 - book identity remains before relationship, evidence, and action;
-- Reading move controls remain adjacent to their book, and labeled forecast
-  values stack in document order;
-- Goal and completion form actions become full width;
+- Reading actions remain adjacent to the relevant Book and stack in document
+  order;
+- Current-reading confirmation and completion actions become full width;
 - floated secondary actions return to document flow;
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.
@@ -207,11 +207,11 @@ scrollable data table must label and contain its own overflow.
   between-Books candidate chooser.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
-- Reading presents one current Book or, between Books, the learner's ordered To
+- Reading presents one current Book or, between Books, the learner's unordered To
   Read candidates without recommendation ranking.
 - Candidate coverage describes current vocabulary evidence; it does not imply
   difficulty, readiness, or a predicted reading outcome.
-- Modeled Known vocabulary, Reserved vocabulary, conditional forecast, reading
+- Modeled Known vocabulary, Reserved vocabulary, reading
   completion, preparation, and artifact state remain visibly distinct.
 - Operational analysis status and Reading's current Book evidence are
   separate surfaces. Run-specific result URLs redirect to the canonical Book

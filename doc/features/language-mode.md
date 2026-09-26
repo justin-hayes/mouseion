@@ -1,6 +1,10 @@
 # Language Mode
 
-Status: Implemented, including the My Books cover grid · Date: 2026-09-07 · Updated: 2026-09-23
+Status: Implemented · Date: 2026-09-07 · Updated: 2026-09-26
+
+Current Reading behavior is defined by the shipped
+[Reading workflow](reading-workflow.md). Earlier Journey and Primary Goal
+wording in this feature is historical and has been superseded.
 
 ## Motivation
 
@@ -15,15 +19,15 @@ scoping every surface — aligns the surfaces with the artifacts.
 ## Goal
 
 Introduce the active study language as a global mode: a shell-level switcher;
-per-language My Books browse and search; per-language Reading Journeys and
-Primary Goals; per-language Vocabulary. Remove the "All languages" default and
+per-language My Books browse and search; per-language current reading and
+Vocabulary. Remove the "All languages" default and
 per-screen language pickers. Legacy no-language Books get an explicit,
 out-of-band "needs language" surface.
 
 ## Scope
 
 This feature defines the learner-facing behaviour of language-as-mode across the
-shell, My Books, Reading Journey, Vocabulary, and compatibility bookmarks. It implements
+shell, My Books, Reading, Vocabulary, and compatibility bookmarks. It implements
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md). Learner-facing
 labels use **Language** and the language's own name, never **Mode** or
@@ -52,23 +56,21 @@ labels use **Language** and the language's own name, never **Mode** or
 - Browse, paging, and search are scoped to the active language. The "All
   languages" pill and per-row language tags are removed; a section heading names
   the language.
-- The shipped My Books cover grid communicates Reading Journey membership but not
-  per-Book evidence or Primary Goal state. Book evidence remains on the Reading
-  Journey anchor. The retired Language view panel does not render.
+- The shipped My Books cover grid communicates disposition but not per-Book
+  evidence or current-reading state. Book evidence remains on the Reading
+  surface. The retired Language view panel does not render.
 - When any Book lacks a language, an out-of-band "N books need a language" strip
   appears (display-only: fix the language in the catalog, then re-sync; no
   per-book actions). Its browse state is `/library?needs-language`.
-- Adding a Book to the Reading Journey targets that Book's language Journey —
+- Moving a Book to To Read targets that Book's language —
   which equals the active language by construction.
 
-### Reading Journey (`/journey`)
+### Reading (`/reading`)
 
-- Shows only the active language's Journey: its order, its Primary Goal, its
-  current, after-Goal, and on-arrival forecast. A heading names the language.
-- One Goal per language; completing or clearing a Goal does not affect other
-  languages' Goals.
-- An empty Journey in the active language offers a path to browse that
-  language's Books.
+- Shows the active language's current Book or unordered To Read chooser.
+- Current reading is independent per language; completion in one language does
+  not affect current reading or history in another.
+- An empty chooser offers a path to the active language's My Books.
 
 ### Vocabulary (`/vocabulary`)
 
@@ -81,8 +83,8 @@ labels use **Language** and the language's own name, never **Mode** or
 
 - The route validates the Book's own language, owner, membership, and current
   evidence before deciding where to send the learner.
-- A same-language bookmark redirects to its anchor in the active Reading Journey.
-- A valid cross-language bookmark redirects to the active Journey with a
+- A same-language bookmark redirects to its anchor in Reading.
+- A valid cross-language bookmark redirects to Reading with a
   language-selection handoff. The handoff names the Book and target language and
   offers an explicit, CSRF-protected switch whose return URL contains the Book's
   canonical anchor.
@@ -108,8 +110,8 @@ labels use **Language** and the language's own name, never **Mode** or
 - Cross-language browse, search, or a global "All languages" default.
 - A remediation flow for no-language Books (fixing happens in the catalog).
 - Auto-switching the mode on navigation or sync.
-- Any persisted per-language inventory beyond the Journey/Goal and the active
-  selection.
+- Persisted per-language inventory beyond the active selection and current
+  reading state.
 
 ## Acceptance criteria
 
@@ -117,8 +119,8 @@ labels use **Language** and the language's own name, never **Mode** or
 - Every language-scoped surface reflects the active language without a per-page
   picker.
 - Browse and search never return Books outside the active language.
-- Journeys and Goals are isolated per language in storage and UI; reordering
-  German does not change Italian's revision.
+- Current reading and My Books scope follow the active language; switching
+  languages does not change another language's current Book or Read history.
 - A no-language Book is reachable only through the "needs language" strip and
   becomes a language Book after fix + re-sync.
 - The switcher is keyboard-accessible and server-rendered before progressive

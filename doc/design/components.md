@@ -1,16 +1,16 @@
 # Interface components
 
 Status: **Established implementation components plus shipped learner-facing
-patterns; the My Books cover-grid and Reading Journey thumbnail targets are
-shipped.**
-Workflow-specific Journey and Primary Goal markup may remain in the owning
-views; ADRs define persistence and historical behavior.
+patterns.** My Books cover-grid and Reading thumbnail patterns are shipped. The
+JourneyOrder, JourneyForecast, and PrimaryGoalSummary sections below are
+historical contracts, not current Reading UI. Current behavior is defined by the
+[Reading workflow](../features/reading-workflow.md).
 
 This document defines Mouseion's reusable server-rendered interface patterns.
 Established patterns are the durable contract between product design, Templ
-markup, shared CSS, and accessibility tests. The shipped My Books, Reading
-Journey, and Primary Goal surfaces use these patterns even where exact component
-boundaries remain workflow-specific. This document complements the semantic
+markup, shared CSS, and accessibility tests. The shipped My Books and Reading
+surfaces use these patterns even where exact component boundaries remain
+workflow-specific. This document complements the semantic
 tokens and responsive rules in [`design-system.md`](design-system.md); it does
 not define product lifecycle or storage behavior.
 
@@ -215,12 +215,12 @@ how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly My Books,
-Reading Journey, Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync
+Reading, Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync
 maintenance at `/catalogs`; My Books is the sole browse surface and its rows own
 per-book acquisition.
-Primary Goal belongs inside Reading Journey. The shipped shell marks the current
-context while compatibility routes redirect without exposing Learning as a peer
-destination.
+Reading owns current reading or the between-Books chooser. The shipped shell
+marks the current context while compatibility routes redirect without exposing
+Learning as a peer destination.
 
 The established shell provides landmarks, skip navigation, and explicit route
 context for the active destination or workflow action.

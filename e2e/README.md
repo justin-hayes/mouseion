@@ -14,6 +14,15 @@ screenshots, video, and the HTML report are retained for failures only.
 `@playwright/test` is updated through ordinary dependency changes with the
 lockfile committed. This suite complements, and does not replace, Go tests.
 
+Reading acceptance includes My Books catalog arrivals and disposition,
+current-reading confirmation and stale-write fields, coverage-band selection,
+focus restoration, reduced-motion preference, completion receipt, Read history,
+and Read again. Read-only assertions run
+across desktop/compact and light/dark projects; the stateful finish/history/
+reread loop runs in `desktop-light` only because all projects share one fixture
+server. Migration tests separately assert retained active snapshot contents,
+completion provenance, and prepared-deck provenance.
+
 ## Responsive/theme snapshots and failure artifacts
 
 The responsive/theme suite primarily uses geometry, ARIA, and computed-style

@@ -1,5 +1,9 @@
 # Catalog sync to My Books workflow
 
+Current reading intent uses the **To Read** disposition and is documented in
+[`../../features/reading-workflow.md`](../../features/reading-workflow.md).
+Journey-specific wording in this supporting workflow is historical.
+
 Status: **Canonical learner-facing workflow.** It is the automated,
 metadata-first path to the local My Books collection. Product behavior is defined
 by the metadata-first and non-destructive contract in

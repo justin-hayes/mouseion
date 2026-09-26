@@ -23,46 +23,33 @@ Prefer reducing or demoting interface elements when the learner's primary task
 remains clear. Book identity and reading context should visually dominate
 application chrome and analysis metrics.
 
-## Learner direction and preparation evidence
+## Learner intention and preparation evidence
 
-Learner desire determines direction; analysis informs preparation. Mouseion may
-show what is currently supported by evidence, what is conditional, and how the
-learner's chosen order changes modeled coverage on arrival at later books. It
-must not turn low preparation cost into a recommendation about what the learner
-ought to read.
+Learner intention determines what to read; analysis informs what preparation is
+available. Coverage bands describe current vocabulary evidence only. They must
+not turn low preparation cost into a recommendation about what the learner ought
+to read, imply difficulty or predicted outcome, or impose an order on To Read
+books.
 
-When Mouseion explains a learner-selected Reading Journey, the learner's order
-is the only order. Sequential on-arrival forecast is evidence about the
-consequences of that order, not a correction, warning, or literary judgment.
-
-> **Mouseion can optimize a lexical property of the route. It cannot optimize
-> the learner's reading life.**
+The between-Books chooser presents eligible candidates without ranking. The
+learner can choose a current Book, remain between Books, or return to My Books.
+Mouseion supports a reading life; it does not plan one.
 
 ## Commitment and continuation
 
-Only the **Primary Goal** should feel committed. The later **Reading Journey** is
-fluid, provisional, reversible, and freely reorderable. It has no destination,
-schedule, completion state, or progress percentage.
-
-The internal experience principle is:
-
-> **The road continues beyond the book.**
-
-Its actionable interpretation is:
-
-> **You do not plan the whole road. You choose where to go next.**
-
-Use this principle to shape sequence, transitions, changing possibility, and
-learner choice. Do not turn it into themed copy, fantasy imagery, a literal map,
-or gamification.
+Reading is one current Book or an unordered set of To Read candidates. Starting,
+switching, stopping, setting aside, and finishing are distinct and reversible
+where appropriate. Completion is a durable history fact, not a workflow bucket
+or claim of vocabulary mastery. **Read again** preserves earlier completion
+history while returning the Book to To Read.
 
 ## Epistemic honesty
 
-Keep reading history, preparation activity, vocabulary knowledge, and
-conditional projections distinct. Finishing a Primary Goal accepts its frozen
-vocabulary snapshot into the product's modeled Known vocabulary. This is a
-learner-state assertion, not proof of per-card mastery. Show the exact modeled
-change and keep any missing or lower-bound forecast explicitly labeled.
+Keep reading history, preparation activity, vocabulary knowledge, and analysis
+evidence distinct. Finishing current reading accepts eligible frozen snapshot
+identities into modeled Known vocabulary. This is a learner-state assertion,
+not proof of per-card mastery. Show the exact modeled change and identify
+current, stale, incomplete, or unavailable evidence plainly.
 
 Never collapse lexical coverage, structural signals, evidence quality, and
 learner desire into one score. Always identify whether evidence is current,

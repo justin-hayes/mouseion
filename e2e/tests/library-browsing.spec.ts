@@ -25,6 +25,11 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('.library-grid').getByText('Empty chapter')).toHaveCount(0);
     await expect(page.locator('.library-grid')).not.toContainText('language:');
     await expect(page.locator('.library-grid .library-book__membership').first()).toBeVisible();
+    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
+    await expect(page.locator('#library-books-heading')).toBeFocused();
+    await page.goto('/library');
     const firstBook = page.locator('.library-grid .library-book').first();
     await firstBook.getByText('More actions', { exact: true }).click();
     await expect(firstBook.getByText('Remove from My Books', { exact: true })).toBeVisible();

@@ -1,9 +1,9 @@
 # Screen inventory
 
-Status: **Canonical shipped learner-facing screen contract, including Book cover
-behavior.** ADR 0074 ships the consolidated Reading
-Journey Book surface and assigns deck work to the focused preparation task. ADR
-0072 continues to own the Goal snapshot and forecast semantics described below.
+Status: **Canonical shipped learner-facing screen contract, including the
+Reading workflow and Book cover behavior.** ADR 0074's Journey terminology and
+ADR 0072's Goal snapshot/forecast behavior are historical; active screens use
+current reading, To Read, and independent Read history.
 It includes the
 one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
@@ -14,8 +14,8 @@ Language is the
 app's organizing mode per
 [ADR 0050](../adr/0050-active-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
-study language scopes My Books, Reading Journey, and Vocabulary, and Journeys
-and Goals are one per language. Catalog maintenance is a fourth principal
+study language scopes My Books, Reading, and Vocabulary; current reading is
+scoped by language. Catalog maintenance is a fourth principal
 destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
 Catalog-sync and collection-browsing surfaces
@@ -34,14 +34,13 @@ rather than as independent destinations.
 ## Global shell
 
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
-**Reading Journey**, **Vocabulary**, **Catalogs**, account identity, and **Log
-out**. My Books, Reading Journey, Vocabulary, and Catalogs are the destinations.
+**Reading**, **Vocabulary**, **Catalogs**, account identity, and **Log
+out**. My Books, Reading, Vocabulary, and Catalogs are the destinations.
 Catalogs owns catalogue setup and sync maintenance at `/catalogs`. My Books is
 the sole browse surface; its items own acquisition and analysis intent.
 
-Primary Goal is embedded in Reading Journey and is not a fifth destination.
 The shell identifies the current destination, supports skip navigation and
-keyboard use, and preserves a clear path back to the parent book or Journey.
+keyboard use, and preserves a clear path back to the parent Book or Reading.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
@@ -53,19 +52,16 @@ server-rendered before enhancement. Changing it navigates to the same screen in
 the new language on language-scoped screens and updates the stored mode
 elsewhere; it never auto-switches on navigation or sync.
 
-The shipped application routes `/` to `/library` and serves Reading Journey at
-`/journey`. A former `/journey/{bookID}` bookmark now redirects an authorized,
-reachable Book to its canonical Reading Journey anchor; it does not expose a
-separate Book or analysis view. Focused deck preparation and operational history
-remain supporting surfaces. No parallel learner-facing queue, campaign, or plan
-is exposed.
+The shipped application routes `/` to `/library` and serves Reading at `/reading`.
+Legacy `/journey` URLs redirect to Reading; former Journey anchors do not expose
+a separate Book or analysis view. Focused deck preparation and operational
+history remain supporting surfaces. No learner-facing ordered queue, campaign,
+or plan is exposed.
 
-The between-Books coverage chooser is also shipped at `GET /reading`: when there
-is no current Primary Goal, it presents the active language's To Read candidates
-in exact lexical coverage bands and separates candidates with incomplete evidence.
-The primary navigation and legacy `/journey` route remain in place until the
-broader route and lifecycle cutover is complete; the chooser temporarily uses
-the existing Goal presentation whenever a current Goal is active.
+The between-Books chooser is shipped at `GET /reading`: when there is no current
+Book, it presents the active language's To Read candidates in lexical coverage
+bands and separates candidates with incomplete evidence. It does not recommend
+or rank the next Book.
 
 ## Authentication
 
@@ -78,35 +74,35 @@ the existing Goal presentation whenever a current Goal is active.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection, understand its Inbox, To Read, or Set Aside placement, distinguish Reading Journey membership, and inspect reading history independently. | Move to To Read, set aside, record a prior completion, read again, View in Reading Journey, Catalogs, Refresh metadata, or Remove from My Books | All, Inbox, To Read, Set Aside, and Read history filters; latest completion and total completion count; imported history distinct from Mouseion completion; empty disposition/history; metadata-only Book, valid cover, no cover, retrieval pending, replacement pending, cover unavailable, in/out of Journey, needs-language text list, scoped search, paging, no match, later page removed, long content, enhancement unavailable |
-| Reading Journey book anchor | Embedded in `GET /journey`; `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, supporting cover thumbnail, Journey/Goal relationship, current evidence, forecast, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Journey actions | Valid, missing, pending, unavailable, or retained replacement cover; current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, reading and Goal state |
-| Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining book context. | Reading Journey when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
-| Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Reading Journey | Empty history, mixed states, historical/legacy records |
-| Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the canonical Book anchor. | Reading Journey anchor for members; 404 otherwise | Valid owned member/run redirect, non-member or incomplete result, missing or unauthorized reference |
-| Deck preparation | Focused `GET /journey/books/{bookID}/deck/preparations/new`; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to the Reading Journey anchor | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
+| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection, understand Inbox, To Read, or Set Aside placement, and inspect Read history independently. | Move to To Read, set aside, record a prior completion, read again, View in Reading, Catalogs, Refresh metadata, or Remove from My Books | All, Inbox, To Read, Set Aside, and Read history filters; latest completion and total count; imported history distinct from Mouseion completion; empty disposition/history; metadata-only Book, cover states, needs-language text list, scoped search, paging, long content, enhancement unavailable |
+| Reading Book anchor | Embedded in `GET /reading`; legacy `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, current evidence, preparation state, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Reading actions | Current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, current-reading state |
+| Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining Book context. | Reading when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
+| Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Reading | Empty history, mixed states, historical/legacy records |
+| Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the canonical Book anchor. | Reading anchor for current To Read Books; 404 otherwise | Valid owned current result redirect, non-member or incomplete result, missing or unauthorized reference |
+| Deck preparation | Focused `GET /reading/books/{bookID}/deck/preparations/new`; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to the Reading anchor | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary |
 
 My Books is the canonical home and a moderately dense bibliographic catalog.
 The shipped [Book Covers](../features/book-covers.md) surface uses a responsive
 grid led by the cover while title and author remain visible beneath it. My Books
-communicates workflow placement and Reading Journey membership; Primary Goal and
-analysis evidence remain concerns of Reading Journey. Generic large cards and
+communicates workflow placement and Read history; current reading and analysis
+evidence remain concerns of Reading. Generic large cards and
 metric-first sorting are not the default.
 
 The My Books model includes metadata-only and currently unassessable works.
 Each Book occupies exactly one workflow disposition, while reading completion
-remains an independent history projection. Catalog sync creates metadata-only
-membership; adding a Book to Reading Journey acquires and validates EPUB content
-when needed. Metadata-only rows retain refresh, disposition, Journey, and removal
-actions without opening a detail page.
+remains independent Read history. Catalog sync creates metadata-only Inbox
+Books; moving a Book to To Read acquires and validates EPUB content when needed.
+Metadata-only rows retain refresh, disposition, and removal actions without
+opening a detail page.
 
 ### Analysis continuity
 
 | Surface | Canonical responsibility | Primary exit |
 |---|---|---|
-| Reading Journey book anchor | Show Book identity, Journey/Goal relationship, current evidence, forecast, and evidence recovery. It does not render a generic Book detail, analysis-result, vocabulary-investment, or top-unknown page. | Analysis status, focused deck preparation, or Journey/Goal decision |
-| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining Book context. | **View in Reading Journey** opens the canonical Book anchor when complete |
-| Exact-analysis compatibility route | Redirect a valid current member result URL to the Reading Journey anchor; do not render a distinct insight, identity, provenance, or history surface. | Reading Journey |
-| Deck preparation | Provide a coherent focused task and server-rendered status baseline before enhancement. | Download deck or return to the Reading Journey anchor |
+| Reading Book anchor | Show Book identity, current-reading state, current evidence, and recovery. It does not render a generic Book detail, analysis-result, vocabulary-investment, or top-unknown page. | Analysis status, focused deck preparation, or Reading decision |
+| Analysis status | Show queued/running progress, cancellation, retry, attempts, and actionable failure while retaining Book context. | **View in Reading** opens the canonical Book anchor when complete |
+| Exact-analysis compatibility route | Redirect a valid current result URL to the Reading anchor; do not render a distinct insight, identity, provenance, or history surface. | Reading |
+| Deck preparation | Provide a coherent focused task and server-rendered status baseline before enhancement. | Download deck or return to the Reading anchor |
 
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock current
 deck preparation. The older `POST /jobs/{id}/deck/preparations` path is retained
@@ -118,54 +114,48 @@ recommendation metadata is not a current learner-facing surface.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | Catalogs | Current `GET /catalogs`; legacy `GET /connections` permanently redirects while POST connection mutation routes remain | Add, edit, remove, or synchronize an owner-scoped OPDS connection. | Sync now, My Books, or operational job status | No connections, saved/credentialed connection, never synced, last synced, syncing, sync failed, validation/authentication failure, deletion confirmation/error |
-| Book acquisition through reading intent | Current `POST /journey/books/{id}/add`, launched from My Books or deck status | Express intent, acquire one My Books Book when needed, and ensure current analysis once. | Journey or analysis status | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
+| Book acquisition through reading intent | My Books disposition action | Move a Book to To Read, acquire it when needed, and ensure current analysis once. | Reading or analysis status | Adding/analyzing, success, duplicate/idempotent existing run, unsupported/non-EPUB entry, download/validation failure |
 | Per-book catalog metadata refresh | Current item action on `GET /library` with `POST /library/books/{id}/refresh` | Refresh one catalog-backed Book's metadata without downloading EPUB content or changing evidence. | My Books item | Refreshing, updated, unchanged, upstream entry missing/no-op, connection failure; cover pending/unavailable; no scope or analysis invalidation |
 
-Adding a Book to Reading Journey is the sole learner-facing acquisition and
-analysis trigger. It acquires content when needed and ensures analysis without
-selecting a Primary Goal. Catalog sync remains metadata-only, and My Books item
+Moving a Book to To Read is the learner-facing acquisition and analysis trigger.
+It acquires content when needed and ensures analysis without starting current
+reading. Catalog sync remains metadata-only, and My Books item
 metadata refresh never invalidates or re-triggers analysis.
 
-## Reading Journey and Primary Goal
+## Reading
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Reading Journey | Shipped `GET /journey` | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current, after-Goal, and on-arrival evidence for the active language. | Primary Goal/book context, My Books, or finish receipt | Empty Journey, no Primary Goal, queued/running/current analysis, unavailable evidence, recalculating, recalculation failure, stale evidence, lower-bound forecast, long content, narrow viewport |
-| Between-Books chooser | Shipped `GET /reading` when no current Primary Goal exists, linked from the completion receipt; `GET /reading/switch` when switching an active Goal | Choose among active-language To Read books using trustworthy coverage evidence without a suggested order, either to start or replace the current reading. | Start reading, switch current reading, or My Books | Empty To Read collection, no alternative candidates, exact coverage bands, no vocabulary comparison, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
-| Journey forecast and reorder preview | Embedded in Reading Journey | See the three labeled coverage meanings in **Your order** and make a manual change within the active language's Journey. | Updated Reading Journey | No Goal, active Goal snapshot, unavailable predecessor, lower-bound forecast, neutral recalculation, failed recalculation |
-| Primary Goal completion receipt | `POST /goal/finish` full-page outcome or Reading Journey fragment | Confirm the completed Book and exact newly-Known/already-Known counts without replaying forecasts or choosing a next Goal. | Choose what to read next (`/reading`) | Non-empty and empty snapshots, zero counts, retry/idempotent completion, next-choice link |
-| Historical artifact context | Supporting operational status and history surfaces | Inspect prepared-deck and legacy provenance without creating a separate learner workflow. | Reading Journey anchor or focused preparation task | Empty history, preparing, ready, failed artifact, historical provenance |
+| Current reading | Shipped `GET /reading` when a Book is active | Continue reading, inspect evidence and preparation, or explicitly stop, set aside, switch, or finish the Book. | My Books, current-reading action, or finish receipt | Current/stale/unavailable evidence, queued/running/failed analysis, preparation state, stale form, each consequential confirmation |
+| Between-Books chooser | Shipped `GET /reading` when no current Book exists | Choose among active-language To Read Books using current coverage bands without recommendations. | Start reading or My Books | Empty To Read collection, coverage bands, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
+| Reading completion receipt | `POST /goal/finish` full-page outcome or Reading fragment | Confirm the completed Book and exact newly-Known/already-Known counts without choosing a next Book. | Choose what to read next (`/reading`) | Non-empty and empty snapshots, zero counts, retry/idempotent completion, next-choice link |
+| Read history | Filter on `GET /library?history=read` | Inspect prior completion independently from disposition and return a Book to To Read with Read again. | My Books disposition or Reading | Imported vs Mouseion completion, multiple completions, empty history, language scope |
+| Historical artifact context | Supporting operational status and history surfaces | Inspect prepared-deck and legacy provenance without creating a separate learner workflow. | Reading anchor or focused preparation task | Empty history, preparing, ready, failed artifact, historical provenance |
 
-The Reading Journey is an ordered semantic list. The Primary Goal is anchored
-above the provisional books. The learner's order remains canonical. Current,
-after-Goal, and on-arrival coverage are clearly labeled evidence; unavailable
-predecessors make downstream values lower bounds rather than fabricated zeros.
-The shipped Book Covers experience reserves one modest aligned thumbnail for the
-Primary Goal and every provisional item without changing this hierarchy.
+Reading presents one current Book or an unordered semantic list of To Read
+candidates. Candidate order is not a recommendation. Coverage bands label
+current evidence only. The shipped Book Covers experience keeps title and author
+authoritative and does not change this hierarchy.
 
-Visible **Move earlier** and **Move later** controls are required. Drag may
-enhance them. Reordering retains focus, announces the new position, and reports
-forecast recalculation in a scoped live region. On narrow screens, labeled
-forecast values stack without changing order or hiding authors and evidence.
+Starting, switching, stopping, setting aside, and finishing use separate
+confirmations and stale-write protection. Keyboard order follows Book identity,
+status, and actions; mutation feedback is announced. On narrow screens, identity
+and primary actions remain visible without horizontal page scrolling.
 
-### Goal outcome semantics
+### Reading completion semantics
 
-When the Primary Goal is completed:
+When current reading is finished:
 
-1. acknowledge **Reading finished** and end the book's current Primary Goal role;
+1. acknowledge **Reading finished** and end the Book's current-reading state;
 2. identify the completed Book and state the exact newly-Known and already-Known
    identity counts, including zero for an empty snapshot;
-3. offer **Choose what to read next** and return to the `/reading` candidate
-   chooser without creating another Goal.
+3. offer **Choose what to read next** and return to the `/reading` chooser without
+   selecting another Book.
 
-The receipt is intentionally restrained and does not repeat a forecast dashboard;
-the chooser is responsible for presenting current candidates. Do not say the
-Journey is complete, automatically choose another Goal, call a book optimal, or
-claim vocabulary gains when the transition has not occurred. Legacy Campaign
-records remain historical provenance only. ADR 0072 governs the Goal-owned
-snapshot, completion transition, and Journey forecast.
-Goals are one per study language (ADR 0051): finishing a Goal in the active
-language does not touch other languages' Goals.
+The receipt is intentionally restrained. Do not say a Journey is complete,
+automatically choose another Book, call a Book optimal, or claim vocabulary
+gains when the transition has not occurred. Completion history remains separate
+from the My Books disposition, and Read again preserves earlier completions.
 
 ## Active study language, derived study languages, and known vocabulary
 
@@ -188,7 +178,7 @@ learner-facing screen.
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
-- Shipped navigation is **My Books** / **Reading Journey** / **Vocabulary** /
+- Shipped navigation is **My Books** / **Reading** / **Vocabulary** /
   **Catalogs**; historical **My Library**, **Learning**, queue, and learner-facing
   Campaign labels remain only as compatibility fallbacks/redirects and are not
   part of the canonical IA.

@@ -524,6 +524,24 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 			out = append(out, book)
 		}
 	}
+	for i := range out {
+		if imported, ok := s.importedHistory[fixtureDispositionKey(out[i].Book.OwnerID, out[i].Book.ID)]; ok {
+			out[i].CompletionCount++
+			out[i].LatestCompletionAt = &imported.CompletedAt
+			out[i].LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
+		}
+		for _, completion := range s.readingHistory {
+			if completion.OwnerID != out[i].Book.OwnerID || completion.BookID != out[i].Book.ID {
+				continue
+			}
+			out[i].CompletionCount++
+			if out[i].LatestCompletionAt == nil || completion.CompletedAt.After(*out[i].LatestCompletionAt) {
+				completedAt := completion.CompletedAt
+				out[i].LatestCompletionAt = &completedAt
+				out[i].LatestCompletionSource = completion.Source
+			}
+		}
+	}
 	return out
 }
 
@@ -552,11 +570,6 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	all := s.myBooksForOwner(owner)
 	result := persistence.MyBooksBrowseResult{AllCount: len(all)}
 	for i := range all {
-		if completion, ok := s.importedHistory[fixtureDispositionKey(owner, all[i].Book.ID)]; ok {
-			all[i].CompletionCount = 1
-			all[i].LatestCompletionAt = &completion.CompletedAt
-			all[i].LatestCompletionSource = domain.ReadingCompletionPreviouslyRead
-		}
 		if all[i].CompletionCount > 0 && (language == "" || (language == domain.LanguageUnknown && all[i].Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && all[i].Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(all[i].Book.LanguageTag) == language)) {
 			result.ReadCount++
 		}
@@ -1274,7 +1287,7 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 		OwnerID: owner, Language: language, BookID: expectedBookID, CompletedAt: now,
 		GoalSnapshotID: goal.SnapshotID, SnapshotVocabularyCount: snapshotCount,
 		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
-		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount,
+		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount, Source: domain.ReadingCompletionPrimaryGoal,
 	}
 	if existing, exists := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)]; exists {
 		completion = existing

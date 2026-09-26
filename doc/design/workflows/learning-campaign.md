@@ -1,8 +1,10 @@
 # Reading Journey and Primary Goal workflow
 
-Status: **Canonical learner-facing workflow contract.** Reading Journey and
-Primary Goal are shipped; Goal-owned vocabulary snapshots, per-language
-reservation, completion, and sequential forecast are governed by [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+Status: **Historical workflow contract; not current product behavior.** The
+Reading Journey and Primary Goal model was retired. Current Inbox, To Read,
+Reading, completion-history, and rereading behavior is defined by
+[`../../features/reading-workflow.md`](../../features/reading-workflow.md).
+ADR 0072 is retained as historical decision context only.
 Reading-intent acquisition and analysis are governed by [ADR
 0049](../../adr/0049-reading-intent-triggers-analysis.md), with the standalone
 action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).

@@ -17,6 +17,31 @@ async function signIn(page: Page) {
 // residual transitions are covered by Go unit and integration tests against
 // isolated databases.
 test.describe('Current reading selection', () => {
+    test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
+      await signIn(page);
+      await page.getByLabel('Study language').selectOption('de');
+      await expect(page).toHaveURL(/\/library$/);
+      await page.goto('/reading');
+
+      const current = page.locator('#primary-goal-section');
+      const stop = current.locator('details').filter({ hasText: 'Stop reading for now' });
+      const setAside = current.locator('details').filter({ hasText: 'Set aside this Book' });
+      await expect(stop).toContainText('The Book remains To Read');
+      await expect(setAside).toContainText('moves the Book to Set Aside');
+      for (const [confirmation, button] of [[stop, 'Confirm stop for now'], [setAside, 'Confirm set aside']] as const) {
+        await confirmation.locator('summary').focus();
+        await expect(confirmation.locator('summary')).toBeFocused();
+        await confirmation.locator('summary').press('Enter');
+        const form = confirmation.locator('form');
+        await expect(form.locator('input[name="expected_current_book_id"]')).toHaveValue('fixture-book');
+        await expect(form.locator('input[name="expected_current_snapshot_id"]')).not.toHaveValue('');
+        await expect(form.getByRole('button', { name: button })).toBeVisible();
+        await confirmation.locator('summary').press('Enter');
+      }
+
+      await expect(current.locator('a[href="/reading/switch"]')).toBeVisible();
+    });
+
     test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
       await signIn(page);
       const switcher = page.getByLabel('Study language');
