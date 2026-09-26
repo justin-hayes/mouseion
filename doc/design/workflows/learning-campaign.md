@@ -8,9 +8,10 @@ ADR 0072 is retained as historical decision context only.
 Reading-intent acquisition and analysis are governed by [ADR
 0049](../../adr/0049-reading-intent-triggers-analysis.md), with the standalone
 action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
-Reading Journey and
-Primary Goal are one per study language ([ADR 0051](../../adr/0051-reading-journeys-and-goals-per-language.md));
-this workflow describes the active study language's Journey and Goal.
+The clauses below preserve the former Journey/Primary Goal contract; present
+tense describes that retired design and must not be read as current behavior.
+The former per-language partition is recorded in [ADR
+0051](../../adr/0051-reading-journeys-and-goals-per-language.md).
 
 The filename is retained to preserve existing links. **Learning campaign** is
 retired as a learner-facing plan; legacy campaign and deck records remain
