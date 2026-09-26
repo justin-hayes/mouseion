@@ -470,16 +470,16 @@ needed.
    provenance, not a current selection exclusion or knowledge claim.
 5. **Per-book analysis evidence** retains the individual threshold and unknown
    vocabulary contract; the Journey overview uses only the ADR 0072 forecast.
-7. **Routes and terminology** are reconciled in the shipped shell and supporting
+6. **Routes and terminology** are reconciled in the shipped shell and supporting
     surfaces: My Books, Reading, Vocabulary, and Catalogs are the active
     navigation destinations; `/known-vocab`
    remains a compatibility route with its documented redirect. Campaign routes
    are not learner-facing webapp routes.
-8. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
+7. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
      Reading Book anchors are the current evidence surface for To Read members, prior
     runs remain operational audit records, and run-specific result URLs redirect
     to the applicable Book anchor.
-9. **Catalog sync** follows the accepted contract in
+8. **Catalog sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
    each learner-owned connection periodically reconciles metadata for every
@@ -487,25 +487,26 @@ needed.
    content, deleting local state, or invalidating scope or analysis. ADR 0077
    adds independent optional cover-image retrieval without changing that EPUB
    boundary.
-10. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
+9. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):
     the panel proposed by ADR 0042 has no current route or screen contract.
      Per-Book evidence remains on Reading Book anchors in the shipped cover
       experience; the My Books grid does not duplicate it.
      No replacement aggregate is implied.
-11. **Derived study languages and Vocabulary** are resolved by
+10. **Derived study languages and Vocabulary** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
     chosen-language Books define the language set, Vocabulary owns
     known-vocabulary import, and Settings is removed from primary navigation.
     Any future change to the derived-language source or Vocabulary's destination
     must return to this checkpoint.
-12. **Active study language mode** is resolved by
+11. **Active study language mode** is resolved by
     [ADR 0050](../adr/0050-active-study-language.md): one stored selection
-    pointing into the derived set scopes My Books, Reading, and
-    Vocabulary; `?language=` params, the "All languages" pill, and per-row
+    pointing into the derived set scopes My Books, Reading, and Vocabulary.
+    `?language=` is not supported on My Books or Vocabulary; `/reading?language=`
+    is the validated one-request exception. The "All languages" pill and per-row
     language tags are removed; a shell-level native switcher carries the mode;
     new languages arrive passively; legacy no-language Books surface only
     through a **needs language** strip.
-13. **Per-language Journey and Goal** are resolved by
+12. **Per-language Journey and Goal** are resolved by
     [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): Reading
     Journey and Primary Goal identity are (owner, study language) with
      per-language revisions; the ADR 0072 forecast is language-correct by

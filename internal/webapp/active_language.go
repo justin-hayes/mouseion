@@ -178,15 +178,9 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 			u.Path = "/reading"
 		}
 		query := u.Query()
-		if u.Path == "/library" {
-			query.Del("language")
-		} else if u.Path == "/reading" {
-			// An explicit language on a bookmark selects only that request. Once
-			// the learner changes the saved mode, let the new active language win.
-			query.Del("language")
-		} else if u.Path == "/vocabulary" {
-			query.Del("language")
-		}
+		// A saved mode change removes any request-only language override so the
+		// learner's new active language wins.
+		query.Del("language")
 		u.RawQuery = query.Encode()
 	}
 	if result := u.RequestURI(); result != "" {
