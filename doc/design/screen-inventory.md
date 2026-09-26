@@ -133,7 +133,7 @@ metadata refresh never invalidates or re-triggers analysis.
 | Reading Journey | Shipped `GET /journey` | Express reading intent, understand the current Primary Goal, freely shape a provisional order, and inspect current, after-Goal, and on-arrival evidence for the active language. | Primary Goal/book context, My Books, or Where next? | Empty Journey, no Primary Goal, queued/running/current analysis, unavailable evidence, recalculating, recalculation failure, stale evidence, lower-bound forecast, long content, narrow viewport |
 | Between-Books chooser | Shipped `GET /reading` when no current Primary Goal exists | Choose among active-language To Read books using trustworthy coverage evidence without a suggested order. | Start reading or My Books | Empty To Read collection, exact coverage bands, no vocabulary comparison, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
 | Journey forecast and reorder preview | Embedded in Reading Journey | See the three labeled coverage meanings in **Your order** and make a manual change within the active language's Journey. | Updated Reading Journey | No Goal, active Goal snapshot, unavailable predecessor, lower-bound forecast, neutral recalculation, failed recalculation |
-| Primary Goal outcome / Where next? | Embedded target state in Reading Journey | Understand the exact modeled vocabulary and reading changes from completing the Goal, then choose whether or where to commit next. | Choose as Primary Goal, reorder, My Books, or no new Goal | Goal completion with non-empty or empty snapshot, changed forecasts, lower-bound evidence, no remaining Journey book, no next choice; one Goal per language, other languages' Goals unaffected |
+| Primary Goal completion receipt | `POST /goal/finish` full-page outcome or Reading Journey fragment | Confirm the completed Book and exact newly-Known/already-Known counts without replaying forecasts or choosing a next Goal. | Choose what to read next (`/reading`) | Non-empty and empty snapshots, zero counts, retry/idempotent completion, next-choice link |
 | Historical artifact context | Supporting operational status and history surfaces | Inspect prepared-deck and legacy provenance without creating a separate learner workflow. | Reading Journey anchor or focused preparation task | Empty history, preparing, ready, failed artifact, historical provenance |
 
 The Reading Journey is an ordered semantic list. The Primary Goal is anchored
@@ -153,16 +153,17 @@ forecast values stack without changing order or hiding authors and evidence.
 When the Primary Goal is completed:
 
 1. acknowledge **Reading finished** and end the book's current Primary Goal role;
-2. state the exact number of frozen snapshot identities added to modeled Known
-   vocabulary, including zero for an empty snapshot;
-3. recalculate later forecasts from actual modeled state;
-4. show precise changed or unchanged evidence;
-5. ask **Where next?** without creating another Goal.
+2. identify the completed Book and state the exact newly-Known and already-Known
+   identity counts, including zero for an empty snapshot;
+3. offer **Choose what to read next** and return to the `/reading` candidate
+   chooser without creating another Goal.
 
-Do not say the Journey is complete, automatically choose another Goal, call a
-book optimal, or claim vocabulary gains when the transition has not occurred.
-Legacy Campaign records remain historical provenance only. ADR 0072 governs the
-Goal-owned snapshot, completion transition, and forecast shown by this surface.
+The receipt is intentionally restrained and does not repeat a forecast dashboard;
+the chooser is responsible for presenting current candidates. Do not say the
+Journey is complete, automatically choose another Goal, call a book optimal, or
+claim vocabulary gains when the transition has not occurred. Legacy Campaign
+records remain historical provenance only. ADR 0072 governs the Goal-owned
+snapshot, completion transition, and Journey forecast.
 Goals are one per study language (ADR 0051): finishing a Goal in the active
 language does not touch other languages' Goals.
 

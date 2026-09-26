@@ -55,7 +55,7 @@ My Books
     -> Record Reading finished
     -> Accept the Goal snapshot into modeled Known vocabulary
     -> Recalculate remaining Journey from actual state
-    -> Where next?
+    -> Choose what to read next (`/reading`)
     -> Choose, reorder, add/remove, or remain between Goals
 ```
 
@@ -180,7 +180,7 @@ status remains secondary to book identity and current reading purpose.
 **Learner question:** What did finishing this book change, and what remains
 unfinished?
 
-Completing the Goal is a factual reading achievement and an acceptance of its
+Completing the Goal records that the learner finished the Book and accepts its
 frozen snapshot into modeled Known vocabulary, not proof of per-card mastery.
 The book no longer occupies the current Primary Goal role; it is removed from
 the active Journey and remains in My Books, history, and provenance. No next Goal
@@ -193,46 +193,43 @@ chrome.
 
 When the Goal has a non-empty frozen snapshot:
 
-1. state **Reading finished**;
-2. state exactly how many snapshot identities were added to modeled Known
-   vocabulary;
-3. recalculate the remaining Journey forecast from actual state;
-4. show changed or lower-bound forecasts with precise labels;
-5. end with **Where next?**
+1. state **Reading finished** and identify the Book;
+2. state the exact newly-Known and already-Known identity counts;
+3. offer **Choose what to read next**, which opens the candidate chooser at
+   `/reading` without selecting another Goal.
 
-Old projections are not presented as though they remain current. The new values
-come from actual state after the transition.
+The receipt is deliberately restrained: it does not replay forecasts or offer a
+direct next-Goal shortcut. The candidate chooser presents current choices after
+completion.
 
 ### Goal completed with an empty snapshot
 
 When the Goal's frozen snapshot is empty:
 
-1. acknowledge **Reading finished** without qualification;
-2. state that zero vocabulary identities were added to modeled Known vocabulary;
-3. state that no deck artifact was required for the empty snapshot;
-4. recalculate the remaining Journey forecast from actual state;
-5. return to **Where next?** without selecting a new Goal.
+1. acknowledge **Reading finished** and identify the Book;
+2. show zero newly-Known and zero already-Known identities;
+3. offer **Choose what to read next**, returning to the candidate chooser.
 
 The reading achievement and modeled vocabulary transition are stated separately.
 Deck artifact readiness or review is not required, and the UI must not imply
 verified mastery.
 
-## 6. Where next?
+## 6. Choose what to read next
 
 **Learner question:** Given what is true now, what do I want to do next?
 
-After the factual outcome and recalculation, return attention to the remaining
-Journey. The first provisional book may be introduced as **First in your current
-order**. Actions are neutral peers:
+After the factual receipt, return the learner to the candidate chooser at
+`/reading`. The chooser presents eligible To Read books and evidence states,
+without prescribing an order or advancing automatically. The learner may also
+return to My Books to add or reconsider a Book.
 
-- **Choose as Primary Goal**;
-- **Reorder Reading Journey**;
-- **Choose another book** from My Books;
-- **Remove from Reading Journey** where relevant;
-- take no new Goal yet.
+Read history remains independent of workflow disposition. **Read again** returns
+the completed Book to To Read; starting it later creates a new current reading
+and a fresh snapshot rather than reusing the completed snapshot.
 
-No action is preselected, automatic, or labeled optimal. If the Journey is
-empty, invite the learner back to My Books without presenting an empty backlog
+The learner explicitly starts a To Read candidate when ready. No action is
+preselected, automatic, or labeled optimal. If there are no eligible
+candidates, invite the learner to My Books without presenting an empty backlog
 or a completed plan.
 
 ## Alternate and edge paths
@@ -270,8 +267,8 @@ or a completed plan.
 | Journey forecast available | Your order first; current, after-Goal, and on-arrival meanings are labeled. | Reorder or choose a Goal |
 | Order recalculating | Preserve the accepted order; identify updating evidence. | None |
 | Order recalculation failed | Preserve order and prior trustworthy evidence; explain failure. | Retry |
-| Goal completed; non-empty snapshot | Factual outcome, exact modeled Known-vocabulary change, forecast recalculation. | Where next? |
-| Goal completed; empty snapshot | Reading achievement, zero identities added, no artifact required. | Where next? |
+| Goal completed; non-empty snapshot | Restrained receipt with Book title and exact newly-Known/already-Known counts. | Choose what to read next (`/reading`) |
+| Goal completed; empty snapshot | Restrained receipt with Book title and zero counts. | Choose what to read next (`/reading`) |
 | No remaining Journey book | No completion framing; offer My Books and no-action option. | Choose another book or remain between Goals |
 | Evidence stale/unavailable | Book remains in place; reason and excluded comparison are explicit. | Review or refresh evidence when supported |
 
