@@ -63,9 +63,9 @@ func TestJourneyEntryRedirectsCompletedMemberUsingBookLanguage(t *testing.T) {
 
 func TestLegacyJourneyGETRedirectsToReadingAndDropsObsoleteParameters(t *testing.T) {
 	h, cookies, _, _ := goalFixtureSession(t)
-	response := journeyEntryRequest(t, h, "/journey?message=kept&expected_revision=old&book_id=foreign", cookies)
+	response := journeyEntryRequest(t, h, "/journey?message=kept&language=it&expected_revision=old&book_id=foreign", cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/reading?message=kept", response.Header().Get("Location"))
+	assert.Equal(t, "/reading?language=it&message=kept", response.Header().Get("Location"))
 }
 
 func TestLegacyJourneyMutationIsGoneAndDoesNotChangeMembership(t *testing.T) {

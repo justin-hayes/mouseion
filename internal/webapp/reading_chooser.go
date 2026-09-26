@@ -52,8 +52,8 @@ type readingChooserPageView struct {
 
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
-	activeLanguage, _ := activeStudyLanguageForContext(r.Context())
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
+	activeLanguage := language
 	if requested := strings.TrimSpace(r.URL.Query().Get("language")); requested != "" {
 		if view := shellViewFromContext(r.Context()); view != nil {
 			for _, option := range view.Options {

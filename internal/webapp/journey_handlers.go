@@ -95,7 +95,7 @@ func rejectLegacyJourneyMutation(w http.ResponseWriter, _ *http.Request) {
 
 func (h *Handler) legacyJourney(w http.ResponseWriter, r *http.Request) {
 	query := url.Values{}
-	for _, key := range []string{"message", "error", "language_handoff_book", "language_handoff_language"} {
+	for _, key := range []string{"message", "error", "language", "language_handoff_book", "language_handoff_language"} {
 		if value := r.URL.Query().Get(key); value != "" {
 			query.Set(key, value)
 		}
