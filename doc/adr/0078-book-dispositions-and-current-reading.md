@@ -28,9 +28,11 @@ Each owner-and-Book pair has one disposition: **Inbox**, **To Read**, or
 **Set Aside**. Catalog sync initializes Inbox only for a new Book and never
 resets an existing disposition. Current reading is a separate role, limited to
 one analyzed To Read Book per owner and study language. Read history is
-independent of disposition and current-reading state. The visible bucket is
-derived in this precedence: Current reading, To Read, Inbox, Read (when history
-exists), then Set Aside.
+independent of disposition and current-reading state, append-only, and records
+current-reading completions plus one idempotent previously-read assertion. The
+assertion records when the learner made it, not an inferred reading date. The
+visible bucket is derived in this precedence: Current reading, To Read,
+Inbox, Read (when history exists), then Set Aside.
 
 My Books owns collection browsing and disposition changes. Reading owns
 starting, stopping, setting aside, switching, and finishing current reading.
@@ -54,9 +56,10 @@ changes.
 
 The cutover preserves source and analysis evidence, active snapshot and
 reservation provenance, completions, Known and generated vocabulary,
-prepared artifacts, and operational history. Its idempotent backfill assigns
-active Goal and other Journey Books to To Read; Books with history project to
-Read unless current or To Read; other active collection Books become Inbox;
+prepared artifacts, and operational history. Its idempotent backfill migrates
+the active Primary Goal to current reading with its exact snapshot, reservation,
+and artifacts; other Journey Books become To Read. Books with history project
+to Read unless current or To Read; other active collection Books become Inbox;
 previously removed Books become Set Aside. Journey order is discarded.
 Structural DDL and data-only backfill remain separate under
 [ADR 0038](0038-schema-change-governance.md); the baseline remains immutable.
