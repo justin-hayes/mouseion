@@ -8,7 +8,7 @@ Status: **Implemented** · Date:
 My Books is a local bibliographic collection, but its repeated text rows make a
 large collection slower to recognize visually than the covers on a physical
 bookshelf. Catalog-supplied cover images can make browsing more immediate while
-title and author preserve trustworthy Book identity. Reading Journey can reuse
+title and author preserve trustworthy Book identity. Reading can reuse
 the same images at lower prominence without becoming a second cover browser.
 
 This feature extends [My Books Collection Browsing](collection-browsing.md) and
@@ -23,19 +23,19 @@ by [ADR 0077](../adr/0077-catalog-supplied-book-covers.md).
   learner-selectable grid/list preference.
 - Keep title and author visible for every Book; a cover is never the sole
   learner-facing identifier.
-- Communicate whether a Book is in Reading Journey without duplicating Journey
-  evidence or Primary Goal state.
-- Add modest cover thumbnails to Reading Journey while preserving its ordered
-  list, evidence, forecast, recovery, and Goal contracts.
+- Communicate workflow disposition without duplicating Reading evidence or
+  current-reading state.
+- Add modest cover thumbnails to Reading while preserving semantic list order,
+  evidence, recovery, and current-reading actions.
 - Retain catalog-supplied covers locally so browsing does not depend on the
   catalog being online.
 
 ## Scope
 
-The feature applies to active-language My Books results at `/library`, the
-Primary Goal and provisional Book rows at `/journey`, catalog sync, and per-Book
-metadata refresh. Search, alphabetical ordering, paging, language scope, Reading
-Journey ordering, and existing Book identity remain unchanged.
+The feature applies to active-language My Books results at `/library`, current
+and To Read Book rows at `/reading`, catalog sync, and per-Book metadata refresh.
+Search, alphabetical ordering, paging, language scope, and Book identity remain
+unchanged.
 
 The `/library?needs-language` diagnostic state remains a compact text-led list.
 Its task is to identify metadata that must be corrected in the catalog, not to
@@ -115,11 +115,11 @@ Each Book item presents, in order:
 2. The full title in the bibliographic reading face and the author when supplied,
    always visible beneath the cover. Long identity text wraps rather than being
    truncated into ambiguity.
-3. A restrained **In Reading Journey** marker when membership exists. My Books
-   does not show analysis, acquisition, evidence, Primary Goal, or next-action
+3. A restrained disposition marker for Inbox, To Read, or Set Aside. My Books
+   does not show analysis, acquisition, evidence, current reading, or next-action
    status on the grid item.
-4. One visible, labeled Journey action: **Add to Reading Journey** or **View in
-   Reading Journey**, accompanied by an icon.
+4. One visible, labeled Reading action: **Move to To Read** or **View in
+   Reading**, accompanied by an icon.
 5. A labeled native **More actions** disclosure containing textual **Refresh
    metadata** and **Remove from My Books** actions when each is eligible. Removal
    retains its existing consequential confirmation.
@@ -129,8 +129,8 @@ Every catalog-backed Book whose source connection remains available offers
 update title, author, or cover metadata and has no analysis or acquired-content
 side effect.
 
-When a Reading Journey anchor exists, the cover and title form one link to that
-anchor. Otherwise neither performs an implicit action; the explicit Journey
+When a Reading anchor exists, the cover and title form one link to that
+anchor. Otherwise neither performs an implicit action; the explicit Reading
 control remains the only way to add membership. There is no Book detail page and
 the cover never triggers a context-dependent mutation.
 
@@ -140,22 +140,22 @@ It reduces columns rather than introducing horizontal page scrolling. The
 25-Book page size remains unchanged until measured image and layout performance
 provides evidence for another value.
 
-## Reading Journey thumbnails
+## Reading thumbnails
 
-The Primary Goal and each provisional Journey Book reserve one modest,
+The current Book and each To Read candidate reserve one modest,
 consistently sized thumbnail column before the existing Book identity. A real
 cover uses the same complete-image fitting rule as My Books; a missing or
 unavailable image uses a subdued placeholder so titles and controls remain
 aligned across the ordered list.
 
-The thumbnail is supporting identity. Reading Journey retains its semantic
-ordered list, title, author, Goal role, evidence, forecast, recovery, reorder,
+The thumbnail is supporting identity. Reading retains its semantic list, title,
+author, current-reading state, evidence, recovery,
 preparation, and consequential-action behavior. This feature does not simplify
 or reorder those contracts.
 
 ## Cover presentation states
 
-| State | My Books presentation | Reading Journey presentation |
+| State | My Books presentation | Reading presentation |
 |---|---|---|
 | Valid retained cover | Complete image in the fixed-ratio frame | Complete image in the thumbnail frame |
 | No cover advertised | Placeholder with **No cover available** | Subdued aligned placeholder |
@@ -165,7 +165,7 @@ or reorder those contracts.
 | Replacement invalid or retrieval failed | Existing validated image | Existing validated image |
 
 These are quiet visual metadata states, not Book status badges. Cover failures do
-not displace title, author, Journey membership, or the learner's current task.
+not displace title, author, disposition, or the learner's current task.
 
 ## Accessibility and progressive enhancement
 
@@ -174,12 +174,12 @@ not displace title, author, Journey membership, or the learner's current task.
   tree; their state is not required to identify or operate the Book.
 - A linked cover and title create one focus stop whose accessible name comes
   from the visible title. Do not create duplicate image and title links.
-- Journey and disclosure controls retain visible text in every layout, and every
+- Reading and disclosure controls retain visible text in every layout, and every
   action has an accessible name. Controls are never available only on hover,
   focus, or pointer gesture.
 - Native list, link, button, `details`, `summary`, and form behavior remains
   usable without JavaScript. Keyboard order follows document order from Book
-  identity to Journey action to secondary actions.
+  identity to Reading action to secondary actions.
 - Focus indicators, control targets, contrast, and live-region behavior follow
   the existing WCAG 2.2 AA design-system contract.
 - Images reserve intrinsic space and load lazily when below the viewport. The
@@ -195,7 +195,7 @@ not displace title, author, Journey membership, or the learner's current task.
 - Generated imitation covers based on title, author, initials, or color.
 - A new Book detail page or making the cover an implicit mutation control.
 - Changing search, alphabetical ordering, active-language scope, or paging.
-- Moving Reading Journey evidence, forecast, Goal, recovery, or reorder controls
+- Moving Reading evidence, recovery, or current-reading controls
   into My Books.
 - Making Catalog sync wait for optional image retrieval or treating a cover
   failure as a sync failure.
@@ -214,10 +214,10 @@ not displace title, author, Journey membership, or the learner's current task.
   900 pixels; rejected input leaves Book and sync state usable.
 - My Books renders an active-language, searchable, paged native list as a
   responsive cover grid while retaining complete title and author identity.
-- My Books communicates only Reading Journey membership, not analysis evidence
-  or Primary Goal state, and offers labeled Journey, refresh, and removal paths.
-- Reading Journey shows aligned modest thumbnails without changing its semantic
-  order, evidence, forecast, recovery, Goal, or reorder behavior.
+- My Books communicates workflow disposition, not analysis evidence or current
+  reading, and offers labeled Reading, refresh, and removal paths.
+- Reading shows aligned modest thumbnails without changing its semantic list,
+  evidence, recovery, or current-reading behavior.
 - Missing, pending, unavailable, and replacement cover states remain stable,
   truthful, and usable without JavaScript.
 - Cover and placeholder semantics do not duplicate Book names for assistive

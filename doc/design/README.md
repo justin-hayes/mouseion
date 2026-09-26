@@ -49,10 +49,12 @@ and surface a material conflict rather than silently choosing one.
   analysis.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
   the core current-analysis-to-deck lifecycle, including explicit refresh and
-  Reading Journey's ensure-once analysis trigger.
-- [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — the
-  learner-facing Reading Journey and Primary Goal workflow, with Goal-owned
-  vocabulary snapshots and sequential on-arrival forecast semantics.
+  To Read's ensure-once analysis trigger.
+- [`../features/reading-workflow.md`](../features/reading-workflow.md) — shipped
+  Inbox, To Read, current-reading, completion-history, and rereading workflow.
+- [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — historical
+  record of the retired Reading Journey / Primary Goal model; not current product
+  behavior.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
   — study-language ownership, capability degradation, and vocabulary import.
 

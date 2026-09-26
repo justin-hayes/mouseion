@@ -1,11 +1,11 @@
 # Book analysis and deck workflow
 
 Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
-serve a Book and, when present, its Primary Goal. Historical Campaign records
-remain supporting provenance under ADR 0072; the Goal owns the active frozen
-vocabulary snapshot and Reading Journey owns the Book's learner-facing context.
-Reading Journey membership automatically ensures current
-analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
+serve a Book while current reading and Read history remain independent. The
+Reading workflow at [`../../features/reading-workflow.md`](../../features/reading-workflow.md)
+defines current learner-facing terminology. Reading Journey and Primary Goal
+phrasing below is historical. Moving a Book to To Read automatically ensures
+current analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
 with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
 ## Goal

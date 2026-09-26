@@ -1,5 +1,10 @@
 # Experience direction
 
+This direction document preserves the earlier Journey / Primary Goal
+exploration. Those workflow-specific passages are historical, not current
+product behavior; the shipped Reading workflow is defined in
+[`../features/reading-workflow.md`](../features/reading-workflow.md).
+
 The desired Mouseion product character is a **digital scholarly reading desk**.
 
 This is not faux-historical styling or decorative academic theater. Mouseion
@@ -23,10 +28,10 @@ preparation evidence around a book, not the visual subject of the product.
 capable of holding desired, distant, unassessed, stale, and currently active
 works without making each one look like a task.
 
-**Reading Journey** should express provisional sequence and changing
-possibility without resembling a queue, backlog, curriculum, timeline, or
-literal map. **Primary Goal** is embedded within that experience and receives
-the only strong commitment treatment.
+Historically, the design direction explored an ordered Reading Journey and
+Primary Goal. The shipped Reading experience instead presents one current Book
+or an unordered To Read chooser; it uses this document's calm, book-centered
+visual principles without adopting that retired model.
 
 Current and projected vocabulary effects may use restrained alignment,
 continuity, or before-and-after comparison. The semantic reading order remains

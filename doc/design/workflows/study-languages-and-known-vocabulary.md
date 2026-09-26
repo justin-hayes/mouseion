@@ -3,9 +3,10 @@
 Status: **Canonical supporting workflow.** Study languages are derived from My
 Books and Vocabulary is the sole learner-facing home for known-vocabulary
 import. It is an import-and-status surface, not a display of the known-vocabulary
-read model. Primary Goals own active snapshots and per-language Reserved vocabulary;
-completion acceptance adds modeled Known vocabulary under [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
-Learner-facing copy uses reading, preparation, and forecast facts as defined in
+read model. Starting current reading freezes the active vocabulary snapshot;
+completion adds eligible identities to modeled Known vocabulary. Earlier Goal
+and forecast behavior under [ADR 0072](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
+is historical. Learner-facing copy uses reading and preparation facts as defined in
 [`terminology.md`](../terminology.md).
 
 ## Goal
@@ -22,7 +23,7 @@ The product behavior is defined primarily by:
 - [Language Support](../../features/language-support.md)
 - [ADR 0023: NLP capabilities](../../adr/0023-nlp-capabilities.md)
 - [ADR 0024: Learner-owned catalogs and no administrator role](../../adr/0024-learner-owned-catalogs-no-admin.md)
-- [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](../../adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
+- [Reading workflow](../../features/reading-workflow.md)
 
 ## Canonical destination
 

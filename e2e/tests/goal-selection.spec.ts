@@ -17,6 +17,56 @@ async function signIn(page: Page) {
 // residual transitions are covered by Go unit and integration tests against
 // isolated databases.
 test.describe('Current reading selection', () => {
+    test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
+      await signIn(page);
+      await page.getByLabel('Study language').selectOption('de');
+      await expect(page).toHaveURL(/\/library$/);
+      await page.goto('/reading');
+
+      const current = page.locator('#primary-goal-section');
+      const stop = current.locator('details').filter({ hasText: 'Stop reading for now' });
+      const setAside = current.locator('details').filter({ hasText: 'Set aside this Book' });
+      await expect(stop).toContainText('The Book remains To Read');
+      await expect(setAside).toContainText('moves the Book to Set Aside');
+      for (const [confirmation, button] of [[stop, 'Confirm stop for now'], [setAside, 'Confirm set aside']] as const) {
+        await confirmation.locator('summary').focus();
+        await expect(confirmation.locator('summary')).toBeFocused();
+        await confirmation.locator('summary').press('Enter');
+        const form = confirmation.locator('form');
+        await expect(form.locator('input[name="expected_current_book_id"]')).toHaveValue('fixture-book');
+        await expect(form.locator('input[name="expected_current_snapshot_id"]')).not.toHaveValue('');
+        await expect(form.getByRole('button', { name: button })).toBeVisible();
+        await confirmation.locator('summary').press('Enter');
+      }
+
+      const staleStopForm = stop.locator('form');
+      const staleResponse = await page.request.post(new URL('/reading/stop', page.url()).toString(), {
+        maxRedirects: 0,
+        form: {
+          csrf_token: await staleStopForm.locator('input[name="csrf_token"]').inputValue(),
+          expected_current_book_id: 'stale-book-id',
+          expected_current_snapshot_id: await staleStopForm.locator('input[name="expected_current_snapshot_id"]').inputValue(),
+        },
+      });
+      expect(staleResponse.status()).toBe(303);
+      const staleLocation = staleResponse.headers().location;
+      expect(staleLocation).toContain('error=');
+      await page.goto(staleLocation);
+      await expect(page.getByRole('alert')).toContainText('No changes were made');
+      await page.goto('/reading');
+      await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
+
+      await expect(current.locator('a[href="/reading/switch"]')).toBeVisible();
+      await page.goto('/reading/switch');
+      const switchCandidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
+      const switchDisclosure = switchCandidate.locator('details').filter({ hasText: 'Switch to this book' });
+      await switchDisclosure.locator('summary').click();
+      const switchForm = switchDisclosure.locator('form');
+      await expect(switchForm.locator('input[name="expected_current_book_id"]')).toHaveValue('fixture-book');
+      await expect(switchForm.locator('input[name="expected_current_snapshot_id"]')).not.toHaveValue('');
+      await expect(switchForm.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+    });
+
     test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
       await signIn(page);
       const switcher = page.getByLabel('Study language');
@@ -92,9 +142,59 @@ test.describe('Current reading selection', () => {
       await expect(goalBook.getByRole('link', { name: 'View in Reading' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
       await expect(goalBook.getByText('Current reading')).toHaveCount(0);
       await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-  });
+   });
 
-  test('clearing current reading returns to the language-specific chooser', async ({ page }) => {
+   test('stop and set-aside mutations return to truthful Reading state', async ({ page }) => {
+     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture workflow runs once per browser suite.');
+     await signIn(page);
+     await page.getByLabel('Study language').selectOption('it');
+     await expect(page).toHaveURL(/\/library$/);
+     await page.goto('/reading');
+
+     const currentCard = page.locator('.journey-book--goal');
+     if (await currentCard.count() === 0) {
+       const initialCandidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Italian route baseline' });
+       const initialStart = initialCandidate.locator('details').filter({ hasText: 'Start reading' });
+       await initialStart.locator('summary').click();
+       await initialStart.getByRole('button', { name: 'Confirm start reading' }).click();
+       await expect(page).toHaveURL(/\/reading\?message=/);
+     }
+     await expect(currentCard).toBeVisible();
+     const title = (await currentCard.getByRole('heading', { level: 3 }).textContent())?.trim() ?? '';
+     expect(title).toBeTruthy();
+
+     const stop = currentCard.locator('details').filter({ hasText: 'Stop reading for now' });
+     await stop.locator('summary').click();
+     await stop.getByRole('button', { name: 'Confirm stop for now' }).click();
+     await expect(page).toHaveURL(/\/reading\?message=/);
+     await expect(page.locator('.journey-book--goal')).toHaveCount(0);
+
+     const startBook = async (bookTitle: string) => {
+       await page.goto('/reading');
+       const candidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('heading', { name: bookTitle, exact: true }) });
+       await expect(candidate).toBeVisible();
+       const start = candidate.locator('details').filter({ hasText: 'Start reading' });
+       await start.locator('summary').click();
+       await start.getByRole('button', { name: 'Confirm start reading' }).click();
+       await expect(page).toHaveURL(/\/reading\?message=/);
+       await expect(page.locator('.journey-book--goal')).toContainText(bookTitle);
+     };
+
+     await startBook(title);
+     const setAside = page.locator('.journey-book--goal details').filter({ hasText: 'Set aside this Book' });
+     await setAside.locator('summary').click();
+     await setAside.getByRole('button', { name: 'Confirm set aside' }).click();
+     await expect(page).toHaveURL(/\/reading\?message=/);
+     await expect(page.locator('.journey-book--goal')).toHaveCount(0);
+
+     await page.goto('/library');
+     const setAsideBook = page.locator('.library-grid .library-book').filter({ hasText: title });
+     await expect(setAsideBook.locator('.metadata').filter({ hasText: 'Workflow' })).toContainText('Set Aside');
+     await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
+     await startBook(title);
+   });
+
+   test('clearing current reading returns to the language-specific chooser', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture Goal runs once per browser suite.');
     await signIn(page);
     await page.getByLabel('Study language').selectOption('it');

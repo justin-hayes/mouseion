@@ -695,6 +695,9 @@ progress {
 }
 
 .confirmation summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   color: var(--mouseion-color-text-muted);
   font-weight: 600;
 }

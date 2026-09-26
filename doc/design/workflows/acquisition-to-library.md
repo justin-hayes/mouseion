@@ -1,20 +1,22 @@
 # Acquisition to My Books workflow
 
 Status: **Canonical shipped learner-facing workflow.** Catalog sync creates
-metadata-only My Books Books. Adding a Book to Reading Journey expresses reading
-intent and acquires and analyzes the current EPUB with ensure-once semantics.
+metadata-only Inbox Books. Moving a Book to To Read expresses reading intent
+and acquires and analyzes the current EPUB with ensure-once semantics. Current
+Reading behavior is defined by [`../../features/reading-workflow.md`](../../features/reading-workflow.md);
+Journey terminology below is historical.
 The historical **Add to library** label may remain in compatibility artifacts.
 
 The [catalog sync workflow](catalog-sync.md) creates metadata-first My Books
 entries. This document defines the per-book content-acquisition step from My
-Books through Reading Journey; sync never downloads EPUB content. Independent
+Books through To Read; sync never downloads EPUB content. Independent
 optional Book cover retrieval follows
 [ADR 0077](../../adr/0077-catalog-supplied-book-covers.md).
 
 ## Goal
 
 Help a learner move a metadata-only My Books Book to trustworthy current
-evidence by expressing reading intent through Reading Journey membership.
+evidence by expressing reading intent through the To Read disposition.
 
 The product behavior is defined primarily by:
 

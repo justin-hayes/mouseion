@@ -8,8 +8,8 @@ A learner may already curate a large collection in Calibre and expose it through
 Calibre-Web OPDS. Adding those books one at a time makes My Books incomplete and
 turns catalog maintenance into repetitive work. Mouseion should recognize the
 studyable part of that collection while keeping sync metadata-only. Acquisition
-and analysis happen only when learner intent is expressed by adding the Book to
-Reading Journey, as defined by [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md)
+and analysis happen only when learner intent is expressed by moving the Book to
+To Read, as defined by [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md)
 and the later standalone-action retirement in [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 
 ## Goal
@@ -100,7 +100,7 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 ### Lazy content acquisition and per-book refresh
 
 - Sync never downloads or re-downloads EPUB content.
-- Metadata-only Books have no detail page. **Add to Reading Journey** acquires,
+- Metadata-only Books have no detail page. **Move to To Read** acquires,
   validates, and analyzes the EPUB in one ensure-once flow; the My Books row
   remains the place to refresh metadata or remove the Book.
 - Acquired state is published only after complete EPUB download, validation,
@@ -119,9 +119,9 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
 | Last synced | Show the last successful time and metadata-only reconciliation, with ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason. | Edit connection or retry |
-| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Add to Reading Journey |
+| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Move to To Read |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
-| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Re-analyze from Reading Journey |
+| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from My Books or Reading |
 | Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to My Books |
 
 ## Non-goals

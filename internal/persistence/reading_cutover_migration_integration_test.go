@@ -64,16 +64,26 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	var activeSnapshotCount int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NULL`, owner.ID, current.SnapshotID).Scan(&activeSnapshotCount))
 	assert.Equal(t, 1, activeSnapshotCount, "active reservation snapshot was not preserved")
+	var activeSnapshotVocabularyCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, owner.ID, current.SnapshotID).Scan(&activeSnapshotVocabularyCount))
+	assert.Equal(t, current.SnapshotSize, activeSnapshotVocabularyCount, "active snapshot vocabulary was not preserved")
 
 	var historyRows int
 	var historyBookID string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*), max(book_id::text) FROM reading_history WHERE owner_id=$1 AND language='it'`, owner.ID).Scan(&historyRows, &historyBookID))
 	assert.Equal(t, 1, historyRows)
 	assert.Equal(t, finished.ID, historyBookID)
+	var historySnapshotID string
+	var hasGoalSnapshot bool
+	var historySnapshotVocabularyCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT goal_snapshot_id::text, goal_snapshot_id IS NOT NULL, snapshot_vocabulary_count FROM reading_history WHERE owner_id=$1 AND language='it' AND book_id=$2`, owner.ID, finished.ID).Scan(&historySnapshotID, &hasGoalSnapshot, &historySnapshotVocabularyCount))
+	assert.Equal(t, finishedReading.SnapshotID, historySnapshotID, "completion lost its frozen snapshot provenance")
+	assert.True(t, hasGoalSnapshot, "Mouseion completion lost its snapshot provenance")
+	assert.Equal(t, finishedReading.SnapshotSize, historySnapshotVocabularyCount)
 
 	persistedDeck, err := store.GetDeckPreparation(ctx, owner.ID, deck.ID)
 	require.NoError(t, err)
-	assert.Equal(t, deck.ID, persistedDeck.ID)
+	assert.Equal(t, deck, persistedDeck, "prepared-deck provenance changed during cutover")
 	artifact, err := store.DownloadDeckPreparation(ctx, owner.ID, deck.ID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, artifact.Artifact)

@@ -440,8 +440,8 @@ templ PrimaryGoalFinishPage(user domain.User, csrf string, outcome primaryGoalFi
 }
 
 templ PrimaryGoalFinish(outcome primaryGoalFinishView) {
-	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome">
-		<h1 id="primary-goal-finish-heading">Reading finished</h1>
+	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome" data-focus-id="primary-goal-finish-heading">
+		<h1 id="primary-goal-finish-heading" tabindex="-1">Reading finished</h1>
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
 		<h2>Vocabulary transition</h2>
 		<p>{ finishGraduationText(outcome) }</p>

@@ -1,5 +1,9 @@
 # Analysis Insights
 
+Journey and Primary Goal projections in this feature are historical. Current
+Reading presents current coverage bands only; the sequential forecast is retired
+as described in the [Reading workflow](reading-workflow.md).
+
 Status: Implemented · Date: 2026-08-24 · Updated: 2026-09-15
 
 ## Problem
@@ -147,19 +151,15 @@ The repository feature document is the product source of truth. Stable metric de
 The lexical contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md),
 and the structural contract in [ADR 0026](../adr/0026-structural-text-profile.md).
 
-## Journey forecast
+## Historical Journey forecast (retired)
 
-The Journey forecast is defined by [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
-It uses the learner's one stored order and exposes current, after-Goal, and
-on-arrival coverage. Each trustworthy earlier Book contributes a modeled
-recurring-vocabulary identity set to later Books; overlapping identities count
-once. A stale, unavailable, incomplete, or failed predecessor contributes no
-invented identities, and downstream values are labeled lower bounds. The
-forecast is computed on demand and never persisted as stale truth. Reordering
-never changes learner state beyond the requested order mutation and never
-creates a recommendation or alternative route.
+The sequential Journey forecast described by [ADR 0072](../adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
+was retired with Journey ordering. It is not a current learner-facing screen or
+metric. The current Reading chooser groups To Read candidates by current
+coverage evidence only; it does not show after-Goal/on-arrival projections or
+rank candidates. See the shipped [Reading workflow](reading-workflow.md).
 
-Thresholds, learner coverage, and projections are computed on demand from the
+Thresholds and learner coverage are computed on demand from the
 persisted corpus statistics and current owner-scoped vocabulary state. This
 keeps the learner-specific values current after known-vocabulary or generated-
 deck changes without persisting derived mastery claims.

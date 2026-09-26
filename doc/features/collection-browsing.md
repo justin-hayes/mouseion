@@ -29,11 +29,10 @@ search surface.
 
 [Book Covers](book-covers.md) defines the shipped presentation for the repeated
 active-language results: one responsive cover grid with title and author always
-visible, Reading Journey membership as its only relationship signal, and labeled
-Journey plus secondary actions. It preserves this feature's search, deterministic
+visible, workflow disposition as its relationship signal, and labeled To Read
+plus secondary actions. It preserves this feature's search, deterministic
 ordering, paging, empty states, language scope, and progressive-enhancement
-contracts. Reading Journey is the sole learner surface for evidence and Primary
-Goal presentation.
+contracts. Reading owns current evidence and current-reading presentation.
 
 ## Requirements
 
@@ -67,14 +66,14 @@ Goal presentation.
 - Items lead with the optional Book cover, followed by the full title and author;
   the language tag is carried by the active-language heading, not repeated per
   item.
-- Reading Journey membership is the only relationship signal. Evidence and
-  Primary Goal state belong to Reading Journey and never turn the collection into
+- Workflow disposition is the relationship signal. Evidence and current-reading
+  state belong to Reading and never turn the collection into
   a metric-led dashboard.
 - Missing author or edition/year is stated or omitted without inventing
   metadata.
-- Choosing an analyzed Journey member opens its canonical
+- Choosing an analyzed To Read Book opens its canonical
   `/journey#journey-book-{bookID}` anchor. Metadata-only and otherwise
-  incomplete Books remain operable from their rows through Journey membership
+  incomplete Books remain operable from their rows through disposition
   and catalog actions; they have no detail page.
 - The list does not expose batch-select-then-analyze behavior.
 
@@ -99,8 +98,8 @@ Goal presentation.
 | State | Required presentation | Primary action |
 |---|---|---|
 | Empty collection | Explain My Books and the Catalogs path to catalogue setup. | Add a catalogue connection |
-| Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading Journey or Add to Reading Journey |
-| Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | View in Reading Journey or Add to Reading Journey |
+| Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading or Move to To Read |
+| Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | View in Reading or Move to To Read |
 | Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalog metadata and re-sync |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
 | Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
@@ -112,7 +111,7 @@ Goal presentation.
 - Cross-language browse or search; an "All languages" default.
 - Batch selection or batch analysis.
 - A default readiness ranking, recommendation, or “best next book.”
-- Changing Book identity, membership, evidence, Journey, or Primary Goal
+- Changing Book identity, evidence, current reading, or reading history
   contracts.
 - Requiring JavaScript, drag interactions, or a spatial collection canvas.
 
@@ -125,7 +124,7 @@ Goal presentation.
   their state in navigable URLs.
 - Search covers the active language's local collection and performs no OPDS
   request.
-- Analyzed Journey-member items link to their canonical Reading Journey anchor;
+- Analyzed To Read items link to their canonical Reading anchor;
   other rows do not link to a detail page.
 - Empty, no-match, needs-language, and paging-boundary states are distinct.
 - The full workflow is keyboard-operable and usable without JavaScript; HTMX
