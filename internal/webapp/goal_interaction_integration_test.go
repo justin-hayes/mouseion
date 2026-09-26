@@ -52,7 +52,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 		"expected_goal_book_id": {""},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, chosen.Code)
-	assert.True(t, strings.Contains(chosen.Header().Get("Location"), "active+Reading+Journey+member"), "location=%q body=%s", chosen.Header().Get("Location"), chosen.Body.String())
+	assert.True(t, strings.Contains(chosen.Header().Get("Location"), "must+be+in+To+Read"), "location=%q body=%s", chosen.Header().Get("Location"), chosen.Body.String())
 	goal, err := store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
@@ -79,7 +79,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 		"expected_goal_book_id": {"stale-goal"},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, stale.Code)
-	assert.True(t, strings.Contains(stale.Header().Get("Location"), "This+Primary+Goal+changed"), "location=%q", stale.Header().Get("Location"))
+	assert.True(t, strings.Contains(stale.Header().Get("Location"), "current+reading+changed"), "location=%q", stale.Header().Get("Location"))
 	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, readingOnly.ID, goal.BookID)
@@ -105,7 +105,7 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 		"expected_goal_book_id": {readingOnly.ID},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, cleared.Code)
-	assert.True(t, strings.Contains(cleared.Header().Get("Location"), "Primary+Goal+cleared"), "location=%q", cleared.Header().Get("Location"))
+	assert.True(t, strings.Contains(cleared.Header().Get("Location"), "Current+reading+cleared"), "location=%q", cleared.Header().Get("Location"))
 	clearedAgain := perform(t, h, http.MethodPost, "/goal/clear", url.Values{
 		"csrf_token":            {aliceCSRF},
 		"expected_goal_book_id": {""},
