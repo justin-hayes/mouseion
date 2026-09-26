@@ -92,6 +92,7 @@ func TestJourneyPageRendersValidatedCrossLanguageHandoff(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, handoff.Code)
 	assert.Contains(t, handoff.Body.String(), "This Book is in German")
+	assert.Contains(t, handoff.Body.String(), "your saved study language is Italian")
 	assert.Contains(t, handoff.Body.String(), `name="language" value="de"`)
 	assert.Contains(t, handoff.Body.String(), `name="return_to" value="/reading#journey-book-fixture-route-match"`)
 	assert.Contains(t, handoff.Body.String(), `id="journey-book-fixture-route-match"`)

@@ -265,6 +265,7 @@ func journeyCurrentCoverage(item journeyBookView) string {
 type journeyPageView struct {
 	Language            string
 	LanguageLabel       string
+	ActiveLanguageLabel string
 	LanguageHandoff     *journeyLanguageHandoffView
 	Goal                *journeyBookView
 	Provisional         []journeyBookView
@@ -409,7 +410,7 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		if analysisErr != nil {
 			refreshed.Error = journeyAnalysisError(ctx, h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
 		} else {
-		refreshed.Message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
+			refreshed.Message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
 		}
 		return refreshed, nil
 	}

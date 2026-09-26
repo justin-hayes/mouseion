@@ -497,7 +497,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			@Feedback(FeedbackError, "Action needed", pageError)
 		}
 		if journey.LanguageHandoff != nil {
-			@ReadingLanguageHandoff(*journey.LanguageHandoff, journey.LanguageLabel, csrf)
+			@ReadingLanguageHandoff(*journey.LanguageHandoff, journey.LanguageLabel, journey.ActiveLanguageLabel, csrf)
 		}
 		@GoalSection(journey.Goal, csrf, "", "", "")
 		<details class="journey-coverage-note">
@@ -511,10 +511,10 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 	}
 }
 
-templ ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabel, csrf string) {
+templ ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabel, activeLanguageLabel, csrf string) {
 	<section class="language-handoff" aria-labelledby="language-handoff-heading">
 		<h2 id="language-handoff-heading">This Book is in { handoff.LanguageLabel }</h2>
-		<p><strong>{ handoff.BookTitle }</strong> is in { handoff.LanguageLabel }, while this Reading page is showing { pageLanguageLabel }. This request does not change your saved study language; switch it if you want { handoff.LanguageLabel } to become your active language.</p>
+		<p><strong>{ handoff.BookTitle }</strong> is in { handoff.LanguageLabel }. This Reading page is showing { pageLanguageLabel }, while your saved study language is { activeLanguageLabel }. This request does not change the saved language; switch it if you want { handoff.LanguageLabel } to become active.</p>
 		<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ handoff.Language }/><input type="hidden" name="return_to" value={ journeyEntryURL(handoff.BookID) }/><button type="submit">Switch to { handoff.LanguageLabel } and open this Book</button></form>
 	</section>
 }
@@ -1273,7 +1273,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 			@Feedback(FeedbackError, "Action needed", pageError)
 		}
 		if chooser.LanguageHandoff != nil {
-			@ReadingLanguageHandoff(*chooser.LanguageHandoff, chooser.LanguageLabel, csrf)
+			@ReadingLanguageHandoff(*chooser.LanguageHandoff, chooser.LanguageLabel, chooser.ActiveLanguageLabel, csrf)
 		}
 		if chooser.Language == "" {
 			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">

@@ -207,8 +207,8 @@ scrollable data table must label and contain its own overflow.
   between-Books candidate chooser.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
-- Reading presents one current Book or, between Books, the learner's To Read
-  candidates without a learner-maintained order or recommendation ranking.
+- Reading presents one current Book or, between Books, the learner's ordered To
+  Read candidates without recommendation ranking.
 - Candidate coverage describes current vocabulary evidence; it does not imply
   difficulty, readiness, or a predicted reading outcome.
 - Modeled Known vocabulary, Reserved vocabulary, conditional forecast, reading

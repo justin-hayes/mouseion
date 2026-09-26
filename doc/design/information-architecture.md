@@ -30,10 +30,10 @@ The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
 2. work in one active study language at a time;
-3. choose and revise a provisional Reading Journey in that language;
-4. commit to finishing one Primary Goal per language, when desired;
-5. understand current, after-Goal, and on-arrival preparation evidence;
-6. accept completed-Goal vocabulary into the modeled knowledge used by books ahead;
+3. move Books into or out of To Read and revise their order;
+4. choose a current Book to finish, when desired;
+5. understand current, after-current-reading, and on-arrival coverage;
+6. accept a finished Book's frozen vocabulary into the model used by later books;
 7. understand derived study languages and import known vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
 
@@ -41,8 +41,8 @@ The recurring experience rhythm is:
 
 ```text
 My Books
-    -> shape or reconsider Reading Journey
-    -> choose one Primary Goal
+    -> move Books into To Read and revise their order
+    -> choose a current Book
     -> prepare and read without conflating those facts
     -> finish the book
     -> apply only justified vocabulary transitions
@@ -51,12 +51,13 @@ My Books
 ```
 
 This rhythm does not imply a required pipeline for every Book. Catalog sync,
-analysis, Goal choice, reading completion, and prepared-deck artifact work remain
-distinct transitions. The learner-initiated **Add to Reading Journey** action is
-the analysis exception: it adds membership and intentionally acquires the
-current EPUB and ensures whole-book analysis as one Journey action. My Books
-metadata refresh remains separate and never starts analysis. Goal choice freezes
-the vocabulary snapshot; completion accepts it into modeled Known vocabulary.
+analysis, To Read disposition, current-reading selection, reading completion,
+and prepared-deck artifact work remain distinct transitions. Moving a Book to To
+Read is the analysis exception: the learner's intent intentionally acquires the
+current EPUB and ensures whole-book analysis as one action. My Books metadata
+refresh remains separate and never starts analysis. Starting current reading
+freezes the vocabulary snapshot; finishing accepts it into modeled Known
+vocabulary.
 
 ## Principal learner-facing model
 

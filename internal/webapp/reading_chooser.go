@@ -42,6 +42,7 @@ type transactionalGoalDeckPreparer interface {
 
 type readingChooserPageView struct {
 	Language, LanguageLabel          string
+	ActiveLanguageLabel              string
 	LanguageHandoff                  *journeyLanguageHandoffView
 	CurrentBookID, CurrentSnapshotID string
 	At99Plus, At97To99               []readingChooserBookView
@@ -54,6 +55,7 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
 	activeLanguage := language
+	activeLanguageLabel := languageLabel
 	if requested := strings.TrimSpace(r.URL.Query().Get("language")); requested != "" {
 		if view := shellViewFromContext(r.Context()); view != nil {
 			for _, option := range view.Options {
@@ -82,6 +84,7 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		}
 		journey.Language = language
 		journey.LanguageLabel = languageLabel
+		journey.ActiveLanguageLabel = activeLanguageLabel
 		if hasHandoff {
 			journey.LanguageHandoff = &handoff
 		}
@@ -96,6 +99,7 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	if hasHandoff {
 		view.LanguageHandoff = &handoff
 	}
+	view.ActiveLanguageLabel = activeLanguageLabel
 	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 }
 
