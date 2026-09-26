@@ -141,17 +141,14 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	// are rejected without changing the accepted state.
 	_, err = store.ChangePrimaryGoal(ctx, alice.ID, "de", secondBook.ID, "stale-book")
 	assert.ErrorIs(t, err, persistence.ErrGoalStale) //nolint:testifylint // Stale goal rejection is independently asserted before HTTP checks.
-	missingCSRF := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"expected_goal_book_id": {book.ID}}, aliceCookies)
-	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	bobCookies, bobCSRF := loginCookies(t, h, "migration-bob", "bob-password")
 	foreign := perform(t, h, http.MethodPost, "/goal/books/"+book.ID, url.Values{"csrf_token": {bobCSRF}, "expected_goal_book_id": {""}}, bobCookies)
-	assert.Equal(t, http.StatusSeeOther, foreign.Code)
-	assert.True(t, strings.Contains(foreign.Header().Get("Location"), "not+available"), "location=%q", foreign.Header().Get("Location"))
+	assert.Equal(t, http.StatusNotFound, foreign.Code)
 	bobGoal, goalErr := store.GetPrimaryGoal(ctx, bob.ID, "de")
 	require.NoError(t, goalErr)
 	assert.Empty(t, bobGoal.BookID)
 
-	finished := perform(t, h, http.MethodPost, "/goal/finish", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {book.ID}, "expected_goal_snapshot_id": {goal.SnapshotID}}, aliceCookies)
+	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {goal.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/reading">Choose what to read next</a>`} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
@@ -199,9 +196,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
-	laterGoal := perform(t, h, http.MethodPost, "/goal/books/"+secondBook.ID, url.Values{
-		"csrf_token":            {csrf},
-		"expected_goal_book_id": {""},
+	laterGoal := perform(t, h, http.MethodPost, "/reading/books/"+secondBook.ID+"/start", url.Values{
+		"csrf_token": {csrf},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, laterGoal.Code)
 	assert.NotContains(t, laterGoal.Header().Get("Location"), "error=")

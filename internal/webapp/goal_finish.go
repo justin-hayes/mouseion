@@ -10,8 +10,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-type primaryGoalFinisher interface {
-	RecordReadingFinishedPrimaryGoal(context.Context, string, string, string, string) (persistence.ReadingFinishResult, error)
+type currentReadingFinisher interface {
+	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
 }
 
 type primaryGoalFinishView struct {
@@ -20,18 +20,18 @@ type primaryGoalFinishView struct {
 	AlreadyKnownCount        int
 }
 
-func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
-	finisher, ok := h.services.Store.Goals.(primaryGoalFinisher)
+	finisher, ok := h.services.Store.CurrentReading.(currentReadingFinisher)
 	if !ok {
 		h.respondGoal(w, r, "", "Reading finish is not available. No changes were made; review Reading and try again.", "")
 		return
 	}
 	owner := user(r).ID
-	expectedBookID := strings.TrimSpace(r.FormValue("expected_goal_book_id"))
-	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
+	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
+	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
 		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
@@ -42,8 +42,8 @@ func (h *Handler) finishPrimaryGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := finisher.RecordReadingFinishedPrimaryGoal(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
-	if errors.Is(err, persistence.ErrGoalStale) {
+	result, err := finisher.FinishCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
+	if errors.Is(err, persistence.ErrCurrentReadingStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return
 	}

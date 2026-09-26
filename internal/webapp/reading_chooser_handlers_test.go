@@ -138,6 +138,8 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	assert.Contains(t, readingPage.Body.String(), "Stop reading for now")
 	assert.Contains(t, readingPage.Body.String(), "Set aside this Book")
 	assert.Contains(t, readingPage.Body.String(), `name="expected_current_snapshot_id"`)
+	assert.Contains(t, readingPage.Body.String(), `action="/reading/finish"`)
+	assert.NotContains(t, readingPage.Body.String(), `action="/goal/finish"`)
 
 	switchRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading/switch", nil)
 	for _, cookie := range cookies {
@@ -219,6 +221,46 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, retriedSetAside.Code)
 	assert.NotContains(t, retriedSetAside.Header().Get("Location"), "error=")
+
+	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-route-match", domain.BookDispositionToRead))
+	started = goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, started.Code)
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	finished := goalRequest(t, h, "/reading/finish", url.Values{
+		"csrf_token":                   {csrf},
+		"expected_current_book_id":     {current.BookID},
+		"expected_current_snapshot_id": {current.SnapshotID},
+	}, cookies)
+	require.Equal(t, http.StatusOK, finished.Code)
+	assert.Contains(t, finished.Body.String(), "Reading finished")
+	assert.Contains(t, finished.Body.String(), `href="/reading">Choose what to read next</a>`)
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.False(t, current.IsActive())
+}
+
+func TestLegacyGoalMutationsAreRejectedWithoutChangingCurrentReading(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	currentBefore, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+
+	legacyRequests := []struct {
+		path string
+		form url.Values
+	}{
+		{"/goal/books/fixture-route-match", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}}},
+		{"/goal/clear", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}}},
+		{"/goal/finish", url.Values{"csrf_token": {csrf}, "expected_goal_book_id": {fixtures.BookID}, "expected_goal_snapshot_id": {currentBefore.SnapshotID}}},
+	}
+	for _, test := range legacyRequests {
+		response := goalRequest(t, h, test.path, test.form, cookies)
+		assert.Equalf(t, http.StatusNotFound, response.Code, "legacy mutation %s should be retired", test.path)
+	}
+
+	currentAfter, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, currentBefore, currentAfter)
 }
 
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {

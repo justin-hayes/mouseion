@@ -100,11 +100,11 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	readingPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
-	assert.Contains(t, readingPage.Body.String(), `action="/goal/books/`+book.ID+`/deck/retry"`)
+	assert.Contains(t, readingPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)
 
 	setEnqueueFailure(false)
-	retry := perform(t, h, http.MethodPost, "/goal/books/"+book.ID+"/deck/retry", url.Values{
-		"csrf_token": {csrf}, "expected_goal_snapshot_id": {reading.SnapshotID},
+	retry := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/retry", url.Values{
+		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, retry.Code)
 	assert.Contains(t, retry.Header().Get("Location"), "Deck+preparation+retry+queued")
@@ -135,11 +135,11 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	assert.Contains(t, duplicateStart.Header().Get("Location"), "deck+preparation+could+not+be+queued")
 	queuedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code)
-	assert.Contains(t, queuedPage.Body.String(), `action="/goal/books/`+book.ID+`/deck/retry"`)
+	assert.Contains(t, queuedPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)
 	assert.Contains(t, queuedPage.Body.String(), "Retry deck preparation")
 	setEnqueueFailure(false)
-	retryExisting := perform(t, h, http.MethodPost, "/goal/books/"+book.ID+"/deck/retry", url.Values{
-		"csrf_token": {csrf}, "expected_goal_snapshot_id": {reading.SnapshotID},
+	retryExisting := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/retry", url.Values{
+		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, retryExisting.Code)
 	assert.Contains(t, retryExisting.Header().Get("Location"), "Deck+preparation+retry+queued")

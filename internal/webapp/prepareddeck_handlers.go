@@ -42,7 +42,7 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 			http.NotFound(w, r)
 			return
 		}
-		handle, submitErr := h.submitOrRetryGoalDeck(r.Context(), u.ID, goal)
+		handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, goal)
 		if submitErr != nil {
 			handlePreparationError(w, r, submitErr)
 			return
@@ -133,7 +133,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 			if !readerOK {
 				task.Unavailable = true
 			} else if preparation, preparationErr := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
-				if !goalPreparationMatches(preparation, owner, goal) {
+				if !currentReadingPreparationMatches(preparation, owner, goal) {
 					http.NotFound(w, r)
 					return
 				}

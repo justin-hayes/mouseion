@@ -103,8 +103,8 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
 	assert.Contains(t, html, "Deck preparation")
 	assert.Contains(t, html, "Retry deck preparation")
-	assert.Contains(t, html, `action="/goal/books/goal/deck/retry"`)
-	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="snapshot"`)
+	assert.Contains(t, html, `action="/reading/books/goal/deck/retry"`)
+	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot"`)
 	assert.NotContains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
 	goalCardStart := strings.Index(html, `id="journey-book-goal"`)
 	goalCardEnd := strings.Index(html[goalCardStart:], "</article>")
@@ -140,7 +140,7 @@ func TestIsCurrentReadingShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) 
 	assert.Contains(t, html, "Deck state: Missing")
 	assert.Contains(t, html, "The current reading and snapshot remain unchanged")
 	assert.Contains(t, html, "Prepare deck")
-	assert.Contains(t, html, `name="expected_goal_snapshot_id" value="missing-snapshot"`)
+	assert.Contains(t, html, `name="expected_current_snapshot_id" value="missing-snapshot"`)
 }
 
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
@@ -318,7 +318,7 @@ func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
 	assert.Empty(t, message)
 }
 
-func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T) {
+func TestActiveReadingDoesNotExposeLegacyGoalChoiceAndKeepsSecondaryActionsDisclosed(t *testing.T) {
 	eligible := testJourneyBook("eligible", "Eligible book", "analyzed")
 	eligible.CanChooseGoal = true
 	ineligible := testJourneyBook("ineligible", "Ineligible book", "not analyzed")
@@ -332,7 +332,8 @@ func TestJourneyKeepsGoalChoiceVisibleAndSecondaryActionsDisclosed(t *testing.T)
 	eligibleCard := html[eligibleStart:ineligibleStart]
 	ineligibleCard := html[ineligibleStart:]
 
-	assert.Contains(t, eligibleCard, ">Start reading</button>")
+	assert.NotContains(t, eligibleCard, ">Start reading</button>")
+	assert.NotContains(t, eligibleCard, `action="/goal/books/`)
 	assert.Contains(t, eligibleCard, `<details class="more-actions"><summary>More actions</summary>`)
 	assert.Contains(t, eligibleCard, `action="/reading/books/eligible/set-aside"`)
 	assert.NotContains(t, ineligibleCard, "Start reading")
