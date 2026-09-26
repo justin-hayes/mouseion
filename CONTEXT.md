@@ -5,8 +5,10 @@ A learner connects their own OPDS catalog, syncs books into a personal
 library, analyzes each Book according to its declared EPUB structure, and prepares
 Anki recognition decks from unknown vocabulary.
 
-The current Goal, vocabulary, and Reading Journey contract is recorded in
-[ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md).
+The current disposition and current-reading contract is recorded in
+[ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md).
+[ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
+records the historical Goal and ordered-Journey model.
 
 ## Language
 
@@ -22,7 +24,7 @@ selection defining the set).
 The one language the learner is currently working in. It is a stored selection
 pointing into the derived study-language set — context, not configuration: it
 chooses which study language the per-language surfaces (My Books browse,
-Reading Journey, Vocabulary) present, and never defines which languages are
+Reading, Vocabulary) present, and never defines which languages are
 studied. When the set is unambiguous the selection defaults deterministically;
 if the selection leaves the set, it resets. There is no "no language" choice:
 absence of an active study language is never a learner selection, only a
@@ -38,37 +40,35 @@ _Avoid_: study-language scope, synced languages.
 
 **Known vocabulary**:
 Words the learner already knows in a language, owned per learner and language,
-populated by explicit lemma import or acceptance of a completed Primary Goal's
+populated by explicit lemma import or acceptance of a completed current reading's
 frozen vocabulary snapshot. This is modeled learner knowledge, not a claim of
 verified mastery; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
 **Recurring vocabulary**:
 Unknown lemmas appearing at least N times in an analyzed book; the pool a
-prepared deck or modeled Goal snapshot selects. N is a selection parameter with
-a default of three, and selection makes no coverage claim. Current Known
+prepared deck or current-reading snapshot selects. N is a selection parameter
+with a default of three, and selection makes no coverage claim. Current Known
 vocabulary and Reserved vocabulary in the same study language are excluded;
 generated provenance is not an exclusion state.
 _Avoid_: frequent words, deck coverage.
 
 **Reserved vocabulary**:
-The frozen recurring-vocabulary snapshot owned by an active Primary Goal, held
-aside so it is neither counted as Known nor re-selected in another Goal in the
-same study language. Clearing, changing, or completing the Goal ends the
-reservation; it is never an independent learner-selected study state.
-_Avoid_: active-campaign vocabulary, known vocabulary, studied vocabulary.
+The frozen recurring-vocabulary snapshot held by a current reading in its study
+language, neither counted as Known nor available for selection while active.
+Stopping, switching, setting aside, or finishing releases the reservation.
+_Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
 
-**Goal vocabulary snapshot**:
-The immutable recurring-vocabulary identity set captured from a Goal's exact
-current analysis when the Goal is chosen, together with its analysis, source,
-and selection provenance. Deck artifact readiness or later reanalysis does not
-change the snapshot.
+**Current-reading vocabulary snapshot**:
+The immutable recurring-vocabulary identity set frozen from the Book's exact
+source and current analysis when reading starts. Later evidence and deck changes
+cannot mutate it; rereading freezes a new snapshot.
 _Avoid_: deck contents, generated vocabulary, study snapshot.
 
 **Generated vocabulary**:
 Immutable provenance that an identity was included in a prepared deck, including
 its Book/deck origin. Generation is neither Known nor Reserved and does not by
-itself exclude an identity from a later Goal.
+itself exclude an identity from a later current reading.
 _Avoid_: assigned knowledge, known vocabulary, reserved vocabulary.
 
 **Separable particle**:
@@ -88,8 +88,8 @@ _Avoid_: particle verb, prefix verb.
 An Anki recognition deck built asynchronously from the recurring vocabulary of
 one exact completed analysis of a Book and that analysis's EPUB snapshot. The
 ready deck is downloaded and studied in the learner's own Anki; preparation
-does not mark vocabulary Known. Goal completion owns the vocabulary transition,
-while historical deck and graduation provenance remains readable.
+does not mark vocabulary Known. Reading completion owns the vocabulary
+transition; a current reading with an empty snapshot requires no deck.
 _Avoid_: study plan, in-app review deck.
 
 **Deck specification**:
@@ -124,33 +124,49 @@ without re-selecting, re-analyzing, or re-translating.
 _Avoid_: version (ambiguous with presentation version), regeneration.
 
 **Reading completion**:
-An append-only, Book-anchored fact recorded when the learner accepts completion
-of the active Primary Goal. It removes that Book from the active Journey and
-clears the Goal without choosing another Goal.
+An append-only, Book-anchored fact recorded when the learner finishes a current
+reading. It accepts eligible identities from that reading's frozen snapshot into
+modeled Known vocabulary and ends the current-reading role.
 _Avoid_: Journey completion, deck completion, mastery.
 
+**Previously read**:
+A one-time assertion that the learner read a Book outside its current-reading
+workflow. It records assertion time, not a historical reading date, and implies
+no analysis or vocabulary transition.
+_Avoid_: reading completion, known vocabulary.
+
 **Vocabulary transition**:
-The set-based addition of a Goal's frozen snapshot to modeled Known vocabulary
-when the learner accepts Primary Goal completion. It is independent of deck
+The set-based addition of a current reading's frozen snapshot to modeled Known
+vocabulary when the learner finishes reading. It is independent of deck
 artifact readiness and does not claim per-card mastery.
 _Avoid_: mastery, deck review, vocabulary study.
 
 **Graduation**:
-The historical name for the consequential transition that promotes a Goal's
-frozen snapshot into modeled Known vocabulary on accepted Goal completion. It
-is never implied by generation, assignment, deck readiness, or merely choosing
-a Goal, and it does not claim verified mastery.
-_Avoid_: completion, mastering, promotion (reserved for Primary Goal).
+The historical name for the consequential transition that accepts a frozen
+snapshot into modeled Known vocabulary when reading is finished. It is never
+implied by generation, deck readiness, or merely starting a Book.
+_Avoid_: completion, mastering, promotion.
 
 **Analysis evidence**:
 The classification of a Book's current acquired source against its analysis
 standing, owned per Book and derived from the raw analysis signals rather than
-stored by hand. It is the single state both My Books and the Reading Journey
+stored by hand. It is the single state both My Books and Reading
 present: not acquired, unavailable (content present but no current revision),
 stale (a prior analysis no longer matches the current content), analyzed, or
 acquired-but-unassessed (current content present, analysis not yet complete).
 _Avoid_: book status, analysis state (the raw signal the classification reads,
 not the classification itself), deck readiness.
+
+**Vocabulary coverage band**:
+A neutral grouping of trustworthy analyzed To Read Books by current
+analyzable-token coverage: at least 99%, at least 97% but below 99%, at least
+95% but below 97%, or below 95%. It is evidence, not a reading recommendation.
+_Avoid_: accessibility, readiness, difficulty band.
+
+**No vocabulary comparison**:
+The chooser group for a successfully analyzed Book with no analyzable-token
+denominator. It means neither zero coverage nor failed evidence.
+_Avoid_: 0% coverage, Needs attention.
 
 **Main text**:
 The contiguous run of a Book's readable units that the EPUB structure declares to
@@ -171,8 +187,8 @@ A book's chosen language tag, or its absence recorded as an unknown-language
 state. A chosen tag is stored in one canonical base form — lowercased, with `_`
 as `-` and region subtags collapsed, so `de_DE` and `de-de` are the same as `de`.
 Chosen book languages are the raw material from which a learner's study
-languages are derived. A book without a chosen language belongs to no language
-partition: it participates in nothing until a re-sync admits it into one.
+languages are derived. A Book without a chosen language belongs to no study
+language partition and remains visible in Needs language.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
 
@@ -180,7 +196,7 @@ content).
 The domain-derived classification of a Book's current acquired evidence:
 `not_acquired`, `unavailable`, `acquired_unassessed`, `analyzed`, or `stale`.
 It is derived from raw acquisition and current-analysis signals rather than
-persisted as learner state. Goal eligibility is a separate domain derivation
+persisted as learner state. Current-reading eligibility is a separate derivation
 with reason codes for missing current content, analysis in progress, failed or
 cancelled analysis, stale analysis, no completed analysis, and eligibility.
 _Avoid_: evidence status as a persisted source of truth.
@@ -209,41 +225,54 @@ Catalog entry and allowed to change as that metadata changes. It supports the
 Book's title and author but is never its sole learner-facing identity.
 _Avoid_: cover art, thumbnail (a presentation size, not the Book metadata).
 
-**Reading intent**:
-A learner's voluntary act of selecting a Book as a candidate they may read and
-study next. Intent is expressed by adding the Book to the Reading Journey, and
-is a promise that analysis evidence should exist so the learner can weigh the
-Book against other candidates. Analysis is an automatic, ensure-once consequence
-of expressed intent, not a separate chore.
-_Avoid_: interest, wanting to read, commitment (which is Primary Goal).
+**Book disposition**:
+A learner-and-Book-scoped triage relationship: Inbox, To Read, or Set Aside. It
+follows the Book across language corrections and is independent of analysis,
+deck state, and reading history; the current Book remains To Read underneath.
+_Avoid_: book status, reading state, workflow state.
 
-**Reading Journey**:
-One per study language: a fluid, provisional order of that language's Books the
-learner currently imagines reading. Membership is reversible and expresses
-reading intent in that language; adding a Book to the Journey automatically
-acquires and analyzes it (ensure-once) so it can be weighed against other
-members of the same language. It is a candidate pool, not a commitment. A Book
-with a chosen language joins its language's Journey.
-_Avoid_: learning queue, backlog, curriculum, plan, roadmap.
+**Book workflow bucket**:
+The one visible My Books placement of a Book, derived in precedence order from
+Current reading, To Read, Inbox, Read when history exists, then Set Aside.
+_Avoid_: Book disposition, shelf.
 
-**Reading Journey book anchor**:
-The canonical Reading Journey presentation of one Book's identity, Journey and
-Goal relationship, current evidence, forecast, and evidence recovery actions.
-The former `/journey/{bookID}` URLs remain compatibility bookmarks: an authorized
-and reachable Book redirects to its anchor in `/journey`, while unavailable or
-unauthorized Books remain unavailable. Deck work belongs to the focused
-preparation task, not to a separate Book or analysis page.
-_Avoid_: Journey entry, Book detail, analysis page, journey item.
+**My Books**:
+The learner's Book collection, browsed by study language, including untriaged
+Inbox Books and Books without a usable language. It owns disposition choices,
+not the decision to start reading.
+_Avoid_: library queue, reading plan.
 
-**Primary Goal**:
-One per study language: the Book in that language's Reading Journey the learner
-currently intends to finish, when one exists. It is a promotion of a member of
-that language's Journey: choosable only for a member with a successfully
-completed current analysis, and it clears if that member leaves the Journey.
-How many Goals across languages are active at once is the learner's own
-discipline, not an enforced invariant. The Goal carries commitment; Reading
-Journey membership does not.
-_Avoid_: active campaign, target destination, current project.
+**Reading**:
+The active-language workflow for the current Book or, between Books, a neutral
+chooser of trustworthy To Read candidates. It maintains no learner-authored
+order or automatic next Book.
+_Avoid_: Reading Journey, Primary Goal, reading queue.
+
+**Inbox**:
+The disposition of a newly discovered Book not yet triaged by the learner.
+Metadata changes or catalog reappearance do not recreate Inbox work.
+_Avoid_: unprocessed queue, notification.
+
+**To Read**:
+The disposition expressing that a Book is a possible future reading, with
+acquisition and analysis intent but no current-reading commitment.
+_Avoid_: Journey member, backlog, queue.
+
+**Set Aside**:
+The disposition of a Book removed from ordinary consideration without deletion
+or a claim that it was read.
+_Avoid_: archived, rejected, abandoned.
+
+**Current reading**:
+The analyzed To Read Book the learner has committed to reading in a study
+language, at most one per language. Its frozen snapshot remains distinct from
+the Book's later analysis evidence.
+_Avoid_: Primary Goal, reading status, current project.
+
+**Reading history**:
+Append-only, Book-anchored reading completions and previously-read assertions.
+History remains even when a Book returns to To Read for rereading.
+_Avoid_: Read disposition, completed list, Journey history.
 
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
