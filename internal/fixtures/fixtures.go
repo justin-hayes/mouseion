@@ -919,8 +919,11 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 	if !s.fixtureBookExists(owner, bookID) {
 		return errNotFound
 	}
-	s.dispositions[fixtureDispositionKey(owner, bookID)] = disposition
-	s.dispositionRevisions[fixtureDispositionKey(owner, bookID)] = s.bookDispositionRevisionLocked(owner, bookID) + 1
+	key := fixtureDispositionKey(owner, bookID)
+	if s.bookDispositionLocked(owner, bookID) != disposition {
+		s.dispositionRevisions[key] = s.bookDispositionRevisionLocked(owner, bookID) + 1
+	}
+	s.dispositions[key] = disposition
 	return nil
 }
 
@@ -989,8 +992,11 @@ func (s *Store) SetBookAside(_ context.Context, owner, language, bookID string) 
 	if !s.fixtureBookExists(owner, bookID) {
 		return errNotFound
 	}
-	s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
-	s.dispositionRevisions[fixtureDispositionKey(owner, bookID)] = s.bookDispositionRevisionLocked(owner, bookID) + 1
+	key := fixtureDispositionKey(owner, bookID)
+	if s.bookDispositionLocked(owner, bookID) != domain.BookDispositionSetAside {
+		s.dispositionRevisions[key] = s.bookDispositionRevisionLocked(owner, bookID) + 1
+	}
+	s.dispositions[key] = domain.BookDispositionSetAside
 	return nil
 }
 func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {

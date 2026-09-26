@@ -27,8 +27,8 @@ INSERT INTO book_dispositions(owner_id, book_id, disposition)
 VALUES ($1, $2, $3)
 ON CONFLICT (owner_id, book_id) DO UPDATE SET
     disposition = EXCLUDED.disposition,
-    revision = book_dispositions.revision + 1,
-    updated_at = now();
+    revision = book_dispositions.revision + CASE WHEN book_dispositions.disposition IS DISTINCT FROM EXCLUDED.disposition THEN 1 ELSE 0 END,
+    updated_at = CASE WHEN book_dispositions.disposition IS DISTINCT FROM EXCLUDED.disposition THEN now() ELSE book_dispositions.updated_at END;
 
 -- name: TransitionBookDisposition :execrows
 UPDATE book_dispositions
