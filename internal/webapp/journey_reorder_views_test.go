@@ -38,9 +38,9 @@ func TestJourneyPageRendersAccessibleReorderControls(t *testing.T) {
 	secondCard := html[strings.Index(html, `id="journey-book-second"`):]
 	assert.True(t, strings.Contains(firstCard, "disabled") && strings.Contains(secondCard, "disabled"), "first/last boundary controls were not disabled: first=%s second=%s", firstCard, secondCard)
 	goalCard := html[strings.Index(html, `id="journey-book-goal"`):strings.Index(html, `id="provisional-journey-heading"`)]
-	assert.False(t, strings.Contains(goalCard, "Move earlier") || strings.Contains(goalCard, "Move later"), "Primary Goal rendered reorder controls: %s", goalCard)
+	assert.False(t, strings.Contains(goalCard, "Move earlier") || strings.Contains(goalCard, "Move later"), "Current reading rendered reorder controls: %s", goalCard)
 	assert.Contains(t, goalCard, `<details class="more-actions"><summary>More actions</summary>`)
-	assert.Contains(t, goalCard, "Clear Primary Goal")
+	assert.Contains(t, goalCard, "Clear Current reading")
 }
 
 func TestJourneyForecastFailureKeepsSavedOrderActionable(t *testing.T) {
@@ -48,7 +48,7 @@ func TestJourneyForecastFailureKeepsSavedOrderActionable(t *testing.T) {
 		ForecastUnavailable: true,
 		Provisional:         []journeyBookView{testJourneyBook("first", "First provisional book", "ready")},
 	}
-	html := renderJourney(t, view, "Moved First provisional book to position 1 in Your order. Coverage forecast unavailable; the saved order remains in place. Retry Reading Journey.", "")
+	html := renderJourney(t, view, "Moved First provisional book to position 1 in To Read books. Coverage forecast unavailable; the saved order remains in place. Retry Reading.", "")
 	assert.Contains(t, html, "saved order remains in place")
 	assert.Contains(t, html, `href="/reading">Retry forecast</a>`)
 }

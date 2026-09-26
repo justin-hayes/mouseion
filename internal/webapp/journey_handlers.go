@@ -203,7 +203,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" || strings.TrimSpace(item.Book.Source.ContentSnapshotID) == "" {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
-			Description: "No current EPUB content is available for this book in Reading Journey. Retry acquisition when the catalog can provide it.",
+			Description: "No current EPUB content is available for this book in Reading. Retry acquisition when the catalog can provide it.",
 			Label:       "Retry acquisition",
 			URL:         journeyReanalyzeURL(bookID),
 			Submit:      true,
@@ -229,7 +229,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book) {
 		action.URL = journeyEntryURL(bookID)
-		action.Label = "View in Reading Journey"
+		action.Label = "View in Reading"
 	}
 	return action
 }
@@ -237,17 +237,17 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
 	switch book.GoalEligibility() {
 	case domain.GoalNeedsCurrentContent:
-		return false, "This book cannot become a Primary Goal until current EPUB content is available."
+		return false, "This book cannot be started until current EPUB content is available."
 	case domain.GoalAnalysisInProgress:
-		return false, "This book cannot become a Primary Goal while its current analysis is still in progress."
+		return false, "This book cannot be started while its current analysis is still in progress."
 	case domain.GoalFailed:
-		return false, "This book cannot become a Primary Goal until its failed analysis is retried successfully."
+		return false, "This book cannot be started until its failed analysis is retried successfully."
 	case domain.GoalCancelled:
-		return false, "This book cannot become a Primary Goal until its cancelled analysis is retried successfully."
+		return false, "This book cannot be started until its cancelled analysis is retried successfully."
 	case domain.GoalStale:
-		return false, "This book cannot become a Primary Goal until its analysis matches the current content."
+		return false, "This book cannot be started until its analysis matches the current content."
 	case domain.GoalNoCompletedAnalysis:
-		return false, "This book needs a successfully completed current analysis before it can become a Primary Goal."
+		return false, "This book needs a successfully completed current analysis before it can be started."
 	case domain.GoalEligible:
 		return true, ""
 	default:
@@ -281,6 +281,7 @@ type journeyLanguageHandoffView struct {
 
 func journeyLanguageHandoffURL(bookID, language string) string {
 	query := url.Values{}
+	query.Set("language", language)
 	query.Set("language_handoff_book", bookID)
 	query.Set("language_handoff_language", language)
 	return "/reading?" + query.Encode()
@@ -292,9 +293,9 @@ func journeyPageTitle(journey journeyPageView) string {
 		label = strings.TrimSpace(journey.Language)
 	}
 	if label == "" {
-		return "Reading Journey"
+		return "Reading"
 	}
-	return "Reading Journey in " + label
+	return "Reading in " + label
 }
 
 type deckJourneyState string
@@ -329,7 +330,7 @@ func journeyAddURL(bookID string) string {
 
 func (h *Handler) deckJourneyAction(ctx context.Context, owner string, preparationID, bookID string) (deckJourneyActionView, error) {
 	// Deck preparation surfaces are keyed by source_materials.id while Journey
-	// membership and the Primary Goal are keyed by books.id, so every action
+	// membership and the current reading are keyed by books.id, so every action
 	// identity is resolved to its canonical book first. A source material with
 	// no book identity cannot join the Journey, so no action is offered.
 	resolved, ok, err := h.services.Store.Journey.ResolveJourneyBookID(ctx, owner, bookID)
@@ -377,13 +378,13 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
-	// A Primary Goal is intentionally not changed by a ready-deck action. This
+	// A current reading is intentionally not changed by a ready-deck action. This
 	// guard also keeps a forged direct POST from adding or reordering the Goal.
 	if action.State == deckJourneyGoal {
 		return action, nil
 	}
 	if _, err = h.services.Store.Journey.AddToReadingJourney(ctx, owner, language, bookID, expectedRevision); err != nil {
-		log.Print("mouseion: add book to Reading Journey failed")
+		log.Print("mouseion: add book to Reading failed")
 		refreshed, refreshErr := h.deckJourneyAction(ctx, owner, preparationID, bookID)
 		if refreshErr != nil {
 			return deckJourneyActionView{}, refreshErr
@@ -393,10 +394,10 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 			return refreshed, nil
 		}
 		if errors.Is(err, persistence.ErrBookLanguageRequired) {
-			refreshed.Error = "This book needs a language before it can join Reading Journey. Fix the language in the catalog, then re-sync."
+			refreshed.Error = "This book needs a language before it can be moved to To Read. Fix the language in the catalog, then re-sync."
 			return refreshed, nil
 		}
-		refreshed.Error = "The book could not be added to Reading Journey. No Journey changes were made; try again."
+		refreshed.Error = "The book could not be moved to To Read. No changes were made; try again."
 		return refreshed, nil
 	}
 	refreshed, err := h.deckJourneyAction(ctx, owner, preparationID, bookID)
@@ -408,15 +409,15 @@ func (h *Handler) addBookToReadingJourney(ctx context.Context, owner, preparatio
 		if analysisErr != nil {
 			refreshed.Error = journeyAnalysisError(ctx, h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
 		} else {
-			refreshed.Message = fmt.Sprintf("Book added to Reading Journey. Analysis job #%d submitted.", handle.DisplayNumber)
+		refreshed.Message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
 		}
 		return refreshed, nil
 	}
 	if refreshed.State == deckJourneyMember {
 		if action.State == deckJourneyMember {
-			refreshed.Message = "This book is already in your Reading Journey."
+			refreshed.Message = "This book is already in To Read."
 		} else {
-			refreshed.Message = "Book added to Reading Journey."
+			refreshed.Message = "Book moved to To Read."
 		}
 	}
 	return refreshed, nil
@@ -449,12 +450,12 @@ func (h *Handler) ensureJourneyAnalysis(ctx context.Context, owner, bookID strin
 
 func journeyAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
-		return "Book added to Reading Journey, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The Journey membership is retained; assessment is unavailable until the current EPUB can be acquired."
+		return "Book moved to To Read, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
 	}
 	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
-		return "Book added to Reading Journey, but the current source has no usable EPUB units. The Journey membership is retained; assessment is unavailable."
+		return "Book moved to To Read, but the current source has no usable EPUB units. The To Read status is retained; analysis is unavailable."
 	}
-	return "Book added to Reading Journey, but analysis could not start. Retry analysis from Reading Journey when ready."
+	return "Book moved to To Read, but analysis could not start. Retry analysis from Reading when ready."
 }
 
 func (h *Handler) annotateMyBooksWithJourney(ctx context.Context, owner string, books []domain.MyBook) error {
@@ -859,7 +860,7 @@ func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByI
 	if book, ok := bookByID[bookID]; ok {
 		return journeyBookView{Book: book, BookID: bookID}, nil
 	}
-	// Goal and Journey membership are allowed to exist before acquisition. Keep
+	// Goal and To Read status are allowed to exist before acquisition. Keep
 	// that identity visible instead of silently dropping it from the surface.
 	book, err := h.services.Store.Books.GetBook(ctx, owner, bookID)
 	if err != nil {

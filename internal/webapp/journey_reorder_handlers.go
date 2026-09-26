@@ -149,9 +149,9 @@ func (h *Handler) moveJourneyEntry(w http.ResponseWriter, r *http.Request, earli
 		redirect(w, r, "/reading?message="+url.QueryEscape(message))
 		return
 	}
-	status := "Moved " + title + " to position " + strconv.Itoa(position) + " in Your order. " + forecastMessage
+	status := "Moved " + title + " to position " + strconv.Itoa(position) + " in To Read books. " + forecastMessage
 	if newRevision == journey.Revision {
-		status = title + " did not move and remains at position " + strconv.Itoa(position) + " in Your order. " + forecastMessage
+		status = title + " did not move and remains at position " + strconv.Itoa(position) + " in To Read books. " + forecastMessage
 	}
 	render(w, r, JourneyProvisionalContent(view, h.csrf(w, r), bookID, status, true))
 }

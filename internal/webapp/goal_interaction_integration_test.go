@@ -111,5 +111,5 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 		"expected_goal_book_id": {""},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
-	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+Primary+Goal+was+set"), "location=%q", clearedAgain.Header().Get("Location"))
+	assert.True(t, strings.Contains(clearedAgain.Header().Get("Location"), "No+current+reading+was+set"), "location=%q", clearedAgain.Header().Get("Location"))
 }

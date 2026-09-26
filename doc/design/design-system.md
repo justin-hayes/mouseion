@@ -1,7 +1,7 @@
 # Design system
 
 Status: **Foundation and learner-facing contract documented; My Books cover-grid
-and Reading Journey thumbnail targets shipped**
+and Reading current-book targets shipped**
 
 Mouseion's design system is a semantic layer above native HTML and Pico CSS. It
 supports a server-rendered, HTMX-enhanced product whose visual character is a
@@ -10,8 +10,8 @@ Mouseion-owned tokens, typography roles, responsive rules, and interaction
 contracts are the durable system.
 
 The system is intentionally small. The foundation and first reusable Templ
-component layer are shipped. The My Books, Reading Journey, and Primary Goal
-patterns documented in [`components.md`](components.md) are the shipped
+component layer are shipped. The My Books and Reading patterns documented in
+[`components.md`](components.md) are the shipped
 learner-facing interaction guidance; exact component boundaries may remain
 workflow-specific.
 
@@ -140,10 +140,10 @@ Breakpoints are named by the layout pressure they resolve, not by device type:
 
 Use when peer content and actions no longer fit comfortably side by side.
 
-- page headings, bibliographic rows, Primary Goal summary, Journey controls, and
+- page headings, bibliographic rows, current-reading summary, Reading controls, and
   sticky scope summaries stack vertically;
 - book identity remains before relationship, evidence, and action;
-- Journey move controls remain adjacent to their book, and labeled forecast
+- Reading move controls remain adjacent to their book, and labeled forecast
   values stack in document order;
 - Goal and completion form actions become full width;
 - floated secondary actions return to document flow;
@@ -153,7 +153,7 @@ Use when peer content and actions no longer fit comfortably side by side.
 The shipped My Books cover grid keeps ordinary document order and uses
 two columns at typical compact widths, reducing columns when long content or
 zoom makes that necessary. It never introduces horizontal page scrolling or an
-ARIA-grid keyboard model. Reading Journey keeps its ordered-list structure and
+ARIA-grid keyboard model. Reading keeps its semantic candidate-list structure and
 reserves a modest aligned thumbnail column.
 
 ### Standard — above `40rem` and below `72rem`
@@ -187,9 +187,8 @@ scrollable data table must label and contain its own overflow.
 - Treat a Book cover as redundant visual identity when title text is adjacent:
   use empty image alternative text, hide cover placeholders from the
   accessibility tree, and avoid duplicate cover/title focus stops.
-- Preserve an ordered-list reading structure for Reading Journey. Visible
-  keyboard-operable move controls and text announcements are required; drag is
-  optional enhancement only.
+- Preserve semantic list structure for Reading candidates. All actions remain
+  keyboard-operable and state changes are announced with text.
 - Label current, prior, projected, and remaining evidence in words. Position,
   connectors, color, and signed deltas are supplemental.
 - Respect reduced-motion preferences supplied by Pico; new motion must do the
@@ -201,20 +200,20 @@ scrollable data table must label and contain its own overflow.
 
 ## Established and canonical interaction contracts
 
-- Canonical authenticated destinations are exactly My Books, Reading Journey,
+- Canonical authenticated destinations are exactly My Books, Reading,
   Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync maintenance on
   `/catalogs`. My Books is the sole browse surface, and My Books items own per-book
-  acquisition intent. Primary Goal is embedded in Reading Journey.
+  disposition and acquisition intent. Reading owns the current Book or the
+  between-Books candidate chooser.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
-- Reading Journey has one learner-controlled order, later books are provisional,
-  and no Journey completion/progress model is shown.
-- The learner's order is the only active order. Current, after-Goal, and
-  on-arrival coverage explain its modeled consequences; manual order changes
-  receive neutral recalculation, not warning or correction.
+- Reading presents one current Book or, between Books, the learner's To Read
+  candidates without a learner-maintained order or recommendation ranking.
+- Candidate coverage describes current vocabulary evidence; it does not imply
+  difficulty, readiness, or a predicted reading outcome.
 - Modeled Known vocabulary, Reserved vocabulary, conditional forecast, reading
   completion, preparation, and artifact state remain visibly distinct.
-- Operational analysis status and Reading Journey's current Book evidence are
+- Operational analysis status and Reading's current Book evidence are
   separate surfaces. Run-specific result URLs redirect to the canonical Book
   anchor for members or return 404 otherwise; deck work follows the focused
   preparation task and its retained analysis provenance.
@@ -222,9 +221,9 @@ scrollable data table must label and contain its own overflow.
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence
   dashboard.
-- Goal choice, Goal clearing/changing, and completion retain distinct
-  consequential confirmations in Reading Journey; Goal snapshot and forecast
-  behavior is defined by ADR 0072.
+- Starting, switching, stopping, setting aside, and finishing current reading
+  retain distinct consequential confirmations; snapshot and completion behavior
+  remains governed by the applicable ADRs.
 - Vocabulary is canonical for importing known vocabulary; study languages are
   derived from chosen-language Books rather than maintained on a Settings route.
 - Loading, empty, error, disabled, success, degraded, historical, and
@@ -245,22 +244,19 @@ asynchronous progress, responsive tables, and consequential confirmation.
 
 The first rollout is complete and preserved as history in
 [`roadmap.md`](roadmap.md): it shipped the component layer across the existing
-  book/result/deck journey and extended it to acquisition, Goal completion,
+  book/result/deck workflows and extended it to acquisition, reading completion,
   Settings, operational recovery, and quality gates. The roadmap does not plan the
-frozen My Books / Reading Journey / Primary Goal architecture.
+current My Books / Reading architecture.
 
-Current implementation adoption covers My Books (`/library`), Reading Journey
-anchors and scope review, Reading Journey (`/journey`), analysis jobs, and
-known-vocabulary import. The accepted target patterns preserve bibliographic book identity,
-the one Primary Goal per language, a fluid Journey order, explicit forecast
-  stages, evidence deltas, and a restrained completion receipt that returns to
-  the candidate chooser. Do not disguise those
-contracts as mere component renames.
+Current implementation adoption covers My Books (`/library`), Reading (`/reading`),
+analysis jobs, focused deck preparation, and known-vocabulary import. `/journey` is
+only a compatibility redirect and is not an adopted screen. Reading presents the
+current Book, its frozen evidence, and an explicit completion receipt that returns
+to the candidate chooser.
 
 The shipped Book Covers slice changes My Books from repeated rows to
 `MyBooksCoverItem` grid items and adds `BookCoverMedia` thumbnails to Reading
-Journey without changing the shell, destination set, Journey order, or evidence
-contracts.
+without changing the shell or destination set.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,

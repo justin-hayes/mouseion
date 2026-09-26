@@ -52,7 +52,7 @@ func TestJourneyEntryRedirectsCompletedMemberUsingBookLanguage(t *testing.T) {
 	response := journeyEntryRequest(t, h, "/journey/fixture-route-match", cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/reading?language_handoff_book=fixture-route-match&language_handoff_language=de", response.Header().Get("Location"))
+	assert.Equal(t, "/reading?language=de&language_handoff_book=fixture-route-match&language_handoff_language=de", response.Header().Get("Location"))
 	assert.NotContains(t, response.Body.String(), "<h1>")
 
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
@@ -94,7 +94,7 @@ func TestJourneyPageRendersValidatedCrossLanguageHandoff(t *testing.T) {
 	assert.Contains(t, handoff.Body.String(), "This Book is in German")
 	assert.Contains(t, handoff.Body.String(), `name="language" value="de"`)
 	assert.Contains(t, handoff.Body.String(), `name="return_to" value="/reading#journey-book-fixture-route-match"`)
-	assert.NotContains(t, handoff.Body.String(), `id="journey-book-fixture-route-match"`)
+	assert.Contains(t, handoff.Body.String(), `id="journey-book-fixture-route-match"`)
 }
 
 func TestJourneyEntryRemovalUsesTheEntryBookLanguage(t *testing.T) {

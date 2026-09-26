@@ -230,9 +230,9 @@ func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 		want  []string
 		omit  []string
 	}{
-		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in Reading Journey", "Add to Reading Journey", `method="post" action="/reading/books/book-372/journey/add"`, `name="expected_revision"`}, omit: []string{"View this book in Reading Journey", "Primary Goal"}},
-		{name: "already in Journey", state: deckJourneyMember, want: []string{"In Reading Journey", "This book is already in your Reading Journey", `href="/reading#journey-book-book-372"`}, omit: []string{"Add to Reading Journey", "Primary Goal"}},
-		{name: "current reading", state: deckJourneyGoal, want: []string{"Primary Goal", "This deck is preparation for your current Primary Goal", "View current book in Reading"}, omit: []string{"Add to Reading Journey", "View in Reading Journey"}},
+		{name: "not in Journey", state: deckJourneyNotMember, want: []string{"Not in To Read", "Move to To Read", `method="post" action="/reading/books/book-372/journey/add"`, `name="expected_revision"`}, omit: []string{"View this book in Reading", "current reading"}},
+		{name: "already in Journey", state: deckJourneyMember, want: []string{"To Read", "This book is already in To Read", `href="/reading#journey-book-book-372"`}, omit: []string{"Move to To Read", "current reading"}},
+		{name: "current reading", state: deckJourneyGoal, want: []string{"Current Book", "This deck is preparation for the Book you are reading now", "View current book in Reading"}, omit: []string{"Move to To Read", "View in Reading"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

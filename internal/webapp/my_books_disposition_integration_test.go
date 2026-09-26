@@ -139,7 +139,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Equal(t, 1, historyCount, "rereading must preserve prior history")
 	journey, err := store.GetReadingJourney(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	require.Len(t, journey.Entries, 1, "reading again should return the Book to the Reading Journey")
+	require.Len(t, journey.Entries, 1, "reading again should return the Book to the Reading")
 	assert.Equal(t, book.ID, journey.Entries[0].BookID)
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, alice.ID).Scan(&knownCount))
 	assert.Zero(t, knownCount, "rereading must not mark vocabulary Known")

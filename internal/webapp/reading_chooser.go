@@ -52,8 +52,19 @@ type readingChooserPageView struct {
 
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
+	activeLanguage, _ := activeStudyLanguageForContext(r.Context())
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
-	handoff, hasHandoff, handoffErr := h.journeyLanguageHandoff(r.Context(), owner.ID, language, r.URL.Query().Get("language_handoff_book"), r.URL.Query().Get("language_handoff_language"))
+	if requested := strings.TrimSpace(r.URL.Query().Get("language")); requested != "" {
+		if view := shellViewFromContext(r.Context()); view != nil {
+			for _, option := range view.Options {
+				if option.HasBooks && strings.EqualFold(option.Language, requested) {
+					language, languageLabel = option.Language, option.DisplayName
+					break
+				}
+			}
+		}
+	}
+	handoff, hasHandoff, handoffErr := h.journeyLanguageHandoff(r.Context(), owner.ID, activeLanguage, r.URL.Query().Get("language_handoff_book"), r.URL.Query().Get("language_handoff_language"))
 	if handoffErr != nil {
 		fail(w, handoffErr)
 		return

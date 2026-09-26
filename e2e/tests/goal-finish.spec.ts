@@ -12,7 +12,7 @@ async function signIn(page: Page) {
 // across projects. The isolated Go tests exercise the idempotent transition
 // itself; this covers the learner-facing control and its accessibility copy in
 // desktop, compact, light, and dark projects.
-test('Primary Goal exposes an accessible reading-finish action', async ({ page }) => {
+test('Current reading exposes an accessible reading-finish action', async ({ page }) => {
   await signIn(page);
   await page.goto('/reading');
 

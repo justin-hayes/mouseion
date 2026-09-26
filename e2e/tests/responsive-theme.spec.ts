@@ -21,7 +21,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalogs/],
-  ['/journey', /Reading Journey/],
+  ['/journey', /Reading/],
   ['/vocabulary', /Vocabulary/],
 ];
 
@@ -199,7 +199,7 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     await page.goto('/reading');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-    await expect(page.getByRole('heading', { name: 'Your order', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'To Read books', exact: true })).toBeVisible();
     await expect(page.locator('.journey-book__controls').first()).toBeVisible();
     await expectNoPageOverflow(page);
   });

@@ -70,7 +70,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const item = title.locator('xpath=ancestor::li');
     const itemFocusStops = item.locator('a, button, summary');
     await expect(itemFocusStops.first()).toHaveClass(/library-book__identity-link/);
-    await expect(itemFocusStops.nth(1)).toHaveText(/View in Reading Journey/);
+    await expect(itemFocusStops.nth(1)).toHaveText(/View in Reading/);
     await expect(itemFocusStops.nth(2)).toHaveText('More actions');
     await expect(page.locator('.library-grid').getByText('Review failed analysis')).toHaveCount(0);
   });
@@ -93,11 +93,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page, true);
     await page.goto('/reading');
     const downstream = page.locator('#journey-book-fixture-route-match');
-    await expect(downstream.getByRole('region', { name: 'Journey coverage forecast' })).toBeVisible();
+    await expect(downstream.getByRole('region', { name: 'Reading coverage forecast' })).toBeVisible();
     await page.locator('#journey-book-fixture-route-differs').getByRole('button', { name: /Move .* earlier/ }).press('Enter');
     await expect(page).toHaveURL(/\/reading\?message=/);
     await expect(page.getByText(/Coverage forecast recalculated for the saved order/)).toBeVisible();
-    const after = await page.locator('#journey-book-fixture-route-match').getByRole('region', { name: 'Journey coverage forecast' }).innerText();
+    const after = await page.locator('#journey-book-fixture-route-match').getByRole('region', { name: 'Reading coverage forecast' }).innerText();
     expect(after).toContain('On arrival coverage');
     await expect(page.locator('#journey-book-fixture-route-match')).toContainText('On arrival');
   });
@@ -125,7 +125,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     });
     expect(duplicatePrevented).toBeTruthy();
     await expect.poll(() => requests).toBe(1);
-    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in Your order/);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* in To Read books/);
     await expect(page.locator('#provisional-journey-content')).not.toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('#journey-book-fixture-route-differs')).toBeFocused();
 
@@ -161,7 +161,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
       polls += 1;
       if (route.request().headers()['hx-request'] === 'true') {
-        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Primary Goal. This deck is preparation for your current Primary Goal.</p></div></section>' });
+        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
       }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
         state: 'ready', progress: 100, ready: true, deck_name: 'Fixture German deck', filename: 'fixture.apkg',
@@ -187,7 +187,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     let state = 'queued';
     await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
       if (route.request().headers()['hx-request'] === 'true') {
-        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Primary Goal. This deck is preparation for your current Primary Goal.</p></div></section>' });
+        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
       }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) });
     });
@@ -243,7 +243,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/reading');
     const empty = page.locator('#journey-book-fixture-empty');
     await empty.getByRole('button', { name: /Move .* earlier/ }).press('Enter');
-    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* position .* in Your order/);
+    await expect(page.locator('#provisional-journey-status')).toContainText(/Moved .* position .* in To Read books/);
     await expect(page.locator('#journey-book-fixture-empty')).toBeFocused();
     await expect(reordered.first()).toHaveAttribute('id', 'journey-book-fixture-empty');
 
@@ -270,7 +270,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       await noJavaScriptPage.locator('form[data-journey-reorder] button:not([disabled])').first().press('Enter');
       await expect(noJavaScriptPage).toHaveURL(/\/reading\?message=/);
       await expect.poll(() => nativeMoveRequest).toBeTruthy();
-      await expect(noJavaScriptPage.getByRole('heading', { name: /Reading Journey/ }).first()).toBeVisible();
+      await expect(noJavaScriptPage.getByRole('heading', { name: /Reading/ }).first()).toBeVisible();
     } finally {
       await noJavaScriptContext.close();
     }

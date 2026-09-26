@@ -136,7 +136,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.Equal(t, http.StatusOK, currentPage.Code)
 	assert.Contains(t, currentPage.Body.String(), "Migrated primary goal")
 	assert.Contains(t, currentPage.Body.String(), "Current coverage")
-	assert.Contains(t, currentPage.Body.String(), "After Primary Goal coverage")
+	assert.Contains(t, currentPage.Body.String(), "After current reading coverage")
 	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "legacy-state", "ADJ")
 	require.NoError(t, err)
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)

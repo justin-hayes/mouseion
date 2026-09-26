@@ -169,9 +169,9 @@ func myBookDisposition(book domain.MyBook) domain.BookDisposition {
 func myBookSetAsideConfirmationText(book domain.MyBook) string {
 	retained := " Acquired content, analysis, provenance, and reading history remain."
 	if myBookDisposition(book) == domain.BookDispositionToRead {
-		return "This removes the Book from Reading Journey." + retained
+		return "This removes the Book from Reading." + retained
 	}
-	return "This sets aside the Book without adding it to Reading Journey." + retained
+	return "This sets aside the Book without adding it to Reading." + retained
 }
 
 func myBooksAllDispositionCount(browse MyBooksBrowseState) int {

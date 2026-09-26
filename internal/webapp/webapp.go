@@ -341,7 +341,8 @@ func (h *Handler) clearSession(w http.ResponseWriter) {
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	// SafeReturnPath preserves local navigation while rejecting absolute and
 	// scheme-relative destinations supplied through request parameters.
-	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther) //nolint:gosec // SafeReturnPath rejects external redirect destinations.
+	//nolint:gosec // SafeReturnPath rejects external redirect destinations.
+	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther)
 }
 func user(r *http.Request) domain.User { u, _ := webauth.UserFromContext(r.Context()); return u }
 func isHTMX(r *http.Request) bool      { return r.Header.Get("Hx-Request") == "true" }

@@ -124,7 +124,7 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	require.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), "Route match: familiar German")
 	assert.Contains(t, page.Body.String(), "Current coverage")
-	assert.Contains(t, page.Body.String(), "After Primary Goal coverage")
+	assert.Contains(t, page.Body.String(), "After current reading coverage")
 }
 
 func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {

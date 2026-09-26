@@ -1,9 +1,9 @@
 # Information architecture
 
-Status: **Canonical shipped learner-facing architecture contract.** ADR 0074
-ships the consolidated Reading Journey Book surface and assigns deck work to the
-focused preparation task. ADR 0072 continues to own the Goal snapshot and
-forecast semantics. This document follows
+Status: **Canonical route and navigation contract.** Some product-model sections
+retain legacy terms to describe the accepted data model; active Reading screens
+use current-Book and To Read language. ADR 0074 assigns deck work to the focused
+preparation task. ADR 0072 continues to own snapshot and forecast semantics. This document follows
 the one-current-analysis contract in
 [ADR 0040](../adr/0040-one-current-analysis-per-book.md) and the
 reading-intent analysis trigger in
@@ -197,9 +197,8 @@ The authenticated shell exposes four principal destinations:
 
 - **My Books** — the canonical home, broad book collection, and sole browse
   surface for synced catalog metadata;
-- **Reading** — the current book and the To Read candidate chooser. Transitional
-  Journey and Primary Goal behavior is hosted here until its retirement work is
-  complete; it is not a separate navigation destination;
+- **Reading** — the current Book and the To Read candidate chooser. Older
+  Reading Journey and Primary Goal terms are not used on active screens;
 - **Vocabulary** — the known-vocabulary import workflow and its durable status.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
@@ -262,10 +261,14 @@ Secondary history
 
 The shipped application uses `/library` for My Books and `/reading` for Reading.
 `/` redirects to `/library`. `/journey` is a safe-GET compatibility alias to
-`/reading`; obsolete Journey mutation forms return `410 Gone` and do not mutate
-state. A former `/journey/{bookID}` URL is a compatibility bookmark: after the
-same owner, language, membership, and current-evidence checks, it redirects to
-`/reading#journey-book-{bookID}`. Historical artifacts remain supporting records.
+`/reading`; obsolete mutation forms return `410 Gone` and do not mutate state. A
+former `/journey/{bookID}` URL is a compatibility bookmark: after the same owner,
+language, membership, and current-evidence checks, it redirects to the
+corresponding `/reading` Book anchor and includes the Book's language as an
+explicit one-request `?language=` selector. That selector is validated against
+the learner's current study languages and does not change the stored active
+language. Invalid or non-study values fall back to the active language.
+Historical artifacts remain supporting records.
 The application does not present a duplicate Book-detail, analysis-result, queue,
 campaign, or plan surface.
 
@@ -390,9 +393,9 @@ surface. Internal threshold and top-unknown analysis data remain durable even
 though their learner-facing presentation is retired.
 
 Deck preparation is a separate focused task at
-`/journey/books/{bookID}/deck/preparations/new`. It is bound to the exact current
-analysis and returns to the originating Reading Journey anchor; it does not
-replace Book identity, choose a Primary Goal, or mark vocabulary known.
+`/reading/books/{bookID}/deck/preparations/new`. It is bound to the exact current
+analysis and returns to the originating Reading Book anchor; it does not replace
+Book identity, start current reading, or mark vocabulary known.
 
 The operational job page remains responsible for queued/running progress,
 cancellation, retry, attempts, and failure recovery. When work completes, its
@@ -416,8 +419,9 @@ recently activated chosen-language Book) and resets lazily when the selection
 leaves the set. A shell-level switcher carries it on every authenticated screen;
 changing it navigates to the same screen in the new language on language-scoped
 screens. Compatibility bookmarks validate a Book's own language before redirecting
-to the active Reading Journey anchor; they never render a separate language-scoped
-page or auto-switch the mode. A newly arrived study language appears passively
+to its Reading anchor. The URL's one-request language selector controls that
+Reading view but never changes the stored active mode. A newly arrived study
+language appears passively
 in the switcher (marked "new") without changing the mode.
 
 Vocabulary owns the additive known-vocabulary import workflow, scoped to the
