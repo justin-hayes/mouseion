@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -182,6 +183,11 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	bookID := r.PathValue("id")
+	expectedRevision, ok := expectedDispositionRevision(r)
+	if !ok {
+		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
+		return
+	}
 	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
@@ -196,12 +202,18 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wasToRead := detail.Disposition == domain.BookDispositionToRead
-	if err = dispositions.SetBookDisposition(r.Context(), owner, bookID, domain.BookDispositionToRead); err != nil {
+	applied, transitionErr := dispositions.TransitionBookDisposition(r.Context(), owner, strings.TrimSpace(detail.Book.LanguageTag), bookID, expectedRevision, domain.BookDispositionToRead)
+	if transitionErr != nil {
+		err = transitionErr
+		if errors.Is(err, persistence.ErrStaleBookDisposition) {
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
+			return
+		}
 		fail(w, err)
 		return
 	}
 	message := "Book moved to To Read."
-	if !wasToRead && h.services.Analysis != nil {
+	if applied && !wasToRead && h.services.Analysis != nil {
 		handle, target, title, acquisitionFailed, analysisErr := h.ensureToReadAnalysis(r.Context(), owner, bookID)
 		if analysisErr != nil {
 			message = toReadAnalysisError(r.Context(), h.services.Store.Catalog, owner, bookID, title, target, acquisitionFailed, analysisErr)
@@ -218,6 +230,11 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	bookID := r.PathValue("id")
+	expectedRevision, ok := expectedDispositionRevision(r)
+	if !ok {
+		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
+		return
+	}
 	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
@@ -233,8 +250,11 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		fail(w, errors.New("book dispositions are unavailable"))
 		return
 	}
-	if err = dispositions.SetBookAside(r.Context(), owner, language, detail.Book.ID); err != nil {
+	_, err = dispositions.TransitionBookDisposition(r.Context(), owner, language, detail.Book.ID, expectedRevision, domain.BookDispositionSetAside)
+	if err != nil {
 		switch {
+		case errors.Is(err, persistence.ErrStaleBookDisposition):
+			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
 		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
 			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("Current reading cannot be set aside. Finish or clear it first."))
 		case errors.Is(err, persistence.ErrNotFound):
@@ -245,4 +265,12 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
+}
+
+func expectedDispositionRevision(r *http.Request) (int64, bool) {
+	if err := r.ParseForm(); err != nil {
+		return 0, false
+	}
+	revision, err := strconv.ParseInt(r.FormValue("expected_revision"), 10, 64)
+	return revision, err == nil && revision > 0
 }

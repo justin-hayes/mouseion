@@ -106,6 +106,7 @@ type Querier interface {
 	// Book dispositions are owner-scoped learner intent. Legacy workflow
 	// mutations synchronize this row until the Journey cutover is complete.
 	GetBookDisposition(ctx context.Context, arg GetBookDispositionParams) (string, error)
+	GetBookDispositionStateForUpdate(ctx context.Context, arg GetBookDispositionStateForUpdateParams) (GetBookDispositionStateForUpdateRow, error)
 	GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error)
 	GetBookMembershipForUpdate(ctx context.Context, arg GetBookMembershipForUpdateParams) (string, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
@@ -334,6 +335,7 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
 	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
+	TransitionBookDisposition(ctx context.Context, arg TransitionBookDispositionParams) (int64, error)
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)
 	UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error)
 	UpdateCorpusArtifactHash(ctx context.Context, arg UpdateCorpusArtifactHashParams) error

@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -40,6 +41,11 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	setAside := create("Set aside book")
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, setAside.ID, domain.BookDispositionSetAside))
 	otherInbox := create("Another inbox book")
+	expectedRevision := func(bookID string) string {
+		detail, detailErr := store.GetBookDetail(ctx, alice.ID, bookID)
+		require.NoError(t, detailErr)
+		return strconv.FormatInt(detail.DispositionRevision, 10)
+	}
 
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 	inboxPage := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
@@ -49,7 +55,7 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	assert.Contains(t, inboxPage.Body.String(), "Inbox (2)")
 
 	toRead := perform(t, h, http.MethodPost, "/library/books/"+inbox.ID+"/to-read", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {expectedRevision(inbox.ID)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
 	assert.Contains(t, toRead.Header().Get("Location"), "disposition=to_read")
@@ -65,7 +71,7 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	assert.Contains(t, toReadPage.Body.String(), "Set Aside")
 
 	setAsideResponse := perform(t, h, http.MethodPost, "/library/books/"+otherInbox.ID+"/set-aside", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {expectedRevision(otherInbox.ID)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, setAsideResponse.Code)
 	assert.Contains(t, setAsideResponse.Header().Get("Location"), "disposition=set_aside")
@@ -79,20 +85,81 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	allBooksPage := perform(t, h, http.MethodGet, "/library", nil, cookies)
 	assert.Equal(t, http.StatusOK, allBooksPage.Code)
 	assert.Contains(t, allBooksPage.Body.String(), "Another inbox book", "Set Aside Books remain visible in All")
-	moveBack := perform(t, h, http.MethodPost, "/library/books/"+otherInbox.ID+"/to-read", url.Values{"csrf_token": {csrf}}, cookies)
+	moveBack := perform(t, h, http.MethodPost, "/library/books/"+otherInbox.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {expectedRevision(otherInbox.ID)}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, moveBack.Code)
 	actualDisposition, err = store.GetBookDisposition(ctx, alice.ID, otherInbox.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, actualDisposition)
 	removedBook := create("Removed from My Books")
+	removedRevision := expectedRevision(removedBook.ID)
 	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, removedBook.ID))
 	staleMove := perform(t, h, http.MethodPost, "/library/books/"+removedBook.ID+"/to-read", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {removedRevision},
 	}, cookies)
 	assert.Equal(t, http.StatusNotFound, staleMove.Code, "a stale Inbox form must not restore removed My Books membership")
 	actualDisposition, err = store.GetBookDisposition(ctx, alice.ID, removedBook.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionSetAside, actualDisposition)
+}
+
+func TestAuthenticatedMyBooksStaleDispositionFormsConflictAcrossTabs(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "my-books-stale-decision-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	authService := auth.New(store, time.Hour)
+	alice := createAccount(t, ctx, store, "stale-alice", "alice-password", false)
+	bob := createAccount(t, ctx, store, "stale-bob", "bob-password", false)
+	assert.NotEqual(t, alice.ID, bob.ID)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Concurrent decisions", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	aliceCookies, aliceCSRF := loginCookies(t, h, "stale-alice", "alice-password")
+	bobCookies, bobCSRF := loginCookies(t, h, "stale-bob", "bob-password")
+	initial, err := store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	form := func(csrf string, revision int64) url.Values {
+		return url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(revision, 10)}}
+	}
+
+	first := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/to-read", form(aliceCSRF, initial.DispositionRevision), aliceCookies)
+	assert.Equal(t, http.StatusSeeOther, first.Code)
+	replayed := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/to-read", form(aliceCSRF, initial.DispositionRevision), aliceCookies)
+	assert.NotContains(t, replayed.Header().Get("Location"), "error=", "retrying the accepted form remains safe")
+	afterFirst, err := store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	require.Equal(t, initial.DispositionRevision+1, afterFirst.DispositionRevision)
+
+	competing := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/set-aside", form(aliceCSRF, afterFirst.DispositionRevision), aliceCookies)
+	assert.NotContains(t, competing.Header().Get("Location"), "error=")
+	afterAside, err := store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	returned := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/to-read", form(aliceCSRF, afterAside.DispositionRevision), aliceCookies)
+	assert.NotContains(t, returned.Header().Get("Location"), "error=")
+
+	stale := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/set-aside", form(aliceCSRF, initial.DispositionRevision), aliceCookies)
+	assert.Contains(t, stale.Header().Get("Location"), "error=")
+	assert.Contains(t, stale.Header().Get("Location"), "changed+in+another+tab")
+	staleErrorPage := perform(t, h, http.MethodGet, stale.Header().Get("Location"), nil, aliceCookies)
+	assert.Equal(t, http.StatusOK, staleErrorPage.Code)
+	assert.Contains(t, staleErrorPage.Body.String(), `role="alert"`)
+	assert.Contains(t, staleErrorPage.Body.String(), "changed in another tab")
+	final, err := store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, final.Disposition, "the stale decision must not overwrite the later To Read decision")
+	assert.Equal(t, afterAside.DispositionRevision+1, final.DispositionRevision)
+
+	foreign := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/to-read", form(bobCSRF, final.DispositionRevision), bobCookies)
+	assert.Equal(t, http.StatusNotFound, foreign.Code, "a revision token does not cross owner boundaries")
+	var historyRows, reservedRows, knownRows int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyRows))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND book_id=$2 AND released_at IS NULL`, alice.ID, book.ID).Scan(&reservedRows))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, alice.ID).Scan(&knownRows))
+	assert.Zero(t, historyRows)
+	assert.Zero(t, reservedRows)
+	assert.Zero(t, knownRows)
 }
 
 func TestRetiredRemoveRequestCannotChangeMyBooksData(t *testing.T) {
@@ -175,8 +242,10 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Zero(t, eligibleCount, "an imported completion must not invent eligible vocabulary")
 	assert.Zero(t, knownCount, "importing reading history must not mark vocabulary known")
 
+	detail, err := store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.NoError(t, err)
 	reread := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/read-again", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, reread.Code)
 	assert.Contains(t, reread.Header().Get("Location"), "disposition=to_read")

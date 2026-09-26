@@ -16,7 +16,10 @@ type BookDispositionStore interface {
 	GetBookDisposition(context.Context, string, string) (domain.BookDisposition, error)
 	SetBookDisposition(context.Context, string, string, domain.BookDisposition) error
 	SetBookAside(context.Context, string, string, string) error
+	TransitionBookDisposition(context.Context, string, string, string, int64, domain.BookDisposition) (bool, error)
 }
+
+var ErrStaleBookDisposition = errors.New("book disposition changed since this page was loaded")
 
 func (s *PostgresStore) GetBookDisposition(ctx context.Context, owner, bookID string) (domain.BookDisposition, error) {
 	disposition, err := s.queries().GetBookDisposition(ctx, sqlcgen.GetBookDispositionParams{OwnerID: owner, BookID: bookID})
@@ -76,6 +79,59 @@ func (s *PostgresStore) SetBookAside(ctx context.Context, owner, language, bookI
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// TransitionBookDisposition applies a My Books decision against the revision
+// rendered with its form. A single-step replay of the accepted action is safe;
+// an intervening decision (including a change away and back) is stale.
+func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, language, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error) {
+	if err = disposition.Validate(); err != nil {
+		return false, err
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	q := sqlcgen.New(tx)
+	if _, err = q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	} else if err != nil {
+		return false, err
+	}
+	state, err := q.GetBookDispositionStateForUpdate(ctx, sqlcgen.GetBookDispositionStateForUpdateParams{OwnerID: owner, BookID: bookID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	} else if err != nil {
+		return false, err
+	}
+	if state.Revision == expectedRevision+1 && domain.BookDisposition(state.Disposition) == disposition {
+		return false, tx.Commit(ctx)
+	}
+	if state.Revision != expectedRevision {
+		return false, ErrStaleBookDisposition
+	}
+	if disposition == domain.BookDispositionSetAside {
+		goal, goalErr := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
+		if errors.Is(goalErr, pgx.ErrNoRows) {
+			goal.GBookID = ""
+		} else if goalErr != nil {
+			return false, goalErr
+		}
+		if goal.GBookID == bookID {
+			return false, ErrBookIsPrimaryGoal
+		}
+	}
+	rows, err := q.TransitionBookDisposition(ctx, sqlcgen.TransitionBookDispositionParams{
+		Owner: owner, Book: bookID, Disposition: string(disposition), ExpectedRevision: expectedRevision,
+	})
+	if err != nil {
+		return false, err
+	}
+	if rows == 0 {
+		return false, ErrStaleBookDisposition
+	}
+	return true, tx.Commit(ctx)
 }
 
 // upsertBookDisposition is the one persistence path for a Book's learner-owned

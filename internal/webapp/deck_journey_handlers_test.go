@@ -10,6 +10,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,6 +63,15 @@ func (s *journeyIntentStore) SetBookDisposition(_ context.Context, _, _ string, 
 func (s *journeyIntentStore) SetBookAside(_ context.Context, _, _, _ string) error {
 	s.detail.Disposition = domain.BookDispositionSetAside
 	return nil
+}
+
+func (s *journeyIntentStore) TransitionBookDisposition(_ context.Context, _, _, _ string, expected int64, disposition domain.BookDisposition) (bool, error) {
+	if s.detail.DispositionRevision != expected {
+		return false, persistence.ErrStaleBookDisposition
+	}
+	s.detail.Disposition = disposition
+	s.detail.DispositionRevision++
+	return true, nil
 }
 
 type journeyIntentCatalogue struct {

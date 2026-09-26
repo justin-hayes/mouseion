@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -63,8 +64,10 @@ func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *te
 	assert.Empty(t, jobs)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "de", readingOnly.ID)
 	require.NoError(t, err)
+	readingOnlyState, err := store.GetBookDetail(ctx, alice.ID, readingOnly.ID)
+	require.NoError(t, err)
 	setAsideGoal := perform(t, h, http.MethodPost, "/library/books/"+readingOnly.ID+"/set-aside", url.Values{
-		"csrf_token": {aliceCSRF},
+		"csrf_token": {aliceCSRF}, "expected_revision": {strconv.FormatInt(readingOnlyState.DispositionRevision, 10)},
 	}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, setAsideGoal.Code)
 	assert.Contains(t, setAsideGoal.Header().Get("Location"), "cannot+be+set+aside")

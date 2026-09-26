@@ -19,7 +19,12 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 
 	// Seed the latest pre-cutover schema so migration 18 itself proves the
 	// membership-to-disposition contract and preserves unrelated durable state.
-	moveApplicationMigrations(t, databaseURL, -1)
+	moveApplicationMigrations(t, databaseURL, -2)
+	// The current disposition writes include the successor revision field. Add it
+	// temporarily while seeding with application code, then remove it so the
+	// migration under test starts from the exact version-17 schema.
+	_, err := pool.Exec(ctx, `ALTER TABLE book_dispositions ADD COLUMN revision bigint NOT NULL DEFAULT 1`)
+	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
 	active, activeSource, deck := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
@@ -43,6 +48,9 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `DELETE FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, owner.ID, active.ID)
 	require.NoError(t, err)
 
+	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions DROP COLUMN revision`)
+	require.NoError(t, err)
+	moveApplicationMigrations(t, databaseURL, 1)
 	moveApplicationMigrations(t, databaseURL, 1)
 
 	var tablePresent bool

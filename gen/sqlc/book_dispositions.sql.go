@@ -30,6 +30,30 @@ func (q *Queries) GetBookDisposition(ctx context.Context, arg GetBookDisposition
 	return disposition, err
 }
 
+const getBookDispositionStateForUpdate = `-- name: GetBookDispositionStateForUpdate :one
+SELECT disposition, revision
+FROM book_dispositions
+WHERE owner_id = $1 AND book_id = $2
+FOR UPDATE
+`
+
+type GetBookDispositionStateForUpdateParams struct {
+	OwnerID string
+	BookID  string
+}
+
+type GetBookDispositionStateForUpdateRow struct {
+	Disposition string
+	Revision    int64
+}
+
+func (q *Queries) GetBookDispositionStateForUpdate(ctx context.Context, arg GetBookDispositionStateForUpdateParams) (GetBookDispositionStateForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getBookDispositionStateForUpdate, arg.OwnerID, arg.BookID)
+	var i GetBookDispositionStateForUpdateRow
+	err := row.Scan(&i.Disposition, &i.Revision)
+	return i, err
+}
+
 const insertInboxBookDisposition = `-- name: InsertInboxBookDisposition :exec
 INSERT INTO book_dispositions(owner_id, book_id, disposition)
 VALUES ($1, $2, 'inbox')
@@ -47,7 +71,7 @@ func (q *Queries) InsertInboxBookDisposition(ctx context.Context, arg InsertInbo
 }
 
 const listBookDispositions = `-- name: ListBookDispositions :many
-SELECT book_id::text, disposition
+SELECT book_id::text, disposition, revision
 FROM book_dispositions
 WHERE owner_id = $1
 `
@@ -55,6 +79,7 @@ WHERE owner_id = $1
 type ListBookDispositionsRow struct {
 	BookID      string
 	Disposition string
+	Revision    int64
 }
 
 func (q *Queries) ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error) {
@@ -66,7 +91,7 @@ func (q *Queries) ListBookDispositions(ctx context.Context, ownerID string) ([]L
 	items := []ListBookDispositionsRow{}
 	for rows.Next() {
 		var i ListBookDispositionsRow
-		if err := rows.Scan(&i.BookID, &i.Disposition); err != nil {
+		if err := rows.Scan(&i.BookID, &i.Disposition, &i.Revision); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -77,12 +102,43 @@ func (q *Queries) ListBookDispositions(ctx context.Context, ownerID string) ([]L
 	return items, nil
 }
 
+const transitionBookDisposition = `-- name: TransitionBookDisposition :execrows
+UPDATE book_dispositions
+SET disposition = $1,
+    revision = CASE WHEN revision = $2 THEN revision + 1 ELSE revision END,
+    updated_at = CASE WHEN revision = $2 THEN now() ELSE updated_at END
+WHERE owner_id = $3 AND book_id = $4
+  AND (revision = $2 OR
+       (revision = $2 + 1 AND disposition = $1))
+`
+
+type TransitionBookDispositionParams struct {
+	Disposition      string
+	ExpectedRevision int64
+	Owner            string
+	Book             string
+}
+
+func (q *Queries) TransitionBookDisposition(ctx context.Context, arg TransitionBookDispositionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, transitionBookDisposition,
+		arg.Disposition,
+		arg.ExpectedRevision,
+		arg.Owner,
+		arg.Book,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertBookDisposition = `-- name: UpsertBookDisposition :exec
 INSERT INTO book_dispositions(owner_id, book_id, disposition)
 VALUES ($1, $2, $3)
 ON CONFLICT (owner_id, book_id) DO UPDATE SET
     disposition = EXCLUDED.disposition,
-    updated_at = now()
+    revision = book_dispositions.revision + CASE WHEN book_dispositions.disposition IS DISTINCT FROM EXCLUDED.disposition THEN 1 ELSE 0 END,
+    updated_at = CASE WHEN book_dispositions.disposition IS DISTINCT FROM EXCLUDED.disposition THEN now() ELSE book_dispositions.updated_at END
 `
 
 type UpsertBookDispositionParams struct {
