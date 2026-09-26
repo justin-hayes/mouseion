@@ -398,6 +398,10 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 	target := cataloguesync.AcquisitionTarget{}
 	acquisitionAttempted := false
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() == domain.BookUnavailable {
+		// A missing or unavailable source cannot meet current-reading eligibility,
+		// which requires a completed current analysis. It cannot become current
+		// during acquisition; the guarded submission below serializes analyzable
+		// books against a concurrent start.
 		acquisitionAttempted = true
 		target, err = h.acquireBookForJourneyContext(ctx, owner, bookID)
 		if err != nil {
@@ -411,7 +415,7 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 	if detail.Acquired == nil {
 		return analysis.Handle{}, target, detail.Book.Title, acquisitionAttempted, errors.New("the current EPUB could not be loaded after acquisition")
 	}
-	handle, err := h.services.Analysis.SubmitAnalysis(ctx, owner, detail.Acquired.Source.ID)
+	handle, err := h.services.Analysis.SubmitToReadBookAnalysis(ctx, owner, bookID, detail.Acquired.Source.ID)
 	return handle, target, detail.Book.Title, false, err
 }
 

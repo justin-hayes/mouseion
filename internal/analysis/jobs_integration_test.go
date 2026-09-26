@@ -41,6 +41,115 @@ func putAnalysisSourceWithUnits(ctx context.Context, store *persistence.Postgres
 	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: units})
 }
 
+func makeCurrentAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string) (domain.Book, domain.SourceMaterial) {
+	t.Helper()
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Current retry guard", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner, "current-retry-guard", book.Title, "Guten Tag.", "sha256:current-retry-guard")
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner, book.ID, source.ID))
+	require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))
+	require.NoError(t, store.PutArtifact(ctx, domain.NormalizedArtifact{
+		ContentHash: source.ContentHash, Language: source.Language, SchemaVersion: "1",
+		NormalizationProfile: source.Language, NormalizationVersion: "1", AnalyzerName: "test", AnalyzerVersion: "1",
+	}, nil))
+	var snapshotID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, source.ID).Scan(&snapshotID))
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1',$5,'completed',now()) RETURNING id::text`, owner, source.ID, source.ContentRevisionID, snapshotID, source.ID).Scan(&runID))
+	corpus, err := store.PutCorpus(ctx, owner, source.ID, source.ContentHash)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpora SET analysis_run_id=$1,status='complete' WHERE owner_id=$2 AND id=$3`, runID, owner, corpus.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET corpus_id=$1 WHERE owner_id=$2 AND id=$3`, corpus.ID, owner, runID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, book.ID, source.ID, runID)
+	require.NoError(t, err)
+	return book, source
+}
+
+func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, store.Pool()))
+	owner, err := store.CreateUser(ctx, "current-refresh-guard", false)
+	require.NoError(t, err)
+	book, source := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+
+	capabilities := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
+		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma", "depparse"}, Ready: true,
+	}}}}
+	client, err := NewClient(store.Pool(), &analyzertest.Fake{}, capabilities, selection.NewService(store))
+	require.NoError(t, err)
+	service := NewService(store.Pool(), client)
+	accepted, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	_, err = service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+	require.ErrorIs(t, err, ErrCurrentBook)
+
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, book.ID, current.BookID)
+	assert.NotEmpty(t, current.SnapshotID)
+	var runCount, historyCount, jobCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&runCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis'`, owner.ID).Scan(&historyCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, owner.ID).Scan(&jobCount))
+	assert.Equal(t, 2, runCount, "rejected refresh created no analysis run")
+	assert.Zero(t, historyCount, "rejected refresh wrote no operational history")
+	assert.Equal(t, 1, jobCount, "the previously accepted job remains independent")
+	var acceptedState string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, accepted.RunID).Scan(&acceptedState))
+	assert.Equal(t, "queued", acceptedState, "the accepted job remains queued")
+
+	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
+	transition, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		rollbackErr := transition.Rollback(context.Background())
+		if !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			require.NoError(t, rollbackErr)
+		}
+	})
+	var lockedBook string
+	require.NoError(t, transition.QueryRow(ctx, `SELECT id::text FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner.ID, book.ID).Scan(&lockedBook))
+	racedSubmission := make(chan error, 1)
+	go func() {
+		_, submitErr := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+		racedSubmission <- submitErr
+	}()
+	require.Eventually(t, func() bool {
+		var waiting int
+		queryErr := store.Pool().QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT id::text FROM books%'`).Scan(&waiting)
+		return queryErr == nil && waiting > 0
+	}, 5*time.Second, 10*time.Millisecond, "guarded submission should wait for the concurrent current-reading transition")
+	_, err = transition.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id,snapshot_id) VALUES($1,'de',$2,$3)`, owner.ID, book.ID, current.SnapshotID)
+	require.NoError(t, err)
+	require.NoError(t, transition.Commit(ctx))
+	require.ErrorIs(t, <-racedSubmission, ErrCurrentBook, "submission must observe the current state after acquiring the shared Book lock")
+	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&runCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis'`, owner.ID).Scan(&historyCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, owner.ID).Scan(&jobCount))
+	assert.Equal(t, 2, runCount, "racing refresh created no analysis run")
+	assert.Zero(t, historyCount, "racing refresh wrote no operational history")
+	assert.Equal(t, 1, jobCount, "racing refresh did not cancel the previously accepted job")
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, accepted.RunID).Scan(&acceptedState))
+	assert.Equal(t, "queued", acceptedState, "the accepted job remains queued after the race")
+
+	handle, err := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+	require.NoError(t, err, "non-current To Read recovery remains permitted")
+	assert.Equal(t, accepted, handle, "permitted recovery reuses the already accepted queued job")
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, owner.ID).Scan(&jobCount))
+	assert.Equal(t, 1, jobCount, "permitted recovery enqueued a job")
+}
+
 func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
