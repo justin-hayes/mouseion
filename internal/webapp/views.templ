@@ -145,15 +145,6 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
-templ SetAsideToReadAction(bookID, csrf string) {
-	@Confirmation("Remove from To Read", "This changes only the Book's To Read status. Queued or running analysis continues, acquired content and completed analysis remain, and the current Book cannot be removed from To Read.", StatusDanger) {
-		<form method="post" action={ templ.SafeURL(journeyRemoveURL(bookID)) }>
-			<input type="hidden" name="csrf_token" value={ csrf }/>
-			<button type="submit" class="outline secondary">Confirm removal</button>
-		</form>
-	}
-}
-
 templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) {
 	<li id={ myBookRowID(book.Book.ID) } class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 		if myBookInJourney(book) {
@@ -194,7 +185,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					}
 				}
 			} else if !myBookInJourney(book) {
-				<form method="post" action={ templ.SafeURL(toReadURL(book.Book.ID)) }>
+				<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
@@ -547,7 +538,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-				@SetAsideToReadAction(journeyBookID(item), csrf)
+				<p>Book disposition is managed in <a href="/library">My Books</a>.</p>
 				</div>
 			</details>
 		</div>
@@ -566,7 +557,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-				@SetAsideToReadAction(journeyBookID(item), csrf)
+				<p>Book disposition is managed in <a href="/library">My Books</a>.</p>
 				</div>
 			</details>
 			<p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p>
@@ -664,7 +655,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				@ActionGroup() {
 					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 				}
-				@DeckJourneyAction(journeyAction, csrf)
+				@DeckJourneyAction(journeyAction)
 			}
 		} else if deckPreparationActive(preparation) {
 			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
@@ -930,7 +921,7 @@ templ knownVocabImportStatusBody(status knownvocab.Status) {
 		}
 }
 
-templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
+templ DeckJourneyAction(action deckJourneyActionView) {
 	if action.State != deckJourneyUnknown {
 		<div id={ deckJourneyActionID(action.BookID) } role="status" aria-live="polite" aria-atomic="true">
 			if action.Message != "" {
@@ -944,14 +935,7 @@ templ DeckJourneyAction(action deckJourneyActionView, csrf string) {
 				<p role="alert">{ action.Error }</p>
 			}
 			if action.State == deckJourneyNotMember {
-				<p><strong>Not in To Read.</strong> Move this book to To Read from My Books when you are ready.</p>
-				<form method="post" action={ templ.SafeURL(toReadURL(action.BookID)) } hx-post={ templ.SafeURL(toReadURL(action.BookID)) } hx-target={ templ.SafeURL("#"+deckJourneyActionID(action.BookID)) } hx-swap="outerHTML">
-					<input type="hidden" name="csrf_token" value={ csrf }/>
-					if action.PreparationID != "" {
-						<input type="hidden" name="deck_preparation_id" value={ action.PreparationID }/>
-					}
-					<button type="submit">Move to To Read</button>
-				</form>
+				<p><strong>Not in To Read.</strong> Manage this book's disposition in <a href="/library">My Books</a>.</p>
 			} else if action.State == deckIsToRead {
 				<p><strong>To Read.</strong> This book is already in To Read.</p>
 				<p><a href={ templ.SafeURL("/reading#"+journeyBookAnchorID(action.BookID)) }>View in Reading</a></p>

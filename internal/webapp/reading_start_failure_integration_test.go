@@ -91,6 +91,24 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	assert.NotEmpty(t, reading.AnalysisRunID)
 	assert.NotEmpty(t, reading.SnapshotID)
 	assert.Positive(t, reading.SnapshotSize)
+	for _, path := range []string{
+		"/reading/books/" + book.ID + "/to-read",
+		"/reading/books/" + book.ID + "/set-aside",
+	} {
+		retired := perform(t, h, http.MethodPost, path, url.Values{"csrf_token": {csrf}}, cookies)
+		assert.Equalf(t, http.StatusNotFound, retired.Code, "retired disposition endpoint %s", path)
+	}
+	afterRetiredPosts, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, reading, afterRetiredPosts, "retired endpoints leave the current reading and reservation intact")
+	disposition, err := store.GetBookDisposition(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	var historyCount, knownCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&knownCount))
+	assert.Zero(t, historyCount)
+	assert.Zero(t, knownCount)
 	var reservationCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, owner.ID, reading.SnapshotID).Scan(&reservationCount))
 	assert.Equal(t, reading.SnapshotSize, reservationCount)
@@ -99,6 +117,9 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	assert.Len(t, frozenVocabulary, reading.SnapshotSize)
 	readingPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
+	assert.NotContains(t, readingPage.Body.String(), "Remove from To Read")
+	assert.Contains(t, readingPage.Body.String(), "Confirm set aside", "current-reading Set Aside remains explicit and confirmed")
+	assert.Contains(t, readingPage.Body.String(), `href="/library"`, "Reading directs disposition decisions to My Books")
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
 	assert.Contains(t, readingPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)
 

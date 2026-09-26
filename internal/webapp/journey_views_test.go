@@ -335,7 +335,9 @@ func TestActiveReadingDoesNotExposeLegacyGoalChoiceAndKeepsSecondaryActionsDiscl
 	assert.NotContains(t, eligibleCard, ">Start reading</button>")
 	assert.NotContains(t, eligibleCard, `action="/goal/books/`)
 	assert.Contains(t, eligibleCard, `<details class="more-actions"><summary>More actions</summary>`)
-	assert.Contains(t, eligibleCard, `action="/reading/books/eligible/set-aside"`)
+	assert.Contains(t, eligibleCard, `href="/library"`)
+	assert.NotContains(t, eligibleCard, `action="/reading/books/eligible/set-aside"`)
+	assert.NotContains(t, eligibleCard, "Remove from To Read")
 	assert.NotContains(t, ineligibleCard, "Start reading")
 	assert.Contains(t, ineligibleCard, ineligible.GoalEligibilityReason)
 }

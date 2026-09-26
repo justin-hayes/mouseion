@@ -230,14 +230,14 @@ func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 		want  []string
 		omit  []string
 	}{
-		{name: "not in To Read", state: deckJourneyNotMember, want: []string{"Not in To Read", "Move to To Read", `method="post" action="/reading/books/book-372/to-read"`}, omit: []string{"View this book in Reading", "current reading"}},
+		{name: "not in To Read", state: deckJourneyNotMember, want: []string{"Not in To Read", "disposition in", `href="/library"`}, omit: []string{"Move to To Read", `method="post" action="/reading/books/`, "View this book in Reading", "current reading"}},
 		{name: "already in Journey", state: deckIsToRead, want: []string{"To Read", "This book is already in To Read", `href="/reading#journey-book-book-372"`}, omit: []string{"Move to To Read", "current reading"}},
 		{name: "current reading", state: deckIsCurrentReading, want: []string{"Current Book", "This deck is preparation for the Book you are reading now", "View current book in Reading"}, omit: []string{"Move to To Read", "View in Reading"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, PreparationID: preparation.ID, State: test.state}
+			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, State: test.state}
 			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range test.want {

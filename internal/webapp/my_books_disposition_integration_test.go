@@ -153,6 +153,13 @@ func TestAuthenticatedMyBooksStaleDispositionFormsConflictAcrossTabs(t *testing.
 
 	foreign := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/to-read", form(bobCSRF, final.DispositionRevision), bobCookies)
 	assert.Equal(t, http.StatusNotFound, foreign.Code, "a revision token does not cross owner boundaries")
+	for _, path := range []string{
+		"/reading/books/" + book.ID + "/to-read",
+		"/reading/books/" + book.ID + "/set-aside",
+	} {
+		retired := perform(t, h, http.MethodPost, path, url.Values{"csrf_token": {bobCSRF}}, bobCookies)
+		assert.Equalf(t, http.StatusNotFound, retired.Code, "retired disposition route is unavailable to another owner: %s", path)
+	}
 	var historyRows, reservedRows, knownRows int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyRows))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND book_id=$2 AND released_at IS NULL`, alice.ID, book.ID).Scan(&reservedRows))

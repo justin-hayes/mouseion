@@ -25,7 +25,7 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/reading/books/metadata-book/to-read"`} {
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/library/books/metadata-book/to-read"`} {
 		assert.True(t, strings.Contains(html, want), "metadata-only My Books item missing %q: %s", want, html)
 	}
 	assert.NotContains(t, html, "Remove from My Books")
