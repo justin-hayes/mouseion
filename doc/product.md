@@ -17,7 +17,8 @@ belongs to the current reading: starting a Book freezes its vocabulary snapshot
 and derives Reserved vocabulary from it; finishing accepts eligible snapshot
 identities into modeled Known vocabulary and adds an independent Read-history
 record. The learner can later move a previously read Book back to To Read to read
-it again. See the [Reading workflow specification](features/reading-workflow.md);
+it again. See the [Reading workflow specification](features/reading-workflow.md)
+and current [ADR 0078](adr/0078-book-dispositions-and-current-reading.md).
 [ADR 0072](adr/0072-goal-owned-vocabulary-and-journey-forecast.md) is historical
 and documents the retired Goal/ordered-Journey model. Prepared-deck work belongs
 to the focused preparation task, with historical provenance remaining an
@@ -78,7 +79,7 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
    named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
    encounter in the book.
 
-Generated-deck history and modeled Known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its Book/deck provenance, but never by itself adds it to Known vocabulary. A current Book's frozen snapshot is Reserved in its study language but is not Known. Finishing current reading adds the eligible snapshot identities to modeled Known vocabulary using set semantics and records reading completion independently; the transition is idempotent and does not claim verified mastery. See the [Reading workflow specification](features/reading-workflow.md). ADR 0072 is retained as a historical record of the retired Goal/ordered-Journey model.
+Generated-deck history and modeled Known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its Book/deck provenance, but never by itself adds it to Known vocabulary. A current Book's frozen snapshot is Reserved in its study language but is not Known. Finishing current reading adds the eligible snapshot identities to modeled Known vocabulary using set semantics and records reading completion independently; the transition is idempotent and does not claim verified mastery. See the [Reading workflow specification](features/reading-workflow.md) and [ADR 0078](adr/0078-book-dispositions-and-current-reading.md). ADR 0072 is retained as a historical record of the retired Goal/ordered-Journey model.
 
 ## Current stack
 
@@ -161,6 +162,7 @@ amendments.
 75. [ADR 0075: Catalogue-sourced Book author metadata](adr/0075-book-author-metadata.md) — stores the mutable OPDS author display value on each Book, projects it into Reading identity, and leaves missing author metadata absent rather than inferred.
 76. [ADR 0076: Roll forward when a ready deck requires re-preparation](adr/0076-reprepare-ready-deck.md) — preserves the old owner-scoped artifact and exact provenance while creating one new current preparation for the same analysis and applicable reading snapshot; repeated recovery resolves idempotently to that current generation.
 77. [ADR 0077: Retain catalog-supplied Book covers](adr/0077-catalog-supplied-book-covers.md) — retains bounded catalog images in PostgreSQL behind an owner-scoped endpoint, selects a stable Catalog-entry source across aliases, keeps optional retrieval independent from catalog-sync success, and supports the Reading Book-evidence surface alongside the shipped My Books cover grid.
+78. [ADR 0078: Book dispositions and current reading](adr/0078-book-dispositions-and-current-reading.md) — replaces Journey ordering and Primary Goal with Book dispositions, one current reading per study language, a neutral chooser, and explicit snapshot-based completion; records the decision specified in issue #1187.
 
 ### Superseded or historical decisions
 
@@ -172,8 +174,9 @@ amendments.
 - [ADR 0031: OpenAI Batch prepared-deck translation](adr/0031-openai-batch-prepared-deck-translation.md) — its default dispatch path is superseded by ADR 0032; Batch remains available for explicit offline work.
 - [ADR 0042: Derive a per-language corpus view without a persisted corpus object](adr/0042-derived-language-corpus-view.md) — superseded by ADR 0057.
 - [ADR 0045: Book detail is addressed by owner-scoped Book ID, with source IDs resolving in place](adr/0045-book-detail-book-id.md) — its learner-facing Book-detail route portions are superseded by ADR 0055; the Book identity remains in force.
+- [ADR 0072: Goal-owned vocabulary snapshots and sequential Reading Journey forecast](adr/0072-goal-owned-vocabulary-and-journey-forecast.md) — superseded by ADR 0078; retained as historical context for the retired Goal/ordered-Journey model.
 - [ADR 0036: Deck-independent Primary Goal and single justified vocabulary-graduation transition](adr/0036-primary-goal-justified-graduation.md) — its conflicting vocabulary-transition and residual-work semantics are superseded by ADR 0072; retained historical provenance remains intact.
-- [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — superseded by ADR 0072's learner-order forecast.
+- [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — superseded by ADR 0072's learner-order forecast and subsequently retired by ADR 0078.
 - [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — superseded by ADR 0072 for reservation, study, and graduation semantics; historical artifacts remain preserved.
 - [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — its generated-vocabulary exclusion semantics are superseded by ADR 0072; provenance distinction remains historical context.
 
