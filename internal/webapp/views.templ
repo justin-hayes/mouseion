@@ -517,75 +517,17 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 
 templ PrimaryGoalFinishPage(user domain.User, csrf string, outcome primaryGoalFinishView) {
 	@ShellLayout("Reading finished", &user, csrf, NavigationReadingJourney) {
-		@PrimaryGoalFinish(outcome, csrf)
+		@PrimaryGoalFinish(outcome)
 	}
 }
 
-templ PrimaryGoalFinish(outcome primaryGoalFinishView, csrf string) {
+templ PrimaryGoalFinish(outcome primaryGoalFinishView) {
 	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome">
 		<h1 id="primary-goal-finish-heading">Reading finished</h1>
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
-		if outcome.Error != "" {
-			<article role="alert" class="feedback feedback--error"><strong>Action needed</strong><p>{ outcome.Error }</p></article>
-		}
-		<ol class="finish-outcome" aria-label="Reading finish outcome">
-			<li>
-				<h2>Reading finished</h2>
-				<p>{ outcome.BookTitle } is recorded as finished reading. Completion accepts the frozen vocabulary consequence of this Primary Goal; it does not claim verified per-card mastery.</p>
-			</li>
-			<li>
-				<h2>Vocabulary transition</h2>
-				<p>{ finishGraduationText(outcome) }</p>
-			</li>
-			<li>
-				<h2>Reading Journey recalculated</h2>
-				if outcome.Error == "" {
-					if len(outcome.Evidence) == 0 {
-						<p>No remaining Journey books have evidence to show. The order remains available for editing.</p>
-					}
-					for _, item := range outcome.Evidence {
-						<section class="finish-evidence" aria-labelledby={ "finish-evidence-" + journeyBookID(item.Book) }>
-							<h3 id={ "finish-evidence-" + journeyBookID(item.Book) }>{ canonicalBookTitle(item.Book.Book) }</h3>
-							if author := canonicalBookAuthor(item.Book.Book); author != "" {
-								<p class="journey-book__author">By { author }</p>
-							}
-							if item.Changed {
-								<h4>Before completion</h4>
-								if item.HasBefore {
-							@JourneyForecast(item.Before, false)
-								} else {
-									<p>Forecast was not previously available.</p>
-								}
-							}
-							<h4>Now</h4>
-							@JourneyForecast(item.Book, false)
-						</section>
-					}
-				}
-			</li>
-			<li>
-				<h2>Where next?</h2>
-				<p>Choose what you want to do next. No new Primary Goal has been selected.</p>
-				<div class="action-group">
-					if len(outcome.Journey.Provisional) > 0 {
-						<p><strong>First in your current order:</strong> { canonicalBookTitle(outcome.Journey.Provisional[0].Book) }
-							if author := canonicalBookAuthor(outcome.Journey.Provisional[0].Book); author != "" {
-								<span class="journey-book__author">By { author }</span>
-							}
-						</p>
-						if outcome.Journey.Provisional[0].CanChooseGoal {
-							<form method="post" action={ templ.SafeURL(finishOutcomeWhereNextURL(outcome.Journey.Provisional[0])) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_goal_book_id" value=""/><button type="submit">Choose as Primary Goal</button></form>
-						} else if outcome.Journey.Provisional[0].GoalEligibilityReason != "" {
-							<p class="metadata">{ outcome.Journey.Provisional[0].GoalEligibilityReason }</p>
-						}
-					}
-					<a role="button" class="outline" href="/journey">Reorder Reading Journey</a>
-					<a role="button" class="outline" href="/journey">Choose another book from Reading Journey</a>
-					<a href="/journey">Pause without a new Goal</a>
-				</div>
-				<p><a href="/journey">Return to the recalculated Reading Journey</a></p>
-			</li>
-		</ol>
+		<h2>Vocabulary transition</h2>
+		<p>{ finishGraduationText(outcome) }</p>
+		<p><a role="button" href="/reading">Choose what to read next</a></p>
 	</section>
 }
 templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMessage string) {

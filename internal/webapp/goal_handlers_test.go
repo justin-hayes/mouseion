@@ -596,24 +596,13 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	for _, want := range []string{
 		"Reading finished",
 		"Vocabulary transition",
-		"newly accepted identities were added",
-		"Reading Journey recalculated",
-		"Where next?",
-		"No new Primary Goal has been selected",
-		"After Primary Goal",
-		"Current coverage",
-		"No active Primary Goal",
-		"On arrival",
-		"Unavailable evidence:",
-		"Lower bound:",
-		"Choose another book from Reading Journey",
+		"Vocabulary: 2 identities newly Known; 0 identities already Known",
+		`href="/reading">Choose what to read next</a>`,
 	} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
 	}
-	assert.NotContains(t, finished.Body.String(), "projected coverage")
-	assert.Contains(t, finished.Body.String(), "90.0%")
-	assert.Contains(t, finished.Body.String(), "20.0%")
-	assert.NotContains(t, finished.Body.String(), "No deck artifact was required")
+	assert.NotContains(t, finished.Body.String(), "achievement")
+	assert.NotContains(t, finished.Body.String(), "Where next?")
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
@@ -639,66 +628,6 @@ func TestPrimaryGoalFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	assert.True(t, strings.Contains(repeated.Body.String(), "Der lange Weg nach Hause"), "idempotent finish lost Book title: %s", repeated.Body.String())
 }
 
-func TestFinishEvidenceComparesStructuredForecastValues(t *testing.T) {
-	before := journeyPageView{Provisional: []journeyBookView{{
-		BookID: "book",
-		Forecast: &domain.JourneyForecastEntry{
-			Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 3},
-			AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 3},
-			OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 3},
-		},
-	}}}
-	after := journeyPageView{Provisional: []journeyBookView{{
-		BookID: "book",
-		Forecast: &domain.JourneyForecastEntry{
-			Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 2, AnalyzableTokenCount: 6},
-			AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 4, AnalyzableTokenCount: 6},
-			OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 4, AnalyzableTokenCount: 6},
-		},
-	}}}
-
-	evidence := finishEvidence(before, after)
-	require.Len(t, evidence, 1)
-	assert.True(t, evidence[0].Changed, "structured forecast changes must not be hidden by formatted percentage equality")
-}
-
-func TestPrimaryGoalFinishRendersStructuredForecast(t *testing.T) {
-	before := testJourneyBook("book", "Book", "analyzed")
-	before.ForecastHasGoal = true
-	before.Forecast = &domain.JourneyForecastEntry{
-		Current:   &domain.JourneyForecastCoverage{KnownTokenCount: 40, AnalyzableTokenCount: 100},
-		AfterGoal: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		OnArrival: &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-	}
-	after := before
-	after.ForecastHasGoal = false
-	after.Forecast = &domain.JourneyForecastEntry{
-		Current:    &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		AfterGoal:  &domain.JourneyForecastCoverage{KnownTokenCount: 60, AnalyzableTokenCount: 100},
-		OnArrival:  &domain.JourneyForecastCoverage{KnownTokenCount: 70, AnalyzableTokenCount: 100},
-		LowerBound: true,
-	}
-
-	outcome := primaryGoalFinishView{
-		BookTitle: "Finished book",
-		Evidence:  []finishEvidenceView{{Book: after, Before: before, HasBefore: true, Changed: true}},
-	}
-	var output bytes.Buffer
-	require.NoError(t, PrimaryGoalFinish(outcome, "csrf").Render(context.Background(), &output))
-	html := output.String()
-	for _, want := range []string{
-		"Before completion",
-		"After Primary Goal",
-		"No active Primary Goal",
-		"40.0%",
-		"60.0%",
-		"Lower bound:",
-	} {
-		assert.Contains(t, html, want)
-	}
-	assert.NotContains(t, html, "projected coverage")
-}
-
 func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	stale := goalRequest(t, h, "/goal/finish", url.Values{
@@ -714,31 +643,29 @@ func TestPrimaryGoalFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 }
 
 func TestPrimaryGoalFinishOutcomeShowsStructuredVocabularyCounts(t *testing.T) {
-	residual := primaryGoalFinishView{BookTitle: "Reading-only book", SnapshotVocabularyCount: 2, EligibleVocabularyCount: 2, GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
+	residual := primaryGoalFinishView{BookTitle: "Reading-only book", GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
 	var output bytes.Buffer
-	require.NoError(t, PrimaryGoalFinish(residual, "csrf").Render(context.Background(), &output))
-	for _, want := range []string{"2 newly accepted identities were added", "modeled vocabulary consequence", "No new Primary Goal has been selected"} {
+	require.NoError(t, PrimaryGoalFinish(residual).Render(context.Background(), &output))
+	for _, want := range []string{"Vocabulary: 2 identities newly Known; 0 identities already Known", "Choose what to read next"} {
 		assert.True(t, strings.Contains(output.String(), want), "residual outcome missing %q: %s", want, output.String())
 	}
-	assert.NotContains(t, output.String(), "No deck artifact was required")
+	assert.NotContains(t, output.String(), "achievement")
 }
 
 func TestPrimaryGoalFinishOutcomeExplainsEmptySnapshot(t *testing.T) {
 	outcome := primaryGoalFinishView{BookTitle: "Empty snapshot book"}
 	var output bytes.Buffer
-	require.NoError(t, PrimaryGoalFinish(outcome, "csrf").Render(context.Background(), &output))
+	require.NoError(t, PrimaryGoalFinish(outcome).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		"Reading finished",
-		"0 vocabulary identities were added to modeled Known vocabulary",
-		"No deck artifact was required for this empty snapshot",
-		"Where next?",
-		"No new Primary Goal has been selected",
+		"Vocabulary: 0 identities newly Known; 0 identities already Known",
+		"Choose what to read next",
 	} {
 		assert.Contains(t, html, want)
 	}
 	assert.NotContains(t, html, `<article role="alert" class=`)
-	assert.NotContains(t, html, "verified mastery")
+	assert.NotContains(t, html, "celebrat")
 }
 
 func TestPrimaryGoalFinishEmptySnapshotThroughAuthenticatedHandler(t *testing.T) {
@@ -761,14 +688,11 @@ func TestPrimaryGoalFinishEmptySnapshotThroughAuthenticatedHandler(t *testing.T)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
 		"Reading finished",
-		"0 vocabulary identities were added to modeled Known vocabulary",
-		"No deck artifact was required for this empty snapshot",
-		"Reading Journey recalculated",
-		"Where next?",
-		"No new Primary Goal has been selected",
+		"Vocabulary: 0 identities newly Known; 0 identities already Known",
+		"Choose what to read next",
 	} {
 		assert.Contains(t, finished.Body.String(), want)
 	}
 	assert.NotContains(t, finished.Body.String(), `<article role="alert" class=`)
-	assert.NotContains(t, finished.Body.String(), "verified mastery")
+	assert.NotContains(t, finished.Body.String(), "celebrat")
 }
