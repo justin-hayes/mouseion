@@ -45,6 +45,24 @@ frozen vocabulary snapshot. This is modeled learner knowledge, not a claim of
 verified mastery; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
+**Book-scoped vocabulary choice**:
+A learner's explicit choice to keep or skip a candidate for one Book. Keeping
+expresses learning interest, not knowledge, and cannot override Known or Reserved
+vocabulary. Skipping is not a learner-wide judgment about the identity.
+_Avoid_: Known vocabulary, card exclusion, global ignore.
+
+**Card exclusion**:
+A learner's decision to omit proposed card material for a Book without rejecting
+the vocabulary identity or marking it Known. It is distinct from skipping a
+Book's vocabulary candidate.
+_Avoid_: Book-scoped vocabulary choice, Known vocabulary.
+
+**Book evidence correction**:
+A learner-reviewed correction of specific occurrences' lemma or part of speech
+in a Book's analysis evidence. It leaves the original analysis identifiable and
+does not rewrite learner-wide vocabulary state or frozen artifacts.
+_Avoid_: learner-wide lexicon correction, Known vocabulary edit.
+
 **Recurring vocabulary**:
 Unknown lemmas appearing at least N times in an analyzed book; the pool a
 prepared deck or current-reading snapshot selects. N is a selection parameter
