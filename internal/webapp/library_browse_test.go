@@ -71,6 +71,44 @@ func TestNeedsLanguageClearSearchResetsQueryAndPreservesDisposition(t *testing.T
 	assert.Contains(t, html, `href="/library?disposition=inbox&amp;needs-language"`)
 }
 
+type pagedBookBrowseReader struct {
+	bookID      string
+	requestedAt int
+	requests    int
+	gotOwner    string
+	gotLanguage string
+	gotBucket   string
+	gotHistory  bool
+}
+
+func (r *pagedBookBrowseReader) ListMyBooksBrowse(_ context.Context, owner, _, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+	r.requests++
+	r.gotOwner, r.gotLanguage, r.gotBucket, r.gotHistory = owner, language, disposition, history
+	if offset == r.requestedAt {
+		return persistence.MyBooksBrowseResult{Items: []domain.MyBook{{Book: domain.Book{ID: r.bookID}}}, Total: offset + 1}, nil
+	}
+	return persistence.MyBooksBrowseResult{Items: make([]domain.MyBook, limit), Total: r.requestedAt + 1}, nil
+}
+
+func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
+	reader := &pagedBookBrowseReader{bookID: "historical-book", requestedAt: myBooksPageSize}
+	book := domain.MyBook{
+		Book:            domain.Book{ID: "historical-book"},
+		Disposition:     domain.BookDispositionSetAside,
+		CompletionCount: 1,
+	}
+
+	page, err := myBooksPageForBook(context.Background(), reader, "owner-1", "de", book)
+	require.NoError(t, err)
+	assert.Equal(t, 2, page)
+	assert.Equal(t, 2, reader.requests)
+	assert.Equal(t, "owner-1", reader.gotOwner)
+	assert.Equal(t, "de", reader.gotLanguage)
+	assert.Empty(t, reader.gotBucket)
+	assert.True(t, reader.gotHistory)
+	assert.Equal(t, "/library?history=read&page=2", myBookVisibleBucketURL(book, page))
+}
+
 type browseRecordingStore struct {
 	*fixtures.Store
 	result      persistence.MyBooksBrowseResult
