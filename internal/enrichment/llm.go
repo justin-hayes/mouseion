@@ -15,12 +15,13 @@ import (
 )
 
 const (
-	defaultLLMBaseURL      = "https://api.openai.com/v1"
-	defaultLLMTimeout      = 30 * time.Second
-	defaultReasoningEffort = "low"
-	llmPromptVersion       = "translation-v11-sense-selection-display-limit-json"
-	llmReasoningEffortEnv  = "MOUSEION_LLM_REASONING_EFFORT"
-	llmReasoningSupportEnv = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
+	defaultLLMBaseURL            = "https://api.openai.com/v1"
+	defaultLLMTimeout            = 30 * time.Second
+	defaultReasoningEffort       = "low"
+	llmPromptVersion             = "translation-v11-sense-selection-display-limit-json"
+	contextualGlossPromptVersion = "translation-v12-contextual-gloss-evidence-json"
+	llmReasoningEffortEnv        = "MOUSEION_LLM_REASONING_EFFORT"
+	llmReasoningSupportEnv       = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )
 
 // LLMConfig is the administrator-controlled configuration for the external

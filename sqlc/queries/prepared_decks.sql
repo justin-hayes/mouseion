@@ -206,7 +206,7 @@ SELECT count(*) FILTER (WHERE COALESCE(ec.translation, '') <> '') AS cards_with_
        count(*) FILTER (WHERE COALESCE(ec.sentence_translation, '') <> '') AS cards_with_contextual_sentence_translations
 FROM deck_preparation_manifest_items mi
 JOIN deck_preparation_translation_outcomes o ON o.owner_id = mi.owner_id AND o.preparation_id = mi.preparation_id AND o.run_id = mi.run_id AND o.ordinal = mi.ordinal AND o.state = 'completed'
-LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '')
+LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '') AND ec.meaning_evidence_hash = COALESCE(mi.meaning_evidence_hash, '')
 WHERE mi.owner_id = sqlc.arg('owner') AND mi.preparation_id = sqlc.arg('preparation') AND mi.run_id = sqlc.arg('run') AND mi.disposition = 'accepted';
 
 -- name: ListPreparedDeckStuckBatches :many
@@ -303,7 +303,7 @@ SELECT EXISTS(
   SELECT 1 FROM enrichment_cache
   WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
     AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
-    AND dictionary_provider_version = $8
+    AND dictionary_provider_version = $8 AND meaning_evidence_hash = $9
     AND translation <> ''
     AND (sentence_hash = '' OR sentence_translation <> '')
 );
@@ -320,8 +320,8 @@ INSERT INTO deck_preparation_manifests(owner_id, preparation_id, run_id, schema_
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: InsertPreparedDeckManifestItem :exec
-INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, corpus_id, sentence_ordinal)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22);
+INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, corpus_id, sentence_ordinal, meaning_evidence_hash)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23);
 
 -- name: InsertPreparedDeckTranslationOutcome :exec
 INSERT INTO deck_preparation_translation_outcomes(owner_id, preparation_id, run_id, ordinal, state, max_provider_attempts, terminal_at, cache_hit_count)
@@ -441,7 +441,7 @@ WITH hit AS (
   FROM deck_preparation_batch_chunk_items ci
   JOIN deck_preparation_batch_chunks c ON c.owner_id = ci.owner_id AND c.preparation_id = ci.preparation_id AND c.run_id = ci.run_id AND c.id = ci.chunk_id AND c.generation = ci.generation
   JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
-  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '')
+  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '') AND ec.meaning_evidence_hash = COALESCE(mi.meaning_evidence_hash, '')
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3 AND o.ordinal = ci.ordinal AND o.state = 'pending'
     AND c.id = $4 AND c.generation = $5 AND c.state = 'submitting' AND c.submission_claim_token = $6
   RETURNING o.ordinal
@@ -492,14 +492,14 @@ WHERE owner_id = sqlc.arg('owner') AND preparation_id = sqlc.arg('preparation') 
 RETURNING *;
 
 -- name: UpsertEnrichmentCache :exec
-INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT DO NOTHING;
 
 -- name: EnrichmentCacheLookup :one
 SELECT 1 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
-  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8;
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8 AND meaning_evidence_hash = $9;
 
 -- name: UpdatePreparedDeckOutcomeFromBatch :exec
 UPDATE deck_preparation_translation_outcomes

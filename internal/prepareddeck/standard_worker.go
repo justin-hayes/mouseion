@@ -66,7 +66,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	key := work.CacheKey
 	if entry, hit, cacheErr := w.Store.Get(ctx, key); cacheErr != nil {
 		return w.fail(ctx, args, token, "persistence", "cache_lookup", false, false)
-	} else if hit && enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) {
+	} else if hit && enrichment.HasRequiredTranslationFields(entry, work.Request.ExampleSentence) && (!work.Request.RequireContextualGloss || strings.TrimSpace(entry.FallbackGloss) != "") {
 		observeBatchMetric(w.Metrics, BatchMetric{Mode: "standard", Name: MetricCacheHits, Phase: "cache", State: "completed", Provider: "openai", Value: 1})
 		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{State: domain.PreparedDeckOutcomeCompleted, CacheHit: true, CacheLatency: 0}, w.finalizer)
 		return finishErr
@@ -122,7 +122,16 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	for _, warning := range response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
-	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SenseSelection: append([]int{}, response.SenseOrder...), SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
+	selection := make([]int, 0, len(response.EvidenceIDs))
+	for _, id := range response.EvidenceIDs {
+		for index, sense := range request.CandidateSenses {
+			if sense.EvidenceID == id {
+				selection = append(selection, index)
+				break
+			}
+		}
+	}
+	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.Gloss, SenseSelection: selection, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
 	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, entry)
 	if err != nil {
 		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {

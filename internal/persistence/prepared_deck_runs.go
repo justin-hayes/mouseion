@@ -205,7 +205,7 @@ func classifyPreparedDeckManifest(ctx context.Context, tx pgx.Tx, projection car
 			continue
 		}
 		key := item.CacheKey
-		found, err := q.PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion})
+		found, err := q.PreparedDeckCacheExists(ctx, sqlcgen.PreparedDeckCacheExistsParams{Language: key.Language, TargetLanguage: key.TargetLanguage, CanonicalLemma: key.CanonicalLemma, Upos: key.UPOS, Provider: key.Provider, ProviderVersion: key.ProviderVersion, SentenceHash: key.SentenceHash, DictionaryProviderVersion: key.DictionaryProviderVersion, MeaningEvidenceHash: key.MeaningEvidenceHash})
 		if err != nil {
 			return preparedDeckManifestWork{}, err
 		}
@@ -239,6 +239,12 @@ func validatePreparedDeckManifestCacheIdentity(projection cardexport.StorageProj
 		}
 		if item.CacheKey != nil && (item.CacheKey.Provider != config.Provider || item.CacheKey.ProviderVersion != config.ProviderVersion) {
 			return fmt.Errorf("%w: manifest cache identity contradicts provider snapshot", ErrImmutable)
+		}
+		if item.CacheKey != nil && config.ExecutionMode == string(domain.PreparedDeckExecutionStandard) && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(item.Entry.CandidateSenses) {
+			return fmt.Errorf("%w: standard manifest cache identity contradicts frozen meaning evidence", ErrImmutable)
+		}
+		if item.CacheKey != nil && config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) && item.CacheKey.MeaningEvidenceHash != "" {
+			return fmt.Errorf("%w: Batch manifest has contextual-gloss cache identity", ErrImmutable)
 		}
 		if item.CacheKey != nil && ((config.ContextMode == "sentence" && item.CacheKey.SentenceHash != enrichment.SentenceHash(item.Entry.Sentence)) || (config.ContextMode == "lemma_only" && item.CacheKey.SentenceHash != "")) {
 			return fmt.Errorf("%w: manifest cache identity contradicts context mode", ErrImmutable)
@@ -274,7 +280,11 @@ func insertPreparedDeckManifestItem(ctx context.Context, q *sqlcgen.Queries, par
 	if item.CacheKey != nil {
 		provider, providerVersion, sentenceHash = nullableTextArg(item.CacheKey.Provider), nullableTextArg(item.CacheKey.ProviderVersion), nullableTextArg(item.CacheKey.SentenceHash)
 	}
-	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal)}); err != nil {
+	meaningEvidenceHash := pgtype.Text{}
+	if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" {
+		meaningEvidenceHash = nullableTextArg(item.CacheKey.MeaningEvidenceHash)
+	}
+	if err := q.InsertPreparedDeckManifestItem(ctx, sqlcgen.InsertPreparedDeckManifestItemParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: runID, Ordinal: item.Ordinal, Disposition: string(item.Disposition), Language: item.Entry.Language, TargetLanguage: config.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, Upos: item.Entry.UPOS, SourceSentence: item.Entry.Sentence, TestedTarget: item.Entry.TargetWord, FirstEncounter: item.Entry.FirstEncounter, QualityScore: item.Quality.Score, QualityGdexScore: item.Quality.GDEXScore, QualityReasons: item.Quality.Reasons, RenderPayload: renderPayload, Provider: provider, ProviderVersion: providerVersion, SentenceHash: sentenceHash, CandidateDigest: candidateDigest, CorpusID: nullableUUIDArg(item.CorpusID), SentenceOrdinal: nullableInt8Arg(item.CorpusID, item.SentenceOrdinal), MeaningEvidenceHash: meaningEvidenceHash}); err != nil {
 		return err
 	}
 	if item.Disposition != cardexport.ManifestAccepted {
@@ -467,7 +477,7 @@ func (s *PostgresStore) LoadPreparedDeckStorageProjection(ctx context.Context, o
 		item.Entry.SentenceOrdinal = item.SentenceOrdinal
 		provider := pgText(model.Provider)
 		if provider != "" {
-			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SentenceHash: pgText(model.SentenceHash)}
+			item.CacheKey = &enrichment.CacheKey{Language: item.Entry.Language, TargetLanguage: model.TargetLanguage, CanonicalLemma: item.Entry.CanonicalLemma, UPOS: item.Entry.UPOS, Provider: provider, ProviderVersion: pgText(model.ProviderVersion), DictionaryProviderVersion: item.Entry.DictionaryProviderVersion, SentenceHash: pgText(model.SentenceHash), MeaningEvidenceHash: pgText(model.MeaningEvidenceHash)}
 		}
 		candidateDigests = append(candidateDigests, model.CandidateDigest)
 		snapshot.Items = append(snapshot.Items, item)

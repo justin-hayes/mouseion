@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -68,11 +69,15 @@ type PronunciationProvider interface {
 type TranslationRequest struct {
 	Language, TargetLanguage, CanonicalLemma, UPOS, TargetWord, ExampleSentence string
 	CandidateSenses                                                             []LexicalSense
+	RequireContextualGloss                                                      bool `json:"-"`
 }
 type TranslationResponse struct {
 	Translation               string   `json:"translation"`
 	SentenceTranslation       string   `json:"sentence_translation"`
 	SentenceTranslationTarget string   `json:"sentence_translation_target"`
+	Gloss                     string   `json:"gloss,omitempty"`
+	EvidenceIDs               []string `json:"evidence_ids,omitempty"`
+	ContextOnly               bool     `json:"context_only,omitempty"`
 	SenseOrder                []int    `json:"sense_order"`
 	FallbackGloss             string   `json:"fallback_gloss"`
 	Warnings                  []string `json:"-"`
@@ -95,7 +100,7 @@ type TranslationProvider interface {
 type CacheKey struct {
 	Language, TargetLanguage, CanonicalLemma, UPOS, Provider, ProviderVersion string
 	DictionaryProviderVersion                                                 string
-	SentenceHash                                                              string
+	SentenceHash, MeaningEvidenceHash                                         string
 }
 type CacheEntry struct {
 	CacheKey
@@ -461,6 +466,18 @@ func SentenceHash(sentence string) string {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(normalized))
+	return hex.EncodeToString(sum[:])
+}
+
+// MeaningEvidenceHash identifies the exact ordered public lexical candidates
+// supplied to the contextual-gloss model, so changed evidence cannot hit an
+// older result for the same word and sentence.
+func MeaningEvidenceHash(senses []LexicalSense) string {
+	encoded, err := json.Marshal(CloneLexicalSenses(senses))
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:])
 }
 

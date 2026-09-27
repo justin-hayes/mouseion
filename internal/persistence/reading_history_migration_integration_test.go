@@ -29,7 +29,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	// Rewind to version 3 before replaying the historical migrations. The
 	// disposition backfill is a later successor and must not run before the
 	// legacy state is seeded.
-	moveApplicationMigrations(t, databaseURL, -16)
+	moveApplicationMigrations(t, databaseURL, -17)
 	owner, err := store.CreateUser(ctx, "history-migration-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "history-migration-other", false)

@@ -214,12 +214,12 @@ func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member prepar
 	if err != nil {
 		return err
 	}
-	if err = sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
+	if err = sqlcgen.New(tx).UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
 		return err
 	}
 	// The cache is immutable and first-writer-wins. Read the committed row so
 	// the finalizer consumes the trusted value when another run won the race.
-	_, err = sqlcgen.New(tx).EnrichmentCacheLookup(ctx, sqlcgen.EnrichmentCacheLookupParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion})
+	_, err = sqlcgen.New(tx).EnrichmentCacheLookup(ctx, sqlcgen.EnrichmentCacheLookupParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash})
 	return err
 }
 

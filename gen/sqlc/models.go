@@ -402,10 +402,11 @@ type DeckPreparationManifestItem struct {
 	CandidateDigest string
 	CreatedAt       time.Time
 	// Frozen target language for this manifest item cache identity
-	TargetLanguage   string
-	QualityGdexScore float64
-	CorpusID         pgtype.UUID
-	SentenceOrdinal  pgtype.Int8
+	TargetLanguage      string
+	QualityGdexScore    float64
+	CorpusID            pgtype.UUID
+	SentenceOrdinal     pgtype.Int8
+	MeaningEvidenceHash pgtype.Text
 }
 
 type DeckPreparationRun struct {
@@ -509,6 +510,8 @@ type EnrichmentCache struct {
 	FallbackGloss string
 	// Reserved durable ordered dictionary sense indices for the consented selection phase
 	SenseSelection []byte
+	// Lowercase SHA-256 identity of the exact ordered lexical evidence used for a contextual Gloss; empty for historical non-contextual results
+	MeaningEvidenceHash string
 }
 
 type ExampleSentence struct {

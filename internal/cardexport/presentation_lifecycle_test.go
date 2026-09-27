@@ -101,6 +101,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		5: "5e63d298cf4abd79295cad9e647d54bae78c8f5d9e9541c550d0efcd77b9952d",
 		6: "689341753a71cd9c14609d5337668cc7503f5233ca4396f35909d75e293ea6ca",
 		7: "e142c96d63e34e44c47330688a5f12ea5c710fbc5443ac1f15750ecef68c0b94",
+		8: "aef994b625a4f881e7d5af369f196ff259a583d4adc4fbe72b02061b1fc6f5e1",
 	}
 	wantCandidateDigests := map[int]string{
 		1: "43552493d6d8cc96b17112bc9ee667bdd1a0379e38df85c4eb691aa6c788b1cf",
@@ -110,6 +111,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		5: "651de8c35431d328a63e6b6cd358dc3299ce0314c1fafb74302bbbbf28ba5698",
 		6: "7f94e44ed363cbbcad66e81060a234507d3c2cb1bd2814802ea05c01721f5dc5",
 		7: "3beec077590b7a3d4ccc853022cb479baf80a809fcded5d34dbfa3dd56050dbf",
+		8: "ea1d876cf5e2992d99fd1761f2b9fdd8b59ee5392d4af29e6889cdc372384b75",
 	}
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		snapshot := lifecycleRestoreSnapshot()
@@ -140,6 +142,31 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 			require.NoError(t, err, "schema %d finalization", schema)
 		}
 	}
+}
+
+func TestContextualGlossCacheIdentityBindsEvidenceAndRendersOneModelGloss(t *testing.T) {
+	makeDeck := func(evidenceID, gloss string) cardexport.FrozenDeck {
+		projection := lifecycleProjection()
+		projection.RequireContextualGloss = true
+		projection.ProviderVersion = "prompt-v12"
+		projection.Entry.CandidateSenses = []enrichment.LexicalSense{{EvidenceID: evidenceID, Gloss: gloss}, {EvidenceID: "wikt:dwelling", Gloss: "dwelling"}}
+		deck, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+		require.NoError(t, err)
+		return deck
+	}
+	deck := makeDeck("wikt:bench", "bench")
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	require.NotEmpty(t, work[0].CacheKey.MeaningEvidenceHash)
+	require.True(t, work[0].Request.RequireContextualGloss)
+
+	record := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", FallbackGloss: "a place to live", SenseSelection: []int{0}, SentenceTranslation: "The house stands there today."}
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v12"})
+	require.NoError(t, err)
+	assert.Equal(t, "a place to live", artifact.Generated[0].Note.Gloss)
+
+	changed := makeDeck("wikt:seat", "a seat")
+	assert.NotEqual(t, work[0].CacheKey.MeaningEvidenceHash, changed.WorkProjection()[0].CacheKey.MeaningEvidenceHash)
 }
 
 func TestPresentationLifecycleRestoresPersistedV1TargetLanguage(t *testing.T) {

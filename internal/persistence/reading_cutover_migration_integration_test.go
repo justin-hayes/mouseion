@@ -19,7 +19,7 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 
 	// Seed the latest pre-cutover schema so migration 18 itself proves the
 	// membership-to-disposition contract and preserves unrelated durable state.
-	moveApplicationMigrations(t, databaseURL, -2)
+	moveApplicationMigrations(t, databaseURL, -3)
 	// The current disposition writes include the successor revision field. Add it
 	// temporarily while seeding with application code, then remove it so the
 	// migration under test starts from the exact version-17 schema.

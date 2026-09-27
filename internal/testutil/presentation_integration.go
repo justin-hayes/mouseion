@@ -17,6 +17,7 @@ import (
 // frozen work. An empty provider creates a local deck without external work.
 type PresentationProvider struct {
 	Name, Version, TargetLanguage string
+	RequireContextualGloss        bool
 }
 
 // FreezePresentationDeck builds an integration fixture through the public
@@ -62,13 +63,14 @@ func FreezePresentationDeckWithLexical(ctx context.Context, owner, deckName stri
 			SentenceReferences: references,
 		}
 		projection := cardexport.CandidateProjection{
-			OwnerID:         owner,
-			DeckName:        deckName,
-			Candidate:       candidate,
-			Entry:           entry,
-			Provider:        provider.Name,
-			ProviderVersion: provider.Version,
-			TargetLanguage:  provider.TargetLanguage,
+			OwnerID:                owner,
+			DeckName:               deckName,
+			Candidate:              candidate,
+			Entry:                  entry,
+			Provider:               provider.Name,
+			ProviderVersion:        provider.Version,
+			TargetLanguage:         provider.TargetLanguage,
+			RequireContextualGloss: provider.RequireContextualGloss,
 		}
 		if allEntriesHaveTokens(entries) {
 			projection.Sentences = map[int64]analyzer.Sentence{
