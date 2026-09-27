@@ -270,7 +270,11 @@ func completedBatchItem(w *BatchPollWorker, item enrichment.BatchTranslationItem
 	for _, warning := range outcome.Response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
-	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: outcome.Response.Translation, FallbackGloss: outcome.Response.FallbackGloss, SenseSelection: append([]int{}, outcome.Response.SenseOrder...), SentenceTranslation: outcome.Response.SentenceTranslation, SentenceTranslationTarget: outcome.Response.SentenceTranslationTarget, CachedAt: w.now()}}
+	if reason := strings.TrimSpace(outcome.Response.UnresolvedReason); reason != "" {
+		return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: reason}
+	}
+	selection := evidenceSelectionIndices(item.Request.CandidateSenses, outcome.Response.EvidenceIDs)
+	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: outcome.Response.Translation, FallbackGloss: outcome.Response.Gloss, SenseSelection: selection, SentenceTranslation: outcome.Response.SentenceTranslation, SentenceTranslationTarget: outcome.Response.SentenceTranslationTarget, CachedAt: w.now()}}
 }
 
 func failedBatchItem(ordinal int, outcome enrichment.BatchTranslationOutcome, found bool, batch enrichment.Batch, chunk domain.PreparedDeckBatchChunk, run domain.PreparedDeckRun) (persistence.PreparedDeckBatchItemReconciliation, bool) {

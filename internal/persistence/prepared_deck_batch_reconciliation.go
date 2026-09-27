@@ -18,11 +18,12 @@ import (
 )
 
 type PreparedDeckBatchItemReconciliation struct {
-	Ordinal    int
-	State      domain.PreparedDeckOutcomeState
-	CacheEntry *enrichment.CacheEntry
-	ErrorClass string
-	ErrorCode  string
+	Ordinal        int
+	State          domain.PreparedDeckOutcomeState
+	CacheEntry     *enrichment.CacheEntry
+	ErrorClass     string
+	ErrorCode      string
+	OmissionReason string
 }
 
 type PreparedDeckBatchReconcileParams struct {
@@ -165,6 +166,9 @@ func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params Prepa
 	if item.State != domain.PreparedDeckOutcomeCompleted && item.State != domain.PreparedDeckOutcomePending && item.State != domain.PreparedDeckOutcomeFailed {
 		return false, ErrInvalidTransition
 	}
+	if item.OmissionReason != "" && (item.State != domain.PreparedDeckOutcomeCompleted || strings.TrimSpace(item.OmissionReason) == "" || len([]rune(item.OmissionReason)) > 200 || strings.ContainsAny(item.OmissionReason, "<>") || item.ErrorClass != "" || item.ErrorCode != "" || item.CacheEntry != nil) {
+		return false, ErrInvalidTransition
+	}
 	if item.State == domain.PreparedDeckOutcomeFailed && strings.TrimSpace(item.ErrorClass) == "" {
 		return false, ErrInvalidTransition
 	}
@@ -209,6 +213,9 @@ func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member prepar
 		}
 		return nil
 	}
+	if item.OmissionReason != "" {
+		return nil
+	}
 	if item.CacheEntry == nil || item.CacheEntry.CacheKey != member.Key || item.CacheEntry.CachedAt.IsZero() {
 		return ErrPreparedDeckIdentity
 	}
@@ -227,7 +234,7 @@ func persistPreparedDeckBatchCache(ctx context.Context, tx pgx.Tx, member prepar
 }
 
 func updatePreparedDeckBatchOutcome(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams, chunk domain.PreparedDeckBatchChunk, item PreparedDeckBatchItemReconciliation, terminalAt *time.Time) error {
-	return sqlcgen.New(tx).UpdatePreparedDeckOutcomeFromBatch(ctx, sqlcgen.UpdatePreparedDeckOutcomeFromBatchParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal, State: string(item.State), ProviderAttemptCount: chunk.Generation, TerminalAt: pgTimeArgPtr(terminalAt), ErrorClass: item.ErrorClass, ErrorCode: item.ErrorCode})
+	return sqlcgen.New(tx).UpdatePreparedDeckOutcomeFromBatch(ctx, sqlcgen.UpdatePreparedDeckOutcomeFromBatchParams{OwnerID: params.OwnerID, PreparationID: params.PreparationID, RunID: params.RunID, Ordinal: item.Ordinal, State: string(item.State), ProviderAttemptCount: chunk.Generation, TerminalAt: pgTimeArgPtr(terminalAt), ErrorClass: item.ErrorClass, ErrorCode: item.ErrorCode, OmissionReason: item.OmissionReason})
 }
 
 func completePreparedDeckBatchChunk(ctx context.Context, tx pgx.Tx, params PreparedDeckBatchReconcileParams) (domain.PreparedDeckBatchChunk, error) {
@@ -245,7 +252,7 @@ func loadPreparedDeckBatchMembers(ctx context.Context, tx pgx.Tx, params Prepare
 	}
 	var members []preparedDeckBatchMember
 	for _, row := range rows {
-		member := preparedDeckBatchMember{Ordinal: row.Ordinal, Key: enrichment.CacheKey{Language: row.Language, TargetLanguage: row.TargetLanguage, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Provider: row.Provider, ProviderVersion: row.ProviderVersion, DictionaryProviderVersion: row.DictionaryProviderVersion, SentenceHash: row.SentenceHash}}
+		member := preparedDeckBatchMember{Ordinal: row.Ordinal, Key: enrichment.CacheKey{Language: row.Language, TargetLanguage: row.TargetLanguage, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Provider: row.Provider, ProviderVersion: row.ProviderVersion, DictionaryProviderVersion: row.DictionaryProviderVersion, SentenceHash: row.SentenceHash, MeaningEvidenceHash: row.MeaningEvidenceHash}}
 		if member.Key.Provider == "" || member.Key.ProviderVersion == "" || member.Key.TargetLanguage == "" {
 			return nil, ErrPreparedDeckIdentity
 		}

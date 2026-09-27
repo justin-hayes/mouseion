@@ -2927,7 +2927,8 @@ func (q *Queries) InsertPreparedDeckTranslationOutcome(ctx context.Context, arg 
 const listPreparedDeckBatchChunkMembers = `-- name: ListPreparedDeckBatchChunkMembers :many
 SELECT ci.ordinal, mi.language, mi.target_language, mi.canonical_lemma, mi.upos,
        COALESCE(mi.provider, ''), COALESCE(mi.provider_version, ''), COALESCE(mi.sentence_hash, ''),
-       CAST(COALESCE(mi.render_payload->>'dictionary_provider_version', '') AS text) AS dictionary_provider_version
+       CAST(COALESCE(mi.render_payload->>'dictionary_provider_version', '') AS text) AS dictionary_provider_version,
+       COALESCE(mi.meaning_evidence_hash, '') AS meaning_evidence_hash
 FROM deck_preparation_batch_chunk_items ci
 JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
 WHERE ci.owner_id = $1 AND ci.preparation_id = $2 AND ci.run_id = $3 AND ci.chunk_id = $4
@@ -2951,6 +2952,7 @@ type ListPreparedDeckBatchChunkMembersRow struct {
 	ProviderVersion           string
 	SentenceHash              string
 	DictionaryProviderVersion string
+	MeaningEvidenceHash       string
 }
 
 func (q *Queries) ListPreparedDeckBatchChunkMembers(ctx context.Context, arg ListPreparedDeckBatchChunkMembersParams) ([]ListPreparedDeckBatchChunkMembersRow, error) {
@@ -2977,6 +2979,7 @@ func (q *Queries) ListPreparedDeckBatchChunkMembers(ctx context.Context, arg Lis
 			&i.ProviderVersion,
 			&i.SentenceHash,
 			&i.DictionaryProviderVersion,
+			&i.MeaningEvidenceHash,
 		); err != nil {
 			return nil, err
 		}
@@ -4108,7 +4111,7 @@ const updatePreparedDeckOutcomeFromBatch = `-- name: UpdatePreparedDeckOutcomeFr
 UPDATE deck_preparation_translation_outcomes
 SET state = $5, provider_attempt_count = GREATEST(provider_attempt_count, $6), next_attempt_at = now(),
     claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, terminal_at = $7,
-    error_class = $8, error_code = $9, provider_call_count = provider_call_count + 1, updated_at = now()
+    error_class = $8, error_code = $9, omission_reason = $10, provider_call_count = provider_call_count + 1, updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
 `
 
@@ -4122,6 +4125,7 @@ type UpdatePreparedDeckOutcomeFromBatchParams struct {
 	TerminalAt           pgtype.Timestamptz
 	ErrorClass           string
 	ErrorCode            string
+	OmissionReason       string
 }
 
 func (q *Queries) UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) error {
@@ -4135,6 +4139,7 @@ func (q *Queries) UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg Up
 		arg.TerminalAt,
 		arg.ErrorClass,
 		arg.ErrorCode,
+		arg.OmissionReason,
 	)
 	return err
 }

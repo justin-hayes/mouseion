@@ -380,7 +380,10 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		}
 		byKey[result.CacheKey] = result
 	}
-	required := facts.Consent && facts.Configured && strings.EqualFold(strings.TrimSpace(facts.ExecutionMode), "standard")
+	mode := strings.TrimSpace(facts.ExecutionMode)
+	contextualIdentity := slices.ContainsFunc(keys, func(key enrichment.CacheKey) bool { return key.MeaningEvidenceHash != "" })
+	contextualBatch := strings.EqualFold(mode, "batch") && contextualIdentity
+	required := facts.Consent && facts.Configured && (strings.EqualFold(mode, "standard") || contextualBatch)
 	aligned := make([]ExactEnrichment, 0, len(keys))
 	accepted := make([]RenderInput, 0, len(manifest.accepted))
 	cacheKeys := make([]enrichment.CacheKey, 0, len(keys))
@@ -404,7 +407,7 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 			meaningOmissions = append(meaningOmissions, MeaningOmission{Target: manifest.accepted[i].TargetWord, Reason: result.OmissionReason})
 			continue
 		}
-		if required && !storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) {
+		if required && (!storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) || (contextualIdentity && strings.TrimSpace(result.Record.FallbackGloss) == "")) {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
 		}
 		aligned = append(aligned, exactEnrichmentFromStoredResult(result, manifest, i))

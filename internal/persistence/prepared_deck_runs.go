@@ -240,11 +240,8 @@ func validatePreparedDeckManifestCacheIdentity(projection cardexport.StorageProj
 		if item.CacheKey != nil && (item.CacheKey.Provider != config.Provider || item.CacheKey.ProviderVersion != config.ProviderVersion) {
 			return fmt.Errorf("%w: manifest cache identity contradicts provider snapshot", ErrImmutable)
 		}
-		if item.CacheKey != nil && config.ExecutionMode == string(domain.PreparedDeckExecutionStandard) && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(item.Entry.CandidateSenses) {
-			return fmt.Errorf("%w: standard manifest cache identity contradicts frozen meaning evidence", ErrImmutable)
-		}
-		if item.CacheKey != nil && config.ExecutionMode == string(domain.PreparedDeckExecutionBatch) && item.CacheKey.MeaningEvidenceHash != "" {
-			return fmt.Errorf("%w: Batch manifest has contextual-gloss cache identity", ErrImmutable)
+		if item.CacheKey != nil && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(item.Entry.CandidateSenses) {
+			return fmt.Errorf("%w: manifest cache identity contradicts frozen meaning evidence", ErrImmutable)
 		}
 		if item.CacheKey != nil && ((config.ContextMode == "sentence" && item.CacheKey.SentenceHash != enrichment.SentenceHash(item.Entry.Sentence)) || (config.ContextMode == "lemma_only" && item.CacheKey.SentenceHash != "")) {
 			return fmt.Errorf("%w: manifest cache identity contradicts context mode", ErrImmutable)
