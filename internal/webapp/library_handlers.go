@@ -13,6 +13,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+type myBooksBrowseReader interface {
+	ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
+}
+
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/library")
 }
@@ -37,9 +41,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	var books []domain.MyBook
 	var err error
 	var browse MyBooksBrowseState
-	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
-	}); ok {
+	if reader, ok := h.services.Store.Books.(myBooksBrowseReader); ok {
 		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, string(disposition), history, myBooksPageOffset(page), myBooksPageSize)
 		err = readErr
 		books = result.Items
@@ -135,7 +137,51 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/library?history=read&message="+url.QueryEscape("Previously read history recorded. Vocabulary was not changed."))
+	book, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	page := 1
+	if reader, ok := h.services.Store.Books.(myBooksBrowseReader); ok {
+		activeLanguage, _ := activeStudyLanguageForContext(r.Context())
+		page, err = myBooksPageForBook(r.Context(), reader, owner, activeLanguage, book)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
+	location := myBookVisibleBucketURL(book, page)
+	separator := "?"
+	if strings.Contains(location, "?") {
+		separator = "&"
+	}
+	location += separator + "message=" + url.QueryEscape("Previously read history recorded. Vocabulary was not changed.")
+	redirect(w, r, location)
+}
+
+func myBooksPageForBook(ctx context.Context, reader myBooksBrowseReader, owner, language string, book domain.MyBook) (int, error) {
+	bucket := book.WorkflowBucket()
+	disposition, _ := bucket.PersistedDisposition()
+	history := bucket == domain.MyBookBucketRead
+	for offset := 0; ; offset += myBooksPageSize {
+		result, err := reader.ListMyBooksBrowse(ctx, owner, "", language, string(disposition), history, offset, myBooksPageSize)
+		if err != nil {
+			return 0, err
+		}
+		for _, item := range result.Items {
+			if item.Book.ID == book.Book.ID {
+				return offset/myBooksPageSize + 1, nil
+			}
+		}
+		if offset+myBooksPageSize >= result.Total {
+			return 0, fmt.Errorf("book %q is not present in its visible My Books bucket", book.Book.ID)
+		}
+	}
 }
 
 func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result persistence.MyBooksBrowseResult) MyBooksBrowseState {

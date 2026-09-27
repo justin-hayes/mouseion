@@ -105,6 +105,23 @@ func myBooksHistoryFilterURL(browse MyBooksBrowseState, history bool) string {
 	return myBooksHistoryURL(browse.Query, 1, browse.NeedsLanguage, "", history)
 }
 
+func myBookVisibleBucketURL(book domain.MyBook, page int) string {
+	switch book.WorkflowBucket() {
+	case domain.MyBookBucketInbox:
+		return myBooksFilteredURL("", page, false, domain.BookDispositionInbox)
+	case domain.MyBookBucketToRead:
+		return myBooksFilteredURL("", page, false, domain.BookDispositionToRead)
+	case domain.MyBookBucketRead:
+		return myBooksHistoryURL("", page, false, "", true)
+	case domain.MyBookBucketSetAside:
+		return myBooksFilteredURL("", page, false, domain.BookDispositionSetAside)
+	case domain.MyBookBucketCurrentReading:
+		// Current reading is visible in All; it has no independent filter.
+		return "/library"
+	}
+	return "/library"
+}
+
 func myBooksDispositionURL(browse MyBooksBrowseState, disposition domain.BookDisposition) string {
 	return myBooksFilteredURL(browse.Query, 1, browse.NeedsLanguage, disposition)
 }
