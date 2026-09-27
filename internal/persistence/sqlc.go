@@ -404,6 +404,16 @@ func exampleSentenceFromFields(
 }
 
 func preparedDeckOutcomeFromModel(row any) (domain.PreparedDeckTranslationOutcome, error) {
+	switch row.(type) {
+	case sqlcgen.DeckPreparationTranslationOutcome,
+		sqlcgen.ClaimPreparedDeckTranslationOutcomeRow,
+		sqlcgen.RetryPreparedDeckTranslationOutcomeRow,
+		sqlcgen.FinishPreparedDeckTranslationOutcomeRow,
+		sqlcgen.RedispatchPreparedDeckTranslationOutcomeRow:
+		// Each query-specific generated row has the same durable table projection.
+	default:
+		return domain.PreparedDeckTranslationOutcome{}, fmt.Errorf("unsupported prepared-deck outcome row type %T", row)
+	}
 	var m sqlcgen.DeckPreparationTranslationOutcome
 	encoded, err := json.Marshal(row)
 	if err != nil {

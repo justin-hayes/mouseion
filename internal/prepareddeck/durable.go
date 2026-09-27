@@ -491,11 +491,9 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	if err != nil {
 		if ctx.Err() == nil {
 			failureCode := "render_failed"
-			if errors.Is(err, cardexport.ErrAllMeaningsUnresolved) {
-				failureCode = "all_meanings_unresolved"
-			}
 			failureClass := "presentation"
 			if errors.Is(err, cardexport.ErrAllMeaningsUnresolved) {
+				failureCode = "all_meanings_unresolved"
 				failureClass = "validation"
 			}
 			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, failureClass, failureCode); failErr != nil {
