@@ -135,7 +135,22 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/library?history=read&message="+url.QueryEscape("Previously read history recorded. Vocabulary was not changed."))
+	book, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	location := myBookVisibleBucketURL(book)
+	separator := "?"
+	if strings.Contains(location, "?") {
+		separator = "&"
+	}
+	location += separator + "message=" + url.QueryEscape("Previously read history recorded. Vocabulary was not changed.")
+	redirect(w, r, location)
 }
 
 func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result persistence.MyBooksBrowseResult) MyBooksBrowseState {
