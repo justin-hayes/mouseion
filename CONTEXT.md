@@ -45,31 +45,6 @@ frozen vocabulary snapshot. This is modeled learner knowledge, not a claim of
 verified mastery; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
-**Book-scoped vocabulary choice**:
-A learner's explicit choice to keep or skip a candidate for one Book. Keeping
-expresses learning interest, not knowledge, and cannot override Known or Reserved
-vocabulary. Skipping is not a learner-wide judgment about the identity.
-_Avoid_: Known vocabulary, card exclusion, global ignore.
-
-**Card exclusion**:
-A learner's decision to omit proposed card material for a Book without rejecting
-the vocabulary identity or marking it Known. It is distinct from skipping a
-Book's vocabulary candidate.
-_Avoid_: Book-scoped vocabulary choice, Known vocabulary.
-
-**Completion omission**:
-A learner's explicit choice to leave an identity from a current reading's frozen
-vocabulary snapshot out of that reading completion's addition to Known
-vocabulary. It does not remove the identity from the snapshot or change card
-material, Book-scoped vocabulary choices, or prior reading history.
-_Avoid_: card exclusion, Book-scoped skip, snapshot edit.
-
-**Book evidence correction**:
-A learner-reviewed correction of specific occurrences' lemma or part of speech
-in a Book's analysis evidence. It leaves the original analysis identifiable and
-does not rewrite learner-wide vocabulary state or frozen artifacts.
-_Avoid_: learner-wide lexicon correction, Known vocabulary edit.
-
 **Recurring vocabulary**:
 Unknown lemmas appearing at least N times in an analyzed book; the pool a
 prepared deck or current-reading snapshot selects. N is a selection parameter
@@ -79,13 +54,13 @@ generated provenance is not an exclusion state.
 _Avoid_: frequent words, deck coverage.
 
 **Reserved vocabulary**:
-The frozen vocabulary snapshot held by a current reading in its study
+The frozen recurring-vocabulary snapshot held by a current reading in its study
 language, neither counted as Known nor available for selection while active.
 Stopping, switching, setting aside, or finishing releases the reservation.
 _Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
 
 **Current-reading vocabulary snapshot**:
-The immutable selected-vocabulary identity set frozen from the Book's exact
+The immutable recurring-vocabulary identity set frozen from the Book's exact
 source and current analysis when reading starts. Later evidence and deck changes
 cannot mutate it; rereading freezes a new snapshot.
 _Avoid_: deck contents, generated vocabulary, study snapshot.
@@ -110,7 +85,7 @@ Its vocabulary identity is the full lemma, not the analyzer's base lemma.
 _Avoid_: particle verb, prefix verb.
 
 **Prepared deck**:
-An Anki recognition deck built asynchronously from selected vocabulary of
+An Anki recognition deck built asynchronously from the recurring vocabulary of
 one exact completed analysis of a Book and that analysis's EPUB snapshot. The
 ready deck is downloaded and studied in the learner's own Anki; preparation
 does not mark vocabulary Known. Reading completion owns the vocabulary
@@ -150,9 +125,8 @@ _Avoid_: version (ambiguous with presentation version), regeneration.
 
 **Reading completion**:
 An append-only, Book-anchored fact recorded when the learner finishes a current
-reading. It accepts eligible identities from that reading's frozen snapshot,
-apart from explicit completion omissions, into modeled Known vocabulary and ends
-the current-reading role.
+reading. It accepts eligible identities from that reading's frozen snapshot into
+modeled Known vocabulary and ends the current-reading role.
 _Avoid_: Journey completion, deck completion, mastery.
 
 **Previously read**:
@@ -162,17 +136,15 @@ no analysis or vocabulary transition.
 _Avoid_: reading completion, known vocabulary.
 
 **Vocabulary transition**:
-The set-based addition of eligible identities from a current reading's frozen
-snapshot to modeled Known vocabulary when the learner finishes reading, excluding
-explicit completion omissions. It is independent of deck artifact readiness and
-does not claim per-card mastery.
+The set-based addition of a current reading's frozen snapshot to modeled Known
+vocabulary when the learner finishes reading. It is independent of deck
+artifact readiness and does not claim per-card mastery.
 _Avoid_: mastery, deck review, vocabulary study.
 
 **Graduation**:
 The historical name for the consequential transition that accepts a frozen
-snapshot's eligible identities, excluding explicit completion omissions, into
-modeled Known vocabulary when reading is finished. It is never implied by
-generation, deck readiness, or merely starting a Book.
+snapshot into modeled Known vocabulary when reading is finished. It is never
+implied by generation, deck readiness, or merely starting a Book.
 _Avoid_: completion, mastering, promotion.
 
 **Analysis evidence**:
@@ -372,13 +344,6 @@ potential representative, computed at export time from its tokens and dependency
 structure (GDEX-informed). It has two parts: the knock-out gate (accept or
 reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
-
-**Card-quality evidence**:
-Separate findings about a proposed recognition card's vocabulary identity,
-meaning, and source sentence and target. It distinguishes unusable card material,
-reviewable uncertainty, and unassessed aspects without judging whether the
-learner wants or knows the vocabulary identity.
-_Avoid_: overall quality score, Known vocabulary, sentence quality.
 
 **Dictionary index**:
 The build-time-derived, read-only lexical dataset, per language, that the
