@@ -8,13 +8,36 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
-// The fixture server is shared by every project/worker, and other specs mutate
-// it (e.g. keyboard-focus completes a current reading). This spec asserts facts
-// stable across those mutations and never changes the current reading: its
-// identity, canonical controls, switch confirmation, and My Books disposition.
-// Reading lifecycle mutations are covered by Go tests against isolated stores.
+// The fixture server is shared by every project/worker. Keep read-only checks
+// stable across other specs' state changes; stateful workflows run in desktop-light.
 test.describe('Current reading selection', () => {
-    test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
+  test('current reading opens its focused prepared-deck task', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
+    await signIn(page);
+    const language = page.getByLabel('Study language');
+    if (await language.inputValue() !== 'de') {
+      await language.selectOption('de');
+      await expect(page).toHaveURL(/\/library$/);
+    }
+    await page.goto('/reading');
+
+    const currentCard = page.locator('.journey-book--goal');
+    if (await currentCard.count() === 0) {
+      const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Der lange Weg nach Hause' });
+      const start = candidate.locator('details').filter({ hasText: 'Start reading' });
+      await start.locator('summary').click();
+      await start.getByRole('button', { name: 'Confirm start reading' }).click();
+      await expect(page).toHaveURL(/\/reading\?message=/);
+    }
+    await expect(currentCard).toBeVisible();
+    await currentCard.getByRole('link', { name: 'Open focused deck task' }).click();
+    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
+    await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
+    await expect(page.getByText('Frozen reading snapshot')).toBeVisible();
+    await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
+  });
+
+  test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
       await signIn(page);
       await page.getByLabel('Study language').selectOption('de');
       await expect(page).toHaveURL(/\/library$/);
@@ -160,16 +183,19 @@ test.describe('Current reading selection', () => {
        await initialStart.locator('summary').click();
        await initialStart.getByRole('button', { name: 'Confirm start reading' }).click();
        await expect(page).toHaveURL(/\/reading\?message=/);
-     }
-     await expect(currentCard).toBeVisible();
-     const title = (await currentCard.getByRole('heading', { level: 3 }).textContent())?.trim() ?? '';
-     expect(title).toBeTruthy();
+      }
+      await expect(currentCard).toBeVisible();
+      const title = (await currentCard.getByRole('heading', { level: 3 }).textContent())?.trim() ?? '';
+      expect(title).toBeTruthy();
 
-     const stop = currentCard.locator('details').filter({ hasText: 'Stop reading for now' });
-     await stop.locator('summary').click();
-     await stop.getByRole('button', { name: 'Confirm stop for now' }).click();
-     await expect(page).toHaveURL(/\/reading\?message=/);
-     await expect(page.locator('.journey-book--goal')).toHaveCount(0);
+      await expect(currentCard.getByRole('link', { name: 'Open focused deck task' }))
+        .toHaveAttribute('href', /\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
+
+      const stop = currentCard.locator('details').filter({ hasText: 'Stop reading for now' });
+      await stop.locator('summary').click();
+      await stop.getByRole('button', { name: 'Confirm stop for now' }).click();
+      await expect(page).toHaveURL(/\/reading\?message=/);
+      await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 
      const startBook = async (bookTitle: string) => {
        await page.goto('/reading');
