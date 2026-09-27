@@ -132,10 +132,14 @@ work through the focused preparation task.
 ### 5. Prepare and download a deck
 
 For a manual preparation from the focused task, the learner decides whether to
-create study material and whether to consent to optional external sentence
-translation. Selecting a Primary Goal is different: Mouseion automatically
-prepares local study material from that Goal's immutable vocabulary snapshot;
-Goal selection never grants external translation consent.
+create study material. Every new preparation—including one dispatched from
+Reading and retries or explicit re-preparation—requires the configured
+translation provider to create contextual Glosses; there is no per-submission
+consent or local-only path. Only the target, one representative sentence, and
+public lexical evidence are sent. A missing or persistently failing provider
+leaves the preparation failed and retryable after configuration, without
+blocking Reading. Existing ready artifacts remain downloadable unchanged;
+explicit re-preparation creates a new generation.
 
 Deck preparation is asynchronous, owner-scoped, and tied to one immutable
 completed analysis or one immutable Goal snapshot. The workflow reports durable
@@ -152,7 +156,7 @@ analysis or Goal snapshot; it does not hide recovery behind an empty state.
 The interface must answer:
 
 - Which analysis will this deck use?
-- What data leaves Mouseion if I enable optional translation?
+- What bounded public evidence is sent to the configured translation provider?
 - Is preparation queued, processing, waiting on Batch, failed, cancelled, or
   ready?
 - Are any cards incomplete, retried, or excluded?
@@ -192,8 +196,8 @@ The interface must answer:
   canonical `/journey#journey-book-{bookID}` anchor directly or through the
   language-selection handoff when the Book is outside the active language;
 - manual deck preparation is submitted from the focused task after the Book is
-  reached in Reading Journey; Primary Goal selection submits a
-  local preparation from the exact frozen Goal snapshot;
+  reached in Reading; Reading-triggered preparation uses that exact frozen
+  snapshot and the same required contextual-translation policy;
 - do not list analysis history on the Reading Journey page; `GET /jobs` remains the
   operational history surface; and
 - a newly completed rerun replaces the book's current learner-facing analysis

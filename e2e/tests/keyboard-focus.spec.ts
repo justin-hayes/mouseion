@@ -100,6 +100,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
     await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
+    await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
+    await expect(page.getByText(/uses the configured translation provider/i)).toBeVisible();
     const preparation = page.locator('[data-deck-preparation]');
     await expect(preparation).toHaveAttribute('role', 'status');
     await expect(preparation).toHaveAttribute('aria-live', 'polite');
@@ -127,6 +129,31 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect.poll(() => polls).toBe(2);
     await page.waitForTimeout(1600);
     expect(polls).toBe(2);
+  });
+
+  test('provider outage leaves an actionable failure without blocking Reading', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
+    await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
+    await page.route('**/reading/books/fixture-route-match/deck/preparations', async (route) => {
+      expect(route.request().postData() ?? '').not.toContain('external_translation_consent');
+      await route.fulfill({ status: 303, headers: { location: '/deck-preparations/fixture-provider-outage/status' } });
+    });
+    await page.route('**/deck-preparations/fixture-provider-outage/status', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'fixture-provider-outage', state: 'failed', progress: 100, ready: false,
+        error: 'Contextual translation is required for every new deck. Configure the translation provider, then retry; no local-only deck was published.',
+      }),
+    }));
+
+    const status = page.locator('[data-deck-preparation]');
+    await page.getByRole('button', { name: 'Prepare deck' }).click();
+    await expect(status).toContainText('Deck preparation failed');
+    await expect(status).toContainText('no local-only deck was published');
+    await expect(status.getByRole('button', { name: 'Retry preparation' })).toBeVisible();
+    await expect(status.getByRole('link', { name: /download/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Back to this Book in Reading' })).toBeVisible();
   });
 
   test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {

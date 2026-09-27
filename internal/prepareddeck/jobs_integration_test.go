@@ -65,8 +65,24 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
+	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
+	require.NoError(t, err)
+	unconfiguredWorker := &Worker{Store: store, Coordinator: NewDurableCoordinator(store, client, NewPreparedDeckPlanner(NewInputAssembler(store), cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{}))}
+	unconfiguredArgs := JobArgs{PreparationID: unconfiguredPreparation.ID, OwnerID: owner.ID, SourceMaterialID: source.ID, ContentHash: source.ContentHash}
+	require.NoError(t, unconfiguredWorker.Work(ctx, &river.Job[JobArgs]{Args: unconfiguredArgs}))
+	unconfiguredStatus, err := service.Get(ctx, owner.ID, unconfiguredPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, unconfiguredStatus.State)
+	assert.Contains(t, unconfiguredStatus.Error, "configured translation provider")
+	assert.Empty(t, unconfiguredStatus.Artifact, "missing provider must not publish a local-only deck")
+	retryAfterConfiguration, err := service.Retry(ctx, owner.ID, unconfiguredPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationQueued, retryAfterConfiguration.Preparation.State)
+	retryJob, err := client.JobGet(ctx, retryAfterConfiguration.JobID)
+	require.NoError(t, err)
+	assert.NotContains(t, string(retryJob.EncodedArgs), "external_translation_consent", "new retry jobs carry no per-submission consent choice")
 	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
-	handle, err := service.Submit(ctx, owner.ID, analysisID, true)
+	handle, err := service.Submit(ctx, owner.ID, analysisID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationQueued, handle.Preparation.State)
 	assert.Equal(t, source.ContentHash, handle.Preparation.ContentHash)
@@ -79,8 +95,8 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	assert.Equal(t, source.ID, args.SourceMaterialID)
 	assert.Equal(t, source.ContentHash, args.ContentHash)
 	assert.Equal(t, analysisHandle.RunID, args.AnalysisRunID)
-	assert.True(t, args.ExternalTranslationConsent)
-	repeated, err := service.Submit(ctx, owner.ID, analysisID, false)
+	assert.NotContains(t, string(job.EncodedArgs), "external_translation_consent", "new submission jobs carry no per-submission consent choice")
+	repeated, err := service.Submit(ctx, owner.ID, analysisID)
 	require.NoError(t, err)
 	assert.Equal(t, handle.Preparation.ID, repeated.Preparation.ID)
 	assert.Equal(t, handle.JobID, repeated.JobID)
@@ -95,17 +111,17 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	var submissions sync.WaitGroup
 	results := make(chan Handle, 8)
 	errorsCh := make(chan error, 8)
-	for i := range 8 {
+	for range 8 {
 		submissions.Add(1)
-		go func(consent bool) {
+		go func() {
 			defer submissions.Done()
-			result, submitErr := service.Submit(ctx, owner.ID, analysisID, consent)
+			result, submitErr := service.Submit(ctx, owner.ID, analysisID)
 			if submitErr != nil {
 				errorsCh <- submitErr
 				return
 			}
 			results <- result
-		}(i%2 == 0)
+		}()
 	}
 	submissions.Wait()
 	close(results)
@@ -125,24 +141,24 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	cancelled, err := service.Cancel(ctx, owner.ID, handle.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationCancelled, cancelled.State)
-	retried, err := service.Retry(ctx, owner.ID, handle.Preparation.ID, false)
+	retried, err := service.Retry(ctx, owner.ID, handle.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationQueued, retried.Preparation.State)
 	assert.NotEqual(t, handle.JobID, retried.JobID)
 	var retries sync.WaitGroup
 	retryResults := make(chan Handle, 8)
 	retryErrors := make(chan error, 8)
-	for i := range 8 {
+	for range 8 {
 		retries.Add(1)
-		go func(consent bool) {
+		go func() {
 			defer retries.Done()
-			result, retryErr := service.Retry(ctx, owner.ID, handle.Preparation.ID, consent)
+			result, retryErr := service.Retry(ctx, owner.ID, handle.Preparation.ID)
 			if retryErr != nil {
 				retryErrors <- retryErr
 				return
 			}
 			retryResults <- result
-		}(i%2 == 0)
+		}()
 	}
 	retries.Wait()
 	close(retryResults)
@@ -160,14 +176,14 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET error=$1 WHERE owner_id=$2 AND id=$3`, domain.DeckPreparationRequiresRepreparationError, owner.ID, retried.Preparation.ID)
 	require.NoError(t, err)
-	reprepared, err := service.Retry(ctx, owner.ID, retried.Preparation.ID, false)
+	reprepared, err := service.Retry(ctx, owner.ID, retried.Preparation.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, retried.Preparation.ID, reprepared.Preparation.ID, "re-preparation creates a new specification")
 	assert.Equal(t, domain.DeckPreparationQueued, reprepared.Preparation.State)
 	oldArtifact, err := store.DownloadDeckPreparation(ctx, owner.ID, retried.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("old-artifact"), oldArtifact.Artifact)
-	repeatedReprepare, err := service.Retry(ctx, owner.ID, retried.Preparation.ID, false)
+	repeatedReprepare, err := service.Retry(ctx, owner.ID, retried.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, reprepared.Preparation.ID, repeatedReprepare.Preparation.ID, "re-preparation is idempotent")
 	assert.Equal(t, reprepared.JobID, repeatedReprepare.JobID)
@@ -219,13 +235,13 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 		assert.Equal(t, firstGoalPreparation.JobID, result.JobID)
 	}
 	require.NotEmpty(t, firstGoalPreparation.Preparation.ID)
-	_, err = service.Submit(ctx, owner.ID, analysisID, true)
+	_, err = service.Submit(ctx, owner.ID, analysisID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "generic submission must not reuse an active Goal preparation")
 	require.NoError(t, store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID))
 	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
 	require.NoError(t, err)
 	require.NotNil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot retires its preparation")
-	genericPreparation, err := service.Submit(ctx, owner.ID, analysisID, true)
+	genericPreparation, err := service.Submit(ctx, owner.ID, analysisID)
 	require.NoError(t, err)
 	assert.Empty(t, genericPreparation.Preparation.GoalSnapshotID, "generic submission reused a released Goal preparation")
 	assert.NotEqual(t, firstGoalPreparation.Preparation.ID, genericPreparation.Preparation.ID)
@@ -262,7 +278,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	require.NotNil(t, retiredSecondGoalPreparation.RetiredAt, "Goal clear left a concurrent snapshot-bound preparation current")
 
-	_, err = service.Retry(ctx, owner.ID, firstGoalPreparation.Preparation.ID, false)
+	_, err = service.Retry(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
 	assert.ErrorIs(t, err, persistence.ErrInvalidTransition, "a retired preparation must not resolve across Goal snapshots")
 }
 
@@ -371,7 +387,7 @@ func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
 	require.NoError(t, err)
 	failing := &failingRiverClient{err: errors.New("River unavailable")}
 	service := &Service{pool: store.Pool(), client: failing, store: store}
-	_, err = service.Submit(ctx, owner.ID, source.ID, false)
+	_, err = service.Submit(ctx, owner.ID, source.ID)
 	assert.Error(t, err, "expected initial enqueue failure") //nolint:testifylint // Error classification and the rollback query are independent expectations.
 	var count int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&count))
@@ -382,7 +398,7 @@ func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.FailDeckPreparation(ctx, owner.ID, p.ID, "previous attempt failed")
 	require.NoError(t, err)
-	retried, err := service.Retry(ctx, owner.ID, p.ID, false)
+	retried, err := service.Retry(ctx, owner.ID, p.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationFailed, retried.Preparation.State)
 	assert.Contains(t, retried.Preparation.Error, "River unavailable")

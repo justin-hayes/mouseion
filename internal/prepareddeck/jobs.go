@@ -43,14 +43,13 @@ var ErrAnalysisUnavailable = errors.New("prepareddeck: completed scoped analysis
 
 type JobArgs struct {
 	// PreparationID is the logical idempotency key. The other fields are
-	// immutable worker input or request options and must not create competing
-	// jobs for the same preparation.
-	PreparationID              string `json:"preparation_id" river:"unique"`
-	OwnerID                    string `json:"owner_id"`
-	SourceMaterialID           string `json:"source_material_id"`
-	ContentHash                string `json:"content_hash"`
-	AnalysisRunID              string `json:"analysis_run_id,omitempty"`
-	ExternalTranslationConsent bool   `json:"external_translation_consent"`
+	// immutable worker input and must not create competing jobs for the same
+	// preparation.
+	PreparationID    string `json:"preparation_id" river:"unique"`
+	OwnerID          string `json:"owner_id"`
+	SourceMaterialID string `json:"source_material_id"`
+	ContentHash      string `json:"content_hash"`
+	AnalysisRunID    string `json:"analysis_run_id,omitempty"`
 }
 
 // StandardTranslationWorker executes one durable manifest item per River
@@ -123,20 +122,20 @@ func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *rive
 // Submit creates a preparation for one completed scoped analysis and its
 // River job in one transaction. The analysis run and content hash in the job
 // freeze the immutable input used by all retries.
-func (s *Service) Submit(ctx context.Context, owner, analysisID string, consent bool) (result Handle, err error) {
-	return s.submit(ctx, owner, analysisID, consent, "")
+func (s *Service) Submit(ctx context.Context, owner, analysisID string) (result Handle, err error) {
+	return s.submit(ctx, owner, analysisID, "")
 }
 
-// SubmitForGoal starts a fresh local preparation so an existing ready deck
-// cannot bypass the Goal's newly frozen snapshot.
+// SubmitForGoal starts a fresh preparation bound to the Goal's frozen snapshot
+// so an existing ready deck cannot bypass it.
 func (s *Service) SubmitForGoal(ctx context.Context, owner, analysisID, snapshotID string) (result Handle, err error) {
 	if strings.TrimSpace(snapshotID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
-	return s.submit(ctx, owner, analysisID, false, snapshotID)
+	return s.submit(ctx, owner, analysisID, snapshotID)
 }
 
-func (s *Service) submit(ctx context.Context, owner, analysisID string, consent bool, goalSnapshotID string) (result Handle, err error) {
+func (s *Service) submit(ctx context.Context, owner, analysisID, goalSnapshotID string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -145,7 +144,7 @@ func (s *Service) submit(ctx context.Context, owner, analysisID string, consent 
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	result, err = s.submitTx(ctx, tx, owner, analysisID, consent, goalSnapshotID)
+	result, err = s.submitTx(ctx, tx, owner, analysisID, goalSnapshotID)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -161,10 +160,10 @@ func (s *Service) SubmitForGoalTx(ctx context.Context, tx pgx.Tx, owner, analysi
 	if s == nil || tx == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" || strings.TrimSpace(snapshotID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
-	return s.submitTx(ctx, tx, owner, analysisID, false, snapshotID)
+	return s.submitTx(ctx, tx, owner, analysisID, snapshotID)
 }
 
-func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID string, consent bool, goalSnapshotID string) (result Handle, err error) {
+func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, goalSnapshotID string) (result Handle, err error) {
 	analysis, err := loadCompletedAnalysis(ctx, tx, owner, analysisID)
 	if err != nil {
 		return Handle{}, err
@@ -206,11 +205,7 @@ func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID str
 	if goalSnapshotID == "" && p.GoalSnapshotID != "" {
 		return Handle{}, persistence.ErrInvalidTransition
 	}
-	if p.GoalSnapshotID != "" {
-		// Goal snapshots are always prepared locally.
-		consent = false
-	}
-	p, jobID, err := s.ensurePreparationJob(ctx, tx, p, consent)
+	p, jobID, err := s.ensurePreparationJob(ctx, tx, p)
 	if err != nil {
 		if !created {
 			p, err = markPreparationFailedTx(ctx, tx, owner, p.ID, fmt.Sprintf("could not enqueue preparation: %v", err))
@@ -398,7 +393,7 @@ func (s *Service) Reconcile(ctx context.Context, owner, id string) (result domai
 		}
 		return p, nil
 	}
-	p, _, err = s.ensurePreparationJob(ctx, tx, p, false)
+	p, _, err = s.ensurePreparationJob(ctx, tx, p)
 	if err != nil {
 		p, err = markPreparationFailedTx(ctx, tx, owner, id, fmt.Sprintf("could not enqueue preparation: %v", err))
 		if err != nil {
@@ -518,7 +513,7 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	return p, nil
 }
 
-func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (result Handle, err error) {
+func (s *Service) Retry(ctx context.Context, owner, id string) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -557,11 +552,6 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 			return Handle{Preparation: p}, nil
 		}
 	}
-	if p.GoalSnapshotID != "" {
-		// Goal preparation is always local; consent cannot be introduced by a
-		// retry form or a direct API request.
-		consent = false
-	}
 	if p.State == domain.DeckPreparationReady && p.Error == domain.DeckPreparationRequiresRepreparationError {
 		// The sentinel means the immutable specification cannot be rendered.
 		// Retire that current row and roll forward to a new specification bound
@@ -594,7 +584,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, consent bool) (re
 	} else if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {
 		return Handle{}, persistence.ErrInvalidTransition
 	}
-	p, jobID, err := s.ensurePreparationJob(ctx, tx, p, consent)
+	p, jobID, err := s.ensurePreparationJob(ctx, tx, p)
 	if err != nil {
 		p, err = markPreparationFailedTx(ctx, tx, owner, id, fmt.Sprintf("could not enqueue preparation: %v", err))
 		if err != nil {
@@ -611,7 +601,7 @@ type queryRower interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.DeckPreparation, consent bool) (domain.DeckPreparation, int64, error) {
+func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.DeckPreparation) (domain.DeckPreparation, int64, error) {
 	jobID, err := livePreparationJobID(ctx, tx, p.OwnerID, p.ID)
 	if err == nil {
 		return p, jobID, nil
@@ -620,7 +610,7 @@ func (s *Service) ensurePreparationJob(ctx context.Context, tx pgx.Tx, p domain.
 		return p, 0, err
 	}
 	if p.State == domain.DeckPreparationQueued {
-		result, insertErr := s.client.InsertTx(ctx, tx, JobArgs{PreparationID: p.ID, OwnerID: p.OwnerID, SourceMaterialID: p.SourceMaterialID, ContentHash: p.ContentHash, AnalysisRunID: p.AnalysisRunID, ExternalTranslationConsent: consent}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
+		result, insertErr := s.client.InsertTx(ctx, tx, JobArgs{PreparationID: p.ID, OwnerID: p.OwnerID, SourceMaterialID: p.SourceMaterialID, ContentHash: p.ContentHash, AnalysisRunID: p.AnalysisRunID}, &river.InsertOpts{Queue: Queue, MaxAttempts: durableJobMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: livePreparationJobStates}})
 		if insertErr != nil {
 			return p, 0, insertErr
 		}

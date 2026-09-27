@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
@@ -19,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
+func TestPlannersAssembleEquivalentStandardAndBatchPlans(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
@@ -72,29 +73,22 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	generatedSameBefore := readProvenance("generated-same")
 
 	assembler := NewInputAssembler(store)
-	local := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: "standard"})
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "planner-model", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	standard := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{MaxRequests: 1}, PreparedDeckConfig{TranslationMode: "standard"})
 	batch := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{MaxRequests: 1}, PreparedDeckConfig{TranslationMode: "batch"})
 
-	localPlan := plannerPlan(t, ctx, store, local, preparation, false)
-	standardPlan := plannerPlan(t, ctx, store, standard, preparation, true)
-	batchPlan := plannerPlan(t, ctx, store, batch, preparation, true)
+	standardPlan := plannerPlan(t, ctx, store, standard, preparation)
+	batchPlan := plannerPlan(t, ctx, store, batch, preparation)
 
-	localDigest, err := localPlan.Projection.Digest()
-	require.NoError(t, err)
 	standardDigest, err := standardPlan.Projection.Digest()
 	require.NoError(t, err)
 	batchDigest, err := batchPlan.Projection.Digest()
 	require.NoError(t, err)
 	assert.Equal(t, standardDigest, batchDigest, "standard and Batch must freeze the same contextual request contract")
-	assert.NotEqual(t, localDigest, standardDigest, "external provider identity is part of the frozen plan")
 	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), standardPlan.Config.ExecutionMode)
 	assert.Equal(t, string(domain.PreparedDeckExecutionBatch), batchPlan.Config.ExecutionMode)
-	require.Len(t, localPlan.Projection.Items, 4)
 	require.Len(t, standardPlan.Projection.Items, 4)
-	assert.Nil(t, localPlan.Projection.Items[0].CacheKey)
 	require.NotNil(t, standardPlan.Projection.Items[0].CacheKey)
 	assert.Equal(t, "dictionary-v1", standardPlan.Projection.Items[0].Entry.DictionaryProviderVersion)
 	assert.Equal(t, int64(0), standardPlan.Projection.Items[0].SentenceOrdinal)
@@ -113,22 +107,23 @@ func TestPlannersAssembleEquivalentLocalStandardAndBatchPlans(t *testing.T) {
 	assert.Equal(t, generatedOtherBefore, readProvenance("generated-other"), "historical provenance changed")
 	assert.Equal(t, generatedSameBefore, readProvenance("generated-same"), "historical provenance changed")
 
-	counted := &countingPlanner{planner: local}
+	counted := &countingPlanner{planner: standard}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	AddStandardTranslationWorkerWithDependencies(workers, store, client, nil, PreparedDeckConfig{}, time.Second)
 	coordinator := NewDurableCoordinator(store, client, counted)
 	frozen, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})
 	require.NoError(t, err)
-	require.True(t, frozen.NeedsFinalizer)
+	assert.False(t, frozen.NeedsFinalizer, "contextual translation jobs must complete before finalization")
 	repeated, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})
 	require.NoError(t, err)
 	assert.True(t, repeated.Existing)
 	assert.Equal(t, 1, counted.calls, "existing-run freeze must not replan")
-	var finalizerJobs int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (FinalizeJobArgs{}).Kind(), preparation.ID).Scan(&finalizerJobs))
-	assert.Equal(t, 1, finalizerJobs)
+	var translationJobs int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'preparation_id'=$2`, (StandardTranslationJobArgs{}).Kind(), preparation.ID).Scan(&translationJobs))
+	assert.Equal(t, 4, translationJobs, "every selected item must have contextual translation work")
 }
 
 type countingPlanner struct {
@@ -136,17 +131,17 @@ type countingPlanner struct {
 	calls   int
 }
 
-func (p *countingPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
+func (p *countingPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error) {
 	p.calls++
-	return p.planner.PlanPreparedDeckRun(ctx, tx, preparation, consent)
+	return p.planner.PlanPreparedDeckRun(ctx, tx, preparation)
 }
 
-func plannerPlan(t *testing.T, ctx context.Context, store *persistence.PostgresStore, planner DurableRunPlanner, preparation domain.DeckPreparation, consent bool) persistence.FreezePreparedDeckRunParams {
+func plannerPlan(t *testing.T, ctx context.Context, store *persistence.PostgresStore, planner DurableRunPlanner, preparation domain.DeckPreparation) persistence.FreezePreparedDeckRunParams {
 	t.Helper()
 	tx, err := store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	require.NoError(t, err)
 	testutil.Cleanup(t, "transaction", func() error { return tx.Rollback(ctx) })
-	plan, err := planner.PlanPreparedDeckRun(ctx, tx, preparation, consent)
+	plan, err := planner.PlanPreparedDeckRun(ctx, tx, preparation)
 	require.NoError(t, err)
 	return plan
 }

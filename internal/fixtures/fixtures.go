@@ -1551,7 +1551,7 @@ func (Enrichment) Cancel(context.Context, string, int64) (enrichmentjob.Status, 
 
 type PreparedDeck struct{ Store *Store }
 
-func (PreparedDeck) Submit(_ context.Context, owner, analysisID string, _ bool) (prepareddeck.Handle, error) {
+func (PreparedDeck) Submit(_ context.Context, owner, analysisID string) (prepareddeck.Handle, error) {
 	sourceMaterialID := SourceID
 	if analysisID == "fixture-route-match-run" {
 		sourceMaterialID = routeMatchBookID
@@ -1626,7 +1626,7 @@ func (p PreparedDeck) GetForGoalSnapshot(ctx context.Context, owner, snapshotID 
 func (PreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparation, error) {
 	return domain.DeckPreparation{ID: PrepID, State: domain.DeckPreparationCancelled}, nil
 }
-func (PreparedDeck) Retry(context.Context, string, string, bool) (prepareddeck.Handle, error) {
+func (PreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{JobID: 9}, nil
 }
 func (PreparedDeck) Rerender(context.Context, string, string) (prepareddeck.Handle, error) {

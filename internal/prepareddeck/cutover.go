@@ -110,20 +110,23 @@ func NewBatchPlanner(assembler inputAssembler, presentation *cardexport.Presenta
 	return &BatchPlanner{Assembler: assembler, Presentation: presentation, Codec: codec, ExternalEnabled: externalEnabled, BatchConfig: batchConfig}
 }
 
-func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
-	return p.planPreparedDeckRun(ctx, tx, preparation, consent, domain.PreparedDeckExecutionBatch, 0)
+func (p *BatchPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error) {
+	return p.planPreparedDeckRun(ctx, tx, preparation, domain.PreparedDeckExecutionBatch, 0)
 }
 
-func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool) (persistence.FreezePreparedDeckRunParams, error) {
+func (p *StandardPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error) {
 	if p == nil || p.BatchPlanner == nil {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
 	}
-	return p.BatchPlanner.planPreparedDeckRun(ctx, tx, preparation, consent, domain.PreparedDeckExecutionStandard, p.StandardConfig.StandardMaxAttempts)
+	return p.BatchPlanner.planPreparedDeckRun(ctx, tx, preparation, domain.PreparedDeckExecutionStandard, p.StandardConfig.StandardMaxAttempts)
 }
 
-func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, consent bool, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
+func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, mode domain.PreparedDeckExecutionMode, standardAttempts int) (persistence.FreezePreparedDeckRunParams, error) {
 	if p == nil || p.Assembler == nil || p.Presentation == nil || strings.TrimSpace(preparation.OwnerID) == "" || strings.TrimSpace(preparation.ID) == "" {
 		return persistence.FreezePreparedDeckRunParams{}, ErrInvalidInput
+	}
+	if !p.ExternalEnabled || p.Codec == nil {
+		return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: a configured translation provider is required for contextual Glosses")
 	}
 	projections, deckName, err := p.Assembler.AssemblePreparedDeckInputs(ctx, tx, preparation)
 	if err != nil {
@@ -131,8 +134,8 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 	}
 
 	config := persistence.PreparedDeckRunConfig{
-		ExternalTranslationConsent:    consent,
-		ExternalTranslationConfigured: consent && p.ExternalEnabled,
+		ExternalTranslationConsent:    true,
+		ExternalTranslationConfigured: true,
 		ExecutionMode:                 string(mode),
 		TargetLanguage:                "en",
 		BatchMaxRequests:              p.BatchConfig.MaxRequests,
@@ -142,21 +145,16 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		config.MaxProviderAttempts = standardAttempts
 	}
 	runID := uuid.NewString()
-	if config.ExternalTranslationConfigured {
-		if p.Codec == nil {
-			return persistence.FreezePreparedDeckRunParams{}, errors.New("prepareddeck: external translation requires an eligible translation endpoint")
-		}
-		config.ContextMode = string(enrichment.SentenceContext)
-		config.Provider = p.Codec.ProviderName()
-		config.ProviderVersion = p.Codec.ContextualGlossProviderVersion()
-		config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
-		config.Model = p.Codec.Model()
-		for i := range projections {
-			projections[i].Provider = config.Provider
-			projections[i].ProviderVersion = config.ProviderVersion
-			projections[i].TargetLanguage = config.TargetLanguage
-			projections[i].RequireContextualGloss = true
-		}
+	config.ContextMode = string(enrichment.SentenceContext)
+	config.Provider = p.Codec.ProviderName()
+	config.ProviderVersion = p.Codec.ContextualGlossProviderVersion()
+	config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
+	config.Model = p.Codec.Model()
+	for i := range projections {
+		projections[i].Provider = config.Provider
+		projections[i].ProviderVersion = config.ProviderVersion
+		projections[i].TargetLanguage = config.TargetLanguage
+		projections[i].RequireContextualGloss = true
 	}
 	deck, freezeDiagnostics, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)
 	if err != nil {
@@ -240,7 +238,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if preparation.SourceMaterialID != a.SourceMaterialID || preparation.ContentHash != a.ContentHash || preparation.AnalysisRunID != a.AnalysisRunID {
 		return w.fail(ctx, a, errors.New("source material identity changed"))
 	}
-	_, err = w.Coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: a.OwnerID, PreparationID: a.PreparationID, ExternalTranslationConsent: a.ExternalTranslationConsent})
+	_, err = w.Coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: a.OwnerID, PreparationID: a.PreparationID})
 	if err == nil || errors.Is(err, persistence.ErrInvalidTransition) {
 		return nil
 	}

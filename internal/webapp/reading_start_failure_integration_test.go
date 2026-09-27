@@ -136,9 +136,9 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
 	assert.Equal(t, reading.SnapshotID, preparation.GoalSnapshotID)
 	assert.Equal(t, domain.DeckPreparationQueued, preparation.State)
-	var consent bool
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT COALESCE((args->>'external_translation_consent')::boolean, false) FROM river_job WHERE args->>'preparation_id'=$1`, preparation.ID).Scan(&consent))
-	assert.False(t, consent, "local preparation retry must not imply external translation consent")
+	var jobArgs []byte
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT args FROM river_job WHERE args->>'preparation_id'=$1`, preparation.ID).Scan(&jobArgs))
+	assert.NotContains(t, string(jobArgs), "external_translation_consent", "retry jobs have no per-submission choice")
 
 	unchanged, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)

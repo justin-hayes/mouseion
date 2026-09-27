@@ -120,7 +120,6 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, book.ID, goal.BookID)
 	queuedDecks, ok := h.services.PreparedDeck.(*recordingPreparedDeck)
 	require.True(t, ok)
-	assert.False(t, queuedDecks.consent, "current-reading preparation stays local")
 	require.Len(t, queuedDecks.preparations, 1)
 	for _, preparation := range queuedDecks.preparations {
 		assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)

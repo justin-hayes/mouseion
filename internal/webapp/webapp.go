@@ -142,11 +142,11 @@ type ExternalEnrichment interface {
 	Cancel(context.Context, string, int64) (enrichmentjob.Status, error)
 }
 type PreparedDeck interface {
-	Submit(context.Context, string, string, bool) (prepareddeck.Handle, error)
+	Submit(context.Context, string, string) (prepareddeck.Handle, error)
 	SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
 	Get(context.Context, string, string) (domain.DeckPreparation, error)
 	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
-	Retry(context.Context, string, string, bool) (prepareddeck.Handle, error)
+	Retry(context.Context, string, string) (prepareddeck.Handle, error)
 	Rerender(context.Context, string, string) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
 }

@@ -35,7 +35,6 @@ type existingGoalPreparedDeck struct {
 	retries            int
 	goalSubmissions    int
 	genericSubmissions int
-	retryConsent       bool
 	cancellations      int
 }
 
@@ -43,9 +42,8 @@ func (p *existingGoalPreparedDeck) GetForGoalSnapshot(context.Context, string, s
 	return p.preparation, nil
 }
 
-func (p *existingGoalPreparedDeck) Retry(_ context.Context, _, _ string, consent bool) (prepareddeck.Handle, error) {
+func (p *existingGoalPreparedDeck) Retry(_ context.Context, _, _ string) (prepareddeck.Handle, error) {
 	p.retries++
-	p.retryConsent = consent
 	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
 }
 
@@ -54,7 +52,7 @@ func (p *existingGoalPreparedDeck) SubmitForGoal(context.Context, string, string
 	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
 }
 
-func (p *existingGoalPreparedDeck) Submit(context.Context, string, string, bool) (prepareddeck.Handle, error) {
+func (p *existingGoalPreparedDeck) Submit(context.Context, string, string) (prepareddeck.Handle, error) {
 	p.genericSubmissions++
 	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
 }
@@ -388,8 +386,8 @@ func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, 1, preparedDeck.retries)
-	assert.False(t, preparedDeck.retryConsent)
-	assert.Zero(t, preparedDeck.genericSubmissions, "Goal preparation must not use the consent-bearing generic path")
+	assert.Equal(t, 1, preparedDeck.retries, "Goal retry must queue the same contextual preparation")
+	assert.Zero(t, preparedDeck.genericSubmissions, "Goal preparation remains bound to its frozen snapshot")
 }
 
 func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {

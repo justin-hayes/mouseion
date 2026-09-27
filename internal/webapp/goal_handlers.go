@@ -172,7 +172,7 @@ func (h *Handler) submitOrRetryCurrentReadingDeck(ctx context.Context, owner str
 			if !currentReadingPreparationMatches(preparation, owner, goal) {
 				return prepareddeck.Handle{}, persistence.ErrInvalidTransition
 			}
-			return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID, false)
+			return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID)
 		case !errors.Is(err, persistence.ErrNotFound):
 			return prepareddeck.Handle{}, err
 		}

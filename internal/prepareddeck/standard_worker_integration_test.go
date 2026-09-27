@@ -101,7 +101,7 @@ func (*integrationFinalizeWorker) Work(context.Context, *river.Job[FinalizeJobAr
 	return nil
 }
 
-func (p fixedStandardPlanner) PlanPreparedDeckRun(context.Context, pgx.Tx, domain.DeckPreparation, bool) (persistence.FreezePreparedDeckRunParams, error) {
+func (p fixedStandardPlanner) PlanPreparedDeckRun(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error) {
 	return p.params, nil
 }
 
@@ -149,7 +149,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	config.Model = "integration-model"
 	planner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config}}
 	coordinator := NewDurableCoordinator(store, client, planner)
-	result, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: prep.ID, ExternalTranslationConsent: true})
+	result, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: prep.ID})
 	require.NoError(t, err)
 	return standardIntegrationRun{store: store, owner: owner.ID, prep: prep, run: result.Run, keys: keys}, client, provider
 }

@@ -44,7 +44,8 @@ func (completeLoopTranslationProvider) Version() string { return "complete-loop"
 func (completeLoopTranslationProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	return enrichment.TranslationResponse{
 		Translation:               "house",
-		FallbackGloss:             "a building",
+		Gloss:                     "a building",
+		ContextOnly:               true,
 		SentenceTranslation:       "The house.",
 		SentenceTranslationTarget: "house",
 	}, nil
@@ -242,10 +243,9 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error)
 	}
 	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
-	var consent bool
-	err = store.Pool().QueryRow(ctx, `SELECT COALESCE((args->>'external_translation_consent')::boolean, false) FROM river_job WHERE args->>'preparation_id'=$1 ORDER BY id DESC LIMIT 1`, preparation.ID).Scan(&consent)
+	run, err := store.GetPreparedDeckRun(ctx, owner.ID, preparation.ID, preparation.CurrentRunID)
 	require.NoError(t, err)
-	assert.False(t, consent)
+	assert.True(t, run.ExternalTranslationConfigured, "new Goal preparation requires contextual translation")
 
 	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, preparation.SourceMaterialID)
 	require.NoError(t, err)

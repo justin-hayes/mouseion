@@ -123,6 +123,9 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Current Book.', { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View current book in Reading' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
     await expect(page.getByText(/campaign operations/i)).toHaveCount(0);
+    const historicalDeckDownload = await page.request.get('/deck-preparations/fixture-preparation/download');
+    expect(historicalDeckDownload.status()).toBe(200);
+    expect(historicalDeckDownload.headers()['content-disposition']).toContain('Fixture German deck.apkg');
 
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');

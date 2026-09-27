@@ -91,7 +91,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 		RunID: uuid.NewString(), Projection: deck.StorageProjection(), Config: config,
 	}}
 	result, err := NewDurableCoordinator(store, client, planner).Freeze(ctx, DurableFreezeRequest{
-		OwnerID: owner.ID, PreparationID: preparation.ID, ExternalTranslationConsent: true,
+		OwnerID: owner.ID, PreparationID: preparation.ID,
 	})
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))

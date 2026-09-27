@@ -148,7 +148,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	submitter.Client = client
 	poller.Client = client
 	coordinator := NewDurableCoordinator(store, client, planner)
-	run, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID, ExternalTranslationConsent: true})
+	run, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})
 	require.NoError(t, err)
 	require.Len(t, run.Chunks, 1)
 	chunk := run.Chunks[0]
@@ -204,7 +204,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	standardConfig.MaxProviderAttempts = 1
 	standardPlanner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: standardRunID, Projection: deck.StorageProjection(), Config: standardConfig}}
 	standardCoordinator := NewDurableCoordinator(store, client, standardPlanner)
-	_, err = standardCoordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: standardPreparation.ID, ExternalTranslationConsent: true})
+	_, err = standardCoordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: standardPreparation.ID})
 	require.NoError(t, err)
 	standardProvider := contextualStandardFixtureProvider{name: codec.ProviderName(), version: codec.ContextualGlossProviderVersion()}
 	standardWorker := &StandardTranslationWorker{Store: store, Client: client, Provider: standardProvider}
