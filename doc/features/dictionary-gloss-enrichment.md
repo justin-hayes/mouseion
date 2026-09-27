@@ -3,6 +3,10 @@
 Status: **Implemented** · Extended by ADR 0068 (pronunciation, principal parts)
 and ADR 0069 (LLM sense selection and fallback gloss) · Date: 2026-09-14
 
+This describes the current dictionary provider and card meaning path. The
+accepted, not-yet-implemented [contextual gloss preparation](contextual-gloss-preparation.md)
+uses dictionary material as evidence rather than the final gloss text.
+
 ## Motivation
 
 Today a card's English content exists only when an operator configures an
