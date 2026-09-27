@@ -233,7 +233,9 @@ _Avoid_: book status, reading state, workflow state.
 
 **Book workflow bucket**:
 The one visible My Books placement of a Book, derived in precedence order from
-Current reading, To Read, Inbox, Read when history exists, then Set Aside.
+Current reading, To Read, Read when history exists, Inbox, then Set Aside.
+Current reading is included in the To Read tab while retaining its distinct
+Currently reading label.
 _Avoid_: Book disposition, shelf.
 
 **My Books**:
@@ -250,7 +252,9 @@ _Avoid_: Reading Journey, Primary Goal, reading queue.
 
 **Inbox**:
 The disposition of a newly discovered Book not yet triaged by the learner.
-Metadata changes or catalog reappearance do not recreate Inbox work.
+Metadata changes or catalog reappearance do not recreate Inbox work. A Book
+marked previously read leaves the visible Inbox for Read without losing its
+underlying disposition.
 _Avoid_: unprocessed queue, notification.
 
 **To Read**:

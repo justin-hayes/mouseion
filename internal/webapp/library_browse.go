@@ -116,8 +116,7 @@ func myBookVisibleBucketURL(book domain.MyBook, page int) string {
 	case domain.MyBookBucketSetAside:
 		return myBooksFilteredURL("", page, false, domain.BookDispositionSetAside)
 	case domain.MyBookBucketCurrentReading:
-		// Current reading is visible in All; it has no independent filter.
-		return "/library"
+		return myBooksFilteredURL("", page, false, domain.BookDispositionToRead)
 	}
 	return "/library"
 }

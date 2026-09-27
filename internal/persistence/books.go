@@ -125,6 +125,9 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 		book.DispositionRevision = row.DispositionRevision
 		bucket := book.WorkflowBucket()
 		dispositionCounts[bucket]++
+		if bucket == domain.MyBookBucketCurrentReading {
+			dispositionCounts[domain.MyBookBucketToRead]++
+		}
 		if bucket == domain.MyBookBucketRead {
 			result.ReadCount++
 		}

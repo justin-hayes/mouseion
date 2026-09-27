@@ -27,13 +27,14 @@ language, or presents the learner with an unordered chooser between Books.
    vocabulary, and returns a receipt with the next-choice link. It does not
    automatically select another Book.
 5. My Books shows each Book in exactly one visible workflow bucket. In
-   precedence order, that is **Currently reading**, **To Read**, **Inbox**,
-   **Read** when completion history exists, then **Set Aside**. Thus a historical
-   Inbox or To Read Book stays in its disposition bucket, while a historical Set
-   Aside Book appears in Read without changing its persisted disposition or
-   completion provenance. **Read again** moves a Read Book to To Read; setting it
-   aside again returns it to Read. Starting it creates a fresh current-reading
-   snapshot while retaining earlier completions.
+   precedence order, that is **Currently reading**, **To Read**, **Read** when
+   completion history exists, **Inbox**, then **Set Aside**. The To Read tab
+   includes the current Book, labeled Currently reading, as well as other To
+   Read Books. A historical Inbox or Set Aside Book appears in Read without
+   changing its persisted disposition or completion provenance; a historical
+   To Read Book remains To Read. **Read again** moves a Read Book to To Read;
+   setting it aside again returns it to Read. Starting it creates a fresh
+   current-reading snapshot while retaining earlier completions.
 6. Set Aside keeps a Book visible in My Books and reversible to To Read. Read
    history is append-only and does not imply Known vocabulary. There is no
    ordinary Remove from My Books action; the retired removal request cannot
