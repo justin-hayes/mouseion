@@ -36,6 +36,7 @@ type Entry struct {
 	SentenceOrdinal                                                                   int64
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget, TargetWord string
 	Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion                     string
+	OmittedEvidenceCount                                                              int
 	Morphology, SourceDocument, Notes                                                 string
 	CandidateSenses                                                                   []enrichment.LexicalSense
 	SentenceTokens                                                                    []analyzer.Token
@@ -884,6 +885,7 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 	if r == nil || r.lexical == nil || entry == nil {
 		return nil
 	}
+	entry.DictionaryProviderVersion = r.lexical.Version()
 	result, found, err := r.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 		TargetWord: testedEntryTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
@@ -899,13 +901,15 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 		senses = result.Senses
 	}
 	if len(senses) > enrichment.DefaultMaxCandidateSenses {
+		entry.OmittedEvidenceCount = len(senses) - enrichment.DefaultMaxCandidateSenses + result.OmittedCandidateCount
 		senses = senses[:enrichment.DefaultMaxCandidateSenses]
+	} else {
+		entry.OmittedEvidenceCount = result.OmittedCandidateCount
 	}
 	entry.CandidateSenses = enrichment.CloneLexicalSenses(senses)
 	entry.Plural = plural
 	entry.IPA = strings.TrimSpace(result.IPA)
 	entry.PrincipalParts = strings.TrimSpace(result.PrincipalParts)
-	entry.DictionaryProviderVersion = r.lexical.Version()
 	if result.Gender == "" && result.Article == "" && plural == "" {
 		return nil
 	}
@@ -1244,7 +1248,7 @@ func deckDescription(entries []RenderInput) string {
 
 func dictionaryAttribution(entries []RenderInput) string {
 	for _, entry := range entries {
-		if strings.TrimSpace(entry.DictionaryProviderVersion) != "" {
+		if strings.TrimSpace(entry.DictionaryProviderVersion) != "" && len(entry.CandidateSenses) > 0 {
 			return dictionary.AttributionNotice
 		}
 	}

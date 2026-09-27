@@ -12,6 +12,7 @@ type RenderInput struct {
 	Language, CanonicalLemma, UPOS                                            string
 	Sentence, Translation, SentenceTranslation, SentenceTranslationTarget     string
 	TargetWord, Gloss, Plural, IPA, PrincipalParts, DictionaryProviderVersion string
+	OmittedEvidenceCount                                                      int
 	Morphology, SourceDocument, Notes                                         string
 	CandidateSenses                                                           []enrichment.LexicalSense
 	SentenceTokens                                                            []analyzer.Token
@@ -26,7 +27,8 @@ func renderInputFromEntry(entry Entry) RenderInput {
 		SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget,
 		TargetWord: entry.TargetWord, Gloss: entry.Gloss, Plural: entry.Plural, IPA: entry.IPA,
 		PrincipalParts: entry.PrincipalParts, DictionaryProviderVersion: entry.DictionaryProviderVersion,
-		Morphology: entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
+		OmittedEvidenceCount: entry.OmittedEvidenceCount,
+		Morphology:           entry.Morphology, SourceDocument: entry.SourceDocument, Notes: entry.Notes,
 		CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
 		SentenceTokens:  cloneTokens(entry.SentenceTokens), FirstEncounter: entry.FirstEncounter,
 		fallbackGlossApplied: entry.fallbackGlossApplied,

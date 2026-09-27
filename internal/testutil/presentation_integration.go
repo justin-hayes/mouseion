@@ -10,6 +10,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 // PresentationProvider describes the external identity used by a fixture's
@@ -21,6 +22,12 @@ type PresentationProvider struct {
 // FreezePresentationDeck builds an integration fixture through the public
 // presentation lifecycle instead of reaching into manifest internals.
 func FreezePresentationDeck(ctx context.Context, owner, deckName string, entries []cardexport.Entry, provider PresentationProvider) (cardexport.FrozenDeck, error) {
+	return FreezePresentationDeckWithLexical(ctx, owner, deckName, entries, provider, nil)
+}
+
+// FreezePresentationDeckWithLexical also exercises the local provider through
+// the public presentation lifecycle.
+func FreezePresentationDeckWithLexical(ctx context.Context, owner, deckName string, entries []cardexport.Entry, provider PresentationProvider, lexical enrichment.LexicalProvider) (cardexport.FrozenDeck, error) {
 	projections := make([]cardexport.CandidateProjection, 0, len(entries))
 	for _, entry := range entries {
 		upos := strings.ToUpper(strings.TrimSpace(entry.UPOS))
@@ -70,7 +77,7 @@ func FreezePresentationDeck(ctx context.Context, owner, deckName string, entries
 		}
 		projections = append(projections, projection)
 	}
-	deck, _, err := cardexport.NewPresentation(nil).Freeze(ctx, owner, deckName, projections)
+	deck, _, err := cardexport.NewPresentation(lexical).Freeze(ctx, owner, deckName, projections)
 	return deck, err
 }
 

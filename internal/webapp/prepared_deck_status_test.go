@@ -55,6 +55,14 @@ func TestReadyPreparationResponseExposesFallbackGlossCount(t *testing.T) {
 	assert.Contains(t, string(encoded), `"cards_with_fallback_gloss":1`)
 }
 
+func TestPreparationResponseExposesFrozenEvidenceCoverageAndTruncation(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationPreparing, EvidenceCoverage: []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 5, Matched: 3, Candidates: 12, Omitted: 4}}})
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"evidence_coverage":[{"source":"wiktionary","configured":true,"selected":5,"matched":3,"candidates":12,"omitted_candidates":4}]`)
+	assert.NotContains(t, string(encoded), "private corpus")
+}
+
 func TestPreparationFailureMessageUsesBoundedActionableClasses(t *testing.T) {
 	for class, want := range map[string]string{
 		"ambiguous_submission": "could not be confirmed",

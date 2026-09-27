@@ -79,6 +79,19 @@ func TestPresentationLifecycleReturnsDictionaryCoverageDiagnostics(t *testing.T)
 	assert.Equal(t, 2, diagnostics.GlossCoverage[0].Selected)
 }
 
+func TestEvidenceCoverageReportsConfiguredMissingAndTruncatedEvidence(t *testing.T) {
+	projections := []cardexport.CandidateProjection{
+		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "de", UPOS: "NOUN"}, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das alte Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", DictionaryProviderVersion: "wiktionary-2026-09", CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:1"}, {EvidenceID: "wikt:2"}}, OmittedEvidenceCount: 3}},
+		{OwnerID: "owner-1", DeckName: "Book", Candidate: domain.SelectionCandidate{Language: "de", UPOS: "NOUN"}, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der große Baum steht heute neben dem alten Bahnhof.", TargetWord: "Baum"}},
+	}
+	_, diagnostics, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Book", projections)
+	require.NoError(t, err)
+	require.Equal(t, []cardexport.EvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 2, Matched: 1, Candidates: 2, Omitted: 3}}, diagnostics.EvidenceCoverage)
+	deck, err := cardexport.NewPresentation(nil).Restore(cardexport.ManifestSnapshot{SchemaVersion: cardexport.ManifestSchemaVersion, Owner: "owner-1", DeckName: "Book", Filename: cardexport.DownloadFilename("Book")})
+	require.NoError(t, err)
+	assert.Equal(t, []cardexport.EvidenceCoverage{{Source: "wiktionary"}}, deck.Diagnostics().EvidenceCoverage)
+}
+
 func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T) {
 	wantManifestDigests := map[int]string{
 		1: "85cfe6352a1ae28d06519c4d94adfcbb9c01e1277ed7f24c7178e54b5f4edeba",
@@ -87,6 +100,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		4: "9cbcdf53153d35561e67e6fc0c6047d4998f9c4f54e870e48ac85edeeae909d9",
 		5: "5e63d298cf4abd79295cad9e647d54bae78c8f5d9e9541c550d0efcd77b9952d",
 		6: "689341753a71cd9c14609d5337668cc7503f5233ca4396f35909d75e293ea6ca",
+		7: "e142c96d63e34e44c47330688a5f12ea5c710fbc5443ac1f15750ecef68c0b94",
 	}
 	wantCandidateDigests := map[int]string{
 		1: "43552493d6d8cc96b17112bc9ee667bdd1a0379e38df85c4eb691aa6c788b1cf",
@@ -95,6 +109,7 @@ func TestPresentationLifecycleRestoresEveryManifestSchemaAndDigest(t *testing.T)
 		4: "81ac05b57e64637efb78936bfa0352f821e6222d2feda13c6eb18862aa39014f",
 		5: "651de8c35431d328a63e6b6cd358dc3299ce0314c1fafb74302bbbbf28ba5698",
 		6: "7f94e44ed363cbbcad66e81060a234507d3c2cb1bd2814802ea05c01721f5dc5",
+		7: "3beec077590b7a3d4ccc853022cb479baf80a809fcded5d34dbfa3dd56050dbf",
 	}
 	for schema := cardexport.LegacyManifestSchemaVersion; schema <= cardexport.ManifestSchemaVersion; schema++ {
 		snapshot := lifecycleRestoreSnapshot()

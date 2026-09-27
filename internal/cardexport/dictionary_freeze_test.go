@@ -27,12 +27,14 @@ func (d lexicalStub) Lookup(context.Context, enrichment.LexicalLookupRequest) (e
 
 func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	service := &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
-		Gender:         "Neut",
-		Article:        "das",
-		Plural:         "Häuser",
-		IPA:            "/haʊ̯s/",
-		PrincipalParts: "geht · ging · gegangen",
-		Senses:         []enrichment.LexicalSense{{Gloss: "building"}},
+		Gender:                "Neut",
+		Article:               "das",
+		Plural:                "Häuser",
+		IPA:                   "/haʊ̯s/",
+		PrincipalParts:        "geht · ging · gegangen",
+		Senses:                []enrichment.LexicalSense{{Gloss: "building"}},
+		CandidateSenses:       []enrichment.LexicalSense{{Gloss: "building", EvidenceID: "wiktionary:de:haus:noun:1", Source: "wiktionary", Kind: "meaning", Origin: "Kaikki.org Wiktextract enwiktionary", Version: "fixture-v1", MatchStrength: "exact_lemma_pos"}},
+		OmittedCandidateCount: 3,
 	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
 	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
@@ -48,6 +50,9 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	assert.Equal(t, entry.IPA, snapshot.Items[0].Entry.IPA)
 	assert.Equal(t, entry.PrincipalParts, snapshot.Items[0].Entry.PrincipalParts)
 	assert.Equal(t, entry.DictionaryProviderVersion, snapshot.Items[0].Entry.DictionaryProviderVersion)
+	assert.Equal(t, 3, snapshot.Items[0].Entry.OmittedEvidenceCount)
+	assert.Equal(t, "wiktionary:de:haus:noun:1", snapshot.Items[0].Entry.CandidateSenses[0].EvidenceID)
+	assert.Equal(t, "exact_lemma_pos", snapshot.Items[0].Entry.CandidateSenses[0].MatchStrength)
 	note, err := makeNote("owner", renderInputFromEntry(snapshot.Items[0].Entry))
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
@@ -88,10 +93,19 @@ func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 	service := &lexicalResolver{lexical: lexicalStub{}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: `{"Gender":"Neut"}`}
 	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	assert.Equal(t, "fixture-v1", entry.DictionaryProviderVersion)
 	note, err := makeNote("owner", renderInputFromEntry(Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`}))
 	require.NoError(t, err)
 	assert.Equal(t, "das", note.Article)
 	assert.Empty(t, note.Gloss)
+}
+
+func TestConfiguredIndexMissIsReportedAsConfiguredWithoutEvidence(t *testing.T) {
+	service := &lexicalResolver{lexical: lexicalStub{}}
+	entry := Entry{Language: "de", CanonicalLemma: "unindexed", UPOS: "NOUN", Sentence: "Das unbekannte Wort steht heute neben dem Bahnhof.", TargetWord: "Wort"}
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	diagnostics := manifestDiagnostics(newManifest("owner", "Book", []Entry{entry}))
+	assert.Equal(t, []EvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 1}}, diagnostics.EvidenceCoverage)
 }
 
 func TestNonNounPluralIsNotRenderedOnCard(t *testing.T) {
@@ -188,7 +202,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 	}
 	require.NoError(t, service.resolveLexicalEntry(t.Context(), &unindexed))
 	assert.Empty(t, unindexed.Gloss)
-	assert.Empty(t, unindexed.DictionaryProviderVersion)
+	assert.Equal(t, "fixture-v1", unindexed.DictionaryProviderVersion)
 	note, err = makeNote("owner", renderInputFromEntry(unindexed))
 	require.NoError(t, err)
 	assert.Equal(t, "der", note.Article)

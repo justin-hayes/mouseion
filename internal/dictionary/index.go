@@ -2,7 +2,9 @@ package dictionary
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +25,17 @@ type Index struct {
 	db      *sql.DB
 	name    string
 	version string
+}
+
+type evidenceIdentity struct {
+	Language string   `json:"language"`
+	Lemma    string   `json:"lemma"`
+	UPOS     string   `json:"upos"`
+	Gloss    string   `json:"gloss"`
+	Phrase   string   `json:"phrase"`
+	Examples []string `json:"examples"`
+	Topics   []string `json:"topics"`
+	Tags     []string `json:"tags"`
 }
 
 var _ enrichment.LexicalProvider = (*Index)(nil)
@@ -107,6 +120,39 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	var senses []enrichment.LexicalSense
 	if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
 		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
+	}
+	seenEvidenceIDs := make(map[string]struct{}, len(senses))
+	for index := 0; index < len(senses); {
+		sense := &senses[index]
+		if sense.EvidenceID == "" {
+			identity, marshalErr := json.Marshal(evidenceIdentity{Language: language, Lemma: lemma, UPOS: upos, Gloss: sense.Gloss, Phrase: sense.Phrase, Examples: sense.Examples, Topics: sense.Topics, Tags: sense.Tags})
+			if marshalErr != nil {
+				return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary evidence identity: %w", marshalErr)
+			}
+			digest := sha256.Sum256(identity)
+			sense.EvidenceID = "wiktionary:" + hex.EncodeToString(digest[:])
+		}
+		if sense.Source == "" {
+			sense.Source = "wiktionary"
+		}
+		if sense.Kind == "" {
+			sense.Kind = "meaning"
+		}
+		if sense.Origin == "" {
+			sense.Origin = "Kaikki.org Wiktextract enwiktionary"
+		}
+		if sense.Version == "" {
+			sense.Version = i.version
+		}
+		if sense.MatchStrength == "" {
+			sense.MatchStrength = "exact_lemma_pos"
+		}
+		if _, duplicate := seenEvidenceIDs[sense.EvidenceID]; duplicate {
+			senses = append(senses[:index], senses[index+1:]...)
+			continue
+		}
+		seenEvidenceIDs[sense.EvidenceID] = struct{}{}
+		index++
 	}
 	ordered := enrichment.OrderSenses(request, senses)
 	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: ipa, PrincipalParts: principalParts}
