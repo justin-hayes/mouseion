@@ -15,9 +15,11 @@ Configure the accepted operational settings with:
 
 Only the official OpenAI API and `/v1/chat/completions` endpoint are eligible
 when external translation is enabled. An ineligible endpoint fails startup;
-there is no runtime transport selector or Batch feature flag. Disabled LLM
-translation and preparations without learner consent finalize without provider
-work.
+there is no runtime transport selector or Batch feature flag. Every new
+preparation requires a configured provider and contextual translation. If the
+provider is unavailable or translation fails, the preparation remains failed
+and retryable; it never publishes a local-only deck. Previously completed
+preparations remain available for download.
 
 Progress is derived from persisted run, outcome, and Batch-chunk state. The
 learner-facing status exposes aggregate counts and bounded failure classes, not
