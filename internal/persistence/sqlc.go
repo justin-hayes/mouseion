@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -402,13 +403,16 @@ func exampleSentenceFromFields(
 	}
 }
 
-func preparedDeckOutcomeFromModel(row any) domain.PreparedDeckTranslationOutcome {
+func preparedDeckOutcomeFromModel(row any) (domain.PreparedDeckTranslationOutcome, error) {
 	var m sqlcgen.DeckPreparationTranslationOutcome
 	encoded, err := json.Marshal(row)
-	// sqlc emits query-specific row structs with the shared outcome fields.
-	//nolint:musttag // These generated structs intentionally have no JSON tags.
-	if err != nil || json.Unmarshal(encoded, &m) != nil {
-		return domain.PreparedDeckTranslationOutcome{}
+	if err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, fmt.Errorf("encode prepared-deck outcome row: %w", err)
+	}
+	// sqlc emits query-specific row structs with the same outcome fields.
+	//nolint:musttag // The generated row structs intentionally carry no JSON tags.
+	if err := json.Unmarshal(encoded, &m); err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, fmt.Errorf("decode prepared-deck outcome row: %w", err)
 	}
 	return domain.PreparedDeckTranslationOutcome{
 		OwnerID:              m.OwnerID,
@@ -434,7 +438,7 @@ func preparedDeckOutcomeFromModel(row any) domain.PreparedDeckTranslationOutcome
 		CacheLatency:         time.Duration(m.CacheLatencyMs) * time.Millisecond,
 		ProviderLatency:      time.Duration(m.ProviderLatencyMs) * time.Millisecond,
 		UpdatedAt:            m.UpdatedAt,
-	}
+	}, nil
 }
 
 func preparedDeckRunFromModel(m sqlcgen.DeckPreparationRun) domain.PreparedDeckRun {
