@@ -126,11 +126,9 @@ type recordingKnownVocab struct {
 type recordingPreparedDeck struct {
 	preparations map[string]domain.DeckPreparation
 	downloads    int
-	consent      bool
 }
 
-func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID string, consent bool) (prepareddeck.Handle, error) {
-	r.consent = consent
+func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID string) (prepareddeck.Handle, error) {
 	for _, p := range r.preparations {
 		if p.OwnerID == owner && p.AnalysisRunID == analysisID {
 			return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
@@ -141,7 +139,6 @@ func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID stri
 	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 }
 func (r *recordingPreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
-	r.consent = false
 	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, GoalSnapshotID: snapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 94}, nil
@@ -165,7 +162,7 @@ func (r *recordingPreparedDeck) Cancel(ctx context.Context, owner, id string) (d
 	r.preparations[id] = p
 	return p, nil
 }
-func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string, consent bool) (prepareddeck.Handle, error) {
+func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
 	p, err := r.Get(ctx, owner, id)
 	if err != nil {
 		return prepareddeck.Handle{}, err
@@ -173,7 +170,6 @@ func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string, con
 	if p.State != domain.DeckPreparationFailed && p.State != domain.DeckPreparationCancelled {
 		return prepareddeck.Handle{}, persistence.ErrInvalidTransition
 	}
-	r.consent = consent
 	p.State, p.Error = domain.DeckPreparationQueued, ""
 	r.preparations[id] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 92}, nil
@@ -520,10 +516,9 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 
 	got := perform(t, h, "POST", "/jobs/42/deck/preparations", nil, aliceCookies)
 	assert.Equal(t, http.StatusForbidden, got.Code)
-	created := perform(t, h, "POST", "/jobs/42/deck/preparations", url.Values{"csrf_token": {aliceCSRF}, "external_translation_consent": {"on"}}, aliceCookies)
+	created := perform(t, h, "POST", "/jobs/42/deck/preparations", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
 	assert.Equal(t, http.StatusSeeOther, created.Code)
 	assert.Equal(t, "/deck-preparations/prep-1/status", created.Header().Get("Location"))
-	assert.True(t, decks.consent)
 	preparation := decks.preparations["prep-1"]
 	preparation.SourceMaterialID = book.ID
 	decks.preparations[preparation.ID] = preparation

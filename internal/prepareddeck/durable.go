@@ -107,7 +107,7 @@ func (RerenderJobArgs) Kind() string { return "prepared_deck_rerender" }
 // supplied repeatable-read transaction and returns the complete frozen plan.
 // Provider transport is intentionally outside this boundary.
 type DurableRunPlanner interface {
-	PlanPreparedDeckRun(context.Context, pgx.Tx, domain.DeckPreparation, bool) (persistence.FreezePreparedDeckRunParams, error)
+	PlanPreparedDeckRun(context.Context, pgx.Tx, domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error)
 }
 
 type DurableCoordinator struct {
@@ -125,9 +125,8 @@ func NewDurableCoordinator(store *persistence.PostgresStore, client riverClient,
 }
 
 type DurableFreezeRequest struct {
-	OwnerID, PreparationID     string
-	ExpectedManifestDigest     string
-	ExternalTranslationConsent bool
+	OwnerID, PreparationID string
+	ExpectedManifestDigest string
 }
 
 // Freeze commits the run, immutable manifest, outcomes, Batch placeholders,
@@ -167,7 +166,7 @@ func (c *DurableCoordinator) Freeze(ctx context.Context, request DurableFreezeRe
 		chunks, getErr := c.store.ListPreparedDeckBatchChunks(ctx, request.OwnerID, request.PreparationID, run.ID)
 		return persistence.FreezePreparedDeckRunResult{Run: run, ManifestDigest: digest, Chunks: chunks, Existing: true, NeedsFinalizer: run.State == domain.PreparedDeckRunFinalizing}, getErr
 	}
-	plan, err := c.planner.PlanPreparedDeckRun(ctx, tx, preparation, request.ExternalTranslationConsent)
+	plan, err := c.planner.PlanPreparedDeckRun(ctx, tx, preparation)
 	if err != nil {
 		return persistence.FreezePreparedDeckRunResult{}, fmt.Errorf("plan durable prepared deck: %w", err)
 	}

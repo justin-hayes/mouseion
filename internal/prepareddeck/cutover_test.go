@@ -70,43 +70,49 @@ func cutoverProjection() cardexport.CandidateProjection {
 	}
 }
 
-func TestBatchPlannerKeepsDisabledAndNoConsentRunsProviderFree(t *testing.T) {
+func TestBatchPlannerRejectsMissingProvider(t *testing.T) {
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
 	cases := []struct {
-		name, wantProvider string
-		enabled, consent   bool
+		name    string
+		enabled bool
+		codec   *enrichment.TranslationCodec
 	}{
-		{name: "disabled", enabled: false, consent: true},
-		{name: "no consent", enabled: true, consent: false},
+		{name: "provider disabled", enabled: false},
+		{name: "codec missing", enabled: true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), nil, test.enabled, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, test.consent)
-			require.NoError(t, err)
-			assert.False(t, plan.Config.ExternalTranslationConfigured)
-			assert.Equal(t, test.wantProvider, plan.Config.Provider)
-			assert.Len(t, plan.Chunks, 0)
-			assert.Nil(t, plan.Projection.Items[0].CacheKey, "disabled/no-consent projection has a cache identity")
+			_, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), test.codec, test.enabled, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "configured translation provider")
 		})
 	}
 }
 
-func TestBatchPlannerKeepsNoConsentDictionaryDeterministic(t *testing.T) {
+func TestBatchPlannerSetsContextualGlossAsRequired(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
-	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), nil, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, false)
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 
 	require.NoError(t, err)
 	require.Len(t, plan.Projection.Items, 1)
 	assert.Equal(t, "house", plan.Projection.Items[0].Entry.Gloss)
-	assert.Nil(t, plan.Projection.Items[0].CacheKey)
-	assert.False(t, plan.Config.ExternalTranslationConfigured)
+	assert.NotNil(t, plan.Projection.Items[0].CacheKey)
+	assert.True(t, plan.Config.ExternalTranslationConsent)
+	assert.True(t, plan.Config.ExternalTranslationConfigured)
+	deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	assert.True(t, work[0].Request.RequireContextualGloss)
 }
 
 func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
-	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{MaxRequests: 1}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
+	plan, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{MaxRequests: 1}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
 	assert.True(t, plan.Config.ExternalTranslationConfigured)
 	assert.Equal(t, enrichment.OpenAIChatCompletionsEndpoint, plan.Config.Endpoint)
@@ -130,14 +136,12 @@ func TestBatchPlannerBuildsExactEligibleBatchContract(t *testing.T) {
 	assert.Equal(t, persistence.DefaultBatchMaxBytes, plan.Config.BatchMaxBytes)
 }
 
-func TestPreparedDeckPlannerDefaultsToStandardWithoutBatchChunks(t *testing.T) {
+func TestPreparedDeckPlannerDefaultsToStandardAndRequiresConfiguredProvider(t *testing.T) {
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
 	planner := NewPreparedDeckPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{TranslationMode: DefaultTranslationMode})
-	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, true)
-	require.NoError(t, err)
-	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), plan.Config.ExecutionMode)
-	assert.Len(t, plan.Chunks, 0)
-	assert.False(t, plan.Config.ExternalTranslationConfigured)
+	_, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "configured translation provider")
 }
 
 func TestPreparedDeckPlannerLogsGlossCoverageAtFreezeSeam(t *testing.T) {
@@ -151,7 +155,9 @@ func TestPreparedDeckPlannerLogsGlossCoverageAtFreezeSeam(t *testing.T) {
 	}()
 
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverProjection()}, deckName: "Book"}
-	_, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, false)
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	_, err = NewBatchPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
 	assert.Contains(t, output.String(), `gloss_coverage {"event":"gloss_coverage","groups":[{"language":"de","pos":"NOUN","selected":1,"with_gloss":0,"without_gloss":1}]}`)
 }
@@ -167,7 +173,9 @@ func TestPreparedDeckPlannerPreservesEmptyGlossCoverageEvent(t *testing.T) {
 	}()
 
 	assembler := &cutoverAssembler{deckName: "Book"}
-	_, err := NewBatchPlanner(assembler, cardexport.NewPresentation(nil), nil, false, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"}, false)
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	_, err = NewBatchPlanner(assembler, cardexport.NewPresentation(nil), codec, true, BatchConfig{}).PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
 	assert.Contains(t, output.String(), `gloss_coverage {"event":"gloss_coverage","groups":[]}`)
 }

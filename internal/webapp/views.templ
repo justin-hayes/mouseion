@@ -102,8 +102,6 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
 window.updateDeckPreparation = async function (action, target, sourceForm) {
   var data = new FormData();
   data.set('csrf_token', sourceForm.querySelector('[name="csrf_token"]').value);
-  var consent = sourceForm.querySelector('[name="external_translation_consent"]');
-  if (consent && consent.checked) data.set('external_translation_consent', 'on');
   try {
     var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin', headers: {'Accept': 'application/json'}});
     if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
@@ -588,7 +586,7 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		}
 	} else {
 		if preparation.State == domain.DeckPreparationFailed {
-			@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
+			@Feedback(FeedbackError, "Action needed", preparationFailureMessageFor(preparation))
 		} else if preparation.State == domain.DeckPreparationCancelled {
 			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact reading snapshot when ready.")
 		}
@@ -648,7 +646,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				} else {
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<fieldset><legend>Optional external translation for the re-preparation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the re-preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+						<p>Re-preparation uses the configured translation provider to create contextual Glosses. If the provider is unavailable, the deck will remain failed and can be retried after configuration.</p>
 						<button type="submit">Re-prepare deck</button>
 					</form>
 				}
@@ -675,14 +673,14 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
 		} else {
 			if preparation.State == domain.DeckPreparationFailed {
-				@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
+				@Feedback(FeedbackError, "Action needed", preparationFailureMessageFor(preparation))
 			}
 			if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
 				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
 			} else {
 				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>
-					<fieldset><legend>Optional external translation for the retry</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, the retry stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+					<p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p>
 					<button type="submit">Retry preparation</button>
 				</form>
 			}
@@ -820,7 +818,8 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
 						} else {
 							<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
-							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><label><input type="checkbox" name="external_translation_consent"/> Send each selected lemma and example sentence to the configured translation provider</label><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+							<p>Deck preparation requires the configured translation provider to produce contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent.</p>
+							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
 						}
 					}
 			} else {
@@ -1086,10 +1085,9 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 			if task.Missing {
 				<p role="note"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>
 			}
-			<p>Choose whether this preparation may use the configured external translation provider. Declining still permits local preparation.</p>
 			<form method="post" action={ templ.SafeURL("/reading/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
 				<input type="hidden" name="csrf_token" value={ csrf }/>
-				<fieldset><legend>Optional external translation</legend><p>If selected, Mouseion sends each selected lemma and its example sentence outside Mouseion to the configured translation provider. Without consent, preparation stays local and translation fields may be incomplete.</p><label><input type="checkbox" name="external_translation_consent"/> I consent to sending selected vocabulary and example sentences for translation</label></fieldset>
+				<p>Preparation uses the configured translation provider to create contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent. If the provider is unavailable, preparation fails without creating a local-only deck; configure it and retry.</p>
 				<button type="submit">Prepare deck</button>
 			</form>
 			<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>

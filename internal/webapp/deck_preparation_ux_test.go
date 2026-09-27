@@ -33,7 +33,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "failed",
 			prep: domain.DeckPreparation{ID: "prep-failed", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationFailed, FailureClass: "provider"},
-			want: []string{"Deck preparation failed", "temporarily unavailable", `action="/deck-preparations/prep-failed/retry"`, "Optional external translation for the retry"},
+			want: []string{"Deck preparation failed", "temporarily unavailable", `action="/deck-preparations/prep-failed/retry"`, "configured translation provider"},
 			omit: []string{"Cancel preparation", "Download deck"},
 		},
 		{

@@ -20,7 +20,7 @@ type repreparingPreparedDeck struct {
 	fixtures.PreparedDeck
 }
 
-func (repreparingPreparedDeck) Retry(context.Context, string, string, bool) (prepareddeck.Handle, error) {
+func (repreparingPreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
 

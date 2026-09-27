@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJourneyDeckPreparationPageShowsExactAnalysisAndConsent(t *testing.T) {
+func TestJourneyDeckPreparationPageShowsRequiredProviderAndNoConsentControl(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1126", Title: "The Exact Journey Book", Language: "de", ContentSnapshotID: "snapshot-1126"}}
 	task := journeyDeckPreparationView{Book: book, BookID: "book-1126", AnalysisRunID: "run-1126"}
 	var output bytes.Buffer
@@ -23,13 +23,14 @@ func TestJourneyDeckPreparationPageShowsExactAnalysisAndConsent(t *testing.T) {
 		"run-1126",
 		"snapshot-1126",
 		`action="/reading/books/book-1126/deck/preparations"`,
-		`name="external_translation_consent"`,
-		"outside Mouseion",
-		"Declining still permits local preparation",
+		"configured translation provider",
+		"public lexical evidence",
 		`href="/reading#journey-book-book-1126"`,
 	} {
 		assert.Contains(t, html, want)
 	}
+	assert.NotContains(t, html, "external_translation_consent")
+	assert.NotContains(t, html, "Declining still permits local preparation")
 }
 
 func TestJourneyDeckPreparationPageKeepsGoalRetrySnapshotBound(t *testing.T) {
@@ -54,6 +55,7 @@ func TestJourneyDeckPreparationPageRepreparesReadyGoalDeckBySnapshot(t *testing.
 	assert.Contains(t, html, `action="/reading/books/book-goal-reprepare/deck/retry"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="goal-snapshot-reprepare"`)
 	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-reprepare/retry"`)
+	assert.NotContains(t, html, "external_translation_consent")
 }
 
 func TestGoalDeckPreparationStatusRetriesBySnapshot(t *testing.T) {
@@ -147,6 +149,17 @@ func TestDeckPreparationStatusIndicatesUpdatedRevision(t *testing.T) {
 	require.NoError(t, DeckPreparationStatus("csrf", updated, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
 	assert.Contains(t, output.String(), "Updated deck revision available")
 	assert.Contains(t, output.String(), "revision 2")
+}
+
+func TestMissingTranslationProviderFailureOffersConfigurationAndRetry(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-unconfigured", State: domain.DeckPreparationFailed,
+		Error: "prepareddeck: a configured translation provider is required for contextual Glosses",
+	}
+	response := preparationResponse(preparation)
+	assert.Contains(t, response.Error, "Configure the translation provider, then retry")
+	assert.False(t, response.Ready)
+	assert.Empty(t, response.DownloadURL)
 }
 
 func TestDeckPreparationStatusReportsEvidenceCoverageAndMissingIndex(t *testing.T) {

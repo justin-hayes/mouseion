@@ -177,7 +177,7 @@ func (h *Handler) submitDeckPreparation(w http.ResponseWriter, r *http.Request, 
 		http.NotFound(w, r)
 		return
 	}
-	handle, err := h.services.PreparedDeck.Submit(r.Context(), user(r).ID, analysisID, r.FormValue("external_translation_consent") == "on")
+	handle, err := h.services.PreparedDeck.Submit(r.Context(), user(r).ID, analysisID)
 	if err != nil {
 		handlePreparationError(w, r, err)
 		return
@@ -264,7 +264,7 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	if p.Error == domain.DeckPreparationRequiresRepreparationError {
 		errorMessage = domain.DeckPreparationRequiresRepreparationError
 	} else if p.State == domain.DeckPreparationFailed {
-		errorMessage = preparationFailureMessage(p.FailureClass)
+		errorMessage = preparationFailureMessageFor(p)
 	}
 	var fallbackGlossCount *int
 	if p.State == domain.DeckPreparationReady {
@@ -298,6 +298,13 @@ func preparationFailureMessage(class string) string {
 	default:
 		return "Deck preparation could not be completed. Retry the preparation."
 	}
+}
+
+func preparationFailureMessageFor(p domain.DeckPreparation) string {
+	if strings.Contains(strings.ToLower(p.Error), "configured translation provider") {
+		return "Contextual translation is required for every new deck. Configure the translation provider, then retry; no local-only deck was published."
+	}
+	return preparationFailureMessage(p.FailureClass)
 }
 
 func writePreparationStatus(w http.ResponseWriter, p domain.DeckPreparation) {
@@ -375,7 +382,7 @@ func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	handle, err := h.services.PreparedDeck.Retry(r.Context(), user(r).ID, r.PathValue("id"), r.FormValue("external_translation_consent") == "on")
+	handle, err := h.services.PreparedDeck.Retry(r.Context(), user(r).ID, r.PathValue("id"))
 	if err != nil {
 		handlePreparationError(w, r, err)
 		return
