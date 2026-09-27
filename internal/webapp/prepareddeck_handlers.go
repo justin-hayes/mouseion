@@ -191,22 +191,28 @@ func (h *Handler) submitDeckPreparation(w http.ResponseWriter, r *http.Request, 
 }
 
 type deckPreparationResponse struct {
-	ID            string                         `json:"id"`
-	State         domain.DeckPreparationState    `json:"state"`
-	Phase         string                         `json:"phase,omitempty"`
-	Progress      int                            `json:"progress"`
-	Ready         bool                           `json:"ready"`
-	Error         string                         `json:"error,omitempty"`
-	FailureClass  string                         `json:"failure_class,omitempty"`
-	AnalysisRunID string                         `json:"analysis_run_id,omitempty"`
-	Filename      string                         `json:"filename"`
-	DeckName      string                         `json:"deck_name"`
-	DeckRevision  int                            `json:"deck_revision"`
-	DownloadURL   string                         `json:"download_url,omitempty"`
-	Completeness  deckCompletenessResponse       `json:"completeness"`
-	Evidence      []deckEvidenceCoverageResponse `json:"evidence_coverage,omitempty"`
-	Translation   deckTranslationResponse        `json:"translation"`
-	Batch         deckBatchResponse              `json:"batch"`
+	ID               string                         `json:"id"`
+	State            domain.DeckPreparationState    `json:"state"`
+	Phase            string                         `json:"phase,omitempty"`
+	Progress         int                            `json:"progress"`
+	Ready            bool                           `json:"ready"`
+	Error            string                         `json:"error,omitempty"`
+	FailureClass     string                         `json:"failure_class,omitempty"`
+	AnalysisRunID    string                         `json:"analysis_run_id,omitempty"`
+	Filename         string                         `json:"filename"`
+	DeckName         string                         `json:"deck_name"`
+	DeckRevision     int                            `json:"deck_revision"`
+	DownloadURL      string                         `json:"download_url,omitempty"`
+	Completeness     deckCompletenessResponse       `json:"completeness"`
+	MeaningOmissions []deckMeaningOmissionResponse  `json:"meaning_omissions,omitempty"`
+	Evidence         []deckEvidenceCoverageResponse `json:"evidence_coverage,omitempty"`
+	Translation      deckTranslationResponse        `json:"translation"`
+	Batch            deckBatchResponse              `json:"batch"`
+}
+
+type deckMeaningOmissionResponse struct {
+	Target string `json:"target"`
+	Reason string `json:"reason"`
 }
 
 type deckEvidenceCoverageResponse struct {
@@ -267,6 +273,9 @@ func preparationResponse(p domain.DeckPreparation) deckPreparationResponse {
 	response := deckPreparationResponse{ID: p.ID, State: p.State, Phase: p.Phase, Progress: preparationProgress(p), Ready: p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError, Error: errorMessage, FailureClass: p.FailureClass, AnalysisRunID: p.AnalysisRunID, Filename: p.Filename, DeckName: p.DeckName, DeckRevision: p.DeckRevision, Completeness: deckCompletenessResponse{TotalCards: p.TotalCards, CardsWithEnglish: p.CardsWithEnglish, CardsWithEnglishSentence: p.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: fallbackGlossCount, QualityOmissions: p.QualityOmissions}, Translation: deckTranslationResponse{Eligible: p.TranslationEligible, Completed: p.TranslationDone, Pending: p.TranslationPending, Running: p.TranslationRunning, Retrying: p.TranslationRetrying, Failed: p.TranslationFailed, Cancelled: p.TranslationCancelled}, Batch: deckBatchResponse{AgeSeconds: int64(p.BatchAge / time.Second), Chunks: p.BatchChunkCount, SubmittedChunks: p.BatchSubmittedChunks, PollingChunks: p.BatchPollingChunks, ReconcilingChunks: p.BatchReconcilingChunks, CompletedChunks: p.BatchCompletedChunks, FailedChunks: p.BatchFailedChunks, CancelledChunks: p.BatchCancelledChunks, Requests: p.BatchRequestCount, Completed: p.BatchCompletedRequests, Failed: p.BatchFailedRequests, Expired: p.BatchExpiredRequests, InputTokens: p.BatchInputTokens, OutputTokens: p.BatchOutputTokens}}
 	for _, coverage := range p.EvidenceCoverage {
 		response.Evidence = append(response.Evidence, deckEvidenceCoverageResponse{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
+	}
+	for _, omission := range p.MeaningOmissions {
+		response.MeaningOmissions = append(response.MeaningOmissions, deckMeaningOmissionResponse{Target: omission.TargetWord, Reason: omission.Reason})
 	}
 	if response.Ready && !deckPreparationEmpty(p) && p.Error != domain.DeckPreparationRequiresRepreparationError {
 		response.DownloadURL = "/deck-preparations/" + url.PathEscape(p.ID) + "/download"

@@ -490,7 +490,15 @@ func (f *DurableFinalizer) Finalize(ctx context.Context, owner, preparationID, r
 	artifact, diagnostics, err := f.Renderer.Finalize(ctx, deck, stored, preparedDeckRunFacts(run))
 	if err != nil {
 		if ctx.Err() == nil {
-			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, "presentation", "render_failed"); failErr != nil {
+			failureCode := "render_failed"
+			if errors.Is(err, cardexport.ErrAllMeaningsUnresolved) {
+				failureCode = "all_meanings_unresolved"
+			}
+			failureClass := "presentation"
+			if errors.Is(err, cardexport.ErrAllMeaningsUnresolved) {
+				failureClass = "validation"
+			}
+			if failErr := f.Store.FailPreparedDeckFinalization(ctx, owner, preparationID, runID, token, failureClass, failureCode); failErr != nil {
 				err = errors.Join(err, fmt.Errorf("record finalization failure: %w", failErr))
 			}
 		}

@@ -371,6 +371,62 @@ func TestPresentationLifecycleRequiresCompleteStandardResults(t *testing.T) {
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
+func TestPresentationLifecycleOmitsOnlyExplicitlyUnresolvedMeaning(t *testing.T) {
+	first := lifecycleProjection()
+	first.RequireContextualGloss = true
+	second := lifecycleProjection()
+	second.Candidate.CanonicalLemma = "baum"
+	second.Candidate.ObservedForms = []byte(`["Baum"]`)
+	second.Entry.CanonicalLemma = "baum"
+	second.Entry.TargetWord = "Baum"
+	second.Entry.Sentence = "Der alte Baum steht heute ganz ruhig dort."
+	for i := range second.Sentences[0].Tokens {
+		if second.Sentences[0].Tokens[i].Surface == "Haus" {
+			second.Sentences[0].Tokens[i].Surface = "Baum"
+		}
+	}
+	second.Sentences[0] = analyzer.Sentence{Text: "Der alte Baum steht heute ganz ruhig dort.", Tokens: second.Sentences[0].Tokens}
+	second.RequireContextualGloss = true
+
+	presentation := cardexport.NewPresentation(lifecycleLexicalProvider{})
+	deck, _, err := presentation.Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{first, second})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 2)
+	resolved := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", FallbackGloss: "a place to live", SentenceTranslation: "The house is quiet.", SenseSelection: []int{}}
+	if work[0].Request.TargetWord != "Haus" {
+		resolved.CacheKey = work[1].CacheKey
+	}
+	var unresolvedKey enrichment.CacheKey
+	for _, item := range work {
+		if item.Request.TargetWord == "Baum" {
+			unresolvedKey = item.CacheKey
+		}
+	}
+	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{
+		{CacheKey: resolved.CacheKey, Record: resolved},
+		{CacheKey: unresolvedKey, OmissionReason: "The sentence does not distinguish this meaning."},
+	}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.NoError(t, err)
+	assert.Len(t, artifact.Generated, 1)
+	assert.Zero(t, artifact.Completeness.QualityOmitted, "meaning omissions are distinct from sentence-quality omissions")
+	assert.Equal(t, []cardexport.MeaningOmission{{Target: "Baum", Reason: "The sentence does not distinguish this meaning."}}, diagnostics.MeaningOmissions)
+	assert.NotContains(t, artifact.TSV, "Baum")
+}
+
+func TestPresentationLifecycleFailsAllUnresolvedButAcceptsEmptySelection(t *testing.T) {
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, OmissionReason: "No defensible meaning in context."}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.ErrorIs(t, err, cardexport.ErrAllMeaningsUnresolved)
+
+	empty, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Empty Book", nil)
+	require.NoError(t, err)
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), empty, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	assert.NoError(t, err)
+}
+
 func TestPresentationLifecycleReportsFallbackGlossAndRejectsWrongCandidate(t *testing.T) {
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)

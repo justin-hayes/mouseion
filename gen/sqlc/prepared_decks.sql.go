@@ -908,7 +908,7 @@ WHERE o.owner_id = $1
   AND r.id = o.run_id
   AND r.state = 'translating'
   AND r.translation_state IN ('pending', 'running')
-RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at
+RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.omission_reason, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at
 `
 
 type ClaimPreparedDeckTranslationOutcomeParams struct {
@@ -921,7 +921,33 @@ type ClaimPreparedDeckTranslationOutcomeParams struct {
 	LeaseExpiresAt     pgtype.Timestamptz
 }
 
-func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
+type ClaimPreparedDeckTranslationOutcomeRow struct {
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
+	State                string
+	DispatchCount        int
+	ProviderAttemptCount int
+	MaxProviderAttempts  int
+	NextAttemptAt        time.Time
+	DispatchGeneration   int
+	RiverJobID           pgtype.Int8
+	ClaimToken           pgtype.UUID
+	ClaimedAt            pgtype.Timestamptz
+	LeaseExpiresAt       pgtype.Timestamptz
+	TerminalAt           pgtype.Timestamptz
+	ErrorClass           string
+	ErrorCode            string
+	OmissionReason       string
+	CacheHitCount        int
+	ProviderCallCount    int
+	CacheLatencyMs       int64
+	ProviderLatencyMs    int64
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (ClaimPreparedDeckTranslationOutcomeRow, error) {
 	row := q.db.QueryRow(ctx, claimPreparedDeckTranslationOutcome,
 		arg.OwnerID,
 		arg.PreparationID,
@@ -931,7 +957,7 @@ func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg C
 		arg.ClaimToken,
 		arg.LeaseExpiresAt,
 	)
-	var i DeckPreparationTranslationOutcome
+	var i ClaimPreparedDeckTranslationOutcomeRow
 	err := row.Scan(
 		&i.OwnerID,
 		&i.PreparationID,
@@ -950,6 +976,7 @@ func (q *Queries) ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg C
 		&i.TerminalAt,
 		&i.ErrorClass,
 		&i.ErrorCode,
+		&i.OmissionReason,
 		&i.CacheHitCount,
 		&i.ProviderCallCount,
 		&i.CacheLatencyMs,
@@ -1949,6 +1976,7 @@ SET state = $7,
     provider_call_count = provider_call_count + $12,
     cache_latency_ms = cache_latency_ms + $13,
     provider_latency_ms = provider_latency_ms + $14,
+    omission_reason = $15,
     updated_at = now()
 WHERE owner_id = $1
   AND preparation_id = $2
@@ -1957,7 +1985,7 @@ WHERE owner_id = $1
   AND dispatch_generation = $5
   AND claim_token = $6
   AND state = 'running'
-RETURNING owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at
+RETURNING owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, omission_reason, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at
 `
 
 type FinishPreparedDeckTranslationOutcomeParams struct {
@@ -1975,9 +2003,36 @@ type FinishPreparedDeckTranslationOutcomeParams struct {
 	ProviderCallCount    int
 	CacheLatencyMs       int64
 	ProviderLatencyMs    int64
+	OmissionReason       string
 }
 
-func (q *Queries) FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
+type FinishPreparedDeckTranslationOutcomeRow struct {
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
+	State                string
+	DispatchCount        int
+	ProviderAttemptCount int
+	MaxProviderAttempts  int
+	NextAttemptAt        time.Time
+	DispatchGeneration   int
+	RiverJobID           pgtype.Int8
+	ClaimToken           pgtype.UUID
+	ClaimedAt            pgtype.Timestamptz
+	LeaseExpiresAt       pgtype.Timestamptz
+	TerminalAt           pgtype.Timestamptz
+	ErrorClass           string
+	ErrorCode            string
+	OmissionReason       string
+	CacheHitCount        int
+	ProviderCallCount    int
+	CacheLatencyMs       int64
+	ProviderLatencyMs    int64
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) FinishPreparedDeckTranslationOutcome(ctx context.Context, arg FinishPreparedDeckTranslationOutcomeParams) (FinishPreparedDeckTranslationOutcomeRow, error) {
 	row := q.db.QueryRow(ctx, finishPreparedDeckTranslationOutcome,
 		arg.OwnerID,
 		arg.PreparationID,
@@ -1993,8 +2048,9 @@ func (q *Queries) FinishPreparedDeckTranslationOutcome(ctx context.Context, arg 
 		arg.ProviderCallCount,
 		arg.CacheLatencyMs,
 		arg.ProviderLatencyMs,
+		arg.OmissionReason,
 	)
-	var i DeckPreparationTranslationOutcome
+	var i FinishPreparedDeckTranslationOutcomeRow
 	err := row.Scan(
 		&i.OwnerID,
 		&i.PreparationID,
@@ -2013,6 +2069,7 @@ func (q *Queries) FinishPreparedDeckTranslationOutcome(ctx context.Context, arg 
 		&i.TerminalAt,
 		&i.ErrorClass,
 		&i.ErrorCode,
+		&i.OmissionReason,
 		&i.CacheHitCount,
 		&i.ProviderCallCount,
 		&i.CacheLatencyMs,
@@ -2358,7 +2415,7 @@ func (q *Queries) GetPreparedDeckRunForUpdate(ctx context.Context, arg GetPrepar
 
 const getPreparedDeckRunProgress = `-- name: GetPreparedDeckRunProgress :one
 WITH outcomes AS (
-  SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at FROM deck_preparation_translation_outcomes o
+  SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at, o.omission_reason FROM deck_preparation_translation_outcomes o
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3
 ), manifest AS (
   SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language, mi.quality_gdex_score, mi.corpus_id, mi.sentence_ordinal, mi.meaning_evidence_hash FROM deck_preparation_manifest_items mi
@@ -2480,7 +2537,7 @@ func (q *Queries) GetPreparedDeckTranslationCoverage(ctx context.Context, arg Ge
 }
 
 const getPreparedDeckTranslationOutcome = `-- name: GetPreparedDeckTranslationOutcome :one
-SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
+SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at, omission_reason FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4
 `
 
 type GetPreparedDeckTranslationOutcomeParams struct {
@@ -2521,12 +2578,13 @@ func (q *Queries) GetPreparedDeckTranslationOutcome(ctx context.Context, arg Get
 		&i.CacheLatencyMs,
 		&i.ProviderLatencyMs,
 		&i.UpdatedAt,
+		&i.OmissionReason,
 	)
 	return i, err
 }
 
 const getPreparedDeckTranslationOutcomeForUpdate = `-- name: GetPreparedDeckTranslationOutcomeForUpdate :one
-SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4 FOR UPDATE
+SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at, omission_reason FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4 FOR UPDATE
 `
 
 type GetPreparedDeckTranslationOutcomeForUpdateParams struct {
@@ -2567,6 +2625,7 @@ func (q *Queries) GetPreparedDeckTranslationOutcomeForUpdate(ctx context.Context
 		&i.CacheLatencyMs,
 		&i.ProviderLatencyMs,
 		&i.UpdatedAt,
+		&i.OmissionReason,
 	)
 	return i, err
 }
@@ -3287,7 +3346,7 @@ func (q *Queries) ListPreparedDeckStuckBatches(ctx context.Context, arg ListPrep
 }
 
 const listPreparedDeckTranslationOutcomes = `-- name: ListPreparedDeckTranslationOutcomes :many
-SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
+SELECT owner_id, preparation_id, run_id, ordinal, state, dispatch_count, provider_attempt_count, max_provider_attempts, next_attempt_at, dispatch_generation, river_job_id, claim_token, claimed_at, lease_expires_at, terminal_at, error_class, error_code, cache_hit_count, provider_call_count, cache_latency_ms, provider_latency_ms, updated_at, omission_reason FROM deck_preparation_translation_outcomes WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
 `
 
 type ListPreparedDeckTranslationOutcomesParams struct {
@@ -3328,6 +3387,7 @@ func (q *Queries) ListPreparedDeckTranslationOutcomes(ctx context.Context, arg L
 			&i.CacheLatencyMs,
 			&i.ProviderLatencyMs,
 			&i.UpdatedAt,
+			&i.OmissionReason,
 		); err != nil {
 			return nil, err
 		}
@@ -3581,7 +3641,7 @@ WHERE o.owner_id = $1
   AND r.preparation_id = o.preparation_id
   AND r.id = o.run_id
   AND r.state = 'translating'
-RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at
+RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.omission_reason, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at
 `
 
 type RedispatchPreparedDeckTranslationOutcomeParams struct {
@@ -3592,7 +3652,33 @@ type RedispatchPreparedDeckTranslationOutcomeParams struct {
 	DispatchGeneration int
 }
 
-func (q *Queries) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
+type RedispatchPreparedDeckTranslationOutcomeRow struct {
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
+	State                string
+	DispatchCount        int
+	ProviderAttemptCount int
+	MaxProviderAttempts  int
+	NextAttemptAt        time.Time
+	DispatchGeneration   int
+	RiverJobID           pgtype.Int8
+	ClaimToken           pgtype.UUID
+	ClaimedAt            pgtype.Timestamptz
+	LeaseExpiresAt       pgtype.Timestamptz
+	TerminalAt           pgtype.Timestamptz
+	ErrorClass           string
+	ErrorCode            string
+	OmissionReason       string
+	CacheHitCount        int
+	ProviderCallCount    int
+	CacheLatencyMs       int64
+	ProviderLatencyMs    int64
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (RedispatchPreparedDeckTranslationOutcomeRow, error) {
 	row := q.db.QueryRow(ctx, redispatchPreparedDeckTranslationOutcome,
 		arg.OwnerID,
 		arg.PreparationID,
@@ -3600,7 +3686,7 @@ func (q *Queries) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, 
 		arg.Ordinal,
 		arg.DispatchGeneration,
 	)
-	var i DeckPreparationTranslationOutcome
+	var i RedispatchPreparedDeckTranslationOutcomeRow
 	err := row.Scan(
 		&i.OwnerID,
 		&i.PreparationID,
@@ -3619,6 +3705,7 @@ func (q *Queries) RedispatchPreparedDeckTranslationOutcome(ctx context.Context, 
 		&i.TerminalAt,
 		&i.ErrorClass,
 		&i.ErrorCode,
+		&i.OmissionReason,
 		&i.CacheHitCount,
 		&i.ProviderCallCount,
 		&i.CacheLatencyMs,
@@ -3752,7 +3839,7 @@ WHERE o.owner_id = $1
   AND r.id = o.run_id
   AND r.state = 'translating'
   AND r.translation_state IN ('pending', 'running')
-RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at
+RETURNING o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.omission_reason, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at
 `
 
 type RetryPreparedDeckTranslationOutcomeParams struct {
@@ -3767,7 +3854,33 @@ type RetryPreparedDeckTranslationOutcomeParams struct {
 	ErrorCode          string
 }
 
-func (q *Queries) RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error) {
+type RetryPreparedDeckTranslationOutcomeRow struct {
+	OwnerID              string
+	PreparationID        string
+	RunID                string
+	Ordinal              int
+	State                string
+	DispatchCount        int
+	ProviderAttemptCount int
+	MaxProviderAttempts  int
+	NextAttemptAt        time.Time
+	DispatchGeneration   int
+	RiverJobID           pgtype.Int8
+	ClaimToken           pgtype.UUID
+	ClaimedAt            pgtype.Timestamptz
+	LeaseExpiresAt       pgtype.Timestamptz
+	TerminalAt           pgtype.Timestamptz
+	ErrorClass           string
+	ErrorCode            string
+	OmissionReason       string
+	CacheHitCount        int
+	ProviderCallCount    int
+	CacheLatencyMs       int64
+	ProviderLatencyMs    int64
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (RetryPreparedDeckTranslationOutcomeRow, error) {
 	row := q.db.QueryRow(ctx, retryPreparedDeckTranslationOutcome,
 		arg.OwnerID,
 		arg.PreparationID,
@@ -3779,7 +3892,7 @@ func (q *Queries) RetryPreparedDeckTranslationOutcome(ctx context.Context, arg R
 		arg.ErrorClass,
 		arg.ErrorCode,
 	)
-	var i DeckPreparationTranslationOutcome
+	var i RetryPreparedDeckTranslationOutcomeRow
 	err := row.Scan(
 		&i.OwnerID,
 		&i.PreparationID,
@@ -3798,6 +3911,7 @@ func (q *Queries) RetryPreparedDeckTranslationOutcome(ctx context.Context, arg R
 		&i.TerminalAt,
 		&i.ErrorClass,
 		&i.ErrorCode,
+		&i.OmissionReason,
 		&i.CacheHitCount,
 		&i.ProviderCallCount,
 		&i.CacheLatencyMs,

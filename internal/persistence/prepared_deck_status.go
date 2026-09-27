@@ -57,6 +57,21 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	for _, coverage := range frozen.Diagnostics().EvidenceCoverage {
 		p.EvidenceCoverage = append(p.EvidenceCoverage, domain.DeckPreparationEvidenceCoverage{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
 	}
+	outcomes, err := s.ListPreparedDeckTranslationOutcomes(ctx, owner, preparationID, run.ID)
+	if err != nil {
+		return p, err
+	}
+	for _, outcome := range outcomes {
+		if outcome.OmissionReason == "" || outcome.State != domain.PreparedDeckOutcomeCompleted {
+			continue
+		}
+		for _, item := range projection.Items {
+			if item.Ordinal == outcome.Ordinal {
+				p.MeaningOmissions = append(p.MeaningOmissions, domain.DeckPreparationMeaningOmission{TargetWord: item.Entry.TargetWord, Reason: outcome.OmissionReason})
+				break
+			}
+		}
+	}
 
 	p.Phase = preparationPhase(p.State, run, progress, chunks)
 	p.FailureClass = preparedDeckFailureClass(run, chunks)

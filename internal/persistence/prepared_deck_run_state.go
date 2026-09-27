@@ -212,13 +212,15 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 			return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 		}
 		key := *item.CacheKey
-		if outcome.State == domain.PreparedDeckOutcomeCompleted {
+		if outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason == "" {
 			record, found := byStoredOrdinal[item.Ordinal]
 			if !found || !record.Found {
 				return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 			}
 			entry := record.Entry
 			stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
+		} else if outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason != "" {
+			stored = append(stored, cardexport.StoredResult{CacheKey: key, OmissionReason: outcome.OmissionReason})
 		}
 	}
 	return projection, stored, nil

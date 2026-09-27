@@ -319,6 +319,16 @@ idempotent success; all other invalid transitions fail closed.
 The progress numerator is terminal `completed + failed`; cancelled runs report
 cancelled items separately. It is never inferred from River job metadata.
 
+For the standard contextual-Gloss contract, a validated response may complete
+with a bounded `omission_reason` instead of a cache result when it cannot give a
+defensible contextual meaning. Finalization omits that manifest item, reports
+its frozen target and reason, and writes no Generated vocabulary provenance for
+it. Provider outages, malformed responses, and invalid evidence references do
+not carry an omission reason: they remain failed translation outcomes and the
+standard preparation fails closed. If every accepted target is explicitly
+unresolved, finalization fails rather than publishing an empty artifact; a
+selection that was already empty is not an all-unresolved run.
+
 ## Persistence schema
 
 Names may be shortened mechanically during implementation, but the following

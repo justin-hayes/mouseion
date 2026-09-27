@@ -46,6 +46,7 @@ type DeckPreparation struct {
 	RenderInputVersion, PresentationVersion, DeckRevision                                                                      int
 	VocabularyCount                                                                                                            int
 	EvidenceCoverage                                                                                                           []DeckPreparationEvidenceCoverage
+	MeaningOmissions                                                                                                           []DeckPreparationMeaningOmission
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.
@@ -64,6 +65,11 @@ type DeckPreparation struct {
 	CreatedAt, UpdatedAt                                                                 time.Time
 	StartedAt, CompletedAt                                                               *time.Time
 	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt, RetiredAt                           *time.Time
+}
+
+type DeckPreparationMeaningOmission struct {
+	TargetWord string
+	Reason     string
 }
 
 type DeckPreparationEvidenceCoverage struct {

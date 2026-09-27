@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -401,7 +402,14 @@ func exampleSentenceFromFields(
 	}
 }
 
-func preparedDeckOutcomeFromModel(m sqlcgen.DeckPreparationTranslationOutcome) domain.PreparedDeckTranslationOutcome {
+func preparedDeckOutcomeFromModel(row any) domain.PreparedDeckTranslationOutcome {
+	var m sqlcgen.DeckPreparationTranslationOutcome
+	encoded, err := json.Marshal(row)
+	// sqlc emits query-specific row structs with the shared outcome fields.
+	//nolint:musttag // These generated structs intentionally have no JSON tags.
+	if err != nil || json.Unmarshal(encoded, &m) != nil {
+		return domain.PreparedDeckTranslationOutcome{}
+	}
 	return domain.PreparedDeckTranslationOutcome{
 		OwnerID:              m.OwnerID,
 		PreparationID:        m.PreparationID,
@@ -420,6 +428,7 @@ func preparedDeckOutcomeFromModel(m sqlcgen.DeckPreparationTranslationOutcome) d
 		TerminalAt:           pgTimePtr(m.TerminalAt),
 		ErrorClass:           m.ErrorClass,
 		ErrorCode:            m.ErrorCode,
+		OmissionReason:       m.OmissionReason,
 		CacheHitCount:        m.CacheHitCount,
 		ProviderCallCount:    m.ProviderCallCount,
 		CacheLatency:         time.Duration(m.CacheLatencyMs) * time.Millisecond,

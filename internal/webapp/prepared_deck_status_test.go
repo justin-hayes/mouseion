@@ -55,6 +55,16 @@ func TestReadyPreparationResponseExposesFallbackGlossCount(t *testing.T) {
 	assert.Contains(t, string(encoded), `"cards_with_fallback_gloss":1`)
 }
 
+func TestPreparationResponseExposesTargetAndReasonForMeaningOmissions(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{
+		State:            domain.DeckPreparationReady,
+		MeaningOmissions: []domain.DeckPreparationMeaningOmission{{TargetWord: "Bank", Reason: "The sentence does not distinguish the meanings."}},
+	})
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"meaning_omissions":[{"target":"Bank","reason":"The sentence does not distinguish the meanings."}]`)
+}
+
 func TestPreparationResponseExposesFrozenEvidenceCoverageAndTruncation(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{State: domain.DeckPreparationPreparing, EvidenceCoverage: []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 5, Matched: 3, Candidates: 12, Omitted: 4}}})
 	encoded, err := json.Marshal(response)
