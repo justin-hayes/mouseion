@@ -19,7 +19,7 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 
 	// Seed the latest pre-cutover schema so migration 18 itself proves the
 	// membership-to-disposition contract and preserves unrelated durable state.
-	moveApplicationMigrations(t, databaseURL, -3)
+	moveApplicationMigrationsTo(t, databaseURL, 17)
 	// The current disposition writes include the successor revision field. Add it
 	// temporarily while seeding with application code, then remove it so the
 	// migration under test starts from the exact version-17 schema.
@@ -50,8 +50,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 
 	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions DROP COLUMN revision`)
 	require.NoError(t, err)
-	moveApplicationMigrations(t, databaseURL, 1)
-	moveApplicationMigrations(t, databaseURL, 1)
+	moveApplicationMigrationsTo(t, databaseURL, 18)
+	migrateApplicationMigrationsToLatest(t, databaseURL)
 
 	var tablePresent bool
 	require.NoError(t, pool.QueryRow(ctx, `SELECT to_regclass('public.reading_journey_membership') IS NOT NULL`).Scan(&tablePresent))
