@@ -967,7 +967,7 @@ WITH hit AS (
   FROM deck_preparation_batch_chunk_items ci
   JOIN deck_preparation_batch_chunks c ON c.owner_id = ci.owner_id AND c.preparation_id = ci.preparation_id AND c.run_id = ci.run_id AND c.id = ci.chunk_id AND c.generation = ci.generation
   JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
-  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '')
+  JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '') AND ec.meaning_evidence_hash = COALESCE(mi.meaning_evidence_hash, '')
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3 AND o.ordinal = ci.ordinal AND o.state = 'pending'
     AND c.id = $4 AND c.generation = $5 AND c.state = 'submitting' AND c.submission_claim_token = $6
   RETURNING o.ordinal
@@ -1204,7 +1204,7 @@ func (q *Queries) CountPreparedDeckRunOutcomeStates(ctx context.Context, arg Cou
 const enrichmentCacheLookup = `-- name: EnrichmentCacheLookup :one
 SELECT 1 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
-  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8
+  AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8 AND meaning_evidence_hash = $9
 `
 
 type EnrichmentCacheLookupParams struct {
@@ -1216,6 +1216,7 @@ type EnrichmentCacheLookupParams struct {
 	ProviderVersion           string
 	SentenceHash              string
 	DictionaryProviderVersion string
+	MeaningEvidenceHash       string
 }
 
 func (q *Queries) EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error) {
@@ -1228,6 +1229,7 @@ func (q *Queries) EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCache
 		arg.ProviderVersion,
 		arg.SentenceHash,
 		arg.DictionaryProviderVersion,
+		arg.MeaningEvidenceHash,
 	)
 	var column_1 int32
 	err := row.Scan(&column_1)
@@ -2359,7 +2361,7 @@ WITH outcomes AS (
   SELECT o.owner_id, o.preparation_id, o.run_id, o.ordinal, o.state, o.dispatch_count, o.provider_attempt_count, o.max_provider_attempts, o.next_attempt_at, o.dispatch_generation, o.river_job_id, o.claim_token, o.claimed_at, o.lease_expires_at, o.terminal_at, o.error_class, o.error_code, o.cache_hit_count, o.provider_call_count, o.cache_latency_ms, o.provider_latency_ms, o.updated_at FROM deck_preparation_translation_outcomes o
   WHERE o.owner_id = $1 AND o.preparation_id = $2 AND o.run_id = $3
 ), manifest AS (
-  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language, mi.quality_gdex_score, mi.corpus_id, mi.sentence_ordinal FROM deck_preparation_manifest_items mi
+  SELECT mi.owner_id, mi.preparation_id, mi.run_id, mi.ordinal, mi.disposition, mi.language, mi.canonical_lemma, mi.upos, mi.source_sentence, mi.tested_target, mi.first_encounter, mi.quality_score, mi.quality_reasons, mi.render_payload, mi.provider, mi.provider_version, mi.sentence_hash, mi.candidate_digest, mi.created_at, mi.target_language, mi.quality_gdex_score, mi.corpus_id, mi.sentence_ordinal, mi.meaning_evidence_hash FROM deck_preparation_manifest_items mi
   WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3
 ), chunks AS (
   SELECT c.id, c.owner_id, c.preparation_id, c.run_id, c.chunk_index, c.generation, c.state, c.provider_status, c.model, c.endpoint, c.split_reason, c.first_ordinal, c.last_ordinal, c.input_digest, c.request_count, c.input_bytes, c.estimated_prompt_tokens, c.completed_count, c.failed_count, c.expired_count, c.input_file_id, c.batch_id, c.output_file_id, c.error_file_id, c.submission_job_id, c.submission_generation, c.submission_claim_token, c.submission_claimed_at, c.submission_lease_expires_at, c.reconciliation_job_id, c.reconciliation_generation, c.reconciliation_claim_token, c.reconciliation_claimed_at, c.reconciliation_lease_expires_at, c.error_class, c.error_code, c.input_tokens, c.output_tokens, c.total_tokens, c.created_at, c.updated_at, c.submitted_at, c.last_polled_at, c.provider_completed_at, c.reconciled_at, c.input_file_cleanup_state, c.output_file_cleanup_state, c.error_file_cleanup_state, c.input_file_cleanup_attempts, c.output_file_cleanup_attempts, c.error_file_cleanup_attempts, c.cleanup_error_class, c.cleanup_error_code, c.cleanup_claim_token, c.cleanup_claimed_at, c.cleanup_lease_expires_at, c.cleanup_completed_at FROM deck_preparation_batch_chunks c
@@ -2455,7 +2457,7 @@ SELECT count(*) FILTER (WHERE COALESCE(ec.translation, '') <> '') AS cards_with_
        count(*) FILTER (WHERE COALESCE(ec.sentence_translation, '') <> '') AS cards_with_contextual_sentence_translations
 FROM deck_preparation_manifest_items mi
 JOIN deck_preparation_translation_outcomes o ON o.owner_id = mi.owner_id AND o.preparation_id = mi.preparation_id AND o.run_id = mi.run_id AND o.ordinal = mi.ordinal AND o.state = 'completed'
-LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '')
+LEFT JOIN enrichment_cache ec ON ec.language = mi.language AND ec.target_language = mi.target_language AND ec.canonical_lemma = mi.canonical_lemma AND ec.upos = mi.upos AND ec.provider = mi.provider AND ec.provider_version = mi.provider_version AND ec.sentence_hash = COALESCE(mi.sentence_hash, '') AND ec.dictionary_provider_version = COALESCE(mi.render_payload->>'dictionary_provider_version', '') AND ec.meaning_evidence_hash = COALESCE(mi.meaning_evidence_hash, '')
 WHERE mi.owner_id = $1 AND mi.preparation_id = $2 AND mi.run_id = $3 AND mi.disposition = 'accepted'
 `
 
@@ -2708,33 +2710,34 @@ func (q *Queries) InsertPreparedDeckManifest(ctx context.Context, arg InsertPrep
 }
 
 const insertPreparedDeckManifestItem = `-- name: InsertPreparedDeckManifestItem :exec
-INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, corpus_id, sentence_ordinal)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+INSERT INTO deck_preparation_manifest_items(owner_id, preparation_id, run_id, ordinal, disposition, language, target_language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_gdex_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, corpus_id, sentence_ordinal, meaning_evidence_hash)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 `
 
 type InsertPreparedDeckManifestItemParams struct {
-	OwnerID          string
-	PreparationID    string
-	RunID            string
-	Ordinal          int
-	Disposition      string
-	Language         string
-	TargetLanguage   string
-	CanonicalLemma   string
-	Upos             string
-	SourceSentence   string
-	TestedTarget     string
-	FirstEncounter   int64
-	QualityScore     int
-	QualityGdexScore float64
-	QualityReasons   []string
-	RenderPayload    []byte
-	Provider         pgtype.Text
-	ProviderVersion  pgtype.Text
-	SentenceHash     pgtype.Text
-	CandidateDigest  string
-	CorpusID         pgtype.UUID
-	SentenceOrdinal  pgtype.Int8
+	OwnerID             string
+	PreparationID       string
+	RunID               string
+	Ordinal             int
+	Disposition         string
+	Language            string
+	TargetLanguage      string
+	CanonicalLemma      string
+	Upos                string
+	SourceSentence      string
+	TestedTarget        string
+	FirstEncounter      int64
+	QualityScore        int
+	QualityGdexScore    float64
+	QualityReasons      []string
+	RenderPayload       []byte
+	Provider            pgtype.Text
+	ProviderVersion     pgtype.Text
+	SentenceHash        pgtype.Text
+	CandidateDigest     string
+	CorpusID            pgtype.UUID
+	SentenceOrdinal     pgtype.Int8
+	MeaningEvidenceHash pgtype.Text
 }
 
 func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg InsertPreparedDeckManifestItemParams) error {
@@ -2761,6 +2764,7 @@ func (q *Queries) InsertPreparedDeckManifestItem(ctx context.Context, arg Insert
 		arg.CandidateDigest,
 		arg.CorpusID,
 		arg.SentenceOrdinal,
+		arg.MeaningEvidenceHash,
 	)
 	return err
 }
@@ -3083,7 +3087,7 @@ func (q *Queries) ListPreparedDeckLiveBatchIDs(ctx context.Context, arg ListPrep
 }
 
 const listPreparedDeckManifestItems = `-- name: ListPreparedDeckManifestItems :many
-SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language, quality_gdex_score, corpus_id, sentence_ordinal FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
+SELECT owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos, source_sentence, tested_target, first_encounter, quality_score, quality_reasons, render_payload, provider, provider_version, sentence_hash, candidate_digest, created_at, target_language, quality_gdex_score, corpus_id, sentence_ordinal, meaning_evidence_hash FROM deck_preparation_manifest_items WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 ORDER BY ordinal
 `
 
 type ListPreparedDeckManifestItemsParams struct {
@@ -3125,6 +3129,7 @@ func (q *Queries) ListPreparedDeckManifestItems(ctx context.Context, arg ListPre
 			&i.QualityGdexScore,
 			&i.CorpusID,
 			&i.SentenceOrdinal,
+			&i.MeaningEvidenceHash,
 		); err != nil {
 			return nil, err
 		}
@@ -3398,7 +3403,7 @@ SELECT EXISTS(
   SELECT 1 FROM enrichment_cache
   WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
     AND provider = $5 AND provider_version = $6 AND sentence_hash = $7
-    AND dictionary_provider_version = $8
+    AND dictionary_provider_version = $8 AND meaning_evidence_hash = $9
     AND translation <> ''
     AND (sentence_hash = '' OR sentence_translation <> '')
 )
@@ -3413,6 +3418,7 @@ type PreparedDeckCacheExistsParams struct {
 	ProviderVersion           string
 	SentenceHash              string
 	DictionaryProviderVersion string
+	MeaningEvidenceHash       string
 }
 
 func (q *Queries) PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckCacheExistsParams) (bool, error) {
@@ -3425,6 +3431,7 @@ func (q *Queries) PreparedDeckCacheExists(ctx context.Context, arg PreparedDeckC
 		arg.ProviderVersion,
 		arg.SentenceHash,
 		arg.DictionaryProviderVersion,
+		arg.MeaningEvidenceHash,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -4086,8 +4093,8 @@ func (q *Queries) UpdatePreparedDeckRunTranslationRunning(ctx context.Context, a
 }
 
 const upsertEnrichmentCache = `-- name: UpsertEnrichmentCache :exec
-INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT DO NOTHING
 `
 
@@ -4100,6 +4107,7 @@ type UpsertEnrichmentCacheParams struct {
 	ProviderVersion           string
 	SentenceHash              string
 	DictionaryProviderVersion string
+	MeaningEvidenceHash       string
 	Translation               string
 	FallbackGloss             string
 	SenseSelection            []byte
@@ -4118,6 +4126,7 @@ func (q *Queries) UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmen
 		arg.ProviderVersion,
 		arg.SentenceHash,
 		arg.DictionaryProviderVersion,
+		arg.MeaningEvidenceHash,
 		arg.Translation,
 		arg.FallbackGloss,
 		arg.SenseSelection,

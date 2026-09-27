@@ -21,6 +21,7 @@ type CandidateProjection struct {
 	Sentences                 map[int64]analyzer.Sentence
 	Provider, ProviderVersion string
 	TargetLanguage            string
+	RequireContextualGloss    bool
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -171,6 +172,10 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 		return FrozenDeck{}, FreezeDiagnostics{}, err
 	} else if provider != "" {
 		keys := make([]enrichment.CacheKey, len(manifest.enrichmentCandidatesProjection()))
+		contextualGlossByCandidate := make(map[string]bool, len(ordered))
+		for _, projection := range ordered {
+			contextualGlossByCandidate[candidateKey(projection.Candidate)] = projection.RequireContextualGloss
+		}
 		for i, candidate := range manifest.enrichmentCandidatesProjection() {
 			keys[i] = enrichment.CacheKey{
 				Language: candidate.Language, TargetLanguage: target,
@@ -178,6 +183,9 @@ func (p *Presentation) Freeze(ctx context.Context, owner, deckName string, proje
 				Provider: provider, ProviderVersion: version,
 				DictionaryProviderVersion: candidate.DictionaryProviderVersion,
 				SentenceHash:              enrichment.SentenceHash(candidate.ExampleSentence),
+			}
+			if contextualGlossByCandidate[candidate.Language+"\x00"+candidate.CanonicalLemma+"\x00"+candidate.UPOS] {
+				keys[i].MeaningEvidenceHash = enrichment.MeaningEvidenceHash(candidate.CandidateSenses)
 			}
 		}
 		manifest, err = manifest.bindCacheKeys(keys)
@@ -297,7 +305,8 @@ func (d FrozenDeck) workItem(acceptedIndex int) WorkItem {
 			Language: entry.Language, TargetLanguage: targetLanguage,
 			CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 			TargetWord: testedRenderTarget(entry), ExampleSentence: entry.Sentence,
-			CandidateSenses: enrichment.CloneLexicalSenses(entry.CandidateSenses),
+			CandidateSenses:        enrichment.CloneLexicalSenses(entry.CandidateSenses),
+			RequireContextualGloss: key.MeaningEvidenceHash != "",
 		},
 		CacheKey: key, DictionaryProviderVersion: entry.DictionaryProviderVersion,
 	}

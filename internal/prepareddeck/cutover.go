@@ -67,7 +67,7 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 
 	projections := make([]cardexport.CandidateProjection, 0, len(selectedFacts))
 	for _, fact := range selectedFacts {
-		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: facts.DeckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences})
+		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: facts.DeckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false})
 	}
 	return projections, facts.DeckName, nil
 }
@@ -149,12 +149,16 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		config.ContextMode = string(enrichment.SentenceContext)
 		config.Provider = p.Codec.ProviderName()
 		config.ProviderVersion = p.Codec.ProviderVersion()
+		if mode == domain.PreparedDeckExecutionStandard {
+			config.ProviderVersion = p.Codec.ContextualGlossProviderVersion()
+		}
 		config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
 		config.Model = p.Codec.Model()
 		for i := range projections {
 			projections[i].Provider = config.Provider
 			projections[i].ProviderVersion = config.ProviderVersion
 			projections[i].TargetLanguage = config.TargetLanguage
+			projections[i].RequireContextualGloss = mode == domain.PreparedDeckExecutionStandard
 		}
 	}
 	deck, freezeDiagnostics, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)

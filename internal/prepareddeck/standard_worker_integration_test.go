@@ -72,6 +72,9 @@ func (p *barrierTranslationProvider) Translate(ctx context.Context, request enri
 }
 
 func validTranslationResponse(request enrichment.TranslationRequest) enrichment.TranslationResponse {
+	if request.RequireContextualGloss {
+		return enrichment.TranslationResponse{Translation: request.CanonicalLemma + "-translated", Gloss: "contextual integration gloss", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTarget: "translated"}
+	}
 	return enrichment.TranslationResponse{
 		Translation:               request.CanonicalLemma + "-translated",
 		FallbackGloss:             "integration gloss",
@@ -127,7 +130,7 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 		lemma := "lemma-" + uuid.NewString()
 		entries[i] = cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", Sentence: "Ein alter Satz steht heute im Buch.", TargetWord: "Ein", SourceDocument: "Integration", FirstEncounter: int64(i + 1)}
 	}
-	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, "Integration", entries, testutil.PresentationProvider{Name: "integration-provider", Version: "1", TargetLanguage: "en"})
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, "Integration", entries, testutil.PresentationProvider{Name: "integration-provider", Version: "1", TargetLanguage: "en", RequireContextualGloss: true})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
 	require.Len(t, work, itemCount)
@@ -192,9 +195,16 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 		require.NoError(t, err)
 		assert.True(t, found, "cache %d", i)
 		assert.NotEmpty(t, entry.Translation, "cache %d", i)
+		assert.Equal(t, "contextual integration gloss", entry.FallbackGloss, "cache %d", i)
 	}
 	finalRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
 	require.NoError(t, err)
+	status, err := run.store.GetDeckPreparationStatus(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "assembling", status.Phase)
+	assert.Equal(t, len(run.keys), status.TranslationDone)
+	assert.Equal(t, len(run.keys), status.CardsWithEnglish)
+	assert.Equal(t, len(run.keys), status.CardsWithContextualSentenceTranslations)
 	frozen, stored, err := run.store.LoadPreparedDeckFinalization(ctx, run.owner, run.prep.ID, run.run.ID)
 	require.NoError(t, err)
 	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
@@ -202,6 +212,9 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, preparedDeckRunFacts(finalRun))
 	require.NoError(t, err)
 	assert.Len(t, artifact.Generated, len(run.keys))
+	for _, generated := range artifact.Generated {
+		assert.Equal(t, "contextual integration gloss", generated.Note.Gloss)
+	}
 }
 
 func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing.T) {

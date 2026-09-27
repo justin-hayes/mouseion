@@ -1132,6 +1132,15 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string
 	if result.SentenceTranslationTarget.Available {
 		input.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
 	}
+	if outcome.CacheKey.MeaningEvidenceHash != "" {
+		gloss := strings.TrimSpace(result.FallbackGloss.Value)
+		if !result.FallbackGloss.Available || !fallbackGlossEligible(gloss) {
+			return nil, fmt.Errorf("%w: contextual Gloss is missing or invalid", ErrInvalidInput)
+		}
+		input.Gloss = gloss
+		input.fallbackGlossApplied = true
+		return nil, nil
+	}
 	selectionValid := false
 	selectionMalformed := false
 	var diagnostics []string

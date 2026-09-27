@@ -231,3 +231,30 @@ func TestTranslationCodecRequestsFallbackWhenCandidateSensesAreEmpty(t *testing.
 	assert.Empty(t, response.SenseOrder)
 	assert.NotContains(t, response.Warnings, "invalid sense selection; using deterministic order")
 }
+
+func TestTranslationCodecAcceptsContextualGlossOnlyWithFrozenEvidenceReferences(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sitzt auf der Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{
+		{EvidenceID: "wikt:seat", Gloss: "bench"},
+		{EvidenceID: "wikt:finance", Gloss: "financial institution"},
+	}}
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_target":"bench","gloss":"bench","evidence_ids":["wikt:seat"],"context_only":false}`
+	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+	response, err := codec.DecodeResponse(input, []byte(body))
+	require.NoError(t, err)
+	assert.Equal(t, "bench", response.Gloss)
+	assert.Equal(t, []string{"wikt:seat"}, response.EvidenceIDs)
+	assert.False(t, response.ContextOnly)
+
+	for name, invalid := range map[string]string{
+		"unknown evidence":                  strings.Replace(content, `wikt:seat`, `wikt:unknown`, 1),
+		"context flag contradicts evidence": strings.Replace(content, `"context_only":false`, `"context_only":true`, 1),
+		"missing contextual gloss":          strings.Replace(content, `"gloss":"bench",`, ``, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, decodeErr := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(invalid)+`}}]}`))
+			assert.ErrorIs(t, decodeErr, ErrInvalidTranslationResponse)
+		})
+	}
+}

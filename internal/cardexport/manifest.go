@@ -23,7 +23,8 @@ const (
 	ManifestSchemaVersionV5       = 5
 	ManifestSchemaVersionV6       = 6
 	ManifestSchemaVersionV7       = 7
-	ManifestSchemaVersion         = ManifestSchemaVersionV7
+	ManifestSchemaVersionV8       = 8
+	ManifestSchemaVersion         = ManifestSchemaVersionV8
 )
 
 type ManifestDisposition string
@@ -126,8 +127,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v5\x00"
 	} else if s.SchemaVersion == ManifestSchemaVersionV6 {
 		prefix = "mouseion-prepared-deck-manifest-v6\x00"
-	} else {
+	} else if s.SchemaVersion == ManifestSchemaVersionV7 {
 		prefix = "mouseion-prepared-deck-manifest-v7\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-manifest-v8\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -203,8 +206,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v5\x00"
 	} else if schemaVersion == ManifestSchemaVersionV6 {
 		prefix = "mouseion-prepared-deck-candidate-v6\x00"
-	} else {
+	} else if schemaVersion == ManifestSchemaVersionV7 {
 		prefix = "mouseion-prepared-deck-candidate-v7\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-candidate-v8\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -293,17 +298,18 @@ type canonicalSentenceQuality struct {
 }
 
 type canonicalCacheKey struct {
-	Language        string `json:"language"`
-	TargetLanguage  string `json:"target_language,omitempty"`
-	CanonicalLemma  string `json:"canonical_lemma"`
-	UPOS            string `json:"upos"`
-	Provider        string `json:"provider"`
-	ProviderVersion string `json:"provider_version"`
-	SentenceHash    string `json:"sentence_hash"`
+	Language            string `json:"language"`
+	TargetLanguage      string `json:"target_language,omitempty"`
+	CanonicalLemma      string `json:"canonical_lemma"`
+	UPOS                string `json:"upos"`
+	Provider            string `json:"provider"`
+	ProviderVersion     string `json:"provider_version"`
+	SentenceHash        string `json:"sentence_hash"`
+	MeaningEvidenceHash string `json:"meaning_evidence_hash,omitempty"`
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7 && s.SchemaVersion != ManifestSchemaVersionV8) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
@@ -383,10 +389,13 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 		if schemaVersion == LegacyManifestSchemaVersion {
 			targetOK = true
 		}
-		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) {
+		if item.Disposition != ManifestAccepted || item.CacheKey.Language != entry.Language || !targetOK || item.CacheKey.CanonicalLemma != entry.CanonicalLemma || item.CacheKey.UPOS != entry.UPOS || strings.TrimSpace(item.CacheKey.Provider) == "" || strings.TrimSpace(item.CacheKey.ProviderVersion) == "" || (schemaVersion >= ManifestSchemaVersionV4 && item.CacheKey.DictionaryProviderVersion != entry.DictionaryProviderVersion) || (item.CacheKey.SentenceHash != "" && item.CacheKey.SentenceHash != enrichment.SentenceHash(strings.TrimSpace(entry.Sentence))) || (schemaVersion >= ManifestSchemaVersionV8 && item.CacheKey.MeaningEvidenceHash != "" && item.CacheKey.MeaningEvidenceHash != enrichment.MeaningEvidenceHash(entry.CandidateSenses)) {
 			return canonicalManifestItem{}, fmt.Errorf("%w: cache identity does not match manifest entry", ErrInvalidInput)
 		}
 		key = &canonicalCacheKey{Language: item.CacheKey.Language, TargetLanguage: item.CacheKey.TargetLanguage, CanonicalLemma: item.CacheKey.CanonicalLemma, UPOS: item.CacheKey.UPOS, Provider: item.CacheKey.Provider, ProviderVersion: item.CacheKey.ProviderVersion, SentenceHash: item.CacheKey.SentenceHash}
+		if schemaVersion >= ManifestSchemaVersionV8 {
+			key.MeaningEvidenceHash = item.CacheKey.MeaningEvidenceHash
+		}
 	}
 	quality := canonicalSentenceQuality{Accepted: item.Quality.Accepted, Score: item.Quality.Score, Reasons: append([]string(nil), item.Quality.Reasons...)}
 	if schemaVersion >= ManifestSchemaVersionV4 {
