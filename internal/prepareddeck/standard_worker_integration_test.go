@@ -424,6 +424,15 @@ func TestStandardWorkerPersistsValidUnresolvedMeaningAndFinalizesMixedDeck(t *te
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	run, client, provider := newStandardIntegrationRun(t, ctx, 2, 1)
+	_, err := run.store.PutKnownVocabulary(ctx, run.owner, "de", "known-before-preparation", "NOUN")
+	require.NoError(t, err)
+	knownBefore, err := run.store.ListKnownVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	reservedBefore, err := run.store.ListReservedVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	var snapshotRowsBefore, completionRowsBefore int
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1`, run.owner).Scan(&snapshotRowsBefore))
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1`, run.owner).Scan(&completionRowsBefore))
 	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 		if request.CanonicalLemma == run.keys[0].CanonicalLemma {
 			return enrichment.TranslationResponse{
@@ -442,6 +451,8 @@ func TestStandardWorkerPersistsValidUnresolvedMeaningAndFinalizesMixedDeck(t *te
 	require.Len(t, outcomes, 2)
 	assert.Equal(t, "The sentence does not distinguish the meanings.", outcomes[0].OmissionReason)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	assert.Equal(t, 1, outcomes[0].ProviderAttemptCount, "a valid unresolved model response is still a provider attempt")
+	assert.Equal(t, 1, outcomes[0].ProviderCallCount)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[1].State)
 	_, found, err := run.store.Get(ctx, run.keys[0])
 	require.NoError(t, err)
@@ -465,6 +476,17 @@ func TestStandardWorkerPersistsValidUnresolvedMeaningAndFinalizesMixedDeck(t *te
 	var omittedGenerated int
 	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma=$2`, run.owner, run.keys[0].CanonicalLemma).Scan(&omittedGenerated))
 	assert.Zero(t, omittedGenerated, "unresolved target must not receive Generated vocabulary provenance")
+	knownAfter, err := run.store.ListKnownVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	assert.Equal(t, knownBefore, knownAfter, "deck preparation must not change Known vocabulary")
+	reservedAfter, err := run.store.ListReservedVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	assert.Equal(t, reservedBefore, reservedAfter, "deck preparation must not change Reserved vocabulary")
+	var snapshotRowsAfter, completionRowsAfter int
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1`, run.owner).Scan(&snapshotRowsAfter))
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1`, run.owner).Scan(&completionRowsAfter))
+	assert.Equal(t, snapshotRowsBefore, snapshotRowsAfter, "deck preparation must not mutate a frozen reading-vocabulary snapshot")
+	assert.Equal(t, completionRowsBefore, completionRowsAfter, "deck preparation must not create or alter completion choices")
 	status, err := run.store.GetDeckPreparationStatus(ctx, run.owner, run.prep.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.DeckPreparationMeaningOmission{{TargetWord: "Ein", Reason: "The sentence does not distinguish the meanings."}}, status.MeaningOmissions)

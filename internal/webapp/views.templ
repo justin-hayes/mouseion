@@ -634,6 +634,9 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 		if preparation.BatchRequestCount > 0 {
 			<p><strong>Batch translation:</strong> { fmt.Sprintf("%d of %d requests complete · %d failed · %d expired · completion can take hours (up to 24h)", preparation.BatchCompletedRequests, preparation.BatchRequestCount, preparation.BatchFailedRequests, preparation.BatchExpiredRequests) }</p>
 		}
+		for _, omission := range preparation.MeaningOmissions {
+			<p><strong>Omitted { omission.TargetWord }:</strong> { omission.Reason }</p>
+		}
 		if preparation.DeckName != "" && !deckPreparationEmpty(preparation) {
 			<p><strong>Deck:</strong> <code>{ preparation.DeckName }</code> · <strong>Filename:</strong> <code>{ preparation.Filename }</code></p>
 		}
@@ -656,9 +659,6 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 					@Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision))
 				}
 				<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d with fallback gloss · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.CardsWithFallbackGloss, preparation.QualityOmissions) }</p>
-				for _, omission := range preparation.MeaningOmissions {
-					<p><strong>Omitted { omission.TargetWord }:</strong> { omission.Reason }</p>
-				}
 				for _, evidence := range preparation.EvidenceCoverage {
 					if evidence.Configured {
 						<p><strong>Meaning evidence:</strong> { fmt.Sprintf("%s matched %d of %d targets; %d candidates frozen, %d omitted by the candidate bound", evidence.Source, evidence.Matched, evidence.Selected, evidence.Candidates, evidence.Omitted) }</p>
@@ -676,9 +676,6 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 		} else {
 			if preparation.State == domain.DeckPreparationFailed {
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessage(preparation.FailureClass))
-			}
-			for _, omission := range preparation.MeaningOmissions {
-				<p><strong>Omitted { omission.TargetWord }:</strong> { omission.Reason }</p>
 			}
 			if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
 				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
