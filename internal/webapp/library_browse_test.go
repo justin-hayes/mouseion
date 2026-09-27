@@ -109,6 +109,19 @@ func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
 	assert.Equal(t, "/library?history=read&page=2", myBookVisibleBucketURL(book, page))
 }
 
+func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
+	reader := &pagedBookBrowseReader{bookID: "current-book", requestedAt: 0}
+	book := domain.MyBook{
+		Book: domain.Book{ID: "current-book"}, Disposition: domain.BookDispositionToRead, IsCurrentReading: true,
+	}
+	page, err := myBooksPageForBook(context.Background(), reader, "owner-1", "de", book)
+	require.NoError(t, err)
+	assert.Equal(t, 1, page)
+	assert.Equal(t, domain.BookDispositionToRead, domain.BookDisposition(reader.gotBucket))
+	assert.False(t, reader.gotHistory)
+	assert.Equal(t, "/library?disposition=to_read", myBookVisibleBucketURL(book, page))
+}
+
 type browseRecordingStore struct {
 	*fixtures.Store
 	result      persistence.MyBooksBrowseResult
@@ -273,7 +286,7 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 	assert.NotContains(t, filters, "hx-get=")
 }
 
-func TestLibraryShowsCurrentReadingAsSeparateWorkflowBucket(t *testing.T) {
+func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
@@ -300,8 +313,9 @@ func TestLibraryShowsCurrentReadingAsSeparateWorkflowBucket(t *testing.T) {
 
 	toRead := request("/library?disposition=to_read")
 	require.Equal(t, http.StatusOK, toRead.Code)
-	assert.Contains(t, toRead.Body.String(), "To Read (6)")
-	assert.NotContains(t, toRead.Body.String(), fixtures.BookID)
+	assert.Contains(t, toRead.Body.String(), "To Read (7)")
+	assert.Contains(t, toRead.Body.String(), `id="book-row-`+fixtures.BookID+`"`)
+	assert.Contains(t, toRead.Body.String(), "Currently reading")
 }
 
 func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {

@@ -15,7 +15,7 @@ func TestMyBookWorkflowBucketUsesVisibleBucketPrecedence(t *testing.T) {
 		{name: "current reading takes precedence over every other role", book: MyBook{Disposition: BookDispositionSetAside, IsCurrentReading: true, CompletionCount: 1}, want: MyBookBucketCurrentReading},
 		{name: "current reading takes precedence over to read", book: MyBook{Disposition: BookDispositionToRead, IsCurrentReading: true, CompletionCount: 1}, want: MyBookBucketCurrentReading},
 		{name: "to read takes precedence over history", book: MyBook{Disposition: BookDispositionToRead, CompletionCount: 1}, want: MyBookBucketToRead},
-		{name: "inbox takes precedence over history", book: MyBook{Disposition: BookDispositionInbox, CompletionCount: 1}, want: MyBookBucketInbox},
+		{name: "previously read inbox book belongs in read", book: MyBook{Disposition: BookDispositionInbox, CompletionCount: 1}, want: MyBookBucketRead},
 		{name: "history takes precedence over set aside", book: MyBook{Disposition: BookDispositionSetAside, CompletionCount: 1}, want: MyBookBucketRead},
 		{name: "set aside without history", book: MyBook{Disposition: BookDispositionSetAside}, want: MyBookBucketSetAside},
 		{name: "inbox without history", book: MyBook{Disposition: BookDispositionInbox}, want: MyBookBucketInbox},
@@ -36,4 +36,13 @@ func TestMyBookBucketBrowseFiltersAreMutuallyExclusive(t *testing.T) {
 	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionInbox, false))
 	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionToRead, false))
 	assert.Equal(t, BookDispositionSetAside, book.Disposition, "deriving Read must not erase the persisted disposition")
+}
+
+func TestCurrentReadingAppearsInToReadBrowse(t *testing.T) {
+	book := MyBook{Disposition: BookDispositionToRead, IsCurrentReading: true}
+	bucket := book.WorkflowBucket()
+	assert.Equal(t, MyBookBucketCurrentReading, bucket)
+	assert.True(t, bucket.MatchesBrowseFilter(BookDispositionToRead, false))
+	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionInbox, false))
+	assert.False(t, bucket.MatchesBrowseFilter("", true))
 }

@@ -167,6 +167,9 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 func myBooksPageForBook(ctx context.Context, reader myBooksBrowseReader, owner, language string, book domain.MyBook) (int, error) {
 	bucket := book.WorkflowBucket()
 	disposition, _ := bucket.PersistedDisposition()
+	if bucket == domain.MyBookBucketCurrentReading {
+		disposition = domain.BookDispositionToRead
+	}
 	history := bucket == domain.MyBookBucketRead
 	for offset := 0; ; offset += myBooksPageSize {
 		result, err := reader.ListMyBooksBrowse(ctx, owner, "", language, string(disposition), history, offset, myBooksPageSize)

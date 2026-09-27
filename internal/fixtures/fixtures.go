@@ -606,6 +606,9 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 			if disposition, ok := bucket.PersistedDisposition(); ok {
 				dispositionCounts[disposition]++
 			}
+			if bucket == domain.MyBookBucketCurrentReading {
+				dispositionCounts[domain.BookDispositionToRead]++
+			}
 		}
 	}
 	for disposition, count := range dispositionCounts {

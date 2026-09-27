@@ -24,14 +24,15 @@ language without a product reason.
 | **Reading** | The current Book or, between Books, the unordered chooser of To Read candidates. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
-| **Read / Read again** | Read is the visible bucket for a Set Aside Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
+| **Read / Read again** | Read is the visible bucket for an Inbox or Set Aside Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
 
 Reading intent is expressed through the To Read disposition. Current reading,
 disposition, and reading history are independent facts; My Books derives one
-visible bucket in precedence order: Currently reading, To Read, Inbox, Read
-when history exists, then Set Aside. A historical Inbox or To Read Book stays in
-its disposition bucket. A learner may have no current Book and no To Read Books;
-neither state implies failure or urgency.
+visible bucket in precedence order: Currently reading, To Read, Read when
+history exists, Inbox, then Set Aside. Currently reading appears in the To Read
+tab with its own label; historical Inbox Books appear in Read, while historical
+To Read Books stay in To Read. A learner may have no current Book and no To Read
+Books; neither state implies failure or urgency.
 
 **Reading Horizon** may remain an internal design metaphor for changing
 possibility. **Campaign**, **milestone**, **destination**, and **Journey
@@ -150,7 +151,7 @@ Use complete, factual labels where space permits:
 
 - current reading;
 - Inbox, To Read, Read, and Set Aside as mutually exclusive visible buckets;
-- reading history, including prior completions on current, Inbox, or To Read Books;
+- reading history, including prior completions on current or To Read Books;
 - reading in progress;
 - reading finished;
 - vocabulary work in progress;

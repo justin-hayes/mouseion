@@ -217,8 +217,9 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	myBooks := perform(t, h, http.MethodGet, "/library", nil, cookies)
 	assert.Contains(t, myBooks.Body.String(), "Workflow</strong>: Currently reading")
 	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
-	assert.Contains(t, toReadPage.Body.String(), "To Read (0)")
-	assert.NotContains(t, toReadPage.Body.String(), "Complete Loop Book")
+	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
+	assert.Contains(t, toReadPage.Body.String(), "Complete Loop Book")
+	assert.Contains(t, toReadPage.Body.String(), "Workflow</strong>: Currently reading")
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
 		preparations, listErr := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
@@ -284,8 +285,9 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Contains(t, myBooks.Body.String(), "Workflow</strong>: Currently reading")
 	assert.Contains(t, myBooks.Body.String(), "Reading history")
 	toReadPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
-	assert.Contains(t, toReadPage.Body.String(), "To Read (0)")
-	assert.NotContains(t, toReadPage.Body.String(), "Complete Loop Book")
+	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
+	assert.Contains(t, toReadPage.Body.String(), "Complete Loop Book")
+	assert.Contains(t, toReadPage.Body.String(), "Workflow</strong>: Currently reading")
 	newGoal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.NotEqual(t, goal.SnapshotID, newGoal.SnapshotID, "starting the reread must freeze a fresh snapshot")

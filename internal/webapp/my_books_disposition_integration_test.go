@@ -230,28 +230,29 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	mark := url.Values{"csrf_token": {csrf}}
 	first := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/previously-read", mark, cookies)
 	assert.Equal(t, http.StatusSeeOther, first.Code)
-	assert.Contains(t, first.Header().Get("Location"), "disposition=inbox", "the redirect should preserve Inbox visible-bucket precedence")
+	assert.Contains(t, first.Header().Get("Location"), "history=read", "the redirect should follow the new Read bucket")
 	assert.Contains(t, first.Header().Get("Location"), "Previously+read+history+recorded")
 	redirected := perform(t, h, http.MethodGet, first.Header().Get("Location"), nil, cookies)
 	assert.Equal(t, http.StatusOK, redirected.Code)
 	assert.Contains(t, redirected.Body.String(), "Previously read book")
-	assert.Contains(t, redirected.Body.String(), "Workflow</strong>: Inbox")
+	assert.Contains(t, redirected.Body.String(), "Workflow</strong>: Read")
 	assert.Contains(t, redirected.Body.String(), "1 completion")
 	assert.Contains(t, redirected.Body.String(), "Previously read history recorded. Vocabulary was not changed.")
 	retry := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/previously-read", mark, cookies)
 	assert.Equal(t, http.StatusSeeOther, retry.Code)
-	assert.Contains(t, retry.Header().Get("Location"), "disposition=inbox")
+	assert.Contains(t, retry.Header().Get("Location"), "history=read")
 
 	inboxPage := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusOK, inboxPage.Code)
-	assert.Contains(t, inboxPage.Body.String(), "Previously read book")
-	assert.Contains(t, inboxPage.Body.String(), "Read before Mouseion")
-	assert.Contains(t, inboxPage.Body.String(), "1 completion")
-	assert.Contains(t, inboxPage.Body.String(), "Read again")
-	assert.Contains(t, inboxPage.Body.String(), "Workflow</strong>: Inbox")
+	assert.NotContains(t, inboxPage.Body.String(), "Previously read book")
 	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
-	assert.NotContains(t, readPage.Body.String(), "Previously read book", "Read filter follows the visible bucket, not history alone")
-	assert.Contains(t, inboxPage.Body.String(), "Read (0)", "Inbox history is not counted in Read")
+	assert.Contains(t, readPage.Body.String(), "Previously read book")
+	assert.Contains(t, readPage.Body.String(), "Read before Mouseion")
+	assert.Contains(t, readPage.Body.String(), "1 completion")
+	assert.Contains(t, readPage.Body.String(), "Read again")
+	assert.Contains(t, readPage.Body.String(), "Workflow</strong>: Read")
+	assert.Contains(t, readPage.Body.String(), "Inbox (0)")
+	assert.Contains(t, readPage.Body.String(), "Read (1)")
 
 	var historyCount, knownCount, snapshotCount, eligibleCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*), max(snapshot_vocabulary_count), max(eligible_vocabulary_count) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount, &snapshotCount, &eligibleCount))
@@ -263,6 +264,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 
 	detail, err := store.GetBookDetail(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "visible Read must not rewrite the Inbox disposition")
 	reread := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/read-again", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
 	}, cookies)

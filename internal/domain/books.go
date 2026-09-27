@@ -135,8 +135,8 @@ type MyBook struct {
 	LatestCompletionSource ReadingCompletionSource
 }
 
-// WorkflowBucket derives the visible My Books bucket. A current reading keeps
-// its persisted To Read disposition, but presents only as Currently reading.
+// WorkflowBucket derives the visible My Books role. A current reading keeps
+// its persisted To Read disposition and appears in the To Read browse tab.
 func (m MyBook) WorkflowBucket() MyBookBucket {
 	if m.IsCurrentReading {
 		return MyBookBucketCurrentReading
@@ -153,6 +153,9 @@ func (m MyBook) WorkflowBucket() MyBookBucket {
 	case BookDispositionToRead:
 		return MyBookBucketToRead
 	case BookDispositionInbox:
+		if m.CompletionCount > 0 {
+			return MyBookBucketRead
+		}
 		return MyBookBucketInbox
 	case BookDispositionSetAside:
 		if m.CompletionCount > 0 {
@@ -177,7 +180,7 @@ func (b MyBookBucket) MatchesBrowseFilter(disposition BookDisposition, readHisto
 	case BookDispositionInbox:
 		return b == MyBookBucketInbox
 	case BookDispositionToRead:
-		return b == MyBookBucketToRead
+		return b == MyBookBucketToRead || b == MyBookBucketCurrentReading
 	case BookDispositionSetAside:
 		return b == MyBookBucketSetAside
 	default:

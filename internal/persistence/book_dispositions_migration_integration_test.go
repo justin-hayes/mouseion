@@ -61,6 +61,19 @@ func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) 
 	moveApplicationMigrations(t, databaseURL, -1)
 	moveApplicationMigrations(t, databaseURL, 1)
 	assertMigrationDisposition(t, pool, owner.ID, inboxBook.ID, domain.BookDispositionSetAside)
+
+	moveApplicationMigrations(t, databaseURL, 3)
+	toRead, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
+	require.NoError(t, err)
+	assert.Equal(t, 2, toRead.Total)
+	assert.Equal(t, 2, dispositionCountForBucket(toRead.DispositionCounts, domain.BookDispositionToRead))
+	for _, item := range toRead.Items {
+		if item.Book.ID == goalBook.ID {
+			assert.Equal(t, domain.MyBookBucketCurrentReading, item.WorkflowBucket(), "migrated primary goal remains visible in To Read")
+			return
+		}
+	}
+	assert.Fail(t, "migrated primary goal missing from To Read")
 }
 
 func assertMigrationDisposition(t *testing.T, pool *pgxpool.Pool, owner, book string, want domain.BookDisposition) {

@@ -32,7 +32,9 @@ independent of disposition and current-reading state, append-only, and records
 current-reading completions plus one idempotent previously-read assertion. The
 assertion records when the learner made it, not an inferred reading date. The
 visible bucket is derived in this precedence: Current reading, To Read,
-Inbox, Read (when history exists), then Set Aside.
+Read (when history exists), Inbox, then Set Aside. The To Read browse tab
+includes Current reading, labeled distinctly; previously-read Inbox Books
+appear in Read without rewriting their underlying disposition.
 
 My Books owns collection browsing and disposition changes. Reading owns
 starting, stopping, setting aside, switching, and finishing current reading.
