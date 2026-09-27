@@ -9,6 +9,8 @@ The current disposition and current-reading contract is recorded in
 [ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md).
 [ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
 records the historical Goal and ordered-Journey model.
+[ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the accepted,
+not-yet-implemented contextual Gloss vocabulary below.
 
 ## Language
 
@@ -346,39 +348,41 @@ reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
 
 **Dictionary index**:
-The build-time-derived, read-only lexical dataset, per language, that the
-dictionary enrichment provider reads in-process in Go. It is a static SQLite
-artifact extracted from Wiktextract/Kaikki raw JSONL (English glosses, forms,
-IPA), regenerated from the weekly dumps by a build step; it is not a database of
-application state, not a service, and not part of the NLP analysis service.
+The local, read-only collection of versioned lexical source entries used as
+meaning evidence and dictionary-form evidence for cards. Its source material has
+distinct origins and usage terms; it is not learner or Book state.
 _Avoid_: dictionary database, lexicon service.
 
 **Sense**:
-A distinct meaning of a lemma within a dictionary entry. A Wiktionary-derived
-entry carries an ordered list of senses, each with a concise English gloss and
-optional tags, topics, and examples. A recognition card renders a compact set of
-a lemma's senses ordered by context — deterministic by default, optionally
-reselected by the external LLM when the learner consents.
+A distinct meaning of a lemma within a dictionary entry. It may have a
+source-provided gloss and other identifying context. A sense is evidence for a
+card's meaning, not necessarily the wording shown on the card; source-specific
+groups of translations are not automatically equivalent to dictionary senses.
 _Avoid_: definition (the full native-language explanation, a separate deferred
 field), translation.
 
 **Gloss**:
-The concise English sense explanation of a lemma rendered on the card back. A
-gloss is dictionary-sourced by default; when the dictionary has no gloss for the
-lemma, or none of its senses fit the representative sentence, it may be supplied
-by the consent-gated external LLM. It is distinct from the contextual
-`EnglishSentence` translation, which renders the representative sentence in
-English.
+The short English cue for what the target means in its representative sentence,
+rendered on the card back. It expresses one contextual meaning, not a list of
+different senses; one to three comma-separated words or close synonyms are
+preferred when they convey that meaning faithfully. It is distinct from the
+English translation of the whole sentence.
 _Avoid_: definition, translation (the contextual whole-sentence field).
 
 **Dictionary gloss**:
-A gloss authored by the dictionary index — local, consent-free, deterministic
-enrichment; the default source of the card's meaning block.
+A source-provided English explanation of a dictionary meaning, used as evidence
+for a card's contextual Gloss rather than necessarily displayed verbatim.
 _Avoid_: local gloss, definition.
 
+**Meaning evidence**:
+Source-attributed dictionary senses and lexical translations relevant to a
+target in its representative sentence. A translation is not necessarily a
+definition or an independent confirmation of another source; meaning evidence
+informs the contextual Gloss without dictating its wording.
+_Avoid_: card Gloss, undifferentiated definitions.
+
 **Fallback gloss**:
-A gloss authored by the external LLM when the dictionary supplies no gloss or
-none of its senses fit the representative sentence. Consent-gated; distinct from
-the contextual sentence translation.
-_Avoid_: LLM gloss (ambiguous with the discarded provider gloss field),
-definition.
+A historical label for a card's English meaning cue supplied when dictionary
+evidence was absent or unsuitable for the representative sentence. It named the
+fallback path, not a separate kind of learner-facing meaning.
+_Avoid_: definition, Gloss (when referring to the historical fallback path).

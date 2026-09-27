@@ -59,6 +59,7 @@ language for import.
 - [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — durable asynchronous Batch execution for optional prepared-deck translation.
 - [Fast user-facing prepared-deck translation](features/fast-user-facing-translation.md) — bounded standard translation requests are the interactive default, with Batch retained for explicit offline work.
 - [LLM sense selection and fallback gloss](features/llm-sense-selection.md) — consented selection from frozen dictionary senses and fallback glosses during deck preparation.
+- [Contextual gloss preparation from multiple lexical sources](features/contextual-gloss-preparation.md) — **accepted, not implemented**: LLM-required contextual glosses grounded in versioned Wiktionary, FreeDict, and eligible private-use PanLex evidence; replaces the optional sense-selection path when implemented.
 - [Concordance Foundation](features/concordance-foundation.md) — persists the normalized sentence/token corpus at analysis time so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
 - [Dependency Parse Foundation](features/dependency-parse-foundation.md) — persists each token's dependency relation and head at analysis time and extends the concordance query layer with grammar-aware role and dependents queries; the data prerequisite for deterministic sentence-quality scoring.
 - [German separable-verb lemmatization](features/separable-verb-lemmatization.md) — reattaches German separable particles to verb lemmas in the NLP producer so vocabulary identity is the full lexeme, and excludes particles from content-word candidates.
@@ -163,6 +164,7 @@ amendments.
 76. [ADR 0076: Roll forward when a ready deck requires re-preparation](adr/0076-reprepare-ready-deck.md) — preserves the old owner-scoped artifact and exact provenance while creating one new current preparation for the same analysis and applicable reading snapshot; repeated recovery resolves idempotently to that current generation.
 77. [ADR 0077: Retain catalog-supplied Book covers](adr/0077-catalog-supplied-book-covers.md) — retains bounded catalog images in PostgreSQL behind an owner-scoped endpoint, selects a stable Catalog-entry source across aliases, keeps optional retrieval independent from catalog-sync success, and supports the Reading Book-evidence surface alongside the shipped My Books cover grid.
 78. [ADR 0078: Book dispositions and current reading](adr/0078-book-dispositions-and-current-reading.md) — replaces Journey ordering and Primary Goal with Book dispositions, one current reading per study language, a neutral chooser, and explicit snapshot-based completion; records the decision specified in issue #1187.
+79. [ADR 0079: Contextual glosses require LLM-assisted deck preparation](adr/0079-contextual-glosses-require-llm.md) — **accepted, not implemented**: replaces the consented, dictionary-default gloss path with mandatory contextual LLM glosses informed by source-attributed lexical evidence; preserves existing decks and Reading independence.
 
 ### Superseded or historical decisions
 
