@@ -373,13 +373,6 @@ structure (GDEX-informed). It has two parts: the knock-out gate (accept or
 reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
 
-**Card-quality evidence**:
-Separate findings about a proposed recognition card's vocabulary identity,
-meaning, and source sentence and target. It distinguishes unusable card material,
-reviewable uncertainty, and unassessed aspects without judging whether the
-learner wants or knows the vocabulary identity.
-_Avoid_: overall quality score, Known vocabulary, sentence quality.
-
 **Dictionary index**:
 The build-time-derived, read-only lexical dataset, per language, that the
 dictionary enrichment provider reads in-process in Go. It is a static SQLite
