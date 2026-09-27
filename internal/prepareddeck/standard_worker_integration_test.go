@@ -230,6 +230,7 @@ func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing
 	_, err = run.store.Put(ctx, enrichment.CacheEntry{
 		CacheKey:                  work.CacheKey,
 		Translation:               "cached translation",
+		FallbackGloss:             "cached contextual gloss",
 		SentenceTranslation:       "The cached sentence.",
 		SentenceTranslationTarget: "cached",
 		CachedAt:                  time.Now().UTC(),

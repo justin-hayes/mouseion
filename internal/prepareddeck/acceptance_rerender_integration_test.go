@@ -62,7 +62,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 			{Surface: "ruhigen", UPOS: "ADJ", Dependency: "amod", Head: 7},
 			{Surface: "Fluss", UPOS: "NOUN", Dependency: "obl", Head: 3},
 		},
-	}}, testutil.PresentationProvider{Name: "acceptance-provider", Version: "1", TargetLanguage: "en"})
+	}}, testutil.PresentationProvider{Name: "acceptance-provider", Version: "1", TargetLanguage: "en", RequireContextualGloss: true})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
 	require.Len(t, work, 1)
@@ -70,7 +70,7 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	key := enrichment.CacheKey{
 		Language: candidate.Language, TargetLanguage: "en", CanonicalLemma: candidate.CanonicalLemma,
 		UPOS: candidate.UPOS, Provider: "acceptance-provider", ProviderVersion: "1",
-		SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence),
+		SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence), MeaningEvidenceHash: enrichment.MeaningEvidenceHash(candidate.CandidateSenses),
 	}
 	provider := &barrierTranslationProvider{}
 	workers := river.NewWorkers()
