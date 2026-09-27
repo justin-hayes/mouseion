@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -44,6 +45,17 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	chunks, err := s.ListPreparedDeckBatchChunks(ctx, owner, preparationID, run.ID)
 	if err != nil {
 		return p, err
+	}
+	projection, _, err := s.LoadPreparedDeckStorageProjection(ctx, owner, preparationID, run.ID)
+	if err != nil {
+		return p, err
+	}
+	frozen, err := cardexport.NewPresentation(nil).Restore(projection)
+	if err != nil {
+		return p, err
+	}
+	for _, coverage := range frozen.Diagnostics().EvidenceCoverage {
+		p.EvidenceCoverage = append(p.EvidenceCoverage, domain.DeckPreparationEvidenceCoverage{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
 	}
 
 	p.Phase = preparationPhase(p.State, run, progress, chunks)

@@ -56,6 +56,17 @@ type Diagnostics struct {
 	QualityOmissions []Omission
 	DegradationCodes []string
 	GlossCoverage    []GlossCoverage
+	EvidenceCoverage []EvidenceCoverage
+}
+
+// EvidenceCoverage reports how much bounded local meaning evidence was frozen.
+type EvidenceCoverage struct {
+	Source     string
+	Configured bool
+	Selected   int
+	Matched    int
+	Candidates int
+	Omitted    int
 }
 
 const (
@@ -432,7 +443,11 @@ func projectionProvider(projections []CandidateProjection) (string, string, stri
 }
 
 func manifestDiagnostics(manifest manifest) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(manifest.omitted)}
+	entries := make([]RenderInput, 0, len(manifest.decisions))
+	for _, decision := range manifest.decisions {
+		entries = append(entries, renderInputFromEntry(decision.Entry))
+	}
+	return Diagnostics{QualityOmissions: cloneOmissions(manifest.omitted), EvidenceCoverage: evidenceCoverage(entries)}
 }
 
 func cloneOmissions(omissions []Omission) []Omission {
@@ -445,7 +460,22 @@ func cloneOmissions(omissions []Omission) []Omission {
 }
 
 func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage)}
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...)}
+}
+
+func evidenceCoverage(entries []RenderInput) []EvidenceCoverage {
+	coverage := EvidenceCoverage{Source: "wiktionary", Configured: false, Selected: len(entries)}
+	for _, entry := range entries {
+		if entry.DictionaryProviderVersion != "" {
+			coverage.Configured = true
+		}
+		if len(entry.CandidateSenses) > 0 {
+			coverage.Matched++
+		}
+		coverage.Candidates += len(entry.CandidateSenses)
+		coverage.Omitted += entry.OmittedEvidenceCount
+	}
+	return []EvidenceCoverage{coverage}
 }
 
 func (m manifest) decisionsOrdinalForAccepted(acceptedIndex int) int {

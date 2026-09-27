@@ -4,7 +4,11 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -33,11 +38,33 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: cardexport.DeckName(source.Language, source.Title), ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, []cardexport.Entry{
-		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: uuid.NewString(), SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", CandidateSenses: []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", DictionaryProviderVersion: "fixture-v1", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
+	dictionaryPath := filepath.Join(t.TempDir(), "fixture.sqlite")
+	dictionaryDB, err := sql.Open("sqlite", dictionaryPath)
+	require.NoError(t, err)
+	_, err = dictionaryDB.ExecContext(ctx, `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1')`)
+	require.NoError(t, err)
+	senses := make([]enrichment.LexicalSense, 10)
+	for index := range senses {
+		senses[index].Gloss = fmt.Sprintf("house meaning %d", index+1)
+	}
+	senses[0].Gender, senses[0].Article, senses[0].Plural = "Neut", "das", "Häuser"
+	sensesJSON, err := json.Marshal(senses)
+	require.NoError(t, err)
+	_, err = dictionaryDB.ExecContext(ctx, `INSERT INTO entries VALUES ('de', 'haus', 'NOUN', ?, 'Neut', 'das', 'Häuser', '/haʊ̯s/', 'geht · ging · gegangen')`, string(sensesJSON))
+	require.NoError(t, err)
+	require.NoError(t, dictionaryDB.Close())
+	lexicalIndex, err := dictionary.OpenIndex(ctx, dictionaryPath)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := lexicalIndex.Close(); err != nil {
+			t.Errorf("dictionary index cleanup failed: %v", err)
+		}
+	})
+	deck, err := testutil.FreezePresentationDeckWithLexical(ctx, owner.ID, source.Title, []cardexport.Entry{
+		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "haus", UPOS: "noun", CorpusID: uuid.NewString(), SentenceOrdinal: 7, Sentence: "Das alte Haus ist überraschend groß.", TargetWord: "Haus", Gloss: "house", Plural: "Häuser", IPA: "/haʊ̯s/", PrincipalParts: "geht · ging · gegangen", Morphology: `{"Gender":"Neut"}`, SourceDocument: source.Title, FirstEncounter: 10},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "baum", UPOS: "noun", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", Morphology: `{"Gender":"Masc"}`, SourceDocument: source.Title, FirstEncounter: 20},
 		{OwnerID: owner.ID, Language: "de", CanonicalLemma: "fragment", UPOS: "noun", Sentence: "Fragment.", TargetWord: "Fragment", SourceDocument: source.Title, FirstEncounter: 30},
-	}, testutil.PresentationProvider{Name: "openai", Version: "prompt-v3", TargetLanguage: "en"})
+	}, testutil.PresentationProvider{Name: "openai", Version: "prompt-v3", TargetLanguage: "en"}, lexicalIndex)
 	require.NoError(t, err)
 	deckWork := deck.WorkProjection()
 	keys := make([]enrichment.CacheKey, len(deckWork))
@@ -137,9 +164,23 @@ func TestDurablePreparedDeckRunFreezeTransitionAndAtomicFinalization(t *testing.
 	assert.Equal(t, 94, loaded.Items[0].Quality.Score)
 	assert.Equal(t, 0.5, loaded.Items[0].Quality.GDEXScore)
 	assert.Equal(t, []string{"target present", "optimal length"}, loaded.Items[0].Quality.Reasons)
-	assert.Equal(t, "house", loaded.Items[0].Entry.Gloss)
+	assert.True(t, strings.HasPrefix(loaded.Items[0].Entry.Gloss, "house meaning 1"))
 	assert.Equal(t, "fixture-v1", loaded.Items[0].Entry.DictionaryProviderVersion)
-	assert.Equal(t, []enrichment.LexicalSense{{Gloss: "building"}, {Gloss: "house"}}, loaded.Items[0].Entry.CandidateSenses)
+	require.Len(t, loaded.Items[0].Entry.CandidateSenses, enrichment.DefaultMaxCandidateSenses)
+	for index, candidate := range loaded.Items[0].Entry.CandidateSenses {
+		assert.NotEmpty(t, candidate.EvidenceID)
+		assert.Equal(t, "wiktionary", candidate.Source)
+		assert.Equal(t, "meaning", candidate.Kind)
+		assert.Equal(t, "Kaikki.org Wiktextract enwiktionary", candidate.Origin)
+		assert.Equal(t, "fixture-v1", candidate.Version)
+		assert.Equal(t, "exact_lemma_pos", candidate.MatchStrength)
+		assert.Equal(t, fmt.Sprintf("house meaning %d", index+1), candidate.Gloss)
+	}
+	assert.Equal(t, 2, loaded.Items[0].Entry.OmittedEvidenceCount)
+	assert.Equal(t, "exact_lemma_pos", loaded.Items[0].Entry.CandidateSenses[0].MatchStrength)
+	status, err := store.GetDeckPreparationStatus(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 3, Matched: 1, Candidates: enrichment.DefaultMaxCandidateSenses, Omitted: 2}}, status.EvidenceCoverage)
 	assert.Equal(t, "Häuser", loaded.Items[0].Entry.Plural)
 	assert.Equal(t, "/haʊ̯s/", loaded.Items[0].Entry.IPA)
 	assert.Equal(t, "geht · ging · gegangen", loaded.Items[0].Entry.PrincipalParts)

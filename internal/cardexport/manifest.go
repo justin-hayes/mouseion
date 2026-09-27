@@ -22,7 +22,8 @@ const (
 	ManifestSchemaVersionV4       = 4
 	ManifestSchemaVersionV5       = 5
 	ManifestSchemaVersionV6       = 6
-	ManifestSchemaVersion         = ManifestSchemaVersionV6
+	ManifestSchemaVersionV7       = 7
+	ManifestSchemaVersion         = ManifestSchemaVersionV7
 )
 
 type ManifestDisposition string
@@ -123,8 +124,10 @@ func (s ManifestSnapshot) Digest() (string, error) {
 		prefix = "mouseion-prepared-deck-manifest-v4\x00"
 	} else if s.SchemaVersion == ManifestSchemaVersionV5 {
 		prefix = "mouseion-prepared-deck-manifest-v5\x00"
-	} else {
+	} else if s.SchemaVersion == ManifestSchemaVersionV6 {
 		prefix = "mouseion-prepared-deck-manifest-v6\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-manifest-v7\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -198,8 +201,10 @@ func CandidateDigestVersion(item ManifestItem, schemaVersion int) (string, error
 		prefix = "mouseion-prepared-deck-candidate-v4\x00"
 	} else if schemaVersion == ManifestSchemaVersionV5 {
 		prefix = "mouseion-prepared-deck-candidate-v5\x00"
-	} else {
+	} else if schemaVersion == ManifestSchemaVersionV6 {
 		prefix = "mouseion-prepared-deck-candidate-v6\x00"
+	} else {
+		prefix = "mouseion-prepared-deck-candidate-v7\x00"
 	}
 	sum := sha256.Sum256(append([]byte(prefix), payload...))
 	return hex.EncodeToString(sum[:]), nil
@@ -273,6 +278,7 @@ type canonicalEntry struct {
 	IPA                       string                    `json:"ipa,omitempty"`
 	PrincipalParts            string                    `json:"principal_parts,omitempty"`
 	DictionaryProviderVersion string                    `json:"dictionary_provider_version,omitempty"`
+	OmittedEvidenceCount      int                       `json:"omitted_evidence_count,omitempty"`
 	CandidateSenses           []enrichment.LexicalSense `json:"candidate_senses,omitempty"`
 	SourceDocument            string                    `json:"source_document"`
 	Notes                     string                    `json:"notes"`
@@ -297,7 +303,7 @@ type canonicalCacheKey struct {
 }
 
 func (s ManifestSnapshot) canonical() (canonicalSnapshot, error) {
-	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
+	if (s.SchemaVersion != LegacyManifestSchemaVersion && s.SchemaVersion != PreviousManifestSchemaVersion && s.SchemaVersion != ManifestSchemaVersionV3 && s.SchemaVersion != ManifestSchemaVersionV4 && s.SchemaVersion != ManifestSchemaVersionV5 && s.SchemaVersion != ManifestSchemaVersionV6 && s.SchemaVersion != ManifestSchemaVersionV7) || strings.TrimSpace(s.Owner) == "" || strings.TrimSpace(s.DeckName) == "" || s.Filename != DownloadFilename(s.DeckName) {
 		return canonicalSnapshot{}, fmt.Errorf("%w: invalid manifest header", ErrInvalidInput)
 	}
 	result := canonicalSnapshot{SchemaVersion: s.SchemaVersion, Owner: s.Owner, DeckName: s.DeckName, Filename: s.Filename, Items: make([]canonicalManifestItem, len(s.Items))}
@@ -401,6 +407,12 @@ func canonicalizeManifestItem(item ManifestItem, schemaVersion int) (canonicalMa
 			return canonicalManifestItem{}, fmt.Errorf("%w: too many manifest candidate senses", ErrInvalidInput)
 		}
 		entryCanonical.CandidateSenses = enrichment.CloneLexicalSenses(entry.CandidateSenses)
+	}
+	if schemaVersion >= ManifestSchemaVersionV7 {
+		if entry.OmittedEvidenceCount < 0 {
+			return canonicalManifestItem{}, fmt.Errorf("%w: invalid omitted evidence count", ErrInvalidInput)
+		}
+		entryCanonical.OmittedEvidenceCount = entry.OmittedEvidenceCount
 	}
 	return canonicalManifestItem{
 		Ordinal: item.Ordinal, Disposition: item.Disposition,

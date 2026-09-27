@@ -20,27 +20,34 @@ type LexicalLookupRequest struct {
 // LexicalSense is one ordered gloss sense with the context metadata retained
 // by the local dictionary index.
 type LexicalSense struct {
-	Gloss    string   `json:"gloss"`
-	Examples []string `json:"examples,omitempty"`
-	Topics   []string `json:"topics,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Phrase   string   `json:"phrase,omitempty"`
-	Gender   string   `json:"gender,omitempty"`
-	Article  string   `json:"article,omitempty"`
-	Plural   string   `json:"plural,omitempty"`
-	IPA      string   `json:"ipa,omitempty"`
+	EvidenceID    string   `json:"evidence_id,omitempty"`
+	Source        string   `json:"source,omitempty"`
+	Kind          string   `json:"kind,omitempty"`
+	Origin        string   `json:"origin,omitempty"`
+	Version       string   `json:"version,omitempty"`
+	MatchStrength string   `json:"match_strength,omitempty"`
+	Gloss         string   `json:"gloss"`
+	Examples      []string `json:"examples,omitempty"`
+	Topics        []string `json:"topics,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+	Phrase        string   `json:"phrase,omitempty"`
+	Gender        string   `json:"gender,omitempty"`
+	Article       string   `json:"article,omitempty"`
+	Plural        string   `json:"plural,omitempty"`
+	IPA           string   `json:"ipa,omitempty"`
 }
 
 // LexicalEntry is the structured result of a local lexical lookup. Senses are
 // ordered for display; the leading sense supplies the preferred morphology.
 type LexicalEntry struct {
-	Senses          []LexicalSense
-	CandidateSenses []LexicalSense
-	Gender          string
-	Article         string
-	Plural          string
-	IPA             string
-	PrincipalParts  string
+	Senses                []LexicalSense
+	CandidateSenses       []LexicalSense
+	Gender                string
+	Article               string
+	Plural                string
+	IPA                   string
+	PrincipalParts        string
+	OmittedCandidateCount int
 }
 
 // LexicalProvider is the consent-free local lexical-provider seam. found=false

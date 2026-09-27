@@ -45,6 +45,7 @@ type DeckPreparation struct {
 	QualityOmissions                                                                                                           int
 	RenderInputVersion, PresentationVersion, DeckRevision                                                                      int
 	VocabularyCount                                                                                                            int
+	EvidenceCoverage                                                                                                           []DeckPreparationEvidenceCoverage
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.
@@ -63,6 +64,15 @@ type DeckPreparation struct {
 	CreatedAt, UpdatedAt                                                                 time.Time
 	StartedAt, CompletedAt                                                               *time.Time
 	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt, RetiredAt                           *time.Time
+}
+
+type DeckPreparationEvidenceCoverage struct {
+	Source     string
+	Configured bool
+	Selected   int
+	Matched    int
+	Candidates int
+	Omitted    int
 }
 
 // PreparedDeckRerenderWork is the content-free identity needed to enqueue an
@@ -132,16 +142,16 @@ type SourceMaterialSummary struct {
 	Source SourceMaterial
 	// BookTitle is the canonical catalogue title when this source is projected
 	// onto its learner-facing Book identity.
-	BookTitle      string
-	BookAuthor     string
-	BookID         string
-	AnalysisStatus string
-	AnalysisState  string
-	AnalysisRunID  string
-	CorpusID       string
-	AnalysisJobID  int64
-	IsToRead  bool
-	IsCurrentReading    bool
+	BookTitle        string
+	BookAuthor       string
+	BookID           string
+	AnalysisStatus   string
+	AnalysisState    string
+	AnalysisRunID    string
+	CorpusID         string
+	AnalysisJobID    int64
+	IsToRead         bool
+	IsCurrentReading bool
 }
 
 // EvidenceState classifies the raw acquisition and analysis signals for a

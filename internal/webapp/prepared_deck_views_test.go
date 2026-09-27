@@ -149,6 +149,24 @@ func TestDeckPreparationStatusIndicatesUpdatedRevision(t *testing.T) {
 	assert.Contains(t, output.String(), "revision 2")
 }
 
+func TestDeckPreparationStatusReportsEvidenceCoverageAndMissingIndex(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		coverage domain.DeckPreparationEvidenceCoverage
+		want     string
+	}{
+		{name: "configured with truncation", coverage: domain.DeckPreparationEvidenceCoverage{Source: "wiktionary", Configured: true, Selected: 5, Matched: 3, Candidates: 12, Omitted: 4}, want: "wiktionary matched 3 of 5 targets; 12 candidates frozen, 4 omitted by the candidate bound"},
+		{name: "index not configured", coverage: domain.DeckPreparationEvidenceCoverage{Source: "wiktionary", Selected: 5}, want: "wiktionary index not configured; no local candidates were available for 5 targets"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			preparation := domain.DeckPreparation{ID: "preparation-evidence", State: domain.DeckPreparationReady, TotalCards: 1, EvidenceCoverage: []domain.DeckPreparationEvidenceCoverage{test.coverage}}
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			assert.Contains(t, output.String(), test.want)
+		})
+	}
+}
+
 func TestDeckPreparationStatusOmitsUpdatedRevisionIndicatorForCurrentDeck(t *testing.T) {
 	for _, preparation := range []domain.DeckPreparation{
 		{ID: "initial", State: domain.DeckPreparationReady, DeckRevision: 1, TotalCards: 1},
