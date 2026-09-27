@@ -475,6 +475,8 @@ type DeckPreparationTranslationOutcome struct {
 	CacheLatencyMs       int64
 	ProviderLatencyMs    int64
 	UpdatedAt            time.Time
+	// Validated bounded explanation for a model-confirmed unresolved target meaning; empty for every retryable or failed provider outcome
+	OmissionReason string
 }
 
 type DeckPreparationVocabulary struct {

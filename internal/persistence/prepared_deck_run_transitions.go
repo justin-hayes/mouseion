@@ -65,7 +65,10 @@ func (s *PostgresStore) ClaimPreparedDeckTranslationOutcome(ctx context.Context,
 		if err != nil {
 			return outcomeTransitionErrorTx(ctx, q, owner, preparationID, runID, ordinal, missing(err))
 		}
-		outcome = preparedDeckOutcomeFromModel(model)
+		outcome, err = preparedDeckOutcomeFromModel(model)
+		if err != nil {
+			return err
+		}
 		if err = q.StartPreparedDeckTranslation(ctx, sqlcgen.StartPreparedDeckTranslationParams{
 			OwnerID: owner, PreparationID: preparationID, ID: runID,
 		}); err != nil {
@@ -113,7 +116,10 @@ func (s *PostgresStore) RetryPreparedDeckTranslationOutcome(ctx context.Context,
 		if err != nil {
 			return outcomeTransitionErrorTx(ctx, q, owner, preparationID, runID, ordinal, missing(err))
 		}
-		outcome = preparedDeckOutcomeFromModel(model)
+		outcome, err = preparedDeckOutcomeFromModel(model)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	return outcome, err
@@ -123,6 +129,7 @@ type PreparedDeckOutcomeTerminalUpdate struct {
 	State           domain.PreparedDeckOutcomeState
 	ErrorClass      string
 	ErrorCode       string
+	OmissionReason  string
 	ProviderAttempt bool
 	CacheHit        bool
 	ProviderCall    bool
@@ -151,6 +158,9 @@ func validatePreparedDeckTerminalUpdate(update PreparedDeckOutcomeTerminalUpdate
 	if update.State != domain.PreparedDeckOutcomeCompleted && update.State != domain.PreparedDeckOutcomeFailed {
 		return ErrInvalidTransition
 	}
+	if update.OmissionReason != "" && (update.State != domain.PreparedDeckOutcomeCompleted || update.ErrorClass != "" || update.ErrorCode != "" || len([]rune(update.OmissionReason)) > 200 || strings.ContainsAny(update.OmissionReason, "<>")) {
+		return ErrInvalidTransition
+	}
 	return validateBoundedError(update.ErrorClass, update.ErrorCode)
 }
 
@@ -173,7 +183,7 @@ func finishPreparedDeckTranslationOutcomeTx(ctx context.Context, tx pgx.Tx, owne
 	}
 	model, err := q.FinishPreparedDeckTranslationOutcome(ctx, sqlcgen.FinishPreparedDeckTranslationOutcomeParams{
 		OwnerID: owner, PreparationID: preparationID, RunID: runID, Ordinal: ordinal, DispatchGeneration: generation, ClaimToken: uuidArg(token),
-		State: string(update.State), ProviderAttemptCount: boolInt(update.ProviderAttempt), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode,
+		State: string(update.State), ProviderAttemptCount: boolInt(update.ProviderAttempt), ErrorClass: update.ErrorClass, ErrorCode: update.ErrorCode, OmissionReason: update.OmissionReason,
 		CacheHitCount: boolInt(update.CacheHit), ProviderCallCount: boolInt(update.ProviderCall), CacheLatencyMs: cacheLatencyMS, ProviderLatencyMs: providerLatencyMS,
 	})
 	if err != nil {
@@ -186,7 +196,10 @@ func finishPreparedDeckTranslationOutcomeTx(ctx context.Context, tx pgx.Tx, owne
 		}
 		return domain.PreparedDeckTranslationOutcome{}, run, err
 	}
-	outcome := preparedDeckOutcomeFromModel(model)
+	outcome, err := preparedDeckOutcomeFromModel(model)
+	if err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, run, err
+	}
 	run, err = advancePreparedDeckRunAfterOutcomeTx(ctx, q, tx, owner, preparationID, runID, run, update, insertFinalizer)
 	return outcome, run, err
 }
@@ -255,7 +268,7 @@ func getPreparedDeckTranslationOutcomeTx(ctx context.Context, q *sqlcgen.Queries
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, missing(err)
 	}
-	return preparedDeckOutcomeFromModel(model), nil
+	return preparedDeckOutcomeFromModel(model)
 }
 
 func boolInt(value bool) int {
@@ -278,7 +291,7 @@ func (s *PostgresStore) RedispatchPreparedDeckTranslationOutcome(ctx context.Con
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, s.outcomeTransitionError(ctx, owner, preparationID, runID, ordinal, missing(err))
 	}
-	return preparedDeckOutcomeFromModel(model), nil
+	return preparedDeckOutcomeFromModel(model)
 }
 
 // ClaimPreparedDeckFinalization grants a leased, generation-fenced finalizer

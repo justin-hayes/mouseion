@@ -78,6 +78,7 @@ type TranslationResponse struct {
 	Gloss                     string   `json:"gloss,omitempty"`
 	EvidenceIDs               []string `json:"evidence_ids,omitempty"`
 	ContextOnly               bool     `json:"context_only,omitempty"`
+	UnresolvedReason          string   `json:"unresolved_reason,omitempty"`
 	SenseOrder                []int    `json:"sense_order"`
 	FallbackGloss             string   `json:"fallback_gloss"`
 	Warnings                  []string `json:"-"`

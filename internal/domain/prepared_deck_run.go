@@ -126,6 +126,7 @@ type PreparedDeckTranslationOutcome struct {
 	ClaimToken                            string
 	ClaimedAt, LeaseExpiresAt, TerminalAt *time.Time
 	ErrorClass, ErrorCode                 string
+	OmissionReason                        string
 	CacheHitCount, ProviderCallCount      int
 	CacheLatency, ProviderLatency         time.Duration
 	UpdatedAt                             time.Time

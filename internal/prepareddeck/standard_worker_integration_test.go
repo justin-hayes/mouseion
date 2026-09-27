@@ -420,6 +420,134 @@ func TestStandardWorkerPersistsRetryGenerationAndTerminalValidationFailures(t *t
 	assert.Equal(t, 5, calls, "provider calls, want one retry for the transient error and one bounded retry for the malformed response")
 }
 
+func TestStandardWorkerPersistsValidUnresolvedMeaningAndFinalizesMixedDeck(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 2, 1)
+	_, err := run.store.PutKnownVocabulary(ctx, run.owner, "de", "known-before-preparation", "NOUN")
+	require.NoError(t, err)
+	knownBefore, err := run.store.ListKnownVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	reservedBefore, err := run.store.ListReservedVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	var snapshotRowsBefore, completionRowsBefore, dispositionRowsBefore []byte
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(v) ORDER BY v.snapshot_id, v.language, v.canonical_lemma, v.upos), '[]'::jsonb) FROM primary_goal_snapshot_vocabulary v WHERE owner_id=$1`, run.owner).Scan(&snapshotRowsBefore))
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.completion_id), '[]'::jsonb) FROM reading_history r WHERE owner_id=$1`, run.owner).Scan(&completionRowsBefore))
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.book_id), '[]'::jsonb) FROM book_dispositions d WHERE owner_id=$1`, run.owner).Scan(&dispositionRowsBefore))
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		if request.CanonicalLemma == run.keys[0].CanonicalLemma {
+			return enrichment.TranslationResponse{
+				Translation: request.CanonicalLemma + "-translated", SentenceTranslation: "The translated sentence.",
+				ContextOnly: true, UnresolvedReason: "The sentence does not distinguish the meanings.",
+			}, nil
+		}
+		return validTranslationResponse(request), nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, Config: PreparedDeckConfig{StandardRetryBaseDelay: time.Millisecond, StandardRetryMaxDelay: time.Millisecond}, AttemptTimeout: time.Second, Jitter: func(delay time.Duration) time.Duration { return delay }}
+	for ordinal := range run.keys {
+		require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: ordinal, Generation: 0}))
+	}
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 2)
+	assert.Equal(t, "The sentence does not distinguish the meanings.", outcomes[0].OmissionReason)
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	assert.Equal(t, 1, outcomes[0].ProviderAttemptCount, "a valid unresolved model response is still a provider attempt")
+	assert.Equal(t, 1, outcomes[0].ProviderCallCount)
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[1].State)
+	_, found, err := run.store.Get(ctx, run.keys[0])
+	require.NoError(t, err)
+	assert.False(t, found, "unresolved meaning must not enter the shared translation cache")
+
+	finalizer := &DurableFinalizer{Store: run.store, Renderer: cardexport.NewPresentation(nil)}
+	currentRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.PreparedDeckRunFinalizing, currentRun.State)
+	assert.Equal(t, domain.PreparedDeckTranslationCompleted, currentRun.TranslationState)
+	preparing, err := run.store.GetDeckPreparation(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationPreparing, preparing.State)
+	ready, err := finalizer.Finalize(ctx, run.owner, run.prep.ID, run.run.ID, currentRun.FinalizationDispatchGeneration)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationReady, ready.State)
+	assert.Equal(t, 1, ready.TotalCards)
+	var generated int
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1`, run.owner).Scan(&generated))
+	assert.Equal(t, 1, generated, "only the rendered card should receive Generated vocabulary provenance")
+	var omittedGenerated int
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma=$2`, run.owner, run.keys[0].CanonicalLemma).Scan(&omittedGenerated))
+	assert.Zero(t, omittedGenerated, "unresolved target must not receive Generated vocabulary provenance")
+	knownAfter, err := run.store.ListKnownVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	assert.Equal(t, knownBefore, knownAfter, "deck preparation must not change Known vocabulary")
+	reservedAfter, err := run.store.ListReservedVocabulary(ctx, run.owner, "de")
+	require.NoError(t, err)
+	assert.Equal(t, reservedBefore, reservedAfter, "deck preparation must not change Reserved vocabulary")
+	var snapshotRowsAfter, completionRowsAfter, dispositionRowsAfter []byte
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(v) ORDER BY v.snapshot_id, v.language, v.canonical_lemma, v.upos), '[]'::jsonb) FROM primary_goal_snapshot_vocabulary v WHERE owner_id=$1`, run.owner).Scan(&snapshotRowsAfter))
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.completion_id), '[]'::jsonb) FROM reading_history r WHERE owner_id=$1`, run.owner).Scan(&completionRowsAfter))
+	require.NoError(t, run.store.Pool().QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.book_id), '[]'::jsonb) FROM book_dispositions d WHERE owner_id=$1`, run.owner).Scan(&dispositionRowsAfter))
+	assert.JSONEq(t, string(snapshotRowsBefore), string(snapshotRowsAfter), "deck preparation must not mutate a frozen reading-vocabulary snapshot")
+	assert.JSONEq(t, string(completionRowsBefore), string(completionRowsAfter), "deck preparation must not create or alter completion choices")
+	assert.JSONEq(t, string(dispositionRowsBefore), string(dispositionRowsAfter), "deck preparation must not change Reading dispositions")
+	status, err := run.store.GetDeckPreparationStatus(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.DeckPreparationMeaningOmission{{TargetWord: "Ein", Reason: "The sentence does not distinguish the meanings."}}, status.MeaningOmissions)
+}
+
+func TestStandardWorkerAllUnresolvedFailsPreparationWithInspectableReason(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 1)
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{Translation: "translated", SentenceTranslation: "The sentence.", ContextOnly: true, UnresolvedReason: "The sentence is too ambiguous."}, nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, AttemptTimeout: time.Second}
+	require.NoError(t, worker.execute(ctx, StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}))
+	currentRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	_, err = (&DurableFinalizer{Store: run.store, Renderer: cardexport.NewPresentation(nil)}).Finalize(ctx, run.owner, run.prep.ID, run.run.ID, currentRun.FinalizationDispatchGeneration)
+	require.ErrorIs(t, err, cardexport.ErrAllMeaningsUnresolved)
+	assert.NotContains(t, err.Error(), "record finalization failure")
+	status, err := run.store.GetDeckPreparationStatus(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, status.State)
+	assert.Equal(t, []domain.DeckPreparationMeaningOmission{{TargetWord: "Ein", Reason: "The sentence is too ambiguous."}}, status.MeaningOmissions)
+	assert.Empty(t, status.Artifact)
+}
+
+func TestStandardWorkerUnknownEvidenceRetriesAndNeverBecomesAnOmission(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRun(t, ctx, 1, 2)
+	provider.onCall = func(_ int, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{
+			Translation: "translated", SentenceTranslation: "The sentence.", Gloss: "unsupported gloss",
+			EvidenceIDs: []string{"wikt:unknown"}, ContextOnly: false,
+		}, nil
+	}
+	worker := &StandardTranslationWorker{Store: run.store, Client: client, Provider: provider, Config: PreparedDeckConfig{StandardRetryBaseDelay: time.Millisecond, StandardRetryMaxDelay: time.Millisecond}, AttemptTimeout: time.Second, Jitter: func(delay time.Duration) time.Duration { return delay }}
+	args := StandardTranslationJobArgs{OwnerID: run.owner, PreparationID: run.prep.ID, RunID: run.run.ID, Ordinal: 0, Generation: 0}
+	require.NoError(t, worker.execute(ctx, args))
+	args.Generation = 1
+	require.NoError(t, worker.execute(ctx, args))
+	outcomes, err := run.store.ListPreparedDeckTranslationOutcomes(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	require.Len(t, outcomes, 1)
+	assert.Equal(t, domain.PreparedDeckOutcomeFailed, outcomes[0].State)
+	assert.Equal(t, "validation", outcomes[0].ErrorClass)
+	assert.Equal(t, "invalid_response", outcomes[0].ErrorCode)
+	assert.Empty(t, outcomes[0].OmissionReason)
+	assert.Equal(t, 2, outcomes[0].ProviderAttemptCount)
+	_, found, err := run.store.Get(ctx, run.keys[0])
+	require.NoError(t, err)
+	assert.False(t, found, "unknown evidence must not become a cached dictionary-only result")
+	preparation, err := run.store.GetDeckPreparation(ctx, run.owner, run.prep.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, preparation.State)
+	assert.Empty(t, preparation.Artifact)
+}
+
 func TestStandardRiverRetriesMalformedResponseUntilProviderBudgetIsExhausted(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()

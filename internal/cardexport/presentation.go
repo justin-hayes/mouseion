@@ -2,6 +2,7 @@ package cardexport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -11,6 +12,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
+
+var ErrAllMeaningsUnresolved = errors.New("cardexport: every selected contextual meaning is unresolved")
 
 // CandidateProjection is the fact boundary assembled by selection and
 // persistence adapters. Presentation owns all interpretation after this point.
@@ -52,12 +55,19 @@ type Summary struct {
 	Omitted      int
 }
 
-// Diagnostics contains structured, content-free presentation diagnostics.
+// Diagnostics contains structured presentation diagnostics. Meaning omission
+// details are source-derived and remain in the owner-scoped preparation result;
+// they are not emitted as metrics or aggregate telemetry.
 type Diagnostics struct {
 	QualityOmissions []Omission
+	MeaningOmissions []MeaningOmission
 	DegradationCodes []string
 	GlossCoverage    []GlossCoverage
 	EvidenceCoverage []EvidenceCoverage
+}
+
+type MeaningOmission struct {
+	Target, Reason string
 }
 
 // EvidenceCoverage reports how much bounded local meaning evidence was frozen.
@@ -91,8 +101,9 @@ type RunFacts struct {
 // StoredResult is one exact cache row loaded by a persistence adapter.
 // Presentation interprets the row during finalization.
 type StoredResult struct {
-	CacheKey enrichment.CacheKey
-	Record   enrichment.CacheEntry
+	CacheKey       enrichment.CacheKey
+	Record         enrichment.CacheEntry
+	OmissionReason string
 }
 
 // StorageProjection is the normalized durable representation of a deck.
@@ -370,7 +381,10 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 		byKey[result.CacheKey] = result
 	}
 	required := facts.Consent && facts.Configured && strings.EqualFold(strings.TrimSpace(facts.ExecutionMode), "standard")
-	aligned := make([]ExactEnrichment, len(keys))
+	aligned := make([]ExactEnrichment, 0, len(keys))
+	accepted := make([]RenderInput, 0, len(manifest.accepted))
+	cacheKeys := make([]enrichment.CacheKey, 0, len(keys))
+	meaningOmissions := make([]MeaningOmission, 0)
 	degraded := make([]string, 0)
 	for i, key := range keys {
 		result, found := byKey[key]
@@ -378,20 +392,37 @@ func (p *Presentation) Finalize(ctx context.Context, deck FrozenDeck, results []
 			if required {
 				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is missing", ErrInvalidInput)
 			}
-			aligned[i] = exactEnrichmentFromStoredResult(StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}, manifest, i)
+			aligned = append(aligned, exactEnrichmentFromStoredResult(StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key}}, manifest, i))
+			accepted = append(accepted, manifest.accepted[i])
+			cacheKeys = append(cacheKeys, key)
+			continue
+		}
+		if result.OmissionReason != "" {
+			if result.Record.Translation != "" || result.Record.SentenceTranslation != "" || result.Record.FallbackGloss != "" {
+				return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: unresolved result includes translation fields", ErrInvalidInput)
+			}
+			meaningOmissions = append(meaningOmissions, MeaningOmission{Target: manifest.accepted[i].TargetWord, Reason: result.OmissionReason})
 			continue
 		}
 		if required && !storedRecordHasRequiredFields(result.Record, manifest.accepted[i]) {
 			return Artifact{}, FinalizeDiagnostics{}, fmt.Errorf("%w: required enrichment result is incomplete", ErrInvalidInput)
 		}
-		aligned[i] = exactEnrichmentFromStoredResult(result, manifest, i)
+		aligned = append(aligned, exactEnrichmentFromStoredResult(result, manifest, i))
+		accepted = append(accepted, manifest.accepted[i])
+		cacheKeys = append(cacheKeys, key)
 	}
+	if len(keys) > 0 && len(meaningOmissions) == len(keys) {
+		return Artifact{}, FinalizeDiagnostics{}, ErrAllMeaningsUnresolved
+	}
+	manifest.accepted = accepted
+	manifest.cacheKeys = cacheKeys
 	artifact, renderDiagnostics, err := renderManifest(ctx, manifest, aligned)
 	if err != nil {
 		return Artifact{}, FinalizeDiagnostics{}, err
 	}
 	degraded = appendUniqueCodes(degraded, renderDiagnostics...)
 	diagnostics := manifestDiagnostics(manifest)
+	diagnostics.MeaningOmissions = append([]MeaningOmission(nil), meaningOmissions...)
 	diagnostics.DegradationCodes = append(diagnostics.DegradationCodes, degraded...)
 	artifact.Diagnostics = cloneDiagnostics(diagnostics)
 	return artifact, diagnostics, nil
@@ -469,7 +500,7 @@ func cloneOmissions(omissions []Omission) []Omission {
 }
 
 func cloneDiagnostics(diagnostics Diagnostics) Diagnostics {
-	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...)}
+	return Diagnostics{QualityOmissions: cloneOmissions(diagnostics.QualityOmissions), MeaningOmissions: append([]MeaningOmission(nil), diagnostics.MeaningOmissions...), DegradationCodes: append([]string(nil), diagnostics.DegradationCodes...), GlossCoverage: cloneGlossCoverage(diagnostics.GlossCoverage), EvidenceCoverage: append([]EvidenceCoverage(nil), diagnostics.EvidenceCoverage...)}
 }
 
 func evidenceCoverage(entries []RenderInput) []EvidenceCoverage {

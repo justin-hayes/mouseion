@@ -122,6 +122,13 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 	for _, warning := range response.Warnings {
 		log.Printf("prepared deck translation: %s", warning)
 	}
+	if work.Request.RequireContextualGloss && response.Gloss == "" {
+		_, _, finishErr := w.Store.FinishPreparedDeckTranslationOutcome(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, persistence.PreparedDeckOutcomeTerminalUpdate{
+			State: domain.PreparedDeckOutcomeCompleted, OmissionReason: response.UnresolvedReason,
+			ProviderAttempt: true, ProviderCall: true, ProviderLatency: providerLatency,
+		}, w.finalizer)
+		return finishErr
+	}
 	selection := make([]int, 0, len(response.EvidenceIDs))
 	for _, id := range response.EvidenceIDs {
 		for index, sense := range request.CandidateSenses {

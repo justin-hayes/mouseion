@@ -15,7 +15,7 @@ import (
 
 var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
 
-var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these nine fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_target, gloss, evidence_ids, context_only. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only exact evidence_id values from candidate_senses that support the gloss. If none support it, return an empty evidence_ids array and context_only=true. If no defensible gloss can be given, return an empty gloss and context_only=true. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_target, gloss, evidence_ids, context_only, unresolved_reason. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only exact evidence_id values from candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
 const maxTranslationResponseBytes = 1 << 20
 
@@ -252,6 +252,7 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 		Gloss                     json.RawMessage `json:"gloss"`
 		EvidenceIDs               json.RawMessage `json:"evidence_ids"`
 		ContextOnly               json.RawMessage `json:"context_only"`
+		UnresolvedReason          json.RawMessage `json:"unresolved_reason"`
 	}
 	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
 	if duplicate, err := hasDuplicateObjectKey(decoded.Choices[0].Message.Content); err != nil {
@@ -297,7 +298,7 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if input.RequireContextualGloss && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: incomplete contextual gloss outcome")
 	}
-	if len(result.Gloss) != 0 || len(result.EvidenceIDs) != 0 || len(result.ContextOnly) != 0 {
+	if len(result.Gloss) != 0 || len(result.EvidenceIDs) != 0 || len(result.ContextOnly) != 0 || len(result.UnresolvedReason) != 0 {
 		if err := json.Unmarshal(result.Gloss, &response.Gloss); err != nil {
 			return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid gloss")
 		}
@@ -306,6 +307,11 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 		}
 		if err := json.Unmarshal(result.ContextOnly, &response.ContextOnly); err != nil {
 			return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid context_only")
+		}
+		if len(result.UnresolvedReason) != 0 {
+			if err := json.Unmarshal(result.UnresolvedReason, &response.UnresolvedReason); err != nil {
+				return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: invalid unresolved_reason")
+			}
 		}
 	}
 	if order, warning := decodeSenseOrder(result.SenseOrder); warning != "" {
@@ -333,13 +339,17 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	response.SentenceTranslation = strings.TrimSpace(response.SentenceTranslation)
 	response.SentenceTranslationTarget = strings.TrimSpace(response.SentenceTranslationTarget)
 	response.Gloss = strings.TrimSpace(response.Gloss)
+	response.UnresolvedReason = strings.TrimSpace(response.UnresolvedReason)
 	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
 	if response.Translation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: translation is empty")
 	}
 	if input.RequireContextualGloss {
-		if response.Gloss == "" || len([]rune(response.Gloss)) > MaxFallbackGlossRunes || hasMarkup(response.Gloss) {
+		if len([]rune(response.Gloss)) > MaxFallbackGlossRunes || hasMarkup(response.Gloss) {
 			return TranslationResponse{}, errors.New("decode LLM translation: invalid contextual gloss")
+		}
+		if len([]rune(response.UnresolvedReason)) > 200 || hasMarkup(response.UnresolvedReason) {
+			return TranslationResponse{}, errors.New("decode LLM translation: invalid unresolved reason")
 		}
 		knownEvidence := make(map[string]struct{}, len(input.CandidateSenses))
 		for _, sense := range input.CandidateSenses {
@@ -362,6 +372,13 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 		}
 		if response.ContextOnly != (len(response.EvidenceIDs) == 0) {
 			return TranslationResponse{}, errors.New("decode LLM translation: context_only contradicts evidence IDs")
+		}
+		if response.Gloss == "" {
+			if !response.ContextOnly || len(response.EvidenceIDs) != 0 || response.UnresolvedReason == "" {
+				return TranslationResponse{}, errors.New("decode LLM translation: unresolved meaning is incomplete")
+			}
+		} else if response.UnresolvedReason != "" {
+			return TranslationResponse{}, errors.New("decode LLM translation: resolved meaning includes unresolved reason")
 		}
 	}
 	if input.ExampleSentence != "" && response.SentenceTranslation == "" {

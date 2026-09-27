@@ -175,7 +175,10 @@ func reconcilePreparedDeckBatchItem(ctx context.Context, tx pgx.Tx, params Prepa
 	if err != nil {
 		return false, missing(err)
 	}
-	outcome := preparedDeckOutcomeFromModel(outcomeModel)
+	outcome, err := preparedDeckOutcomeFromModel(outcomeModel)
+	if err != nil {
+		return false, err
+	}
 	if outcome.State == domain.PreparedDeckOutcomeCompleted || outcome.State == domain.PreparedDeckOutcomeFailed || outcome.State == domain.PreparedDeckOutcomeCancelled {
 		return false, nil
 	}

@@ -20,7 +20,7 @@ func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) 
 
 	// Seed legacy state at version 15 so migration 16 is exercised as a real
 	// successor data migration; migrations 17 and 18 are then applied afterward.
-	moveApplicationMigrations(t, databaseURL, -5)
+	moveApplicationMigrationsTo(t, databaseURL, 15)
 	owner, err := store.CreateUser(ctx, "disposition-backfill-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "disposition-backfill-other", false)
@@ -44,7 +44,7 @@ func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) 
 	_, err = pool.Exec(ctx, `UPDATE book_membership SET state = 'removed', removed_at = now() WHERE owner_id=$1 AND book_id=$2`, owner.ID, removedBook.ID)
 	require.NoError(t, err)
 
-	moveApplicationMigrations(t, databaseURL, 1)
+	moveApplicationMigrationsTo(t, databaseURL, 16)
 
 	assertMigrationDisposition(t, pool, owner.ID, goalBook.ID, domain.BookDispositionToRead)
 	assertMigrationDisposition(t, pool, owner.ID, journeyBook.ID, domain.BookDispositionToRead)
@@ -58,11 +58,11 @@ func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) 
 	// migration runner's normal all-or-nothing transaction.
 	_, err = pool.Exec(ctx, `UPDATE book_dispositions SET disposition='set_aside' WHERE owner_id=$1 AND book_id=$2`, owner.ID, inboxBook.ID)
 	require.NoError(t, err)
-	moveApplicationMigrations(t, databaseURL, -1)
-	moveApplicationMigrations(t, databaseURL, 1)
+	moveApplicationMigrationsTo(t, databaseURL, 15)
+	moveApplicationMigrationsTo(t, databaseURL, 16)
 	assertMigrationDisposition(t, pool, owner.ID, inboxBook.ID, domain.BookDispositionSetAside)
 
-	moveApplicationMigrations(t, databaseURL, 3)
+	migrateApplicationMigrationsToLatest(t, databaseURL)
 	toRead, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 2, toRead.Total)

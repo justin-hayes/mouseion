@@ -22,7 +22,7 @@ func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 	// The current schema includes the disposition migration after the historical
 	// snapshot migrations; rewind to version 7 explicitly before seeding legacy
 	// Goals so migration 8 performs the backfill under test.
-	moveApplicationMigrations(t, databaseURL, -13)
+	moveApplicationMigrationsTo(t, databaseURL, 7)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
@@ -73,7 +73,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 	_, err = pool.Exec(ctx, `INSERT INTO processing_history(owner_id, corpus_id, operation, status, details) VALUES ($1,$2,'prepared-deck','completed','{}')`, languageOwner.ID, languageCorpus)
 	require.NoError(t, err)
 
-	moveApplicationMigrations(t, databaseURL, 4)
+	moveApplicationMigrationsTo(t, databaseURL, 11)
 
 	var matchingSnapshot, matchingPreparationSnapshot string
 	err = pool.QueryRow(ctx, `SELECT snapshot_id::text FROM primary_goals WHERE owner_id=$1 AND language='de'`, matchingOwner.ID).Scan(&matchingSnapshot)
@@ -190,7 +190,7 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	assert.Equal(t, 1, operationalHistoryCount, "unmatched operational history was deleted")
 	// The historical assertions above intentionally stop at version 11. Bring
 	// the schema back to current before using the current persistence methods.
-	moveApplicationMigrations(t, databaseURL, 8)
+	migrateApplicationMigrationsToLatest(t, databaseURL)
 
 	var missingSnapshot string
 	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='de'`, missingSnapshotOwner.ID).Scan(&missingSnapshot)
@@ -245,7 +245,7 @@ func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testin
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -13)
+	moveApplicationMigrationsTo(t, databaseURL, 7)
 	activeOwner, err := store.CreateUser(ctx, "snapshot-empty-active", false)
 	require.NoError(t, err)
 	inactiveOwner, err := store.CreateUser(ctx, "snapshot-empty-inactive", false)
@@ -313,7 +313,7 @@ INSERT INTO primary_goals(owner_id, language, book_id) VALUES
 		require.NoError(t, err)
 	}
 
-	moveApplicationMigrations(t, databaseURL, 4)
+	moveApplicationMigrationsTo(t, databaseURL, 11)
 
 	for _, preparation := range []struct {
 		name         string
@@ -375,9 +375,9 @@ WHERE g.owner_id=$1`, expected.owner).Scan(&snapshotVocabularyCount)
 	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='it'`, languageOwner.ID).Scan(&italianSnapshot)
 	require.NoError(t, err)
 	assert.Empty(t, italianSnapshot, "cross-language Goal received a snapshot from German analysis")
-	moveApplicationMigrations(t, databaseURL, -3)
-	moveApplicationMigrations(t, databaseURL, 3)
-	moveApplicationMigrations(t, databaseURL, 8)
+	moveApplicationMigrationsTo(t, databaseURL, 8)
+	moveApplicationMigrationsTo(t, databaseURL, 11)
+	migrateApplicationMigrationsToLatest(t, databaseURL)
 	var activeSnapshotAfterRetry string
 	err = pool.QueryRow(ctx, `SELECT COALESCE(goal_snapshot_id::text, '') FROM deck_preparations WHERE owner_id=$1 AND id=$2`, activeOwner.ID, activePreparation).Scan(&activeSnapshotAfterRetry)
 	require.NoError(t, err)

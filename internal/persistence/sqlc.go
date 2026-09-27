@@ -2,7 +2,9 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -401,7 +403,27 @@ func exampleSentenceFromFields(
 	}
 }
 
-func preparedDeckOutcomeFromModel(m sqlcgen.DeckPreparationTranslationOutcome) domain.PreparedDeckTranslationOutcome {
+func preparedDeckOutcomeFromModel(row any) (domain.PreparedDeckTranslationOutcome, error) {
+	switch row.(type) {
+	case sqlcgen.DeckPreparationTranslationOutcome,
+		sqlcgen.ClaimPreparedDeckTranslationOutcomeRow,
+		sqlcgen.RetryPreparedDeckTranslationOutcomeRow,
+		sqlcgen.FinishPreparedDeckTranslationOutcomeRow,
+		sqlcgen.RedispatchPreparedDeckTranslationOutcomeRow:
+		// Each query-specific generated row has the same durable table projection.
+	default:
+		return domain.PreparedDeckTranslationOutcome{}, fmt.Errorf("unsupported prepared-deck outcome row type %T", row)
+	}
+	var m sqlcgen.DeckPreparationTranslationOutcome
+	encoded, err := json.Marshal(row)
+	if err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, fmt.Errorf("encode prepared-deck outcome row: %w", err)
+	}
+	// sqlc emits query-specific row structs with the same outcome fields.
+	//nolint:musttag // The generated row structs intentionally carry no JSON tags.
+	if err := json.Unmarshal(encoded, &m); err != nil {
+		return domain.PreparedDeckTranslationOutcome{}, fmt.Errorf("decode prepared-deck outcome row: %w", err)
+	}
 	return domain.PreparedDeckTranslationOutcome{
 		OwnerID:              m.OwnerID,
 		PreparationID:        m.PreparationID,
@@ -420,12 +442,13 @@ func preparedDeckOutcomeFromModel(m sqlcgen.DeckPreparationTranslationOutcome) d
 		TerminalAt:           pgTimePtr(m.TerminalAt),
 		ErrorClass:           m.ErrorClass,
 		ErrorCode:            m.ErrorCode,
+		OmissionReason:       m.OmissionReason,
 		CacheHitCount:        m.CacheHitCount,
 		ProviderCallCount:    m.ProviderCallCount,
 		CacheLatency:         time.Duration(m.CacheLatencyMs) * time.Millisecond,
 		ProviderLatency:      time.Duration(m.ProviderLatencyMs) * time.Millisecond,
 		UpdatedAt:            m.UpdatedAt,
-	}
+	}, nil
 }
 
 func preparedDeckRunFromModel(m sqlcgen.DeckPreparationRun) domain.PreparedDeckRun {

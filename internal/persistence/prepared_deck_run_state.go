@@ -22,7 +22,7 @@ func (s *PostgresStore) GetPreparedDeckTranslationOutcome(ctx context.Context, o
 	if err != nil {
 		return domain.PreparedDeckTranslationOutcome{}, missing(err)
 	}
-	return preparedDeckOutcomeFromModel(model), nil
+	return preparedDeckOutcomeFromModel(model)
 }
 
 func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context, owner, preparationID, runID string) ([]domain.PreparedDeckTranslationOutcome, error) {
@@ -34,7 +34,11 @@ func (s *PostgresStore) ListPreparedDeckTranslationOutcomes(ctx context.Context,
 	}
 	var outcomes []domain.PreparedDeckTranslationOutcome
 	for _, model := range models {
-		outcomes = append(outcomes, preparedDeckOutcomeFromModel(model))
+		outcome, convertErr := preparedDeckOutcomeFromModel(model)
+		if convertErr != nil {
+			return nil, convertErr
+		}
+		outcomes = append(outcomes, outcome)
 	}
 	if outcomes == nil {
 		exists, existsErr := s.queries().PreparedDeckRunExists(ctx, sqlcgen.PreparedDeckRunExistsParams{
@@ -212,13 +216,15 @@ func (s *PostgresStore) LoadPreparedDeckFinalization(ctx context.Context, owner,
 			return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 		}
 		key := *item.CacheKey
-		if outcome.State == domain.PreparedDeckOutcomeCompleted {
+		if outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason == "" {
 			record, found := byStoredOrdinal[item.Ordinal]
 			if !found || !record.Found {
 				return cardexport.StorageProjection{}, nil, ErrPreparedDeckIdentity
 			}
 			entry := record.Entry
 			stored = append(stored, cardexport.StoredResult{CacheKey: key, Record: entry})
+		} else if outcome.State == domain.PreparedDeckOutcomeCompleted && outcome.OmissionReason != "" {
+			stored = append(stored, cardexport.StoredResult{CacheKey: key, OmissionReason: outcome.OmissionReason})
 		}
 	}
 	return projection, stored, nil

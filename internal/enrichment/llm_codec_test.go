@@ -258,3 +258,27 @@ func TestTranslationCodecAcceptsContextualGlossOnlyWithFrozenEvidenceReferences(
 		})
 	}
 }
+
+func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOmission(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sieht die Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_target":"bank","gloss":"","evidence_ids":[],"context_only":true,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
+	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+	response, err := codec.DecodeResponse(input, []byte(body))
+	require.NoError(t, err)
+	assert.Empty(t, response.Gloss)
+	assert.True(t, response.ContextOnly)
+	assert.Equal(t, "The sentence does not provide enough context to distinguish the meanings.", response.UnresolvedReason)
+
+	for name, invalid := range map[string]string{
+		"missing reason":             strings.Replace(content, `,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."`, "", 1),
+		"resolved gloss with reason": strings.Replace(strings.Replace(content, `"gloss":""`, `"gloss":"bench"`, 1), `"evidence_ids":[]`, `"evidence_ids":["wikt:seat"]`, 1),
+		"markup reason":              strings.Replace(content, "does not provide enough context", "<b>unsafe</b>", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, decodeErr := codec.DecodeResponse(input, []byte(`{"choices":[{"message":{"content":`+strconv.Quote(invalid)+`}}]}`))
+			assert.ErrorIs(t, decodeErr, ErrInvalidTranslationResponse)
+		})
+	}
+}

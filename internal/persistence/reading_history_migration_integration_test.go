@@ -29,7 +29,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	// Rewind to version 3 before replaying the historical migrations. The
 	// disposition backfill is a later successor and must not run before the
 	// legacy state is seeded.
-	moveApplicationMigrations(t, databaseURL, -17)
+	moveApplicationMigrationsTo(t, databaseURL, 3)
 	owner, err := store.CreateUser(ctx, "history-migration-owner", false)
 	require.NoError(t, err)
 	otherOwner, err := store.CreateUser(ctx, "history-migration-other", false)
@@ -47,10 +47,10 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "Haus", "NOUN")
 	require.NoError(t, err)
 
-	moveApplicationMigrations(t, databaseURL, 2)
+	moveApplicationMigrationsTo(t, databaseURL, 5)
 	forceApplicationMigration(t, databaseURL, 4)
-	moveApplicationMigrations(t, databaseURL, 1)
-	moveApplicationMigrations(t, databaseURL, 5)
+	moveApplicationMigrationsTo(t, databaseURL, 5)
+	moveApplicationMigrationsTo(t, databaseURL, 10)
 	var historyCount int
 	var migratedAt time.Time
 	err = pool.QueryRow(ctx, `SELECT count(*), max(completed_at) FROM reading_history WHERE owner_id=$1`, owner.ID).Scan(&historyCount, &migratedAt)
@@ -59,7 +59,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	assert.True(t, completedAt.Equal(migratedAt), "completion timestamp changed: got %s want %s", migratedAt, completedAt)
 	// The historical assertions above stop at version 10. Restore the current
 	// schema before exercising the current persistence methods below.
-	moveApplicationMigrations(t, databaseURL, 9)
+	migrateApplicationMigrationsToLatest(t, databaseURL)
 	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal survived backfill")
@@ -90,13 +90,26 @@ func insertLegacyBook(t *testing.T, ctx context.Context, store *PostgresStore, o
 	return domain.Book{ID: bookID, OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language}
 }
 
-func moveApplicationMigrations(t *testing.T, databaseURL string, steps int) {
+func moveApplicationMigrationsTo(t *testing.T, databaseURL string, version uint) {
 	t.Helper()
 	source, err := iofs.New(migrations.FS, ".")
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithSourceInstance("iofs", source, databaseURL)
 	require.NoError(t, err)
-	err = migrator.Steps(steps)
+	err = migrator.Migrate(version)
+	sourceErr, databaseErr := migrator.Close()
+	require.NoError(t, err)
+	require.NoError(t, sourceErr)
+	require.NoError(t, databaseErr)
+}
+
+func migrateApplicationMigrationsToLatest(t *testing.T, databaseURL string) {
+	t.Helper()
+	source, err := iofs.New(migrations.FS, ".")
+	require.NoError(t, err)
+	migrator, err := migrate.NewWithSourceInstance("iofs", source, databaseURL)
+	require.NoError(t, err)
+	err = migrator.Up()
 	sourceErr, databaseErr := migrator.Close()
 	require.NoError(t, err)
 	require.NoError(t, sourceErr)
