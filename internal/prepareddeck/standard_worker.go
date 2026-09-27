@@ -129,15 +129,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		}, w.finalizer)
 		return finishErr
 	}
-	selection := make([]int, 0, len(response.EvidenceIDs))
-	for _, id := range response.EvidenceIDs {
-		for index, sense := range request.CandidateSenses {
-			if sense.EvidenceID == id {
-				selection = append(selection, index)
-				break
-			}
-		}
-	}
+	selection := evidenceSelectionIndices(request.CandidateSenses, response.EvidenceIDs)
 	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.Gloss, SenseSelection: selection, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
 	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, entry)
 	if err != nil {

@@ -148,17 +148,14 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		}
 		config.ContextMode = string(enrichment.SentenceContext)
 		config.Provider = p.Codec.ProviderName()
-		config.ProviderVersion = p.Codec.ProviderVersion()
-		if mode == domain.PreparedDeckExecutionStandard {
-			config.ProviderVersion = p.Codec.ContextualGlossProviderVersion()
-		}
+		config.ProviderVersion = p.Codec.ContextualGlossProviderVersion()
 		config.Endpoint = enrichment.OpenAIChatCompletionsEndpoint
 		config.Model = p.Codec.Model()
 		for i := range projections {
 			projections[i].Provider = config.Provider
 			projections[i].ProviderVersion = config.ProviderVersion
 			projections[i].TargetLanguage = config.TargetLanguage
-			projections[i].RequireContextualGloss = mode == domain.PreparedDeckExecutionStandard
+			projections[i].RequireContextualGloss = true
 		}
 	}
 	deck, freezeDiagnostics, err := p.Presentation.Freeze(ctx, preparation.OwnerID, deckName, projections)
@@ -199,7 +196,7 @@ func pendingBatchWork(ctx context.Context, tx pgx.Tx, work []cardexport.WorkItem
 		if tx != nil {
 			var found bool
 			key := item.CacheKey
-			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7 AND dictionary_provider_version=$8 AND translation <> '' AND (sentence_hash = '' OR sentence_translation <> ''))`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash, key.DictionaryProviderVersion).Scan(&found); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrichment_cache WHERE language=$1 AND target_language=$2 AND canonical_lemma=$3 AND upos=$4 AND provider=$5 AND provider_version=$6 AND sentence_hash=$7 AND dictionary_provider_version=$8 AND meaning_evidence_hash=$9 AND translation <> '' AND (sentence_hash = '' OR sentence_translation <> ''))`, key.Language, key.TargetLanguage, key.CanonicalLemma, key.UPOS, key.Provider, key.ProviderVersion, key.SentenceHash, key.DictionaryProviderVersion, key.MeaningEvidenceHash).Scan(&found); err != nil {
 				return nil, err
 			}
 			if found {

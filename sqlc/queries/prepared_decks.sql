@@ -270,7 +270,8 @@ SELECT ordinal FROM deck_preparation_batch_chunk_items WHERE owner_id = $1 AND p
 -- name: ListPreparedDeckBatchChunkMembers :many
 SELECT ci.ordinal, mi.language, mi.target_language, mi.canonical_lemma, mi.upos,
        COALESCE(mi.provider, ''), COALESCE(mi.provider_version, ''), COALESCE(mi.sentence_hash, ''),
-       CAST(COALESCE(mi.render_payload->>'dictionary_provider_version', '') AS text) AS dictionary_provider_version
+       CAST(COALESCE(mi.render_payload->>'dictionary_provider_version', '') AS text) AS dictionary_provider_version,
+       COALESCE(mi.meaning_evidence_hash, '') AS meaning_evidence_hash
 FROM deck_preparation_batch_chunk_items ci
 JOIN deck_preparation_manifest_items mi ON mi.owner_id = ci.owner_id AND mi.preparation_id = ci.preparation_id AND mi.run_id = ci.run_id AND mi.ordinal = ci.ordinal
 WHERE ci.owner_id = $1 AND ci.preparation_id = $2 AND ci.run_id = $3 AND ci.chunk_id = $4
@@ -506,7 +507,7 @@ WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos =
 UPDATE deck_preparation_translation_outcomes
 SET state = $5, provider_attempt_count = GREATEST(provider_attempt_count, $6), next_attempt_at = now(),
     claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, terminal_at = $7,
-    error_class = $8, error_code = $9, provider_call_count = provider_call_count + 1, updated_at = now()
+    error_class = $8, error_code = $9, omission_reason = $10, provider_call_count = provider_call_count + 1, updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND run_id = $3 AND ordinal = $4;
 
 -- name: NextPreparedDeckBatchChunkIndex :one

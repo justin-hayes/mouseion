@@ -163,6 +163,40 @@ func TestFailedBatchItemRetainsProviderErrorAndExhaustsRetryGeneration(t *testin
 	assert.Equal(t, "token_limit_exceeded", update.ErrorCode)
 }
 
+func TestCompletedBatchItemRecordsUnresolvedMeaningWithoutCacheEntry(t *testing.T) {
+	item := enrichment.BatchTranslationItem{Ordinal: 3}
+	work := cardexport.WorkItem{Ordinal: 3, CacheKey: enrichment.CacheKey{CanonicalLemma: "bank"}}
+	outcome := enrichment.BatchTranslationOutcome{Response: enrichment.TranslationResponse{
+		Translation: "bank", SentenceTranslation: "She sat on the bank.",
+		UnresolvedReason: "The sentence does not distinguish the meanings.",
+	}}
+
+	update := completedBatchItem(&BatchPollWorker{}, item, work, outcome)
+
+	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, update.State)
+	assert.Equal(t, "The sentence does not distinguish the meanings.", update.OmissionReason)
+	assert.Nil(t, update.CacheEntry, "an unresolved result must not become a dictionary-only cache entry")
+}
+
+func TestCompletedBatchItemPersistsContextualGlossAndFrozenEvidenceSelection(t *testing.T) {
+	item := enrichment.BatchTranslationItem{Ordinal: 2, Request: enrichment.TranslationRequest{CandidateSenses: []enrichment.LexicalSense{
+		{EvidenceID: "wikt:bank-financial", Gloss: "financial institution"},
+		{EvidenceID: "wikt:bank-river", Gloss: "river edge"},
+	}}}
+	work := cardexport.WorkItem{Ordinal: 2, CacheKey: enrichment.CacheKey{CanonicalLemma: "bank"}}
+	outcome := enrichment.BatchTranslationOutcome{Response: enrichment.TranslationResponse{
+		Translation: "bank", Gloss: "river edge", EvidenceIDs: []string{"wikt:bank-river"},
+		SentenceTranslation: "She sat on the river bank.", SentenceTranslationTarget: "bank",
+	}}
+
+	update := completedBatchItem(&BatchPollWorker{}, item, work, outcome)
+
+	require.NotNil(t, update.CacheEntry)
+	assert.Equal(t, "river edge", update.CacheEntry.FallbackGloss)
+	assert.Equal(t, []int{1}, update.CacheEntry.SenseSelection)
+	assert.Equal(t, "She sat on the river bank.", update.CacheEntry.SentenceTranslation)
+}
+
 func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "model"})
 	require.NoError(t, err)

@@ -361,13 +361,32 @@ func TestPresentationLifecycleRejectsIdentityAndProvenanceFailures(t *testing.T)
 	wrongRecordKey := work[0].CacheKey
 	wrongRecordKey.Provider = "other"
 	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: enrichment.CacheEntry{CacheKey: wrongRecordKey, Translation: "house"}}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
-	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
 func TestPresentationLifecycleRequiresCompleteStandardResults(t *testing.T) {
 	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
 	require.NoError(t, err)
 	_, _, err = cardexport.NewPresentation(lifecycleLexicalProvider{}).Finalize(t.Context(), deck, nil, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+}
+
+func TestPresentationLifecycleRequiresContextualBatchResults(t *testing.T) {
+	projection := lifecycleProjection()
+	projection.RequireContextualGloss = true
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	facts := cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"}
+
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, nil, facts)
+	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+
+	work := deck.WorkProjection()
+	partial := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", FallbackGloss: "building"}
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: partial}}, facts)
+	require.ErrorIs(t, err, cardexport.ErrInvalidInput)
+	missingGloss := enrichment.CacheEntry{CacheKey: work[0].CacheKey, Translation: "house", SentenceTranslation: "The house is quiet."}
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: missingGloss}}, facts)
 	assert.ErrorIs(t, err, cardexport.ErrInvalidInput)
 }
 
@@ -406,7 +425,7 @@ func TestPresentationLifecycleOmitsOnlyExplicitlyUnresolvedMeaning(t *testing.T)
 	artifact, diagnostics, err := cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{
 		{CacheKey: resolved.CacheKey, Record: resolved},
 		{CacheKey: unresolvedKey, OmissionReason: "The sentence does not distinguish this meaning."},
-	}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.NoError(t, err)
 	assert.Len(t, artifact.Generated, 1)
 	assert.Zero(t, artifact.Completeness.QualityOmitted, "meaning omissions are distinct from sentence-quality omissions")
@@ -415,10 +434,12 @@ func TestPresentationLifecycleOmitsOnlyExplicitlyUnresolvedMeaning(t *testing.T)
 }
 
 func TestPresentationLifecycleFailsAllUnresolvedButAcceptsEmptySelection(t *testing.T) {
-	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{lifecycleProjection()})
+	projection := lifecycleProjection()
+	projection.RequireContextualGloss = true
+	deck, _, err := cardexport.NewPresentation(lifecycleLexicalProvider{}).Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
 	require.NoError(t, err)
 	work := deck.WorkProjection()
-	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, OmissionReason: "No defensible meaning in context."}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
+	_, _, err = cardexport.NewPresentation(nil).Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, OmissionReason: "No defensible meaning in context."}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "batch", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v1"})
 	require.ErrorIs(t, err, cardexport.ErrAllMeaningsUnresolved)
 
 	empty, _, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Empty Book", nil)
