@@ -13,6 +13,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+type myBooksBrowseReader interface {
+	ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
+}
+
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/library")
 }
@@ -37,9 +41,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	var books []domain.MyBook
 	var err error
 	var browse MyBooksBrowseState
-	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
-	}); ok {
+	if reader, ok := h.services.Store.Books.(myBooksBrowseReader); ok {
 		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, string(disposition), history, myBooksPageOffset(page), myBooksPageSize)
 		err = readErr
 		books = result.Items
@@ -145,9 +147,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	page := 1
-	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
-	}); ok {
+	if reader, ok := h.services.Store.Books.(myBooksBrowseReader); ok {
 		activeLanguage, _ := activeStudyLanguageForContext(r.Context())
 		page, err = myBooksPageForBook(r.Context(), reader, owner, activeLanguage, book)
 		if err != nil {
@@ -164,9 +164,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 	redirect(w, r, location)
 }
 
-func myBooksPageForBook(ctx context.Context, reader interface {
-	ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
-}, owner, language string, book domain.MyBook) (int, error) {
+func myBooksPageForBook(ctx context.Context, reader myBooksBrowseReader, owner, language string, book domain.MyBook) (int, error) {
 	bucket := book.WorkflowBucket()
 	disposition, _ := bucket.PersistedDisposition()
 	history := bucket == domain.MyBookBucketRead

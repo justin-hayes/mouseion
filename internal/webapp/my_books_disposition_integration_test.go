@@ -236,6 +236,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Equal(t, http.StatusOK, redirected.Code)
 	assert.Contains(t, redirected.Body.String(), "Previously read book")
 	assert.Contains(t, redirected.Body.String(), "Workflow</strong>: Inbox")
+	assert.Contains(t, redirected.Body.String(), "1 completion")
 	assert.Contains(t, redirected.Body.String(), "Previously read history recorded. Vocabulary was not changed.")
 	retry := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/previously-read", mark, cookies)
 	assert.Equal(t, http.StatusSeeOther, retry.Code)
