@@ -22,7 +22,7 @@ func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 	// The current schema includes the disposition migration after the historical
 	// snapshot migrations; rewind to version 7 explicitly before seeding legacy
 	// Goals so migration 8 performs the backfill under test.
-	moveApplicationMigrations(t, databaseURL, -12)
+	moveApplicationMigrations(t, databaseURL, -13)
 	matchingOwner, err := store.CreateUser(ctx, "snapshot-migration-matching", false)
 	require.NoError(t, err)
 	emptyOwner, err := store.CreateUser(ctx, "snapshot-migration-empty", false)
@@ -245,7 +245,7 @@ func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testin
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 
-	moveApplicationMigrations(t, databaseURL, -12)
+	moveApplicationMigrations(t, databaseURL, -13)
 	activeOwner, err := store.CreateUser(ctx, "snapshot-empty-active", false)
 	require.NoError(t, err)
 	inactiveOwner, err := store.CreateUser(ctx, "snapshot-empty-inactive", false)
