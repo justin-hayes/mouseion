@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(t *testing.T) {
+func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "reading-start-enqueue-failure-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -36,6 +36,8 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	owner := createAccount(t, ctx, store, "reading-enqueue-failure", "learner-password", false)
+	otherOwner, err := store.CreateUser(ctx, "reading-provider-other", false)
+	require.NoError(t, err)
 	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "start-enqueue-failure", "Start enqueue failure", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
 	var analysisRunID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&analysisRunID))
@@ -55,6 +57,7 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
+		Analysis:     analysis.NewService(store.Pool(), nil),
 		PreparedDeck: deckService, AnalysisInsights: analysisinsights.NewService(store), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
@@ -147,6 +150,40 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	require.NoError(t, err)
 	assert.Equal(t, frozenVocabulary, retriedVocabulary, "retry changed the frozen vocabulary snapshot")
 
+	worker := &prepareddeck.Worker{
+		Store: store,
+		Coordinator: prepareddeck.NewDurableCoordinator(store, client, prepareddeck.NewPreparedDeckPlanner(
+			prepareddeck.NewInputAssembler(store), cardexport.NewPresentation(nil), nil, false,
+			prepareddeck.BatchConfig{}, prepareddeck.PreparedDeckConfig{},
+		)),
+	}
+	require.NoError(t, worker.Work(ctx, &river.Job[prepareddeck.JobArgs]{Args: prepareddeck.JobArgs{
+		PreparationID: preparation.ID, OwnerID: owner.ID, SourceMaterialID: reading.SourceMaterialID,
+		ContentHash: source.ContentHash, AnalysisRunID: reading.AnalysisRunID,
+	}}))
+	failed, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, failed.State)
+	assert.Contains(t, failed.Error, "configured translation provider")
+	assert.Empty(t, failed.Artifact, "an unconfigured provider must not publish a local-only deck")
+	failedVocabulary, err := store.ListDeckPreparationVocabulary(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	assert.Empty(t, failedVocabulary, "a failed preparation cannot reserve card vocabulary")
+	_, err = deckService.GetForGoalSnapshot(ctx, otherOwner.ID, reading.SnapshotID)
+	require.ErrorIs(t, err, persistence.ErrNotFound, "a failed preparation remains owner-scoped")
+
+	focusedTask := perform(t, h, http.MethodGet, "/reading/books/"+book.ID+"/deck/preparations/new", nil, cookies)
+	require.Equal(t, http.StatusOK, focusedTask.Code)
+	assert.Contains(t, focusedTask.Body.String(), "Deck preparation failed")
+	assert.Contains(t, focusedTask.Body.String(), "Retry deck preparation")
+	assert.NotContains(t, focusedTask.Body.String(), "Download deck")
+	stillReading, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, reading, stillReading, "provider configuration failure must not change current reading")
+	var knownAfterFailure int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&knownAfterFailure))
+	assert.Equal(t, knownCount, knownAfterFailure, "deck failure must not change Known vocabulary")
+
 	completedJob, err := store.Pool().Exec(ctx, `UPDATE river_job SET state='completed',finalized_at=now() WHERE args->>'preparation_id'=$1 AND state IN ('available','pending','running','retryable','scheduled')`, preparation.ID)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, completedJob.RowsAffected())
@@ -164,4 +201,26 @@ func TestAuthenticatedStartRetainsReadingWhenDeckEnqueueFailsAndRetryPreparesIt(
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, retryExisting.Code)
 	assert.Contains(t, retryExisting.Header().Get("Location"), "Deck+preparation+retry+queued")
+	retriedPreparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, preparation.ID, retriedPreparation.ID, "retry must remain attached to this exact reading snapshot")
+	assert.Equal(t, domain.DeckPreparationQueued, retriedPreparation.State)
+
+	switchBook, switchSource, switchCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "switch-enqueue-failure", "Switch enqueue failure", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "garten", UPOS: "NOUN", OccurrenceCount: 3}})
+	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','garten','NOUN',3,'["Garten"]','[]','{}')`, owner.ID, switchCorpus.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, switchBook.ID, domain.BookDispositionToRead))
+	setEnqueueFailure(true)
+	switched := perform(t, h, http.MethodPost, "/reading/books/"+switchBook.ID+"/switch", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {reading.BookID},
+		"expected_current_snapshot_id": {reading.SnapshotID},
+	}, cookies)
+	assert.Equal(t, http.StatusSeeOther, switched.Code)
+	assert.Contains(t, switched.Header().Get("Location"), "is+now+your+current+reading")
+	currentAfterSwitch, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, switchBook.ID, currentAfterSwitch.BookID, "deck queue failure must not roll back switching current reading")
+	assert.NotEmpty(t, currentAfterSwitch.SnapshotID)
+	assert.Positive(t, currentAfterSwitch.SnapshotSize)
+	assert.Equal(t, switchSource.ID, currentAfterSwitch.SourceMaterialID)
 }
