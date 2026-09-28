@@ -43,7 +43,7 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	assert.NotNil(t, claimed.StartedAt, "claim")
 	_, err = store.ClaimDeckPreparation(ctx, alice.ID, created.ID)
 	assert.ErrorIs(t, err, ErrInvalidTransition) //nolint:testifylint // Repeated claim is an independent lifecycle rejection case.
-	readyInput := domain.DeckPreparation{Artifact: []byte("apkg"), Filename: "book.apkg", DeckName: "Mouseion::de::Book", TotalCards: 4, CardsWithEnglish: 3, CardsWithContextualSentenceTranslations: 2, QualityOmissions: 1}
+	readyInput := domain.DeckPreparation{Artifact: []byte("apkg"), Filename: "book.apkg", DeckName: "Mouseion::de::Book", TotalCards: 4, CardsWithEnglish: 3, CardsWithContextualSentenceTranslations: 2, CardsWithFallbackGloss: 2, QualityOmissions: 1}
 	ready, err := store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationReady, ready.State, "complete")
@@ -56,6 +56,10 @@ func TestDeckPreparationPersistence(t *testing.T) {
 	assert.Equal(t, 4, downloaded.TotalCards, "download")
 	assert.Equal(t, cardexport.RenderInputVersion, downloaded.RenderInputVersion, "download")
 	assert.Equal(t, cardexport.PresentationVersion, downloaded.PresentationVersion, "download")
+	historicalStatus, err := store.GetDeckPreparationStatus(ctx, alice.ID, created.ID)
+	require.NoError(t, err)
+	assert.False(t, historicalStatus.ContextualGlossesReported, "a Ready deck without a contextual-gloss run keeps its historical completeness semantics")
+	assert.Equal(t, 2, historicalStatus.CardsWithFallbackGloss)
 	_, err = store.CompleteDeckPreparation(ctx, alice.ID, created.ID, readyInput)
 	require.NoError(t, err, "idempotent complete")
 	changed := readyInput

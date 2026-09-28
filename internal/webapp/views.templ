@@ -657,7 +657,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				if deckPreparationHasNewerRevision(preparation) {
 					@Feedback(FeedbackInfo, "Updated deck revision available", fmt.Sprintf("Download deck revision %d to update your existing Anki notes in place.", preparation.DeckRevision))
 				}
-				<p><strong>Completeness:</strong> { fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %d with fallback gloss · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, preparation.CardsWithFallbackGloss, preparation.QualityOmissions) }</p>
+				<p><strong>Completeness:</strong> { deckCompletenessSummary(preparation) }</p>
 				for _, evidence := range preparation.EvidenceCoverage {
 					if evidence.Configured {
 						<p><strong>Meaning evidence:</strong> { fmt.Sprintf("%s matched %d of %d targets; %d candidates frozen, %d omitted by the candidate bound", evidence.Source, evidence.Matched, evidence.Selected, evidence.Candidates, evidence.Omitted) }</p>
@@ -697,6 +697,14 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 func bookHasCompletedAnalysis(book domain.SourceMaterialSummary) bool { return book.AnalysisStatus == "analyzed" && book.AnalysisState == "completed" && book.AnalysisRunID != "" && book.CorpusID != "" }
 func journeyDeckPreparationTaskURL(bookID string) string { return "/reading/books/" + url.PathEscape(bookID) + "/deck/preparations/new" }
 func completedAtLabel(value *time.Time) string { if value == nil || value.IsZero() { return "Unavailable" }; return value.UTC().Format("2006-01-02 15:04:05 UTC") }
+
+func deckCompletenessSummary(preparation domain.DeckPreparation) string {
+	glossSummary := fmt.Sprintf("%d with fallback gloss", preparation.CardsWithFallbackGloss)
+	if preparation.ContextualGlossesReported {
+		glossSummary = fmt.Sprintf("%d with contextual Gloss · %d inferred from sentence context", preparation.ContextualGlosses, preparation.ContextOnlyGlosses)
+	}
+	return fmt.Sprintf("%d cards · %d with English · %d with contextual sentence translations · %s · %d omitted for sentence quality", preparation.TotalCards, preparation.CardsWithEnglish, preparation.CardsWithContextualSentenceTranslations, glossSummary, preparation.QualityOmissions)
+}
 
 func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 {

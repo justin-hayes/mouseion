@@ -59,6 +59,20 @@ func TestReadyPreparationResponseExposesFallbackGlossCount(t *testing.T) {
 	assert.Contains(t, string(encoded), `"cards_with_fallback_gloss":1`)
 }
 
+func TestReadyPreparationResponseExposesContextualGlossInferenceCount(t *testing.T) {
+	response := preparationResponse(domain.DeckPreparation{
+		State: domain.DeckPreparationReady, ContextualGlossesReported: true,
+		ContextualGlosses: 4, ContextOnlyGlosses: 2,
+	})
+	encoded, err := json.Marshal(response)
+	require.NoError(t, err)
+	assert.Equal(t, 4, *response.Completeness.CardsWithContextualGloss)
+	assert.Equal(t, 2, *response.Completeness.ContextOnlyGlosses)
+	assert.Contains(t, string(encoded), `"cards_with_contextual_gloss":4`)
+	assert.Contains(t, string(encoded), `"context_only_glosses":2`)
+	assert.NotContains(t, string(encoded), `"cards_with_fallback_gloss"`)
+}
+
 func TestPreparationResponseExposesTargetAndReasonForMeaningOmissions(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{
 		State:            domain.DeckPreparationReady,
