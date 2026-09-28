@@ -1,13 +1,18 @@
-# Contextual gloss preparation from multiple lexical sources
+# Contextual gloss preparation
 
-Status: **Planned** · Date: 2026-09-27 · Decision:
+Status: **Core implemented** · Date: 2026-09-27 · Scope revised: 2026-09-28 · Decision:
 [ADR 0079](../adr/0079-contextual-glosses-require-llm.md)
+
+The FreeDict/PanLex source expansion in the original plan was canceled
+(#1263–#1265). The implemented path uses the existing Wiktionary/Kaikki index
+and sentence context. Explicit re-preparation of older Ready decks under these
+rules remains a separate follow-up (#1266).
 
 ## Motivation and goal
 
-The implemented pipeline freezes a Wiktionary-derived sense list, optionally
-lets the LLM select senses, and uses the LLM to write a fallback only when no
-sense fits. This can leave an ambiguous list instead of a simple answer to
+The earlier pipeline froze a Wiktionary-derived sense list, optionally
+let the LLM select senses, and used the LLM to write a fallback only when no
+sense fit. This could leave an ambiguous list instead of a simple answer to
 "what does this word mean *here*?" Prepare each new card with a short English
 cue for **one contextual meaning**, alongside its existing whole-sentence
 English translation. A few comma-separated near-synonyms are useful; unrelated
@@ -29,32 +34,16 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   Do not add a second gloss-only call. Continue sending only the target lemma,
   tested form, one sentence, and public lexical candidates; no whole Book,
   title, learner metadata, or reading history.
-- Collect local meaning evidence for `de`, `it`, and `el` to English from
-  Wiktionary/Kaikki, FreeDict, and rights-eligible PanLex material. Search the
-  available source entries before choosing a **bounded**, relevance-ranked
-  payload: exact vocabulary identity first, then recognized forms/spellings or
-  entries with missing POS, labeled as weaker matches. Include a source and
-  stable entry ID, source/version, evidence kind (sense explanation versus
-  lexical translation), and provenance for each candidate. Report how much
-  was omitted by the bound; an apparent duplicate with shared ancestry is not
-  independent corroboration. Do not treat translations as full definitions.
-- FreeDict `deu-eng` is Ding-derived and has mixed GPL/AGPL terms; `ita-eng`
-  and `ell-eng` are WikDict/DBnary derivatives of Wiktionary under CC BY-SA
-  3.0. Retain per-source origins, versions, license metadata, and attribution.
-  PanLex entries are eligible only when directly attested together under a
-  source with affirmatively reviewed reuse rights. Exclude unknown-permission,
-  permission-on-request, permission-only-to-PanLex, and unexplained license
-  categories; preserve all contributing provenance. Do not generate indirect
-  pivot-language translation chains as evidence. PanLex's database has
-  CC BY-NC-SA 4.0 terms in addition to source-level rights.
-- The build/import scripts may be published, but imported FreeDict and PanLex
-  data stay in private local artifacts for this installation. Do not bundle the
-  combined derived index in Git or public images, or share PanLex-bearing
-  decks, without a separate redistribution review. Credit used lexical
-  sources, licenses, and versions in deck/export metadata, even for paraphrased
-  glosses; keep cards themselves free of provenance labels. Verify a current
-  official PanLex snapshot or permitted retrieval channel before implementing
-  its importer; do not claim PanLex coverage until ingestion is demonstrated.
+- Collect local English meaning evidence for `de`, `it`, and `el` from the
+  Wiktionary/Kaikki index. Freeze a **bounded** candidate payload for the target
+  lemma/POS, labeling a missing-POS match as weaker. Retain stable candidate
+  IDs, source, origin, version, and sense text. Report how many candidates were
+  omitted by the bound. Keep Wiktionary attribution in deck/export metadata,
+  not on individual cards.
+- Do not import FreeDict or PanLex as part of this feature. Overlap, mixed
+  source terms, and provenance handling add complexity without an established
+  improvement in contextual gloss quality. Reconsider another source only
+  after a comparative quality sample and a separate rights review.
 - Freeze candidate text, source/provenance/version, and selection identity on
   the deck specification before the LLM call. Keep results tied to that
   evidence and the prompt/provider version. A source refresh must not change a
@@ -85,42 +74,34 @@ one-to-three-word cue would mislead, especially for function words or idioms.
   card when the LLM is unavailable.
 - Marking a context-inferred gloss on the Anki card or changing the card front,
   representative-sentence selection, or morphology/IPA presentation.
-- Publishing a redistributed multi-license dictionary dataset or claiming
-  PanLex availability before a current authorized data route is established.
+- Multi-source dictionary imports or a redistributed combined dataset.
 
 ## Acceptance criteria
 
-- [ ] All new preparation entry points use the LLM without a consent checkbox;
+- [x] All new preparation entry points use the LLM without a consent checkbox;
       Reading works when preparation cannot. Provider failures never yield a
       dictionary-only deck.
-- [ ] One call per item returns whole-sentence translation and one brief,
+- [x] One call per item returns whole-sentence translation and one brief,
       context-specific gloss; one meaning rather than a concatenated sense list.
-- [ ] Frozen evidence includes source/version/ancestry, candidate IDs and text;
-      bounded retrieval can recover a contextually relevant sense without
-      presenting duplicates as independent confirmation.
-- [ ] `deu-eng`, `ita-eng`, `ell-eng` FreeDict data is locally ingestible with
-      license/provenance retained. Eligible PanLex entries are locally ingestible
-      only once an authorized, current acquisition path is demonstrated;
-      unsupported or unavailable PanLex does not prevent other cards.
-- [ ] References to unknown candidate IDs and malformed/unsupported gloss
+- [x] Frozen Wiktionary evidence includes source/version, candidate IDs and text;
+      bounded retrieval can expose a relevant sense without implying additional
+      independent source confirmation.
+- [x] References to unknown candidate IDs and malformed/unsupported gloss
       responses are rejected; a valid unresolved item is omitted and reported;
       an all-omitted run fails. Context-only inferences and source coverage are
       inspectable in the deck result, not stamped onto cards.
-- [ ] Previous decks are unchanged, presentation rerenders read frozen data,
-      and explicit re-preparation may use refreshed source/prompt versions.
-      Used-source credits are present in deck/export metadata.
+- [x] Previous decks are unchanged, presentation rerenders read frozen data,
+      and Wiktionary credits are present in deck/export metadata.
+- [ ] Explicit re-preparation may use refreshed index/prompt versions without
+      rewriting older generations (#1266).
 - [ ] A reviewed sample across German, Italian, and Modern Greek compares old
       and new card glosses for contextual correctness, brevity, and unsupported
-      claims. Include polysemy, function words, idioms, absent evidence, source
-      disagreements, and invalid/ambiguous model responses; retain a rubric and
-      cases for later prompt/source regressions.
+      claims. Include polysemy, function words, idioms, absent evidence, evidence
+      at odds with sentence context, and invalid/ambiguous model responses;
+      retain a rubric and cases for later prompt regressions.
 
 ## Sources and prior contracts
 
 - [ADR 0064: Built-in dictionary enrichment provider](../adr/0064-dictionary-enrichment-provider.md)
 - [ADR 0069: LLM sense selection and fallback gloss](../adr/0069-llm-sense-selection-and-fallback-gloss.md)
 - [ADR 0071: Deck specification versus presentation](../adr/0071-decouple-deck-data-from-presentation.md)
-- [FreeDict downloads](https://freedict.org/downloads/) and [per-dictionary licensing guidance](https://freedict.org/documentation/)
-- FreeDict TEI source packages: [deu-eng 1.9-fd1](https://download.freedict.org/dictionaries/deu-eng/1.9-fd1/freedict-deu-eng-1.9-fd1.src.tar.xz), [ita-eng 2025.11.23](https://download.freedict.org/dictionaries/ita-eng/2025.11.23/freedict-ita-eng-2025.11.23.src.tar.xz), [ell-eng 2025.11.23](https://download.freedict.org/dictionaries/ell-eng/2025.11.23/freedict-ell-eng-2025.11.23.src.tar.xz)
-- [PanLex database license](https://panlex.org/license) and [source permissions](https://dev.panlex.org/source-registration/)
-- [PanLex snapshots](https://panlex.org/snapshot/) — current official download availability must be checked before implementation

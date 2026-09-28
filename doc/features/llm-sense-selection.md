@@ -1,11 +1,11 @@
 # LLM sense selection and fallback gloss
 
-Status: **Implemented** · Date: 2026-09-14 · Decision:
+Status: **Historical (replaced for new decks)** · Date: 2026-09-14 · Decision:
 [ADR 0069](../adr/0069-llm-sense-selection-and-fallback-gloss.md)
 
-This describes the current implementation. [Contextual gloss preparation](contextual-gloss-preparation.md)
-and ADR 0079 record an accepted, not-yet-implemented replacement for its
-optional LLM and dictionary-authored meaning behavior.
+This describes the historical optional sense-selection path.
+[Contextual gloss preparation](contextual-gloss-preparation.md) and ADR 0079
+replace its optional LLM and dictionary-authored meaning behavior for new decks.
 
 ## Motivation
 
