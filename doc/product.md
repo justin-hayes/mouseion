@@ -65,6 +65,7 @@ language for import.
 - [German separable-verb lemmatization](features/separable-verb-lemmatization.md) — reattaches German separable particles to verb lemmas in the NLP producer so vocabulary identity is the full lexeme, and excludes particles from content-word candidates.
 - [Sentence-quality scoring](features/sentence-quality-scoring.md) — a deterministic GDEX-informed rubric computed at export time over the persisted corpus: a finite-verb-and-subject knock-out plus gradual ranking (subordinate-clause placement, deixis, entity density, length).
 - [Dictionary gloss and morphology enrichment](features/dictionary-gloss-enrichment.md) — a built-in dictionary provider over a build-time-derived SQLite index (Wiktextract/Kaikki) supplying consent-free, deterministic English glosses and morphology (article, gender, plural) for German, Italian, and Modern Greek.
+- [Learner review of analyzer lemmas](features/lemma-review-and-correction.md) — proposed Book- and analysis-scoped review of suspicious occurrence lemmas before reading/deck vocabulary freezes; the analyzer evidence remains immutable.
 
 Retired feature records are preserved under [`doc/archive/features/`](archive/features/).
 
@@ -166,6 +167,7 @@ amendments.
 78. [ADR 0078: Book dispositions and current reading](adr/0078-book-dispositions-and-current-reading.md) — replaces Journey ordering and Primary Goal with Book dispositions, one current reading per study language, a neutral chooser, and explicit snapshot-based completion; records the decision specified in issue #1187.
 79. [ADR 0079: Contextual glosses require LLM-assisted deck preparation](adr/0079-contextual-glosses-require-llm.md) — replaces the consented, dictionary-default gloss path with mandatory contextual LLM glosses informed by Wiktionary evidence and sentence context; preserves existing decks and Reading independence. The proposed FreeDict/PanLex expansion was canceled.
 80. [ADR 0080: LLM-proposed English target alignment on recognition cards](adr/0080-llm-proposed-english-target-alignment.md) — accepts validated multi-span English alignments from new provider responses while leaving existing cached translations and ready decks unchanged until explicit re-preparation.
+81. [ADR 0081: Learner-owned occurrence lemma corrections before vocabulary freeze](adr/0081-learner-owned-occurrence-lemma-corrections.md) — derives owner-scoped effective vocabulary from immutable analysis plus learner-confirmed occurrence decisions; gates only high-risk unresolved review before Reading or deck freeze.
 
 ### Superseded or historical decisions
 
