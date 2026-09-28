@@ -83,15 +83,13 @@ unchanged.
 
 ## Meaning block
 
-The back has one meaning block, sourced from the dictionary `Gloss`: a compact,
-context-ordered sense set. The separate `English` lemma translation is retained
-in the note contract but no longer rendered; the contextual `EnglishSentence`
-translation remains distinct. See
-[ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
-
-When external translation is consented, the LLM may reselect and reorder the
-dictionary senses, or supply a fallback gloss when no dictionary sense fits. See
-[llm-sense-selection.md](llm-sense-selection.md).
+The back has one meaning block, the contextual `Gloss`: a compact cue for the
+tested sense, informed by dictionary evidence and the sentence. The separate
+`English` lemma translation is retained in the note contract but no longer
+rendered; the contextual `EnglishSentence` translation remains distinct. See
+[ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md),
+[contextual-gloss-preparation.md](contextual-gloss-preparation.md) and
+[ADR 0079](../adr/0079-contextual-glosses-require-llm.md).
 
 ## Presentation preview
 
@@ -107,11 +105,11 @@ was reviewed and signed off (PR #906) before the exporter changes landed; see
 ## English target highlighting
 
 The contextual English translation may bold the English word or phrase that
-corresponds to the German target. This is best-effort, not a required property
-of every card. The enrichment provider should return the complete translation
-plus a plain-text target phrase or structured alignment. Mouseion validates the
-phrase against the translation, escapes the text, and adds the HTML emphasis
-itself. The canonical provider response field is
+corresponds to the source-language target. This is best-effort, not a required
+property of every card. The enrichment provider should return the complete
+translation plus a plain-text target phrase or structured alignment. Mouseion
+validates the phrase against the translation, escapes the text, and adds the
+HTML emphasis itself. The current single-phrase provider response field is
 `sentence_translation_target`.
 
 If the phrase is absent, ambiguous, idiomatic, or otherwise cannot be validated,
@@ -119,7 +117,54 @@ the complete English translation is shown without highlighting.
 
 Provider-generated HTML is not trusted.
 
-## Implementation slices
+### Planned multi-span English alignment (not yet implemented)
+
+Extend the optional English target alignment to discontinuous correspondences,
+such as **knocks** and **over** in “knocks Piero over.” The external translation
+provider proposes an ordered set of exact excerpts from its complete English
+translation, choosing only the smallest words or phrases that convey the tested
+vocabulary. It does not enlarge an uncertain alignment to an entire clause or
+sentence. New provider prompts return only a structured list of excerpts: one
+excerpt for a contiguous phrase, multiple for discontinuous correspondences.
+The legacy single-phrase field remains readable for old cached responses but
+is not another answer in a new response. Mouseion validates that each excerpt
+has one unambiguous, word-bounded occurrence, that the spans do not overlap,
+and that their combined coverage does not include every lexical word of a
+multiword sentence. Mouseion owns all escaping and emphasis; if any excerpt is
+missing, repeated, or otherwise invalid, the complete translation and gloss
+remain available but the English sentence is unhighlighted. Validate before
+writing the immutable cache (storing no alignment if invalid) and again at
+render as defense in depth. Minimality beyond these checks is an instruction
+to the provider, not something Mouseion can prove from the translation alone.
+
+This requires new provider output. An offline re-render of an existing ready
+deck cannot produce a new alignment from its immutable cached translation; the
+learner must explicitly re-prepare the deck with the configured provider to
+obtain the new provider output. Prepared-deck translation follows the existing
+required-LLM policy, not a new per-learner consent setting. Re-rendering neither
+calls the provider nor infers multi-span alignment from old results.
+Re-preparation runs the current translation-and-gloss workflow, so it may also
+change the English wording and Gloss; there is no separate alignment-only
+provider call to retrofit an old translation. Old decks remain usable and are
+not flagged as presentation-stale solely for lacking this new provider data;
+no new upgrade prompt is added. The existing single-phrase alignment remains
+the current behavior until this extension ships.
+
+The same optional alignment contract applies to prepared decks in every
+supported study language when they have an English sentence translation. Before
+shipping, evaluate curated contiguous, discontinuous, repeated, idiomatic, and
+no-alignment cases across German, Italian, and Modern Greek where examples are
+available. Reviewed examples must show no misleading emphasis; missing emphasis
+is acceptable when the correspondence is uncertain. Use fixed provider-response
+fixtures for repeatable automated tests rather than calling a live provider in
+CI, and review representative cases against the configured model before
+rollout. Matching validity is not a substitute for assessing whether the
+provider chose the right meaning-bearing words.
+
+See [ADR 0080](../adr/0080-llm-proposed-english-target-alignment.md) for the
+decision amending ADR 0029's distributed-correspondence fallback.
+
+## Original implementation slices
 
 1. Remove `context_sentence` generation, validation, caching, and front-side
    selection. Preserve the complete source sentence and complete English
