@@ -108,6 +108,13 @@ components of the target are emphasised, the headword line, the note's field
 order, and the Anki model, template, and styling.
 _Avoid_: rendering, formatting.
 
+**English target alignment**:
+The optional correspondence between the tested vocabulary in a representative
+sentence and one or more spans of its complete English translation. A confident
+correspondence can be discontinuous; an uncertain one leaves the translation
+unemphasised.
+_Avoid_: English bolding (the presentation of an alignment, not the alignment).
+
 **Presentation version**:
 Identifies the card-presentation rules a deck was built with, so a deck that
 presents an older version can be recognised and rebuilt.
