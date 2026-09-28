@@ -106,26 +106,57 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 	language := canonicalization.NormalizeLanguage(request.Language)
 	lemma := normalizeLemma(language, request.CanonicalLemma)
 	upos := strings.ToUpper(strings.TrimSpace(request.UPOS))
-	if language == "" || lemma == "" || upos == "" {
+	if language == "" || lemma == "" {
 		return enrichment.LexicalEntry{}, false, nil
 	}
-	var sensesJSON, gender, article, plural, ipa, principalParts string
-	err := i.db.QueryRowContext(ctx, `SELECT senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND upos = ?`, language, lemma, upos).Scan(&sensesJSON, &gender, &article, &plural, &ipa, &principalParts)
-	if errors.Is(err, sql.ErrNoRows) {
-		return enrichment.LexicalEntry{}, false, nil
-	}
+	rows, err := i.db.QueryContext(ctx, `SELECT upos, senses_json, gender, article, plural, ipa, principal_parts FROM entries WHERE language = ? AND lemma = ? AND (upos = ? OR upos = '') ORDER BY CASE WHEN upos = ? THEN 0 ELSE 1 END`, language, lemma, upos, upos)
 	if err != nil {
 		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup: %w", err)
 	}
-	var senses []enrichment.LexicalSense
-	if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
-		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
+	defer rows.Close() //nolint:errcheck // Rows.Err below reports actionable lookup failures.
+	var exactSenses, weakSenses []enrichment.LexicalSense
+	var gender, article, plural, ipa, principalParts string
+	foundExact := false
+	for rows.Next() {
+		var entryUPOS, sensesJSON, rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts string
+		if err = rows.Scan(&entryUPOS, &sensesJSON, &rowGender, &rowArticle, &rowPlural, &rowIPA, &rowPrincipalParts); err != nil {
+			return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup row: %w", err)
+		}
+		var senses []enrichment.LexicalSense
+		if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
+			return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary senses: %w", err)
+		}
+		exactMatch := entryUPOS == upos && upos != ""
+		if exactMatch {
+			foundExact = true
+			gender, article, plural, ipa, principalParts = rowGender, rowArticle, rowPlural, rowIPA, rowPrincipalParts
+		} else {
+			for senseIndex := range senses {
+				senses[senseIndex].MatchStrength = "lemma_only_missing_pos"
+			}
+		}
+		if exactMatch {
+			exactSenses = append(exactSenses, senses...)
+		} else {
+			weakSenses = append(weakSenses, senses...)
+		}
 	}
+	if err = rows.Err(); err != nil {
+		return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary lookup rows: %w", err)
+	}
+	if !foundExact && len(weakSenses) == 0 {
+		return enrichment.LexicalEntry{}, false, nil
+	}
+	senses := append(exactSenses, weakSenses...)
 	seenEvidenceIDs := make(map[string]struct{}, len(senses))
 	for index := 0; index < len(senses); {
 		sense := &senses[index]
 		if sense.EvidenceID == "" {
-			identity, marshalErr := json.Marshal(evidenceIdentity{Language: language, Lemma: lemma, UPOS: upos, Gloss: sense.Gloss, Phrase: sense.Phrase, Examples: sense.Examples, Topics: sense.Topics, Tags: sense.Tags})
+			evidenceUPOS := upos
+			if sense.MatchStrength == "lemma_only_missing_pos" {
+				evidenceUPOS = ""
+			}
+			identity, marshalErr := json.Marshal(evidenceIdentity{Language: language, Lemma: lemma, UPOS: evidenceUPOS, Gloss: sense.Gloss, Phrase: sense.Phrase, Examples: sense.Examples, Topics: sense.Topics, Tags: sense.Tags})
 			if marshalErr != nil {
 				return enrichment.LexicalEntry{}, false, fmt.Errorf("dictionary evidence identity: %w", marshalErr)
 			}
@@ -154,7 +185,17 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		seenEvidenceIDs[sense.EvidenceID] = struct{}{}
 		index++
 	}
-	ordered := enrichment.OrderSenses(request, senses)
+	var orderedExactSenses, orderedWeakSenses []enrichment.LexicalSense
+	for _, sense := range senses {
+		if sense.MatchStrength == "lemma_only_missing_pos" {
+			orderedWeakSenses = append(orderedWeakSenses, sense)
+		} else {
+			orderedExactSenses = append(orderedExactSenses, sense)
+		}
+	}
+	orderedExact := enrichment.OrderSenses(request, orderedExactSenses)
+	orderedWeak := enrichment.OrderSenses(request, orderedWeakSenses)
+	ordered := append(orderedExact, orderedWeak...)
 	result := enrichment.LexicalEntry{Senses: ordered, CandidateSenses: append([]enrichment.LexicalSense(nil), senses...), IPA: ipa, PrincipalParts: principalParts}
 	if language == "el" {
 		result.Gender = gender

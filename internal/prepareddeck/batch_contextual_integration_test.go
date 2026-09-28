@@ -4,14 +4,17 @@ package prepareddeck
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -20,6 +23,7 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 )
 
 type contextualBatchFixtureProvider struct {
@@ -136,12 +140,38 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	require.NoError(t, err)
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "fixture-model", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
+	indexPath := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	indexDB, err := sql.Open("sqlite", indexPath)
+	require.NoError(t, err)
+	_, err = indexDB.ExecContext(ctx, `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1')`)
+	require.NoError(t, err)
+	weakFixture := make([]enrichment.LexicalSense, 9)
+	for index := range weakFixture {
+		evidenceID := "wikt:weak-" + strconv.Itoa(index)
+		if index == 0 {
+			evidenceID = "wikt:context"
+		}
+		weakFixture[index] = enrichment.LexicalSense{EvidenceID: evidenceID, Gloss: "context"}
+	}
+	encodedFixture, err := json.Marshal(weakFixture)
+	require.NoError(t, err)
+	_, err = indexDB.ExecContext(ctx, `INSERT INTO entries VALUES ('de', 'resolved', '', ?, '', '', '', '', '')`, string(encodedFixture))
+	require.NoError(t, err)
+	require.NoError(t, indexDB.Close())
+	index, err := dictionary.OpenIndex(ctx, indexPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, index.Close()) })
+	weak, found, err := index.Lookup(ctx, enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "resolved", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, weak.CandidateSenses, 9)
+	require.Equal(t, "lemma_only_missing_pos", weak.CandidateSenses[0].MatchStrength)
 	entries := []cardexport.Entry{
-		{Language: "de", CanonicalLemma: "resolved", UPOS: "NOUN", Sentence: "Der erste Kontext steht heute im Buch.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 1, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:context", Gloss: "context"}}},
+		{Language: "de", CanonicalLemma: "resolved", UPOS: "NOUN", Sentence: "Der erste Kontext steht heute im Buch.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 1, DictionaryProviderVersion: index.Version(), CandidateSenses: weak.CandidateSenses},
 		{Language: "de", CanonicalLemma: "unresolved", UPOS: "NOUN", Sentence: "Der zweite Kontext bleibt heute unklar.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 2, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:unclear", Gloss: "unclear"}}},
 		{Language: "de", CanonicalLemma: "inferred", UPOS: "NOUN", Sentence: "Der dritte Kontext beschreibt eine neue Situation.", TargetWord: "Situation", SourceDocument: source.Title, FirstEncounter: 3, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:missing", Gloss: "scene"}}},
 	}
-	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, entries, testutil.PresentationProvider{Name: codec.ProviderName(), Version: codec.ContextualGlossProviderVersion(), TargetLanguage: "en", RequireContextualGloss: true})
+	deck, err := testutil.FreezePresentationDeckWithLexical(ctx, owner.ID, source.Title, entries, testutil.PresentationProvider{Name: codec.ProviderName(), Version: codec.ContextualGlossProviderVersion(), TargetLanguage: "en", RequireContextualGloss: true}, index)
 	require.NoError(t, err)
 	runID := uuid.NewString()
 	chunks, err := PlanBatchChunks(codec, runID, 1, codec.Model(), enrichment.OpenAIChatCompletionsEndpoint, deck.WorkProjection(), BatchChunkLimits{MaxRequests: 10})
@@ -176,6 +206,13 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	assert.Equal(t, 2, ready.TotalCards)
 	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, runID)
 	require.NoError(t, err)
+	require.Len(t, frozen.Items[0].Entry.CandidateSenses, enrichment.DefaultMaxCandidateSenses)
+	require.Equal(t, "wikt:context", frozen.Items[0].Entry.CandidateSenses[0].EvidenceID)
+	require.Equal(t, "wiktionary", frozen.Items[0].Entry.CandidateSenses[0].Source)
+	require.Equal(t, "Kaikki.org Wiktextract enwiktionary", frozen.Items[0].Entry.CandidateSenses[0].Origin)
+	require.Equal(t, "fixture-v1", frozen.Items[0].Entry.CandidateSenses[0].Version)
+	require.Equal(t, "lemma_only_missing_pos", frozen.Items[0].Entry.CandidateSenses[0].MatchStrength, "durable finalization retains the weaker lexical match label")
+	require.Equal(t, 1, frozen.Items[0].Entry.OmittedEvidenceCount, "durable finalization retains candidate-bound truncation")
 	standardDeck, err := cardexport.NewPresentation(nil).Restore(frozen)
 	require.NoError(t, err)
 	standardFacts := preparedDeckRunFacts(current)
@@ -186,6 +223,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	assert.Equal(t, 2, standardArtifact.Completeness.TotalCards)
 	status, err := store.GetDeckPreparationStatus(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
+	assert.Equal(t, []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 3, Matched: 3, Candidates: 10, Omitted: 1}}, status.EvidenceCoverage)
 	assert.Equal(t, []domain.DeckPreparationMeaningOmission{{TargetWord: "Kontext", Reason: "The sentence does not distinguish the meanings."}}, status.MeaningOmissions)
 	assert.True(t, status.ContextualGlossesReported)
 	assert.Equal(t, 2, status.ContextualGlosses)
@@ -197,7 +235,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, results[0].State)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, results[1].State)
 	assert.Equal(t, "The sentence does not distinguish the meanings.", results[1].OmissionReason)
-	_, found, err := store.Get(ctx, deck.WorkProjection()[0].CacheKey)
+	_, found, err = store.Get(ctx, deck.WorkProjection()[0].CacheKey)
 	require.NoError(t, err)
 	assert.True(t, found)
 	_, found, err = store.Get(ctx, deck.WorkProjection()[1].CacheKey)
