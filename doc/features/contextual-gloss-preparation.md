@@ -98,7 +98,9 @@ one-to-three-word cue would mislead, especially for function words or idioms.
       and new card glosses for contextual correctness, brevity, and unsupported
       claims. Include polysemy, function words, idioms, absent evidence, evidence
       at odds with sentence context, and invalid/ambiguous model responses;
-      retain a rubric and cases for later prompt regressions.
+      retain a rubric and cases for later prompt regressions. The case register
+      and review worksheet are in [the contextual Gloss quality sample](../quality/contextual-gloss-sample.md);
+      reconcile this criterion only after its human review is recorded.
 
 ## Sources and prior contracts
 
