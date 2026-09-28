@@ -42,6 +42,8 @@ type DeckPreparation struct {
 	State                                                                                                                      DeckPreparationState
 	Artifact                                                                                                                   []byte
 	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                              int
+	ContextualGlosses, ContextOnlyGlosses                                                                                      int
+	ContextualGlossesReported                                                                                                  bool
 	QualityOmissions                                                                                                           int
 	RenderInputVersion, PresentationVersion, DeckRevision                                                                      int
 	VocabularyCount                                                                                                            int

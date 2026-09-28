@@ -153,6 +153,13 @@ A ready artifact whose frozen render inputs cannot be recovered is named
 offers an owner-scoped roll-forward preparation bound to the same exact
 analysis or Goal snapshot; it does not hide recovery behind an empty state.
 
+The ready preparation result keeps Meaning-evidence coverage and omissions
+visible and counts contextual Glosses inferred from the representative sentence
+without frozen evidence. New contextual Glosses are described as contextual, not
+as historical fallback glosses; an older Ready artifact retains the wording of
+the preparation contract that created it. Inference provenance stays outside
+Anki card faces.
+
 The interface must answer:
 
 - Which analysis will this deck use?

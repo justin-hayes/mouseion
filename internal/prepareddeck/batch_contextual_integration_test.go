@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,6 +27,7 @@ type contextualBatchFixtureProvider struct {
 	output   []byte
 	batch    enrichment.Batch
 	metadata map[string]string
+	batches  int
 }
 
 type contextualStandardFixtureProvider struct {
@@ -35,7 +37,10 @@ type contextualStandardFixtureProvider struct {
 func (p contextualStandardFixtureProvider) Name() string    { return p.name }
 func (p contextualStandardFixtureProvider) Version() string { return p.version }
 func (p contextualStandardFixtureProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	if request.CanonicalLemma == "unresolved" {
+	if request.CanonicalLemma == "unresolved" || request.CanonicalLemma == "inferred" {
+		if request.CanonicalLemma == "inferred" {
+			return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTarget: "translated"}, nil
+		}
 		return enrichment.TranslationResponse{Translation: "translated", SentenceTranslation: "The translated sentence.", ContextOnly: true, UnresolvedReason: "The sentence does not distinguish the meanings."}, nil
 	}
 	return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", EvidenceIDs: []string{"wikt:context"}, SentenceTranslation: "The translated sentence.", SentenceTranslationTarget: "translated"}, nil
@@ -44,10 +49,12 @@ func (p contextualStandardFixtureProvider) Translate(_ context.Context, request 
 func (p *contextualBatchFixtureProvider) UploadFile(_ context.Context, _ string, content io.Reader) (enrichment.OpenAIFile, error) {
 	var err error
 	p.input, err = io.ReadAll(content)
-	return enrichment.OpenAIFile{ID: "contextual-input", Bytes: int64(len(p.input))}, err
+	return enrichment.OpenAIFile{ID: "contextual-input-" + strconv.Itoa(p.batches+1), Bytes: int64(len(p.input))}, err
 }
 
 func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request enrichment.CreateBatchRequest) (enrichment.Batch, error) {
+	p.batches++
+	batchSuffix := strconv.Itoa(p.batches)
 	p.metadata = request.Metadata
 	var output strings.Builder
 	count := 0
@@ -73,6 +80,11 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 		if identity.Ordinal == 1 {
 			response["gloss"] = ""
 			response["unresolved_reason"] = "The sentence does not distinguish the meanings."
+		} else if identity.Ordinal == 0 {
+			response["gloss"] = "contextual meaning"
+			response["evidence_ids"] = []string{"wikt:context"}
+			response["context_only"] = false
+			response["unresolved_reason"] = ""
 		} else {
 			response["gloss"] = "contextual meaning"
 			response["unresolved_reason"] = ""
@@ -90,7 +102,7 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 		count++
 	}
 	p.output = []byte(output.String())
-	p.batch = enrichment.Batch{ID: "contextual-batch", InputFileID: request.InputFileID, OutputFileID: "contextual-output", Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CompletionWindow: "24h", Status: enrichment.BatchStatusCompleted, RequestCounts: enrichment.BatchRequestCounts{Total: count, Completed: count}, Metadata: request.Metadata}
+	p.batch = enrichment.Batch{ID: "contextual-batch-" + batchSuffix, InputFileID: request.InputFileID, OutputFileID: "contextual-output-" + batchSuffix, Endpoint: enrichment.OpenAIChatCompletionsEndpoint, CompletionWindow: "24h", Status: enrichment.BatchStatusCompleted, RequestCounts: enrichment.BatchRequestCounts{Total: count, Completed: count}, Metadata: request.Metadata}
 	return p.batch, nil
 }
 
@@ -103,7 +115,7 @@ func (p *contextualBatchFixtureProvider) GetBatch(context.Context, string) (enri
 }
 
 func (p *contextualBatchFixtureProvider) FileContent(_ context.Context, id string, dst io.Writer) error {
-	if id == "contextual-output" {
+	if strings.HasPrefix(id, "contextual-output-") {
 		_, err := dst.Write(p.output)
 		return err
 	}
@@ -127,6 +139,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	entries := []cardexport.Entry{
 		{Language: "de", CanonicalLemma: "resolved", UPOS: "NOUN", Sentence: "Der erste Kontext steht heute im Buch.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 1, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:context", Gloss: "context"}}},
 		{Language: "de", CanonicalLemma: "unresolved", UPOS: "NOUN", Sentence: "Der zweite Kontext bleibt heute unklar.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 2, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:unclear", Gloss: "unclear"}}},
+		{Language: "de", CanonicalLemma: "inferred", UPOS: "NOUN", Sentence: "Der dritte Kontext beschreibt eine neue Situation.", TargetWord: "Situation", SourceDocument: source.Title, FirstEncounter: 3, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:missing", Gloss: "scene"}}},
 	}
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, entries, testutil.PresentationProvider{Name: codec.ProviderName(), Version: codec.ContextualGlossProviderVersion(), TargetLanguage: "en", RequireContextualGloss: true})
 	require.NoError(t, err)
@@ -160,7 +173,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	ready, err := (&DurableFinalizer{Store: store, Renderer: cardexport.NewPresentation(nil)}).Finalize(ctx, owner.ID, preparation.ID, runID, current.FinalizationDispatchGeneration)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationReady, ready.State)
-	assert.Equal(t, 1, ready.TotalCards)
+	assert.Equal(t, 2, ready.TotalCards)
 	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, runID)
 	require.NoError(t, err)
 	standardDeck, err := cardexport.NewPresentation(nil).Restore(frozen)
@@ -170,14 +183,17 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	standardArtifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, standardDeck, stored, standardFacts)
 	require.NoError(t, err)
 	assert.Equal(t, standardArtifact.APKG, ready.Artifact, "Batch publication must match the standard-mode artifact for the same frozen outcomes")
-	assert.Equal(t, 1, standardArtifact.Completeness.TotalCards)
+	assert.Equal(t, 2, standardArtifact.Completeness.TotalCards)
 	status, err := store.GetDeckPreparationStatus(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.DeckPreparationMeaningOmission{{TargetWord: "Kontext", Reason: "The sentence does not distinguish the meanings."}}, status.MeaningOmissions)
+	assert.True(t, status.ContextualGlossesReported)
+	assert.Equal(t, 2, status.ContextualGlosses)
+	assert.Equal(t, 1, status.ContextOnlyGlosses)
 	assert.NotEmpty(t, status.Artifact)
 	results, err := store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, preparation.ID, runID)
 	require.NoError(t, err)
-	require.Len(t, results, 2)
+	require.Len(t, results, 3)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, results[0].State)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, results[1].State)
 	assert.Equal(t, "The sentence does not distinguish the meanings.", results[1].OmissionReason)
@@ -187,6 +203,41 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	_, found, err = store.Get(ctx, deck.WorkProjection()[1].CacheKey)
 	require.NoError(t, err)
 	assert.False(t, found, "unresolved meanings must not be cached")
+	_, found, err = store.Get(ctx, deck.WorkProjection()[2].CacheKey)
+	require.NoError(t, err)
+	assert.True(t, found, "context-only gloss must remain distinguishable in the durable cache record")
+
+	// A later Batch preparation consumes both the supported and context-only
+	// records from cache, submitting only the unresolved card again.
+	cachedSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: source.Title, MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
+	require.NoError(t, err)
+	cachedPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: cachedSource.ID, Filename: cardexport.DownloadFilename(cachedSource.Title), DeckName: cachedSource.Title, ContentHash: cachedSource.ContentHash})
+	require.NoError(t, err)
+	cachedRunID := uuid.NewString()
+	cachedChunks, err := PlanBatchChunks(codec, cachedRunID, 1, codec.Model(), enrichment.OpenAIChatCompletionsEndpoint, []cardexport.WorkItem{deck.WorkProjection()[1]}, BatchChunkLimits{MaxRequests: 10})
+	require.NoError(t, err)
+	cachedPlanner := fixedStandardPlanner{params: persistence.FreezePreparedDeckRunParams{RunID: cachedRunID, Projection: deck.StorageProjection(), Config: config, Chunks: cachedChunks}}
+	cachedCoordinator := NewDurableCoordinator(store, client, cachedPlanner)
+	cachedRun, err := cachedCoordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: cachedPreparation.ID})
+	require.NoError(t, err)
+	cachedOutcomes, err := store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, cachedPreparation.ID, cachedRunID)
+	require.NoError(t, err)
+	require.Len(t, cachedOutcomes, 3)
+	assert.Equal(t, 1, cachedOutcomes[0].CacheHitCount)
+	assert.Equal(t, 1, cachedOutcomes[2].CacheHitCount)
+	require.Len(t, cachedRun.Chunks, 1)
+	cachedChunk := cachedRun.Chunks[0]
+	require.NoError(t, submitter.Submit(ctx, BatchSubmitJobArgs{OwnerID: owner.ID, PreparationID: cachedPreparation.ID, RunID: cachedRunID, ChunkID: cachedChunk.ID, Generation: cachedChunk.Generation}))
+	require.NoError(t, poller.Poll(ctx, BatchPollJobArgs{OwnerID: owner.ID, PreparationID: cachedPreparation.ID, RunID: cachedRunID, ChunkID: cachedChunk.ID, Generation: cachedChunk.ReconciliationGeneration}))
+	cachedCurrent, err := store.GetPreparedDeckRun(ctx, owner.ID, cachedPreparation.ID, cachedRunID)
+	require.NoError(t, err)
+	cachedReady, err := (&DurableFinalizer{Store: store, Renderer: cardexport.NewPresentation(nil)}).Finalize(ctx, owner.ID, cachedPreparation.ID, cachedRunID, cachedCurrent.FinalizationDispatchGeneration)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationReady, cachedReady.State)
+	cachedStatus, err := store.GetDeckPreparationStatus(ctx, owner.ID, cachedPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, cachedStatus.ContextualGlosses)
+	assert.Equal(t, 1, cachedStatus.ContextOnlyGlosses)
 
 	// Run the same frozen requests through standard execution after clearing only
 	// their shared cache rows. The fake standard provider returns the identical
@@ -222,6 +273,11 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	assert.Equal(t, ready.Artifact, standardReady.Artifact)
 	assert.Equal(t, ready.TotalCards, standardReady.TotalCards)
 	assert.Equal(t, ready.MeaningOmissions, standardReady.MeaningOmissions)
+	standardStatus, err := store.GetDeckPreparationStatus(ctx, owner.ID, standardPreparation.ID)
+	require.NoError(t, err)
+	assert.True(t, standardStatus.ContextualGlossesReported)
+	assert.Equal(t, 2, standardStatus.ContextualGlosses)
+	assert.Equal(t, 1, standardStatus.ContextOnlyGlosses)
 	standardOutcomes, err = store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, standardPreparation.ID, standardRunID)
 	require.NoError(t, err)
 	require.Len(t, standardOutcomes, len(results))

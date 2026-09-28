@@ -54,6 +54,25 @@ func (s *PostgresStore) GetDeckPreparationStatus(ctx context.Context, owner, pre
 	if err != nil {
 		return p, err
 	}
+	if p.State == domain.DeckPreparationReady && projection.SchemaVersion >= cardexport.ManifestSchemaVersionV8 {
+		records, recordsErr := s.loadPreparedDeckStoredRecords(ctx, projection)
+		if recordsErr != nil {
+			return p, recordsErr
+		}
+		p.ContextualGlossesReported = true
+		for _, record := range records {
+			if !record.Found || record.CacheKey.MeaningEvidenceHash == "" {
+				continue
+			}
+			p.ContextualGlosses++
+			// For contextual-gloss identities, validated non-empty evidence IDs
+			// become selection indices in the durable cache. An empty selection
+			// therefore preserves the provider's explicit context-only outcome.
+			if len(record.Entry.SenseSelection) == 0 {
+				p.ContextOnlyGlosses++
+			}
+		}
+	}
 	for _, coverage := range frozen.Diagnostics().EvidenceCoverage {
 		p.EvidenceCoverage = append(p.EvidenceCoverage, domain.DeckPreparationEvidenceCoverage{Source: coverage.Source, Configured: coverage.Configured, Selected: coverage.Selected, Matched: coverage.Matched, Candidates: coverage.Candidates, Omitted: coverage.Omitted})
 	}

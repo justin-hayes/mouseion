@@ -253,6 +253,20 @@ func TestReadyDeckShowsFallbackGlossCountInCompleteness(t *testing.T) {
 	assert.Contains(t, output.String(), "1 with fallback gloss")
 }
 
+func TestReadyDeckReportsContextualGlossesAndContextOnlyInference(t *testing.T) {
+	preparation := domain.DeckPreparation{
+		ID: "prep-contextual", SourceMaterialID: "book-contextual", State: domain.DeckPreparationReady,
+		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", TotalCards: 3,
+		CardsWithEnglish: 3, ContextualGlossesReported: true, ContextualGlosses: 3, ContextOnlyGlosses: 1,
+	}
+	var output bytes.Buffer
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "3 with contextual Gloss")
+	assert.Contains(t, html, "1 inferred from sentence context")
+	assert.NotContains(t, html, "fallback gloss")
+}
+
 func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 10}
 	tests := []struct {
