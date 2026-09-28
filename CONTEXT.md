@@ -327,6 +327,40 @@ raw input from which a language-specific normalization profile derives the
 canonical lemma. Not to be confused with the full lemma of a separable verb.
 _Avoid_: root (morphology), base form (ambiguous).
 
+**Effective vocabulary identity**:
+The language, canonical lemma, and part-of-speech identity attributed to an
+analyzed occurrence in learner-facing vocabulary after any confirmed
+correction. It can differ from the preserved analyzer assignment; an excluded
+occurrence contributes none.
+_Avoid_: edited analyzer lemma, global corrected lemma.
+
+**Lemma review flag**:
+A non-authoritative indication that an analyzed occurrence's lemma may assign
+the wrong vocabulary identity, offered for learner review before it affects a
+current-reading snapshot or prepared deck. Missing dictionary evidence alone
+does not prove an error.
+_Avoid_: invalid lemma, unconfirmed lemma.
+
+**Lemma suggestion**:
+An unapproved alternative lemma for an analyzed occurrence, supported by
+dictionary, model, or other evidence. It changes no vocabulary identity until
+the learner confirms it; review remains possible without such suggestions.
+_Avoid_: automatic correction, LLM correction.
+
+**Lemma correction**:
+A learner-confirmed alternative canonical lemma for one occurrence in a Book's
+exact analysis, governing derived reading and deck vocabulary while preserving
+analyzer evidence. It need not have a dictionary entry, can be made without a
+flag, and is never applied globally or across analyses automatically.
+_Avoid_: spelling correction, dictionary correction, global lemma override.
+
+**Occurrence exclusion**:
+A learner-confirmed choice to omit one analyzed occurrence from vocabulary
+selection while retaining it in the Book's source and analysis evidence. It
+does not mark its lemma Known, remove it from analyzable-token coverage, or
+exclude other occurrences of that lemma.
+_Avoid_: delete token, ignore lemma, Known vocabulary.
+
 **Collocation**:
 Words that co-occur with a queried lemma within a limited span (typically the
 same sentence), counted across an analyzed Book or study language. A
