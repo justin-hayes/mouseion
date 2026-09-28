@@ -24,6 +24,10 @@ func (repreparingPreparedDeck) Retry(context.Context, string, string) (preparedd
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
 
+func (repreparingPreparedDeck) Reprepare(context.Context, string, string) (prepareddeck.Handle, error) {
+	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
+}
+
 func TestPreparationResponseExposesPhaseCountsWithoutProviderIdentity(t *testing.T) {
 	response := preparationResponse(domain.DeckPreparation{
 		ID: "preparation-1", State: domain.DeckPreparationPreparing, Phase: "waiting",
@@ -108,11 +112,11 @@ func TestPreparationResponseSurfacesUnrecoverableRenderInputs(t *testing.T) {
 	assert.Empty(t, response.DownloadURL)
 }
 
-func TestReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
+func TestExplicitReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	requireHandler(t, h).services.PreparedDeck = repreparingPreparedDeck{}
 
-	response := goalRequest(t, h, "/deck-preparations/old-preparation/retry", url.Values{
+	response := goalRequest(t, h, "/deck-preparations/old-preparation/reprepare", url.Values{
 		"csrf_token": {csrf},
 	}, cookies)
 

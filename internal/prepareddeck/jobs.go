@@ -513,7 +513,18 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (domain.DeckPrep
 	return p, nil
 }
 
-func (s *Service) Retry(ctx context.Context, owner, id string) (result Handle, err error) {
+func (s *Service) Retry(ctx context.Context, owner, id string) (Handle, error) {
+	return s.retry(ctx, owner, id, false)
+}
+
+// Reprepare explicitly rolls a Ready preparation forward to a new generation
+// using the current deck-specification and translation rules. The old artifact
+// remains attached to its retired preparation for owner-scoped downloads.
+func (s *Service) Reprepare(ctx context.Context, owner, id string) (Handle, error) {
+	return s.retry(ctx, owner, id, true)
+}
+
+func (s *Service) retry(ctx context.Context, owner, id string, forceReprepare bool) (result Handle, err error) {
 	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
 		return Handle{}, ErrInvalidInput
 	}
@@ -545,17 +556,18 @@ func (s *Service) Retry(ctx context.Context, owner, id string) (result Handle, e
 			return Handle{}, err
 		}
 		id = p.ID
-		if p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError {
+		if p.State == domain.DeckPreparationReady {
 			if err = tx.Commit(ctx); err != nil {
 				return Handle{}, err
 			}
 			return Handle{Preparation: p}, nil
 		}
 	}
-	if p.State == domain.DeckPreparationReady && p.Error == domain.DeckPreparationRequiresRepreparationError {
-		// The sentinel means the immutable specification cannot be rendered.
-		// Retire that current row and roll forward to a new specification bound
-		// to the same exact analysis (and Goal snapshot, if present).
+	if p.State == domain.DeckPreparationReady && (p.Error == domain.DeckPreparationRequiresRepreparationError || forceReprepare) {
+		// Either the immutable specification cannot be rendered or the learner
+		// explicitly requested current meaning evidence. Retire the current row
+		// and roll forward to a new specification bound to the same exact
+		// analysis (and Goal snapshot, if present).
 		if p.BookID != "" {
 			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
 				return Handle{}, err

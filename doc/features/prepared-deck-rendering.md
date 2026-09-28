@@ -77,10 +77,14 @@ marked stale and re-rendered by a background job. Re-rendering:
 
 An input-stale deck is re-renderable only when its missing inputs can be read
 from the immutable per-analysis corpus; otherwise it is reported as requiring
-re-preparation. Re-preparation is an explicit roll-forward exception: the old
+re-preparation. Re-preparation is an explicit roll-forward exception: it is
+available when an input is missing and when a learner wants an older Ready deck
+to use current Meaning evidence and contextual-Gloss rules. The old
 owner-scoped artifact remains historical and downloadable, while one new
 current preparation is created for the same source and analysis run (or Goal
-snapshot). Repeated recovery resolves to that current generation.
+snapshot). Repeated recovery against a retired generation resolves to that
+current generation. Presentation-only rerender continues to use only frozen
+data and never performs a fresh lookup or translation.
 
 ## Recovering inputs from the corpus
 
@@ -131,6 +135,9 @@ timestamps remain available for provenance.
 - A deck reported as requiring re-preparation keeps its old artifact and
   provenance, and recovery creates a new current preparation without re-running
   analysis.
+- Explicitly re-preparing a Ready deck creates one new generation with the same
+  analysis and Goal snapshot identity, preserves owner-download of the previous
+  artifact, and is idempotent when retried against the retired generation.
 
 ## References
 
