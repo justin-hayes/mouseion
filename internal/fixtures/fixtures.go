@@ -1629,6 +1629,9 @@ func (PreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparat
 func (PreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{JobID: 9}, nil
 }
+func (PreparedDeck) Reprepare(context.Context, string, string) (prepareddeck.Handle, error) {
+	return prepareddeck.Handle{JobID: 11}, nil
+}
 func (PreparedDeck) Rerender(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{JobID: 10}, nil
 }

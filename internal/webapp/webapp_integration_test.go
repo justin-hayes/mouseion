@@ -174,6 +174,22 @@ func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string) (pr
 	r.preparations[id] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 92}, nil
 }
+func (r *recordingPreparedDeck) Reprepare(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
+	p, err := r.Get(ctx, owner, id)
+	if err != nil {
+		return prepareddeck.Handle{}, err
+	}
+	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil {
+		return prepareddeck.Handle{}, persistence.ErrInvalidTransition
+	}
+	retiredAt := time.Now()
+	p.RetiredAt = &retiredAt
+	r.preparations[id] = p
+	p.ID += "-next"
+	p.RetiredAt, p.State, p.Error = nil, domain.DeckPreparationQueued, ""
+	r.preparations[p.ID] = p
+	return prepareddeck.Handle{Preparation: p, JobID: 95}, nil
+}
 func (r *recordingPreparedDeck) Rerender(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
 	p, err := r.Get(ctx, owner, id)
 	if err != nil {

@@ -578,6 +578,7 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 				<p>No cards were created from this snapshot.</p>
 			} else {
 			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">Re-prepare with current Meaning evidence</button></form>
 		}
 	} else if deckPreparationActive(preparation) {
 		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="outline secondary">Cancel preparation</button></form>
@@ -666,7 +667,12 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				}
 				@ActionGroup() {
 					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<button type="submit" class="outline">Re-prepare with current Meaning evidence</button>
+					</form>
 				}
+				<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
 				@DeckJourneyAction(journeyAction)
 			}
 		} else if deckPreparationActive(preparation) {
@@ -1045,6 +1051,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 						<p role="note">No recurring vocabulary was found, so no cards were created.</p>
 					} else {
 						<a role="button" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
+						<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">Re-prepare with current Meaning evidence</button></form>
 					}
 				}
 			} else if item.AnalysisPreparation.State == domain.DeckPreparationFailed || item.AnalysisPreparation.State == domain.DeckPreparationCancelled {

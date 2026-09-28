@@ -20,6 +20,9 @@ Re-preparation is a roll-forward exception to same-analysis deduplication:
 - A re-preparation request is valid only for the owner-scoped preparation and
   its exact source material, completed analysis run, and Goal snapshot (when
   present).
+- A learner may explicitly request re-preparation of any current Ready
+  preparation, including to apply newer Meaning evidence and contextual-Gloss
+  rules. This creates a new generation; it does not refresh the old one.
 - The current preparation is retired as a lifecycle record; its specification,
   artifact, provenance, and download remain unchanged.
 - A new preparation row is created with the same source-analysis identity and,
@@ -33,7 +36,8 @@ Re-preparation is a roll-forward exception to same-analysis deduplication:
 
 Presentation-only rerender remains deduplicated on the existing preparation as
 defined by ADR 0071; this decision applies only to the explicit
-re-preparation-required sentinel.
+re-preparation-required sentinel or a learner's explicit request to prepare a
+new generation. A rerender never performs lexical lookup or translation.
 
 ## Consequences
 

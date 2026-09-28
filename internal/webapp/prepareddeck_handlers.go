@@ -394,6 +394,26 @@ func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 }
 
+func (h *Handler) reprepareDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.PreparedDeck == nil {
+		http.NotFound(w, r)
+		return
+	}
+	handle, err := h.services.PreparedDeck.Reprepare(r.Context(), user(r).ID, r.PathValue("id"))
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	if wantsPreparationJSON(r) {
+		writePreparationStatus(w, handle.Preparation)
+		return
+	}
+	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
+}
+
 // rerenderDeckPreparation is an operational trigger for verification and
 // maintenance.
 func (h *Handler) rerenderDeckPreparation(w http.ResponseWriter, r *http.Request) {
