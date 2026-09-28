@@ -373,3 +373,34 @@ def test_remaining_analyzer_upos_tags_are_retained(tmp_path: Path):
         ("ach", "INTJ"),
     }
     connection.close()
+
+
+def test_meanings_without_mapped_pos_are_retained_without_inventing_pos(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "missing-pos.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps({"word": word, "lang_code": language, "pos": pos, "senses": [{"glosses": [gloss]}]})
+            for word, language, pos, gloss in [
+                ("haus", "de", "unmapped-pos", "house"),
+                ("casa", "it", "", "house"),
+                ("σπίτι", "el", "unmapped-pos", "house"),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+
+    connection = sqlite3.connect(output)
+    assert connection.execute("SELECT language, lemma, upos FROM entries ORDER BY language").fetchall() == [
+        ("de", "haus", ""),
+        ("el", "σπίτι", ""),
+        ("it", "casa", ""),
+    ]
+    assert [json.loads(row[0])[0]["Gloss"] for row in connection.execute("SELECT senses_json FROM entries ORDER BY language")] == [
+        "house",
+        "house",
+        "house",
+    ]
+    connection.close()

@@ -65,6 +65,29 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 	assert.Contains(t, note.BackExtra, "geht · ging · gegangen")
 }
 
+func TestFrozenCandidateBoundKeepsExactEvidenceAheadOfWeakerEvidence(t *testing.T) {
+	senses := []enrichment.LexicalSense{{EvidenceID: "exact", Gloss: "exact sense", MatchStrength: "exact_lemma_pos"}}
+	for index := range 9 {
+		senses = append(senses, enrichment.LexicalSense{EvidenceID: "weak-" + string(rune('a'+index)), Gloss: "lemma-only sense", MatchStrength: "lemma_only_missing_pos"})
+	}
+	service := &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
+		Senses: senses, CandidateSenses: senses, OmittedCandidateCount: 3,
+	}}}
+	entry := Entry{Language: "de", CanonicalLemma: "Bank", UPOS: "NOUN", Sentence: "Die Bank ist geschlossen.", TargetWord: "Bank"}
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.Len(t, entry.CandidateSenses, enrichment.DefaultMaxCandidateSenses)
+	assert.Equal(t, "exact", entry.CandidateSenses[0].EvidenceID)
+	assert.Equal(t, "exact_lemma_pos", entry.CandidateSenses[0].MatchStrength)
+	for _, candidate := range entry.CandidateSenses[1:] {
+		assert.Equal(t, "lemma_only_missing_pos", candidate.MatchStrength)
+	}
+	assert.Equal(t, 5, entry.OmittedEvidenceCount, "the freeze reports both source omissions and candidates truncated by the bound")
+
+	snapshot := newManifest("owner", "Book", []Entry{entry}).Snapshot()
+	assert.Equal(t, entry.CandidateSenses, snapshot.Items[0].Entry.CandidateSenses)
+	assert.Equal(t, 5, snapshot.Items[0].Entry.OmittedEvidenceCount)
+}
+
 func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 	service := &lexicalResolver{lexical: lexicalStub{found: true, result: enrichment.LexicalEntry{
 		Gender: "Masc", Article: "der", Plural: "Gauner",

@@ -250,7 +250,10 @@ def upos_for(item: dict, sense: dict) -> list[str]:
         # analyzer identities available rather than dropping one.
         return ["CCONJ", "SCONJ"]
     upos = POS.get(raw_pos)
-    return [upos] if upos else []
+    # Keep otherwise eligible meanings when Wiktionary has no POS or a POS we
+    # do not map to analyzer identities. The empty index key is deliberately
+    # not an invented UPOS; retrieval labels it as weaker lemma-only evidence.
+    return [upos] if upos else [""]
 
 
 def sense_from(item: dict, raw: dict, upos: str) -> dict | None:

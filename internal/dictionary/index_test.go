@@ -163,3 +163,40 @@ func TestIndexLookupUsesMorphologyFromRankedSense(t *testing.T) {
 	assert.Equal(t, "die", result.Article)
 	assert.Equal(t, "Meere", result.Plural)
 }
+
+func TestIndexLookupIncludesMissingPOSOnlyAfterExactIdentity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'bank', 'NOUN', '[{"Gloss":"bench"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('de', 'bank', '', '[{"Gloss":"financial institution"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('de', 'bank', 'VERB', '[{"Gloss":"to bank"}]', '', '', '', '', '')`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	index, err := OpenIndex(t.Context(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, index.Close()) })
+
+	result, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Bank", UPOS: "NOUN"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 2)
+	assert.Equal(t, []string{"bench", "financial institution"}, []string{result.CandidateSenses[0].Gloss, result.CandidateSenses[1].Gloss})
+	assert.Equal(t, "exact_lemma_pos", result.CandidateSenses[0].MatchStrength)
+	assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[1].MatchStrength)
+	assert.Equal(t, result.CandidateSenses, result.Senses, "both returned views retain evidence metadata in preferred order")
+
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Bank", UPOS: "ADJ"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 1)
+	assert.Equal(t, "financial institution", result.CandidateSenses[0].Gloss)
+	assert.Equal(t, "lemma_only_missing_pos", result.CandidateSenses[0].MatchStrength)
+	assert.NotContains(t, []string{result.CandidateSenses[0].Gloss}, "to bank", "a known different POS must not leak into the candidate set")
+	assert.Equal(t, "lemma_only_missing_pos", result.Senses[0].MatchStrength)
+	firstWeakEvidenceID := result.CandidateSenses[0].EvidenceID
+	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Bank", UPOS: "VERB"})
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, result.CandidateSenses, 2)
+	assert.Equal(t, firstWeakEvidenceID, result.CandidateSenses[1].EvidenceID, "the lemma-only source identity is stable across requested POS")
+}
