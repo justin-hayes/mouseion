@@ -1,12 +1,13 @@
 # Contextual Gloss quality sample
 
-Status: **Collection and human review pending** · Prepared for #1278
+Status: **Protocol** · Results are maintained as reviewed evidence
 
-This is the repeatable sample plan and review worksheet for comparing historical
-sense-list/fallback card meanings with current contextual Glosses. It is not a
-claim that model outputs have been run or that the examples below have been
-validated by a language reviewer. Do not mark the feature acceptance criterion
-complete until the results are populated and a human reviewer records a decision.
+This protocol defines a repeatable comparison of historical sense-list/fallback
+card meanings with current contextual Glosses. It does not itself contain or
+claim reviewed model outputs. Keep unreviewed collection notes out of the repo;
+promote a completed sample here only after its source records and human judgments
+are stable. Do not mark the feature acceptance criterion complete until that
+reviewed sample is recorded.
 
 ## Freeze the comparison
 
@@ -32,35 +33,27 @@ case, label it `new-control` and exclude it from before/after aggregate claims.
 Do not regenerate a completed record in place: add a new sample revision and
 record the reason.
 
-## Case register
+## Case selection
 
-The sentence/target pairs below are candidate elicitation cases, not linguistic
-gold labels. Confirm wording, target analysis, and intended reading with the
-reviewer before treating a case as eligible. Cases may be replaced, but retain
-the reason and preserve coverage of every rubric dimension across `de`, `it`,
-and `el`.
+Select actual historical card cases from each language rather than treating
+constructed examples as gold labels. Confirm sentence, target analysis, and
+intended reading with the reviewer before including a case. Preserve enough
+cases across `de`, `it`, and `el` to cover every dimension below.
 
-| ID | Language | Candidate sentence · target | Focus to verify |
-| --- | --- | --- | --- |
-| de-polysemy | German (`de`) | `Die Bank schließt um sechs.` · `Bank` | Institution vs. bench; context selects one sense. |
-| de-function | German (`de`) | `Er wartet auf den Bus.` · `auf` | Function-word meaning should be natural in English context, not a dictionary list. |
-| de-idiom | German (`de`) | `Sie hat den Nagel auf den Kopf getroffen.` · `treffen` | Idiomatic meaning vs. literal physical hitting. |
-| de-absent | German (`de`) | Reviewer-selected sentence/target with no relevant indexed English candidate | Context-only inference must be supported by the sentence or resolved as omitted. |
-| it-polysemy | Italian (`it`) | `La chiave è rimasta nella serratura.` · `chiave` | Physical key vs. other senses; candidate ordering must not override context. |
-| it-function | Italian (`it`) | `Ci conto.` · `ci` | Clitic's contextual contribution; reject unsupported specificity. |
-| it-idiom | Italian (`it`) | `In bocca al lupo!` · `lupo` | Idiom-level meaning vs. literal `wolf`; reviewer confirms target suitability. |
-| it-conflict | Italian (`it`) | `La pesca è matura.` · `pesca` | Fruit vs. fishing evidence; only the sentence-compatible meaning is acceptable. |
-| el-polysemy | Modern Greek (`el`) | `Η τράπεζα είναι κλειστή σήμερα.` · `τράπεζα` | Financial institution vs. table/other senses. |
-| el-function | Modern Greek (`el`) | `Το βιβλίο είναι στο τραπέζι.` · `σε` (surface `στο`) | Preposition/article contraction; concise English wording must fit the sentence. |
-| el-idiom | Modern Greek (`el`) | `Με αυτή τη λύση, μου έλυσε τα χέρια.` · `λύνω` | Idiomatic “make it possible/easier” reading vs. literal untying. |
-| el-missing-pos | Modern Greek (`el`) | Select an analyzed target with only a lemma-only candidate | Weaker missing-POS evidence must be identified and must not justify a claim the sentence does not support. |
+| Coverage dimension | Case-selection requirement |
+| --- | --- |
+| Polysemy | Context chooses among two or more plausible senses. |
+| Function words | Contextual English cue is natural, not a list of dictionary senses. |
+| Idioms | Idiomatic reading is distinguished from a plausible literal reading. |
+| Absent evidence | No supplied candidate supports the target; assess context-only inference or omission. |
+| Conflicting evidence | Supplied candidate(s) conflict with context; assess whether the output resists them. |
+| Context-only inference | No cited evidence; reviewer assesses whether the sentence supports the inference. |
+| Missing POS | Only lemma-only weaker evidence is available; assess its use. |
+| Invalid / ambiguous outcome | Include invalid provider data and a valid unresolved outcome; assess safe rejection or omission. |
 
-Across the three languages, ensure the completed records also include: a target
-with no supplied evidence; a candidate set that conflicts with sentence context;
-a supported context-only inference; at least one missing-POS weaker-evidence
-case; and invalid and ambiguous provider outcomes. These may be additional rows
-or variants of the cases above. An invalid response should exercise the existing
-offline decoder/validation contract; it is not a live-model wording assertion.
+The completed sample must cover every row across `de`, `it`, and `el`. Invalid
+provider data may be represented by offline decoder fixtures; it is not a live
+model wording assertion.
 
 ## Rubric
 
@@ -83,27 +76,21 @@ unqualified average. Treat any unsupported meaning, wrong contextual sense, or
 published invalid/ambiguous result as an actionable regression regardless of
 brevity or aggregate score.
 
-## Review record
+## Required reviewed record
 
-Populate one row per case only after inspecting its frozen payloads and outputs.
-Attach the full case records in the PR or a repository-local fixture; do not
-replace them with paraphrased judgments.
+For each case, retain the frozen inputs and outputs listed under “Freeze the
+comparison,” then record rubric scores for both generations, a disposition
+(`better`, `same`, `worse`, `not comparable`, `invalid`, or `unresolved`), and
+reviewer notes citing the sentence/evidence. Report counts and concrete
+regressions, not an unqualified score average.
 
-| Case ID | Historical Gloss / source | Current Gloss / outcome | Historical → current scores (correctness, brevity, English, evidence) | Disposition and reviewer notes |
-| --- | --- | --- | --- | --- |
-| _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
-
-**Source identity:** historical artifact(s) _pending_; index version(s) _pending_;
-provider/model _pending_; contextual prompt version _pending_; sample revision
-_pending_.
-
-**Limitations:** The sample is small and purposive, not representative of all
-lemmas, genres, senses, or provider behavior. Model outputs may vary by provider
-and time; conclusions apply only to the recorded source/prompt/provider
-identities. A correctly shaped response is not proof of semantic correctness.
-
-**Human review:** reviewer _pending_; date _pending_; decision _pending_; follow-up
-regressions _pending_.
+The reviewed record must identify the reviewer and review date; historical
+artifact(s); index version(s); provider/model; contextual prompt version; sample
+revision; limitations; overall decision; and actionable follow-up regressions.
+State that a small purposive sample is not representative of all lemmas, genres,
+senses, or provider behavior, and that valid response shape does not prove
+semantic correctness. Conclusions apply only to the recorded
+source/prompt/provider identities.
 
 ## Offline checks
 
