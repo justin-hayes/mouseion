@@ -9,8 +9,8 @@ The current disposition and current-reading contract is recorded in
 [ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md).
 [ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
 records the historical Goal and ordered-Journey model.
-[ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the accepted,
-not-yet-implemented contextual Gloss vocabulary below.
+[ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
+implemented contextual Gloss vocabulary below.
 
 ## Language
 
@@ -348,16 +348,14 @@ reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
 
 **Dictionary index**:
-The local, read-only collection of versioned lexical source entries used as
-meaning evidence and dictionary-form evidence for cards. Its source material has
-distinct origins and usage terms; it is not learner or Book state.
+The local, read-only collection of Wiktionary-derived entries used as meaning
+evidence and dictionary-form evidence for cards. It is not learner or Book state.
 _Avoid_: dictionary database, lexicon service.
 
 **Sense**:
 A distinct meaning of a lemma within a dictionary entry. It may have a
 source-provided gloss and other identifying context. A sense is evidence for a
-card's meaning, not necessarily the wording shown on the card; source-specific
-groups of translations are not automatically equivalent to dictionary senses.
+card's meaning, not necessarily the wording shown on the card.
 _Avoid_: definition (the full native-language explanation, a separate deferred
 field), translation.
 
@@ -375,10 +373,9 @@ for a card's contextual Gloss rather than necessarily displayed verbatim.
 _Avoid_: local gloss, definition.
 
 **Meaning evidence**:
-Source-attributed dictionary senses and lexical translations relevant to a
-target in its representative sentence. A translation is not necessarily a
-definition or an independent confirmation of another source; meaning evidence
-informs the contextual Gloss without dictating its wording.
+Source-attributed Wiktionary senses relevant to a target in its representative
+sentence. Meaning evidence informs the contextual Gloss without dictating its
+wording; the sentence itself may support a context-only gloss when no sense fits.
 _Avoid_: card Gloss, undifferentiated definitions.
 
 **Fallback gloss**:
