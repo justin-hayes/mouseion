@@ -1,11 +1,11 @@
 # Learner review of analyzer lemmas
 
-Status: **Occurrence correction and exclusion shipped** · Date: 2026-09-29
+Status: **Occurrence exclusion implementation in review** · Date: 2026-09-29
 
-The learner can review exact observed forms in Reading, correct or exclude one
-occurrence, and use effective vocabulary in direct prepared-deck projection,
-Book vocabulary insights, and current-reading snapshots. Automatic review flags
-and suggestions remain future work.
+The implementation lets the learner review exact observed forms in Reading,
+correct or exclude one occurrence, and use effective vocabulary in direct
+prepared-deck projection, Book vocabulary insights, and current-reading
+snapshots. Automatic review flags and suggestions remain future work.
 
 ## Problem and goal
 
