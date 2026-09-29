@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLearnerCorrectsOneExactOccurrenceAndStartReadingIsSafelyPaused(t *testing.T) {
+func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	path := "/reading/books/" + fixtures.BookID + "/lemma-review?form=Weg"
@@ -43,5 +43,5 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingIsSafelyPaused(t *testi
 
 	start := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, start.Code)
-	assert.Contains(t, start.Header().Get("Location"), "corrected+vocabulary+can+be+frozen+safely")
+	assert.Contains(t, start.Header().Get("Location"), "is+now+your+current+reading")
 }

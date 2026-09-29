@@ -167,6 +167,22 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
+	useProjectedEntry := preparation.GoalSnapshotID != ""
+	if !useProjectedEntry && corpusID != "" {
+		var bookID string
+		if err = tx.QueryRow(ctx, `SELECT COALESCE(book_id::text, '') FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+			return nil, err
+		}
+		if bookID != "" {
+			corrections, correctionErr := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
+				Owner: preparation.OwnerID, Book: bookID, Corpus: corpusID, AnalysisRun: preparation.AnalysisRunID,
+			})
+			if correctionErr != nil {
+				return nil, correctionErr
+			}
+			useProjectedEntry = len(corrections) > 0
+		}
+	}
 
 	ordinalsByCorpus := make(map[string]map[int64]struct{})
 	for _, candidate := range selected {
@@ -210,7 +226,9 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	result := make([]PreparedDeckCandidateFacts, 0, len(selected))
 	for _, candidate := range selected {
 		var entry cardexport.Entry
-		if corpusID != "" {
+		if useProjectedEntry {
+			entry, err = projectedCandidateEntry(ctx, tx, preparation, candidate)
+		} else if corpusID != "" {
 			entry, err = getCoverageEntryForCorpus(ctx, tx, preparation.OwnerID, corpusID, candidate)
 		} else {
 			entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate)

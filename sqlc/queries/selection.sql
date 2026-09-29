@@ -67,6 +67,15 @@ SELECT EXISTS (
     AND source.current_snapshot_id = r.snapshot_id
 );
 
+-- name: HasCurrentLemmaCorrectionsForAnalysis :one
+SELECT EXISTS (
+  SELECT 1 FROM occurrence_lemma_corrections d
+  JOIN current_analysis_identity cai ON cai.owner_id = d.owner_id AND cai.book_id = d.book_id
+    AND cai.corpus_id = d.corpus_id AND cai.analysis_run_id = d.analysis_run_id
+  WHERE d.owner_id = sqlc.arg('owner') AND d.book_id = sqlc.arg('book')
+    AND d.corpus_id = sqlc.arg('corpus') AND d.analysis_run_id = sqlc.arg('analysis_run')
+);
+
 -- name: ListAnalysisTokenEvidence :many
 SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,

@@ -40,7 +40,6 @@ var ErrGoalExists = errors.New("persistence: primary goal already exists")
 
 var ErrGoalStale = errors.New("persistence: primary goal state is stale")
 var ErrGoalIneligible = errors.New("persistence: current reading requires an analyzed To Read book")
-var ErrLemmaCorrectionsPreventReading = errors.New("persistence: corrected vocabulary cannot yet be frozen for current reading")
 var ErrReadingAlreadyCompleted = errors.New("persistence: Book has already been completed")
 var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before moving to To Read")
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")

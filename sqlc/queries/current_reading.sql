@@ -111,6 +111,16 @@ WHERE sc.owner_id = sqlc.arg('owner')
   )
 ORDER BY sc.language, sc.canonical_lemma, sc.upos;
 
+-- name: IsCurrentReadingVocabularyReserved :one
+SELECT EXISTS (
+  SELECT 1 FROM primary_goal_snapshots ps
+  JOIN primary_goal_snapshot_vocabulary pv
+    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
+  WHERE ps.owner_id = sqlc.arg('owner') AND ps.language = sqlc.arg('language')
+    AND ps.released_at IS NULL AND pv.language = sqlc.arg('language')
+    AND pv.canonical_lemma = sqlc.arg('canonical_lemma') AND pv.upos = sqlc.arg('upos')
+);
+
 -- name: GetActivePrimaryGoalSnapshotForPreparation :one
 SELECT s.id::text, s.owner_id::text, s.language, s.book_id::text,
        s.source_material_id::text, s.analysis_run_id::text,

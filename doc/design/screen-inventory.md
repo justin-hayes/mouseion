@@ -145,9 +145,10 @@ confirmations and stale-write protection. Keyboard order follows Book identity,
 status, and actions; mutation feedback is announced. On narrow screens, identity
 and primary actions remain visible without horizontal page scrolling.
 Occurrence review is a focused Reading task rather than a competing Book detail
-surface. Until corrected identities can participate in reading snapshots, Start
-reading is unavailable for a Book with current corrections and explains the safe
-next action; direct deck preparation uses the corrected occurrence identities.
+surface. Corrected identities participate in Book vocabulary insights and are
+frozen into a new current-reading snapshot; direct deck preparation uses the same
+effective identities. Changes remain unavailable once a reading snapshot is
+active, preserving its historical vocabulary.
 
 ### Reading completion semantics
 

@@ -259,6 +259,35 @@ func (q *Queries) HasCurrentLemmaCorrections(ctx context.Context, arg HasCurrent
 	return exists, err
 }
 
+const hasCurrentLemmaCorrectionsForAnalysis = `-- name: HasCurrentLemmaCorrectionsForAnalysis :one
+SELECT EXISTS (
+  SELECT 1 FROM occurrence_lemma_corrections d
+  JOIN current_analysis_identity cai ON cai.owner_id = d.owner_id AND cai.book_id = d.book_id
+    AND cai.corpus_id = d.corpus_id AND cai.analysis_run_id = d.analysis_run_id
+  WHERE d.owner_id = $1 AND d.book_id = $2
+    AND d.corpus_id = $3 AND d.analysis_run_id = $4
+)
+`
+
+type HasCurrentLemmaCorrectionsForAnalysisParams struct {
+	Owner       string
+	Book        string
+	Corpus      string
+	AnalysisRun string
+}
+
+func (q *Queries) HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasCurrentLemmaCorrectionsForAnalysis,
+		arg.Owner,
+		arg.Book,
+		arg.Corpus,
+		arg.AnalysisRun,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listAnalysisTokenEvidence = `-- name: ListAnalysisTokenEvidence :many
 SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,

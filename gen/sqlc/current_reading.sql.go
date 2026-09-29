@@ -794,6 +794,36 @@ func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReading
 	return i, err
 }
 
+const isCurrentReadingVocabularyReserved = `-- name: IsCurrentReadingVocabularyReserved :one
+SELECT EXISTS (
+  SELECT 1 FROM primary_goal_snapshots ps
+  JOIN primary_goal_snapshot_vocabulary pv
+    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
+  WHERE ps.owner_id = $1 AND ps.language = $2
+    AND ps.released_at IS NULL AND pv.language = $2
+    AND pv.canonical_lemma = $3 AND pv.upos = $4
+)
+`
+
+type IsCurrentReadingVocabularyReservedParams struct {
+	Owner          string
+	Language       string
+	CanonicalLemma string
+	Upos           string
+}
+
+func (q *Queries) IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isCurrentReadingVocabularyReserved,
+		arg.Owner,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listPrimaryGoalSnapshotCandidates = `-- name: ListPrimaryGoalSnapshotCandidates :many
 SELECT sc.owner_id::text AS owner_id,
        sc.corpus_id, sc.language, sc.canonical_lemma, sc.upos,
