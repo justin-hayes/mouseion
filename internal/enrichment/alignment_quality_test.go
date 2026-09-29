@@ -106,7 +106,7 @@ func TestMultilingualAlignmentProviderFixturesPreserveTheEnglishCardContract(t *
 				require.NoError(t, finalizeErr)
 				require.Len(t, artifact.Generated, 1)
 				assert.Equal(t, fixture.ExpectedEnglishSentence, artifact.Generated[0].Note.EnglishSentence)
-				assert.Equal(t, fixture.SentenceTranslation, html.UnescapeString(plainEnglishFromExpected(artifact.Generated[0].Note.EnglishSentence)), "complete translation remains present in %s mode", mode)
+				assert.Equal(t, fixture.SentenceTranslation, html.UnescapeString(stripEmphasisTags(artifact.Generated[0].Note.EnglishSentence)), "complete translation remains present in %s mode", mode)
 				assert.Equal(t, fixture.Gloss, artifact.Generated[0].Note.Gloss, "contextual Gloss remains available in %s mode", mode)
 			}
 		})
@@ -114,6 +114,6 @@ func TestMultilingualAlignmentProviderFixturesPreserveTheEnglishCardContract(t *
 	assert.Equal(t, map[string]bool{"de": true, "it": true, "el": true}, seenLanguages)
 }
 
-func plainEnglishFromExpected(value string) string {
+func stripEmphasisTags(value string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(value, "<b>", ""), "</b>", "")
 }
