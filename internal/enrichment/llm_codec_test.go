@@ -86,7 +86,7 @@ func TestTranslationCodecUsageObservationKeepsSharedValidation(t *testing.T) {
 		SourceLanguage string `json:"source_language"`
 		TargetLanguage string `json:"target_language"`
 		TranslationResponse
-	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}}
+	}{TranslationItemID(input), input.Language, input.TargetLanguage, TranslationResponse{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTargets: []string{"house"}}}
 	contentBytes, err := json.Marshal(content)
 	require.NoError(t, err)
 	body, err := json.Marshal(struct {
@@ -114,16 +114,17 @@ func TestTranslationCodecRejectsIdentityAndLanguageDrift(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN"}
-	base := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","gloss":"dwelling","sentence_translation":"","sentence_translation_target":""}`
+	base := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","gloss":"dwelling","sentence_translation":"","sentence_translation_targets":[]}`
 	for name, content := range map[string]string{
-		"malformed JSON":    `{"item_id":`,
-		"missing":           strings.Replace(base, `"item_id":"`+TranslationItemID(input)+`",`, "", 1),
-		"duplicate":         strings.Replace(base, `,"source_language"`, `,"item_id":"other","source_language"`, 1),
-		"unexpected":        strings.Replace(base, `,"translation"`, `,"unexpected":"x","translation"`, 1),
-		"empty translation": strings.Replace(base, `"translation":"house"`, `"translation":""`, 1),
-		"mismatched item":   strings.Replace(base, TranslationItemID(input), "translation-item-other", 1),
-		"mismatched source": strings.Replace(base, `"source_language":"de"`, `"source_language":"fr"`, 1),
-		"mismatched target": strings.Replace(base, `"target_language":"en"`, `"target_language":"de"`, 1),
+		"malformed JSON":       `{"item_id":`,
+		"missing":              strings.Replace(base, `"item_id":"`+TranslationItemID(input)+`",`, "", 1),
+		"duplicate":            strings.Replace(base, `,"source_language"`, `,"item_id":"other","source_language"`, 1),
+		"unexpected":           strings.Replace(base, `,"translation"`, `,"unexpected":"x","translation"`, 1),
+		"legacy single phrase": strings.Replace(base, `,"sentence_translation_targets":[]`, `,"sentence_translation_target":"house"`, 1),
+		"empty translation":    strings.Replace(base, `"translation":"house"`, `"translation":""`, 1),
+		"mismatched item":      strings.Replace(base, TranslationItemID(input), "translation-item-other", 1),
+		"mismatched source":    strings.Replace(base, `"source_language":"de"`, `"source_language":"fr"`, 1),
+		"mismatched target":    strings.Replace(base, `"target_language":"en"`, `"target_language":"de"`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
 			body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
@@ -149,6 +150,8 @@ func TestTranslationCodecCarriesFrozenSenseCandidatesAndValidatesSelectionRange(
 	assert.Contains(t, string(body), `0-based`)
 	assert.Contains(t, string(body), `display limit of 3`)
 	assert.Contains(t, string(body), `omit it, or return an empty array`)
+	assert.Contains(t, string(body), `sentence_translation_targets`)
+	assert.NotContains(t, string(body), `sentence_translation_target `)
 
 	content := struct {
 		ItemID         string `json:"item_id"`
@@ -186,7 +189,7 @@ func TestTranslationCodecCapsOverLimitSenseSelectionInModelOrder(t *testing.T) {
 		Language: "de", TargetLanguage: "en", CanonicalLemma: "Haus", UPOS: "NOUN",
 		CandidateSenses: []LexicalSense{{Gloss: "building"}, {Gloss: "house"}, {Gloss: "home"}, {Gloss: "dwelling"}},
 	}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","sense_order":[3,1,0,2],"sentence_translation":"","sentence_translation_target":""}`
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"house","sense_order":[3,1,0,2],"sentence_translation":"","sentence_translation_targets":[]}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 
 	response, err := codec.DecodeResponse(input, []byte(body))
@@ -202,7 +205,7 @@ func TestTranslationCodecAcceptsFallbackWhenSenseSelectionIsOmitted(t *testing.T
 		Language: "de", TargetLanguage: "en", CanonicalLemma: "laufen", UPOS: "VERB",
 		CandidateSenses: []LexicalSense{{Gloss: "run"}, {Gloss: "walk"}},
 	}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"run","fallback_gloss":"operate","sentence_translation":"","sentence_translation_target":""}`
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"run","fallback_gloss":"operate","sentence_translation":"","sentence_translation_targets":[]}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -223,7 +226,7 @@ func TestTranslationCodecRequestsFallbackWhenCandidateSensesAreEmpty(t *testing.
 	assert.Contains(t, string(body), "fallback_gloss")
 	assert.Contains(t, string(body), "candidate list is empty")
 
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"rare word","fallback_gloss":"something uncommon","sentence_translation":"The rare thing is important today.","sentence_translation_target":"rare"}`
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"rare word","fallback_gloss":"something uncommon","sentence_translation":"The rare thing is important today.","sentence_translation_targets":["rare"]}`
 	responseBody := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(responseBody))
 	require.NoError(t, err)
@@ -239,7 +242,7 @@ func TestTranslationCodecAcceptsContextualGlossOnlyWithFrozenEvidenceReferences(
 		{EvidenceID: "wikt:seat", Gloss: "bench"},
 		{EvidenceID: "wikt:finance", Gloss: "financial institution"},
 	}}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_target":"bench","gloss":"bench","evidence_ids":["wikt:seat"],"context_only":false}`
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["wikt:seat"],"context_only":false}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -263,7 +266,7 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
 	require.NoError(t, err)
 	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sieht die Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}
-	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_target":"bank","gloss":"","evidence_ids":[],"context_only":true,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She sees the bank.","sentence_translation_targets":["bank"],"gloss":"","evidence_ids":[],"context_only":true,"unresolved_reason":"The sentence does not provide enough context to distinguish the meanings."}`
 	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
 	response, err := codec.DecodeResponse(input, []byte(body))
 	require.NoError(t, err)
@@ -281,4 +284,18 @@ func TestTranslationCodecAcceptsExplicitlyUnresolvedMeaningAndRejectsMalformedOm
 			assert.ErrorIs(t, decodeErr, ErrInvalidTranslationResponse)
 		})
 	}
+}
+
+func TestTranslationCodecDiscardsInvalidAlignmentWithoutLosingTranslationOrGloss(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	input := TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "umhauen", UPOS: "VERB", TargetWord: "haut", ExampleSentence: "Und dann haut das Motorrad Piero um.", RequireContextualGloss: true}
+	content := `{"item_id":"` + TranslationItemID(input) + `","source_language":"de","target_language":"en","translation":"knock over","sentence_translation":"And then the motorcycle knocks Piero over.","sentence_translation_targets":["Piero","knocks"],"gloss":"knock down","evidence_ids":[],"context_only":true,"unresolved_reason":""}`
+	body := `{"choices":[{"message":{"content":` + strconv.Quote(content) + `}}]}`
+	response, err := codec.DecodeResponse(input, []byte(body))
+	require.NoError(t, err)
+	assert.Equal(t, "knock over", response.Translation)
+	assert.Equal(t, "knock down", response.Gloss)
+	assert.Equal(t, "And then the motorcycle knocks Piero over.", response.SentenceTranslation)
+	assert.Empty(t, response.SentenceTranslationTargets)
 }

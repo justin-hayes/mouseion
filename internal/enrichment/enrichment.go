@@ -44,6 +44,7 @@ type Result struct {
 	Morphology                                     Field[map[string]string]
 	Pronunciation, Translation, FallbackGloss      Field[string]
 	SentenceTranslation, SentenceTranslationTarget Field[string]
+	SentenceTranslationTargets                     Field[[]string]
 	SenseSelection                                 Field[[]int]
 	Warnings                                       []string
 }
@@ -72,16 +73,16 @@ type TranslationRequest struct {
 	RequireContextualGloss                                                      bool `json:"-"`
 }
 type TranslationResponse struct {
-	Translation               string   `json:"translation"`
-	SentenceTranslation       string   `json:"sentence_translation"`
-	SentenceTranslationTarget string   `json:"sentence_translation_target"`
-	Gloss                     string   `json:"gloss,omitempty"`
-	EvidenceIDs               []string `json:"evidence_ids,omitempty"`
-	ContextOnly               bool     `json:"context_only,omitempty"`
-	UnresolvedReason          string   `json:"unresolved_reason,omitempty"`
-	SenseOrder                []int    `json:"sense_order"`
-	FallbackGloss             string   `json:"fallback_gloss"`
-	Warnings                  []string `json:"-"`
+	Translation                string   `json:"translation"`
+	SentenceTranslation        string   `json:"sentence_translation"`
+	SentenceTranslationTargets []string `json:"sentence_translation_targets"`
+	Gloss                      string   `json:"gloss,omitempty"`
+	EvidenceIDs                []string `json:"evidence_ids,omitempty"`
+	ContextOnly                bool     `json:"context_only,omitempty"`
+	UnresolvedReason           string   `json:"unresolved_reason,omitempty"`
+	SenseOrder                 []int    `json:"sense_order"`
+	FallbackGloss              string   `json:"fallback_gloss"`
+	Warnings                   []string `json:"-"`
 }
 
 // TranslationUsage is the bounded usage portion of a provider response. It
@@ -106,6 +107,7 @@ type CacheKey struct {
 type CacheEntry struct {
 	CacheKey
 	Translation, FallbackGloss, SentenceTranslation, SentenceTranslationTarget string
+	SentenceTranslationTargets                                                 []string
 	SenseSelection                                                             []int
 	CachedAt                                                                   time.Time
 }
@@ -279,6 +281,7 @@ func (s *Service) enrichOne(ctx context.Context, c Candidate) Result {
 	}
 	r.Translation, r.FallbackGloss, r.SentenceTranslation = external.Translation, external.FallbackGloss, external.SentenceTranslation
 	r.SentenceTranslationTarget = external.SentenceTranslationTarget
+	r.SentenceTranslationTargets = external.SentenceTranslationTargets
 	r.SenseSelection = external.SenseSelection
 	r.Warnings = append(r.Warnings, external.Warnings...)
 	return r
@@ -411,13 +414,13 @@ func (s *Service) enrichExternalObserved(ctx context.Context, c Candidate, requi
 	}
 	r.Warnings = append(r.Warnings, response.Warnings...)
 	entry := CacheEntry{
-		CacheKey:                  key,
-		Translation:               response.Translation,
-		FallbackGloss:             response.FallbackGloss,
-		SentenceTranslation:       response.SentenceTranslation,
-		SentenceTranslationTarget: response.SentenceTranslationTarget,
-		SenseSelection:            append([]int{}, response.SenseOrder...),
-		CachedAt:                  s.now().UTC(),
+		CacheKey:                   key,
+		Translation:                response.Translation,
+		FallbackGloss:              response.FallbackGloss,
+		SentenceTranslation:        response.SentenceTranslation,
+		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
+		SenseSelection:             append([]int{}, response.SenseOrder...),
+		CachedAt:                   s.now().UTC(),
 	}
 	if s.cache != nil {
 		started := time.Now()
@@ -450,6 +453,9 @@ func (s *Service) setExternal(r *Result, e CacheEntry) {
 	}
 	if e.SentenceTranslation != "" && e.SentenceTranslationTarget != "" {
 		r.SentenceTranslationTarget = Field[string]{e.SentenceTranslationTarget, true, p}
+	}
+	if e.SentenceTranslationTargets != nil {
+		r.SentenceTranslationTargets = Field[[]string]{append([]string{}, e.SentenceTranslationTargets...), true, p}
 	}
 	if e.SenseSelection != nil {
 		r.SenseSelection = Field[[]int]{append([]int{}, e.SenseSelection...), true, p}

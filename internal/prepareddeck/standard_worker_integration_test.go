@@ -73,13 +73,13 @@ func (p *barrierTranslationProvider) Translate(ctx context.Context, request enri
 
 func validTranslationResponse(request enrichment.TranslationRequest) enrichment.TranslationResponse {
 	if request.RequireContextualGloss {
-		return enrichment.TranslationResponse{Translation: request.CanonicalLemma + "-translated", Gloss: "contextual integration gloss", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTarget: "translated"}
+		return enrichment.TranslationResponse{Translation: request.CanonicalLemma + "-translated", Gloss: "contextual integration gloss", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTargets: []string{"translated"}}
 	}
 	return enrichment.TranslationResponse{
-		Translation:               request.CanonicalLemma + "-translated",
-		FallbackGloss:             "integration gloss",
-		SentenceTranslation:       "The translated sentence.",
-		SentenceTranslationTarget: "translated",
+		Translation:                request.CanonicalLemma + "-translated",
+		FallbackGloss:              "integration gloss",
+		SentenceTranslation:        "The translated sentence.",
+		SentenceTranslationTargets: []string{"translated"},
 	}
 }
 
@@ -114,6 +114,10 @@ type standardIntegrationRun struct {
 }
 
 func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, maxAttempts int) (standardIntegrationRun, *river.Client[pgx.Tx], *barrierTranslationProvider) {
+	return newStandardIntegrationRunWithExample(t, ctx, itemCount, maxAttempts, false)
+}
+
+func newStandardIntegrationRunWithExample(t *testing.T, ctx context.Context, itemCount, maxAttempts int, useUmhauenExample bool) (standardIntegrationRun, *river.Client[pgx.Tx], *barrierTranslationProvider) {
 	t.Helper()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
@@ -128,7 +132,13 @@ func newStandardIntegrationRun(t *testing.T, ctx context.Context, itemCount, max
 	entries := make([]cardexport.Entry, itemCount)
 	for i := range entries {
 		lemma := "lemma-" + uuid.NewString()
-		entries[i] = cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", Sentence: "Ein alter Satz steht heute im Buch.", TargetWord: "Ein", SourceDocument: "Integration", FirstEncounter: int64(i + 1)}
+		sentence, target := "Ein alter Satz steht heute im Buch.", "Ein"
+		upos := "NOUN"
+		if i == 0 && useUmhauenExample {
+			lemma, sentence, target = "umhauen", "Und dann haut das Motorrad Piero um.", "haut"
+			upos = "VERB"
+		}
+		entries[i] = cardexport.Entry{Language: "de", CanonicalLemma: lemma, UPOS: upos, Sentence: sentence, TargetWord: target, SourceDocument: "Integration", FirstEncounter: int64(i + 1)}
 	}
 	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, "Integration", entries, testutil.PresentationProvider{Name: "integration-provider", Version: "1", TargetLanguage: "en", RequireContextualGloss: true})
 	require.NoError(t, err)
@@ -196,6 +206,7 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 		assert.True(t, found, "cache %d", i)
 		assert.NotEmpty(t, entry.Translation, "cache %d", i)
 		assert.Equal(t, "contextual integration gloss", entry.FallbackGloss, "cache %d", i)
+		assert.Equal(t, []string{"translated"}, entry.SentenceTranslationTargets, "cache %d", i)
 	}
 	finalRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
 	require.NoError(t, err)
@@ -215,6 +226,39 @@ func TestStandardRiverQueueBarrierBoundsProviderConcurrencyAndStoresExactCache(t
 	for _, generated := range artifact.Generated {
 		assert.Equal(t, "contextual integration gloss", generated.Note.Gloss)
 	}
+}
+
+func TestStandardWorkerPersistsAndRendersDiscontinuousTargetAlignment(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	run, client, provider := newStandardIntegrationRunWithExample(t, ctx, 1, 1, true)
+	provider.onCall = func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{
+			Translation: "knock over", Gloss: "knock down", ContextOnly: true,
+			SentenceTranslation:        "And then the motorcycle knocks Piero over.",
+			SentenceTranslationTargets: []string{"knocks", "over"},
+		}, nil
+	}
+	require.NoError(t, client.Start(ctx))
+	testutil.Cleanup(t, "River client", func() error { return client.Stop(context.Background()) })
+	outcomes := waitStandardOutcomes(t, ctx, run, 1)
+	require.Equal(t, domain.PreparedDeckOutcomeCompleted, outcomes[0].State)
+	entry, found, err := run.store.Get(ctx, run.keys[0])
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, []string{"knocks", "over"}, entry.SentenceTranslationTargets)
+
+	finalRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	frozen, stored, err := run.store.LoadPreparedDeckFinalization(ctx, run.owner, run.prep.ID, run.run.ID)
+	require.NoError(t, err)
+	deck, err := cardexport.NewPresentation(nil).Restore(frozen)
+	require.NoError(t, err)
+	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, stored, preparedDeckRunFacts(finalRun))
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "And then the motorcycle <b>knocks</b> Piero <b>over</b>.", artifact.Generated[0].Note.EnglishSentence)
+	assert.Equal(t, "knock down", artifact.Generated[0].Note.Gloss)
 }
 
 func TestStandardWorkerCompletesFromFrozenCacheWithoutCallingProvider(t *testing.T) {

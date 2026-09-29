@@ -494,8 +494,8 @@ WHERE owner_id = sqlc.arg('owner') AND preparation_id = sqlc.arg('preparation') 
 RETURNING *;
 
 -- name: UpsertEnrichmentCache :exec
-INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, sentence_translation_targets, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 ON CONFLICT DO NOTHING;
 
 -- name: EnrichmentCacheLookup :one

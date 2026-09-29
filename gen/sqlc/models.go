@@ -514,6 +514,8 @@ type EnrichmentCache struct {
 	SenseSelection []byte
 	// Lowercase SHA-256 identity of the exact ordered lexical evidence used for a contextual Gloss; empty for historical non-contextual results
 	MeaningEvidenceHash string
+	// Optional ordered plain-text excerpts proposed for English target alignment; markup is never stored
+	SentenceTranslationTargets []string
 }
 
 type ExampleSentence struct {

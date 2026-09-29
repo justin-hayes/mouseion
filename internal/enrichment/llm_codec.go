@@ -13,9 +13,9 @@ import (
 	"strings"
 )
 
-var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_target (the plain-text target-language word or phrase corresponding to the supplied target in sentence_translation, or an empty string when there is no reliable literal correspondence), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_target must be empty strings. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
+var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_targets (an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Do not include the whole sentence or unrelated words in an alignment. Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_targets must be empty. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
 
-var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_target, gloss, evidence_ids, context_only, unresolved_reason. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only exact evidence_id values from candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+var contextualGlossSystemPrompt = "Translate the supplied lemma and complete representative sentence. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. Gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. evidence_ids must contain only exact evidence_id values from candidate_senses that support the gloss. If no defensible contextual meaning can be given, return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why. Otherwise return a non-empty gloss, supporting evidence_ids when any frozen evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
 const maxTranslationResponseBytes = 1 << 20
 
@@ -241,18 +241,18 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: no choices")
 	}
 	var result struct {
-		ItemID                    string          `json:"item_id"`
-		SourceLanguage            string          `json:"source_language"`
-		TargetLanguage            string          `json:"target_language"`
-		Translation               string          `json:"translation"`
-		SentenceTranslation       string          `json:"sentence_translation"`
-		SentenceTranslationTarget string          `json:"sentence_translation_target"`
-		SenseOrder                json.RawMessage `json:"sense_order"`
-		FallbackGloss             json.RawMessage `json:"fallback_gloss"`
-		Gloss                     json.RawMessage `json:"gloss"`
-		EvidenceIDs               json.RawMessage `json:"evidence_ids"`
-		ContextOnly               json.RawMessage `json:"context_only"`
-		UnresolvedReason          json.RawMessage `json:"unresolved_reason"`
+		ItemID                     string          `json:"item_id"`
+		SourceLanguage             string          `json:"source_language"`
+		TargetLanguage             string          `json:"target_language"`
+		Translation                string          `json:"translation"`
+		SentenceTranslation        string          `json:"sentence_translation"`
+		SentenceTranslationTargets json.RawMessage `json:"sentence_translation_targets"`
+		SenseOrder                 json.RawMessage `json:"sense_order"`
+		FallbackGloss              json.RawMessage `json:"fallback_gloss"`
+		Gloss                      json.RawMessage `json:"gloss"`
+		EvidenceIDs                json.RawMessage `json:"evidence_ids"`
+		ContextOnly                json.RawMessage `json:"context_only"`
+		UnresolvedReason           json.RawMessage `json:"unresolved_reason"`
 	}
 	resultDecoder := json.NewDecoder(strings.NewReader(decoded.Choices[0].Message.Content))
 	if duplicate, err := hasDuplicateObjectKey(decoded.Choices[0].Message.Content); err != nil {
@@ -272,7 +272,6 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	result.TargetLanguage = strings.TrimSpace(result.TargetLanguage)
 	result.Translation = strings.TrimSpace(result.Translation)
 	result.SentenceTranslation = strings.TrimSpace(result.SentenceTranslation)
-	result.SentenceTranslationTarget = strings.TrimSpace(result.SentenceTranslationTarget)
 	if result.ItemID == "" || result.ItemID != expectedItemID {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: item_id mismatch")
 	}
@@ -291,10 +290,13 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if decoded.Usage.PromptTokens < 0 || decoded.Usage.CompletionTokens < 0 || decoded.Usage.TotalTokens < 0 {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM response: invalid usage")
 	}
-	if hasMarkup(result.Translation) || hasMarkup(result.SentenceTranslation) || hasMarkup(result.SentenceTranslationTarget) {
+	if hasMarkup(result.Translation) || hasMarkup(result.SentenceTranslation) {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
-	response := TranslationResponse{Translation: result.Translation, SentenceTranslation: result.SentenceTranslation, SentenceTranslationTarget: result.SentenceTranslationTarget}
+	response := TranslationResponse{Translation: result.Translation, SentenceTranslation: result.SentenceTranslation}
+	if len(result.SentenceTranslationTargets) > 0 && string(result.SentenceTranslationTargets) != "null" {
+		response.SentenceTranslationTargets = decodeOptionalTargets(result.SentenceTranslationTargets)
+	}
 	if input.RequireContextualGloss && (len(result.Gloss) == 0 || len(result.EvidenceIDs) == 0 || len(result.ContextOnly) == 0 || string(result.Gloss) == "null" || string(result.EvidenceIDs) == "null" || string(result.ContextOnly) == "null") {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LLM translation: incomplete contextual gloss outcome")
 	}
@@ -331,13 +333,21 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	return response, decoded.Usage, nil
 }
 
+func decodeOptionalTargets(raw json.RawMessage) []string {
+	var targets []string
+	if err := json.Unmarshal(raw, &targets); err != nil {
+		return nil
+	}
+	return targets
+}
+
 // NormalizeTranslationResponse keeps malformed optional meaning fields from
 // failing a translation run while still enforcing the required translation
 // contract against the frozen candidate senses.
 func NormalizeTranslationResponse(input TranslationRequest, response TranslationResponse) (TranslationResponse, error) {
 	response.Translation = strings.TrimSpace(response.Translation)
 	response.SentenceTranslation = strings.TrimSpace(response.SentenceTranslation)
-	response.SentenceTranslationTarget = strings.TrimSpace(response.SentenceTranslationTarget)
+	response.SentenceTranslationTargets = ValidateSentenceTranslationTargets(response.SentenceTranslation, response.SentenceTranslationTargets)
 	response.Gloss = strings.TrimSpace(response.Gloss)
 	response.UnresolvedReason = strings.TrimSpace(response.UnresolvedReason)
 	response.FallbackGloss = strings.TrimSpace(response.FallbackGloss)
@@ -384,7 +394,7 @@ func NormalizeTranslationResponse(input TranslationRequest, response Translation
 	if input.ExampleSentence != "" && response.SentenceTranslation == "" {
 		return TranslationResponse{}, errors.New("decode LLM translation: sentence_translation is empty")
 	}
-	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) || hasMarkup(response.SentenceTranslationTarget) {
+	if hasMarkup(response.Translation) || hasMarkup(response.SentenceTranslation) {
 		return TranslationResponse{}, errors.New("decode LLM translation: HTML or markup is not allowed")
 	}
 	selectionInvalid := !ValidateSenseSelection(response.SenseOrder, len(input.CandidateSenses))

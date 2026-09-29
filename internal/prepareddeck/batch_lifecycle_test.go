@@ -2,6 +2,7 @@ package prepareddeck
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -186,7 +187,7 @@ func TestCompletedBatchItemPersistsContextualGlossAndFrozenEvidenceSelection(t *
 	work := cardexport.WorkItem{Ordinal: 2, CacheKey: enrichment.CacheKey{CanonicalLemma: "bank"}}
 	outcome := enrichment.BatchTranslationOutcome{Response: enrichment.TranslationResponse{
 		Translation: "bank", Gloss: "river edge", EvidenceIDs: []string{"wikt:bank-river"},
-		SentenceTranslation: "She sat on the river bank.", SentenceTranslationTarget: "bank",
+		SentenceTranslation: "She sat on the river bank.", SentenceTranslationTargets: []string{"bank"},
 	}}
 
 	update := completedBatchItem(&BatchPollWorker{}, item, work, outcome)
@@ -195,6 +196,7 @@ func TestCompletedBatchItemPersistsContextualGlossAndFrozenEvidenceSelection(t *
 	assert.Equal(t, "river edge", update.CacheEntry.FallbackGloss)
 	assert.Equal(t, []int{1}, update.CacheEntry.SenseSelection)
 	assert.Equal(t, "She sat on the river bank.", update.CacheEntry.SentenceTranslation)
+	assert.Equal(t, []string{"bank"}, update.CacheEntry.SentenceTranslationTargets)
 }
 
 func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing.T) {
@@ -204,7 +206,7 @@ func TestBatchProviderCountsTreatHTTP200InvalidTranslationAsCompleted(t *testing
 	item := enrichment.BatchTranslationItem{Ordinal: 1, Request: enrichment.TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ExampleSentence: "Das Haus ist groß."}}
 	customID, err := enrichment.BatchCustomID(runID, item.Ordinal, 1)
 	require.NoError(t, err)
-	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":%q}}]}},"error":null}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":"house","gloss":"building","sentence_translation":"","sentence_translation_target":""}`, customID))
+	output := fmt.Sprintf(`{"id":"batch_req_1","custom_id":%q,"response":{"status_code":200,"request_id":"req_1","body":{"choices":[{"index":0,"message":{"role":"assistant","content":%q}}]}},"error":null}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":"house","gloss":"building","sentence_translation":"","sentence_translation_targets":[]}`, customID))
 	outcomes, missing, err := codec.DecodeBatchResultsPartial(runID, 1, []enrichment.BatchTranslationItem{item}, strings.NewReader(output), nil)
 	require.NoError(t, err)
 	assert.Len(t, missing, 0)
@@ -245,8 +247,8 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 		{OwnerID: "owner", DeckName: "Frozen Book", Provider: "openai", ProviderVersion: "v1", TargetLanguage: "en", Candidate: domain.SelectionCandidate{OwnerID: "owner", CorpusID: "corpus-1", Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", FirstEncounter: 2}, Entry: cardexport.Entry{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", Sentence: "Der alte Baum trägt heute viele grüne Blätter.", TargetWord: "Baum", SourceDocument: "Frozen Book", FirstEncounter: 2}},
 	}
 	responses := []enrichment.TranslationResponse{
-		{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTarget: "house"},
-		{Translation: "tree", FallbackGloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTarget: "tree"},
+		{Translation: "house", FallbackGloss: "building", SentenceTranslation: "The old house is surprisingly large.", SentenceTranslationTargets: []string{"house"}},
+		{Translation: "tree", FallbackGloss: "woody plant", SentenceTranslation: "The old tree has many green leaves today.", SentenceTranslationTargets: []string{"tree"}},
 	}
 	deck, _, err := cardexport.NewPresentation(nil).Freeze(context.Background(), "owner", "Frozen Book", projections)
 	require.NoError(t, err)
@@ -260,7 +262,17 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 	for _, ordinal := range []int{1, 0} {
 		customID, err := enrichment.BatchCustomID(runID, ordinal, 1)
 		require.NoError(t, err)
-		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, fmt.Sprintf(`{"item_id":%q,"source_language":"de","target_language":"en","translation":%q,"fallback_gloss":%q,"sentence_translation":%q,"sentence_translation_target":%q}`, customID, responses[ordinal].Translation, responses[ordinal].FallbackGloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTarget))
+		content, err := json.Marshal(struct {
+			ItemID                     string   `json:"item_id"`
+			SourceLanguage             string   `json:"source_language"`
+			TargetLanguage             string   `json:"target_language"`
+			Translation                string   `json:"translation"`
+			FallbackGloss              string   `json:"fallback_gloss"`
+			SentenceTranslation        string   `json:"sentence_translation"`
+			SentenceTranslationTargets []string `json:"sentence_translation_targets"`
+		}{customID, "de", "en", responses[ordinal].Translation, responses[ordinal].FallbackGloss, responses[ordinal].SentenceTranslation, responses[ordinal].SentenceTranslationTargets})
+		require.NoError(t, err)
+		fmt.Fprintf(&output, `{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, string(content))
 	}
 	decoded, err := codec.DecodeBatchResults(runID, 1, items, strings.NewReader(output.String()), nil)
 	require.NoError(t, err)
@@ -268,7 +280,7 @@ func TestFrozenSerialAndUnorderedBatchResultsRenderIdenticalArtifacts(t *testing
 		stored := make([]cardexport.StoredResult, 0, len(ordinals))
 		for _, ordinal := range ordinals {
 			response := result(ordinal)
-			stored = append(stored, cardexport.StoredResult{CacheKey: workByOrdinal[ordinal].CacheKey, Record: enrichment.CacheEntry{CacheKey: workByOrdinal[ordinal].CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget}})
+			stored = append(stored, cardexport.StoredResult{CacheKey: workByOrdinal[ordinal].CacheKey, Record: enrichment.CacheEntry{CacheKey: workByOrdinal[ordinal].CacheKey, Translation: response.Translation, FallbackGloss: response.FallbackGloss, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTargets: response.SentenceTranslationTargets}})
 		}
 		return stored
 	}

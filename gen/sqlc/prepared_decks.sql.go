@@ -4212,27 +4212,28 @@ func (q *Queries) UpdatePreparedDeckRunTranslationRunning(ctx context.Context, a
 }
 
 const upsertEnrichmentCache = `-- name: UpsertEnrichmentCache :exec
-INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, sentence_translation_targets, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 ON CONFLICT DO NOTHING
 `
 
 type UpsertEnrichmentCacheParams struct {
-	Language                  string
-	TargetLanguage            string
-	CanonicalLemma            string
-	Upos                      string
-	Provider                  string
-	ProviderVersion           string
-	SentenceHash              string
-	DictionaryProviderVersion string
-	MeaningEvidenceHash       string
-	Translation               string
-	FallbackGloss             string
-	SenseSelection            []byte
-	SentenceTranslation       string
-	SentenceTranslationTarget string
-	CachedAt                  time.Time
+	Language                   string
+	TargetLanguage             string
+	CanonicalLemma             string
+	Upos                       string
+	Provider                   string
+	ProviderVersion            string
+	SentenceHash               string
+	DictionaryProviderVersion  string
+	MeaningEvidenceHash        string
+	Translation                string
+	FallbackGloss              string
+	SenseSelection             []byte
+	SentenceTranslation        string
+	SentenceTranslationTarget  string
+	SentenceTranslationTargets []string
+	CachedAt                   time.Time
 }
 
 func (q *Queries) UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error {
@@ -4251,6 +4252,7 @@ func (q *Queries) UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmen
 		arg.SenseSelection,
 		arg.SentenceTranslation,
 		arg.SentenceTranslationTarget,
+		arg.SentenceTranslationTargets,
 		arg.CachedAt,
 	)
 	return err

@@ -559,6 +559,9 @@ func exactEnrichmentFromStoredResult(stored StoredResult, manifest manifest, acc
 	if record.SentenceTranslationTarget != "" {
 		result.SentenceTranslationTarget = enrichment.Field[string]{Value: record.SentenceTranslationTarget, Available: true, Provenance: provenance}
 	}
+	if record.SentenceTranslationTargets != nil {
+		result.SentenceTranslationTargets = enrichment.Field[[]string]{Value: append([]string(nil), record.SentenceTranslationTargets...), Available: true, Provenance: provenance}
+	}
 	if record.SenseSelection != nil {
 		result.SenseSelection = enrichment.Field[[]int]{Value: append([]int(nil), record.SenseSelection...), Available: true, Provenance: provenance}
 	}

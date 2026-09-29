@@ -29,7 +29,7 @@ func (p *fakeProvider) Translate(_ context.Context, request enrichment.Translati
 	response := enrichment.TranslationResponse{Translation: "house", FallbackGloss: "building"}
 	if request.ExampleSentence != "" {
 		response.SentenceTranslation = "The house is large."
-		response.SentenceTranslationTarget = "house"
+		response.SentenceTranslationTargets = []string{"house"}
 	}
 	return response, nil
 }

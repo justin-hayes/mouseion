@@ -23,7 +23,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 	testutil.Cleanup(t, "enrichment store", store.Close)
 	when := time.Date(2026, 8, 21, 2, 3, 4, 0, time.UTC)
 	key := enrichment.CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "1", DictionaryProviderVersion: "dictionary-v4", SentenceHash: enrichment.SentenceHash("Das Haus ist groß.")}
-	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house", CachedAt: when})
+	stored, err := store.Put(ctx, enrichment.CacheEntry{CacheKey: key, Translation: "house", FallbackGloss: "building", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house", SentenceTranslationTargets: []string{"house"}, CachedAt: when})
 	require.NoError(t, err)
 	// No owner is part of the API or schema: all users read the same entry.
 	for range 2 {
@@ -35,6 +35,7 @@ func TestPostgresExternalCacheSharedScopedVersionedAndImmutable(t *testing.T) {
 		assert.Equal(t, "dictionary-v4", got.CacheKey.DictionaryProviderVersion)
 		assert.Equal(t, "The house is large.", got.SentenceTranslation)
 		assert.Equal(t, "house", got.SentenceTranslationTarget)
+		assert.Equal(t, []string{"house"}, got.SentenceTranslationTargets)
 		assert.True(t, got.CachedAt.Equal(stored.CachedAt))
 	}
 	other := key

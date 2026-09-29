@@ -130,7 +130,7 @@ func (w *StandardTranslationWorker) execute(ctx context.Context, args StandardTr
 		return finishErr
 	}
 	selection := evidenceSelectionIndices(request.CandidateSenses, response.EvidenceIDs)
-	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.Gloss, SenseSelection: selection, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTarget: response.SentenceTranslationTarget, CachedAt: w.now()}
+	entry := enrichment.CacheEntry{CacheKey: key, Translation: response.Translation, FallbackGloss: response.Gloss, SenseSelection: selection, SentenceTranslation: response.SentenceTranslation, SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...), CachedAt: w.now()}
 	stored, err := w.Store.PutPreparedDeckTranslationIfClaimed(ctx, args.OwnerID, args.PreparationID, args.RunID, args.Ordinal, args.Generation, token, entry)
 	if err != nil {
 		if errors.Is(err, persistence.ErrPreparedDeckClaimLost) {
