@@ -383,6 +383,10 @@ func TestHighlightEnglishTargetSupportsSafeUniqueMultiwordMatches(t *testing.T) 
 	tests := []struct{ name, translation, target, want string }{
 		{"single", "The house is large.", "house", "The <b>house</b> is large."},
 		{"multiword", "She visited the old house yesterday.", "old house", "She visited the <b>old house</b> yesterday."},
+		{"entire multiword sentence", "The animal was already roasting when we arrived at the barbecue hut.", "The animal was already roasting when we arrived at the barbecue hut", "The animal was already roasting when we arrived at the barbecue hut."},
+		{"rejected sentence is escaped", "The <script>hut</script> is bright.", "The <script>hut</script> is bright", "The &lt;script&gt;hut&lt;/script&gt; is bright."},
+		{"shorter phrase in multiword sentence", "The animal was already roasting when we arrived at the barbecue hut.", "barbecue hut", "The animal was already roasting when we arrived at the <b>barbecue hut</b>."},
+		{"single-word sentence", "Home.", "Home", "<b>Home</b>."},
 		{"missing", "The building is large.", "house", "The building is large."},
 		{"ambiguous", "The house is beside another house.", "house", "The house is beside another house."},
 		{"boundary", "The houses are large.", "house", "The houses are large."},
