@@ -100,6 +100,32 @@ func TestPresentationLifecycleExportsExactCaseSensitiveEnglishTarget(t *testing.
 	assert.Contains(t, artifact.TSV, "<b>House</b> stands next to another house.")
 }
 
+func TestPresentationLifecycleRejectsPartialCombiningMarkAlignmentWithoutLosingNoteContent(t *testing.T) {
+	projection := cardexport.CandidateProjection{
+		OwnerID: "owner-1", DeckName: "Book",
+		Candidate: domain.SelectionCandidate{OwnerID: "owner-1", CorpusID: "corpus-haus", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ObservedForms: []byte(`["Haus"]`)},
+		Entry:     cardexport.Entry{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das Haus steht heute sehr ruhig.", TargetWord: "Haus", Gloss: "coffee shop"},
+		Provider:  "llm", ProviderVersion: "prompt-v2", TargetLanguage: "en",
+	}
+	presentation := cardexport.NewPresentation(nil)
+	deck, _, err := presentation.Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	const translation = "The cafe\u0301 serves tea & coffee."
+	record := enrichment.CacheEntry{
+		CacheKey: work[0].CacheKey, Translation: "café",
+		SentenceTranslation: translation, SentenceTranslationTargets: []string{"cafe", "tea"},
+	}
+	artifact, _, err := presentation.Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v2"})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "The cafe\u0301 serves tea &amp; coffee.", artifact.Generated[0].Note.EnglishSentence, "one partial excerpt discards all emphasis while retaining escaped translation")
+	assert.Equal(t, "coffee shop", artifact.Generated[0].Note.Gloss, "invalid optional alignment does not discard contextual Gloss")
+	assert.Contains(t, artifact.TSV, "The cafe\u0301 serves tea &amp; coffee.")
+	assert.Contains(t, artifact.TSV, "coffee shop")
+}
+
 func TestPresentationLifecycleFreezesEmptyLocalDeck(t *testing.T) {
 	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Empty Book", nil)
 
