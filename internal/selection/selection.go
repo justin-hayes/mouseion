@@ -14,7 +14,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
-var ErrInvalidConfig = errors.New("selection: invalid configuration")
+var (
+	ErrInvalidConfig   = errors.New("selection: invalid configuration")
+	ErrInvalidDecision = errors.New("selection: invalid occurrence decision")
+)
 
 type Store interface {
 	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
@@ -39,6 +42,24 @@ type Candidate struct {
 	Provenance         Provenance
 }
 
+// OccurrenceIdentity identifies one analyzed occurrence within a corpus. Its
+// source span is stable for the lifetime of that analysis and avoids applying
+// a learner decision to another occurrence with the same spelling.
+type OccurrenceIdentity struct {
+	SourceDocumentID string
+	StartOffset      uint64
+	EndOffset        uint64
+}
+
+// OccurrenceDecision changes only the effective vocabulary identity of one
+// occurrence. The analyzer result remains immutable. Excluded occurrences do
+// not contribute to candidate counts or sentence references.
+type OccurrenceDecision struct {
+	Occurrence OccurrenceIdentity
+	Lemma      string
+	Excluded   bool
+}
+
 type SelectionConfig struct {
 	CorpusID       string
 	MinOccurrences int
@@ -60,11 +81,71 @@ type aggregate struct {
 	refs  []SentenceReference
 }
 
+// Project derives deterministic candidate facts from immutable analyzer
+// evidence and optional occurrence-scoped learner decisions. It deliberately
+// does not apply owner state (Known or Reserved) or persist results, so all
+// consumers can share the same vocabulary projection before applying their
+// own eligibility and freeze rules.
+func Project(corpus analyzer.Result, cfg SelectionConfig, decisions []OccurrenceDecision) ([]Candidate, error) {
+	if cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil || corpus.Language == "" {
+		return nil, ErrInvalidConfig
+	}
+	byOccurrence := make(map[OccurrenceIdentity]OccurrenceDecision, len(decisions))
+	for _, decision := range decisions {
+		lemmaProvided := strings.TrimSpace(decision.Lemma) != ""
+		if decision.Occurrence.SourceDocumentID == "" || decision.Occurrence.EndOffset < decision.Occurrence.StartOffset || (decision.Excluded && lemmaProvided) || (!decision.Excluded && !lemmaProvided) {
+			return nil, ErrInvalidDecision
+		}
+		if _, exists := byOccurrence[decision.Occurrence]; exists {
+			return nil, ErrInvalidDecision
+		}
+		byOccurrence[decision.Occurrence] = decision
+	}
+	if len(byOccurrence) > 0 {
+		occurrenceCounts := make(map[OccurrenceIdentity]int, len(byOccurrence))
+		for _, sentence := range corpus.Sentences {
+			for _, token := range sentence.Tokens {
+				identity := occurrenceIdentity(token)
+				if _, requested := byOccurrence[identity]; requested {
+					occurrenceCounts[identity]++
+				}
+			}
+		}
+		for identity := range byOccurrence {
+			if occurrenceCounts[identity] != 1 {
+				return nil, ErrInvalidDecision
+			}
+		}
+	}
+	aggs := aggregateTokens(corpus, cfg, byOccurrence)
+	ids := make([]Identity, 0, len(aggs))
+	for id := range aggs {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		if ids[i].CanonicalLemma != ids[j].CanonicalLemma {
+			return ids[i].CanonicalLemma < ids[j].CanonicalLemma
+		}
+		return ids[i].UPOS < ids[j].UPOS
+	})
+	out := make([]Candidate, 0, len(ids))
+	for _, id := range ids {
+		a := aggs[id]
+		forms := make([]string, 0, len(a.forms))
+		for form := range a.forms {
+			forms = append(forms, form)
+		}
+		sort.Strings(forms)
+		out = append(out, Candidate{Identity: id, OccurrenceCount: a.count, ObservedForms: forms, SentenceReferences: a.refs, Provenance: Provenance{MinOccurrences: cfg.MinOccurrences, OccurrenceCount: a.count}})
+	}
+	return out, nil
+}
+
 // AnalyzableStatistics calculates the immutable coverage denominator using the
 // same token filters as candidate selection. Distinct lemmas are the
 // lemma-and-UPOS identities used by vocabulary selection.
 func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.AnalysisStatistics {
-	aggs := aggregateTokens(corpus, cfg)
+	aggs := aggregateTokens(corpus, cfg, nil)
 	statistics := domain.AnalysisStatistics{DistinctLemmaCount: int64(len(aggs)), TextProfile: &domain.TextProfile{SentenceCount: int64(len(corpus.Sentences))}}
 	profile := statistics.TextProfile
 	for _, aggregate := range aggs {
@@ -94,11 +175,18 @@ func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.An
 	return statistics
 }
 
-func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig) map[Identity]*aggregate {
+func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[OccurrenceIdentity]OccurrenceDecision) map[Identity]*aggregate {
 	aggs := map[Identity]*aggregate{}
 	for si, sentence := range corpus.Sentences {
 		for _, token := range sentence.Tokens {
-			id := Identity{corpus.Language, strings.TrimSpace(token.CanonicalLemma), strings.ToUpper(strings.TrimSpace(token.UPOS))}
+			lemma := token.CanonicalLemma
+			if decision, ok := decisions[occurrenceIdentity(token)]; ok {
+				if decision.Excluded {
+					continue
+				}
+				lemma = decision.Lemma
+			}
+			id := Identity{corpus.Language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(token.UPOS))}
 			if token.Dependency == "compound:prt" || !lexical.IsLemma(id.CanonicalLemma) || !cfg.AllowedPOS[id.UPOS] {
 				continue
 			}
@@ -115,24 +203,24 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig) map[Identity]*
 	return aggs
 }
 
+func occurrenceIdentity(token analyzer.Token) OccurrenceIdentity {
+	return OccurrenceIdentity{SourceDocumentID: token.Location.SourceDocumentID, StartOffset: token.Location.StartOffset, EndOffset: token.Location.EndOffset}
+}
+
 func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Result, cfg SelectionConfig) ([]Candidate, error) {
-	if owner == "" || corpus.Language == "" || cfg.CorpusID == "" || cfg.MinOccurrences < 1 || cfg.AllowedPOS == nil {
+	if owner == "" || cfg.CorpusID == "" {
 		return nil, ErrInvalidConfig
 	}
-	aggs := aggregateTokens(corpus, cfg)
-	ids := make([]Identity, 0, len(aggs))
-	for id := range aggs {
-		ids = append(ids, id)
+	projected, err := Project(corpus, cfg, nil)
+	if err != nil {
+		return nil, err
 	}
-	sort.Slice(ids, func(i, j int) bool {
-		if ids[i].CanonicalLemma != ids[j].CanonicalLemma {
-			return ids[i].CanonicalLemma < ids[j].CanonicalLemma
-		}
-		return ids[i].UPOS < ids[j].UPOS
-	})
 	out := make([]Candidate, 0)
-	for _, id := range ids {
-		a := aggs[id]
+	for _, c := range projected {
+		id := c.Identity
+		if c.OccurrenceCount < cfg.MinOccurrences {
+			continue
+		}
 		known, err := s.store.IsKnownVocabularyIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
 		if err != nil {
 			return nil, fmt.Errorf("get known vocabulary: %w", err)
@@ -141,29 +229,22 @@ func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Resu
 		if err != nil {
 			return nil, fmt.Errorf("get reserved vocabulary: %w", err)
 		}
-		if !allowsIdentity(a.count, cfg.MinOccurrences, known, reserved) {
+		if !allowsIdentity(c.OccurrenceCount, cfg.MinOccurrences, known, reserved) {
 			continue
 		}
-		forms := make([]string, 0, len(a.forms))
-		for form := range a.forms {
-			forms = append(forms, form)
-		}
-		sort.Strings(forms)
-		p := Provenance{cfg.MinOccurrences, a.count}
-		c := Candidate{id, a.count, forms, a.refs, p}
-		formsJSON, err := json.Marshal(forms)
+		formsJSON, err := json.Marshal(c.ObservedForms)
 		if err != nil {
 			return nil, fmt.Errorf("encode observed forms: %w", err)
 		}
-		refsJSON, err := json.Marshal(a.refs)
+		refsJSON, err := json.Marshal(c.SentenceReferences)
 		if err != nil {
 			return nil, fmt.Errorf("encode sentence references: %w", err)
 		}
-		provenanceJSON, err := json.Marshal(p)
+		provenanceJSON, err := json.Marshal(c.Provenance)
 		if err != nil {
 			return nil, fmt.Errorf("encode candidate provenance: %w", err)
 		}
-		kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, OccurrenceCount: a.count, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
+		kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, OccurrenceCount: c.OccurrenceCount, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
 		if err != nil {
 			return nil, fmt.Errorf("persist candidate: %w", err)
 		}
