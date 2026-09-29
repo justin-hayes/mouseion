@@ -86,12 +86,12 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 
 	directTx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
-	defer func() { _ = directTx.Rollback(ctx) }()
-	directProjections, _, err := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, directTx, domain.DeckPreparation{
+	directProjections, _, assembleErr := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, directTx, domain.DeckPreparation{
 		ID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,
 	})
-	require.NoError(t, err)
-	require.NoError(t, directTx.Rollback(ctx))
+	rollbackErr := directTx.Rollback(ctx)
+	require.NoError(t, rollbackErr)
+	require.NoError(t, assembleErr)
 	require.Len(t, directProjections, 1, "direct preparation selects the corrected identity across the recurrence floor")
 	assert.Equal(t, "drache", directProjections[0].Candidate.CanonicalLemma)
 	assert.Equal(t, 3, directProjections[0].Candidate.OccurrenceCount)
