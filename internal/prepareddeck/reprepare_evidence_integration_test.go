@@ -88,6 +88,32 @@ type reprepareFixtureProvider struct {
 	calls int
 }
 
+// legacyPromptPlanner creates a real historical cache identity from the
+// v13 contextual-Gloss prompt. The production planner remains on the current
+// codec version for the subsequent re-preparation.
+type legacyPromptPlanner struct {
+	delegate     DurableRunPlanner
+	version      string
+	legacyPrepID string
+}
+
+func (p legacyPromptPlanner) PlanPreparedDeckRun(ctx context.Context, tx pgx.Tx, prep domain.DeckPreparation) (persistence.FreezePreparedDeckRunParams, error) {
+	params, err := p.delegate.PlanPreparedDeckRun(ctx, tx, prep)
+	if err != nil {
+		return persistence.FreezePreparedDeckRunParams{}, err
+	}
+	if prep.ID != p.legacyPrepID {
+		return params, nil
+	}
+	params.Config.ProviderVersion = p.version
+	for i := range params.Projection.Items {
+		if params.Projection.Items[i].CacheKey != nil {
+			params.Projection.Items[i].CacheKey.ProviderVersion = p.version
+		}
+	}
+	return params, nil
+}
+
 func (*reprepareFixtureProvider) Name() string    { return "reprepare-fixture" }
 func (*reprepareFixtureProvider) Version() string { return "1" }
 func (p *reprepareFixtureProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
@@ -164,7 +190,9 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "fixture-model", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	index := &changingMeaningIndex{version: "fixture-v1", evidence: enrichment.LexicalSense{EvidenceID: "wikt:umhauen-v1", Gloss: "to knock down", Source: "wiktionary", Kind: "meaning", Origin: "fixture"}}
-	planner := NewStandardPlanner(reprepareFixtureAssembler{}, cardexport.NewPresentation(index), codec, true, BatchConfig{}, PreparedDeckConfig{StandardMaxAttempts: 1})
+	currentPlanner := NewStandardPlanner(reprepareFixtureAssembler{}, cardexport.NewPresentation(index), codec, true, BatchConfig{}, PreparedDeckConfig{StandardMaxAttempts: 1})
+	legacyVersion := codec.Model() + "/translation-v13-unresolved-meaning"
+	planner := legacyPromptPlanner{delegate: currentPlanner, version: legacyVersion, legacyPrepID: preparation.ID}
 	workers := river.NewWorkers()
 	provider := &reprepareFixtureProvider{}
 	translation := &StandardTranslationWorker{Store: store, Provider: provider}
@@ -214,13 +242,15 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NoError(t, err)
 	firstRun, err := store.GetCurrentPreparedDeckRun(ctx, owner.ID, first.ID)
 	require.NoError(t, err)
-	assert.Equal(t, codec.ContextualGlossProviderVersion(), firstRun.ProviderVersion)
+	assert.Equal(t, legacyVersion, firstRun.ProviderVersion)
+	assert.NotEqual(t, codec.ContextualGlossProviderVersion(), firstRun.ProviderVersion, "historical artifact must use an older prompt identity")
 	firstProjection, firstDigest, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, first.ID, firstRun.ID)
 	require.NoError(t, err)
 	require.Equal(t, "fixture-v1", firstProjection.Items[0].Entry.DictionaryProviderVersion)
 	require.Equal(t, "wikt:umhauen-v1", firstProjection.Items[0].Entry.CandidateSenses[0].EvidenceID)
 	firstKey := firstProjection.Items[0].CacheKey
 	require.NotNil(t, firstKey)
+	assert.Equal(t, legacyVersion, firstKey.ProviderVersion)
 	assert.Contains(t, artifactNoteFields(t, ctx, firstArtifact.Artifact), "to knock down")
 	assert.Contains(t, artifactNoteFields(t, ctx, firstArtifact.Artifact), "And then the motorcycle <b>knocks Piero over</b>.")
 	lookupsBeforeRerender := index.lookupCount()
@@ -244,7 +274,15 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	assert.Equal(t, callsBeforeRerender, provider.callCount(), "rerender invoked the translation provider")
 	firstAfterRerender, err := store.DownloadDeckPreparation(ctx, owner.ID, first.ID)
 	require.NoError(t, err)
+	historicalRunBeforeReprepare, err := store.GetPreparedDeckRun(ctx, owner.ID, first.ID, firstRun.ID)
+	require.NoError(t, err)
 	assert.Contains(t, artifactNoteFields(t, ctx, firstAfterRerender.Artifact), "to knock down")
+	assert.Contains(t, artifactNoteFields(t, ctx, firstAfterRerender.Artifact), "<b>knocks Piero over</b>", "offline rerender must keep the old single phrase, not infer disjoint spans")
+	firstNoteGUID := artifactNoteGUID(t, ctx, firstAfterRerender.Artifact)
+	knownBefore, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	reservedBefore, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
+	require.NoError(t, err)
 	index.advance("fixture-v2", enrichment.LexicalSense{EvidenceID: "wikt:umhauen-v2", Gloss: "to knock over", Source: "wiktionary", Kind: "meaning", Origin: "fixture"})
 	service := NewService(store, client)
 	refreshed, err := service.Reprepare(ctx, owner.ID, first.ID)
@@ -265,6 +303,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	assert.Equal(t, "wikt:umhauen-v2", secondProjection.Items[0].Entry.CandidateSenses[0].EvidenceID)
 	secondArtifact, err := store.DownloadDeckPreparation(ctx, owner.ID, second.ID)
 	require.NoError(t, err)
+	assert.Equal(t, firstNoteGUID, artifactNoteGUID(t, ctx, secondArtifact.Artifact), "re-import must update the same Anki note rather than create a duplicate")
 	assert.Contains(t, artifactNoteFields(t, ctx, secondArtifact.Artifact), "to knock over")
 	assert.Contains(t, artifactNoteFields(t, ctx, secondArtifact.Artifact), "And then the motorcycle <b>knocks</b> Piero <b>over</b>.")
 	assert.Equal(t, callsBeforeRerender+1, provider.callCount(), "new generation must translate using refreshed evidence")
@@ -272,6 +311,16 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NoError(t, err)
 	assert.Equal(t, firstAfterRerender.Artifact, oldAgain.Artifact, "re-preparation changed the old artifact after rerender")
 	assert.Equal(t, artifactNoteFields(t, ctx, firstAfterRerender.Artifact), artifactNoteFields(t, ctx, oldAgain.Artifact), "re-preparation changed historical card content")
+	legacyCache, found, err := store.Get(ctx, *firstKey)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, *firstKey, legacyCache.CacheKey)
+	assert.Equal(t, "knocks Piero over", legacyCache.SentenceTranslationTarget)
+	assert.Empty(t, legacyCache.SentenceTranslationTargets, "re-preparation must not rewrite legacy cache provenance")
+	assert.Equal(t, "to knock down", legacyCache.FallbackGloss)
+	firstRunAfter, err := store.GetPreparedDeckRun(ctx, owner.ID, first.ID, firstRun.ID)
+	require.NoError(t, err)
+	assert.Equal(t, historicalRunBeforeReprepare, firstRunAfter, "re-preparation changed historical run provenance")
 	_, err = store.DownloadDeckPreparation(ctx, other.ID, first.ID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "historical artifact must remain owner-scoped")
 	generated, err := store.ListGeneratedVocabulary(ctx, owner.ID, "de")
@@ -280,7 +329,12 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	assert.Equal(t, "umhauen", generated[0].CanonicalLemma)
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
+	assert.Equal(t, knownBefore, known, "re-preparation changed Known vocabulary")
 	assert.Empty(t, known, "preparing cards must not mark vocabulary Known")
+	reserved, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, reservedBefore, reserved, "re-preparation changed the Reading reservation")
+	assert.Len(t, reserved, 1, "the fixture should retain its Reading reservation")
 	otherGenerated, err := store.ListGeneratedVocabulary(ctx, other.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, otherGenerated, "generated vocabulary must remain owner-scoped")
@@ -288,12 +342,26 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 
 func artifactNoteFields(t *testing.T, ctx context.Context, artifact []byte) string {
 	t.Helper()
+	db := openArtifactCollection(t, artifact)
+	var fields string
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT flds FROM notes`).Scan(&fields))
+	return strings.ReplaceAll(fields, "\x1f", " ")
+}
+
+func artifactNoteGUID(t *testing.T, ctx context.Context, artifact []byte) string {
+	t.Helper()
+	db := openArtifactCollection(t, artifact)
+	var guid string
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT guid FROM notes`).Scan(&guid))
+	return guid
+}
+
+func openArtifactCollection(t *testing.T, artifact []byte) *sql.DB {
+	t.Helper()
 	path := t.TempDir() + "/collection.anki2"
 	require.NoError(t, os.WriteFile(path, collectionBytes(t, artifact), 0o600))
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	var fields string
-	require.NoError(t, db.QueryRowContext(ctx, `SELECT flds FROM notes`).Scan(&fields))
-	return strings.ReplaceAll(fields, "\x1f", " ")
+	return db
 }
