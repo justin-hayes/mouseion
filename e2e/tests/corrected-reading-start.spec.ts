@@ -22,7 +22,7 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
   await occurrence.getByLabel('Corrected canonical lemma').fill('pfad');
   await occurrence.getByRole('button', { name: 'Preview correction' }).click();
   await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm this decision' }).click();
+  await page.getByRole('button', { name: 'Apply correction to selected occurrences' }).click();
   await expect(page.getByText('Effective lemma: pfad (corrected)', { exact: true })).toBeVisible();
 
   await page.goto('/reading');

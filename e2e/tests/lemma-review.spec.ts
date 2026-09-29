@@ -25,7 +25,7 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();
     await expect(page.getByText('This is a preview only. Nothing changes until you confirm.')).toBeVisible();
-    await page.getByRole('button', { name: 'Confirm this decision' }).click();
+    await page.getByRole('button', { name: 'Apply correction to selected occurrences' }).click();
     await expect(page.getByText('Effective lemma: pfad (corrected)')).toHaveCount(2);
 
     const exclusionDisclosure = page.locator('details summary').first();
@@ -36,7 +36,7 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();
     await expect(page.getByText('This is a preview only. Nothing changes until you confirm.')).toBeVisible();
-    await page.getByRole('button', { name: 'Confirm this decision' }).click();
+    await page.getByRole('button', { name: 'Exclude selected occurrences from vocabulary' }).click();
     await expect(page.getByText('excluded for this occurrence.')).toBeVisible();
   } finally {
     await context.close();

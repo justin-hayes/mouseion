@@ -553,6 +553,46 @@ func (s *Store) IsReservedVocabulary(context.Context, string, string, string, st
 	return false, nil
 }
 
+func (s *Store) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, extras []domain.LemmaReviewIdentity) (string, error) {
+	occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
+	if err != nil {
+		return "", err
+	}
+	var vocabulary domain.AnalysisCorpusVocabulary
+	if len(occurrences) > 0 {
+		vocabulary, err = s.GetAnalysisCorpusVocabulary(ctx, owner, occurrences[0].CorpusID)
+		if err != nil {
+			return "", err
+		}
+	}
+	known, err := s.ListKnownVocabulary(ctx, owner, language)
+	if err != nil {
+		return "", err
+	}
+	reserved := make(map[domain.LemmaReviewIdentity]bool)
+	for _, item := range vocabulary.Lemmas {
+		reserved[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = false
+	}
+	for _, item := range extras {
+		reserved[item] = false
+	}
+	return domain.LemmaReviewStateFingerprint(occurrences, vocabulary, known, reserved, extras), nil
+}
+
+func (s *Store) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expected string) error {
+	if len(decisions) == 0 {
+		return errNotFound
+	}
+	current, err := s.LemmaReviewStateFingerprint(ctx, decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID, language, surface, extras)
+	if err != nil {
+		return err
+	}
+	if current != expected {
+		return errNotFound
+	}
+	return s.PutLemmaDecisions(ctx, decisions)
+}
+
 func fixtureKnownCorpusTokens(corpusID string) int64 {
 	switch corpusID {
 	case "fixture-corpus", "fixture-route-match-corpus":

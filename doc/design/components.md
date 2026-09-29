@@ -342,6 +342,12 @@ changes, what remains, and whether the action can be undone. The final button
 uses explicit outcome language; generic **Confirm** or **Mark complete** copy is
 insufficient.
 
+For a previewed occurrence-lemma decision, show the selected sentence contexts
+and projected identity, recurrence, Known/Reserved matching, and eligibility
+before applying it. Keep the preview read-only; the final button names the
+specific decision and selected occurrences, and reject it if the relevant state
+has changed since preview.
+
 Use neutral confirmation for an irreversible positive transition and danger for
 deletion or material abandonment. Goal completion confirmation must state that
 the exact eligible identities in the frozen snapshot become modeled Known

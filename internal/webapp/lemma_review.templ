@@ -88,7 +88,13 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						for _, i := range proposal.Indices {
 							<input type="hidden" name="selected" value={ fmt.Sprint(i) } />
 						}
-						<button type="submit">Confirm this decision</button>
+						if proposal.Action == "correct" {
+							<button type="submit">Apply correction to selected occurrences</button>
+						} else if proposal.Action == "keep" {
+							<button type="submit">Keep analyzer lemma for selected occurrences</button>
+						} else {
+							<button type="submit">Exclude selected occurrences from vocabulary</button>
+						}
 					</form>
 				</article>
 			}

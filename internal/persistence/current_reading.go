@@ -68,6 +68,9 @@ func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, lan
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+		return err
+	}
 	if err = lockPrimaryGoalBook(ctx, q, owner, expectedBookID); err != nil {
 		return err
 	}

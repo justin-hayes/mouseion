@@ -667,18 +667,27 @@ func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v doma
 }
 func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
 	lang = canonicalization.NormalizeLanguage(lang)
-	existing, err := s.queries().GetKnownVocabularyByIdentity(ctx, sqlcgen.GetKnownVocabularyByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
-	if err == nil {
-		return knownVocabularyFromFields(existing.ID, existing.OwnerID, existing.Language, existing.CanonicalLemma, existing.Upos, existing.CreatedAt), nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return domain.KnownVocabulary{}, err
-	}
-	row, err := s.queries().UpsertKnownVocabulary(ctx, sqlcgen.UpsertKnownVocabularyParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
-	if err != nil {
-		return domain.KnownVocabulary{}, err
-	}
-	return knownVocabularyFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.CreatedAt), nil
+	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+			return err
+		}
+		q := sqlcgen.New(tx)
+		existing, lookupErr := q.GetKnownVocabularyByIdentity(ctx, sqlcgen.GetKnownVocabularyByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
+		if lookupErr == nil {
+			v = knownVocabularyFromFields(existing.ID, existing.OwnerID, existing.Language, existing.CanonicalLemma, existing.Upos, existing.CreatedAt)
+			return nil
+		}
+		if !errors.Is(lookupErr, pgx.ErrNoRows) {
+			return lookupErr
+		}
+		row, upsertErr := q.UpsertKnownVocabulary(ctx, sqlcgen.UpsertKnownVocabularyParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
+		if upsertErr != nil {
+			return upsertErr
+		}
+		v = knownVocabularyFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.CreatedAt)
+		return nil
+	})
+	return v, err
 }
 func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string) (v domain.KnownVocabulary, err error) {
 	row, err := s.queries().GetKnownVocabulary(ctx, sqlcgen.GetKnownVocabularyParams{OwnerID: owner, ID: id})

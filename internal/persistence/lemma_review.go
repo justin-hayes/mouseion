@@ -30,6 +30,40 @@ func (s *PostgresStore) ListLemmaReviewOccurrences(ctx context.Context, owner, b
 	return result, nil
 }
 
+func (s *PostgresStore) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, extras []domain.LemmaReviewIdentity) (string, error) {
+	occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
+	if err != nil {
+		return "", err
+	}
+	var vocabulary domain.AnalysisCorpusVocabulary
+	if len(occurrences) > 0 {
+		vocabulary, err = s.GetAnalysisCorpusVocabulary(ctx, owner, occurrences[0].CorpusID)
+		if err != nil {
+			return "", err
+		}
+	}
+	known, err := s.ListKnownVocabulary(ctx, owner, language)
+	if err != nil {
+		return "", err
+	}
+	identities := make(map[domain.LemmaReviewIdentity]bool, len(vocabulary.Lemmas)+len(extras))
+	for _, item := range vocabulary.Lemmas {
+		identities[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = true
+	}
+	for _, item := range extras {
+		identities[item] = true
+	}
+	reserved := make(map[domain.LemmaReviewIdentity]bool, len(identities))
+	for identity := range identities {
+		isReserved, reserveErr := s.IsReservedVocabulary(ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS)
+		if reserveErr != nil {
+			return "", reserveErr
+		}
+		reserved[identity] = isReserved
+	}
+	return domain.LemmaReviewStateFingerprint(occurrences, vocabulary, known, reserved, extras), nil
+}
+
 // PutLemmaCorrection changes exactly the occurrence shown to the learner and
 // rejects stale spans, altered analyzer evidence, other owners, and old analyses.
 func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma, profile, version string) error {
@@ -48,6 +82,9 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 	}
 	owner, book := decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+			return err
+		}
 		if err := lockPrimaryGoalBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
 			return err
 		}
@@ -65,6 +102,48 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 		}
 		return nil
 	})
+}
+
+// PutLemmaDecisionProposal revalidates the preview fingerprint while holding
+// the learner-state lock, then commits the complete selected set atomically.
+func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expectedFingerprint string) error {
+	if len(decisions) == 0 {
+		return ErrNotFound
+	}
+	owner, book := decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+			return err
+		}
+		if err := lockPrimaryGoalBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
+			return err
+		}
+		fingerprint, err := s.LemmaReviewStateFingerprint(ctx, owner, book, language, surface, extras)
+		if err != nil {
+			return err
+		}
+		if fingerprint != expectedFingerprint {
+			return ErrNotFound
+		}
+		q := sqlcgen.New(tx)
+		for _, decision := range decisions {
+			if decision.Occurrence.OwnerID != owner || decision.Occurrence.BookID != book {
+				return ErrNotFound
+			}
+			if err := putLemmaDecisionTx(ctx, q, decision); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func lockLemmaReviewLearnerState(ctx context.Context, tx pgx.Tx, owner string) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 194))`, owner)
+	return err
 }
 
 func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) error {

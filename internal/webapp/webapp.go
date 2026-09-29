@@ -63,6 +63,8 @@ type LemmaReviewStore interface {
 	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
+	LemmaReviewStateFingerprint(context.Context, string, string, string, string, []domain.LemmaReviewIdentity) (string, error)
+	PutLemmaDecisionProposal(context.Context, []domain.LemmaReviewDecision, string, string, []domain.LemmaReviewIdentity, string) error
 }
 
 // GoalStore provides the Primary Goal lifecycle.

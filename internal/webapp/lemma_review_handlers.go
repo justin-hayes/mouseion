@@ -161,13 +161,14 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	action := r.FormValue("decision")
 	lemma := ""
 	if action == "correct" {
-		profile, profileErr := canonicalization.For(func() string { language, _ := activeStudyLanguageForContext(r.Context()); return language }())
+		language, _ := activeStudyLanguageForContext(r.Context())
+		profile, profileErr := canonicalization.For(language)
 		if profileErr != nil {
 			return nil, errors.New("Choose a supported study language before correcting a lemma.")
 		}
-		lemma = profile.Canonical(strings.TrimSpace(r.FormValue("lemma")))
-		if !lexical.IsLemma(lemma) {
-			return nil, errors.New("Enter one valid canonical lemma without spaces.")
+		lemma, err = normalizedLemma(profile, r.FormValue("lemma"))
+		if err != nil {
+			return nil, err
 		}
 	} else if action != "keep" && action != "exclude" {
 		return nil, errors.New("Choose a decision to preview.")
@@ -178,7 +179,9 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 			indices = append(indices, i)
 		}
 	}
-	fingerprint, err := h.lemmaDecisionStateFingerprint(r, user(r).ID, matches)
+	language, _ := activeStudyLanguageForContext(r.Context())
+	extras := lemmaProposalIdentities(chosen, action, lemma, language)
+	fingerprint, err := h.services.Store.LemmaReview.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), extras)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +192,7 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	}
 	// The language is taken from the analyzed Book, not inferred from a lemma.
 	// The caller's active language is already checked by the review route.
-	language, _ := activeStudyLanguageForContext(r.Context())
+	language, _ = activeStudyLanguageForContext(r.Context())
 	known, err := h.services.Store.LemmaReview.ListKnownVocabulary(r.Context(), user(r).ID, language)
 	if err != nil {
 		return nil, err
@@ -283,50 +286,40 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	return p, nil
 }
 
-func lemmaReviewFingerprint(occurrences []domain.LemmaReviewOccurrence) string {
-	h := sha256.New()
-	for _, o := range occurrences {
-		_, _ = h.Write([]byte(strings.Join([]string{o.AnalysisRunID, o.SourceDocumentID, strconv.FormatInt(o.StartOffset, 10), strconv.FormatInt(o.EndOffset, 10), o.Surface, o.RawLemma, o.CanonicalLemma, o.UPOS, o.CorrectedLemma, strconv.FormatBool(o.Excluded)}, "\x00") + "\n"))
-	}
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-func (h *Handler) lemmaDecisionStateFingerprint(r *http.Request, owner string, occurrences []domain.LemmaReviewOccurrence) (string, error) {
-	digest := sha256.New()
-	_, _ = digest.Write([]byte(lemmaReviewFingerprint(occurrences)))
-	if len(occurrences) == 0 {
-		return hex.EncodeToString(digest.Sum(nil)), nil
-	}
-	insights, err := h.services.Store.LemmaReview.GetAnalysisCorpusVocabulary(r.Context(), owner, occurrences[0].CorpusID)
-	if err != nil {
-		return "", err
-	}
-	identities := make([]string, 0, len(insights.Lemmas))
-	for _, item := range insights.Lemmas {
-		reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), owner, item.Language, item.CanonicalLemma, item.UPOS)
-		if reserveErr != nil {
-			return "", reserveErr
+func lemmaProposalIdentities(occurrences []domain.LemmaReviewOccurrence, action, lemma, language string) []domain.LemmaReviewIdentity {
+	identities := make(map[domain.LemmaReviewIdentity]bool)
+	for _, occurrence := range occurrences {
+		before := occurrence.CanonicalLemma
+		if occurrence.CorrectedLemma != "" {
+			before = occurrence.CorrectedLemma
 		}
-		identities = append(identities, strings.Join([]string{item.CanonicalLemma, item.UPOS, strconv.FormatInt(item.OccurrenceCount, 10), strconv.FormatBool(reserved)}, "\x00"))
+		if occurrence.Excluded {
+			before = ""
+		}
+		after := lemma
+		if action == "keep" {
+			after = occurrence.CanonicalLemma
+		}
+		if action == "exclude" {
+			after = ""
+		}
+		if before != "" {
+			identities[domain.LemmaReviewIdentity{Language: language, CanonicalLemma: before, UPOS: occurrence.UPOS}] = true
+		}
+		if after != "" {
+			identities[domain.LemmaReviewIdentity{Language: language, CanonicalLemma: after, UPOS: occurrence.UPOS}] = true
+		}
 	}
-	sort.Strings(identities)
-	for _, item := range identities {
-		_, _ = digest.Write([]byte(item + "\n"))
+	result := make([]domain.LemmaReviewIdentity, 0, len(identities))
+	for identity := range identities {
+		result = append(result, identity)
 	}
-	language, _ := activeStudyLanguageForContext(r.Context())
-	known, err := h.services.Store.LemmaReview.ListKnownVocabulary(r.Context(), owner, language)
-	if err != nil {
-		return "", err
-	}
-	knownIdentities := make([]string, 0, len(known))
-	for _, item := range known {
-		knownIdentities = append(knownIdentities, item.CanonicalLemma+"\x00"+item.UPOS)
-	}
-	sort.Strings(knownIdentities)
-	for _, item := range knownIdentities {
-		_, _ = digest.Write([]byte(item + "\n"))
-	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
+	sort.Slice(result, func(i, j int) bool {
+		left := result[i].Language + "\x00" + result[i].CanonicalLemma + "\x00" + result[i].UPOS
+		right := result[j].Language + "\x00" + result[j].CanonicalLemma + "\x00" + result[j].UPOS
+		return left < right
+	})
+	return result
 }
 
 func lemmaProposalFingerprint(state, action, lemma string, selected []int) string {
@@ -373,6 +366,14 @@ func yesNo(value bool) string {
 	return "no"
 }
 
+func normalizedLemma(profile canonicalization.Profile, value string) (string, error) {
+	lemma := profile.Canonical(strings.TrimSpace(value))
+	if !lexical.IsLemma(lemma) {
+		return "", errors.New("Enter one valid canonical lemma without spaces.")
+	}
+	return lemma, nil
+}
+
 func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, owner domain.User) {
 	bookID, form := strings.TrimSpace(r.PathValue("bookID")), strings.TrimSpace(r.FormValue("form"))
 	store := h.services.Store.LemmaReview
@@ -394,9 +395,9 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 	if action == "correct" {
-		lemma = profile.Canonical(lemma)
-		if !lexical.IsLemma(lemma) {
-			http.Error(w, "Enter one valid canonical lemma without spaces.", http.StatusBadRequest)
+		lemma, profileErr = normalizedLemma(profile, lemma)
+		if profileErr != nil {
+			http.Error(w, profileErr.Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -415,16 +416,8 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		indices[i] = true
 		orderedIndices = append(orderedIndices, i)
 	}
-	stateFingerprint, err := h.lemmaDecisionStateFingerprint(r, owner.ID, matches)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if lemmaProposalFingerprint(stateFingerprint, action, lemma, orderedIndices) != r.FormValue("fingerprint") {
-		http.Error(w, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.", http.StatusConflict)
-		return
-	}
 	decisions := make([]domain.LemmaReviewDecision, 0, len(indices))
+	chosen := make([]domain.LemmaReviewOccurrence, 0, len(indices))
 	for i, occurrence := range matches {
 		if !indices[i] {
 			continue
@@ -434,11 +427,22 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		if action == "keep" {
 			decision = occurrence.CanonicalLemma
 		}
+		chosen = append(chosen, occurrence)
 		decisions = append(decisions, domain.LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: decision, Excluded: excluded, NormalizationProfile: profile.Name(), NormalizationVersion: profile.Version()})
 	}
-	if err := store.PutLemmaDecisions(r.Context(), decisions); err != nil {
+	extras := lemmaProposalIdentities(chosen, action, lemma, language)
+	stateFingerprint, err := store.LemmaReviewStateFingerprint(r.Context(), owner.ID, bookID, language, form, extras)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if lemmaProposalFingerprint(stateFingerprint, action, lemma, orderedIndices) != r.FormValue("fingerprint") {
+		http.Error(w, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.", http.StatusConflict)
+		return
+	}
+	if err := store.PutLemmaDecisionProposal(r.Context(), decisions, form, language, extras, stateFingerprint); err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
-			http.Error(w, "This occurrence changed or its vocabulary has frozen. No decision was saved; review it again.", http.StatusConflict)
+			http.Error(w, "Learner vocabulary state changed or froze after preview. No decision was saved; review it again.", http.StatusConflict)
 			return
 		}
 		fail(w, err)
