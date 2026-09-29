@@ -17,7 +17,8 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await page.getByRole('button', { name: 'Find occurrences' }).click();
     await expect(page.getByText('Der Weg führt zum Haus.').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save correction for this occurrence' })).toHaveCount(2);
-    await page.getByRole('button', { name: 'Exclude this occurrence from vocabulary selection' }).first().click();
+    await page.locator('details summary').first().click();
+    await page.getByRole('button', { name: 'Exclude this occurrence', exact: true }).first().click();
     await expect(page.getByText('excluded for this occurrence.')).toBeVisible();
   } finally {
     await context.close();
