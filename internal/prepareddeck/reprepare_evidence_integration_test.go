@@ -66,21 +66,20 @@ func (i *changingMeaningIndex) lookupCount() int {
 type reprepareFixtureAssembler struct{}
 
 func (reprepareFixtureAssembler) AssemblePreparedDeckInputs(_ context.Context, _ pgx.Tx, prep domain.DeckPreparation) ([]cardexport.CandidateProjection, string, error) {
-	const sentence = "Das Haus steht heute neben dem Bahnhof."
+	const sentence = "Dann haut das Motorrad Piero um."
 	entry := cardexport.Entry{
-		Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: sentence,
-		TargetWord: "Haus", SourceDocument: "Re-preparation fixture", FirstEncounter: 1,
+		Language: "de", CanonicalLemma: "umhauen", UPOS: "VERB", Sentence: sentence,
+		TargetWord: "haut ... um", SourceDocument: "Re-preparation fixture", FirstEncounter: 1,
 		SentenceTokens: []analyzer.Token{
-			{Surface: "Das", UPOS: "DET", Dependency: "det", Head: 1},
-			{Surface: "Haus", UPOS: "NOUN", Dependency: "nsubj", Head: 2},
-			{Surface: "steht", UPOS: "VERB", Dependency: "root", Head: 2, Morphology: map[string]string{"VerbForm": "Fin"}},
-			{Surface: "heute", UPOS: "ADV", Dependency: "advmod", Head: 2},
-			{Surface: "neben", UPOS: "ADP", Dependency: "case", Head: 5},
-			{Surface: "dem", UPOS: "DET", Dependency: "det", Head: 6},
-			{Surface: "Bahnhof", UPOS: "NOUN", Dependency: "obl", Head: 2},
+			{Surface: "Dann", UPOS: "ADV", Dependency: "advmod", Head: 1},
+			{Surface: "haut", UPOS: "VERB", Dependency: "root", Head: 1, Morphology: map[string]string{"VerbForm": "Fin"}},
+			{Surface: "das", UPOS: "DET", Dependency: "det", Head: 3},
+			{Surface: "Motorrad", UPOS: "NOUN", Dependency: "nsubj", Head: 1},
+			{Surface: "Piero", UPOS: "PROPN", Dependency: "obj", Head: 1},
+			{Surface: "um", UPOS: "PART", Dependency: "compound:prt", Head: 1},
 		},
 	}
-	candidate := domain.SelectionCandidate{OwnerID: prep.OwnerID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3, ObservedForms: []byte(`["Haus"]`), FirstEncounter: 1}
+	candidate := domain.SelectionCandidate{OwnerID: prep.OwnerID, Language: "de", CanonicalLemma: "umhauen", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`["haut","um"]`), FirstEncounter: 1}
 	return []cardexport.CandidateProjection{{OwnerID: prep.OwnerID, DeckName: "Re-preparation fixture", Candidate: candidate, Entry: entry}}, "Re-preparation fixture", nil
 }
 
@@ -99,13 +98,16 @@ func (p *reprepareFixtureProvider) Translate(_ context.Context, request enrichme
 		return enrichment.TranslationResponse{}, assert.AnError
 	}
 	sense := request.CandidateSenses[0]
-	gloss := "dwelling"
-	if sense.EvidenceID == "wikt:haus-v2" {
-		gloss = "home"
+	gloss := "to knock down"
+	sentenceTranslation := "And then the motorcycle knocks Piero over."
+	targets := []string{"knocks"}
+	if sense.EvidenceID == "wikt:umhauen-v2" {
+		gloss = "to knock over"
+		targets = []string{"knocks", "over"}
 	}
 	return enrichment.TranslationResponse{
-		Translation: "house", Gloss: gloss, EvidenceIDs: []string{sense.EvidenceID},
-		SentenceTranslation: "The house stands beside the station.", SentenceTranslationTargets: []string{"house"},
+		Translation: "knock over", Gloss: gloss, EvidenceIDs: []string{sense.EvidenceID},
+		SentenceTranslation: sentenceTranslation, SentenceTranslationTargets: targets,
 	}, nil
 }
 
@@ -147,7 +149,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisRunID)
 	require.NoError(t, err)
-	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3, ObservedForms: []byte(`["Haus"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":3}`)})
+	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "umhauen", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`["haut","um"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":3}`)})
 	require.NoError(t, err)
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -161,7 +163,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "fixture-model", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
-	index := &changingMeaningIndex{version: "fixture-v1", evidence: enrichment.LexicalSense{EvidenceID: "wikt:haus-v1", Gloss: "building", Source: "wiktionary", Kind: "meaning", Origin: "fixture"}}
+	index := &changingMeaningIndex{version: "fixture-v1", evidence: enrichment.LexicalSense{EvidenceID: "wikt:umhauen-v1", Gloss: "to knock down", Source: "wiktionary", Kind: "meaning", Origin: "fixture"}}
 	planner := NewStandardPlanner(reprepareFixtureAssembler{}, cardexport.NewPresentation(index), codec, true, BatchConfig{}, PreparedDeckConfig{StandardMaxAttempts: 1})
 	workers := river.NewWorkers()
 	provider := &reprepareFixtureProvider{}
@@ -188,6 +190,15 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 		deck, restoreErr := cardexport.NewPresentation(nil).Restore(snapshot)
 		require.NoError(t, restoreErr)
 		for _, work := range deck.WorkProjection() {
+			if prep.ID == preparation.ID {
+				// Seed the historical immutable cache shape: the original singular
+				// phrase field is populated and the structured target list is absent.
+				_, cacheErr := store.Put(ctx, enrichment.CacheEntry{
+					CacheKey: work.CacheKey, Translation: "knock over", FallbackGloss: "to knock down", SenseSelection: []int{0},
+					SentenceTranslation: "And then the motorcycle knocks Piero over.", SentenceTranslationTarget: "knocks Piero over", CachedAt: time.Now().UTC(),
+				})
+				require.NoError(t, cacheErr)
+			}
 			require.NoError(t, translation.execute(ctx, StandardTranslationJobArgs{OwnerID: prep.OwnerID, PreparationID: prep.ID, RunID: frozen.Run.ID, Ordinal: work.Ordinal, Generation: 0}))
 		}
 		run, runErr := store.GetPreparedDeckRun(ctx, prep.OwnerID, prep.ID, frozen.Run.ID)
@@ -203,16 +214,18 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NoError(t, err)
 	firstRun, err := store.GetCurrentPreparedDeckRun(ctx, owner.ID, first.ID)
 	require.NoError(t, err)
+	assert.Equal(t, codec.ContextualGlossProviderVersion(), firstRun.ProviderVersion)
 	firstProjection, firstDigest, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, first.ID, firstRun.ID)
 	require.NoError(t, err)
 	require.Equal(t, "fixture-v1", firstProjection.Items[0].Entry.DictionaryProviderVersion)
-	require.Equal(t, "wikt:haus-v1", firstProjection.Items[0].Entry.CandidateSenses[0].EvidenceID)
+	require.Equal(t, "wikt:umhauen-v1", firstProjection.Items[0].Entry.CandidateSenses[0].EvidenceID)
 	firstKey := firstProjection.Items[0].CacheKey
 	require.NotNil(t, firstKey)
-	assert.Contains(t, artifactNoteFields(t, ctx, firstArtifact.Artifact), "dwelling")
+	assert.Contains(t, artifactNoteFields(t, ctx, firstArtifact.Artifact), "to knock down")
+	assert.Contains(t, artifactNoteFields(t, ctx, firstArtifact.Artifact), "And then the motorcycle <b>knocks Piero over</b>.")
 	lookupsBeforeRerender := index.lookupCount()
 	callsBeforeRerender := provider.callCount()
-	assert.Equal(t, 1, callsBeforeRerender, "initial generation should use the fake translation provider")
+	assert.Zero(t, callsBeforeRerender, "legacy cached generation should not call the provider")
 
 	// A presentation-only rerender consumes the frozen specification. It must
 	// neither query the now-current local dictionary nor translate again.
@@ -231,8 +244,8 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	assert.Equal(t, callsBeforeRerender, provider.callCount(), "rerender invoked the translation provider")
 	firstAfterRerender, err := store.DownloadDeckPreparation(ctx, owner.ID, first.ID)
 	require.NoError(t, err)
-	assert.Contains(t, artifactNoteFields(t, ctx, firstAfterRerender.Artifact), "dwelling")
-	index.advance("fixture-v2", enrichment.LexicalSense{EvidenceID: "wikt:haus-v2", Gloss: "home", Source: "wiktionary", Kind: "meaning", Origin: "fixture"})
+	assert.Contains(t, artifactNoteFields(t, ctx, firstAfterRerender.Artifact), "to knock down")
+	index.advance("fixture-v2", enrichment.LexicalSense{EvidenceID: "wikt:umhauen-v2", Gloss: "to knock over", Source: "wiktionary", Kind: "meaning", Origin: "fixture"})
 	service := NewService(store, client)
 	refreshed, err := service.Reprepare(ctx, owner.ID, first.ID)
 	require.NoError(t, err)
@@ -243,15 +256,17 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	second := prepare(refreshed.Preparation)
 	secondRun, err := store.GetCurrentPreparedDeckRun(ctx, owner.ID, second.ID)
 	require.NoError(t, err)
+	assert.Equal(t, codec.ContextualGlossProviderVersion(), secondRun.ProviderVersion)
 	assert.NotEqual(t, firstRun.ID, secondRun.ID, "each generation must have its own durable run identity")
 	secondProjection, _, err := store.LoadPreparedDeckStorageProjection(ctx, owner.ID, second.ID, secondRun.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, firstKey.MeaningEvidenceHash, secondProjection.Items[0].CacheKey.MeaningEvidenceHash)
 	assert.Equal(t, "fixture-v2", secondProjection.Items[0].Entry.DictionaryProviderVersion)
-	assert.Equal(t, "wikt:haus-v2", secondProjection.Items[0].Entry.CandidateSenses[0].EvidenceID)
+	assert.Equal(t, "wikt:umhauen-v2", secondProjection.Items[0].Entry.CandidateSenses[0].EvidenceID)
 	secondArtifact, err := store.DownloadDeckPreparation(ctx, owner.ID, second.ID)
 	require.NoError(t, err)
-	assert.Contains(t, artifactNoteFields(t, ctx, secondArtifact.Artifact), "home")
+	assert.Contains(t, artifactNoteFields(t, ctx, secondArtifact.Artifact), "to knock over")
+	assert.Contains(t, artifactNoteFields(t, ctx, secondArtifact.Artifact), "And then the motorcycle <b>knocks</b> Piero <b>over</b>.")
 	assert.Equal(t, callsBeforeRerender+1, provider.callCount(), "new generation must translate using refreshed evidence")
 	oldAgain, err := store.DownloadDeckPreparation(ctx, owner.ID, first.ID)
 	require.NoError(t, err)
@@ -262,7 +277,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	generated, err := store.ListGeneratedVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, generated, 1, "re-preparing the same analysis must not duplicate generated vocabulary identities")
-	assert.Equal(t, "haus", generated[0].CanonicalLemma)
+	assert.Equal(t, "umhauen", generated[0].CanonicalLemma)
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, known, "preparing cards must not mark vocabulary Known")
