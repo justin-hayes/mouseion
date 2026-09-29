@@ -674,21 +674,41 @@ func nounArticle(language, upos, lemma, morphology string) string {
 		}
 	}
 	genders := make(map[string]bool, len(articles))
+	singularGenders := make(map[string]bool, len(articles))
+	invalidGender := false
 	allPlural := true
 	for _, variant := range variants {
 		gender := morphologyValue(variant, "Gender")
+		number := morphologyValue(variant, "Number")
+		singular := number == "sing" || number == "singular"
 		if gender != "" {
 			article, ok := articles[gender]
 			if !ok {
-				return ""
+				invalidGender = true
+				if singular {
+					return ""
+				}
+			} else {
+				genders[article] = true
+				if singular {
+					singularGenders[article] = true
+				}
 			}
-			genders[article] = true
 		}
-		number := morphologyValue(variant, "Number")
 		allPlural = allPlural && (number == "plur" || number == "plural")
 	}
-	if len(genders) == 1 {
-		for article := range genders {
+	if invalidGender && (baseLanguage != "de" || len(singularGenders) == 0) {
+		return ""
+	}
+	articleGenders := genders
+	if baseLanguage == "de" && len(singularGenders) > 0 {
+		if len(singularGenders) != 1 {
+			return ""
+		}
+		articleGenders = singularGenders
+	}
+	if len(articleGenders) == 1 {
+		for article := range articleGenders {
 			if baseLanguage == "it" {
 				return italianDefiniteArticle(article, lemma)
 			}

@@ -681,6 +681,8 @@ func TestMakeNoteDerivesNounArticleFromMorphology(t *testing.T) {
 		{name: "Greek valid dictionary article wins", language: "el", sentence: "Ο δρόμος είναι μακρύς.", target: "δρόμος", morphology: `{"Gender":"Fem","Article":"ο","Number":"Sing"}`, wantArticle: "ο", wantLemma: "δρόμος"},
 		{name: "Greek invalid gender", language: "el", sentence: "Το σπίτι είναι παλιό.", target: "σπίτι", morphology: `{"Gender":"Common","Number":"Sing"}`, wantLemma: "σπίτι"},
 		{name: "Greek ambiguous gender variants", language: "el", sentence: "Το σπίτι είναι παλιό.", target: "σπίτι", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Masc","Number":"Sing"}]`, wantLemma: "σπίτι"},
+		{name: "Italian conflicting singular and plural gender tags remain ambiguous", language: "it", sentence: "La casa è bella.", target: "casa", morphology: `[{"Gender":"Fem","Number":"Sing"},{"Gender":"Masc","Number":"Plur"}]`, wantLemma: "casa"},
+		{name: "Greek conflicting singular and plural gender tags remain ambiguous", language: "el", sentence: "Το σπίτι είναι παλιό.", target: "σπίτι", morphology: `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Masc","Number":"Plur"}]`, wantLemma: "σπίτι"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			lemma := test.lemma
@@ -693,6 +695,36 @@ func TestMakeNoteDerivesNounArticleFromMorphology(t *testing.T) {
 			assert.Equal(t, test.wantLemma, note.Lemma)
 		})
 	}
+}
+
+func TestRenderFrozenManifestDerivesArticleFromSingularGenderEvidence(t *testing.T) {
+	const morphology = `[{"Gender":"Neut","Number":"Sing"},{"Gender":"Masc","Number":"Plur"},{"Gender":"Neut","Number":"Sing"}]`
+	snapshot := ManifestSnapshot{
+		SchemaVersion: ManifestSchemaVersion,
+		Owner:         "owner", DeckName: "Buch", Filename: DownloadFilename("Buch"),
+		Items: []ManifestItem{{
+			Ordinal: 0, Disposition: ManifestAccepted,
+			Entry: Entry{
+				Language: "de", CanonicalLemma: "basketballspiel", UPOS: "NOUN",
+				Sentence: "Das Basketballspiel war spannend.", TargetWord: "Basketballspiel",
+				Morphology: morphology,
+			},
+			Quality: SentenceQuality{Accepted: true, Score: 94, Reasons: []string{"target present"}},
+		}},
+	}
+
+	deck, err := NewPresentation(nil).Restore(snapshot)
+	require.NoError(t, err)
+	artifact, _, err := NewPresentation(nil).Finalize(t.Context(), deck, nil, RunFacts{})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, DedupKey("de", "basketballspiel", "NOUN", "owner"), artifact.Generated[0].Note.Key)
+	assert.Equal(t, "das", artifact.Generated[0].Note.Article)
+	assert.True(t, strings.HasPrefix(artifact.Generated[0].Note.BackExtra, "das Basketballspiel\n"))
+}
+
+func TestPresentationVersionAdvancesForArticleCorrection(t *testing.T) {
+	assert.Equal(t, 4, PresentationVersion)
 }
 
 func TestMakeNoteDoesNotAddGreekArticleToNonNoun(t *testing.T) {
