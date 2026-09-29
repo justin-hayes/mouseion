@@ -32,3 +32,10 @@ func TestValidateSentenceTranslationTargetsIsAllOrNothing(t *testing.T) {
 	assert.Nil(t, ValidateSentenceTranslationTargets("He knocks and then knocks again.", []string{"knocks"}), "repeated excerpts are ambiguous")
 	assert.Nil(t, ValidateSentenceTranslationTargets("And then the motorcycle knocks Piero over.", []string{"Knocks"}), "excerpts must exactly match their source text")
 }
+
+func TestValidateSentenceTranslationTargetsKeepsCombiningMarksWithinWords(t *testing.T) {
+	const decomposed = "cafe\u0301"
+	assert.Nil(t, ValidateSentenceTranslationTargets("The "+decomposed+" is open.", []string{"cafe"}), "a combining mark continues the preceding word")
+	assert.Equal(t, []string{decomposed}, ValidateSentenceTranslationTargets("The "+decomposed+" is open.", []string{decomposed}), "the complete decomposed word remains valid")
+	assert.Equal(t, []string{decomposed}, ValidateSentenceTranslationTargets(decomposed, []string{decomposed}), "a single-word Unicode sentence remains eligible")
+}

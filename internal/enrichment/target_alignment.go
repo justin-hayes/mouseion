@@ -67,7 +67,7 @@ func alignmentBoundaryBefore(text string, index int) bool {
 		return true
 	}
 	r, _ := utf8.DecodeLastRuneInString(text[:index])
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	return !alignmentWordRune(r)
 }
 
 func alignmentBoundaryAfter(text string, index int) bool {
@@ -75,13 +75,17 @@ func alignmentBoundaryAfter(text string, index int) bool {
 		return true
 	}
 	r, _ := utf8.DecodeRuneInString(text[index:])
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	return !alignmentWordRune(r)
+}
+
+func alignmentWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsMark(r)
 }
 
 func lexicalAlignmentWordCount(text string) int {
 	count, inside := 0, false
 	for _, r := range text {
-		word := unicode.IsLetter(r) || unicode.IsNumber(r)
+		word := alignmentWordRune(r)
 		if word && !inside {
 			count++
 		}
