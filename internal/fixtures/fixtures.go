@@ -116,6 +116,7 @@ type Store struct {
 	storedActiveLanguage   *string
 	mostRecentLanguage     string
 	lemmaCorrections       map[string]string
+	lemmaExclusions        map[string]bool
 }
 
 func NewStore() *Store {
@@ -202,6 +203,7 @@ func NewStore() *Store {
 		storedActiveLanguage: &initialActiveLanguage,
 		mostRecentLanguage:   "it",
 		lemmaCorrections:     make(map[string]string),
+		lemmaExclusions:      make(map[string]bool),
 	}
 }
 
@@ -228,12 +230,13 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 			SentenceOrdinal: int64(i), TokenOrdinal: 1, Surface: surface, RawLemma: "Weg",
 			CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg führt zum Haus.",
 			CorrectedLemma: s.lemmaCorrections[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
+			Excluded:       s.lemmaExclusions[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
 		})
 	}
 	return result, nil
 }
 
-func (s *Store) PutLemmaCorrection(_ context.Context, occurrence domain.LemmaReviewOccurrence, lemma, _, _ string) error {
+func (s *Store) PutLemmaDecision(_ context.Context, occurrence domain.LemmaReviewOccurrence, lemma string, excluded bool, _, _ string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run"
@@ -244,6 +247,12 @@ func (s *Store) PutLemmaCorrection(_ context.Context, occurrence domain.LemmaRev
 		return errNotFound
 	}
 	key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+	if excluded {
+		delete(s.lemmaCorrections, key)
+		s.lemmaExclusions[key] = true
+		return nil
+	}
+	delete(s.lemmaExclusions, key)
 	if lemma == occurrence.CanonicalLemma {
 		delete(s.lemmaCorrections, key)
 		return nil

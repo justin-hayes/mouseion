@@ -14,9 +14,20 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     if (await language.inputValue() !== 'de') await language.selectOption('de');
     await page.goto('/reading/books/fixture-route-match/lemma-review');
     await page.getByLabel('Exact observed form').fill('Weg');
-    await page.getByRole('button', { name: 'Find occurrences' }).click();
+    const findOccurrences = page.getByRole('button', { name: 'Find occurrences' });
+    await findOccurrences.press('Enter');
     await expect(page.getByText('Der Weg führt zum Haus.').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save correction for this occurrence' })).toHaveCount(2);
+    const exclusionDisclosure = page.locator('details summary').first();
+    await findOccurrences.focus();
+    for (let tab = 0; tab < 4; tab++) await page.keyboard.press('Tab');
+    await expect(exclusionDisclosure).toBeFocused();
+    await page.keyboard.press('Enter');
+    const excludeButton = page.getByRole('button', { name: 'Exclude this occurrence', exact: true }).first();
+    await page.keyboard.press('Tab');
+    await expect(excludeButton).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('excluded for this occurrence.')).toBeVisible();
   } finally {
     await context.close();
   }

@@ -103,6 +103,7 @@ func correctedPrimaryGoalCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Q
 		decisions = append(decisions, selection.OccurrenceDecision{
 			Occurrence: selection.OccurrenceIdentity{SourceDocumentID: correction.SourceDocumentID, StartOffset: start, EndOffset: end},
 			Lemma:      correction.CanonicalLemma,
+			Excluded:   correction.Excluded,
 		})
 	}
 	projected, err := selection.Project(analysis, selection.DefaultConfig(identity.CaCorpusID), decisions)

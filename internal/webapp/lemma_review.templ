@@ -10,7 +10,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 		<main class="container data-width">
 			<p><a href="/reading">Back to Reading</a></p>
 			<h1>Review a word in { title }</h1>
-			<p>Search one exact observed form in this Book's current analysis. Each correction applies only to one occurrence; the analyzer result remains unchanged.</p>
+			<p>Search one exact observed form in this Book's current analysis. Each decision applies only to one occurrence; the analyzer result remains unchanged.</p>
 			<form method="get" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
 				<label>Exact observed form<input name="form" value={ form } required /></label>
 				<button type="submit">Find occurrences</button>
@@ -25,7 +25,9 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 				<article>
 					<p class="reading-text">{ occurrence.SentenceText }</p>
 					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
-					if occurrence.CorrectedLemma != "" {
+					if occurrence.Excluded {
+						<p role="status"><strong>Vocabulary selection:</strong> excluded for this occurrence.</p>
+					} else if occurrence.CorrectedLemma != "" {
 						<p role="status"><strong>Effective lemma:</strong> { occurrence.CorrectedLemma } (corrected)</p>
 					} else {
 						<p><strong>Effective lemma:</strong> { occurrence.CanonicalLemma } (analyzer assignment)</p>
@@ -43,9 +45,15 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						<input type="hidden" name="canonical_lemma" value={ occurrence.CanonicalLemma } />
 						<input type="hidden" name="upos" value={ occurrence.UPOS } />
 						<input type="hidden" name="expected_corrected_lemma" value={ occurrence.CorrectedLemma } />
+						<input type="hidden" name="expected_excluded" value={ fmt.Sprint(occurrence.Excluded) } />
 						<label>Corrected canonical lemma<input name="lemma" value={ occurrence.CorrectedLemma } required /></label>
 						<button type="submit">Save correction for this occurrence</button>
 						<button type="submit" name="action" value="keep" formnovalidate>Keep analyzer lemma</button>
+						<details>
+							<summary>Exclude this occurrence from vocabulary selection</summary>
+							<p>Only this occurrence will stop contributing to recurrence, Reading snapshots, deck candidates, and Known or Reserved counts. It remains in the analyzed text and coverage denominator, so exclusion cannot improve coverage. You can restore it before a Reading snapshot or deck freezes; existing frozen artifacts and completed Known facts will not change.</p>
+							<button type="submit" name="action" value="exclude" formnovalidate>Exclude this occurrence</button>
+						</details>
 					</form>
 					}
 				</article>
