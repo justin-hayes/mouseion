@@ -25,7 +25,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	owner := createAccount(t, ctx, store, "lemma-review-owner", "learner-password", false)
 	otherOwner, err := store.CreateUser(ctx, "lemma-review-other", false)
 	require.NoError(t, err)
-	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "lemma-review", "Lemma review", []domain.LemmaOccurrence{
+	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "lemma-review", "Lemma review", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "drach", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "drache", UPOS: "NOUN", OccurrenceCount: 2},
 	})
@@ -53,6 +53,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.Len(t, occurrences, 3)
 	assert.Empty(t, occurrences[0].CorrectedLemma)
 	require.NoError(t, store.PutLemmaCorrection(ctx, occurrences[0], "drache", "german-post-1996", "6"))
+	require.ErrorIs(t, store.PutLemmaCorrection(ctx, occurrences[0], "drachenwesen", "german-post-1996", "6"), persistence.ErrNotFound, "a stale occurrence decision cannot overwrite a newer correction")
 	updated, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
 	require.Len(t, updated, 3)
@@ -81,10 +82,24 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.Len(t, snapshot, 1)
 	assert.Equal(t, "drache", snapshot[0].CanonicalLemma)
 	assert.Equal(t, 3, snapshot[0].OccurrenceCount, "the one corrected occurrence joins the two existing occurrences across the recurrence floor")
+	assert.Contains(t, string(snapshot[0].SentenceReferences), "Ein Drache sieht einen Drachen und noch einen Drachen.", "the reading snapshot freezes a representative sentence from the effective candidate")
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
+	deckFacts, err := store.LoadPreparedDeckCandidateFactsTx(ctx, tx, domain.DeckPreparation{
+		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,
+	}, snapshot)
+	require.NoError(t, err)
+	require.Len(t, deckFacts, 1)
+	assert.Equal(t, "Ein Drache sieht einen Drachen und noch einen Drachen.", deckFacts[0].Entry.Sentence, "deck preparation uses a corrected representative source sentence, not a stale analyzer candidate row")
 	require.ErrorIs(t, store.PutLemmaCorrection(ctx, updated[1], "drago", "german-post-1996", "6"), persistence.ErrNotFound, "an active snapshot rejects later identity changes")
 	unchanged, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, snapshot, unchanged, "frozen reading evidence remains immutable")
+	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount, "the effective corrected identity matches the active reading reservation")
+	assert.Zero(t, reservedCoverage.KnownTokenCount, "Reserved vocabulary is not counted as Known")
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "drache", "NOUN")
 	require.NoError(t, err)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)

@@ -95,6 +95,10 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "This occurrence changed or belongs to an older analysis. No correction was saved; find it again in Reading.", http.StatusConflict)
 		return
 	}
+	if r.FormValue("expected_corrected_lemma") != chosen.CorrectedLemma {
+		http.Error(w, "This occurrence's correction changed after you opened it. No correction was saved; review it again in Reading.", http.StatusConflict)
+		return
+	}
 	if r.FormValue("action") == "keep" {
 		lemma = chosen.CanonicalLemma
 	} else if !lexical.IsLemma(lemma) {

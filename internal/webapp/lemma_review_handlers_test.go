@@ -32,7 +32,7 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 		"csrf_token": {csrf}, "form": {"Weg"}, "analysis_run_id": {fixtures.ResultRunID},
 		"source_document_id": {"fixture-unit"}, "start_offset": {"4"}, "end_offset": {"7"},
 		"surface": {"Weg"}, "raw_lemma": {"Weg"}, "canonical_lemma": {"weg"}, "upos": {"NOUN"},
-		"lemma": {"Pfad"},
+		"expected_corrected_lemma": {""}, "lemma": {"Pfad"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, correct.Code)
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
@@ -40,6 +40,13 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	require.Len(t, occurrences, 2)
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
 	assert.Empty(t, occurrences[1].CorrectedLemma, "same-surface occurrence must remain untouched")
+	stale := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
+		"csrf_token": {csrf}, "form": {"Weg"}, "analysis_run_id": {fixtures.ResultRunID},
+		"source_document_id": {"fixture-unit"}, "start_offset": {"4"}, "end_offset": {"7"},
+		"surface": {"Weg"}, "raw_lemma": {"Weg"}, "canonical_lemma": {"weg"}, "upos": {"NOUN"},
+		"expected_corrected_lemma": {""}, "lemma": {"Wand"},
+	}, cookies)
+	assert.Equal(t, http.StatusConflict, stale.Code, "a stale review form cannot overwrite a later correction")
 
 	start := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, start.Code)
