@@ -75,8 +75,8 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	provider := &barrierTranslationProvider{onCall: func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 		return enrichment.TranslationResponse{
 			Translation: "barbecue hut", Gloss: "barbecue hut", ContextOnly: true,
-			SentenceTranslation:       "The animal was already roasting when we arrived at the barbecue hut.",
-			SentenceTranslationTarget: "The animal was already roasting when we arrived at the barbecue hut",
+			SentenceTranslation:        "The animal was already roasting when we arrived at the barbecue hut.",
+			SentenceTranslationTargets: []string{},
 		}, nil
 	}}
 	workers := river.NewWorkers()

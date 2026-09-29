@@ -18,8 +18,8 @@ const (
 	defaultLLMBaseURL            = "https://api.openai.com/v1"
 	defaultLLMTimeout            = 30 * time.Second
 	defaultReasoningEffort       = "low"
-	llmPromptVersion             = "translation-v11-sense-selection-display-limit-json"
-	contextualGlossPromptVersion = "translation-v13-unresolved-meaning"
+	llmPromptVersion             = "translation-v12-structured-target-alignment"
+	contextualGlossPromptVersion = "translation-v14-structured-target-alignment"
 	llmReasoningEffortEnv        = "MOUSEION_LLM_REASONING_EFFORT"
 	llmReasoningSupportEnv       = "MOUSEION_LLM_SUPPORTS_REASONING_EFFORT"
 )

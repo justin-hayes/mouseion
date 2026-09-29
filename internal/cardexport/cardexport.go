@@ -254,6 +254,30 @@ func HighlightEnglishTarget(translation, target string) string {
 	return escapeField(translation[:start]) + "<b>" + escapeField(translation[start:end]) + "</b>" + escapeField(translation[end:])
 }
 
+// HighlightEnglishTargets renders validated structured excerpts. Historical
+// cached single-phrase targets retain their legacy presentation.
+func HighlightEnglishTargets(translation string, targets []string, legacyTarget string) string {
+	validated := enrichment.ValidateSentenceTranslationTargets(translation, targets)
+	if len(validated) == 0 {
+		return HighlightEnglishTarget(translation, legacyTarget)
+	}
+	var output strings.Builder
+	cursor := 0
+	for _, target := range validated {
+		start, end, ok := uniqueTargetMatch(translation, target)
+		if !ok || start < cursor {
+			return escapeField(translation)
+		}
+		output.WriteString(escapeField(translation[cursor:start]))
+		output.WriteString("<b>")
+		output.WriteString(escapeField(translation[start:end]))
+		output.WriteString("</b>")
+		cursor = end
+	}
+	output.WriteString(escapeField(translation[cursor:]))
+	return output.String()
+}
+
 func lexicalWordCount(text string) int {
 	count := 0
 	inWord := false
@@ -811,7 +835,7 @@ func makeNote(owner string, input RenderInput) (Note, error) {
 		IPA:            escapeField(strings.TrimSpace(input.IPA)),
 		PrincipalParts: escapeField(strings.TrimSpace(input.PrincipalParts)),
 		Gloss:          escapeField(input.Gloss), English: escapeField(input.Translation),
-		EnglishSentence: HighlightEnglishTarget(input.SentenceTranslation, input.SentenceTranslationTarget), BookTitle: escapeField(input.SourceDocument), Tags: tags,
+		EnglishSentence: HighlightEnglishTargets(input.SentenceTranslation, input.SentenceTranslationTargets, input.SentenceTranslationTarget), BookTitle: escapeField(input.SourceDocument), Tags: tags,
 	}
 	articleLemma := note.Lemma
 	if note.Article != "" {
@@ -1146,6 +1170,7 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string
 		{result.FallbackGloss.Available, result.FallbackGloss.Provenance},
 		{result.SentenceTranslation.Available, result.SentenceTranslation.Provenance},
 		{result.SentenceTranslationTarget.Available, result.SentenceTranslationTarget.Provenance},
+		{result.SentenceTranslationTargets.Available, result.SentenceTranslationTargets.Provenance},
 		{result.SenseSelection.Available, result.SenseSelection.Provenance},
 	}
 	available := false
@@ -1172,6 +1197,9 @@ func applyExactEnrichment(input *RenderInput, outcome ExactEnrichment) ([]string
 	}
 	if result.SentenceTranslationTarget.Available {
 		input.SentenceTranslationTarget = result.SentenceTranslationTarget.Value
+	}
+	if result.SentenceTranslationTargets.Available {
+		input.SentenceTranslationTargets = enrichment.ValidateSentenceTranslationTargets(input.SentenceTranslation, result.SentenceTranslationTargets.Value)
 	}
 	if outcome.CacheKey.MeaningEvidenceHash != "" {
 		gloss := strings.TrimSpace(result.FallbackGloss.Value)

@@ -29,7 +29,8 @@ func (s *PostgresStore) Put(ctx context.Context, entry enrichment.CacheEntry) (e
 	if err != nil {
 		return enrichment.CacheEntry{}, err
 	}
-	if err := s.queries().UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
+	targets := append([]string{}, entry.SentenceTranslationTargets...)
+	if err := s.queries().UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, SentenceTranslationTargets: targets, CachedAt: entry.CachedAt}); err != nil {
 		return enrichment.CacheEntry{}, err
 	}
 	stored, found, err := s.Get(ctx, entry.CacheKey)
@@ -51,6 +52,7 @@ func (s *PostgresStore) PutPreparedDeckTranslationIfClaimed(ctx context.Context,
 		return enrichment.CacheEntry{}, err
 	}
 	var stored enrichment.CacheEntry
+	targets := append([]string{}, entry.SentenceTranslationTargets...)
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		var claimMarker int
 		err := tx.QueryRow(ctx, `SELECT 1 FROM deck_preparation_translation_outcomes WHERE owner_id=$1 AND preparation_id=$2 AND run_id=$3 AND ordinal=$4 AND dispatch_generation=$5 AND state='running' AND claim_token=$6 AND lease_expires_at > clock_timestamp() FOR UPDATE`, owner, preparationID, runID, ordinal, generation, uuidArg(token)).Scan(&claimMarker)
@@ -61,7 +63,7 @@ func (s *PostgresStore) PutPreparedDeckTranslationIfClaimed(ctx context.Context,
 			return err
 		}
 		q := sqlcgen.New(tx)
-		if err := q.UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, CachedAt: entry.CachedAt}); err != nil {
+		if err := q.UpsertEnrichmentCache(ctx, sqlcgen.UpsertEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash, Translation: entry.Translation, FallbackGloss: entry.FallbackGloss, SenseSelection: selection, SentenceTranslation: entry.SentenceTranslation, SentenceTranslationTarget: entry.SentenceTranslationTarget, SentenceTranslationTargets: targets, CachedAt: entry.CachedAt}); err != nil {
 			return err
 		}
 		row, err := q.GetEnrichmentCache(ctx, sqlcgen.GetEnrichmentCacheParams{Language: entry.Language, TargetLanguage: entry.TargetLanguage, CanonicalLemma: entry.CanonicalLemma, Upos: entry.UPOS, Provider: entry.Provider, ProviderVersion: entry.ProviderVersion, SentenceHash: entry.SentenceHash, DictionaryProviderVersion: entry.DictionaryProviderVersion, MeaningEvidenceHash: entry.MeaningEvidenceHash})
@@ -75,7 +77,7 @@ func (s *PostgresStore) PutPreparedDeckTranslationIfClaimed(ctx context.Context,
 }
 
 func cacheEntryFromRow(key enrichment.CacheKey, row sqlcgen.GetEnrichmentCacheRow) (enrichment.CacheEntry, error) {
-	entry := enrichment.CacheEntry{CacheKey: key, Translation: row.Translation, FallbackGloss: row.FallbackGloss, SentenceTranslation: row.SentenceTranslation, SentenceTranslationTarget: row.SentenceTranslationTarget, CachedAt: row.CachedAt}
+	entry := enrichment.CacheEntry{CacheKey: key, Translation: row.Translation, FallbackGloss: row.FallbackGloss, SentenceTranslation: row.SentenceTranslation, SentenceTranslationTarget: row.SentenceTranslationTarget, SentenceTranslationTargets: append([]string(nil), row.SentenceTranslationTargets...), CachedAt: row.CachedAt}
 	if len(row.SenseSelection) > 0 {
 		if err := json.Unmarshal(row.SenseSelection, &entry.SenseSelection); err != nil {
 			return enrichment.CacheEntry{}, err

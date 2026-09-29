@@ -24,7 +24,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&received))
 		w.Header().Set("Content-Type", "application/json")
-		testwrite.String(t, w, testChatResponse(input, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}))
+		testwrite.String(t, w, testChatResponse(input, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTargets: []string{"house"}}))
 	}))
 	defer server.Close()
 
@@ -32,7 +32,7 @@ func TestOpenAITranslationClientPrivacyAndResponse(t *testing.T) {
 	require.NoError(t, err)
 	got, err := client.Translate(context.Background(), input)
 	require.NoError(t, err)
-	assert.Equal(t, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, got)
+	assert.Equal(t, TranslationResponse{Translation: "house", FallbackGloss: "a dwelling", SentenceTranslation: "The house is large.", SentenceTranslationTargets: []string{"house"}}, got)
 	body, err := json.Marshal(received)
 	require.NoError(t, err)
 	for _, forbidden := range []string{"user_id", "owner", "document", "reading", "corpus", "metadata"} {
@@ -218,7 +218,7 @@ func TestConfiguredLLMProviderAndEnvironment(t *testing.T) {
 	provider, err := NewConfiguredLLMProvider(cfg, &http.Client{})
 	require.NoError(t, err)
 	assert.Equal(t, "openai-compatible", provider.Name())
-	assert.Equal(t, "gpt-test/translation-v11-sense-selection-display-limit-json-reasoning-medium", provider.Version())
+	assert.Equal(t, "gpt-test/translation-v12-structured-target-alignment-reasoning-medium", provider.Version())
 	assert.Equal(t, 4*time.Second, cfg.Timeout)
 	assert.Equal(t, "medium", cfg.ReasoningEffort)
 	assert.True(t, cfg.SupportsReasoningEffort)
@@ -232,7 +232,7 @@ func TestConfiguredLLMProviderRetainsSharedCacheIdentity(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, codec.ProviderName(), provider.Name())
 	assert.Equal(t, codec.ProviderVersion(), provider.Version())
-	assert.Equal(t, "gpt-test/translation-v13-unresolved-meaning", codec.ContextualGlossProviderVersion())
+	assert.Equal(t, "gpt-test/translation-v14-structured-target-alignment", codec.ContextualGlossProviderVersion())
 	assert.NotEqual(t, codec.ProviderVersion(), codec.ContextualGlossProviderVersion())
 }
 

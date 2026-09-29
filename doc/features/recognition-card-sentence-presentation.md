@@ -106,18 +106,18 @@ was reviewed and signed off (PR #906) before the exporter changes landed; see
 
 The contextual English translation may bold the English word or phrase that
 corresponds to the source-language target. This is best-effort, not a required
-property of every card. The enrichment provider should return the complete
-translation plus a plain-text target phrase or structured alignment. Mouseion
-validates the phrase against the translation, escapes the text, and adds the
-HTML emphasis itself. The current single-phrase provider response field is
-`sentence_translation_target`.
+property of every card. New prepared-deck translations request the complete
+translation plus an ordered list of plain-text target excerpts in
+`sentence_translation_targets`. Mouseion validates the complete alignment,
+escapes the text, and adds the HTML emphasis itself. Historical cached rows keep
+their `sentence_translation_target` field and single-phrase presentation.
 
 If the phrase is absent, ambiguous, idiomatic, or otherwise cannot be validated,
 the complete English translation is shown without highlighting.
 
 Provider-generated HTML is not trusted.
 
-### Planned multi-span English alignment (not yet implemented)
+### Structured multi-span English alignment
 
 Extend the optional English target alignment to discontinuous correspondences,
 such as **knocks** and **over** in “knocks Piero over.” The external translation
@@ -147,8 +147,8 @@ Re-preparation runs the current translation-and-gloss workflow, so it may also
 change the English wording and Gloss; there is no separate alignment-only
 provider call to retrofit an old translation. Old decks remain usable and are
 not flagged as presentation-stale solely for lacking this new provider data;
-no new upgrade prompt is added. The existing single-phrase alignment remains
-the current behavior until this extension ships.
+no new upgrade prompt is added. The legacy single-phrase cache behavior remains
+available for historical results.
 
 The same optional alignment contract applies to prepared decks in every
 supported study language when they have an English sentence translation. Before

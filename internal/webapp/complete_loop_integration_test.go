@@ -43,11 +43,11 @@ func (completeLoopTranslationProvider) Version() string { return "complete-loop"
 
 func (completeLoopTranslationProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	return enrichment.TranslationResponse{
-		Translation:               "house",
-		Gloss:                     "a building",
-		ContextOnly:               true,
-		SentenceTranslation:       "The house.",
-		SentenceTranslationTarget: "house",
+		Translation:                "house",
+		Gloss:                      "a building",
+		ContextOnly:                true,
+		SentenceTranslation:        "The house.",
+		SentenceTranslationTargets: []string{"house"},
 	}, nil
 }
 

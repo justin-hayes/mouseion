@@ -12,7 +12,7 @@ import (
 
 const getEnrichmentCache = `-- name: GetEnrichmentCache :one
 
-SELECT translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, cached_at
+SELECT translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, sentence_translation_targets, cached_at
 FROM enrichment_cache
 WHERE language = $1 AND target_language = $2 AND canonical_lemma = $3 AND upos = $4
   AND provider = $5 AND provider_version = $6 AND sentence_hash = $7 AND dictionary_provider_version = $8
@@ -32,12 +32,13 @@ type GetEnrichmentCacheParams struct {
 }
 
 type GetEnrichmentCacheRow struct {
-	Translation               string
-	FallbackGloss             string
-	SenseSelection            []byte
-	SentenceTranslation       string
-	SentenceTranslationTarget string
-	CachedAt                  time.Time
+	Translation                string
+	FallbackGloss              string
+	SenseSelection             []byte
+	SentenceTranslation        string
+	SentenceTranslationTarget  string
+	SentenceTranslationTargets []string
+	CachedAt                   time.Time
 }
 
 // Legacy enrichment reads used by the immediate card-export path. Exact
@@ -61,6 +62,7 @@ func (q *Queries) GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCache
 		&i.SenseSelection,
 		&i.SentenceTranslation,
 		&i.SentenceTranslationTarget,
+		&i.SentenceTranslationTargets,
 		&i.CachedAt,
 	)
 	return i, err

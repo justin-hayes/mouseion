@@ -105,7 +105,7 @@ func (p *reprepareFixtureProvider) Translate(_ context.Context, request enrichme
 	}
 	return enrichment.TranslationResponse{
 		Translation: "house", Gloss: gloss, EvidenceIDs: []string{sense.EvidenceID},
-		SentenceTranslation: "The house stands beside the station.", SentenceTranslationTarget: "house",
+		SentenceTranslation: "The house stands beside the station.", SentenceTranslationTargets: []string{"house"},
 	}, nil
 }
 

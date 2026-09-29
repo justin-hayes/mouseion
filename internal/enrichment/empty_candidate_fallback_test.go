@@ -60,21 +60,21 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 			fallbackGloss = "something uncommon"
 		}
 		content, err := json.Marshal(struct {
-			ItemID                    string `json:"item_id"`
-			SourceLanguage            string `json:"source_language"`
-			TargetLanguage            string `json:"target_language"`
-			Translation               string `json:"translation"`
-			SentenceTranslation       string `json:"sentence_translation"`
-			SentenceTranslationTarget string `json:"sentence_translation_target"`
-			FallbackGloss             string `json:"fallback_gloss"`
+			ItemID                     string   `json:"item_id"`
+			SourceLanguage             string   `json:"source_language"`
+			TargetLanguage             string   `json:"target_language"`
+			Translation                string   `json:"translation"`
+			SentenceTranslation        string   `json:"sentence_translation"`
+			SentenceTranslationTargets []string `json:"sentence_translation_targets"`
+			FallbackGloss              string   `json:"fallback_gloss"`
 		}{
-			ItemID:                    enrichment.TranslationItemID(input),
-			SourceLanguage:            input.Language,
-			TargetLanguage:            input.TargetLanguage,
-			Translation:               "rare word",
-			SentenceTranslation:       "The rare thing is important today.",
-			SentenceTranslationTarget: "rare",
-			FallbackGloss:             fallbackGloss,
+			ItemID:                     enrichment.TranslationItemID(input),
+			SourceLanguage:             input.Language,
+			TargetLanguage:             input.TargetLanguage,
+			Translation:                "rare word",
+			SentenceTranslation:        "The rare thing is important today.",
+			SentenceTranslationTargets: []string{"rare"},
+			FallbackGloss:              fallbackGloss,
 		})
 		if err != nil {
 			http.Error(w, "invalid response", http.StatusInternalServerError)
@@ -113,7 +113,7 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 
 	key, ok := service.ExternalCacheKey(candidate)
 	require.True(t, ok)
-	stored := cardexport.StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key, Translation: result.Translation.Value, FallbackGloss: result.FallbackGloss.Value, SentenceTranslation: result.SentenceTranslation.Value, SentenceTranslationTarget: result.SentenceTranslationTarget.Value, SenseSelection: result.SenseSelection.Value}}
+	stored := cardexport.StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key, Translation: result.Translation.Value, FallbackGloss: result.FallbackGloss.Value, SentenceTranslation: result.SentenceTranslation.Value, SentenceTranslationTargets: result.SentenceTranslationTargets.Value, SenseSelection: result.SenseSelection.Value}}
 	artifact, _, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{stored}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: key.TargetLanguage, Provider: key.Provider, ProviderVersion: key.ProviderVersion})
 	require.NoError(t, err)
 	require.Len(t, artifact.Generated, 1)
@@ -132,7 +132,7 @@ func TestEmptyCandidateFallbackRunsFromProviderToRenderedCard(t *testing.T) {
 			gated := enrichment.NewService(test.config, nil, nil, nil, test.provider, nil)
 			gatedResult := gated.Enrich(context.Background(), []enrichment.Candidate{candidate})[0]
 			assert.False(t, gatedResult.FallbackGloss.Available)
-			noExternalStored := cardexport.StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key, Translation: gatedResult.Translation.Value, FallbackGloss: gatedResult.FallbackGloss.Value, SentenceTranslation: gatedResult.SentenceTranslation.Value, SentenceTranslationTarget: gatedResult.SentenceTranslationTarget.Value, SenseSelection: gatedResult.SenseSelection.Value}}
+			noExternalStored := cardexport.StoredResult{CacheKey: key, Record: enrichment.CacheEntry{CacheKey: key, Translation: gatedResult.Translation.Value, FallbackGloss: gatedResult.FallbackGloss.Value, SentenceTranslation: gatedResult.SentenceTranslation.Value, SentenceTranslationTargets: gatedResult.SentenceTranslationTargets.Value, SenseSelection: gatedResult.SenseSelection.Value}}
 			noExternal, _, err := presentation.Finalize(context.Background(), deck, []cardexport.StoredResult{noExternalStored}, cardexport.RunFacts{})
 			require.NoError(t, err)
 			require.Len(t, noExternal.Generated, 1)

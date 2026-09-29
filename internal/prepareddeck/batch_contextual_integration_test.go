@@ -43,11 +43,11 @@ func (p contextualStandardFixtureProvider) Version() string { return p.version }
 func (p contextualStandardFixtureProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	if request.CanonicalLemma == "unresolved" || request.CanonicalLemma == "inferred" {
 		if request.CanonicalLemma == "inferred" {
-			return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTarget: "translated"}, nil
+			return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTargets: []string{"translated"}}, nil
 		}
 		return enrichment.TranslationResponse{Translation: "translated", SentenceTranslation: "The translated sentence.", ContextOnly: true, UnresolvedReason: "The sentence does not distinguish the meanings."}, nil
 	}
-	return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", EvidenceIDs: []string{"wikt:context"}, SentenceTranslation: "The translated sentence.", SentenceTranslationTarget: "translated"}, nil
+	return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", EvidenceIDs: []string{"wikt:context"}, SentenceTranslation: "The translated sentence.", SentenceTranslationTargets: []string{"translated"}}, nil
 }
 
 func (p *contextualBatchFixtureProvider) UploadFile(_ context.Context, _ string, content io.Reader) (enrichment.OpenAIFile, error) {
@@ -79,7 +79,7 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 		response := map[string]any{
 			"item_id": input.CustomID, "source_language": "de", "target_language": "en",
 			"translation": "translated", "sentence_translation": "The translated sentence.",
-			"sentence_translation_target": "translated", "evidence_ids": []string{}, "context_only": true,
+			"sentence_translation_targets": []string{"translated"}, "evidence_ids": []string{}, "context_only": true,
 		}
 		if identity.Ordinal == 1 {
 			response["gloss"] = ""

@@ -274,7 +274,7 @@ func completedBatchItem(w *BatchPollWorker, item enrichment.BatchTranslationItem
 		return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, OmissionReason: reason}
 	}
 	selection := evidenceSelectionIndices(item.Request.CandidateSenses, outcome.Response.EvidenceIDs)
-	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: outcome.Response.Translation, FallbackGloss: outcome.Response.Gloss, SenseSelection: selection, SentenceTranslation: outcome.Response.SentenceTranslation, SentenceTranslationTarget: outcome.Response.SentenceTranslationTarget, CachedAt: w.now()}}
+	return persistence.PreparedDeckBatchItemReconciliation{Ordinal: item.Ordinal, State: domain.PreparedDeckOutcomeCompleted, CacheEntry: &enrichment.CacheEntry{CacheKey: workItem.CacheKey, Translation: outcome.Response.Translation, FallbackGloss: outcome.Response.Gloss, SenseSelection: selection, SentenceTranslation: outcome.Response.SentenceTranslation, SentenceTranslationTargets: append([]string(nil), outcome.Response.SentenceTranslationTargets...), CachedAt: w.now()}}
 }
 
 func failedBatchItem(ordinal int, outcome enrichment.BatchTranslationOutcome, found bool, batch enrichment.Batch, chunk domain.PreparedDeckBatchChunk, run domain.PreparedDeckRun) (persistence.PreparedDeckBatchItemReconciliation, bool) {

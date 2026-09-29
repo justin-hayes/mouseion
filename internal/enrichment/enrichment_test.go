@@ -54,7 +54,7 @@ func (*emptyCandidateFallbackStub) Name() string    { return "llm" }
 func (*emptyCandidateFallbackStub) Version() string { return "model-1" }
 func (s *emptyCandidateFallbackStub) Translate(_ context.Context, r TranslationRequest) (TranslationResponse, error) {
 	s.requests = append(s.requests, r)
-	response := TranslationResponse{Translation: "rare word", SentenceTranslation: "The rare thing is important today.", SentenceTranslationTarget: "rare"}
+	response := TranslationResponse{Translation: "rare word", SentenceTranslation: "The rare thing is important today.", SentenceTranslationTargets: []string{"rare"}}
 	if len(r.CandidateSenses) == 0 {
 		response.FallbackGloss = "something uncommon"
 	}
@@ -68,7 +68,7 @@ func (s *translationStub) Translate(_ context.Context, r TranslationRequest) (Tr
 	if len(s.requests) <= s.failures {
 		return TranslationResponse{}, errors.New("unavailable")
 	}
-	return TranslationResponse{Translation: "house", FallbackGloss: "a building for people", SentenceTranslation: "The house is large.", SentenceTranslationTarget: "house"}, nil
+	return TranslationResponse{Translation: "house", FallbackGloss: "a building for people", SentenceTranslation: "The house is large.", SentenceTranslationTargets: []string{"house"}}, nil
 }
 
 type frequencyStub struct{}
@@ -115,7 +115,8 @@ func TestTranslationPrivacyContextAndCacheSharing(t *testing.T) {
 	assert.Equal(t, 1, cache.puts)
 	assert.True(t, second.Translation.Available)
 	assert.True(t, second.SentenceTranslation.Available)
-	assert.True(t, second.SentenceTranslationTarget.Available)
+	assert.True(t, second.SentenceTranslationTargets.Available)
+	assert.Equal(t, []string{"house"}, second.SentenceTranslationTargets.Value)
 	assert.False(t, first.Translation.Provenance.CachedAt.IsZero(), "first=%+v second=%+v cache=%+v", first, second, cache)
 }
 
@@ -264,17 +265,17 @@ func TestSameLemmaDifferentSentencesUseSeparateCacheEntries(t *testing.T) {
 	assert.Equal(t, 2, cache.puts)
 }
 
-func TestSentenceTranslationTargetIsCachedWithCompleteTranslation(t *testing.T) {
+func TestSentenceTranslationTargetsAreCachedWithCompleteTranslation(t *testing.T) {
 	cache := &memoryCache{values: map[CacheKey]CacheEntry{}}
 	provider := &translationStub{name: "llm", version: "model-1"}
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, cache)
 	candidate := Candidate{Identity: Identity{"de", "haus", "NOUN"}, TargetWord: "‹Haus›", ExampleSentence: "Das Haus ist groß."}
 	first := service.Enrich(context.Background(), []Candidate{candidate})[0]
-	assert.True(t, first.SentenceTranslationTarget.Available)
-	assert.Equal(t, "house", first.SentenceTranslationTarget.Value)
+	assert.True(t, first.SentenceTranslationTargets.Available)
+	assert.Equal(t, []string{"house"}, first.SentenceTranslationTargets.Value)
 	assert.Len(t, provider.requests, 1)
 	assert.Len(t, cache.values, 1)
-	assert.Equal(t, "house", cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTarget)
+	assert.Equal(t, []string{"house"}, cache.values[CacheKey{Language: "de", TargetLanguage: "en", CanonicalLemma: "haus", UPOS: "NOUN", Provider: "llm", ProviderVersion: "model-1", SentenceHash: SentenceHash(candidate.ExampleSentence)}].SentenceTranslationTargets)
 }
 
 func TestLemmaOnlyRetriesAndGracefulFailure(t *testing.T) {

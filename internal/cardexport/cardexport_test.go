@@ -399,6 +399,15 @@ func TestHighlightEnglishTargetSupportsSafeUniqueMultiwordMatches(t *testing.T) 
 	}
 }
 
+func TestHighlightEnglishTargetsRendersOnlyValidatedExcerpts(t *testing.T) {
+	translation := "And then the motorcycle knocks Piero over."
+	assert.Equal(t, "And then the motorcycle <b>knocks</b> Piero <b>over</b>.", HighlightEnglishTargets(translation, []string{"knocks", "over"}, ""))
+	assert.Equal(t, escapeField(translation), HighlightEnglishTargets(translation, []string{"Piero", "knocks"}, ""), "an invalid alignment must be discarded as a whole")
+	assert.Equal(t, "And then the motorcycle <b>knocks over</b> Piero.", HighlightEnglishTargets("And then the motorcycle knocks over Piero.", []string{"knocks over"}, ""))
+	assert.Equal(t, "<b>Go</b>!", HighlightEnglishTargets("Go!", []string{"Go"}, ""), "a one-word sentence remains eligible")
+	assert.Equal(t, "The <b>house</b> stands.", HighlightEnglishTargets("The house stands.", nil, "house"), "legacy cache phrase remains readable")
+}
+
 func TestBoldTargetUsesOriginalUnicodeByteOffsets(t *testing.T) {
 	for _, test := range []struct {
 		sentence, target, want string
