@@ -41,11 +41,23 @@ type contextualStandardFixtureProvider struct {
 func (p contextualStandardFixtureProvider) Name() string    { return p.name }
 func (p contextualStandardFixtureProvider) Version() string { return p.version }
 func (p contextualStandardFixtureProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	if request.CanonicalLemma == "unresolved" || request.CanonicalLemma == "inferred" {
-		if request.CanonicalLemma == "inferred" {
-			return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", ContextOnly: true, SentenceTranslation: "The translated sentence.", SentenceTranslationTargets: []string{"translated"}}, nil
-		}
-		return enrichment.TranslationResponse{Translation: "translated", SentenceTranslation: "The translated sentence.", ContextOnly: true, UnresolvedReason: "The sentence does not distinguish the meanings."}, nil
+	if request.CanonicalLemma == "umhauen" {
+		return enrichment.TranslationResponse{
+			Translation: "knock over", Gloss: "knock down", ContextOnly: true,
+			SentenceTranslation: "And then the motorcycle knocks Piero over.", SentenceTranslationTargets: []string{"knocks", "over"},
+		}, nil
+	}
+	if request.CanonicalLemma == "inferred" {
+		return enrichment.TranslationResponse{
+			Translation: "translated", Gloss: "contextual meaning", ContextOnly: true,
+			SentenceTranslation: "The complete sentence stays available without emphasis.", SentenceTranslationTargets: []string{"Piero", "knocks"},
+		}, nil
+	}
+	if request.CanonicalLemma == "unresolved" {
+		return enrichment.TranslationResponse{
+			Translation: "translated", Gloss: "contextual meaning", ContextOnly: true,
+			SentenceTranslation: "This complete sentence has no target alignment.",
+		}, nil
 	}
 	return enrichment.TranslationResponse{Translation: "translated", Gloss: "contextual meaning", EvidenceIDs: []string{"wikt:context"}, SentenceTranslation: "The translated sentence.", SentenceTranslationTargets: []string{"translated"}}, nil
 }
@@ -81,17 +93,27 @@ func (p *contextualBatchFixtureProvider) CreateBatch(_ context.Context, request 
 			"translation": "translated", "sentence_translation": "The translated sentence.",
 			"sentence_translation_targets": []string{"translated"}, "evidence_ids": []string{}, "context_only": true,
 		}
-		if identity.Ordinal == 1 {
-			response["gloss"] = ""
-			response["unresolved_reason"] = "The sentence does not distinguish the meanings."
-		} else if identity.Ordinal == 0 {
-			response["gloss"] = "contextual meaning"
-			response["evidence_ids"] = []string{"wikt:context"}
-			response["context_only"] = false
+		if identity.Ordinal == 0 {
+			response["translation"] = "knock over"
+			response["gloss"] = "knock down"
+			response["sentence_translation"] = "And then the motorcycle knocks Piero over."
+			response["sentence_translation_targets"] = []string{"knocks", "over"}
 			response["unresolved_reason"] = ""
+		}
+		if identity.Ordinal == 1 {
+			response["gloss"] = "contextual meaning"
+			response["sentence_translation"] = "This complete sentence has no target alignment."
+			response["sentence_translation_targets"] = []string{}
+			response["unresolved_reason"] = ""
+		} else if identity.Ordinal == 0 {
+			response["context_only"] = true
 		} else {
 			response["gloss"] = "contextual meaning"
 			response["unresolved_reason"] = ""
+			if identity.Ordinal == 2 {
+				response["sentence_translation"] = "The complete sentence stays available without emphasis."
+				response["sentence_translation_targets"] = []string{"Piero", "knocks"}
+			}
 		}
 		content, err := json.Marshal(response)
 		if err != nil {
@@ -126,7 +148,7 @@ func (p *contextualBatchFixtureProvider) FileContent(_ context.Context, id strin
 	return nil
 }
 
-func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *testing.T) {
+func TestDurableBatchRendersStructuredEnglishTargetsAndPreservesOptionalTranslation(t *testing.T) {
 	ctx := context.Background()
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, url)
@@ -155,7 +177,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	}
 	encodedFixture, err := json.Marshal(weakFixture)
 	require.NoError(t, err)
-	_, err = indexDB.ExecContext(ctx, `INSERT INTO entries VALUES ('de', 'resolved', '', ?, '', '', '', '', '')`, string(encodedFixture))
+	_, err = indexDB.ExecContext(ctx, `INSERT INTO entries VALUES ('de', 'resolved', '', ?, '', '', '', '', ''), ('de', 'umhauen', '', ?, '', '', '', '', '')`, string(encodedFixture), string(encodedFixture))
 	require.NoError(t, err)
 	require.NoError(t, indexDB.Close())
 	index, err := dictionary.OpenIndex(ctx, indexPath)
@@ -167,7 +189,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	require.Len(t, weak.CandidateSenses, 9)
 	require.Equal(t, "lemma_only_missing_pos", weak.CandidateSenses[0].MatchStrength)
 	entries := []cardexport.Entry{
-		{Language: "de", CanonicalLemma: "resolved", UPOS: "NOUN", Sentence: "Der erste Kontext steht heute im Buch.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 1, DictionaryProviderVersion: index.Version(), CandidateSenses: weak.CandidateSenses},
+		{Language: "de", CanonicalLemma: "umhauen", UPOS: "VERB", Sentence: "Dann haut das Motorrad Piero um.", TargetWord: "Piero", SourceDocument: source.Title, FirstEncounter: 1, DictionaryProviderVersion: index.Version(), CandidateSenses: weak.CandidateSenses},
 		{Language: "de", CanonicalLemma: "unresolved", UPOS: "NOUN", Sentence: "Der zweite Kontext bleibt heute unklar.", TargetWord: "Kontext", SourceDocument: source.Title, FirstEncounter: 2, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:unclear", Gloss: "unclear"}}},
 		{Language: "de", CanonicalLemma: "inferred", UPOS: "NOUN", Sentence: "Der dritte Kontext beschreibt eine neue Situation.", TargetWord: "Situation", SourceDocument: source.Title, FirstEncounter: 3, CandidateSenses: []enrichment.LexicalSense{{EvidenceID: "wikt:missing", Gloss: "scene"}}},
 	}
@@ -203,7 +225,7 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	ready, err := (&DurableFinalizer{Store: store, Renderer: cardexport.NewPresentation(nil)}).Finalize(ctx, owner.ID, preparation.ID, runID, current.FinalizationDispatchGeneration)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationReady, ready.State)
-	assert.Equal(t, 2, ready.TotalCards)
+	assert.Equal(t, 3, ready.TotalCards)
 	frozen, stored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, preparation.ID, runID)
 	require.NoError(t, err)
 	require.Len(t, frozen.Items[0].Entry.CandidateSenses, enrichment.DefaultMaxCandidateSenses)
@@ -220,33 +242,39 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	standardArtifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, standardDeck, stored, standardFacts)
 	require.NoError(t, err)
 	assert.Equal(t, standardArtifact.APKG, ready.Artifact, "Batch publication must match the standard-mode artifact for the same frozen outcomes")
-	assert.Equal(t, 2, standardArtifact.Completeness.TotalCards)
+	assert.Equal(t, 3, standardArtifact.Completeness.TotalCards)
+	require.Len(t, standardArtifact.Generated, 3)
+	assert.Equal(t, "And then the motorcycle <b>knocks</b> Piero <b>over</b>.", standardArtifact.Generated[0].Note.EnglishSentence)
+	assert.Equal(t, "This complete sentence has no target alignment.", standardArtifact.Generated[1].Note.EnglishSentence, "absent optional alignment must not discard the translated sentence")
+	assert.Equal(t, "contextual meaning", standardArtifact.Generated[1].Note.Gloss, "absent optional alignment must not discard the contextual Gloss")
+	assert.Equal(t, "The complete sentence stays available without emphasis.", standardArtifact.Generated[2].Note.EnglishSentence, "invalid optional alignment must not discard the translated sentence")
+	assert.Equal(t, "contextual meaning", standardArtifact.Generated[2].Note.Gloss, "invalid optional alignment must not discard the contextual Gloss")
 	status, err := store.GetDeckPreparationStatus(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.DeckPreparationEvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 3, Matched: 3, Candidates: 10, Omitted: 1}}, status.EvidenceCoverage)
-	assert.Equal(t, []domain.DeckPreparationMeaningOmission{{TargetWord: "Kontext", Reason: "The sentence does not distinguish the meanings."}}, status.MeaningOmissions)
+	assert.Empty(t, status.MeaningOmissions)
 	assert.True(t, status.ContextualGlossesReported)
-	assert.Equal(t, 2, status.ContextualGlosses)
-	assert.Equal(t, 1, status.ContextOnlyGlosses)
+	assert.Equal(t, 3, status.ContextualGlosses)
+	assert.Equal(t, 3, status.ContextOnlyGlosses)
 	assert.NotEmpty(t, status.Artifact)
 	results, err := store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, preparation.ID, runID)
 	require.NoError(t, err)
 	require.Len(t, results, 3)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, results[0].State)
 	assert.Equal(t, domain.PreparedDeckOutcomeCompleted, results[1].State)
-	assert.Equal(t, "The sentence does not distinguish the meanings.", results[1].OmissionReason)
 	_, found, err = store.Get(ctx, deck.WorkProjection()[0].CacheKey)
 	require.NoError(t, err)
 	assert.True(t, found)
 	_, found, err = store.Get(ctx, deck.WorkProjection()[1].CacheKey)
 	require.NoError(t, err)
-	assert.False(t, found, "unresolved meanings must not be cached")
+	assert.True(t, found, "sentence translation without alignment remains cacheable")
 	_, found, err = store.Get(ctx, deck.WorkProjection()[2].CacheKey)
 	require.NoError(t, err)
 	assert.True(t, found, "context-only gloss must remain distinguishable in the durable cache record")
 
-	// A later Batch preparation consumes both the supported and context-only
-	// records from cache, submitting only the unresolved card again.
+	// A later Batch preparation consumes the structured results from cache.
+	_, err = store.Pool().Exec(ctx, `DELETE FROM enrichment_cache WHERE canonical_lemma='unresolved'`)
+	require.NoError(t, err)
 	cachedSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: source.Title, MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
 	require.NoError(t, err)
 	cachedPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: cachedSource.ID, Filename: cardexport.DownloadFilename(cachedSource.Title), DeckName: cachedSource.Title, ContentHash: cachedSource.ContentHash})
@@ -274,14 +302,26 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	assert.Equal(t, domain.DeckPreparationReady, cachedReady.State)
 	cachedStatus, err := store.GetDeckPreparationStatus(ctx, owner.ID, cachedPreparation.ID)
 	require.NoError(t, err)
-	assert.Equal(t, 2, cachedStatus.ContextualGlosses)
-	assert.Equal(t, 1, cachedStatus.ContextOnlyGlosses)
+	assert.Equal(t, 3, cachedStatus.ContextualGlosses)
+	assert.Equal(t, 3, cachedStatus.ContextOnlyGlosses)
+	cachedFrozen, cachedStored, err := store.LoadPreparedDeckFinalization(ctx, owner.ID, cachedPreparation.ID, cachedRunID)
+	require.NoError(t, err)
+	cachedDeck, err := cardexport.NewPresentation(nil).Restore(cachedFrozen)
+	require.NoError(t, err)
+	cachedArtifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, cachedDeck, cachedStored, cardexport.RunFacts{
+		Consent: true, Configured: true, ExecutionMode: string(domain.PreparedDeckExecutionBatch),
+		TargetLanguage: "en", Provider: codec.ProviderName(), ProviderVersion: codec.ContextualGlossProviderVersion(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, cachedReady.Artifact, cachedArtifact.APKG)
+	require.Len(t, cachedArtifact.Generated, 3)
+	assert.Equal(t, "And then the motorcycle <b>knocks</b> Piero <b>over</b>.", cachedArtifact.Generated[0].Note.EnglishSentence, "multi-span alignment must survive cache reuse through final rendering")
 
 	// Run the same frozen requests through standard execution after clearing only
 	// their shared cache rows. The fake standard provider returns the identical
 	// semantic outcomes, allowing the durable artifacts and statuses to be
 	// compared without a live LLM request.
-	_, err = store.Pool().Exec(ctx, `DELETE FROM enrichment_cache WHERE canonical_lemma IN ('resolved', 'unresolved')`)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM enrichment_cache WHERE canonical_lemma IN ('umhauen', 'unresolved', 'inferred')`)
 	require.NoError(t, err)
 	standardSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: uuid.NewString(), Title: source.Title, MediaType: "text/plain", ContentHash: uuid.NewString(), Content: []byte("text"), FullText: "text"})
 	require.NoError(t, err)
@@ -314,8 +354,8 @@ func TestDurableBatchPublishesContextualCardAndReportsUnresolvedOmission(t *test
 	standardStatus, err := store.GetDeckPreparationStatus(ctx, owner.ID, standardPreparation.ID)
 	require.NoError(t, err)
 	assert.True(t, standardStatus.ContextualGlossesReported)
-	assert.Equal(t, 2, standardStatus.ContextualGlosses)
-	assert.Equal(t, 1, standardStatus.ContextOnlyGlosses)
+	assert.Equal(t, 3, standardStatus.ContextualGlosses)
+	assert.Equal(t, 3, standardStatus.ContextOnlyGlosses)
 	standardOutcomes, err = store.ListPreparedDeckTranslationOutcomes(ctx, owner.ID, standardPreparation.ID, standardRunID)
 	require.NoError(t, err)
 	require.Len(t, standardOutcomes, len(results))
