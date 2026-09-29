@@ -72,7 +72,13 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 		UPOS: candidate.UPOS, Provider: "acceptance-provider", ProviderVersion: "1",
 		SentenceHash: enrichment.SentenceHash(candidate.ExampleSentence), MeaningEvidenceHash: enrichment.MeaningEvidenceHash(candidate.CandidateSenses),
 	}
-	provider := &barrierTranslationProvider{}
+	provider := &barrierTranslationProvider{onCall: func(_ int, _ enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+		return enrichment.TranslationResponse{
+			Translation: "barbecue hut", Gloss: "barbecue hut", ContextOnly: true,
+			SentenceTranslation:       "The animal was already roasting when we arrived at the barbecue hut.",
+			SentenceTranslationTarget: "The animal was already roasting when we arrived at the barbecue hut",
+		}, nil
+	}}
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{
 		Queues:  map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}},
@@ -188,6 +194,9 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	assert.Zero(t, retiredAfter.PresentationVersion)
 	after, err := store.DownloadDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
+	noteFieldsAfterRerender := artifactNoteFields(t, ctx, after.Artifact)
+	assert.Contains(t, noteFieldsAfterRerender, "The animal was already roasting when we arrived at the barbecue hut.")
+	assert.NotContains(t, noteFieldsAfterRerender, "<b>The animal")
 	assert.NotEqual(t, before.Artifact, after.Artifact, "rerender did not replace the old presentation")
 	assert.Contains(t, collectionModels(t, ctx, after.Artifact), "letter-spacing: 0em")
 	assert.Equal(t, result.Run.ID, updated.CurrentRunID)

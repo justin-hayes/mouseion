@@ -247,7 +247,24 @@ func HighlightEnglishTarget(translation, target string) string {
 	if !ok {
 		return escapeField(translation)
 	}
+	wordCount := lexicalWordCount(translation)
+	if wordCount > 1 && lexicalWordCount(translation[start:end]) == wordCount {
+		return escapeField(translation)
+	}
 	return escapeField(translation[:start]) + "<b>" + escapeField(translation[start:end]) + "</b>" + escapeField(translation[end:])
+}
+
+func lexicalWordCount(text string) int {
+	count := 0
+	inWord := false
+	for _, r := range text {
+		isWord := isWordRune(r)
+		if isWord && !inWord {
+			count++
+		}
+		inWord = isWord
+	}
+	return count
 }
 
 func uniqueTargetMatch(text, target string) (int, int, bool) {
@@ -274,11 +291,15 @@ func uniqueTargetMatch(text, target string) (int, int, bool) {
 
 func hasWordOrNumber(value string) bool {
 	for _, r := range value {
-		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+		if isWordRune(r) {
 			return true
 		}
 	}
 	return false
+}
+
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsNumber(r)
 }
 
 func wordBoundaryBefore(text string, index int) bool {
