@@ -186,16 +186,23 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 		return nil, err
 	}
 	p := &lemmaDecisionProposal{Action: action, Lemma: lemma, Occurrences: chosen, Indices: indices, Fingerprint: lemmaProposalFingerprint(fingerprint, action, lemma, indices)}
-	insights, err := h.services.Store.LemmaReview.GetAnalysisCorpusVocabulary(r.Context(), user(r).ID, matches[index].CorpusID)
+	p.Changes, p.Impacts, err = h.lemmaProposalImpacts(r, user(r).ID, language, matches[index].CorpusID, chosen, action, lemma)
 	if err != nil {
 		return nil, err
 	}
+	return p, nil
+}
+
+func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, language, corpusID string, chosen []domain.LemmaReviewOccurrence, action, lemma string) ([]lemmaOccurrenceChange, []lemmaIdentityImpact, error) {
+	insights, err := h.services.Store.LemmaReview.GetAnalysisCorpusVocabulary(r.Context(), ownerID, corpusID)
+	if err != nil {
+		return nil, nil, err
+	}
 	// The language is taken from the analyzed Book, not inferred from a lemma.
 	// The caller's active language is already checked by the review route.
-	language, _ = activeStudyLanguageForContext(r.Context())
-	known, err := h.services.Store.LemmaReview.ListKnownVocabulary(r.Context(), user(r).ID, language)
+	known, err := h.services.Store.LemmaReview.ListKnownVocabulary(r.Context(), ownerID, language)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	knownIdentity := func(lemma, upos string) bool {
 		for _, item := range known {
@@ -208,13 +215,15 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	counts := make(map[string]int64)
 	uposByIdentity := make(map[string]string)
 	reservedByIdentity := make(map[string]bool)
+	var changes []lemmaOccurrenceChange
+	var impacts []lemmaIdentityImpact
 	for _, item := range insights.Lemmas {
 		key := item.CanonicalLemma + "\x00" + item.UPOS
 		counts[key] = item.OccurrenceCount
 		uposByIdentity[key] = item.UPOS
-		reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), user(r).ID, item.Language, item.CanonicalLemma, item.UPOS)
+		reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), ownerID, item.Language, item.CanonicalLemma, item.UPOS)
 		if reserveErr != nil {
-			return nil, reserveErr
+			return nil, nil, reserveErr
 		}
 		reservedByIdentity[key] = reserved
 	}
@@ -222,21 +231,11 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	maps.Copy(beforeCounts, counts)
 	affectedKeys := make(map[string]bool)
 	for _, occurrence := range chosen {
-		before := occurrence.CanonicalLemma
-		if occurrence.CorrectedLemma != "" {
-			before = occurrence.CorrectedLemma
-		}
+		before, after := lemmaDecisionIdentities(occurrence, action, lemma)
 		beforeDisplay := before
 		if occurrence.Excluded {
 			beforeDisplay = "excluded"
 			before = ""
-		}
-		after := lemma
-		if action == "keep" {
-			after = occurrence.CanonicalLemma
-		}
-		if action == "exclude" {
-			after = ""
 		}
 		if before != "" {
 			key := before + "\x00" + occurrence.UPOS
@@ -254,21 +253,19 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 		if afterDisplay == "" {
 			afterDisplay = "excluded"
 		}
-		p.Changes = append(p.Changes, lemmaOccurrenceChange{Sentence: occurrence.SentenceText, Before: beforeDisplay, After: afterDisplay})
+		changes = append(changes, lemmaOccurrenceChange{Sentence: occurrence.SentenceText, Before: beforeDisplay, After: afterDisplay})
 	}
 	impactKeys := make(map[string]bool)
 	for key := range affectedKeys {
 		if _, ok := reservedByIdentity[key]; !ok {
 			parts := strings.SplitN(key, "\x00", 2)
-			reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), user(r).ID, language, parts[0], parts[1])
+			reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), ownerID, language, parts[0], parts[1])
 			if reserveErr != nil {
-				return nil, reserveErr
+				return nil, nil, reserveErr
 			}
 			reservedByIdentity[key] = reserved
 		}
-		if beforeCounts[key] >= 3 || counts[key] >= 3 {
-			impactKeys[key] = true
-		}
+		impactKeys[key] = true
 	}
 	orderedImpactKeys := make([]string, 0, len(impactKeys))
 	for key := range impactKeys {
@@ -281,27 +278,17 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 		before, after := beforeCounts[key], counts[key]
 		wasKnown, isKnown := knownIdentity(lemmaName, upos), knownIdentity(lemmaName, upos)
 		reserved := reservedByIdentity[key]
-		p.Impacts = append(p.Impacts, lemmaIdentityImpact{Lemma: lemmaName, UPOS: upos, BeforeCount: before, AfterCount: after, BeforeKnown: wasKnown, AfterKnown: isKnown, BeforeReserved: reserved, AfterReserved: reserved, BeforeEligible: before >= 3 && !wasKnown && !reserved, AfterEligible: after >= 3 && !isKnown && !reserved})
+		impacts = append(impacts, lemmaIdentityImpact{Lemma: lemmaName, UPOS: upos, BeforeCount: before, AfterCount: after, BeforeKnown: wasKnown, AfterKnown: isKnown, BeforeReserved: reserved, AfterReserved: reserved, BeforeEligible: before >= 3 && !wasKnown && !reserved, AfterEligible: after >= 3 && !isKnown && !reserved})
 	}
-	return p, nil
+	return changes, impacts, nil
 }
 
 func lemmaProposalIdentities(occurrences []domain.LemmaReviewOccurrence, action, lemma, language string) []domain.LemmaReviewIdentity {
 	identities := make(map[domain.LemmaReviewIdentity]bool)
 	for _, occurrence := range occurrences {
-		before := occurrence.CanonicalLemma
-		if occurrence.CorrectedLemma != "" {
-			before = occurrence.CorrectedLemma
-		}
+		before, after := lemmaDecisionIdentities(occurrence, action, lemma)
 		if occurrence.Excluded {
 			before = ""
-		}
-		after := lemma
-		if action == "keep" {
-			after = occurrence.CanonicalLemma
-		}
-		if action == "exclude" {
-			after = ""
 		}
 		if before != "" {
 			identities[domain.LemmaReviewIdentity{Language: language, CanonicalLemma: before, UPOS: occurrence.UPOS}] = true
@@ -320,6 +307,24 @@ func lemmaProposalIdentities(occurrences []domain.LemmaReviewOccurrence, action,
 		return left < right
 	})
 	return result
+}
+
+func lemmaDecisionIdentities(occurrence domain.LemmaReviewOccurrence, action, lemma string) (before, after string) {
+	before = occurrence.CanonicalLemma
+	if occurrence.CorrectedLemma != "" {
+		before = occurrence.CorrectedLemma
+	}
+	if occurrence.Excluded {
+		before = ""
+	}
+	after = lemma
+	if action == "keep" {
+		after = occurrence.CanonicalLemma
+	}
+	if action == "exclude" {
+		after = ""
+	}
+	return before, after
 }
 
 func lemmaProposalFingerprint(state, action, lemma string, selected []int) string {

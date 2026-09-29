@@ -59,7 +59,7 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h1><p>Search one exact observed form in this Book's current analysis. Each decision applies only to one occurrence; the analyzer result remains unchanged.</p><form method=\"get\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h1><p>Search one exact observed form in this Book's current analysis. Each decision starts with one occurrence; review sentence contexts and explicitly select any additional occurrences to include. Analyzer results remain unchanged.</p><form method=\"get\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -561,7 +561,7 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 					return templ_7745c5c3_Err
 				}
 				if len(proposal.Impacts) == 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<p role=\"status\">No affected identity currently crosses the recurrence floor or changes eligibility.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<p role=\"status\">The selected contexts do not currently change an effective vocabulary identity.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
