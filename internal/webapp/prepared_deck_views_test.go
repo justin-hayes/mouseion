@@ -181,8 +181,11 @@ func TestDeckPreparationStatusReportsEvidenceCoverageAndMissingIndex(t *testing.
 }
 
 func TestDeckPreparationStatusOmitsUpdatedRevisionIndicatorForCurrentDeck(t *testing.T) {
+	// Legacy sentence translations with no structured alignment remain current
+	// artifacts; absence of alignment is not itself a presentation revision.
 	for _, preparation := range []domain.DeckPreparation{
 		{ID: "initial", State: domain.DeckPreparationReady, DeckRevision: 1, TotalCards: 1},
+		{ID: "legacy-alignment-missing", State: domain.DeckPreparationReady, DeckRevision: 1, TotalCards: 1, CardsWithContextualSentenceTranslations: 1},
 		{ID: "unrecoverable", State: domain.DeckPreparationReady, DeckRevision: 2, TotalCards: 1, Error: domain.DeckPreparationRequiresRepreparationError},
 	} {
 		var output bytes.Buffer
