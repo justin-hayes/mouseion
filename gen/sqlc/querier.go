@@ -63,6 +63,7 @@ type Querier interface {
 	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
+	DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error)
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeletePrimaryGoal(ctx context.Context, arg DeletePrimaryGoalParams) error
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
@@ -170,6 +171,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error)
 	GraduatePrimaryGoalSnapshotVocabulary(ctx context.Context, arg GraduatePrimaryGoalSnapshotVocabularyParams) (int, error)
+	HasCurrentLemmaCorrections(ctx context.Context, arg HasCurrentLemmaCorrectionsParams) (bool, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
 	// states, known vocabulary, generated vocabulary, example/curated sentences,
@@ -209,6 +211,7 @@ type Querier interface {
 	// Analysis-insight vocabulary aggregation.
 	ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
+	ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error)
 	ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error)
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
 	// Concordance occurrence queries read from the shared occurrence model.
@@ -224,6 +227,8 @@ type Querier interface {
 	ListGeneratedVocabulary(ctx context.Context, arg ListGeneratedVocabularyParams) ([]ListGeneratedVocabularyRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
+	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
+	ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	ListPreparedDeckBatchChunkMembers(ctx context.Context, arg ListPreparedDeckBatchChunkMembersParams) ([]ListPreparedDeckBatchChunkMembersRow, error)
 	ListPreparedDeckBatchChunkOrdinals(ctx context.Context, arg ListPreparedDeckBatchChunkOrdinalsParams) ([]int, error)
@@ -285,6 +290,7 @@ type Querier interface {
 	PutGeneratedCard(ctx context.Context, arg PutGeneratedCardParams) error
 	PutGeneratedVocabulary(ctx context.Context, arg PutGeneratedVocabularyParams) error
 	PutNormalizedCorpusArtifact(ctx context.Context, arg PutNormalizedCorpusArtifactParams) error
+	PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccurrenceLemmaCorrectionParams) (PutOccurrenceLemmaCorrectionRow, error)
 	PutPreparedDeckCard(ctx context.Context, arg PutPreparedDeckCardParams) error
 	PutProcessingHistory(ctx context.Context, arg PutProcessingHistoryParams) (PutProcessingHistoryRow, error)
 	PutSelectionCandidate(ctx context.Context, arg PutSelectionCandidateParams) error

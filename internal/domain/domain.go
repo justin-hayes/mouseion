@@ -223,6 +223,24 @@ type LemmaOccurrence struct {
 	OccurrenceCount                int64
 }
 
+// LemmaReviewOccurrence is one content-word token in the current exact Book
+// analysis. Analyzer attribution is retained alongside any learner correction.
+type LemmaReviewOccurrence struct {
+	OwnerID, BookID, CorpusID, AnalysisRunID string
+	SourceDocumentID                         string
+	StartOffset, EndOffset                   int64
+	SentenceOrdinal, TokenOrdinal            int64
+	Surface, RawLemma, CanonicalLemma, UPOS  string
+	SentenceText, CorrectedLemma             string
+}
+
+type OccurrenceLemmaCorrection struct {
+	SourceDocumentID string
+	StartOffset      int64
+	EndOffset        int64
+	CanonicalLemma   string
+}
+
 type CoverageThreshold struct {
 	TargetPercent      int
 	LemmaCount         int64

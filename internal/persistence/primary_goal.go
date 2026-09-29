@@ -221,6 +221,9 @@ func (s *PostgresStore) CreatePrimaryGoalWith(ctx context.Context, owner, langua
 	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
+	if err = rejectBookWithLemmaCorrections(ctx, q, owner, bookID); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
 	_, err = q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if err == nil {
 		return domain.PrimaryGoal{}, ErrGoalExists
@@ -284,6 +287,17 @@ func lockPrimaryGoalBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID 
 	return err
 }
 
+func rejectBookWithLemmaCorrections(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
+	hasCorrections, err := q.HasCurrentLemmaCorrections(ctx, sqlcgen.HasCurrentLemmaCorrectionsParams{Owner: owner, Book: bookID})
+	if err != nil {
+		return err
+	}
+	if hasCorrections {
+		return ErrLemmaCorrectionsPreventReading
+	}
+	return nil
+}
+
 func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID, snapshotID string) (domain.PrimaryGoal, error) {
 	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshotID)})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -314,6 +328,9 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
+	if err = rejectBookWithLemmaCorrections(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})

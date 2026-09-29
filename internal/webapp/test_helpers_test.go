@@ -24,6 +24,7 @@ type allStoreCapabilities interface {
 	CatalogStore
 	AnalysisJobStore
 	BookCoverStore
+	LemmaReviewStore
 }
 
 func storeDependencies(store allStoreCapabilities) StoreDependencies {
@@ -35,5 +36,6 @@ func storeDependencies(store allStoreCapabilities) StoreDependencies {
 		Catalog:        store,
 		AnalysisJobs:   store,
 		Covers:         store,
+		LemmaReview:    store,
 	}
 }

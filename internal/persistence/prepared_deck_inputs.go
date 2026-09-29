@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -27,7 +28,10 @@ type PreparedDeckCandidateFacts struct {
 // the planner owns recurring-vocabulary selection and exclusion.
 type PreparedDeckInputFacts struct {
 	DeckName           string
+	CorpusID           string
 	Candidates         []domain.SelectionCandidate
+	Analysis           *analyzer.Result
+	Corrections        []domain.OccurrenceLemmaCorrection
 	GoalSnapshotActive bool
 	GoalSnapshot       []domain.SelectionCandidate
 	Known              []domain.KnownVocabulary
@@ -43,7 +47,7 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		return PreparedDeckInputFacts{}, ErrInvalidTransition
 	}
 	q := sqlcgen.New(tx)
-	deckName, _, candidates, err := preparedDeckScopeTx(ctx, tx, q, preparation)
+	deckName, corpusID, candidates, err := preparedDeckScopeTx(ctx, tx, q, preparation)
 	if err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
@@ -52,7 +56,7 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	for _, candidate := range candidates {
 		languages[canonicalization.NormalizeLanguage(candidate.Language)] = struct{}{}
 	}
-	result := PreparedDeckInputFacts{DeckName: deckName, Candidates: candidates}
+	result := PreparedDeckInputFacts{DeckName: deckName, CorpusID: corpusID, Candidates: candidates}
 	if snapshot, snapshotErr := q.GetActivePrimaryGoalSnapshotForPreparation(ctx, sqlcgen.GetActivePrimaryGoalSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
 		result.GoalSnapshotActive = true
 		result.GoalSnapshot, snapshotErr = listPrimaryGoalSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
@@ -66,6 +70,18 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		return PreparedDeckInputFacts{}, snapshotErr
 	} else if !errors.Is(snapshotErr, pgx.ErrNoRows) {
 		return PreparedDeckInputFacts{}, snapshotErr
+	}
+	if !result.GoalSnapshotActive && corpusID != "" {
+		analysis, corrections, loadErr := loadAnalysisProjectionFactsTx(ctx, tx, q, preparation, corpusID)
+		err = loadErr
+		if err != nil {
+			return PreparedDeckInputFacts{}, err
+		}
+		if len(analysis.Sentences) > 0 {
+			result.Analysis = &analysis
+			languages[canonicalization.NormalizeLanguage(analysis.Language)] = struct{}{}
+		}
+		result.Corrections = corrections
 	}
 	for language := range languages {
 		known, knownErr := listKnownVocabulary(ctx, tx, preparation.OwnerID, language)
@@ -85,6 +101,56 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		result.Reserved = append(result.Reserved, reserved...)
 	}
 	return result, nil
+}
+
+func loadAnalysisProjectionFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, preparation domain.DeckPreparation, corpusID string) (analyzer.Result, []domain.OccurrenceLemmaCorrection, error) {
+	rows, err := q.ListAnalysisTokenEvidence(ctx, sqlcgen.ListAnalysisTokenEvidenceParams{Owner: preparation.OwnerID, Corpus: corpusID, AnalysisRun: uuidArg(preparation.AnalysisRunID)})
+	if err != nil {
+		return analyzer.Result{}, nil, err
+	}
+	var bookID *string
+	if err = tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+		return analyzer.Result{}, nil, err
+	}
+	var correctionRows []sqlcgen.ListOccurrenceLemmaCorrectionsRow
+	if bookID != nil {
+		correctionRows, err = q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{Owner: preparation.OwnerID, Book: *bookID, Corpus: corpusID, AnalysisRun: preparation.AnalysisRunID})
+		if err != nil {
+			return analyzer.Result{}, nil, err
+		}
+	}
+	var analysis analyzer.Result
+	sentences := make(map[int64]int)
+	for _, row := range rows {
+		index, ok := sentences[row.SentenceOrdinal]
+		if !ok {
+			index = len(analysis.Sentences)
+			sentences[row.SentenceOrdinal] = index
+			analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{Text: row.SentenceText})
+		}
+		head, convertErr := checked.Uint32FromInt64(row.Head)
+		if convertErr != nil || row.StartOffset < 0 || row.EndOffset < 0 {
+			return analyzer.Result{}, nil, errors.New("decode persisted token location: invalid offsets or head")
+		}
+		var morphology map[string]string
+		if err = json.Unmarshal(row.Morphology, &morphology); err != nil {
+			return analyzer.Result{}, nil, fmt.Errorf("decode persisted token morphology: %w", err)
+		}
+		analysis.Language = row.Language
+		analysis.Sentences[index].Tokens = append(analysis.Sentences[index].Tokens, analyzer.Token{
+			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
+			UPOS: row.Upos, Dependency: row.Dependency, Head: head, Morphology: morphology,
+			Location: analyzer.SourceLocation{SourceDocumentID: row.UnitID, StartOffset: uint64(row.StartOffset), EndOffset: uint64(row.EndOffset)},
+		})
+	}
+	corrections := make([]domain.OccurrenceLemmaCorrection, 0, len(correctionRows))
+	for _, row := range correctionRows {
+		if row.StartOffset < 0 || row.EndOffset < 0 {
+			return analyzer.Result{}, nil, errors.New("decode persisted lemma correction: invalid offsets")
+		}
+		corrections = append(corrections, domain.OccurrenceLemmaCorrection{SourceDocumentID: row.SourceDocumentID, StartOffset: row.StartOffset, EndOffset: row.EndOffset, CanonicalLemma: row.CanonicalLemma})
+	}
+	return analysis, corrections, nil
 }
 
 // LoadPreparedDeckCandidateFactsTx loads render and sentence facts for the
@@ -150,11 +216,40 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 			entry, err = getCoverageEntryForBook(ctx, tx, preparation.OwnerID, preparation.SourceMaterialID, candidate)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)
+			if corpusID == "" || !errors.Is(err, ErrNotFound) {
+				return nil, fmt.Errorf("load coverage facts for %s: %w", candidateIdentity(candidate), err)
+			}
+			entry, err = projectedCandidateEntry(ctx, tx, preparation, candidate)
+			if err != nil {
+				return nil, fmt.Errorf("load projected coverage facts for %s: %w", candidateIdentity(candidate), err)
+			}
 		}
 		result = append(result, PreparedDeckCandidateFacts{Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID]})
 	}
 	return result, nil
+}
+
+func projectedCandidateEntry(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation, candidate domain.SelectionCandidate) (cardexport.Entry, error) {
+	var title string
+	if err := tx.QueryRow(ctx, `SELECT title FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&title); err != nil {
+		return cardexport.Entry{}, err
+	}
+	var refs []struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(candidate.SentenceReferences, &refs); err != nil || len(refs) == 0 {
+		return cardexport.Entry{}, errors.New("projected sentence references are unavailable")
+	}
+	var forms []string
+	if err := json.Unmarshal(candidate.ObservedForms, &forms); err != nil || len(forms) == 0 {
+		return cardexport.Entry{}, errors.New("projected observed forms are unavailable")
+	}
+	return cardexport.Entry{
+		OwnerID: preparation.OwnerID, Language: candidate.Language,
+		CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS,
+		Sentence: refs[0].Text, TargetWord: forms[0], Morphology: "[]",
+		SourceDocument: title, FirstEncounter: candidate.FirstEncounter,
+	}, nil
 }
 
 func preparedDeckScopeTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, preparation domain.DeckPreparation) (string, string, []domain.SelectionCandidate, error) {

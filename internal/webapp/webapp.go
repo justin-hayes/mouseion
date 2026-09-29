@@ -55,6 +55,12 @@ type BookCoverStore interface {
 	GetActiveBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
 }
 
+type LemmaReviewStore interface {
+	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
+	PutLemmaCorrection(context.Context, domain.LemmaReviewOccurrence, string, string, string) error
+	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
+}
+
 // GoalStore provides the Primary Goal lifecycle.
 type GoalStore interface {
 	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
@@ -101,6 +107,7 @@ type StoreDependencies struct {
 	Catalog        CatalogStore
 	AnalysisJobs   AnalysisJobStore
 	Covers         BookCoverStore
+	LemmaReview    LemmaReviewStore
 }
 
 type csrfFailureContextKey struct{}
@@ -204,6 +211,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
 	h.mux.Handle("GET /reading", h.user(http.HandlerFunc(h.reading)))
 	h.mux.Handle("GET /reading/switch", h.user(http.HandlerFunc(h.switchReadingPage)))
+	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
+	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.startReading)))
 	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))

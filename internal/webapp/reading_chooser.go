@@ -16,6 +16,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+const (
+	correctedVocabularyStartMessage  = "This analysis has an occurrence lemma correction. Starting reading is paused until its corrected vocabulary can be frozen safely; you can prepare a direct deck or re-analyze the Book."
+	correctedVocabularySwitchMessage = "This analysis has an occurrence lemma correction. Switching reading is paused until its corrected vocabulary can be frozen safely; you can prepare a direct deck or re-analyze the Book."
+)
+
 type readingChooserBookView struct {
 	Book        domain.MyBook
 	Coverage    *domain.AnalysisCoverage
@@ -164,6 +169,17 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	if h.services.Store.LemmaReview != nil {
+		hasCorrections, correctionErr := h.services.Store.LemmaReview.HasCurrentLemmaCorrections(r.Context(), owner, bookID)
+		if correctionErr != nil {
+			fail(w, correctionErr)
+			return
+		}
+		if hasCorrections {
+			redirect(w, r, "/reading?error="+url.QueryEscape(correctedVocabularySwitchMessage))
+			return
+		}
+	}
 	if current.BookID == bookID {
 		redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
 		return
@@ -173,6 +189,10 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	selected, err := h.services.Store.CurrentReading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
+	if errors.Is(err, persistence.ErrLemmaCorrectionsPreventReading) {
+		redirect(w, r, "/reading?error="+url.QueryEscape(correctedVocabularySwitchMessage))
+		return
+	}
 	if errors.Is(err, persistence.ErrCurrentReadingStale) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
 		return
@@ -332,9 +352,24 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
 		return
 	}
+	if h.services.Store.LemmaReview != nil {
+		hasCorrections, correctionErr := h.services.Store.LemmaReview.HasCurrentLemmaCorrections(r.Context(), owner, bookID)
+		if correctionErr != nil {
+			fail(w, correctionErr)
+			return
+		}
+		if hasCorrections && !current.IsActive() {
+			redirect(w, r, "/reading?error="+url.QueryEscape(correctedVocabularyStartMessage))
+			return
+		}
+	}
 	selected := current
 	if !current.IsActive() {
 		selected, err = h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner, language, bookID)
+		if errors.Is(err, persistence.ErrLemmaCorrectionsPreventReading) {
+			redirect(w, r, "/reading?error="+url.QueryEscape(correctedVocabularyStartMessage))
+			return
+		}
 		if errors.Is(err, persistence.ErrCurrentReadingExists) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("Another book became current while you were choosing. Review Reading before trying again."))
 			return

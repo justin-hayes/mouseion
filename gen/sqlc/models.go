@@ -632,6 +632,21 @@ type NormalizedCorpusArtifact struct {
 	CreatedAt            time.Time
 }
 
+type OccurrenceLemmaCorrection struct {
+	OwnerID              string
+	BookID               string
+	CorpusID             string
+	AnalysisRunID        string
+	SourceDocumentID     string
+	StartOffset          int64
+	EndOffset            int64
+	CanonicalLemma       string
+	NormalizationProfile string
+	NormalizationVersion string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
 type OpdsConnection struct {
 	ID       string
 	Name     string

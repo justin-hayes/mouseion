@@ -20,10 +20,18 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	// Seed the latest pre-cutover schema so migration 18 itself proves the
 	// membership-to-disposition contract and preserves unrelated durable state.
 	moveApplicationMigrationsTo(t, databaseURL, 17)
+	// Current application code consults the successor correction table while
+	// starting a reading. Keep an empty stand-in during setup against this old
+	// schema, then remove it so migration 23 is still exercised below.
+	_, err := pool.Exec(ctx, `CREATE TABLE occurrence_lemma_corrections (
+		owner_id uuid NOT NULL, book_id uuid NOT NULL, corpus_id uuid NOT NULL,
+		analysis_run_id uuid NOT NULL
+	)`)
+	require.NoError(t, err)
 	// The current disposition writes include the successor revision field. Add it
 	// temporarily while seeding with application code, then remove it so the
 	// migration under test starts from the exact version-17 schema.
-	_, err := pool.Exec(ctx, `ALTER TABLE book_dispositions ADD COLUMN revision bigint NOT NULL DEFAULT 1`)
+	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions ADD COLUMN revision bigint NOT NULL DEFAULT 1`)
 	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
@@ -49,6 +57,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions DROP COLUMN revision`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_corrections`)
 	require.NoError(t, err)
 	moveApplicationMigrationsTo(t, databaseURL, 18)
 	migrateApplicationMigrationsToLatest(t, databaseURL)
