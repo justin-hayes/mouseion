@@ -264,7 +264,7 @@ func HighlightEnglishTargets(translation string, targets []string, legacyTarget 
 	var output strings.Builder
 	cursor := 0
 	for _, target := range validated {
-		start, end, ok := uniqueTargetMatch(translation, target)
+		start, end, ok := uniqueExactTargetMatch(translation, target)
 		if !ok || start < cursor {
 			return escapeField(translation)
 		}
@@ -292,6 +292,14 @@ func lexicalWordCount(text string) int {
 }
 
 func uniqueTargetMatch(text, target string) (int, int, bool) {
+	return uniqueTargetMatchUsing(text, target, strings.EqualFold)
+}
+
+func uniqueExactTargetMatch(text, target string) (int, int, bool) {
+	return uniqueTargetMatchUsing(text, target, func(text, target string) bool { return text == target })
+}
+
+func uniqueTargetMatchUsing(text, target string, matches func(string, string) bool) (int, int, bool) {
 	target = strings.TrimSpace(target)
 	if target == "" || !utf8.ValidString(text) || !utf8.ValidString(target) || !hasWordOrNumber(target) {
 		return 0, 0, false
@@ -302,7 +310,7 @@ func uniqueTargetMatch(text, target string) (int, int, bool) {
 		if matchEnd > len(text) || (matchEnd < len(text) && !utf8.RuneStart(text[matchEnd])) || !wordBoundaryBefore(text, offset) || !wordBoundaryAfter(text, matchEnd) {
 			continue
 		}
-		if !strings.EqualFold(text[offset:matchEnd], target) {
+		if !matches(text[offset:matchEnd], target) {
 			continue
 		}
 		if start >= 0 {
