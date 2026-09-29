@@ -5,7 +5,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence) {
+templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal) {
 	@ShellLayout("Review a word", &user, csrf, NavigationReadingJourney) {
 		<main class="container data-width">
 			<p><a href="/reading">Back to Reading</a></p>
@@ -21,7 +21,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			if form != "" && len(occurrences) == 0 {
 				<p role="status">No matching content-word occurrence was found in the current analysis. Check the exact spelling and try again.</p>
 			}
-			for _, occurrence := range occurrences {
+			for i, occurrence := range occurrences {
 				<article>
 					<p class="reading-text">{ occurrence.SentenceText }</p>
 					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
@@ -35,27 +35,61 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 					if canCorrect {
 					<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
 						<input type="hidden" name="csrf_token" value={ csrf } />
+						<input type="hidden" name="stage" value="preview" />
 						<input type="hidden" name="form" value={ form } />
-						<input type="hidden" name="analysis_run_id" value={ occurrence.AnalysisRunID } />
-						<input type="hidden" name="source_document_id" value={ occurrence.SourceDocumentID } />
-						<input type="hidden" name="start_offset" value={ fmt.Sprint(occurrence.StartOffset) } />
-						<input type="hidden" name="end_offset" value={ fmt.Sprint(occurrence.EndOffset) } />
-						<input type="hidden" name="surface" value={ occurrence.Surface } />
-						<input type="hidden" name="raw_lemma" value={ occurrence.RawLemma } />
-						<input type="hidden" name="canonical_lemma" value={ occurrence.CanonicalLemma } />
-						<input type="hidden" name="upos" value={ occurrence.UPOS } />
-						<input type="hidden" name="expected_corrected_lemma" value={ occurrence.CorrectedLemma } />
-						<input type="hidden" name="expected_excluded" value={ fmt.Sprint(occurrence.Excluded) } />
+						<input type="hidden" name="target" value={ fmt.Sprint(i) } />
 						<label>Corrected canonical lemma<input name="lemma" value={ occurrence.CorrectedLemma } required /></label>
-						<button type="submit">Save correction for this occurrence</button>
-						<button type="submit" name="action" value="keep" formnovalidate>Keep analyzer lemma</button>
+						<fieldset>
+							<legend>Also include reviewed occurrences of “{ occurrence.Surface }” in this Book</legend>
+							<p>Only the occurrence shown above is selected by default. Review each context before selecting another.</p>
+							for j, other := range occurrences {
+								if j != i {
+									<label><input type="checkbox" name="also" value={ fmt.Sprint(j) } /> Include “{ other.Surface }” in: <span class="reading-text">{ other.SentenceText }</span></label>
+								}
+							}
+						</fieldset>
+						<button type="submit" name="decision" value="correct">Preview correction</button>
+						<button type="submit" name="decision" value="keep" formnovalidate>Preview keeping analyzer lemma</button>
 						<details>
 							<summary>Exclude this occurrence from vocabulary selection</summary>
 							<p>Only this occurrence will stop contributing to recurrence, Reading snapshots, deck candidates, and Known or Reserved counts. It remains in the analyzed text and coverage denominator, so exclusion cannot improve coverage. You can restore it before a Reading snapshot or deck freezes; existing frozen artifacts and completed Known facts will not change.</p>
-							<button type="submit" name="action" value="exclude" formnovalidate>Exclude this occurrence</button>
+							<button type="submit" name="decision" value="exclude" formnovalidate>Preview exclusion</button>
 						</details>
 					</form>
 					}
+				</article>
+			}
+			if proposal != nil {
+				<article aria-labelledby="lemma-preview-heading">
+					<h2 id="lemma-preview-heading">Review the proposed change</h2>
+					<p>This is a preview only. Nothing changes until you confirm.</p>
+					<p><strong>Selected occurrences:</strong> { fmt.Sprint(len(proposal.Occurrences)) } · <strong>Decision:</strong> { proposal.Action }</p>
+					<ul>
+						for _, change := range proposal.Changes {
+							<li><span class="reading-text">{ change.Sentence }</span> — effective identity { change.Before } → { change.After }</li>
+						}
+					</ul>
+					<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Recurrence eligibility uses the three-occurrence floor. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p>
+					<ul>
+						for _, impact := range proposal.Impacts {
+							<li><strong>{ impact.Lemma } ({ impact.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.BeforeKnown) }; Reserved match { yesNo(impact.BeforeReserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
+						}
+					</ul>
+					if len(proposal.Impacts) == 0 {
+						<p role="status">No affected identity currently crosses the recurrence floor or changes eligibility.</p>
+					}
+					<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
+						<input type="hidden" name="csrf_token" value={ csrf } />
+						<input type="hidden" name="stage" value="confirm" />
+						<input type="hidden" name="form" value={ form } />
+						<input type="hidden" name="decision" value={ proposal.Action } />
+						<input type="hidden" name="lemma" value={ proposal.Lemma } />
+						<input type="hidden" name="fingerprint" value={ proposal.Fingerprint } />
+						for _, i := range proposal.Indices {
+							<input type="hidden" name="selected" value={ fmt.Sprint(i) } />
+						}
+						<button type="submit">Confirm this decision</button>
+					</form>
 				</article>
 			}
 			if canCorrect && form != "" && len(occurrences) > 0 {

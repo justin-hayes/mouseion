@@ -236,28 +236,42 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 	return result, nil
 }
 
-func (s *Store) PutLemmaDecision(_ context.Context, occurrence domain.LemmaReviewOccurrence, lemma string, excluded bool, _, _ string) error {
+func (s *Store) PutLemmaDecision(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma string, excluded bool, profile, version string) error {
+	return s.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrence, CanonicalLemma: lemma, Excluded: excluded, NormalizationProfile: profile, NormalizationVersion: version}})
+}
+
+func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaReviewDecision) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run"
-	if occurrence.OwnerID != OwnerID || !validAnalysis || occurrence.Surface != "Weg" {
-		return errNotFound
+	for _, decision := range decisions {
+		occurrence := decision.Occurrence
+		validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run"
+		if occurrence.OwnerID != OwnerID || !validAnalysis || occurrence.Surface != "Weg" {
+			return errNotFound
+		}
+		if goal, ok := s.primaryGoals[fixtureGoalKey(occurrence.OwnerID, "de")]; ok && goal.IsActive() && goal.BookID == occurrence.BookID {
+			return errNotFound
+		}
+		key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+		if s.lemmaCorrections[key] != occurrence.CorrectedLemma || s.lemmaExclusions[key] != occurrence.Excluded {
+			return errNotFound
+		}
 	}
-	if goal, ok := s.primaryGoals[fixtureGoalKey(occurrence.OwnerID, "de")]; ok && goal.IsActive() && goal.BookID == occurrence.BookID {
-		return errNotFound
+	for _, decision := range decisions {
+		occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
+		key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+		if excluded {
+			delete(s.lemmaCorrections, key)
+			s.lemmaExclusions[key] = true
+			continue
+		}
+		delete(s.lemmaExclusions, key)
+		if lemma == occurrence.CanonicalLemma {
+			delete(s.lemmaCorrections, key)
+			continue
+		}
+		s.lemmaCorrections[key] = lemma
 	}
-	key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
-	if excluded {
-		delete(s.lemmaCorrections, key)
-		s.lemmaExclusions[key] = true
-		return nil
-	}
-	delete(s.lemmaExclusions, key)
-	if lemma == occurrence.CanonicalLemma {
-		delete(s.lemmaCorrections, key)
-		return nil
-	}
-	s.lemmaCorrections[key] = lemma
 	return nil
 }
 
@@ -533,6 +547,10 @@ func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusI
 		CorpusID: corpusID, SourceMaterialID: source.Source.ID, AnalysisRunID: source.AnalysisRunID,
 		Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: int64(len(lemmas))}, Lemmas: lemmas,
 	}, nil
+}
+
+func (s *Store) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
+	return false, nil
 }
 
 func fixtureKnownCorpusTokens(corpusID string) int64 {

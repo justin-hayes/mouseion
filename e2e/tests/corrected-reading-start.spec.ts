@@ -20,8 +20,10 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
   await page.goto('/reading/books/fixture-route-match/lemma-review?form=Weg');
   const occurrence = page.locator('main article').filter({ hasText: 'Observed form: Weg' }).first();
   await occurrence.getByLabel('Corrected canonical lemma').fill('pfad');
-  await occurrence.getByRole('button', { name: 'Save correction for this occurrence' }).click();
-  await expect(page.getByText('pfad (corrected)', { exact: false })).toBeVisible();
+  await occurrence.getByRole('button', { name: 'Preview correction' }).click();
+  await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm this decision' }).click();
+  await expect(page.getByText('Effective lemma: pfad (corrected)', { exact: true })).toBeVisible();
 
   await page.goto('/reading');
   const start = page.locator('form[action="/reading/books/fixture-route-match/start"]');

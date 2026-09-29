@@ -235,6 +235,14 @@ type LemmaReviewOccurrence struct {
 	Excluded                                 bool
 }
 
+type LemmaReviewDecision struct {
+	Occurrence           LemmaReviewOccurrence
+	CanonicalLemma       string
+	Excluded             bool
+	NormalizationProfile string
+	NormalizationVersion string
+}
+
 type OccurrenceLemmaCorrection struct {
 	SourceDocumentID string
 	StartOffset      int64

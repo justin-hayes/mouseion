@@ -1,6 +1,6 @@
 # Learner review of analyzer lemmas
 
-Status: **Occurrence exclusion implementation in review** · Date: 2026-09-29
+Status: **Manual occurrence correction, exclusion, and contextual preview implemented** · Date: 2026-09-29
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct

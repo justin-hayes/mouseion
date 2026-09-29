@@ -58,7 +58,11 @@ type BookCoverStore interface {
 type LemmaReviewStore interface {
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
 	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
+	PutLemmaDecisions(context.Context, []domain.LemmaReviewDecision) error
 	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
+	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
+	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
+	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
 }
 
 // GoalStore provides the Primary Goal lifecycle.

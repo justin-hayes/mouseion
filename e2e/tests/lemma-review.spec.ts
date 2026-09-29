@@ -5,6 +5,7 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   try {
+    await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/login');
     await page.getByLabel('Username').fill('fixture-learner');
     await page.getByLabel('Password').fill('fixture-password');
@@ -15,18 +16,27 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await page.goto('/reading/books/fixture-route-match/lemma-review');
     await page.getByLabel('Exact observed form').fill('Weg');
     const findOccurrences = page.getByRole('button', { name: 'Find occurrences' });
-    await findOccurrences.press('Enter');
+    await findOccurrences.click();
     await expect(page.getByText('Der Weg führt zum Haus.').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save correction for this occurrence' })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Preview correction' })).toHaveCount(2);
+    await page.getByRole('checkbox').first().check();
+    await page.getByLabel('Corrected canonical lemma').first().fill('Pfad');
+    await page.getByRole('button', { name: 'Preview correction' }).first().focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();
+    await expect(page.getByText('This is a preview only. Nothing changes until you confirm.')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirm this decision' }).click();
+    await expect(page.getByText('Effective lemma: pfad (corrected)')).toHaveCount(2);
+
     const exclusionDisclosure = page.locator('details summary').first();
-    await findOccurrences.focus();
-    for (let tab = 0; tab < 4; tab++) await page.keyboard.press('Tab');
-    await expect(exclusionDisclosure).toBeFocused();
+    await exclusionDisclosure.focus();
     await page.keyboard.press('Enter');
-    const excludeButton = page.getByRole('button', { name: 'Exclude this occurrence', exact: true }).first();
-    await page.keyboard.press('Tab');
-    await expect(excludeButton).toBeFocused();
+    const excludeButton = page.getByRole('button', { name: 'Preview exclusion' }).first();
+    await excludeButton.focus();
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();
+    await expect(page.getByText('This is a preview only. Nothing changes until you confirm.')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirm this decision' }).click();
     await expect(page.getByText('excluded for this occurrence.')).toBeVisible();
   } finally {
     await context.close();

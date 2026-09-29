@@ -37,22 +37,27 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	unitID := domain.EPUBUnitID(0, "lemma-review")
 	_, err = store.Pool().Exec(ctx, `
 		INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
-		VALUES($1,$2,$3,$4,0,'Ein Drache sieht einen Drachen und noch einen Drachen.',0,51)`, owner.ID, analysisRun, corpus.ID, unitID)
+		VALUES($1,$2,$3,$4,0,'Ein Drache sieht einen Drachen.',0,30),
+		      ($1,$2,$3,$4,1,'Ein Drachen fliegt als Drachen.',31,61),
+		      ($1,$2,$3,$4,2,'Drachen liegen im Sand.',62,85)`, owner.ID, analysisRun, corpus.ID, unitID)
 	require.NoError(t, err)
 	for _, token := range []struct {
 		raw, lemma string
 		start, end int64
 		ordinal    int64
-	}{{"Drach", "drach", 10, 17, 0}, {"Drache", "drache", 22, 29, 1}, {"Drache", "drache", 39, 46, 2}} {
+	}{{"Drach", "drach", 22, 29, 0}, {"Drache", "drache", 35, 42, 1}, {"Drache", "drache", 62, 69, 2}} {
 		_, err = store.Pool().Exec(ctx, `
 			INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,morphology,start_offset,end_offset,dependency,head)
-			VALUES($1,'de',$2,$3,0,$4,'Drachen',$5,$6,'NOUN','{}',$7,$8,'root',0)`, owner.ID, analysisRun, corpus.ID, token.ordinal, token.raw, token.lemma, token.start, token.end)
+			VALUES($1,'de',$2,$3,$9,$4,'Drachen',$5,$6,'NOUN','{}',$7,$8,'root',0)`, owner.ID, analysisRun, corpus.ID, token.ordinal, token.raw, token.lemma, token.start, token.end, token.ordinal)
 		require.NoError(t, err)
 	}
 
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
 	require.Len(t, occurrences, 3)
+	assert.Equal(t, "Ein Drache sieht einen Drachen.", occurrences[0].SentenceText)
+	assert.Equal(t, "Ein Drachen fliegt als Drachen.", occurrences[1].SentenceText, "the exact same observed form can have a different contextual meaning")
+	assert.Equal(t, "Drachen liegen im Sand.", occurrences[2].SentenceText)
 	assert.Empty(t, occurrences[0].CorrectedLemma)
 	require.NoError(t, store.PutLemmaCorrection(ctx, occurrences[0], "drache", "german-post-1996", "6"))
 	require.ErrorIs(t, store.PutLemmaCorrection(ctx, occurrences[0], "drachenwesen", "german-post-1996", "6"), persistence.ErrNotFound, "a stale occurrence decision cannot overwrite a newer correction")
@@ -69,6 +74,16 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.NoError(t, store.PutLemmaCorrection(ctx, reverted[0], "drache", "german-post-1996", "6"))
 	updated, err = store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
+	staleMember := updated[2]
+	staleMember.CorrectedLemma = "not-current"
+	err = store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{
+		{Occurrence: updated[1], Excluded: true},
+		{Occurrence: staleMember, CanonicalLemma: "drachenwesen", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+	})
+	require.ErrorIs(t, err, persistence.ErrNotFound, "a stale member rejects an entire multi-occurrence decision")
+	unchangedBatch, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
+	require.NoError(t, err)
+	assert.False(t, unchangedBatch[1].Excluded, "the valid first member rolls back when a later selected member is stale")
 	require.NoError(t, store.PutLemmaDecision(ctx, updated[0], "", true, "", ""), "exclusion is persisted as an exact-occurrence decision")
 	excluded, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
@@ -104,7 +119,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, other)
 	var analyzerLemma string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT canonical_lemma FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND start_offset=10`, owner.ID, corpus.ID).Scan(&analyzerLemma))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT canonical_lemma FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND start_offset=22`, owner.ID, corpus.ID).Scan(&analyzerLemma))
 	assert.Equal(t, "drach", analyzerLemma)
 	assert.Equal(t, owner.ID, updated[0].OwnerID)
 
@@ -126,7 +141,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.Len(t, directProjections, 1, "direct preparation selects the corrected identity across the recurrence floor")
 	assert.Equal(t, "drache", directProjections[0].Candidate.CanonicalLemma)
 	assert.Equal(t, 3, directProjections[0].Candidate.OccurrenceCount)
-	assert.Equal(t, "Ein Drache sieht einen Drachen und noch einen Drachen.", directProjections[0].Entry.Sentence)
+	assert.Equal(t, "Ein Drache sieht einen Drachen.", directProjections[0].Entry.Sentence)
 
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -135,7 +150,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.Len(t, snapshot, 1)
 	assert.Equal(t, "drache", snapshot[0].CanonicalLemma)
 	assert.Equal(t, 3, snapshot[0].OccurrenceCount, "the one corrected occurrence joins the two existing occurrences across the recurrence floor")
-	assert.Contains(t, string(snapshot[0].SentenceReferences), "Ein Drache sieht einen Drachen und noch einen Drachen.", "the reading snapshot freezes a representative sentence from the effective candidate")
+	assert.Contains(t, string(snapshot[0].SentenceReferences), "Ein Drache sieht einen Drachen.", "the reading snapshot freezes a representative sentence from the effective candidate")
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
@@ -144,7 +159,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	}, snapshot)
 	require.NoError(t, err)
 	require.Len(t, deckFacts, 1)
-	assert.Equal(t, "Ein Drache sieht einen Drachen und noch einen Drachen.", deckFacts[0].Entry.Sentence, "deck preparation uses a corrected representative source sentence, not a stale analyzer candidate row")
+	assert.Equal(t, "Ein Drache sieht einen Drachen.", deckFacts[0].Entry.Sentence, "deck preparation uses a corrected representative source sentence, not a stale analyzer candidate row")
 	require.ErrorIs(t, store.PutLemmaDecision(ctx, updated[1], "", true, "", ""), persistence.ErrNotFound, "an active snapshot rejects later occurrence exclusions")
 	stillCurrent, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
@@ -163,4 +178,50 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, int64(3), coverage.KnownTokenCount, "Known matches the corrected effective identity")
 	assert.Zero(t, coverage.UnknownTokenCount)
 	assert.Equal(t, int64(3), coverage.AnalyzableTokenCount, "correction does not change the source-derived denominator")
+}
+
+func TestLemmaReviewCanSelectContextSpecificDrachenOccurrences(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "drachen-review-owner", "learner-password", false)
+	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "drachen-context", "Drachen contexts", []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "drach", UPOS: "NOUN", OccurrenceCount: 2},
+	})
+	var analysisRun string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&analysisRun))
+	unitID := domain.EPUBUnitID(0, "drachen-context")
+	_, err = store.Pool().Exec(ctx, `
+		INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
+		VALUES($1,$2,$3,$4,0,'Der Drache sieht einen Drachen.',0,31),
+		      ($1,$2,$3,$4,1,'Der Drachen steigt als Drachen.',32,63)`, owner.ID, analysisRun, corpus.ID, unitID)
+	require.NoError(t, err)
+	for _, token := range []struct {
+		sentence   int64
+		start, end int64
+	}{{0, 22, 29}, {1, 36, 43}} {
+		_, err = store.Pool().Exec(ctx, `
+			INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,morphology,start_offset,end_offset,dependency,head)
+			VALUES($1,'de',$2,$3,$4,0,'Drachen','Drach','drach','NOUN','{}',$5,$6,'root',0)`, owner.ID, analysisRun, corpus.ID, token.sentence, token.start, token.end)
+		require.NoError(t, err)
+	}
+	occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
+	require.NoError(t, err)
+	require.Len(t, occurrences, 2)
+	assert.Contains(t, occurrences[0].SentenceText, "Drache sieht", "the first context is a dragon")
+	assert.Contains(t, occurrences[1].SentenceText, "steigt als Drachen", "the same observed form is used as a kite in the second context")
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{
+		{Occurrence: occurrences[0], CanonicalLemma: "drache", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+		{Occurrence: occurrences[1], CanonicalLemma: "drachen", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+	}))
+	updated, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
+	require.NoError(t, err)
+	require.Len(t, updated, 2)
+	assert.Equal(t, "drache", updated[0].CorrectedLemma)
+	assert.Equal(t, "drachen", updated[1].CorrectedLemma)
+	assert.Equal(t, "drach", updated[0].CanonicalLemma, "analyzer evidence remains immutable")
+	assert.Equal(t, "drach", updated[1].CanonicalLemma, "the second context keeps its own analyzer evidence")
 }
