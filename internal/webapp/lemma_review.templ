@@ -1,0 +1,57 @@
+package webapp
+
+import (
+	"fmt"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence) {
+	@ShellLayout("Review a word", &user, csrf, NavigationReadingJourney) {
+		<main class="container data-width">
+			<p><a href="/reading">Back to Reading</a></p>
+			<h1>Review a word in { title }</h1>
+			<p>Search one exact observed form in this Book's current analysis. Each correction applies only to one occurrence; the analyzer result remains unchanged.</p>
+			<form method="get" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
+				<label>Exact observed form<input name="form" value={ form } required /></label>
+				<button type="submit">Find occurrences</button>
+			</form>
+			if pageError != "" {
+				<article role="alert">{ pageError }</article>
+			}
+			if form != "" && len(occurrences) == 0 {
+				<p role="status">No matching content-word occurrence was found in the current analysis. Check the exact spelling and try again.</p>
+			}
+			for _, occurrence := range occurrences {
+				<article>
+					<p class="reading-text">{ occurrence.SentenceText }</p>
+					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
+					if occurrence.CorrectedLemma != "" {
+						<p role="status"><strong>Effective lemma:</strong> { occurrence.CorrectedLemma } (corrected)</p>
+					} else {
+						<p><strong>Effective lemma:</strong> { occurrence.CanonicalLemma } (analyzer assignment)</p>
+					}
+					if canCorrect {
+					<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
+						<input type="hidden" name="csrf_token" value={ csrf } />
+						<input type="hidden" name="form" value={ form } />
+						<input type="hidden" name="analysis_run_id" value={ occurrence.AnalysisRunID } />
+						<input type="hidden" name="source_document_id" value={ occurrence.SourceDocumentID } />
+						<input type="hidden" name="start_offset" value={ fmt.Sprint(occurrence.StartOffset) } />
+						<input type="hidden" name="end_offset" value={ fmt.Sprint(occurrence.EndOffset) } />
+						<input type="hidden" name="surface" value={ occurrence.Surface } />
+						<input type="hidden" name="raw_lemma" value={ occurrence.RawLemma } />
+						<input type="hidden" name="canonical_lemma" value={ occurrence.CanonicalLemma } />
+						<input type="hidden" name="upos" value={ occurrence.UPOS } />
+						<label>Corrected canonical lemma<input name="lemma" value={ occurrence.CorrectedLemma } required /></label>
+						<button type="submit">Save correction for this occurrence</button>
+						<button type="submit" name="action" value="keep" formnovalidate>Keep analyzer lemma</button>
+					</form>
+					}
+				</article>
+			}
+			if canCorrect && form != "" && len(occurrences) > 0 {
+				<p><a href={ templ.SafeURL("/reading/books/"+bookID+"/deck/preparations/new") }>Prepare a direct deck with the effective vocabulary identity</a></p>
+			}
+		</main>
+		}
+	}

@@ -12,6 +12,55 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteOccurrenceLemmaCorrection = `-- name: DeleteOccurrenceLemmaCorrection :execrows
+DELETE FROM occurrence_lemma_corrections d
+USING current_analysis_identity cai, corpus_tokens t, corpus_sentences s
+WHERE d.owner_id = $1 AND d.book_id = $2
+  AND d.analysis_run_id = $3
+  AND d.source_document_id = $4
+  AND d.start_offset = $5 AND d.end_offset = $6
+  AND cai.owner_id = d.owner_id AND cai.book_id = d.book_id
+  AND cai.corpus_id = d.corpus_id AND cai.analysis_run_id = d.analysis_run_id
+  AND t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id AND t.analysis_run_id = cai.analysis_run_id
+  AND s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id AND s.analysis_run_id = t.analysis_run_id
+  AND s.sentence_ordinal = t.sentence_ordinal AND s.unit_id = d.source_document_id
+  AND t.start_offset = d.start_offset AND t.end_offset = d.end_offset
+  AND t.surface = $7 AND t.raw_lemma = $8
+  AND t.canonical_lemma = $9 AND t.upos = $10
+`
+
+type DeleteOccurrenceLemmaCorrectionParams struct {
+	Owner                  string
+	Book                   string
+	AnalysisRun            string
+	SourceDocumentID       string
+	StartOffset            int64
+	EndOffset              int64
+	ExpectedSurface        string
+	ExpectedRawLemma       string
+	ExpectedCanonicalLemma string
+	ExpectedUpos           string
+}
+
+func (q *Queries) DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOccurrenceLemmaCorrection,
+		arg.Owner,
+		arg.Book,
+		arg.AnalysisRun,
+		arg.SourceDocumentID,
+		arg.StartOffset,
+		arg.EndOffset,
+		arg.ExpectedSurface,
+		arg.ExpectedRawLemma,
+		arg.ExpectedCanonicalLemma,
+		arg.ExpectedUpos,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getCoverageEntryForBook = `-- name: GetCoverageEntryForBook :one
 SELECT sc.owner_id::text AS owner_id,
        sc.language,
@@ -178,6 +227,245 @@ func (q *Queries) GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverage
 		&i.FirstEncounter,
 	)
 	return i, err
+}
+
+const hasCurrentLemmaCorrections = `-- name: HasCurrentLemmaCorrections :one
+SELECT EXISTS (
+  SELECT 1 FROM occurrence_lemma_corrections d
+  JOIN book_current_analyses cai ON cai.owner_id = d.owner_id
+    AND cai.book_id = d.book_id AND cai.analysis_run_id = d.analysis_run_id
+  JOIN source_materials source ON source.owner_id = cai.owner_id
+    AND source.id = cai.source_material_id AND source.book_id = cai.book_id
+  JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
+    AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
+  JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
+    AND c.id = d.corpus_id AND c.source_material_id = r.source_material_id
+    AND c.analysis_run_id = r.id AND c.status = 'complete'
+  WHERE d.owner_id = $1 AND d.book_id = $2
+    AND source.current_content_revision_id = r.content_revision_id
+    AND source.current_snapshot_id = r.snapshot_id
+)
+`
+
+type HasCurrentLemmaCorrectionsParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) HasCurrentLemmaCorrections(ctx context.Context, arg HasCurrentLemmaCorrectionsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasCurrentLemmaCorrections, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listAnalysisTokenEvidence = `-- name: ListAnalysisTokenEvidence :many
+SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
+       t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,
+       t.start_offset, t.end_offset, s.unit_id, s.sentence_text
+FROM corpora c
+JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
+  AND t.analysis_run_id = c.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+WHERE c.owner_id = $1 AND c.id = $2
+  AND c.analysis_run_id = $3
+ORDER BY t.sentence_ordinal, t.token_ordinal
+`
+
+type ListAnalysisTokenEvidenceParams struct {
+	Owner       string
+	Corpus      string
+	AnalysisRun pgtype.UUID
+}
+
+type ListAnalysisTokenEvidenceRow struct {
+	Language        string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+	Surface         string
+	RawLemma        string
+	CanonicalLemma  string
+	Upos            string
+	Dependency      string
+	Head            int64
+	Morphology      []byte
+	StartOffset     int64
+	EndOffset       int64
+	UnitID          string
+	SentenceText    string
+}
+
+func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error) {
+	rows, err := q.db.Query(ctx, listAnalysisTokenEvidence, arg.Owner, arg.Corpus, arg.AnalysisRun)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAnalysisTokenEvidenceRow{}
+	for rows.Next() {
+		var i ListAnalysisTokenEvidenceRow
+		if err := rows.Scan(
+			&i.Language,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Surface,
+			&i.RawLemma,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.Head,
+			&i.Morphology,
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.UnitID,
+			&i.SentenceText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
+SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+       t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
+       t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
+       s.sentence_text, s.unit_id,
+       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma
+FROM book_current_analyses cai
+JOIN source_materials source ON source.owner_id = cai.owner_id
+  AND source.id = cai.source_material_id AND source.book_id = cai.book_id
+JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
+  AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
+JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
+  AND c.source_material_id = r.source_material_id AND c.analysis_run_id = r.id
+  AND c.status = 'complete'
+JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
+  AND t.analysis_run_id = c.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
+  AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
+  AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
+WHERE cai.owner_id = $1 AND cai.book_id = $2
+  AND source.current_content_revision_id = r.content_revision_id
+  AND source.current_snapshot_id = r.snapshot_id
+  AND t.surface = $3
+  AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
+ORDER BY s.sentence_ordinal, t.token_ordinal
+`
+
+type ListLemmaReviewOccurrencesParams struct {
+	Owner   string
+	Book    string
+	Surface string
+}
+
+type ListLemmaReviewOccurrencesRow struct {
+	CorpusID        string
+	AnalysisRunID   string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+	Surface         string
+	RawLemma        string
+	CanonicalLemma  string
+	Upos            string
+	StartOffset     int64
+	EndOffset       int64
+	SentenceText    string
+	UnitID          string
+	CorrectedLemma  string
+}
+
+func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error) {
+	rows, err := q.db.Query(ctx, listLemmaReviewOccurrences, arg.Owner, arg.Book, arg.Surface)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLemmaReviewOccurrencesRow{}
+	for rows.Next() {
+		var i ListLemmaReviewOccurrencesRow
+		if err := rows.Scan(
+			&i.CorpusID,
+			&i.AnalysisRunID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Surface,
+			&i.RawLemma,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.SentenceText,
+			&i.UnitID,
+			&i.CorrectedLemma,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOccurrenceLemmaCorrections = `-- name: ListOccurrenceLemmaCorrections :many
+SELECT source_document_id, start_offset, end_offset, canonical_lemma
+FROM occurrence_lemma_corrections
+WHERE owner_id = $1 AND book_id = $2
+  AND corpus_id = $3 AND analysis_run_id = $4
+ORDER BY source_document_id, start_offset, end_offset
+`
+
+type ListOccurrenceLemmaCorrectionsParams struct {
+	Owner       string
+	Book        string
+	Corpus      string
+	AnalysisRun string
+}
+
+type ListOccurrenceLemmaCorrectionsRow struct {
+	SourceDocumentID string
+	StartOffset      int64
+	EndOffset        int64
+	CanonicalLemma   string
+}
+
+func (q *Queries) ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error) {
+	rows, err := q.db.Query(ctx, listOccurrenceLemmaCorrections,
+		arg.Owner,
+		arg.Book,
+		arg.Corpus,
+		arg.AnalysisRun,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOccurrenceLemmaCorrectionsRow{}
+	for rows.Next() {
+		var i ListOccurrenceLemmaCorrectionsRow
+		if err := rows.Scan(
+			&i.SourceDocumentID,
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.CanonicalLemma,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listReviewSentences = `-- name: ListReviewSentences :many
@@ -552,6 +840,106 @@ func (q *Queries) ListSelectionCandidatesForCorpus(ctx context.Context, arg List
 		return nil, err
 	}
 	return items, nil
+}
+
+const putOccurrenceLemmaCorrection = `-- name: PutOccurrenceLemmaCorrection :one
+INSERT INTO occurrence_lemma_corrections(
+  owner_id, book_id, corpus_id, analysis_run_id, source_document_id,
+  start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version
+)
+SELECT cai.owner_id, cai.book_id, cai.corpus_id, cai.analysis_run_id, s.unit_id,
+       t.start_offset, t.end_offset, $1,
+       $2, $3
+FROM current_analysis_identity cai
+JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
+  AND t.analysis_run_id = cai.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+WHERE cai.owner_id = $4 AND cai.book_id = $5
+  AND cai.analysis_run_id = $6
+  AND s.unit_id = $7
+  AND t.start_offset = $8 AND t.end_offset = $9
+  AND t.surface = $10 AND t.raw_lemma = $11
+  AND t.canonical_lemma = $12
+  AND t.upos = $13
+   AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
+   AND NOT EXISTS (
+    SELECT 1 FROM primary_goals pg
+    WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
+   )
+ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
+DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
+              normalization_profile = excluded.normalization_profile,
+              normalization_version = excluded.normalization_version,
+              updated_at = now()
+RETURNING owner_id::text, book_id::text, corpus_id::text, analysis_run_id::text,
+          source_document_id, start_offset, end_offset, canonical_lemma,
+          normalization_profile, normalization_version, created_at, updated_at
+`
+
+type PutOccurrenceLemmaCorrectionParams struct {
+	CanonicalLemma         string
+	NormalizationProfile   string
+	NormalizationVersion   string
+	Owner                  string
+	Book                   string
+	AnalysisRun            string
+	SourceDocumentID       string
+	StartOffset            int64
+	EndOffset              int64
+	ExpectedSurface        string
+	ExpectedRawLemma       string
+	ExpectedCanonicalLemma string
+	ExpectedUpos           string
+}
+
+type PutOccurrenceLemmaCorrectionRow struct {
+	OwnerID              string
+	BookID               string
+	CorpusID             string
+	AnalysisRunID        string
+	SourceDocumentID     string
+	StartOffset          int64
+	EndOffset            int64
+	CanonicalLemma       string
+	NormalizationProfile string
+	NormalizationVersion string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccurrenceLemmaCorrectionParams) (PutOccurrenceLemmaCorrectionRow, error) {
+	row := q.db.QueryRow(ctx, putOccurrenceLemmaCorrection,
+		arg.CanonicalLemma,
+		arg.NormalizationProfile,
+		arg.NormalizationVersion,
+		arg.Owner,
+		arg.Book,
+		arg.AnalysisRun,
+		arg.SourceDocumentID,
+		arg.StartOffset,
+		arg.EndOffset,
+		arg.ExpectedSurface,
+		arg.ExpectedRawLemma,
+		arg.ExpectedCanonicalLemma,
+		arg.ExpectedUpos,
+	)
+	var i PutOccurrenceLemmaCorrectionRow
+	err := row.Scan(
+		&i.OwnerID,
+		&i.BookID,
+		&i.CorpusID,
+		&i.AnalysisRunID,
+		&i.SourceDocumentID,
+		&i.StartOffset,
+		&i.EndOffset,
+		&i.CanonicalLemma,
+		&i.NormalizationProfile,
+		&i.NormalizationVersion,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const selectAcquisitionCandidate = `-- name: SelectAcquisitionCandidate :one

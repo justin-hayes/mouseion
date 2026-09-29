@@ -1237,6 +1237,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 						</form>
 					}
 				}
+				<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
 			} else {
 				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
 				if item.State == readingChooserInProgress {

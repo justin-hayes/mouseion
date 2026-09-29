@@ -15,6 +15,121 @@ WHERE sc.owner_id = sqlc.arg('owner')
 ORDER BY sc.selected_at DESC, sc.corpus_id DESC
 LIMIT 1;
 
+-- name: ListLemmaReviewOccurrences :many
+SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+       t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
+       t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
+       s.sentence_text, s.unit_id,
+       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma
+FROM book_current_analyses cai
+JOIN source_materials source ON source.owner_id = cai.owner_id
+  AND source.id = cai.source_material_id AND source.book_id = cai.book_id
+JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
+  AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
+JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
+  AND c.source_material_id = r.source_material_id AND c.analysis_run_id = r.id
+  AND c.status = 'complete'
+JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
+  AND t.analysis_run_id = c.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
+  AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
+  AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
+WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
+  AND source.current_content_revision_id = r.content_revision_id
+  AND source.current_snapshot_id = r.snapshot_id
+  AND t.surface = sqlc.arg('surface')
+  AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
+ORDER BY s.sentence_ordinal, t.token_ordinal;
+
+-- name: ListOccurrenceLemmaCorrections :many
+SELECT source_document_id, start_offset, end_offset, canonical_lemma
+FROM occurrence_lemma_corrections
+WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
+  AND corpus_id = sqlc.arg('corpus') AND analysis_run_id = sqlc.arg('analysis_run')
+ORDER BY source_document_id, start_offset, end_offset;
+
+-- name: HasCurrentLemmaCorrections :one
+SELECT EXISTS (
+  SELECT 1 FROM occurrence_lemma_corrections d
+  JOIN book_current_analyses cai ON cai.owner_id = d.owner_id
+    AND cai.book_id = d.book_id AND cai.analysis_run_id = d.analysis_run_id
+  JOIN source_materials source ON source.owner_id = cai.owner_id
+    AND source.id = cai.source_material_id AND source.book_id = cai.book_id
+  JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
+    AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
+  JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
+    AND c.id = d.corpus_id AND c.source_material_id = r.source_material_id
+    AND c.analysis_run_id = r.id AND c.status = 'complete'
+  WHERE d.owner_id = sqlc.arg('owner') AND d.book_id = sqlc.arg('book')
+    AND source.current_content_revision_id = r.content_revision_id
+    AND source.current_snapshot_id = r.snapshot_id
+);
+
+-- name: ListAnalysisTokenEvidence :many
+SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
+       t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,
+       t.start_offset, t.end_offset, s.unit_id, s.sentence_text
+FROM corpora c
+JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
+  AND t.analysis_run_id = c.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+WHERE c.owner_id = sqlc.arg('owner') AND c.id = sqlc.arg('corpus')
+  AND c.analysis_run_id = sqlc.arg('analysis_run')
+ORDER BY t.sentence_ordinal, t.token_ordinal;
+
+-- name: PutOccurrenceLemmaCorrection :one
+INSERT INTO occurrence_lemma_corrections(
+  owner_id, book_id, corpus_id, analysis_run_id, source_document_id,
+  start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version
+)
+SELECT cai.owner_id, cai.book_id, cai.corpus_id, cai.analysis_run_id, s.unit_id,
+       t.start_offset, t.end_offset, sqlc.arg('canonical_lemma'),
+       sqlc.arg('normalization_profile'), sqlc.arg('normalization_version')
+FROM current_analysis_identity cai
+JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
+  AND t.analysis_run_id = cai.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
+  AND cai.analysis_run_id = sqlc.arg('analysis_run')
+  AND s.unit_id = sqlc.arg('source_document_id')
+  AND t.start_offset = sqlc.arg('start_offset') AND t.end_offset = sqlc.arg('end_offset')
+  AND t.surface = sqlc.arg('expected_surface') AND t.raw_lemma = sqlc.arg('expected_raw_lemma')
+  AND t.canonical_lemma = sqlc.arg('expected_canonical_lemma')
+  AND t.upos = sqlc.arg('expected_upos')
+   AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
+   AND NOT EXISTS (
+    SELECT 1 FROM primary_goals pg
+    WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
+   )
+ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
+DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
+              normalization_profile = excluded.normalization_profile,
+              normalization_version = excluded.normalization_version,
+              updated_at = now()
+RETURNING owner_id::text, book_id::text, corpus_id::text, analysis_run_id::text,
+          source_document_id, start_offset, end_offset, canonical_lemma,
+          normalization_profile, normalization_version, created_at, updated_at;
+
+-- name: DeleteOccurrenceLemmaCorrection :execrows
+DELETE FROM occurrence_lemma_corrections d
+USING current_analysis_identity cai, corpus_tokens t, corpus_sentences s
+WHERE d.owner_id = sqlc.arg('owner') AND d.book_id = sqlc.arg('book')
+  AND d.analysis_run_id = sqlc.arg('analysis_run')
+  AND d.source_document_id = sqlc.arg('source_document_id')
+  AND d.start_offset = sqlc.arg('start_offset') AND d.end_offset = sqlc.arg('end_offset')
+  AND cai.owner_id = d.owner_id AND cai.book_id = d.book_id
+  AND cai.corpus_id = d.corpus_id AND cai.analysis_run_id = d.analysis_run_id
+  AND t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id AND t.analysis_run_id = cai.analysis_run_id
+  AND s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id AND s.analysis_run_id = t.analysis_run_id
+  AND s.sentence_ordinal = t.sentence_ordinal AND s.unit_id = d.source_document_id
+  AND t.start_offset = d.start_offset AND t.end_offset = d.end_offset
+  AND t.surface = sqlc.arg('expected_surface') AND t.raw_lemma = sqlc.arg('expected_raw_lemma')
+  AND t.canonical_lemma = sqlc.arg('expected_canonical_lemma') AND t.upos = sqlc.arg('expected_upos');
+
 -- name: UpsertReviewSentenceFromAnalysis :one
 INSERT INTO example_sentences(owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 0, '[]', true)

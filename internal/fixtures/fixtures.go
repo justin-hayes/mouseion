@@ -115,6 +115,7 @@ type Store struct {
 	syncStatuses           []domain.CatalogueSyncStatus
 	storedActiveLanguage   *string
 	mostRecentLanguage     string
+	lemmaCorrections       map[string]string
 }
 
 func NewStore() *Store {
@@ -200,7 +201,66 @@ func NewStore() *Store {
 		readingHistory:       make(map[string]domain.ReadingCompletion),
 		storedActiveLanguage: &initialActiveLanguage,
 		mostRecentLanguage:   "it",
+		lemmaCorrections:     make(map[string]string),
 	}
+}
+
+func fixtureLemmaCorrectionKey(owner, book, analysis string, start, end int64) string {
+	return owner + "\x00" + book + "\x00" + analysis + "\x00" + strconv.FormatInt(start, 10) + "\x00" + strconv.FormatInt(end, 10)
+}
+
+func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner != OwnerID || surface != "Weg" || (bookID != BookID && bookID != routeMatchBookID) {
+		return nil, nil
+	}
+	corpusID, analysisRunID, sourceDocumentID := "fixture-corpus", ResultRunID, "fixture-unit"
+	if bookID == routeMatchBookID {
+		corpusID, analysisRunID, sourceDocumentID = "fixture-route-match-corpus", "fixture-route-match-run", "fixture-route-match-unit"
+	}
+	result := make([]domain.LemmaReviewOccurrence, 0, 2)
+	for i, offset := range []int64{4, 20} {
+		start, end := offset, offset+3
+		result = append(result, domain.LemmaReviewOccurrence{
+			OwnerID: owner, BookID: bookID, CorpusID: corpusID, AnalysisRunID: analysisRunID,
+			SourceDocumentID: sourceDocumentID, StartOffset: start, EndOffset: end,
+			SentenceOrdinal: int64(i), TokenOrdinal: 1, Surface: surface, RawLemma: "Weg",
+			CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg führt zum Haus.",
+			CorrectedLemma: s.lemmaCorrections[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
+		})
+	}
+	return result, nil
+}
+
+func (s *Store) PutLemmaCorrection(_ context.Context, occurrence domain.LemmaReviewOccurrence, lemma, _, _ string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run"
+	if occurrence.OwnerID != OwnerID || !validAnalysis || occurrence.Surface != "Weg" {
+		return errNotFound
+	}
+	if goal, ok := s.primaryGoals[fixtureGoalKey(occurrence.OwnerID, "de")]; ok && goal.IsActive() && goal.BookID == occurrence.BookID {
+		return errNotFound
+	}
+	key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+	if lemma == occurrence.CanonicalLemma {
+		delete(s.lemmaCorrections, key)
+		return nil
+	}
+	s.lemmaCorrections[key] = lemma
+	return nil
+}
+
+func (s *Store) HasCurrentLemmaCorrections(_ context.Context, owner, bookID string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key := range s.lemmaCorrections {
+		if strings.HasPrefix(key, owner+"\x00"+bookID+"\x00") {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // SetGoalSnapshotVocabulary lets acceptance tests add a deterministic frozen

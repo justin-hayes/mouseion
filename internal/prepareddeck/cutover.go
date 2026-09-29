@@ -10,7 +10,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -41,9 +43,26 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	if a == nil || a.Store == nil {
 		return nil, "", errors.New("prepareddeck: input fact store is unavailable")
 	}
+	if preparation.GoalSnapshotID == "" && tx != nil {
+		var bookID *string
+		if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
+			return nil, "", fmt.Errorf("resolve direct-deck Book identity: %w", err)
+		}
+		if bookID != nil {
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, preparation.OwnerID+":"+*bookID); err != nil {
+				return nil, "", fmt.Errorf("lock direct-deck vocabulary decisions: %w", err)
+			}
+		}
+	}
 	facts, err := a.Store.LoadPreparedDeckInputFactsTx(ctx, tx, preparation)
 	if err != nil {
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
+	}
+	if !facts.GoalSnapshotActive && facts.Analysis != nil {
+		facts.Candidates, err = projectPreparedDeckCandidates(preparation, facts.CorpusID, *facts.Analysis, facts.Corrections)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
 	if preparation.GoalSnapshotID != "" && !facts.GoalSnapshotActive {
@@ -70,6 +89,55 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 		projections = append(projections, cardexport.CandidateProjection{OwnerID: preparation.OwnerID, DeckName: facts.DeckName, Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences, RequireContextualGloss: false})
 	}
 	return projections, facts.DeckName, nil
+}
+
+func projectPreparedDeckCandidates(preparation domain.DeckPreparation, corpusID string, corpus analyzer.Result, corrections []domain.OccurrenceLemmaCorrection) ([]domain.SelectionCandidate, error) {
+	decisions := make([]selection.OccurrenceDecision, 0, len(corrections))
+	for _, correction := range corrections {
+		if correction.StartOffset < 0 || correction.EndOffset < 0 {
+			return nil, errors.New("prepareddeck: correction has invalid source offsets")
+		}
+		decisions = append(decisions, selection.OccurrenceDecision{
+			Occurrence: selection.OccurrenceIdentity{SourceDocumentID: correction.SourceDocumentID, StartOffset: uint64(correction.StartOffset), EndOffset: uint64(correction.EndOffset)},
+			Lemma:      correction.CanonicalLemma,
+		})
+	}
+	projected, err := selection.Project(corpus, selection.DefaultConfig(corpusID), decisions)
+	if err != nil {
+		return nil, fmt.Errorf("project effective prepared-deck vocabulary: %w", err)
+	}
+	result := make([]domain.SelectionCandidate, 0, len(projected))
+	for _, candidate := range projected {
+		forms, marshalErr := json.Marshal(candidate.ObservedForms)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		references, marshalErr := json.Marshal(candidate.SentenceReferences)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		provenance, marshalErr := json.Marshal(candidate.Provenance)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		firstEncounter := int64(^uint64(0) >> 1)
+		for _, reference := range candidate.SentenceReferences {
+			startOffset, convertErr := checked.Int64FromUint64(reference.Location.StartOffset)
+			if convertErr != nil {
+				return nil, fmt.Errorf("prepareddeck: source offset exceeds PostgreSQL range: %w", convertErr)
+			}
+			if startOffset < firstEncounter {
+				firstEncounter = startOffset
+			}
+		}
+		result = append(result, domain.SelectionCandidate{
+			OwnerID: preparation.OwnerID, CorpusID: corpusID,
+			Language: candidate.Identity.Language, CanonicalLemma: candidate.Identity.CanonicalLemma, UPOS: candidate.Identity.UPOS,
+			OccurrenceCount: candidate.OccurrenceCount, FirstEncounter: firstEncounter,
+			ObservedForms: forms, SentenceReferences: references, Provenance: provenance,
+		})
+	}
+	return result, nil
 }
 
 // BatchPlanner freezes transaction-scoped input facts into a durable run. It

@@ -49,6 +49,7 @@ func (s *inputFactsStore) LoadPreparedDeckCandidateFactsTx(_ context.Context, _ 
 	for _, wanted := range selected {
 		for _, fact := range s.candidateFacts {
 			if fact.Candidate.CanonicalLemma == wanted.CanonicalLemma && fact.Candidate.UPOS == wanted.UPOS {
+				fact.Candidate = wanted
 				result = append(result, fact)
 				break
 			}
@@ -87,6 +88,30 @@ func TestBatchPlannerRejectsMissingProvider(t *testing.T) {
 			assert.Contains(t, err.Error(), "configured translation provider")
 		})
 	}
+}
+
+func TestInputAssemblerFreezesOccurrenceCorrectionIntoRecurringDeckIdentity(t *testing.T) {
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Text: "Ein Drache sieht zwei Drachen.", Tokens: []analyzer.Token{
+		{Surface: "Drachen", RawLemma: "Drach", CanonicalLemma: "drach", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 10, EndOffset: 17}},
+		{Surface: "Drachen", RawLemma: "Drache", CanonicalLemma: "drache", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 20, EndOffset: 27}},
+		{Surface: "Drachen", RawLemma: "Drache", CanonicalLemma: "drache", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: "unit", StartOffset: 30, EndOffset: 37}},
+	}}}}
+	store := &inputFactsStore{
+		facts: persistence.PreparedDeckInputFacts{
+			DeckName: "Book", CorpusID: "corpus", Analysis: &corpus,
+			Corrections: []domain.OccurrenceLemmaCorrection{{SourceDocumentID: "unit", StartOffset: 10, EndOffset: 17, CanonicalLemma: "drache"}},
+		},
+		candidateFacts: []persistence.PreparedDeckCandidateFacts{{
+			Candidate: domain.SelectionCandidate{OwnerID: "alice", CorpusID: "corpus", Language: "de", CanonicalLemma: "drache", UPOS: "NOUN"},
+			Entry:     cardexport.Entry{OwnerID: "alice", Language: "de", CanonicalLemma: "drache", UPOS: "NOUN", SourceDocument: "Book"},
+			Sentences: map[int64]analyzer.Sentence{0: corpus.Sentences[0]},
+		}},
+	}
+	projections, _, err := NewInputAssembler(store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+	require.Len(t, projections, 1, "corrected identity merges into the two-occurrence canonical lemma and crosses the recurring floor")
+	assert.Equal(t, "drache", projections[0].Candidate.CanonicalLemma)
+	assert.Equal(t, 3, projections[0].Candidate.OccurrenceCount)
 }
 
 func TestBatchPlannerSetsContextualGlossAsRequired(t *testing.T) {
