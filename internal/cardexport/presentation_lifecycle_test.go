@@ -75,6 +75,31 @@ func TestPresentationLifecycleRendersDiscontinuousEnglishTargetWithoutHidingCont
 	assert.Contains(t, artifact.TSV, "And then the motorcycle <b>knocks</b> Piero <b>over</b>.")
 }
 
+func TestPresentationLifecycleExportsExactCaseSensitiveEnglishTarget(t *testing.T) {
+	projection := cardexport.CandidateProjection{
+		OwnerID: "owner-1", DeckName: "Book",
+		Candidate: domain.SelectionCandidate{OwnerID: "owner-1", CorpusID: "corpus-haus", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", ObservedForms: []byte(`["Haus"]`)},
+		Entry:     cardexport.Entry{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Sentence: "Das Haus steht heute sehr ruhig.", TargetWord: "Haus", Gloss: "a dwelling"},
+		Provider:  "llm", ProviderVersion: "prompt-v2", TargetLanguage: "en",
+	}
+	presentation := cardexport.NewPresentation(nil)
+	deck, _, err := presentation.Freeze(t.Context(), "owner-1", "Book", []cardexport.CandidateProjection{projection})
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	record := enrichment.CacheEntry{
+		CacheKey: work[0].CacheKey, Translation: "house",
+		SentenceTranslation:        "House stands next to another house.",
+		SentenceTranslationTargets: []string{"House"},
+	}
+	artifact, _, err := presentation.Finalize(t.Context(), deck, []cardexport.StoredResult{{CacheKey: work[0].CacheKey, Record: record}}, cardexport.RunFacts{Consent: true, Configured: true, ExecutionMode: "standard", TargetLanguage: "en", Provider: "llm", ProviderVersion: "prompt-v2"})
+	require.NoError(t, err)
+	require.Len(t, artifact.Generated, 1)
+	assert.Equal(t, "<b>House</b> stands next to another house.", artifact.Generated[0].Note.EnglishSentence)
+	assert.Equal(t, "a dwelling", artifact.Generated[0].Note.Gloss)
+	assert.Contains(t, artifact.TSV, "<b>House</b> stands next to another house.")
+}
+
 func TestPresentationLifecycleFreezesEmptyLocalDeck(t *testing.T) {
 	deck, diagnostics, err := cardexport.NewPresentation(nil).Freeze(t.Context(), "owner-1", "Empty Book", nil)
 
