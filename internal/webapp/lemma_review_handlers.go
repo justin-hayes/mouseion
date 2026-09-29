@@ -180,8 +180,8 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 		}
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
-	extras := lemmaProposalIdentities(chosen, action, lemma, language)
-	fingerprint, err := h.services.Store.LemmaReview.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), extras)
+	proposalIdentities := lemmaProposalIdentities(chosen, action, lemma, language)
+	fingerprint, err := h.services.Store.LemmaReview.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), proposalIdentities)
 	if err != nil {
 		return nil, err
 	}
