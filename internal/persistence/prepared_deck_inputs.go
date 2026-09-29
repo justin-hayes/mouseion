@@ -148,7 +148,8 @@ func loadAnalysisProjectionFactsTx(ctx context.Context, tx pgx.Tx, q *sqlcgen.Qu
 		if row.StartOffset < 0 || row.EndOffset < 0 {
 			return analyzer.Result{}, nil, errors.New("decode persisted lemma correction: invalid offsets")
 		}
-		corrections = append(corrections, domain.OccurrenceLemmaCorrection{SourceDocumentID: row.SourceDocumentID, StartOffset: row.StartOffset, EndOffset: row.EndOffset, CanonicalLemma: row.CanonicalLemma})
+		lemma := row.CanonicalLemma.String
+		corrections = append(corrections, domain.OccurrenceLemmaCorrection{SourceDocumentID: row.SourceDocumentID, StartOffset: row.StartOffset, EndOffset: row.EndOffset, CanonicalLemma: lemma, Excluded: row.Excluded})
 	}
 	return analysis, corrections, nil
 }

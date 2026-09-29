@@ -32,7 +32,7 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 		"csrf_token": {csrf}, "form": {"Weg"}, "analysis_run_id": {fixtures.ResultRunID},
 		"source_document_id": {"fixture-unit"}, "start_offset": {"4"}, "end_offset": {"7"},
 		"surface": {"Weg"}, "raw_lemma": {"Weg"}, "canonical_lemma": {"weg"}, "upos": {"NOUN"},
-		"expected_corrected_lemma": {""}, "lemma": {"Pfad"},
+		"expected_corrected_lemma": {""}, "expected_excluded": {"false"}, "lemma": {"Pfad"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, correct.Code)
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
@@ -40,11 +40,30 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	require.Len(t, occurrences, 2)
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
 	assert.Empty(t, occurrences[1].CorrectedLemma, "same-surface occurrence must remain untouched")
+	exclude := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
+		"csrf_token": {csrf}, "form": {"Weg"}, "analysis_run_id": {fixtures.ResultRunID},
+		"source_document_id": {"fixture-unit"}, "start_offset": {"20"}, "end_offset": {"23"},
+		"surface": {"Weg"}, "raw_lemma": {"Weg"}, "canonical_lemma": {"weg"}, "upos": {"NOUN"},
+		"expected_corrected_lemma": {""}, "expected_excluded": {"false"}, "action": {"exclude"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, exclude.Code)
+	occurrences, err = store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
+	require.NoError(t, err)
+	assert.True(t, occurrences[1].Excluded)
+	assert.Contains(t, func() string {
+		get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+		for _, cookie := range cookies {
+			get.AddCookie(cookie)
+		}
+		page := httptest.NewRecorder()
+		h.ServeHTTP(page, get)
+		return page.Body.String()
+	}(), "excluded for this occurrence.")
 	stale := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
 		"csrf_token": {csrf}, "form": {"Weg"}, "analysis_run_id": {fixtures.ResultRunID},
 		"source_document_id": {"fixture-unit"}, "start_offset": {"4"}, "end_offset": {"7"},
 		"surface": {"Weg"}, "raw_lemma": {"Weg"}, "canonical_lemma": {"weg"}, "upos": {"NOUN"},
-		"expected_corrected_lemma": {""}, "lemma": {"Wand"},
+		"expected_corrected_lemma": {""}, "expected_excluded": {"false"}, "lemma": {"Wand"},
 	}, cookies)
 	assert.Equal(t, http.StatusConflict, stale.Code, "a stale review form cannot overwrite a later correction")
 

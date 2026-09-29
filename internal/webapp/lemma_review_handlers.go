@@ -74,6 +74,8 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Choose a supported study language before correcting a lemma.", http.StatusConflict)
 		return
 	}
+	action := r.FormValue("action")
+	excluded := action == "exclude"
 	lemma := profile.Canonical(strings.TrimSpace(r.FormValue("lemma")))
 	form := strings.TrimSpace(r.FormValue("form"))
 	occurrences, err := store.ListLemmaReviewOccurrences(r.Context(), owner.ID, bookID, form)
@@ -95,17 +97,18 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "This occurrence changed or belongs to an older analysis. No correction was saved; find it again in Reading.", http.StatusConflict)
 		return
 	}
-	if r.FormValue("expected_corrected_lemma") != chosen.CorrectedLemma {
+	expectedExcluded, parseErr := strconv.ParseBool(r.FormValue("expected_excluded"))
+	if parseErr != nil || r.FormValue("expected_corrected_lemma") != chosen.CorrectedLemma || expectedExcluded != chosen.Excluded {
 		http.Error(w, "This occurrence's correction changed after you opened it. No correction was saved; review it again in Reading.", http.StatusConflict)
 		return
 	}
-	if r.FormValue("action") == "keep" {
+	if action == "keep" || action == "restore" {
 		lemma = chosen.CanonicalLemma
-	} else if !lexical.IsLemma(lemma) {
+	} else if action != "exclude" && !lexical.IsLemma(lemma) {
 		http.Error(w, "Enter one valid canonical lemma without spaces.", http.StatusBadRequest)
 		return
 	}
-	if err := store.PutLemmaCorrection(r.Context(), *chosen, lemma, profile.Name(), profile.Version()); err != nil {
+	if err := store.PutLemmaDecision(r.Context(), *chosen, lemma, excluded, profile.Name(), profile.Version()); err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.Error(w, "This occurrence changed or belongs to an older analysis. No correction was saved; find it again in Reading.", http.StatusConflict)
 			return

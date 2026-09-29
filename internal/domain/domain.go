@@ -232,6 +232,7 @@ type LemmaReviewOccurrence struct {
 	SentenceOrdinal, TokenOrdinal            int64
 	Surface, RawLemma, CanonicalLemma, UPOS  string
 	SentenceText, CorrectedLemma             string
+	Excluded                                 bool
 }
 
 type OccurrenceLemmaCorrection struct {
@@ -239,6 +240,7 @@ type OccurrenceLemmaCorrection struct {
 	StartOffset      int64
 	EndOffset        int64
 	CanonicalLemma   string
+	Excluded         bool
 }
 
 type CoverageThreshold struct {

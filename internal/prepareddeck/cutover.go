@@ -100,6 +100,7 @@ func projectPreparedDeckCandidates(preparation domain.DeckPreparation, corpusID 
 		decisions = append(decisions, selection.OccurrenceDecision{
 			Occurrence: selection.OccurrenceIdentity{SourceDocumentID: correction.SourceDocumentID, StartOffset: uint64(correction.StartOffset), EndOffset: uint64(correction.EndOffset)},
 			Lemma:      correction.CanonicalLemma,
+			Excluded:   correction.Excluded,
 		})
 	}
 	projected, err := selection.Project(corpus, selection.DefaultConfig(corpusID), decisions)

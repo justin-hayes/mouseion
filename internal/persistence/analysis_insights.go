@@ -76,6 +76,7 @@ func (s *PostgresStore) GetAnalysisCorpusVocabulary(ctx context.Context, owner, 
 		projectionDecisions = append(projectionDecisions, selection.OccurrenceDecision{
 			Occurrence: selection.OccurrenceIdentity{SourceDocumentID: correction.SourceDocumentID, StartOffset: start, EndOffset: end},
 			Lemma:      correction.CanonicalLemma,
+			Excluded:   correction.Excluded,
 		})
 	}
 	projected, err := selection.Project(analysis, selection.DefaultConfig(corpusID), projectionDecisions)

@@ -640,11 +640,12 @@ type OccurrenceLemmaCorrection struct {
 	SourceDocumentID     string
 	StartOffset          int64
 	EndOffset            int64
-	CanonicalLemma       string
-	NormalizationProfile string
-	NormalizationVersion string
+	CanonicalLemma       pgtype.Text
+	NormalizationProfile pgtype.Text
+	NormalizationVersion pgtype.Text
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
+	Excluded             bool
 }
 
 type OpdsConnection struct {

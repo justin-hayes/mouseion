@@ -57,7 +57,7 @@ type BookCoverStore interface {
 
 type LemmaReviewStore interface {
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
-	PutLemmaCorrection(context.Context, domain.LemmaReviewOccurrence, string, string, string) error
+	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
 	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
 }
 

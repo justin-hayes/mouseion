@@ -25,9 +25,10 @@ WHERE d.owner_id = $1 AND d.book_id = $2
   AND s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id AND s.analysis_run_id = t.analysis_run_id
   AND s.sentence_ordinal = t.sentence_ordinal AND s.unit_id = d.source_document_id
    AND t.start_offset = d.start_offset AND t.end_offset = d.end_offset
-   AND d.canonical_lemma = $7
-  AND t.surface = $8 AND t.raw_lemma = $9
-  AND t.canonical_lemma = $10 AND t.upos = $11
+    AND d.canonical_lemma IS NOT DISTINCT FROM $7
+    AND d.excluded = $8
+  AND t.surface = $9 AND t.raw_lemma = $10
+  AND t.canonical_lemma = $11 AND t.upos = $12
 `
 
 type DeleteOccurrenceLemmaCorrectionParams struct {
@@ -37,7 +38,8 @@ type DeleteOccurrenceLemmaCorrectionParams struct {
 	SourceDocumentID       string
 	StartOffset            int64
 	EndOffset              int64
-	ExpectedCorrectedLemma string
+	ExpectedCorrectedLemma pgtype.Text
+	ExpectedExcluded       bool
 	ExpectedSurface        string
 	ExpectedRawLemma       string
 	ExpectedCanonicalLemma string
@@ -53,6 +55,7 @@ func (q *Queries) DeleteOccurrenceLemmaCorrection(ctx context.Context, arg Delet
 		arg.StartOffset,
 		arg.EndOffset,
 		arg.ExpectedCorrectedLemma,
+		arg.ExpectedExcluded,
 		arg.ExpectedSurface,
 		arg.ExpectedRawLemma,
 		arg.ExpectedCanonicalLemma,
@@ -368,7 +371,8 @@ SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
        s.sentence_text, s.unit_id,
-       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma
+       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
+       COALESCE(d.excluded, false)::boolean AS excluded
 FROM book_current_analyses cai
 JOIN source_materials source ON source.owner_id = cai.owner_id
   AND source.id = cai.source_material_id AND source.book_id = cai.book_id
@@ -412,6 +416,7 @@ type ListLemmaReviewOccurrencesRow struct {
 	SentenceText    string
 	UnitID          string
 	CorrectedLemma  string
+	Excluded        bool
 }
 
 func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error) {
@@ -437,6 +442,7 @@ func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaR
 			&i.SentenceText,
 			&i.UnitID,
 			&i.CorrectedLemma,
+			&i.Excluded,
 		); err != nil {
 			return nil, err
 		}
@@ -449,7 +455,7 @@ func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaR
 }
 
 const listOccurrenceLemmaCorrections = `-- name: ListOccurrenceLemmaCorrections :many
-SELECT source_document_id, start_offset, end_offset, canonical_lemma
+SELECT source_document_id, start_offset, end_offset, canonical_lemma, excluded
 FROM occurrence_lemma_corrections
 WHERE owner_id = $1 AND book_id = $2
   AND corpus_id = $3 AND analysis_run_id = $4
@@ -467,7 +473,8 @@ type ListOccurrenceLemmaCorrectionsRow struct {
 	SourceDocumentID string
 	StartOffset      int64
 	EndOffset        int64
-	CanonicalLemma   string
+	CanonicalLemma   pgtype.Text
+	Excluded         bool
 }
 
 func (q *Queries) ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error) {
@@ -489,6 +496,7 @@ func (q *Queries) ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOc
 			&i.StartOffset,
 			&i.EndOffset,
 			&i.CanonicalLemma,
+			&i.Excluded,
 		); err != nil {
 			return nil, err
 		}
@@ -877,23 +885,23 @@ func (q *Queries) ListSelectionCandidatesForCorpus(ctx context.Context, arg List
 const putOccurrenceLemmaCorrection = `-- name: PutOccurrenceLemmaCorrection :one
 INSERT INTO occurrence_lemma_corrections(
   owner_id, book_id, corpus_id, analysis_run_id, source_document_id,
-  start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version
+  start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version, excluded
 )
 SELECT cai.owner_id, cai.book_id, cai.corpus_id, cai.analysis_run_id, s.unit_id,
        t.start_offset, t.end_offset, $1,
-       $2, $3
+       $2, $3, $4
 FROM current_analysis_identity cai
 JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
   AND t.analysis_run_id = cai.analysis_run_id
 JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
   AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
-WHERE cai.owner_id = $4 AND cai.book_id = $5
-  AND cai.analysis_run_id = $6
-  AND s.unit_id = $7
-  AND t.start_offset = $8 AND t.end_offset = $9
-  AND t.surface = $10 AND t.raw_lemma = $11
-  AND t.canonical_lemma = $12
-  AND t.upos = $13
+WHERE cai.owner_id = $5 AND cai.book_id = $6
+  AND cai.analysis_run_id = $7
+  AND s.unit_id = $8
+  AND t.start_offset = $9 AND t.end_offset = $10
+  AND t.surface = $11 AND t.raw_lemma = $12
+  AND t.canonical_lemma = $13
+  AND t.upos = $14
    AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
    AND NOT EXISTS (
      SELECT 1 FROM primary_goals pg
@@ -901,19 +909,22 @@ WHERE cai.owner_id = $4 AND cai.book_id = $5
    )
 ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
 DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
-               normalization_profile = excluded.normalization_profile,
-               normalization_version = excluded.normalization_version,
-               updated_at = now()
-WHERE occurrence_lemma_corrections.canonical_lemma = $14
+                normalization_profile = excluded.normalization_profile,
+                normalization_version = excluded.normalization_version,
+                excluded = excluded.excluded,
+                updated_at = now()
+WHERE occurrence_lemma_corrections.canonical_lemma IS NOT DISTINCT FROM $15
+  AND occurrence_lemma_corrections.excluded = $16
 RETURNING owner_id::text, book_id::text, corpus_id::text, analysis_run_id::text,
           source_document_id, start_offset, end_offset, canonical_lemma,
-          normalization_profile, normalization_version, created_at, updated_at
+           normalization_profile, normalization_version, excluded, created_at, updated_at
 `
 
 type PutOccurrenceLemmaCorrectionParams struct {
-	CanonicalLemma         string
-	NormalizationProfile   string
-	NormalizationVersion   string
+	CanonicalLemma         pgtype.Text
+	NormalizationProfile   pgtype.Text
+	NormalizationVersion   pgtype.Text
+	Excluded               bool
 	Owner                  string
 	Book                   string
 	AnalysisRun            string
@@ -924,7 +935,8 @@ type PutOccurrenceLemmaCorrectionParams struct {
 	ExpectedRawLemma       string
 	ExpectedCanonicalLemma string
 	ExpectedUpos           string
-	ExpectedCorrectedLemma string
+	ExpectedCorrectedLemma pgtype.Text
+	ExpectedExcluded       bool
 }
 
 type PutOccurrenceLemmaCorrectionRow struct {
@@ -935,9 +947,10 @@ type PutOccurrenceLemmaCorrectionRow struct {
 	SourceDocumentID     string
 	StartOffset          int64
 	EndOffset            int64
-	CanonicalLemma       string
-	NormalizationProfile string
-	NormalizationVersion string
+	CanonicalLemma       pgtype.Text
+	NormalizationProfile pgtype.Text
+	NormalizationVersion pgtype.Text
+	Excluded             bool
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
@@ -947,6 +960,7 @@ func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccur
 		arg.CanonicalLemma,
 		arg.NormalizationProfile,
 		arg.NormalizationVersion,
+		arg.Excluded,
 		arg.Owner,
 		arg.Book,
 		arg.AnalysisRun,
@@ -958,6 +972,7 @@ func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccur
 		arg.ExpectedCanonicalLemma,
 		arg.ExpectedUpos,
 		arg.ExpectedCorrectedLemma,
+		arg.ExpectedExcluded,
 	)
 	var i PutOccurrenceLemmaCorrectionRow
 	err := row.Scan(
@@ -971,6 +986,7 @@ func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccur
 		&i.CanonicalLemma,
 		&i.NormalizationProfile,
 		&i.NormalizationVersion,
+		&i.Excluded,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

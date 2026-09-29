@@ -20,7 +20,8 @@ SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
        s.sentence_text, s.unit_id,
-       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma
+       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
+       COALESCE(d.excluded, false)::boolean AS excluded
 FROM book_current_analyses cai
 JOIN source_materials source ON source.owner_id = cai.owner_id
   AND source.id = cai.source_material_id AND source.book_id = cai.book_id
@@ -44,7 +45,7 @@ WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
 ORDER BY s.sentence_ordinal, t.token_ordinal;
 
 -- name: ListOccurrenceLemmaCorrections :many
-SELECT source_document_id, start_offset, end_offset, canonical_lemma
+SELECT source_document_id, start_offset, end_offset, canonical_lemma, excluded
 FROM occurrence_lemma_corrections
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
   AND corpus_id = sqlc.arg('corpus') AND analysis_run_id = sqlc.arg('analysis_run')
@@ -92,11 +93,11 @@ ORDER BY t.sentence_ordinal, t.token_ordinal;
 -- name: PutOccurrenceLemmaCorrection :one
 INSERT INTO occurrence_lemma_corrections(
   owner_id, book_id, corpus_id, analysis_run_id, source_document_id,
-  start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version
+  start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version, excluded
 )
 SELECT cai.owner_id, cai.book_id, cai.corpus_id, cai.analysis_run_id, s.unit_id,
-       t.start_offset, t.end_offset, sqlc.arg('canonical_lemma'),
-       sqlc.arg('normalization_profile'), sqlc.arg('normalization_version')
+       t.start_offset, t.end_offset, sqlc.narg('canonical_lemma'),
+       sqlc.narg('normalization_profile'), sqlc.narg('normalization_version'), sqlc.arg('excluded')
 FROM current_analysis_identity cai
 JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
   AND t.analysis_run_id = cai.analysis_run_id
@@ -116,13 +117,15 @@ WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
    )
 ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
 DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
-               normalization_profile = excluded.normalization_profile,
-               normalization_version = excluded.normalization_version,
-               updated_at = now()
-WHERE occurrence_lemma_corrections.canonical_lemma = sqlc.arg('expected_corrected_lemma')
+                normalization_profile = excluded.normalization_profile,
+                normalization_version = excluded.normalization_version,
+                excluded = excluded.excluded,
+                updated_at = now()
+WHERE occurrence_lemma_corrections.canonical_lemma IS NOT DISTINCT FROM sqlc.narg('expected_corrected_lemma')
+  AND occurrence_lemma_corrections.excluded = sqlc.arg('expected_excluded')
 RETURNING owner_id::text, book_id::text, corpus_id::text, analysis_run_id::text,
           source_document_id, start_offset, end_offset, canonical_lemma,
-          normalization_profile, normalization_version, created_at, updated_at;
+           normalization_profile, normalization_version, excluded, created_at, updated_at;
 
 -- name: DeleteOccurrenceLemmaCorrection :execrows
 DELETE FROM occurrence_lemma_corrections d
@@ -137,7 +140,8 @@ WHERE d.owner_id = sqlc.arg('owner') AND d.book_id = sqlc.arg('book')
   AND s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id AND s.analysis_run_id = t.analysis_run_id
   AND s.sentence_ordinal = t.sentence_ordinal AND s.unit_id = d.source_document_id
    AND t.start_offset = d.start_offset AND t.end_offset = d.end_offset
-   AND d.canonical_lemma = sqlc.arg('expected_corrected_lemma')
+    AND d.canonical_lemma IS NOT DISTINCT FROM sqlc.narg('expected_corrected_lemma')
+    AND d.excluded = sqlc.arg('expected_excluded')
   AND t.surface = sqlc.arg('expected_surface') AND t.raw_lemma = sqlc.arg('expected_raw_lemma')
   AND t.canonical_lemma = sqlc.arg('expected_canonical_lemma') AND t.upos = sqlc.arg('expected_upos');
 

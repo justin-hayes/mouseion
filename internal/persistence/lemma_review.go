@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -23,7 +24,7 @@ func (s *PostgresStore) ListLemmaReviewOccurrences(ctx context.Context, owner, b
 			SourceDocumentID: row.UnitID, StartOffset: row.StartOffset, EndOffset: row.EndOffset,
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
-			UPOS: row.Upos, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma,
+			UPOS: row.Upos, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
 		})
 	}
 	return result, nil
@@ -32,6 +33,10 @@ func (s *PostgresStore) ListLemmaReviewOccurrences(ctx context.Context, owner, b
 // PutLemmaCorrection changes exactly the occurrence shown to the learner and
 // rejects stale spans, altered analyzer evidence, other owners, and old analyses.
 func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma, profile, version string) error {
+	return s.PutLemmaDecision(ctx, occurrence, lemma, false, profile, version)
+}
+
+func (s *PostgresStore) PutLemmaDecision(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma string, excluded bool, profile, version string) error {
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		if err := lockPrimaryGoalBook(ctx, sqlcgen.New(tx), occurrence.OwnerID, occurrence.BookID); err != nil {
 			return err
@@ -40,13 +45,15 @@ func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domai
 			return err
 		}
 		q := sqlcgen.New(tx)
-		if lemma == occurrence.CanonicalLemma {
+		expectedLemma := pgtype.Text{String: occurrence.CorrectedLemma, Valid: occurrence.CorrectedLemma != ""}
+		if lemma == occurrence.CanonicalLemma && !excluded {
 			deleted, deleteErr := q.DeleteOccurrenceLemmaCorrection(ctx, sqlcgen.DeleteOccurrenceLemmaCorrectionParams{
 				Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
 				SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
 				ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
 				ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
-				ExpectedCorrectedLemma: occurrence.CorrectedLemma,
+				ExpectedCorrectedLemma: expectedLemma,
+				ExpectedExcluded:       occurrence.Excluded,
 			})
 			if deleteErr != nil {
 				return deleteErr
@@ -65,13 +72,20 @@ func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domai
 			}
 			return nil
 		}
+		var correctedLemma, normalizationProfile, normalizationVersion pgtype.Text
+		if !excluded {
+			correctedLemma = pgtype.Text{String: lemma, Valid: true}
+			normalizationProfile = pgtype.Text{String: profile, Valid: true}
+			normalizationVersion = pgtype.Text{String: version, Valid: true}
+		}
 		_, err := q.PutOccurrenceLemmaCorrection(ctx, sqlcgen.PutOccurrenceLemmaCorrectionParams{
 			Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
 			SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
-			CanonicalLemma: lemma, NormalizationProfile: profile, NormalizationVersion: version,
+			CanonicalLemma: correctedLemma, NormalizationProfile: normalizationProfile, NormalizationVersion: normalizationVersion, Excluded: excluded,
 			ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
 			ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
-			ExpectedCorrectedLemma: occurrence.CorrectedLemma,
+			ExpectedCorrectedLemma: expectedLemma,
+			ExpectedExcluded:       occurrence.Excluded,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
