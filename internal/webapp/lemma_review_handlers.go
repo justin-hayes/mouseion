@@ -102,7 +102,7 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "This occurrence's correction changed after you opened it. No correction was saved; review it again in Reading.", http.StatusConflict)
 		return
 	}
-	if action == "keep" || action == "restore" {
+	if action == "keep" {
 		lemma = chosen.CanonicalLemma
 	} else if action != "exclude" && !lexical.IsLemma(lemma) {
 		http.Error(w, "Enter one valid canonical lemma without spaces.", http.StatusBadRequest)
