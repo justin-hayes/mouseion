@@ -330,6 +330,9 @@ func (s *PostgresStore) CreatePrimaryGoalWith(ctx context.Context, owner, langua
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
 	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -425,6 +428,9 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+		return domain.PrimaryGoal{}, err
+	}
 	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
@@ -491,6 +497,9 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+		return ReadingFinishResult{}, err
+	}
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		row, completionErr := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
@@ -586,6 +595,9 @@ func (s *PostgresStore) ClearPrimaryGoal(ctx context.Context, owner, language, e
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
+	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
+		return err
+	}
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
