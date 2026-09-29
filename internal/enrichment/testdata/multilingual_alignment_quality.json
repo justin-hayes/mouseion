@@ -1,0 +1,86 @@
+[
+  {
+    "name": "German contiguous target",
+    "language": "de",
+    "lemma": "Haus",
+    "target_word": "Haus",
+    "source_sentence": "Das Haus steht neben dem alten Bahnhof.",
+    "translation": "house",
+    "sentence_translation": "The house stands next to the old station.",
+    "sentence_translation_targets": ["house"],
+    "gloss": "a dwelling",
+    "expected_english_sentence": "The <b>house</b> stands next to the old station."
+  },
+  {
+    "name": "German discontinuous target",
+    "language": "de",
+    "lemma": "umhauen",
+    "target_word": "haut",
+    "source_sentence": "Und dann haut das Motorrad Piero um.",
+    "translation": "knock over",
+    "sentence_translation": "And then the motorcycle knocks Piero over.",
+    "sentence_translation_targets": ["knocks", "over"],
+    "gloss": "knock down",
+    "expected_english_sentence": "And then the motorcycle <b>knocks</b> Piero <b>over</b>."
+  },
+  {
+    "name": "Italian contiguous target",
+    "language": "it",
+    "lemma": "accorgersi",
+    "target_word": "accorse",
+    "source_sentence": "Giulia si accorse subito dell'errore.",
+    "translation": "notice",
+    "sentence_translation": "Giulia immediately noticed the mistake.",
+    "sentence_translation_targets": ["noticed"],
+    "gloss": "realize",
+    "expected_english_sentence": "Giulia immediately <b>noticed</b> the mistake."
+  },
+  {
+    "name": "Italian idiomatic correspondence",
+    "language": "it",
+    "lemma": "non vedere l'ora",
+    "target_word": "vedo l'ora",
+    "source_sentence": "Non vedo l'ora di partire.",
+    "translation": "can't wait",
+    "sentence_translation": "I can't wait to leave.",
+    "sentence_translation_targets": ["can't wait"],
+    "gloss": "look forward to",
+    "expected_english_sentence": "I <b>can&#39;t wait</b> to leave."
+  },
+  {
+    "name": "Modern Greek repeated target is ambiguous",
+    "language": "el",
+    "lemma": "σπίτι",
+    "target_word": "σπίτι",
+    "source_sentence": "Η Μαρία είδε το σπίτι και το σπίτι ήταν μεγάλο.",
+    "translation": "house",
+    "sentence_translation": "Maria saw the house, and the house was large.",
+    "sentence_translation_targets": ["the house"],
+    "gloss": "home",
+    "expected_english_sentence": "Maria saw the house, and the house was large."
+  },
+  {
+    "name": "Modern Greek uncertain correspondence is absent",
+    "language": "el",
+    "lemma": "κοιμάται",
+    "target_word": "κοιμάται",
+    "source_sentence": "Το παιδί κοιμάται.",
+    "translation": "sleep",
+    "sentence_translation": "The child is sleeping.",
+    "sentence_translation_targets": [],
+    "gloss": "sleep",
+    "expected_english_sentence": "The child is sleeping."
+  },
+  {
+    "name": "German structurally invalid proposal is discarded",
+    "language": "de",
+    "lemma": "Bahnhof",
+    "target_word": "Bahnhof",
+    "source_sentence": "Der Bahnhof ist alt.",
+    "translation": "station",
+    "sentence_translation": "The station is old.",
+    "sentence_translation_targets": ["train station"],
+    "gloss": "railway station",
+    "expected_english_sentence": "The station is old."
+  }
+]
