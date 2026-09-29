@@ -24,9 +24,10 @@ WHERE d.owner_id = $1 AND d.book_id = $2
   AND t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id AND t.analysis_run_id = cai.analysis_run_id
   AND s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id AND s.analysis_run_id = t.analysis_run_id
   AND s.sentence_ordinal = t.sentence_ordinal AND s.unit_id = d.source_document_id
-  AND t.start_offset = d.start_offset AND t.end_offset = d.end_offset
-  AND t.surface = $7 AND t.raw_lemma = $8
-  AND t.canonical_lemma = $9 AND t.upos = $10
+   AND t.start_offset = d.start_offset AND t.end_offset = d.end_offset
+   AND d.canonical_lemma = $7
+  AND t.surface = $8 AND t.raw_lemma = $9
+  AND t.canonical_lemma = $10 AND t.upos = $11
 `
 
 type DeleteOccurrenceLemmaCorrectionParams struct {
@@ -36,6 +37,7 @@ type DeleteOccurrenceLemmaCorrectionParams struct {
 	SourceDocumentID       string
 	StartOffset            int64
 	EndOffset              int64
+	ExpectedCorrectedLemma string
 	ExpectedSurface        string
 	ExpectedRawLemma       string
 	ExpectedCanonicalLemma string
@@ -50,6 +52,7 @@ func (q *Queries) DeleteOccurrenceLemmaCorrection(ctx context.Context, arg Delet
 		arg.SourceDocumentID,
 		arg.StartOffset,
 		arg.EndOffset,
+		arg.ExpectedCorrectedLemma,
 		arg.ExpectedSurface,
 		arg.ExpectedRawLemma,
 		arg.ExpectedCanonicalLemma,
@@ -254,6 +257,35 @@ type HasCurrentLemmaCorrectionsParams struct {
 
 func (q *Queries) HasCurrentLemmaCorrections(ctx context.Context, arg HasCurrentLemmaCorrectionsParams) (bool, error) {
 	row := q.db.QueryRow(ctx, hasCurrentLemmaCorrections, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const hasCurrentLemmaCorrectionsForAnalysis = `-- name: HasCurrentLemmaCorrectionsForAnalysis :one
+SELECT EXISTS (
+  SELECT 1 FROM occurrence_lemma_corrections d
+  JOIN current_analysis_identity cai ON cai.owner_id = d.owner_id AND cai.book_id = d.book_id
+    AND cai.corpus_id = d.corpus_id AND cai.analysis_run_id = d.analysis_run_id
+  WHERE d.owner_id = $1 AND d.book_id = $2
+    AND d.corpus_id = $3 AND d.analysis_run_id = $4
+)
+`
+
+type HasCurrentLemmaCorrectionsForAnalysisParams struct {
+	Owner       string
+	Book        string
+	Corpus      string
+	AnalysisRun string
+}
+
+func (q *Queries) HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasCurrentLemmaCorrectionsForAnalysis,
+		arg.Owner,
+		arg.Book,
+		arg.Corpus,
+		arg.AnalysisRun,
+	)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -864,14 +896,15 @@ WHERE cai.owner_id = $4 AND cai.book_id = $5
   AND t.upos = $13
    AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
    AND NOT EXISTS (
-    SELECT 1 FROM primary_goals pg
-    WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
+     SELECT 1 FROM primary_goals pg
+     WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
    )
 ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
 DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
-              normalization_profile = excluded.normalization_profile,
-              normalization_version = excluded.normalization_version,
-              updated_at = now()
+               normalization_profile = excluded.normalization_profile,
+               normalization_version = excluded.normalization_version,
+               updated_at = now()
+WHERE occurrence_lemma_corrections.canonical_lemma = $14
 RETURNING owner_id::text, book_id::text, corpus_id::text, analysis_run_id::text,
           source_document_id, start_offset, end_offset, canonical_lemma,
           normalization_profile, normalization_version, created_at, updated_at
@@ -891,6 +924,7 @@ type PutOccurrenceLemmaCorrectionParams struct {
 	ExpectedRawLemma       string
 	ExpectedCanonicalLemma string
 	ExpectedUpos           string
+	ExpectedCorrectedLemma string
 }
 
 type PutOccurrenceLemmaCorrectionRow struct {
@@ -923,6 +957,7 @@ func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccur
 		arg.ExpectedRawLemma,
 		arg.ExpectedCanonicalLemma,
 		arg.ExpectedUpos,
+		arg.ExpectedCorrectedLemma,
 	)
 	var i PutOccurrenceLemmaCorrectionRow
 	err := row.Scan(

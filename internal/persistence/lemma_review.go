@@ -46,6 +46,7 @@ func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domai
 				SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
 				ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
 				ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
+				ExpectedCorrectedLemma: occurrence.CorrectedLemma,
 			})
 			if deleteErr != nil {
 				return deleteErr
@@ -56,7 +57,7 @@ func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domai
 					return lookupErr
 				}
 				for _, row := range rows {
-					if row.AnalysisRunID == occurrence.AnalysisRunID && row.UnitID == occurrence.SourceDocumentID && row.StartOffset == occurrence.StartOffset && row.EndOffset == occurrence.EndOffset && row.RawLemma == occurrence.RawLemma && row.CanonicalLemma == occurrence.CanonicalLemma && row.Upos == occurrence.UPOS {
+					if row.AnalysisRunID == occurrence.AnalysisRunID && row.UnitID == occurrence.SourceDocumentID && row.StartOffset == occurrence.StartOffset && row.EndOffset == occurrence.EndOffset && row.RawLemma == occurrence.RawLemma && row.CanonicalLemma == occurrence.CanonicalLemma && row.Upos == occurrence.UPOS && row.CorrectedLemma == occurrence.CorrectedLemma {
 						return nil
 					}
 				}
@@ -70,6 +71,7 @@ func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domai
 			CanonicalLemma: lemma, NormalizationProfile: profile, NormalizationVersion: version,
 			ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
 			ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
+			ExpectedCorrectedLemma: occurrence.CorrectedLemma,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound

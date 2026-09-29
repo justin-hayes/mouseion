@@ -42,6 +42,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						<input type="hidden" name="raw_lemma" value={ occurrence.RawLemma } />
 						<input type="hidden" name="canonical_lemma" value={ occurrence.CanonicalLemma } />
 						<input type="hidden" name="upos" value={ occurrence.UPOS } />
+						<input type="hidden" name="expected_corrected_lemma" value={ occurrence.CorrectedLemma } />
 						<label>Corrected canonical lemma<input name="lemma" value={ occurrence.CorrectedLemma } required /></label>
 						<button type="submit">Save correction for this occurrence</button>
 						<button type="submit" name="action" value="keep" formnovalidate>Keep analyzer lemma</button>

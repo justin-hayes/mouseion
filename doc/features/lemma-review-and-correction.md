@@ -1,12 +1,12 @@
 # Learner review of analyzer lemmas
 
-Status: **Partially shipped** · Date: 2026-09-29
+Status: **First manual-correction milestone shipped** · Date: 2026-09-29
 
 The first manual correction milestone is available from Reading: exact observed
 form lookup, per-occurrence lemma correction, direct prepared-deck projection,
-and a safe Start-reading pause are implemented. Automatic review flags and
-suggestions, occurrence exclusion, and applying corrected vocabulary to a
-current-reading snapshot remain future work.
+corrected Book vocabulary insights, and corrected current-reading snapshots are
+implemented. Automatic review flags and suggestions, and occurrence exclusion
+remain future work.
 
 ## Problem and goal
 

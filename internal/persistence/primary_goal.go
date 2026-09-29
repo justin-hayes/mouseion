@@ -2,13 +2,16 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
@@ -38,7 +41,7 @@ func listPrimaryGoalSnapshotVocabulary(ctx context.Context, q *sqlcgen.Queries, 
 	return result, nil
 }
 
-func createPrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string, identity sqlcgen.GetPrimaryGoalCandidateIdentityRow) (sqlcgen.CreatePrimaryGoalSnapshotRow, []domain.SelectionCandidate, error) {
+func createPrimaryGoalSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string, identity sqlcgen.GetPrimaryGoalCandidateIdentityRow) (sqlcgen.CreatePrimaryGoalSnapshotRow, []domain.SelectionCandidate, error) {
 	snapshot, err := q.CreatePrimaryGoalSnapshot(ctx, sqlcgen.CreatePrimaryGoalSnapshotParams{
 		Owner: owner, Language: language, Book: bookID, SourceMaterial: identity.CaSourceMaterialID,
 		AnalysisRun: identity.CaAnalysisRunID, ContentRevision: identity.CaContentRevisionID,
@@ -47,14 +50,27 @@ func createPrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, l
 	if err != nil {
 		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
 	}
-	rows, err := q.ListPrimaryGoalSnapshotCandidates(ctx, sqlcgen.ListPrimaryGoalSnapshotCandidatesParams{Owner: owner, Language: language, Corpus: identity.CaCorpusID})
+	hasCorrections, err := q.HasCurrentLemmaCorrections(ctx, sqlcgen.HasCurrentLemmaCorrectionsParams{Owner: owner, Book: bookID})
 	if err != nil {
 		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
 	}
-	candidates := make([]domain.SelectionCandidate, 0, len(rows))
-	for _, row := range rows {
-		candidate := selectionCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter)
-		candidates = append(candidates, candidate)
+	var candidates []domain.SelectionCandidate
+	if hasCorrections {
+		candidates, err = correctedPrimaryGoalCandidates(ctx, tx, q, owner, bookID, language, identity)
+	} else {
+		var rows []sqlcgen.ListPrimaryGoalSnapshotCandidatesRow
+		rows, err = q.ListPrimaryGoalSnapshotCandidates(ctx, sqlcgen.ListPrimaryGoalSnapshotCandidatesParams{Owner: owner, Language: language, Corpus: identity.CaCorpusID})
+		if err == nil {
+			candidates = make([]domain.SelectionCandidate, 0, len(rows))
+			for _, row := range rows {
+				candidates = append(candidates, selectionCandidateFromFields(row.OwnerID, row.CorpusID, row.Language, row.CanonicalLemma, row.Upos, row.OccurrenceCount, row.ObservedForms, row.EligibleSentenceRefs, row.Provenance, row.SelectedAt, row.FirstEncounter))
+			}
+		}
+	}
+	if err != nil {
+		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+	}
+	for _, candidate := range candidates {
 		if err := q.InsertPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.InsertPrimaryGoalSnapshotVocabularyParams{
 			Owner: owner, Snapshot: snapshot.ID, Corpus: candidate.CorpusID, Language: candidate.Language,
 			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS, OccurrenceCount: candidate.OccurrenceCount,
@@ -65,6 +81,101 @@ func createPrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, l
 		}
 	}
 	return snapshot, candidates, nil
+}
+
+// correctedPrimaryGoalCandidates rebuilds the current Book's candidate set
+// from immutable analyzer evidence plus exact-occurrence learner corrections.
+// It runs in the same transaction as the freeze, after the Book row is locked.
+func correctedPrimaryGoalCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, bookID, language string, identity sqlcgen.GetPrimaryGoalCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
+	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, domain.DeckPreparation{
+		OwnerID: owner, SourceMaterialID: identity.CaSourceMaterialID, AnalysisRunID: identity.CaAnalysisRunID,
+	}, identity.CaCorpusID)
+	if err != nil {
+		return nil, err
+	}
+	decisions := make([]selection.OccurrenceDecision, 0, len(corrections))
+	for _, correction := range corrections {
+		start, startErr := checked.Uint64FromInt64(correction.StartOffset)
+		end, endErr := checked.Uint64FromInt64(correction.EndOffset)
+		if startErr != nil || endErr != nil {
+			return nil, errors.New("persisted lemma correction contains invalid offsets")
+		}
+		decisions = append(decisions, selection.OccurrenceDecision{
+			Occurrence: selection.OccurrenceIdentity{SourceDocumentID: correction.SourceDocumentID, StartOffset: start, EndOffset: end},
+			Lemma:      correction.CanonicalLemma,
+		})
+	}
+	projected, err := selection.Project(analysis, selection.DefaultConfig(identity.CaCorpusID), decisions)
+	if err != nil {
+		return nil, err
+	}
+	reservedVocabulary, err := listReservedVocabulary(ctx, tx, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]domain.SelectionCandidate, 0, len(projected))
+	for _, candidate := range projected {
+		if candidate.OccurrenceCount < 3 {
+			continue
+		}
+		known, err := q.IsKnownVocabularyIdentity(ctx, sqlcgen.IsKnownVocabularyIdentityParams{
+			OwnerID: owner, Language: language, CanonicalLemma: candidate.Identity.CanonicalLemma, Upos: candidate.Identity.UPOS,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if known {
+			continue
+		}
+		reservedByDeck := false
+		for _, reserved := range reservedVocabulary {
+			if reserved.Language == language && reserved.CanonicalLemma == candidate.Identity.CanonicalLemma && (reserved.UPOS == candidate.Identity.UPOS || reserved.UPOS == "") {
+				reservedByDeck = true
+				break
+			}
+		}
+		if reservedByDeck {
+			continue
+		}
+		reserved, err := q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
+			Owner: owner, Language: language, CanonicalLemma: candidate.Identity.CanonicalLemma, Upos: candidate.Identity.UPOS,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if reserved {
+			continue
+		}
+		forms, err := json.Marshal(candidate.ObservedForms)
+		if err != nil {
+			return nil, err
+		}
+		refs, err := json.Marshal(candidate.SentenceReferences)
+		if err != nil {
+			return nil, err
+		}
+		provenance, err := json.Marshal(candidate.Provenance)
+		if err != nil {
+			return nil, err
+		}
+		first := int64(^uint64(0) >> 1)
+		for _, ref := range candidate.SentenceReferences {
+			encounter, convertErr := checked.Int64FromUint64(ref.Location.StartOffset)
+			if convertErr != nil {
+				return nil, errors.New("projected occurrence offset exceeds persisted range")
+			}
+			if encounter < first {
+				first = encounter
+			}
+		}
+		candidates = append(candidates, domain.SelectionCandidate{
+			OwnerID: owner, CorpusID: identity.CaCorpusID, Language: language,
+			CanonicalLemma: candidate.Identity.CanonicalLemma, UPOS: candidate.Identity.UPOS,
+			OccurrenceCount: candidate.OccurrenceCount, FirstEncounter: first,
+			ObservedForms: forms, SentenceReferences: refs, Provenance: provenance, SelectedAt: time.Now().UTC(),
+		})
+	}
+	return candidates, nil
 }
 
 func releasePrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, snapshotID string) error {
@@ -221,9 +332,6 @@ func (s *PostgresStore) CreatePrimaryGoalWith(ctx context.Context, owner, langua
 	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	if err = rejectBookWithLemmaCorrections(ctx, q, owner, bookID); err != nil {
-		return domain.PrimaryGoal{}, err
-	}
 	_, err = q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if err == nil {
 		return domain.PrimaryGoal{}, ErrGoalExists
@@ -241,7 +349,7 @@ func (s *PostgresStore) CreatePrimaryGoalWith(ctx context.Context, owner, langua
 	if identityErr != nil {
 		return domain.PrimaryGoal{}, identityErr
 	}
-	snapshot, candidates, snapshotErr := createPrimaryGoalSnapshot(ctx, q, owner, language, bookID, identity)
+	snapshot, candidates, snapshotErr := createPrimaryGoalSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if snapshotErr != nil {
 		return domain.PrimaryGoal{}, snapshotErr
 	}
@@ -287,17 +395,6 @@ func lockPrimaryGoalBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID 
 	return err
 }
 
-func rejectBookWithLemmaCorrections(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
-	hasCorrections, err := q.HasCurrentLemmaCorrections(ctx, sqlcgen.HasCurrentLemmaCorrectionsParams{Owner: owner, Book: bookID})
-	if err != nil {
-		return err
-	}
-	if hasCorrections {
-		return ErrLemmaCorrectionsPreventReading
-	}
-	return nil
-}
-
 func insertPrimaryGoal(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID, snapshotID string) (domain.PrimaryGoal, error) {
 	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshotID)})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -328,9 +425,6 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	if err = lockPrimaryGoalBook(ctx, q, owner, bookID); err != nil {
-		return domain.PrimaryGoal{}, err
-	}
-	if err = rejectBookWithLemmaCorrections(ctx, q, owner, bookID); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
@@ -369,7 +463,7 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	snapshot, candidates, err := createPrimaryGoalSnapshot(ctx, q, owner, language, bookID, identity)
+	snapshot, candidates, err := createPrimaryGoalSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}

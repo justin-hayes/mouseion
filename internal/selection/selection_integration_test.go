@@ -1,13 +1,15 @@
 //go:build integration
 
-package selection
+package selection_test
 
 import (
 	"context"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,12 +33,12 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES ($1,'de','alt','ADJ','ignored'),($1,'de','legacy','NOUN','generated')`, alice.ID)
 	require.NoError(t, err)
-	corpus := fixture(tok("Häuser", "Haus", "NOUN"), tok("Haus", "Haus", "NOUN"), tok("alt", "alt", "ADJ"), tok("alt", "alt", "ADJ"), tok("legacy", "legacy", "NOUN"), tok("reserviert", "reserviert", "ADJ"))
-	svc := NewService(store)
-	got, err := svc.Select(ctx, alice.ID, corpus, DefaultConfig("book-a"))
+	corpus := selectionFixture(selectionToken("Häuser", "Haus", "NOUN"), selectionToken("Haus", "Haus", "NOUN"), selectionToken("alt", "alt", "ADJ"), selectionToken("alt", "alt", "ADJ"), selectionToken("legacy", "legacy", "NOUN"), selectionToken("reserviert", "reserviert", "ADJ"))
+	svc := selection.NewService(store)
+	got, err := svc.Select(ctx, alice.ID, corpus, selection.DefaultConfig("book-a"))
 	require.NoError(t, err)
 	assert.Len(t, got, 4)
-	got, err = svc.Select(ctx, bob.ID, corpus, DefaultConfig("book-b"))
+	got, err = svc.Select(ctx, bob.ID, corpus, selection.DefaultConfig("book-b"))
 	require.NoError(t, err)
 	assert.Len(t, got, 4)
 	var aliceCount, bobCount int
@@ -58,11 +60,19 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM vocabulary_states WHERE owner_id=$1`, alice.ID).Scan(&states)
 	require.NoError(t, err)
 	assert.Equal(t, 2, states, "selection must not create legacy lifecycle rows")
-	got, err = svc.Select(ctx, alice.ID, fixture(tok("reserviert", "reserviert", "ADJ")), DefaultConfig("book-after-abandonment"))
+	got, err = svc.Select(ctx, alice.ID, selectionFixture(selectionToken("reserviert", "reserviert", "ADJ")), selection.DefaultConfig("book-after-abandonment"))
 	require.NoError(t, err)
 	assert.Len(t, got, 1)
 	var generated int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND canonical_lemma='reserviert'`, alice.ID).Scan(&generated)
 	require.NoError(t, err)
 	assert.Equal(t, 1, generated)
+}
+
+func selectionToken(surface, lemma, upos string) analyzer.Token {
+	return analyzer.Token{Surface: surface, RawLemma: lemma, CanonicalLemma: lemma, UPOS: upos}
+}
+
+func selectionFixture(tokens ...analyzer.Token) analyzer.Result {
+	return analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Tokens: tokens}}}
 }
