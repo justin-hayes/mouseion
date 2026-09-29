@@ -56,6 +56,55 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	assert.Len(t, got[0].SentenceReferences, 2)
 }
 
+func TestProjectAppliesExactOccurrenceDecisionsWithoutChangingAnalyzerEvidence(t *testing.T) {
+	first := analyzer.Token{Surface: "Drachen", RawLemma: "Drach", CanonicalLemma: "drach", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: "book", StartOffset: 10, EndOffset: 17}}
+	second := analyzer.Token{Surface: "Drachen", RawLemma: "Drache", CanonicalLemma: "drache", UPOS: "NOUN", Location: analyzer.SourceLocation{SourceDocumentID: "book", StartOffset: 30, EndOffset: 37}}
+	corpus := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{
+		{Text: "Drachen eins", Tokens: []analyzer.Token{first}},
+		{Text: "Drachen zwei", Tokens: []analyzer.Token{second}},
+	}}
+	originalFirst := corpus.Sentences[0].Tokens[0]
+	config := DefaultConfig("corpus")
+
+	uncorrected, err := Project(corpus, config, nil)
+	require.NoError(t, err)
+	require.Len(t, uncorrected, 2)
+	assert.Equal(t, "drach", uncorrected[0].Identity.CanonicalLemma)
+	assert.Equal(t, "drache", uncorrected[1].Identity.CanonicalLemma)
+
+	projected, err := Project(corpus, config, []OccurrenceDecision{
+		{Occurrence: OccurrenceIdentity{SourceDocumentID: "book", StartOffset: 10, EndOffset: 17}, Lemma: "drache"},
+		{Occurrence: OccurrenceIdentity{SourceDocumentID: "book", StartOffset: 30, EndOffset: 37}, Excluded: true},
+	})
+	require.NoError(t, err)
+	require.Len(t, projected, 1)
+	assert.Equal(t, "drache", projected[0].Identity.CanonicalLemma)
+	assert.Equal(t, 1, projected[0].OccurrenceCount)
+	assert.Equal(t, []string{"Drachen"}, projected[0].ObservedForms)
+	assert.Equal(t, uint64(10), projected[0].SentenceReferences[0].Location.StartOffset)
+	assert.Equal(t, originalFirst, corpus.Sentences[0].Tokens[0], "projection must not rewrite analyzer evidence")
+
+	statistics := AnalyzableStatistics(corpus, config)
+	assert.Equal(t, int64(2), statistics.AnalyzableTokenCount, "occurrence decisions must not change the coverage denominator")
+}
+
+func TestProjectRejectsAmbiguousOrMalformedOccurrenceDecisions(t *testing.T) {
+	occurrence := OccurrenceIdentity{SourceDocumentID: "book", StartOffset: 1, EndOffset: 2}
+	for name, decisions := range map[string][]OccurrenceDecision{
+		"no action":       {{Occurrence: occurrence}},
+		"both actions":    {{Occurrence: occurrence, Lemma: "haus", Excluded: true}},
+		"missing source":  {{Occurrence: OccurrenceIdentity{StartOffset: 1, EndOffset: 2}, Lemma: "haus"}},
+		"reversed span":   {{Occurrence: OccurrenceIdentity{SourceDocumentID: "book", StartOffset: 2, EndOffset: 1}, Lemma: "haus"}},
+		"unknown span":    {{Occurrence: OccurrenceIdentity{SourceDocumentID: "book", StartOffset: 20, EndOffset: 21}, Lemma: "haus"}},
+		"duplicate exact": {{Occurrence: occurrence, Lemma: "haus"}, {Occurrence: occurrence, Excluded: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Project(analyzer.Result{Language: "de"}, DefaultConfig("corpus"), decisions)
+			assert.ErrorIs(t, err, ErrInvalidDecision)
+		})
+	}
+}
+
 func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
 	store := &memoryStore{known: map[string]bool{}}
 	corpus := fixture(

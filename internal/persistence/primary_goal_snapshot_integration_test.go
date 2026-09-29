@@ -4,9 +4,12 @@ package persistence
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,11 +26,20 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
 	require.NoError(t, err)
-	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{
-		OwnerID: owner.ID, CorpusID: corpusID, Language: "de", CanonicalLemma: "reisen", UPOS: "VERB",
-		OccurrenceCount: 5, ObservedForms: []byte(`["reisen"]`), SentenceReferences: []byte(`[{"location":{"start_offset":4}}]`), Provenance: []byte(`{"min_occurrences":3}`),
-	})
+	analysis := analyzer.Result{Language: "de"}
+	for occurrence := range 5 {
+		analysis.Sentences = append(analysis.Sentences, analyzer.Sentence{
+			Text: "Wir reisen heute.",
+			Tokens: []analyzer.Token{{Surface: "reisen", CanonicalLemma: "reisen", UPOS: "VERB", Location: analyzer.SourceLocation{
+				SourceDocumentID: source.ID, StartOffset: uint64(occurrence + 4), EndOffset: uint64(occurrence + 10),
+			}}},
+		})
+	}
+	selected, err := selection.NewService(store).Select(ctx, owner.ID, analysis, selection.DefaultConfig(corpusID))
 	require.NoError(t, err)
+	require.Len(t, selected, 1)
+	assert.Equal(t, 5, selected[0].OccurrenceCount)
+	assert.Len(t, selected[0].SentenceReferences, 5)
 
 	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -45,6 +57,14 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, goal.SnapshotID, stored.SnapshotID)
 	assert.Equal(t, 1, stored.SnapshotSize)
+	snapshotVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	require.Len(t, snapshotVocabulary, 1)
+	assert.Equal(t, 5, snapshotVocabulary[0].OccurrenceCount)
+	var frozenReferences []selection.SentenceReference
+	require.NoError(t, json.Unmarshal(snapshotVocabulary[0].SentenceReferences, &frozenReferences))
+	require.Len(t, frozenReferences, 5)
+	assert.Equal(t, "Wir reisen heute.", frozenReferences[0].Text)
 
 	err = store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)

@@ -4,15 +4,18 @@ package prepareddeck
 
 import (
 	"context"
-	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -37,20 +40,32 @@ func TestPlannersAssembleEquivalentStandardAndBatchPlans(t *testing.T) {
 	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: cardexport.DownloadFilename(source.Title), DeckName: source.Title, ContentHash: source.ContentHash})
 	require.NoError(t, err)
-	addCandidate := func(lemma string, occurrences int) {
-		t.Helper()
-		text := "Heute sieht die Person " + lemma + " im großen Garten."
-		refs, marshalErr := json.Marshal([]map[string]any{{"sentence_index": 0, "text": text, "location": map[string]any{"start_offset": 0}}})
-		require.NoError(t, marshalErr)
-		_, putErr := store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: occurrences, ObservedForms: []byte(`["` + lemma + `"]`), SentenceReferences: refs, Provenance: []byte(`{"occurrence_count":3}`)})
-		require.NoError(t, putErr)
+	selectionService := selection.NewService(store)
+	var selected []selection.Candidate
+	for _, candidate := range []struct {
+		lemma       string
+		occurrences int
+	}{{"haus", 3}, {"rare", 2}, {"known", 3}, {"generated-other", 3}, {"generated-same", 3}, {"reserved", 3}} {
+		var sentence strings.Builder
+		var tokens []analyzer.Token
+		for range candidate.occurrences {
+			prefix := "Heute sieht die Person "
+			phrase := prefix + candidate.lemma + ". "
+			startOffset, err := checked.Uint64FromInt(sentence.Len() + len(prefix))
+			require.NoError(t, err)
+			lemmaLength, err := checked.Uint64FromInt(len(candidate.lemma))
+			require.NoError(t, err)
+			tokens = append(tokens, analyzer.Token{Surface: candidate.lemma, CanonicalLemma: candidate.lemma, UPOS: "NOUN", Location: analyzer.SourceLocation{
+				SourceDocumentID: source.ID, StartOffset: startOffset, EndOffset: startOffset + lemmaLength,
+			}})
+			sentence.WriteString(phrase)
+		}
+		analysis := analyzer.Result{Language: "de", Sentences: []analyzer.Sentence{{Text: sentence.String(), Tokens: tokens}}}
+		projected, selectErr := selectionService.Select(ctx, owner.ID, analysis, selection.DefaultConfig(corpus.ID))
+		require.NoError(t, selectErr)
+		selected = append(selected, projected...)
 	}
-	addCandidate("haus", 3)
-	addCandidate("rare", 2)
-	addCandidate("known", 3)
-	addCandidate("generated-other", 3)
-	addCandidate("generated-same", 3)
-	addCandidate("reserved", 3)
+	assert.Len(t, selected, 6)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known", "NOUN")
 	require.NoError(t, err)
 	otherSource, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "planner-other", Title: "Other", MediaType: "text/plain", ContentHash: "planner-hash-other", Content: []byte("text"), FullText: "text"})
@@ -89,6 +104,19 @@ func TestPlannersAssembleEquivalentStandardAndBatchPlans(t *testing.T) {
 	assert.Equal(t, string(domain.PreparedDeckExecutionStandard), standardPlan.Config.ExecutionMode)
 	assert.Equal(t, string(domain.PreparedDeckExecutionBatch), batchPlan.Config.ExecutionMode)
 	require.Len(t, standardPlan.Projection.Items, 4)
+	selectedCounts := make(map[string]int, len(selected))
+	for _, candidate := range selected {
+		selectedCounts[candidate.Identity.CanonicalLemma] = candidate.OccurrenceCount
+	}
+	assert.Equal(t, map[string]int{"generated-other": 3, "generated-same": 3, "haus": 3, "known": 3, "rare": 2, "reserved": 3}, selectedCounts)
+	var selectedLemmas []string
+	for _, item := range standardPlan.Projection.Items {
+		lemma := item.Entry.CanonicalLemma
+		selectedLemmas = append(selectedLemmas, lemma)
+		assert.Equal(t, int64(0), item.SentenceOrdinal)
+		assert.Contains(t, item.Entry.Sentence, lemma)
+	}
+	assert.ElementsMatch(t, []string{"generated-other", "generated-same", "haus", "reserved"}, selectedLemmas)
 	require.NotNil(t, standardPlan.Projection.Items[0].CacheKey)
 	assert.Equal(t, "dictionary-v1", standardPlan.Projection.Items[0].Entry.DictionaryProviderVersion)
 	assert.Equal(t, int64(0), standardPlan.Projection.Items[0].SentenceOrdinal)
