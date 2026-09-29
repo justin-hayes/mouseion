@@ -46,6 +46,7 @@ func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domai
 				SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
 				ExpectedSurface: occurrence.Surface, ExpectedRawLemma: occurrence.RawLemma,
 				ExpectedCanonicalLemma: occurrence.CanonicalLemma, ExpectedUpos: occurrence.UPOS,
+				ExpectedCorrectedLemma: occurrence.CorrectedLemma,
 			})
 			if deleteErr != nil {
 				return deleteErr

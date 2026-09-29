@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,6 +62,13 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, "drache", updated[0].CorrectedLemma)
 	assert.Empty(t, updated[1].CorrectedLemma, "matching surface elsewhere must not inherit the decision")
 	assert.Empty(t, updated[2].CorrectedLemma, "a second matching surface must remain untouched")
+	require.NoError(t, store.PutLemmaCorrection(ctx, updated[0], updated[0].CanonicalLemma, "german-post-1996", "6"), "keeping the analyzer lemma removes an existing correction")
+	reverted, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
+	require.NoError(t, err)
+	assert.Empty(t, reverted[0].CorrectedLemma)
+	require.NoError(t, store.PutLemmaCorrection(ctx, reverted[0], "drache", "german-post-1996", "6"))
+	updated, err = store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
+	require.NoError(t, err)
 	other, err := store.ListLemmaReviewOccurrences(ctx, otherOwner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
 	assert.Empty(t, other)
@@ -74,6 +83,19 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, "drache", insights.Lemmas[0].CanonicalLemma)
 	assert.Equal(t, int64(3), insights.Lemmas[0].OccurrenceCount)
 	assert.Equal(t, int64(3), insights.Statistics.AnalyzableTokenCount, "the source-derived coverage denominator is unchanged")
+
+	directTx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = directTx.Rollback(ctx) }()
+	directProjections, _, err := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, directTx, domain.DeckPreparation{
+		ID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,
+	})
+	require.NoError(t, err)
+	require.NoError(t, directTx.Rollback(ctx))
+	require.Len(t, directProjections, 1, "direct preparation selects the corrected identity across the recurrence floor")
+	assert.Equal(t, "drache", directProjections[0].Candidate.CanonicalLemma)
+	assert.Equal(t, 3, directProjections[0].Candidate.OccurrenceCount)
+	assert.Equal(t, "Ein Drache sieht einen Drachen und noch einen Drachen.", directProjections[0].Entry.Sentence)
 
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)

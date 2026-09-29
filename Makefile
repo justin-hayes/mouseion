@@ -117,6 +117,7 @@ gen:
 
 browser-smoke:
 	cd e2e && npm ci --ignore-scripts && npx playwright install chromium && npx playwright test
+	cd e2e && MOUSEION_CORRECTED_START_SMOKE=1 npx playwright test tests/corrected-reading-start.spec.ts --project=desktop-light
 
 dev: go-tmp
 	go run ./cmd/server
