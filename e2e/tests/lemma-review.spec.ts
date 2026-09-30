@@ -20,7 +20,12 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await expect(page.getByRole('heading', { name: 'A ready deck is a historical artifact' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Download the existing deck' })).toBeVisible();
 
-    await page.goto('/reading/books/fixture-route-match/lemma-review');
+    await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review');
+    await expect(page.getByText(/This is not a clean verdict; manual occurrence review remains available\./)).toBeVisible();
+    await expect(page.getByText(/Needs learner review — not a verdict\./)).toBeVisible();
+    await expect(page.getByText('Der Weg führt zum Haus.').first()).toBeVisible();
+    await expect(page.getByText(/Local-index alternative: pfad/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Review exact form “Weg”' })).toHaveAttribute('href', /form=Weg/);
     await page.getByLabel('Exact observed form').fill('Weg');
     const findOccurrences = page.getByRole('button', { name: 'Find occurrences' });
     await findOccurrences.click();
@@ -34,6 +39,7 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await expect(page.getByText('This is a preview only. Nothing changes until you confirm.')).toBeVisible();
     await page.getByRole('button', { name: 'Apply correction to selected occurrences' }).click();
     await expect(page.getByText('Effective lemma: pfad (corrected)')).toHaveCount(2);
+    await expect(page.getByText(/Previously reviewed: correct/)).toBeVisible();
 
     const exclusionDisclosure = page.locator('details summary').first();
     await exclusionDisclosure.focus();
@@ -45,6 +51,7 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await expect(page.getByText('This is a preview only. Nothing changes until you confirm.')).toBeVisible();
     await page.getByRole('button', { name: 'Exclude selected occurrences from vocabulary' }).click();
     await expect(page.getByText('excluded for this occurrence.')).toBeVisible();
+    await expect(page.getByText(/Previously reviewed: exclude/)).toBeVisible();
   } finally {
     await context.close();
   }

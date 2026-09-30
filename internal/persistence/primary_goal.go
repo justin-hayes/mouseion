@@ -353,6 +353,13 @@ func (s *PostgresStore) CreatePrimaryGoalWith(ctx context.Context, owner, langua
 	if identityErr != nil {
 		return domain.PrimaryGoal{}, identityErr
 	}
+	blocked, err := unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
+	if err != nil {
+		return domain.PrimaryGoal{}, err
+	}
+	if blocked {
+		return domain.PrimaryGoal{}, ErrUnresolvedLemmaReviewFlags
+	}
 	snapshot, candidates, snapshotErr := createPrimaryGoalSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if snapshotErr != nil {
 		return domain.PrimaryGoal{}, snapshotErr
@@ -469,6 +476,13 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	}
 	if err != nil {
 		return domain.PrimaryGoal{}, err
+	}
+	blocked, err := unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
+	if err != nil {
+		return domain.PrimaryGoal{}, err
+	}
+	if blocked {
+		return domain.PrimaryGoal{}, ErrUnresolvedLemmaReviewFlags
 	}
 	snapshot, candidates, err := createPrimaryGoalSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if err != nil {

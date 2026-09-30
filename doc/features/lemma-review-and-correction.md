@@ -1,11 +1,13 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence correction, exclusion, and contextual preview implemented** · Date: 2026-09-29
+Status: **Manual occurrence review and conservative German risk flags implemented** · Date: 2026-09-30
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
 prepared-deck projection, Book vocabulary insights, and current-reading
-snapshots. Automatic review flags and suggestions remain future work.
+snapshots. Automatic review flags are limited to conservative German
+alternatives supported by local lexical evidence; automatic flags remain
+disabled for other languages. LLM suggestions remain future work.
 
 ## Problem and goal
 

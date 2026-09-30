@@ -22,6 +22,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
+	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -57,6 +58,7 @@ type BookCoverStore interface {
 
 type LemmaReviewStore interface {
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
+	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
 	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
 	PutLemmaDecisions(context.Context, []domain.LemmaReviewDecision) error
 	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
@@ -186,6 +188,7 @@ type Services struct {
 	Enrichment       ExternalEnrichment
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
+	LemmaRiskIndex   lemmarisk.AlternativeIndex
 	CatalogueSync    CatalogueSyncScheduler
 	SecureCookies    bool
 	SessionLifetime  time.Duration

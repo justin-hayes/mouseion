@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"fmt"
+	"net/url"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -11,6 +12,9 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			<p><a href="/reading">Back to Reading</a></p>
 			<h1>Review a word in { title }</h1>
 			<p>Search one exact observed form in this Book's current analysis. Each decision starts with one occurrence; review sentence contexts and explicitly select any additional occurrences to include. Analyzer results remain unchanged.</p>
+			if !recovery.ReferenceAssessed {
+				<p role="status">Automatic German reference assessment is unavailable or not supported for this language. This is not a clean verdict; manual occurrence review remains available.</p>
+			}
 			<form method="get" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
 				<label>Exact observed form<input name="form" value={ form } required /></label>
 				<button type="submit">Find occurrences</button>
@@ -58,6 +62,20 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 				<article>
 					<p class="reading-text">{ occurrence.SentenceText }</p>
 					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
+					if occurrence.ReviewFlagReason != "" {
+						if occurrence.ReviewFlagResolution == "" {
+							<p role="alert"><strong>Needs learner review — not a verdict.</strong> { occurrence.ReviewFlagReason }</p>
+						} else {
+							<p role="status"><strong>Previously reviewed:</strong> { occurrence.ReviewFlagResolution }. New reference evidence does not reopen this decision.</p>
+						}
+						{{ evidence := evidenceForLemmaReview(occurrence) }}
+						if evidence.Alternative != "" {
+							<p><strong>Local-index alternative:</strong> { evidence.Alternative } · <strong>Source:</strong> { evidence.Source } · <strong>Version:</strong> { evidence.Version }</p>
+							if evidence.EvidenceID != "" {
+								<p><strong>Evidence ID:</strong> { evidence.EvidenceID }</p>
+							}
+						}
+					}
 					if occurrence.Excluded {
 						<p role="status"><strong>Vocabulary selection:</strong> excluded for this occurrence.</p>
 					} else if occurrence.CorrectedLemma != "" {
@@ -65,7 +83,9 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 					} else {
 						<p><strong>Effective lemma:</strong> { occurrence.CanonicalLemma } (analyzer assignment)</p>
 					}
-					if canCorrect {
+					if form == "" {
+						<p><a href={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review?form="+url.QueryEscape(occurrence.Surface)) }>Review exact form “{ occurrence.Surface }”</a></p>
+					} else if canCorrect {
 					<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
 						<input type="hidden" name="csrf_token" value={ csrf } />
 						<input type="hidden" name="stage" value="preview" />

@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -10,9 +11,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -29,6 +32,22 @@ type lemmaDecisionProposal struct {
 }
 
 type lemmaOccurrenceChange struct{ Sentence, Before, After string }
+
+type lemmaReviewEvidence struct{ Alternative, Source, Version, EvidenceID string }
+
+func evidenceForLemmaReview(occurrence domain.LemmaReviewOccurrence) lemmaReviewEvidence {
+	value := func(key string) string {
+		if occurrence.ReviewFlagProvenance == nil {
+			return ""
+		}
+		text, ok := occurrence.ReviewFlagProvenance[key].(string)
+		if !ok {
+			return ""
+		}
+		return text
+	}
+	return lemmaReviewEvidence{Alternative: value("alternative_lemma"), Source: value("source"), Version: value("version"), EvidenceID: value("evidence_id")}
+}
 
 type lemmaIdentityImpact struct {
 	Lemma          string
@@ -50,6 +69,56 @@ type lemmaReviewRecovery struct {
 	ReadyDeckSnapshotID string
 	HasCompletedReading bool
 	HasIdentityDecision bool
+	ReferenceAssessed   bool
+}
+
+func (h *Handler) ensureLemmaReviewFlags(ctx context.Context, owner string, detail domain.MyBook) (bool, error) {
+	if h.services.LemmaRiskIndex == nil || detail.Acquired == nil || detail.Book.LanguageTag != "de" {
+		return false, nil
+	}
+	occurrences, err := h.services.Store.LemmaReview.ListLemmaReviewOccurrences(ctx, owner, detail.Book.ID, "")
+	if err != nil {
+		return false, err
+	}
+	input := make([]lemmarisk.Occurrence, 0, len(occurrences))
+	byID := make(map[string]domain.LemmaReviewOccurrence, len(occurrences))
+	for _, occurrence := range occurrences {
+		id := lemmaReviewOccurrenceID(occurrence)
+		lemma := occurrence.CanonicalLemma
+		if occurrence.CorrectedLemma != "" {
+			lemma = occurrence.CorrectedLemma
+		}
+		input = append(input, lemmarisk.Occurrence{ID: id, Language: detail.Book.LanguageTag, Surface: occurrence.Surface, Lemma: lemma, UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText, Reviewed: occurrence.CorrectedLemma != "" || occurrence.ReviewFlagResolution != "", Excluded: occurrence.Excluded})
+		byID[id] = occurrence
+	}
+	assessmentCtx, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
+	defer cancel()
+	flags, assessed, err := lemmarisk.Detect(assessmentCtx, detail.Book.LanguageTag, input, h.services.LemmaRiskIndex)
+	if err != nil {
+		return false, nil
+	} // A failed optional local index is not a clean assessment or a Reading blocker.
+	if !assessed {
+		return false, nil
+	}
+	persisted := make([]domain.LemmaReviewFlag, 0, len(flags))
+	for _, flag := range flags {
+		occurrence, ok := byID[flag.OccurrenceID]
+		if !ok {
+			continue
+		}
+		persisted = append(persisted, domain.LemmaReviewFlag{Occurrence: occurrence, Reason: flag.Reason, Provenance: map[string]any{
+			"alternative_lemma": flag.Alternative.Lemma, "source": flag.Alternative.Source,
+			"version": flag.Alternative.Version, "evidence_id": flag.Alternative.EvidenceID,
+		}})
+	}
+	if err := h.services.Store.LemmaReview.SaveLemmaReviewFlags(ctx, persisted); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func lemmaReviewOccurrenceID(occurrence domain.LemmaReviewOccurrence) string {
+	return occurrence.AnalysisRunID + ":" + occurrence.SourceDocumentID + ":" + strconv.FormatInt(occurrence.StartOffset, 10) + ":" + strconv.FormatInt(occurrence.EndOffset, 10)
 }
 
 func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +134,11 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	assessed, err := h.ensureLemmaReviewFlags(r.Context(), owner.ID, detail)
 	if err != nil {
 		fail(w, err)
 		return
@@ -85,6 +159,7 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	recovery.ReferenceAssessed = assessed
 	form := strings.TrimSpace(r.URL.Query().Get("form"))
 	var occurrences []domain.LemmaReviewOccurrence
 	if form != "" {
@@ -94,6 +169,17 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		recovery.HasIdentityDecision = lemmaOccurrencesHaveDecision(occurrences)
+	} else {
+		allOccurrences, listErr := store.ListLemmaReviewOccurrences(r.Context(), owner.ID, bookID, "")
+		if listErr != nil {
+			fail(w, listErr)
+			return
+		}
+		for _, occurrence := range allOccurrences {
+			if occurrence.ReviewFlagReason != "" {
+				occurrences = append(occurrences, occurrence)
+			}
+		}
 	}
 	pageError := ""
 	if !canCorrect {
@@ -117,6 +203,16 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("stage") == "preview" {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "Invalid review form.", http.StatusBadRequest)
+			return
+		}
+		detail, detailErr := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+		if detailErr != nil {
+			fail(w, detailErr)
+			return
+		}
+		assessed, detectErr := h.ensureLemmaReviewFlags(r.Context(), owner.ID, detail)
+		if detectErr != nil {
+			fail(w, detectErr)
 			return
 		}
 		form := strings.TrimSpace(r.FormValue("form"))
@@ -148,6 +244,7 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		recovery.HasIdentityDecision = lemmaOccurrencesHaveDecision(occurrences)
+		recovery.ReferenceAssessed = assessed
 		render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, page.Book.Title, form, "", true, occurrences, proposal, recovery))
 		return
 	}

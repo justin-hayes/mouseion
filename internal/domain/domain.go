@@ -233,6 +233,8 @@ type LemmaReviewOccurrence struct {
 	Surface, RawLemma, CanonicalLemma, UPOS  string
 	SentenceText, CorrectedLemma             string
 	Excluded                                 bool
+	ReviewFlagReason, ReviewFlagResolution   string
+	ReviewFlagProvenance                     map[string]any
 }
 
 type LemmaReviewDecision struct {
@@ -241,6 +243,16 @@ type LemmaReviewDecision struct {
 	Excluded             bool
 	NormalizationProfile string
 	NormalizationVersion string
+}
+
+// LemmaReviewFlag is a source-attributed, non-authoritative review signal for
+// one occurrence in one exact analysis. Resolution is empty until the learner
+// explicitly keeps, corrects, or excludes that occurrence.
+type LemmaReviewFlag struct {
+	Occurrence LemmaReviewOccurrence
+	Reason     string
+	Provenance map[string]any
+	Resolution string
 }
 
 type OccurrenceLemmaCorrection struct {

@@ -168,6 +168,12 @@ func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
 	assert.Equal(t, domain.MyBookBucketCurrentReading, current.WorkflowBucket())
 }
 
+func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
+	store := NewStore()
+	_, err := store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
+	assert.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags)
+}
+
 func fixtureBookIDs(books []domain.MyBook) []string {
 	ids := make([]string, 0, len(books))
 	for _, book := range books {
