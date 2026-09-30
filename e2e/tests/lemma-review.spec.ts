@@ -31,6 +31,10 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await findOccurrences.click();
     await expect(page.getByText('Der Weg führt zum Haus.').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Preview correction' })).toHaveCount(2);
+    await page.getByRole('button', { name: 'Ask for an optional LLM lemma suggestion' }).first().click();
+    await expect(page.getByText(/LLM lemma suggestion — not applied: Pfad/)).toBeVisible();
+    await expect(page.getByText(/Analyzer lemma: weg/)).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Preview correction' })).toHaveCount(2);
     await page.getByRole('checkbox').first().check();
     await page.getByLabel('Corrected canonical lemma').first().fill('Pfad');
     await page.getByRole('button', { name: 'Preview correction' }).first().focus();

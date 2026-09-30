@@ -45,7 +45,7 @@ func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T
 		ReviewFlagReason:     "The analyzer lemma is an index miss and a plausible competitor is supported.",
 		ReviewFlagProvenance: map[string]any{"alternative_lemma": "drache", "source": "wiktionary", "version": "fixture-1", "evidence_id": "fixture-evidence"},
 	}
-	html := renderPattern(t, LemmaReviewPage(domain.User{}, "csrf", "book", "Book", "", "", true, []domain.LemmaReviewOccurrence{occurrence}, nil, lemmaReviewRecovery{ReferenceAssessed: true}), "")
+	html := renderPattern(t, LemmaReviewPage(domain.User{}, "csrf", "book", "Book", "", "", true, []domain.LemmaReviewOccurrence{occurrence}, nil, lemmaReviewRecovery{ReferenceAssessed: true}, nil), "")
 	requireMarkup(t, html,
 		"Needs learner review — not a verdict.",
 		"Ein Reiter zielt mit seinem Speer auf einen Drachen.",

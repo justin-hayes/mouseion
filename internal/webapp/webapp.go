@@ -189,6 +189,7 @@ type Services struct {
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
 	LemmaRiskIndex   lemmarisk.AlternativeIndex
+	LemmaSuggestions enrichment.LemmaSuggestionProvider
 	CatalogueSync    CatalogueSyncScheduler
 	SecureCookies    bool
 	SessionLifetime  time.Duration
@@ -222,6 +223,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /reading/switch", h.user(http.HandlerFunc(h.switchReadingPage)))
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
+	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))
 	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.startReading)))
 	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))

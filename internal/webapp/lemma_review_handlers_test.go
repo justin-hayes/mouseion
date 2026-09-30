@@ -9,10 +9,59 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type lemmaSuggestionFixture struct {
+	request enrichment.LemmaSuggestionRequest
+	err     error
+}
+
+func (*lemmaSuggestionFixture) Name() string    { return "fake-provider" }
+func (*lemmaSuggestionFixture) Version() string { return "fake-v1" }
+func (p *lemmaSuggestionFixture) SuggestLemma(_ context.Context, request enrichment.LemmaSuggestionRequest) (enrichment.LemmaSuggestion, error) {
+	p.request = request
+	return enrichment.LemmaSuggestion{Lemma: "Pfad"}, p.err
+}
+
+func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	provider := &lemmaSuggestionFixture{}
+	webHandler, ok := h.(*Handler)
+	require.True(t, ok)
+	webHandler.services.LemmaSuggestions = provider
+	response := goalRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"0"},
+	}, cookies)
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "LLM lemma suggestion — not applied")
+	assert.Contains(t, response.Body.String(), "fake-provider")
+	assert.Contains(t, provider.request.Sentence, "Weg")
+	assert.Equal(t, "de", provider.request.Language)
+	assert.Empty(t, provider.request.LexicalAlternative, "no unrelated evidence is added")
+	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, "fixture-route-match", "Weg")
+	require.NoError(t, err)
+	assert.Empty(t, occurrences[0].CorrectedLemma, "suggestion does not update effective identity")
+	assert.Contains(t, response.Body.String(), `action="/reading/books/fixture-route-match/lemma-review"`, "manual review form remains available without JavaScript")
+}
+
+func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	webHandler, ok := h.(*Handler)
+	require.True(t, ok)
+	webHandler.services.LemmaSuggestions = &lemmaSuggestionFixture{err: context.DeadlineExceeded}
+	response := goalRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"0"},
+	}, cookies)
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "A lemma suggestion is unavailable right now.")
+	assert.Contains(t, response.Body.String(), "Preview correction")
+}
 
 func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)

@@ -1,13 +1,18 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence review and conservative German risk flags implemented** · Date: 2026-09-30
+Status: **Manual occurrence review, conservative German risk flags, and opt-in LLM lemma suggestions implemented** · Date: 2026-09-30
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
 prepared-deck projection, Book vocabulary insights, and current-reading
 snapshots. Automatic review flags are limited to conservative German
 alternatives supported by local lexical evidence; automatic flags remain
-disabled for other languages. LLM suggestions remain future work.
+disabled for other languages. An optional LLM lemma suggestion is requested
+only by an explicit action while reviewing an occurrence. Its bounded request
+contains the target, analyzer lemma/POS, one sentence, and available local
+lexical evidence. The provider and prompt version are shown with the
+non-authoritative suggestion. A missing or failing provider leaves manual review
+available and never changes the effective identity.
 
 ## Problem and goal
 
