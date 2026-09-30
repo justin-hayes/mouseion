@@ -15,6 +15,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -34,6 +35,11 @@ type lemmaDecisionProposal struct {
 type lemmaOccurrenceChange struct{ Sentence, Before, After string }
 
 type lemmaReviewEvidence struct{ Alternative, Source, Version, EvidenceID string }
+
+type lemmaReviewSuggestion struct {
+	Lemma, Provider, Version, Message string
+	Target                            int
+}
 
 func evidenceForLemmaReview(occurrence domain.LemmaReviewOccurrence) lemmaReviewEvidence {
 	value := func(key string) string {
@@ -148,12 +154,11 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Choose this Book's study language in Reading before reviewing occurrences.", http.StatusConflict)
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner.ID, language)
+	canCorrect, pageError, err := h.lemmaReviewCorrectionAvailability(r.Context(), owner.ID, bookID, language)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	canCorrect := !(current.IsActive() && current.BookID == bookID)
 	recovery, err := h.lemmaReviewRecovery(r, owner, bookID, detail)
 	if err != nil {
 		fail(w, err)
@@ -181,12 +186,87 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	pageError := ""
-	if !canCorrect {
-		pageError = "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged."
-	}
 	var proposal *lemmaDecisionProposal
-	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, proposal, recovery))
+	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, proposal, recovery, nil))
+}
+
+func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner := user(r)
+	bookID := strings.TrimSpace(r.PathValue("bookID"))
+	form := strings.TrimSpace(r.FormValue("form"))
+	index, err := strconv.Atoi(r.FormValue("target"))
+	if err != nil || index < 0 || form == "" {
+		http.Error(w, "Choose an occurrence to request a suggestion.", http.StatusBadRequest)
+		return
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if language == "" || language != detail.Book.LanguageTag {
+		http.Error(w, "Choose this Book's study language in Reading before requesting a suggestion.", http.StatusConflict)
+		return
+	}
+	occurrences, err := h.services.Store.LemmaReview.ListLemmaReviewOccurrences(r.Context(), owner.ID, bookID, form)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if index >= len(occurrences) {
+		http.Error(w, "That occurrence is no longer available in this analysis.", http.StatusConflict)
+		return
+	}
+	result := &lemmaReviewSuggestion{Target: index}
+	provider := h.services.LemmaSuggestions
+	if provider == nil {
+		result.Message = "LLM suggestions are not configured. You can still keep, correct, or exclude this occurrence manually."
+	} else {
+		occurrence := occurrences[index]
+		evidence := evidenceForLemmaReview(occurrence)
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		suggestion, suggestErr := provider.SuggestLemma(ctx, enrichment.LemmaSuggestionRequest{
+			Language: detail.Book.LanguageTag, Surface: occurrence.Surface, AnalyzedLemma: occurrence.CanonicalLemma,
+			UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText, LexicalAlternative: evidence.Alternative,
+			LexicalSource: evidence.Source, LexicalVersion: evidence.Version, LexicalEvidenceID: evidence.EvidenceID,
+		})
+		cancel()
+		if suggestErr != nil {
+			result.Message = "A lemma suggestion is unavailable right now. You can still keep, correct, or exclude this occurrence manually."
+		} else {
+			result.Lemma, result.Provider, result.Version = suggestion.Lemma, provider.Name(), provider.Version()
+		}
+	}
+	recovery, err := h.lemmaReviewRecovery(r, owner, bookID, detail)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	canCorrect, pageError, err := h.lemmaReviewCorrectionAvailability(r.Context(), owner.ID, bookID, detail.Book.LanguageTag)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, nil, recovery, result))
+}
+
+func (h *Handler) lemmaReviewCorrectionAvailability(ctx context.Context, ownerID, bookID, language string) (bool, string, error) {
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(ctx, ownerID, language)
+	if err != nil {
+		return false, "", err
+	}
+	if currentReadingBlocksLemmaDecision(current, bookID) {
+		return false, "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged.", nil
+	}
+	return true, "", nil
+}
+
+func currentReadingBlocksLemmaDecision(current domain.CurrentReading, bookID string) bool {
+	return current.IsActive() && current.BookID == bookID
 }
 
 func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +325,7 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 		}
 		recovery.HasIdentityDecision = lemmaOccurrencesHaveDecision(occurrences)
 		recovery.ReferenceAssessed = assessed
-		render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, page.Book.Title, form, "", true, occurrences, proposal, recovery))
+		render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, page.Book.Title, form, "", true, occurrences, proposal, recovery, nil))
 		return
 	}
 	if r.FormValue("stage") == "confirm" {
@@ -530,7 +610,7 @@ func (h *Handler) lemmaReviewWritable(w http.ResponseWriter, r *http.Request, ow
 		fail(w, err)
 		return false
 	}
-	if current.IsActive() && current.BookID == bookID {
+	if currentReadingBlocksLemmaDecision(current, bookID) {
 		http.Error(w, "Stop this Book's current reading before changing its vocabulary.", http.StatusConflict)
 		return false
 	}

@@ -6,7 +6,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal, recovery lemmaReviewRecovery) {
+templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal, recovery lemmaReviewRecovery, suggestion *lemmaReviewSuggestion) {
 	@ShellLayout("Review a word", &user, csrf, NavigationReadingJourney) {
 		<main class="container data-width">
 			<p><a href="/reading">Back to Reading</a></p>
@@ -76,6 +76,13 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							}
 						}
 					}
+					if suggestion != nil && form != "" && i == suggestion.Target {
+						if suggestion.Message != "" {
+							<p role="status">{ suggestion.Message }</p>
+						} else {
+							<p role="status"><strong>LLM lemma suggestion — not applied:</strong> { suggestion.Lemma } · <strong>Provider:</strong> { suggestion.Provider } · <strong>Version:</strong> { suggestion.Version }</p>
+						}
+					}
 					if occurrence.Excluded {
 						<p role="status"><strong>Vocabulary selection:</strong> excluded for this occurrence.</p>
 					} else if occurrence.CorrectedLemma != "" {
@@ -85,7 +92,14 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 					}
 					if form == "" {
 						<p><a href={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review?form="+url.QueryEscape(occurrence.Surface)) }>Review exact form “{ occurrence.Surface }”</a></p>
-					} else if canCorrect {
+					} else {
+						<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-suggestion") }>
+							<input type="hidden" name="csrf_token" value={ csrf } />
+							<input type="hidden" name="form" value={ form } />
+							<input type="hidden" name="target" value={ fmt.Sprint(i) } />
+							<button type="submit">Ask for an optional LLM lemma suggestion</button>
+						</form>
+						if canCorrect {
 					<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/lemma-review") }>
 						<input type="hidden" name="csrf_token" value={ csrf } />
 						<input type="hidden" name="stage" value="preview" />
@@ -109,6 +123,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							<button type="submit" name="decision" value="exclude" formnovalidate>Preview exclusion</button>
 						</details>
 					</form>
+						}
 					}
 				</article>
 			}

@@ -2,6 +2,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -34,7 +37,7 @@ func main() {
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{Store: store}, Capabilities: fixtures.Capabilities{},
-		CatalogueSync: catalogueSync,
+		CatalogueSync: catalogueSync, LemmaSuggestions: fixtureLemmaSuggestions{},
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 	})
 	if err != nil {
@@ -57,4 +60,18 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}).ListenAndServe())
+}
+
+type fixtureLemmaSuggestions struct{}
+
+func (fixtureLemmaSuggestions) Name() string    { return "fixture-lemma-model" }
+func (fixtureLemmaSuggestions) Version() string { return "fixture-v1" }
+func (fixtureLemmaSuggestions) SuggestLemma(_ context.Context, request enrichment.LemmaSuggestionRequest) (enrichment.LemmaSuggestion, error) {
+	if request.LexicalAlternative != "" {
+		return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
+	}
+	if request.Surface == "Weg" {
+		return enrichment.LemmaSuggestion{Lemma: "Pfad"}, nil
+	}
+	return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
 }

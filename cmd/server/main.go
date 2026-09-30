@@ -111,6 +111,10 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
+	lemmaSuggestions, err := enrichment.NewConfiguredLemmaSuggestionProvider(llmConfig, nil)
+	if err != nil {
+		return err
+	}
 	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	batchConfig, err := prepareddeck.BatchConfigFromEnv()
@@ -178,7 +182,7 @@ func run() (err error) {
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
 	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store}
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, LemmaSuggestions: lemmaSuggestions, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
 		return fmt.Errorf("initialize web application: %w", err)
 	}
