@@ -228,7 +228,7 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 	} else {
 		occurrence := occurrences[index]
 		evidence := evidenceForLemmaReview(occurrence)
-		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		suggestion, suggestErr := provider.SuggestLemma(ctx, enrichment.LemmaSuggestionRequest{
 			Language: detail.Book.LanguageTag, Surface: occurrence.Surface, AnalyzedLemma: occurrence.CanonicalLemma,
 			UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText, LexicalAlternative: evidence.Alternative,
