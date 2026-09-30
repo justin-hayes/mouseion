@@ -159,6 +159,10 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read choice. No changes were made; refresh Reading and try again."))
 		return
 	}
+	if _, err := h.ensureLemmaReviewFlags(r.Context(), owner, detail); err != nil {
+		fail(w, err)
+		return
+	}
 	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
@@ -179,6 +183,10 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, persistence.ErrCurrentReadingIneligible) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has current analyzed content or is no longer To Read. No changes were made; refresh Reading and try again."))
+		return
+	}
+	if errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags) {
+		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
 		return
 	}
 	if err != nil {
@@ -345,6 +353,10 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, persistence.ErrCurrentReadingIneligible) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."))
+			return
+		}
+		if errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags) {
+			redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
 			return
 		}
 		if err != nil {

@@ -372,7 +372,10 @@ SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
-       COALESCE(d.excluded, false)::boolean AS excluded
+       COALESCE(d.excluded, false)::boolean AS excluded,
+       COALESCE(f.reason, '')::text AS review_flag_reason,
+       COALESCE(f.evidence_provenance::text, '{}')::text AS review_flag_provenance,
+       COALESCE(f.resolution, '')::text AS review_flag_resolution
 FROM book_current_analyses cai
 JOIN source_materials source ON source.owner_id = cai.owner_id
   AND source.id = cai.source_material_id AND source.book_id = cai.book_id
@@ -387,11 +390,14 @@ JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
   AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
 LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
   AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
-  AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
+   AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
+LEFT JOIN occurrence_lemma_review_flags f ON f.owner_id = cai.owner_id AND f.book_id = cai.book_id
+  AND f.analysis_run_id = c.analysis_run_id AND f.source_document_id = s.unit_id
+  AND f.start_offset = t.start_offset AND f.end_offset = t.end_offset
 WHERE cai.owner_id = $1 AND cai.book_id = $2
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
-  AND t.surface = $3
+   AND ($3::text = '' OR t.surface = $3)
   AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
 ORDER BY s.sentence_ordinal, t.token_ordinal
 `
@@ -403,20 +409,23 @@ type ListLemmaReviewOccurrencesParams struct {
 }
 
 type ListLemmaReviewOccurrencesRow struct {
-	CorpusID        string
-	AnalysisRunID   string
-	SentenceOrdinal int64
-	TokenOrdinal    int64
-	Surface         string
-	RawLemma        string
-	CanonicalLemma  string
-	Upos            string
-	StartOffset     int64
-	EndOffset       int64
-	SentenceText    string
-	UnitID          string
-	CorrectedLemma  string
-	Excluded        bool
+	CorpusID             string
+	AnalysisRunID        string
+	SentenceOrdinal      int64
+	TokenOrdinal         int64
+	Surface              string
+	RawLemma             string
+	CanonicalLemma       string
+	Upos                 string
+	StartOffset          int64
+	EndOffset            int64
+	SentenceText         string
+	UnitID               string
+	CorrectedLemma       string
+	Excluded             bool
+	ReviewFlagReason     string
+	ReviewFlagProvenance string
+	ReviewFlagResolution string
 }
 
 func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error) {
@@ -443,6 +452,9 @@ func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaR
 			&i.UnitID,
 			&i.CorrectedLemma,
 			&i.Excluded,
+			&i.ReviewFlagReason,
+			&i.ReviewFlagProvenance,
+			&i.ReviewFlagResolution,
 		); err != nil {
 			return nil, err
 		}

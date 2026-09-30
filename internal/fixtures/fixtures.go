@@ -32,6 +32,7 @@ const (
 	Password               = "fixture-password"
 	BookID                 = "fixture-book"
 	ItalianGoalBookID      = "fixture-italian-goal"
+	LemmaFlagBookID        = "fixture-lemma-flag-book"
 	SourceID               = "fixture-source"
 	ResultRunID            = "fixture-run"
 	DeckID                 = "fixture-deck"
@@ -117,18 +118,20 @@ type Store struct {
 	mostRecentLanguage     string
 	lemmaCorrections       map[string]string
 	lemmaExclusions        map[string]bool
+	lemmaReviewFlags       map[string]domain.LemmaReviewFlag
 }
 
 func NewStore() *Store {
 	lastSyncedAt := fixtureJourneyTime
 	initialActiveLanguage := "de"
-	return &Store{
+	store := &Store{
 		books: []domain.SourceMaterialSummary{
 			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, BookAuthor: "Mara Weiss, Herausgeberin der langen deutschen Ausgabe", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
 			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot"}, BookAuthor: "Giulia Conti", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-failed-revision", ContentSnapshotID: "fixture-failed-snapshot"}, BookAuthor: "Jonas Keller", AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
 			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision", ContentSnapshotID: "fixture-route-match-snapshot"}, BookAuthor: "Anja Roth", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
+			{Source: domain.SourceMaterial{ID: LemmaFlagBookID, OwnerID: OwnerID, Language: "de", Title: "Flagged lemma review fixture", MediaType: "application/epub+zip", ContentRevisionID: "fixture-lemma-flag-revision", ContentSnapshotID: "fixture-lemma-flag-snapshot"}, BookAuthor: "Fixture Learner", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-lemma-flag-run", CorpusID: "fixture-lemma-flag-corpus"},
 			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision", ContentSnapshotID: "fixture-route-differs-snapshot"}, BookAuthor: "Paul Stein", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieABookID, OwnerID: OwnerID, Language: "de", Title: "Route tie A", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-a-revision", ContentSnapshotID: "fixture-route-tie-a-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-a-run", CorpusID: "fixture-route-tie-a-corpus"},
 			{Source: domain.SourceMaterial{ID: routeTieBBookID, OwnerID: OwnerID, Language: "de", Title: "Route tie B", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-tie-b-revision", ContentSnapshotID: "fixture-route-tie-b-snapshot"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-tie-b-run", CorpusID: "fixture-route-tie-b-corpus"},
@@ -178,6 +181,7 @@ func NewStore() *Store {
 			fixtureDispositionKey(OwnerID, BookID):                 domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, "fixture-failed"):       domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeMatchBookID):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, LemmaFlagBookID):        domain.BookDispositionSetAside,
 			fixtureDispositionKey(OwnerID, routeDiffersBookID):     domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeTieABookID):        domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeTieBBookID):        domain.BookDispositionToRead,
@@ -204,7 +208,14 @@ func NewStore() *Store {
 		mostRecentLanguage:   "it",
 		lemmaCorrections:     make(map[string]string),
 		lemmaExclusions:      make(map[string]bool),
+		lemmaReviewFlags:     make(map[string]domain.LemmaReviewFlag),
 	}
+	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
+		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},
+		Reason:     "The analyzer lemma is a local-index miss and sentence evidence supports a competing recurring lemma.",
+		Provenance: map[string]any{"alternative_lemma": "pfad", "source": "wiktionary", "version": "fixture-1", "evidence_id": "fixture-lemma-evidence"},
+	}
+	return store
 }
 
 func fixtureLemmaCorrectionKey(owner, book, analysis string, start, end int64) string {
@@ -214,24 +225,36 @@ func fixtureLemmaCorrectionKey(owner, book, analysis string, start, end int64) s
 func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if owner != OwnerID || surface != "Weg" || (bookID != BookID && bookID != routeMatchBookID) {
+	if owner != OwnerID || (surface != "" && surface != "Weg") || (bookID != BookID && bookID != routeMatchBookID && bookID != LemmaFlagBookID) {
 		return nil, nil
+	}
+	if surface == "" {
+		surface = "Weg"
 	}
 	corpusID, analysisRunID, sourceDocumentID := "fixture-corpus", ResultRunID, "fixture-unit"
 	if bookID == routeMatchBookID {
 		corpusID, analysisRunID, sourceDocumentID = "fixture-route-match-corpus", "fixture-route-match-run", "fixture-route-match-unit"
 	}
+	if bookID == LemmaFlagBookID {
+		corpusID, analysisRunID, sourceDocumentID = "fixture-lemma-flag-corpus", "fixture-lemma-flag-run", "fixture-lemma-flag-unit"
+	}
 	result := make([]domain.LemmaReviewOccurrence, 0, 2)
 	for i, offset := range []int64{4, 20} {
 		start, end := offset, offset+3
-		result = append(result, domain.LemmaReviewOccurrence{
+		occurrence := domain.LemmaReviewOccurrence{
 			OwnerID: owner, BookID: bookID, CorpusID: corpusID, AnalysisRunID: analysisRunID,
 			SourceDocumentID: sourceDocumentID, StartOffset: start, EndOffset: end,
 			SentenceOrdinal: int64(i), TokenOrdinal: 1, Surface: surface, RawLemma: "Weg",
 			CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg führt zum Haus.",
 			CorrectedLemma: s.lemmaCorrections[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
 			Excluded:       s.lemmaExclusions[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
-		})
+		}
+		if flag, ok := s.lemmaReviewFlags[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)]; ok {
+			occurrence.ReviewFlagReason = flag.Reason
+			occurrence.ReviewFlagProvenance = flag.Provenance
+			occurrence.ReviewFlagResolution = flag.Resolution
+		}
+		result = append(result, occurrence)
 	}
 	return result, nil
 }
@@ -240,12 +263,25 @@ func (s *Store) PutLemmaDecision(ctx context.Context, occurrence domain.LemmaRev
 	return s.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrence, CanonicalLemma: lemma, Excluded: excluded, NormalizationProfile: profile, NormalizationVersion: version}})
 }
 
+func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, flag := range flags {
+		o := flag.Occurrence
+		key := fixtureLemmaCorrectionKey(o.OwnerID, o.BookID, o.AnalysisRunID, o.StartOffset, o.EndOffset)
+		if current, ok := s.lemmaReviewFlags[key]; !ok || current.Resolution == "" {
+			s.lemmaReviewFlags[key] = flag
+		}
+	}
+	return nil
+}
+
 func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaReviewDecision) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, decision := range decisions {
 		occurrence := decision.Occurrence
-		validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run"
+		validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run" || occurrence.BookID == LemmaFlagBookID && occurrence.AnalysisRunID == "fixture-lemma-flag-run"
 		if occurrence.OwnerID != OwnerID || !validAnalysis || occurrence.Surface != "Weg" {
 			return errNotFound
 		}
@@ -263,14 +299,23 @@ func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaRev
 		if excluded {
 			delete(s.lemmaCorrections, key)
 			s.lemmaExclusions[key] = true
-			continue
+		} else {
+			delete(s.lemmaExclusions, key)
+			if lemma == occurrence.CanonicalLemma {
+				delete(s.lemmaCorrections, key)
+			} else {
+				s.lemmaCorrections[key] = lemma
+			}
 		}
-		delete(s.lemmaExclusions, key)
-		if lemma == occurrence.CanonicalLemma {
-			delete(s.lemmaCorrections, key)
-			continue
+		if flag, ok := s.lemmaReviewFlags[key]; ok {
+			flag.Resolution = "correct"
+			if excluded {
+				flag.Resolution = "exclude"
+			} else if lemma == occurrence.CanonicalLemma {
+				flag.Resolution = "keep"
+			}
+			s.lemmaReviewFlags[key] = flag
 		}
-		s.lemmaCorrections[key] = lemma
 	}
 	return nil
 }
@@ -1277,6 +1322,9 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID str
 		return domain.PrimaryGoal{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
+	if s.hasUnresolvedLemmaReviewFlag(owner, bookID) {
+		return domain.PrimaryGoal{}, persistence.ErrUnresolvedLemmaReviewFlags
+	}
 	key := fixtureGoalKey(owner, language)
 	if _, ok := s.primaryGoals[key]; ok {
 		return domain.PrimaryGoal{}, persistence.ErrGoalExists
@@ -1289,6 +1337,25 @@ func (s *Store) CreatePrimaryGoal(_ context.Context, owner, language, bookID str
 	goal.CreatedAt, goal.UpdatedAt = now, now
 	s.primaryGoals[key] = goal
 	return goal, nil
+}
+
+func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
+	runID := ""
+	if bookID == routeMatchBookID {
+		runID = "fixture-route-match-run"
+	}
+	if bookID == LemmaFlagBookID {
+		runID = "fixture-lemma-flag-run"
+	}
+	if bookID == BookID {
+		runID = ResultRunID
+	}
+	for key, flag := range s.lemmaReviewFlags {
+		if strings.HasPrefix(key, owner+"\x00"+bookID+"\x00"+runID+"\x00") && flag.Resolution == "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Store) StartCurrentReading(ctx context.Context, owner, language, bookID string) (domain.CurrentReading, error) {
@@ -1310,6 +1377,9 @@ func (s *Store) ChangePrimaryGoal(_ context.Context, owner, language, bookID, ex
 		return domain.PrimaryGoal{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
+	if s.hasUnresolvedLemmaReviewFlag(owner, bookID) {
+		return domain.PrimaryGoal{}, persistence.ErrUnresolvedLemmaReviewFlags
+	}
 	if !s.fixturePrimaryGoalEligible(owner, language, bookID) {
 		return domain.PrimaryGoal{}, persistence.ErrGoalIneligible
 	}

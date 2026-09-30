@@ -28,6 +28,11 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 		analysis_run_id uuid NOT NULL
 	)`)
 	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `CREATE TABLE occurrence_lemma_review_flags (
+		owner_id uuid NOT NULL, book_id uuid NOT NULL, analysis_run_id uuid NOT NULL,
+		resolution text
+	)`)
+	require.NoError(t, err)
 	// The current disposition writes include the successor revision field. Add it
 	// temporarily while seeding with application code, then remove it so the
 	// migration under test starts from the exact version-17 schema.
@@ -59,6 +64,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE book_dispositions DROP COLUMN revision`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_corrections`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_review_flags`)
 	require.NoError(t, err)
 	moveApplicationMigrationsTo(t, databaseURL, 18)
 	migrateApplicationMigrationsToLatest(t, databaseURL)

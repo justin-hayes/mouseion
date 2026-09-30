@@ -38,6 +38,23 @@ func TestCatalogueSyncConnectionViewExplainsEmptySyncResult(t *testing.T) {
 	)
 }
 
+func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T) {
+	occurrence := domain.LemmaReviewOccurrence{
+		Surface: "Drachen", RawLemma: "Drach", CanonicalLemma: "drach", UPOS: "NOUN",
+		SentenceText:         "Ein Reiter zielt mit seinem Speer auf einen Drachen.",
+		ReviewFlagReason:     "The analyzer lemma is an index miss and a plausible competitor is supported.",
+		ReviewFlagProvenance: map[string]any{"alternative_lemma": "drache", "source": "wiktionary", "version": "fixture-1", "evidence_id": "fixture-evidence"},
+	}
+	html := renderPattern(t, LemmaReviewPage(domain.User{}, "csrf", "book", "Book", "", "", true, []domain.LemmaReviewOccurrence{occurrence}, nil, lemmaReviewRecovery{ReferenceAssessed: true}), "")
+	requireMarkup(t, html,
+		"Needs learner review — not a verdict.",
+		"Ein Reiter zielt mit seinem Speer auf einen Drachen.",
+		"drache", "wiktionary", "fixture-1", "fixture-evidence",
+		"Review exact form",
+	)
+	assert.Contains(t, html, "Find occurrences", "review remains a server-rendered form flow without JavaScript")
+}
+
 func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
 		ActiveLanguage: "de",

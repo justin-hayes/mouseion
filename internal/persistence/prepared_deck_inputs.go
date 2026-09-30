@@ -51,6 +51,26 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	if err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
+	if preparation.GoalSnapshotID == "" && corpusID != "" {
+		var bookID, analysisRunID string
+		lookupErr := tx.QueryRow(ctx, `SELECT sm.book_id::text,c.analysis_run_id::text FROM source_materials sm JOIN corpora c ON c.owner_id=sm.owner_id AND c.id=$3 WHERE sm.owner_id=$1 AND sm.id=$2 AND sm.book_id IS NOT NULL`, preparation.OwnerID, preparation.SourceMaterialID, corpusID).Scan(&bookID, &analysisRunID)
+		if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
+			return PreparedDeckInputFacts{}, lookupErr
+		}
+		if lookupErr == nil {
+			var lockedBookID string
+			if lockErr := tx.QueryRow(ctx, `SELECT id::text FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, preparation.OwnerID, bookID).Scan(&lockedBookID); lockErr != nil {
+				return PreparedDeckInputFacts{}, lockErr
+			}
+			blocked, gateErr := unresolvedLemmaReviewFlags(ctx, tx, preparation.OwnerID, bookID, analysisRunID)
+			if gateErr != nil {
+				return PreparedDeckInputFacts{}, gateErr
+			}
+			if blocked {
+				return PreparedDeckInputFacts{}, ErrUnresolvedLemmaReviewFlags
+			}
+		}
+	}
 
 	languages := make(map[string]struct{}, len(candidates))
 	for _, candidate := range candidates {

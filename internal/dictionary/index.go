@@ -11,9 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	_ "modernc.org/sqlite"
 )
 
@@ -39,6 +41,8 @@ type evidenceIdentity struct {
 }
 
 var _ enrichment.LexicalProvider = (*Index)(nil)
+
+var germanEvidenceStopwords = map[string]bool{"aber": true, "alle": true, "allem": true, "allen": true, "aller": true, "alles": true, "als": true, "also": true, "am": true, "an": true, "and": true, "auf": true, "aus": true, "bei": true, "bin": true, "bis": true, "bist": true, "das": true, "dass": true, "dein": true, "dem": true, "den": true, "der": true, "des": true, "die": true, "dies": true, "diese": true, "dieser": true, "dieses": true, "doch": true, "du": true, "durch": true, "ein": true, "eine": true, "einem": true, "einen": true, "einer": true, "eines": true, "er": true, "es": true, "für": true, "hat": true, "hatte": true, "ich": true, "im": true, "in": true, "ist": true, "mit": true, "nach": true, "nicht": true, "oder": true, "sein": true, "seine": true, "seinem": true, "seinen": true, "seiner": true, "sich": true, "sie": true, "sind": true, "so": true, "und": true, "vom": true, "von": true, "vor": true, "war": true, "waren": true, "was": true, "wie": true, "wird": true, "zu": true, "zum": true, "zur": true}
 
 func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	path = strings.TrimSpace(path)
@@ -207,6 +211,110 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 		result.Plural = ordered[0].Plural
 	}
 	return result, true, nil
+}
+
+func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (bool, error) {
+	if i == nil || i.db == nil {
+		return false, nil
+	}
+	language = canonicalization.NormalizeLanguage(language)
+	lemma = normalizeLemma(language, lemma)
+	upos = strings.ToUpper(strings.TrimSpace(upos))
+	if language == "" || lemma == "" || upos == "" {
+		return false, nil
+	}
+	var exists bool
+	err := i.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM entries WHERE language=? AND lemma=? AND upos=?)`, language, lemma, upos).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("dictionary lemma existence: %w", err)
+	}
+	return exists, nil
+}
+
+// Alternatives returns only indexed German noun alternatives licensed by a
+// simple observed-form inflection candidate and sentence examples with a
+// meaningful lexical overlap. These are review evidence, never replacements.
+func (i *Index) Alternatives(ctx context.Context, language, surface, upos, sentence string) ([]lemmarisk.Alternative, error) {
+	if canonicalization.NormalizeLanguage(language) != "de" || strings.ToUpper(strings.TrimSpace(upos)) != "NOUN" {
+		return nil, nil
+	}
+	result := make([]lemmarisk.Alternative, 0, 2)
+	seen := make(map[string]bool)
+	for _, candidate := range germanNounLemmaCandidates(surface) {
+		entry, found, err := i.Lookup(ctx, enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: candidate, UPOS: upos})
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			continue
+		}
+		for _, sense := range entry.CandidateSenses {
+			if seen[candidate] || !sentenceExampleOverlap(sentence, surface, sense.Examples) {
+				continue
+			}
+			seen[candidate] = true
+			result = append(result, lemmarisk.Alternative{Lemma: candidate, UPOS: upos, Source: sense.Source, Version: sense.Version, EvidenceID: sense.EvidenceID, ContextRelevant: true})
+			break
+		}
+	}
+	return result, nil
+}
+
+func germanNounLemmaCandidates(surface string) []string {
+	word := normalizeLemma("de", strings.TrimSpace(surface))
+	if word == "" {
+		return nil
+	}
+	candidates := []string{word}
+	if strings.HasSuffix(word, "en") && len([]rune(word)) > 4 {
+		candidates = append(candidates, strings.TrimSuffix(word, "en"), strings.TrimSuffix(word, "en")+"e")
+	}
+	if strings.HasSuffix(word, "n") && len([]rune(word)) > 3 {
+		candidates = append(candidates, strings.TrimSuffix(word, "n"), strings.TrimSuffix(word, "n")+"e")
+	}
+	if strings.HasSuffix(word, "e") && len([]rune(word)) > 3 {
+		candidates = append(candidates, strings.TrimSuffix(word, "e"))
+	}
+	unique := candidates[:0]
+	seen := make(map[string]bool)
+	for _, candidate := range candidates {
+		if candidate != "" && !seen[candidate] {
+			seen[candidate] = true
+			unique = append(unique, candidate)
+		}
+	}
+	return unique
+}
+
+func sentenceExampleOverlap(sentence, surface string, examples []string) bool {
+	context := evidenceWords(sentence, surface)
+	if len(context) == 0 {
+		return false
+	}
+	for _, example := range examples {
+		matches := 0
+		for word := range evidenceWords(example, surface) {
+			if context[word] {
+				matches++
+			}
+		}
+		if matches >= 2 {
+			return true
+		}
+	}
+	return false
+}
+
+func evidenceWords(text, surface string) map[string]bool {
+	words := make(map[string]bool)
+	surface = strings.ToLower(strings.TrimSpace(surface))
+	for _, field := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return !unicode.IsLetter(r) }) {
+		if len([]rune(field)) < 4 || field == surface || germanEvidenceStopwords[field] {
+			continue
+		}
+		words[field] = true
+	}
+	return words
 }
 
 func normalizeLemma(language, lemma string) string {

@@ -90,6 +90,10 @@ func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, o
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
+	if _, detectErr := h.ensureLemmaReviewFlags(r.Context(), owner, detail); detectErr != nil {
+		fail(w, detectErr)
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
+	}
 	return detail, result, true
 }
 
@@ -169,7 +173,64 @@ func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *htt
 	if !h.checkCSRF(w, r) {
 		return
 	}
+	if handled := h.preflightDirectDeckLemmaReview(w, r, analysisID); handled {
+		return
+	}
 	h.submitDeckPreparation(w, r, analysisID, sourceMaterialID)
+}
+
+func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.Request, analysisID string) bool {
+	jobID, err := strconv.ParseInt(analysisID, 10, 64)
+	if err != nil || h.services.Analysis == nil || h.services.Store.LemmaReview == nil {
+		return false
+	}
+	status, err := h.services.Analysis.Get(r.Context(), user(r).ID, jobID)
+	if err != nil || status.RunID == "" || status.SourceMaterialID == "" {
+		return false
+	}
+	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
+	if !ok {
+		return false
+	}
+	completed, err := reader.GetCompletedAnalysis(r.Context(), user(r).ID, status.SourceMaterialID, status.RunID)
+	if err != nil {
+		return false
+	}
+	books, err := h.services.Store.Books.ListSourceMaterials(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return true
+	}
+	for _, item := range books {
+		if item.Source.ID != status.SourceMaterialID || item.BookID == "" {
+			continue
+		}
+		detail, detailErr := h.services.Store.Books.GetBookDetail(r.Context(), user(r).ID, item.BookID)
+		if detailErr != nil {
+			fail(w, detailErr)
+			return true
+		}
+		if detail.Acquired == nil || detail.Acquired.AnalysisRunID != completed.RunID || detail.Acquired.CorpusID != completed.Corpus.ID {
+			return false
+		}
+		if _, detectErr := h.ensureLemmaReviewFlags(r.Context(), user(r).ID, detail); detectErr != nil {
+			fail(w, detectErr)
+			return true
+		}
+		occurrences, listErr := h.services.Store.LemmaReview.ListLemmaReviewOccurrences(r.Context(), user(r).ID, item.BookID, "")
+		if listErr != nil {
+			fail(w, listErr)
+			return true
+		}
+		for _, occurrence := range occurrences {
+			if occurrence.ReviewFlagReason != "" && occurrence.ReviewFlagResolution == "" {
+				http.Redirect(w, r, "/reading/books/"+url.PathEscape(item.BookID)+"/lemma-review", http.StatusSeeOther)
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }
 
 func (h *Handler) submitDeckPreparation(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
@@ -504,6 +565,8 @@ func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {
 		http.NotFound(w, r)
 	case errors.Is(err, persistence.ErrInvalidTransition):
 		http.Error(w, "invalid deck preparation state", http.StatusConflict)
+	case errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags):
+		http.Error(w, "Resolve the flagged lemma occurrences before preparing a direct deck.", http.StatusConflict)
 	default:
 		fail(w, err)
 	}

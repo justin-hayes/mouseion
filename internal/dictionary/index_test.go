@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
@@ -40,7 +41,7 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Article":"das","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', '/haʊ̯s/', ''); INSERT INTO entries VALUES ('de', 'duplicate', 'NOUN', '[{"Gloss":"same"},{"Gloss":"same"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', '', 'steht auf · stand auf · aufgestanden'); INSERT INTO entries VALUES ('de', 'regnen', 'VERB', '[{"Gloss":"to rain"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Gender":"Fem","Article":"la","Plural":"case"}]', 'Fem', 'la', 'case', '', ''); INSERT INTO entries VALUES ('el', 'οδοσ', 'NOUN', '[{"Gloss":"road"}]', '', '', '', '', '')`)
+	_, err = db.ExecContext(t.Context(), `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO entries VALUES ('de', 'haus', 'NOUN', '[{"Gloss":"house","Gender":"Neut","Article":"das","Plural":"Häuser"}]', 'Neut', 'das', 'Häuser', '/haʊ̯s/', ''); INSERT INTO entries VALUES ('de', 'duplicate', 'NOUN', '[{"Gloss":"same"},{"Gloss":"same"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('de', 'aufstehen', 'VERB', '[{"Gloss":"to get up"}]', '', '', '', '', 'steht auf · stand auf · aufgestanden'); INSERT INTO entries VALUES ('de', 'regnen', 'VERB', '[{"Gloss":"to rain"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('de', 'drache', 'NOUN', '[{"Gloss":"dragon","Examples":["Der Reiter trifft den Drachen mit seinem Speer."]}]', '', '', '', '', ''); INSERT INTO entries VALUES ('it', 'casa', 'NOUN', '[{"Gloss":"house","Gender":"Fem","Article":"la","Plural":"case"}]', 'Fem', 'la', 'case', '', ''); INSERT INTO entries VALUES ('el', 'οδοσ', 'NOUN', '[{"Gloss":"road"}]', '', '', '', '', '')`)
 	require.NoError(t, err)
 	_, err = db.ExecContext(t.Context(), `INSERT INTO entries VALUES ('el', 'άνθρωποσ', 'NOUN', '[{"Gloss":"person","Gender":"Masc","Article":"ο","Plural":"άνθρωποι"}]', 'Masc', 'ο', 'άνθρωποι', '/ˈanθropos/', ''); INSERT INTO entries VALUES ('el', 'είμαι', 'VERB', '[{"Gloss":"to be"}]', '', '', '', '', ''); INSERT INTO entries VALUES ('el', 'δρόμοσ', 'NOUN', '[{"Gloss":"road","Gender":"Masc","Article":"ο","Plural":"δρόμοι"}]', '', 'η', 'δρόμοι', '', '')`)
 	require.NoError(t, err)
@@ -75,6 +76,35 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.Equal(t, "Häuser", result.Plural)
 	assert.Equal(t, "/haʊ̯s/", result.IPA)
 	assert.Empty(t, result.PrincipalParts)
+	exists, err := index.LemmaExists(t.Context(), "de", "Drach", "NOUN")
+	require.NoError(t, err)
+	assert.False(t, exists)
+	exists, err = index.LemmaExists(t.Context(), "de", "Haus", "NOUN")
+	require.NoError(t, err)
+	assert.True(t, exists)
+	alternatives, err := index.Alternatives(t.Context(), "de", "Drachen", "NOUN", "Ein Reiter trifft den Drachen mit seinem Speer.")
+	require.NoError(t, err)
+	require.Len(t, alternatives, 1)
+	assert.Equal(t, "drache", alternatives[0].Lemma)
+	assert.Equal(t, "wiktionary", alternatives[0].Source)
+	assert.Equal(t, "fixture-v1", alternatives[0].Version)
+	assert.True(t, alternatives[0].ContextRelevant)
+	ambiguous, err := index.Alternatives(t.Context(), "de", "Drachen", "NOUN", "Der Drachen steigt bei starkem Wind hoch in den Himmel.")
+	require.NoError(t, err)
+	assert.Empty(t, ambiguous, "dictionary evidence for the dragon sense must not flag the kite sense")
+	compound, err := index.Alternatives(t.Context(), "de", "Basketballspiel", "NOUN", "Das Basketballspiel beginnt.")
+	require.NoError(t, err)
+	assert.Empty(t, compound, "a valid compound with no competing local entry is not a risk flag")
+	flags, assessed, err := lemmarisk.Detect(t.Context(), "de", []lemmarisk.Occurrence{
+		{ID: "dragon", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Reiter trifft den Drachen mit seinem Speer."},
+		{ID: "existing-1", Language: "de", Surface: "Drache", Lemma: "Drache", UPOS: "NOUN", Sentence: "Der Drache schläft."},
+		{ID: "existing-2", Language: "de", Surface: "Drache", Lemma: "Drache", UPOS: "NOUN", Sentence: "Ein Drache wacht."},
+	}, index)
+	require.NoError(t, err)
+	assert.True(t, assessed)
+	require.Len(t, flags, 1)
+	assert.Equal(t, "dragon", flags[0].OccurrenceID)
+	assert.Equal(t, "drache", flags[0].Alternative.Lemma)
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "duplicate", UPOS: "NOUN"})
 	require.NoError(t, err)
 	assert.True(t, found)

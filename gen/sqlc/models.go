@@ -648,6 +648,21 @@ type OccurrenceLemmaCorrection struct {
 	Excluded             bool
 }
 
+type OccurrenceLemmaReviewFlag struct {
+	OwnerID            string
+	BookID             string
+	CorpusID           string
+	AnalysisRunID      string
+	SourceDocumentID   string
+	StartOffset        int64
+	EndOffset          int64
+	Reason             string
+	EvidenceProvenance []byte
+	Resolution         pgtype.Text
+	FlaggedAt          time.Time
+	ResolvedAt         pgtype.Timestamptz
+}
+
 type OpdsConnection struct {
 	ID       string
 	Name     string
