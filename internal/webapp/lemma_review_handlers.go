@@ -154,12 +154,11 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Choose this Book's study language in Reading before reviewing occurrences.", http.StatusConflict)
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner.ID, language)
+	canCorrect, pageError, err := h.lemmaReviewCorrectionAvailability(r.Context(), owner.ID, bookID, language)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	canCorrect := !(current.IsActive() && current.BookID == bookID)
 	recovery, err := h.lemmaReviewRecovery(r, owner, bookID, detail)
 	if err != nil {
 		fail(w, err)
@@ -186,10 +185,6 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 				occurrences = append(occurrences, occurrence)
 			}
 		}
-	}
-	pageError := ""
-	if !canCorrect {
-		pageError = "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged."
 	}
 	var proposal *lemmaDecisionProposal
 	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, proposal, recovery, nil))
@@ -251,17 +246,23 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	pageError := ""
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner.ID, detail.Book.LanguageTag)
+	canCorrect, pageError, err := h.lemmaReviewCorrectionAvailability(r.Context(), owner.ID, bookID, detail.Book.LanguageTag)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	canCorrect := !(current.IsActive() && current.BookID == bookID)
-	if !canCorrect {
-		pageError = "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged."
-	}
 	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, nil, recovery, result))
+}
+
+func (h *Handler) lemmaReviewCorrectionAvailability(ctx context.Context, ownerID, bookID, language string) (bool, string, error) {
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(ctx, ownerID, language)
+	if err != nil {
+		return false, "", err
+	}
+	if current.IsActive() && current.BookID == bookID {
+		return false, "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged.", nil
+	}
+	return true, "", nil
 }
 
 func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {

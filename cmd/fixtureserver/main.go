@@ -67,6 +67,9 @@ type fixtureLemmaSuggestions struct{}
 func (fixtureLemmaSuggestions) Name() string    { return "fixture-lemma-model" }
 func (fixtureLemmaSuggestions) Version() string { return "fixture-v1" }
 func (fixtureLemmaSuggestions) SuggestLemma(_ context.Context, request enrichment.LemmaSuggestionRequest) (enrichment.LemmaSuggestion, error) {
+	if request.LexicalAlternative != "" {
+		return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
+	}
 	if request.Surface == "Weg" {
 		return enrichment.LemmaSuggestion{Lemma: "Pfad"}, nil
 	}

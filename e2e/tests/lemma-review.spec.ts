@@ -30,11 +30,20 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     const findOccurrences = page.getByRole('button', { name: 'Find occurrences' });
     await findOccurrences.click();
     await expect(page.getByText('Der Weg führt zum Haus.').first()).toBeVisible();
+    await page.goto('/reading/books/fixture-route-match/lemma-review?form=Weg');
     await expect(page.getByRole('button', { name: 'Preview correction' })).toHaveCount(2);
     await page.getByRole('button', { name: 'Ask for an optional LLM lemma suggestion' }).first().click();
     await expect(page.getByText(/LLM lemma suggestion — not applied: Pfad/)).toBeVisible();
     await expect(page.getByText(/Analyzer lemma: weg/)).toHaveCount(2);
     await expect(page.getByRole('button', { name: 'Preview correction' })).toHaveCount(2);
+
+    await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
+    await page.getByRole('button', { name: 'Ask for an optional LLM lemma suggestion' }).first().click();
+    await expect(page.getByText(/A lemma suggestion is unavailable right now\./)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Preview correction' })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Preview keeping analyzer lemma' })).toHaveCount(2);
+
+    await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
     await page.getByRole('checkbox').first().check();
     await page.getByLabel('Corrected canonical lemma').first().fill('Pfad');
     await page.getByRole('button', { name: 'Preview correction' }).first().focus();
