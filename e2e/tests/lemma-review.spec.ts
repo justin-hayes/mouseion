@@ -13,6 +13,13 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await expect(page).toHaveURL(/\/library/);
     const language = page.getByLabel('Study language');
     if (await language.inputValue() !== 'de') await language.selectOption('de');
+    await page.goto('/reading/books/fixture-book/lemma-review?form=Weg');
+    await expect(page.getByRole('heading', { name: "Stop before changing this Book's vocabulary" })).toBeVisible();
+    await expect(page.getByText(/stop this reading without marking it finished/i)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open Reading to stop this Book' })).toHaveAttribute('href', '/reading');
+    await expect(page.getByRole('heading', { name: 'A ready deck is a historical artifact' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Download the existing deck' })).toBeVisible();
+
     await page.goto('/reading/books/fixture-route-match/lemma-review');
     await page.getByLabel('Exact observed form').fill('Weg');
     const findOccurrences = page.getByRole('button', { name: 'Find occurrences' });

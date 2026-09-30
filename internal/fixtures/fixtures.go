@@ -1757,7 +1757,7 @@ func (PreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle,
 	return prepareddeck.Handle{JobID: 9}, nil
 }
 func (PreparedDeck) Reprepare(context.Context, string, string) (prepareddeck.Handle, error) {
-	return prepareddeck.Handle{JobID: 11}, nil
+	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "fixture-reprepared-deck", State: domain.DeckPreparationQueued}, JobID: 11}, nil
 }
 func (PreparedDeck) Rerender(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{JobID: 10}, nil
@@ -1770,6 +1770,13 @@ func (p PreparedDeck) Download(ctx context.Context, owner, id string) (domain.De
 	preparation.State = domain.DeckPreparationReady
 	preparation.Artifact = []byte("fixture")
 	return preparation, nil
+}
+
+func (p PreparedDeck) ListDeckPreparationsForSourceMaterial(ctx context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
+	if p.Store == nil {
+		return nil, nil
+	}
+	return p.Store.ListDeckPreparationsForSourceMaterial(ctx, owner, sourceMaterialID)
 }
 
 type Capabilities struct{}

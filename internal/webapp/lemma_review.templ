@@ -5,7 +5,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal) {
+templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal, recovery lemmaReviewRecovery) {
 	@ShellLayout("Review a word", &user, csrf, NavigationReadingJourney) {
 		<main class="container data-width">
 			<p><a href="/reading">Back to Reading</a></p>
@@ -17,6 +17,39 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			</form>
 			if pageError != "" {
 				<article role="alert">{ pageError }</article>
+			}
+			if recovery.ActiveReading {
+				<article aria-labelledby="active-reading-lemma-recovery">
+					<h2 id="active-reading-lemma-recovery">Stop before changing this Book's vocabulary</h2>
+					<p>Reading uses a frozen snapshot. To use a corrected identity, stop this reading without marking it finished, review and confirm the occurrence decision, then start the Book again to create a new snapshot. Re-prepare its deck from that new snapshot if needed.</p>
+					<p><a href="/reading">Open Reading to stop this Book</a></p>
+				</article>
+			}
+			if recovery.ReadyPreparationID != "" {
+				<article aria-labelledby="ready-deck-lemma-recovery">
+					<h2 id="ready-deck-lemma-recovery">A ready deck is a historical artifact</h2>
+					if recovery.ReadyDeckSnapshotID != "" {
+						<p>The existing deck remains available for download and stays bound to its old Reading snapshot. After confirming an identity change, Mouseion will start a new Reading snapshot and prepare a new deck generation from it. The old artifact is not changed.</p>
+						if recovery.ActiveReadingBookID != "" && recovery.ActiveReadingBookID != bookID {
+							<p role="note">Another Book is current reading. Stop or switch that reading before confirming this recovery, so Mouseion can restart this Book with its corrected snapshot.</p>
+						}
+					} else {
+						<p>The existing deck remains available for download. An identity-changing decision does not update it; after confirming a decision, explicitly re-prepare into a new generation. Do not use presentation-only re-rendering for a vocabulary identity change.</p>
+					}
+					<p><a href={ templ.SafeURL("/deck-preparations/"+recovery.ReadyPreparationID+"/download") }>Download the existing deck</a></p>
+					if canCorrect && recovery.HasIdentityDecision && recovery.ReadyDeckSnapshotID == "" {
+						<form method="post" action={ templ.SafeURL("/deck-preparations/"+recovery.ReadyPreparationID+"/reprepare") }>
+							<input type="hidden" name="csrf_token" value={ csrf } />
+							<button type="submit">Re-prepare deck with current vocabulary identities</button>
+						</form>
+					}
+				</article>
+			}
+			if recovery.HasCompletedReading {
+				<article aria-labelledby="completed-reading-lemma-recovery">
+					<h2 id="completed-reading-lemma-recovery">Completed reading and Known vocabulary stay unchanged</h2>
+					<p>This decision affects future vocabulary preparation only. Mouseion never rewrites finished Reading history or its Known facts. Importing a deck with changed note identities may leave an obsolete note in Anki; you may need to remove that note manually. Mouseion does not delete Anki notes.</p>
+				</article>
 			}
 			if form != "" && len(occurrences) == 0 {
 				<p role="status">No matching content-word occurrence was found in the current analysis. Check the exact spelling and try again.</p>
@@ -88,6 +121,15 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						for _, i := range proposal.Indices {
 							<input type="hidden" name="selected" value={ fmt.Sprint(i) } />
 						}
+						if recovery.ReadyPreparationID != "" && lemmaProposalChangesIdentity(proposal) {
+							if recovery.ReadyDeckSnapshotID != "" {
+								<p>Confirming will restart this Book with a new snapshot and prepare its deck from the corrected identities. The ready deck stays available as history.</p>
+								<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required /> Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</label>
+							} else {
+								<p>The ready deck is a historical artifact. Confirming this identity change will explicitly create a new deck generation; the existing artifact will remain downloadable. This is a full re-preparation, not a presentation-only re-render.</p>
+								<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required /> Re-prepare the ready deck with these current vocabulary identities when I confirm this decision</label>
+							}
+						}
 						if proposal.Action == "correct" {
 							<button type="submit">Apply correction to selected occurrences</button>
 						} else if proposal.Action == "keep" {
@@ -99,7 +141,9 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 				</article>
 			}
 			if canCorrect && form != "" && len(occurrences) > 0 {
-				<p><a href={ templ.SafeURL("/reading/books/"+bookID+"/deck/preparations/new") }>Prepare a direct deck with the effective vocabulary identity</a></p>
+				if recovery.ReadyPreparationID == "" {
+					<p><a href={ templ.SafeURL("/reading/books/"+bookID+"/deck/preparations/new") }>Prepare a direct deck with the effective vocabulary identity</a></p>
+				}
 			}
 		</main>
 		}

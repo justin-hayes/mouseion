@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 type lemmaDecisionProposal struct {
@@ -40,6 +41,15 @@ type lemmaIdentityImpact struct {
 	AfterReserved  bool
 	BeforeEligible bool
 	AfterEligible  bool
+}
+
+type lemmaReviewRecovery struct {
+	ActiveReading       bool
+	ActiveReadingBookID string
+	ReadyPreparationID  string
+	ReadyDeckSnapshotID string
+	HasCompletedReading bool
+	HasIdentityDecision bool
 }
 
 func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +80,11 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	canCorrect := !(current.IsActive() && current.BookID == bookID)
+	recovery, err := h.lemmaReviewRecovery(r, owner, bookID, detail)
+	if err != nil {
+		fail(w, err)
+		return
+	}
 	form := strings.TrimSpace(r.URL.Query().Get("form"))
 	var occurrences []domain.LemmaReviewOccurrence
 	if form != "" {
@@ -78,13 +93,14 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
+		recovery.HasIdentityDecision = lemmaOccurrencesHaveDecision(occurrences)
 	}
 	pageError := ""
 	if !canCorrect {
 		pageError = "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged."
 	}
 	var proposal *lemmaDecisionProposal
-	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, proposal))
+	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, pageError, canCorrect, occurrences, proposal, recovery))
 }
 
 func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +142,13 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, page.Book.Title, form, "", true, occurrences, proposal))
+		recovery, recoveryErr := h.lemmaReviewRecovery(r, owner, bookID, page)
+		if recoveryErr != nil {
+			fail(w, recoveryErr)
+			return
+		}
+		recovery.HasIdentityDecision = lemmaOccurrencesHaveDecision(occurrences)
+		render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, page.Book.Title, form, "", true, occurrences, proposal, recovery))
 		return
 	}
 	if r.FormValue("stage") == "confirm" {
@@ -137,6 +159,60 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Error(w, "Review the proposed consequence before confirming a decision.", http.StatusBadRequest)
+}
+
+func lemmaOccurrencesHaveDecision(occurrences []domain.LemmaReviewOccurrence) bool {
+	for _, occurrence := range occurrences {
+		if occurrence.Excluded || occurrence.CorrectedLemma != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func lemmaProposalChangesIdentity(proposal *lemmaDecisionProposal) bool {
+	if proposal == nil {
+		return false
+	}
+	for _, occurrence := range proposal.Occurrences {
+		if lemmaDecisionChangesIdentity(occurrence, proposal.Action, proposal.Lemma) {
+			return true
+		}
+	}
+	return false
+}
+
+func lemmaDecisionChangesIdentity(occurrence domain.LemmaReviewOccurrence, action, lemma string) bool {
+	before, after := lemmaDecisionIdentities(occurrence, action, lemma)
+	return before != after
+}
+
+func (h *Handler) lemmaReviewRecovery(r *http.Request, owner domain.User, bookID string, detail domain.MyBook) (lemmaReviewRecovery, error) {
+	language := detail.Book.LanguageTag
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner.ID, language)
+	if err != nil {
+		return lemmaReviewRecovery{}, err
+	}
+	recovery := lemmaReviewRecovery{ActiveReading: current.IsActive() && current.BookID == bookID, ActiveReadingBookID: current.BookID, HasCompletedReading: detail.CompletionCount > 0}
+	if detail.Acquired == nil || h.services.PreparedDeck == nil {
+		return recovery, nil
+	}
+	history, ok := h.services.PreparedDeck.(DeckPreparationHistoryReader)
+	if !ok {
+		return recovery, nil
+	}
+	preparations, err := history.ListDeckPreparationsForSourceMaterial(r.Context(), owner.ID, detail.Acquired.Source.ID)
+	if err != nil {
+		return lemmaReviewRecovery{}, err
+	}
+	for _, preparation := range preparations {
+		if preparation.State == domain.DeckPreparationReady {
+			recovery.ReadyPreparationID = preparation.ID
+			recovery.ReadyDeckSnapshotID = preparation.GoalSnapshotID
+			break
+		}
+	}
+	return recovery, nil
 }
 
 func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOccurrence) (*lemmaDecisionProposal, error) {
@@ -423,6 +499,7 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 	}
 	decisions := make([]domain.LemmaReviewDecision, 0, len(indices))
 	chosen := make([]domain.LemmaReviewOccurrence, 0, len(indices))
+	identityChanged := false
 	for i, occurrence := range matches {
 		if !indices[i] {
 			continue
@@ -432,6 +509,7 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		if action == "keep" {
 			decision = occurrence.CanonicalLemma
 		}
+		identityChanged = identityChanged || lemmaDecisionChangesIdentity(occurrence, action, lemma)
 		chosen = append(chosen, occurrence)
 		decisions = append(decisions, domain.LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: decision, Excluded: excluded, NormalizationProfile: profile.Name(), NormalizationVersion: profile.Version()})
 	}
@@ -445,12 +523,59 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		http.Error(w, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.", http.StatusConflict)
 		return
 	}
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	recovery, err := h.lemmaReviewRecovery(r, owner, bookID, detail)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	requiresReprepare := identityChanged && recovery.ReadyPreparationID != ""
+	if requiresReprepare && r.FormValue("reprepare_ready_deck") != "yes" {
+		http.Error(w, "Explicitly confirm re-preparation of the existing ready deck before accepting this identity change.", http.StatusBadRequest)
+		return
+	}
+	if requiresReprepare && recovery.ReadyDeckSnapshotID != "" && recovery.ActiveReadingBookID != "" {
+		http.Error(w, "Stop the other current reading before accepting this change; then Mouseion can start this Book again and prepare its new snapshot.", http.StatusConflict)
+		return
+	}
+	if requiresReprepare && recovery.ReadyDeckSnapshotID != "" && detail.Disposition != domain.BookDispositionToRead {
+		http.Error(w, "Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot.", http.StatusConflict)
+		return
+	}
 	if err := store.PutLemmaDecisionProposal(r.Context(), decisions, form, language, extras, stateFingerprint); err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.Error(w, "Learner vocabulary state changed or froze after preview. No decision was saved; review it again.", http.StatusConflict)
 			return
 		}
 		fail(w, err)
+		return
+	}
+	if requiresReprepare {
+		var handle prepareddeck.Handle
+		var reprepareErr error
+		if recovery.ReadyDeckSnapshotID != "" {
+			reading, startErr := h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner.ID, language, bookID)
+			if startErr != nil {
+				http.Error(w, "The identity decision was saved, but a new Reading snapshot could not be started. Start this Book in Reading, then prepare its deck; the historical deck remains available.", http.StatusServiceUnavailable)
+				return
+			}
+			handle, reprepareErr = h.services.PreparedDeck.SubmitForGoal(r.Context(), owner.ID, reading.AnalysisRunID, reading.SnapshotID)
+		} else {
+			handle, reprepareErr = h.services.PreparedDeck.Reprepare(r.Context(), owner.ID, recovery.ReadyPreparationID)
+		}
+		if reprepareErr != nil {
+			http.Error(w, "The identity decision was saved, but re-preparation could not be queued. The historical deck remains available; retry preparation from the deck task.", http.StatusServiceUnavailable)
+			return
+		}
+		redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status")
 		return
 	}
 	redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
