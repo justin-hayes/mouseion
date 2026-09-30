@@ -259,10 +259,14 @@ func (h *Handler) lemmaReviewCorrectionAvailability(ctx context.Context, ownerID
 	if err != nil {
 		return false, "", err
 	}
-	if current.IsActive() && current.BookID == bookID {
+	if currentReadingBlocksLemmaDecision(current, bookID) {
 		return false, "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged.", nil
 	}
 	return true, "", nil
+}
+
+func currentReadingBlocksLemmaDecision(current domain.CurrentReading, bookID string) bool {
+	return current.IsActive() && current.BookID == bookID
 }
 
 func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
@@ -606,7 +610,7 @@ func (h *Handler) lemmaReviewWritable(w http.ResponseWriter, r *http.Request, ow
 		fail(w, err)
 		return false
 	}
-	if current.IsActive() && current.BookID == bookID {
+	if currentReadingBlocksLemmaDecision(current, bookID) {
 		http.Error(w, "Stop this Book's current reading before changing its vocabulary.", http.StatusConflict)
 		return false
 	}
