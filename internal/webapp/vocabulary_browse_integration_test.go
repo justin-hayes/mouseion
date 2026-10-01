@@ -123,11 +123,19 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, alice.ID, otherRunID, otherCorpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, morphology, start, start+len(token.surface))
 		require.NoError(t, err)
 	}
+	qualityBook, qualitySource, qualityCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-quality", "Low quality source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "badwort", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, qualitySource, qualityCorpus)
+	var qualityRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, qualityCorpus.ID).Scan(&qualityRunID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='badwort',end_offset=7 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, qualityCorpus.ID, qualityRunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='badwort',raw_lemma='badwort',canonical_lemma='badwort',start_offset=0,end_offset=7 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, qualityCorpus.ID, qualityRunID)
+	require.NoError(t, err)
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
 	sentence := "Die Kinder besuchen heute das alte Haus."
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID, sentence, len(sentence))
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID)
 	require.NoError(t, err)
@@ -162,6 +170,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','baum','NOUN')`, alice.ID, customDeck.ID)
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','badwort','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
 	bookDeckBefore, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
 	require.NoError(t, err)
 
@@ -180,8 +190,19 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, deckPage.Code)
 	csrf := hiddenToken(t, deckPage.Body.String())
 	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
+	hausUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
 	evidenceFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
+	countOnlySentence := "Am Morgen sehen die Kinder heute ein Haus im Garten."
+	countOnlyTargetOffset := strings.Index(countOnlySentence, "Haus")
+	countOnlyStart := 100
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,1,$5,$6,$7)`, alice.ID, runID, corpus.ID, hausUnitID, countOnlySentence, countOnlyStart, countOnlyStart+len(countOnlySentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,1,0,'Haus','haus','haus','NOUN','root',0,'{}',$4,$5)`, alice.ID, runID, corpus.ID, countOnlyStart+countOnlyTargetOffset, countOnlyStart+countOnlyTargetOffset+len("Haus"))
+	require.NoError(t, err)
+	countChangedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	assert.Equal(t, evidenceFingerprint, countChangedFingerprint, "adding another occurrence without losing identity evidence does not require reconfirmation")
 	missingUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(missingSource.SourceIdentifier, "migration-"))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,4,15,NULL,NULL,NULL,true)`, alice.ID, missingBook.ID, missingCorpus.ID, missingRunID, missingUnitID)
 	require.NoError(t, err)
@@ -230,9 +251,13 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Equal(t, "NOUN", hausEvidence.UPOS)
 	assert.Equal(t, "Haus", hausEvidence.Target)
 	assert.Equal(t, sentence, hausEvidence.Sentence)
-	require.Len(t, frozen.Omissions, 1)
-	assert.Equal(t, "evidence", frozen.Omissions[0].Kind)
-	assert.Equal(t, "missingwort", frozen.Omissions[0].Lemma)
+	require.Len(t, frozen.Omissions, 2)
+	frozenOmissionKinds := map[string]string{}
+	for _, omission := range frozen.Omissions {
+		frozenOmissionKinds[omission.Lemma] = omission.Kind
+	}
+	assert.Equal(t, "evidence", frozenOmissionKinds["missingwort"])
+	assert.Equal(t, "quality", frozenOmissionKinds["badwort"])
 	repeatedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
 		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
 	}, postCookies)
@@ -243,7 +268,6 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	changedSentence := "The source changed after this Custom deck was submitted."
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
 	require.NoError(t, err)
-	hausUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
 	hausStart := strings.Index(sentence, "Haus")
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL,true)`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
 	require.NoError(t, err)
@@ -266,10 +290,14 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	}
 	require.Equal(t, "complete_with_omissions", ready.State, ready.Error)
 	require.Greater(t, ready.TotalCards, 0)
-	require.Len(t, ready.Omissions, 2)
-	assert.Equal(t, "evidence", ready.Omissions[0].Kind)
-	assert.Equal(t, "meaning", ready.Omissions[1].Kind)
-	assert.Equal(t, "baum", ready.Omissions[1].Lemma)
+	require.Len(t, ready.Omissions, 3)
+	completedOmissionKinds := map[string]string{}
+	for _, omission := range ready.Omissions {
+		completedOmissionKinds[omission.Lemma] = omission.Kind
+	}
+	assert.Equal(t, "evidence", completedOmissionKinds["missingwort"])
+	assert.Equal(t, "quality", completedOmissionKinds["badwort"])
+	assert.Equal(t, "meaning", completedOmissionKinds["baum"])
 	translationRequestsBeforeRedelivery := len(provider.requests)
 	redeliveryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: provider, Configured: true}
 	require.NoError(t, redeliveryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
@@ -281,6 +309,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Contains(t, status.Body.String(), "ready")
 	assert.Contains(t, status.Body.String(), "missingwort")
 	assert.Contains(t, status.Body.String(), "baum")
+	assert.Contains(t, status.Body.String(), "badwort")
 	assert.Contains(t, status.Body.String(), "Private source title")
 	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
 	assert.NotContains(t, status.Body.String(), changedSentence)
@@ -291,6 +320,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, qualityBook.ID)
 	require.NoError(t, err)
 	allMissingPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, allMissingPage.Code)
@@ -308,9 +339,11 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, qualityBook.ID)
+	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `DELETE FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND corpus_id=$3 AND analysis_run_id=$4 AND source_document_id=$5 AND start_offset=$6 AND end_offset=$7`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID, sentence, len(sentence))
 	require.NoError(t, err)
 	retryFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
