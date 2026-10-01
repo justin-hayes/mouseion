@@ -274,7 +274,15 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
-	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, uuid.NewString()))
+	evidenceFingerprint := ""
+	if editable && h.services.CustomDeckPreparation != nil {
+		evidenceFingerprint, err = h.services.CustomDeckPreparation.EvidenceFingerprint(r.Context(), user(r).ID, deck.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+	}
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
 }
 
 func (h *Handler) prepareCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +306,11 @@ func (h *Handler) prepareCustomVocabularyDeck(w http.ResponseWriter, r *http.Req
 	if !h.requireEditableStudyLanguage(w, r, deck.Language) {
 		return
 	}
-	preparation, err := h.services.CustomDeckPreparation.Submit(r.Context(), owner, deckID, r.FormValue("action_key"))
+	preparation, err := h.services.CustomDeckPreparation.Submit(r.Context(), owner, deckID, r.FormValue("action_key"), r.FormValue("expected_evidence"))
+	if errors.Is(err, persistence.ErrCustomDeckPreparationEvidenceChanged) {
+		http.Redirect(w, r, "/vocabulary/decks/"+url.PathEscape(deckID)+"?evidence_changed=true", http.StatusSeeOther)
+		return
+	}
 	if errors.Is(err, persistence.ErrCustomDeckPreparationUnavailable) {
 		http.Error(w, "No selected identity currently has eligible evidence for preparation.", http.StatusConflict)
 		return
@@ -328,12 +340,43 @@ func (h *Handler) customDeckPreparationStatus(w http.ResponseWriter, r *http.Req
 		fail(w, err)
 		return
 	}
+	if previous, previousErr := h.services.CustomDeckPreparation.LatestReady(r.Context(), user(r).ID, p.DeckID); previousErr == nil && previous.ID != p.ID {
+		p.PreviousReadyID = previous.ID
+		p.PreviousReadyCards = previous.TotalCards
+	} else if previousErr != nil && !errors.Is(previousErr, persistence.ErrNotFound) {
+		fail(w, previousErr)
+		return
+	}
 	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), user(r).ID, p.DeckID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 	render(w, r, CustomDeckPreparationStatusPage(user(r), h.csrf(w, r), p, deck))
+}
+
+func (h *Handler) cancelCustomDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.CustomDeckPreparation == nil {
+		http.NotFound(w, r)
+		return
+	}
+	owner, id := user(r).ID, r.PathValue("id")
+	err := h.services.CustomDeckPreparation.Cancel(r.Context(), owner, id)
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		_, err = h.services.CustomDeckPreparation.Get(r.Context(), owner, id)
+	}
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	http.Redirect(w, r, "/vocabulary/deck-preparations/"+url.PathEscape(id), http.StatusSeeOther)
 }
 
 func (h *Handler) downloadCustomDeckPreparation(w http.ResponseWriter, r *http.Request) {

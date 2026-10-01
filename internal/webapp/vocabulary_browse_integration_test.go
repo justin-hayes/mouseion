@@ -5,6 +5,7 @@ package webapp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,6 +24,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,10 +33,44 @@ type customDeckFixtureTranslation struct {
 	requests []enrichment.TranslationRequest
 }
 
+type customDeckFailTranslation struct{}
+
+func (*customDeckFailTranslation) Name() string    { return "custom-deck-fixture" }
+func (*customDeckFailTranslation) Version() string { return "1" }
+func (*customDeckFailTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	return enrichment.TranslationResponse{}, errors.New("temporary translation transport failure")
+}
+
+type customDeckCancelTranslation struct {
+	cancel func() error
+	calls  int
+}
+
+type customDeckMalformedTranslation struct{}
+
+func (*customDeckMalformedTranslation) Name() string    { return "custom-deck-fixture" }
+func (*customDeckMalformedTranslation) Version() string { return "1" }
+func (*customDeckMalformedTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	return enrichment.TranslationResponse{}, nil
+}
+
+func (*customDeckCancelTranslation) Name() string    { return "custom-deck-fixture" }
+func (*customDeckCancelTranslation) Version() string { return "1" }
+func (p *customDeckCancelTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	p.calls++
+	if err := p.cancel(); err != nil {
+		return enrichment.TranslationResponse{}, err
+	}
+	return enrichment.TranslationResponse{Translation: "tree", Gloss: "a plant", ContextOnly: true, SentenceTranslation: "The children see the tree in the garden.", SentenceTranslationTargets: []string{"tree"}}, nil
+}
+
 func (*customDeckFixtureTranslation) Name() string    { return "custom-deck-fixture" }
 func (*customDeckFixtureTranslation) Version() string { return "1" }
 func (p *customDeckFixtureTranslation) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.requests = append(p.requests, request)
+	if request.CanonicalLemma == "baum" {
+		return enrichment.TranslationResponse{UnresolvedReason: "The context does not distinguish this meaning."}, nil
+	}
 	return enrichment.TranslationResponse{Translation: "house", Gloss: "a building", ContextOnly: true, SentenceTranslation: "In the morning, the children visit the house and speak with their neighbors.", SentenceTranslationTargets: []string{"house"}}, nil
 }
 
@@ -50,11 +86,56 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	alice := createAccount(t, ctx, store, "custom-prep-alice", "alice-password", false)
 	createAccount(t, ctx, store, "custom-prep-bob", "bob-password", false)
 	book, source, corpus, bookDeck := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep", "Private source title", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	missingBook, missingSource, missingCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-missing", "Missing German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "missingwort", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, missingSource, missingCorpus)
+	var missingRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, missingCorpus.ID).Scan(&missingRunID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='Ein missingwort bleibt.',end_offset=23 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, missingCorpus.ID, missingRunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='missingwort',raw_lemma='missingwort',canonical_lemma='missingwort',start_offset=4,end_offset=15 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, missingCorpus.ID, missingRunID)
+	require.NoError(t, err)
+	otherBook, otherSource, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-other", "Other German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, otherSource, otherCorpus)
+	var otherRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, otherCorpus.ID).Scan(&otherRunID))
+	baumSentence := "Kinder sehen heute einen Baum im Garten."
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, otherCorpus.ID, otherRunID, baumSentence, len(baumSentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, otherCorpus.ID, otherRunID)
+	require.NoError(t, err)
+	baumTokens := []struct {
+		surface, lemma, upos, dependency string
+		head                             int
+		morphology                       map[string]string
+	}{
+		{"Kinder", "Kind", "NOUN", "nsubj", 1, nil}, {"sehen", "sehen", "VERB", "root", 1, map[string]string{"VerbForm": "Fin"}},
+		{"heute", "heute", "ADV", "advmod", 1, nil}, {"einen", "ein", "DET", "det", 4, nil},
+		{"Baum", "baum", "NOUN", "obj", 1, nil}, {"im", "in", "ADP", "case", 6, nil}, {"Garten", "Garten", "NOUN", "obl", 1, nil},
+	}
+	for ordinal, token := range baumTokens {
+		features := token.morphology
+		if features == nil {
+			features = map[string]string{}
+		}
+		morphology, marshalErr := json.Marshal(features)
+		require.NoError(t, marshalErr)
+		start := strings.Index(baumSentence, token.surface)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, alice.ID, otherRunID, otherCorpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, morphology, start, start+len(token.surface))
+		require.NoError(t, err)
+	}
+	qualityBook, qualitySource, qualityCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-quality", "Low quality source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "badwort", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, qualitySource, qualityCorpus)
+	var qualityRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, qualityCorpus.ID).Scan(&qualityRunID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='badwort',end_offset=7 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, qualityCorpus.ID, qualityRunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='badwort',raw_lemma='badwort',canonical_lemma='badwort',start_offset=0,end_offset=7 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, qualityCorpus.ID, qualityRunID)
+	require.NoError(t, err)
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
 	sentence := "Die Kinder besuchen heute das alte Haus."
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID, sentence, len(sentence))
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID)
 	require.NoError(t, err)
@@ -85,6 +166,12 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, store.SetVocabularyBrowseSelection(ctx, alice.ID, "de", "haus", "NOUN", true))
 	customDeck, err := store.CreateCustomVocabularyDeck(ctx, alice.ID, "de", "German practice", "d7c38a7e-777d-4fbd-a234-67115c7f92ab")
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','missingwort','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','baum','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','badwort','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
 	bookDeckBefore, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
 	require.NoError(t, err)
 
@@ -103,8 +190,40 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, deckPage.Code)
 	csrf := hiddenToken(t, deckPage.Body.String())
 	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
+	hausUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
+	evidenceFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	countOnlySentence := "Am Morgen sehen die Kinder heute ein Haus im Garten."
+	countOnlyTargetOffset := strings.Index(countOnlySentence, "Haus")
+	countOnlyStart := 100
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,1,$5,$6,$7)`, alice.ID, runID, corpus.ID, hausUnitID, countOnlySentence, countOnlyStart, countOnlyStart+len(countOnlySentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,1,0,'Haus','haus','haus','NOUN','root',0,'{}',$4,$5)`, alice.ID, runID, corpus.ID, countOnlyStart+countOnlyTargetOffset, countOnlyStart+countOnlyTargetOffset+len("Haus"))
+	require.NoError(t, err)
+	countChangedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	assert.Equal(t, evidenceFingerprint, countChangedFingerprint, "adding another occurrence without losing identity evidence does not require reconfirmation")
+	missingUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(missingSource.SourceIdentifier, "migration-"))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,4,15,NULL,NULL,NULL,true)`, alice.ID, missingBook.ID, missingCorpus.ID, missingRunID, missingUnitID)
+	require.NoError(t, err)
+	changedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, evidenceFingerprint, changedFingerprint, "the review token tracks all-evidence loss per identity")
+	changedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"814900c1-0130-4e43-ade3-4c0d97bbf30e"}, "expected_evidence": {evidenceFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, changedPost.Code)
+	assert.Contains(t, changedPost.Header().Get("Location"), "evidence_changed=true")
+	var preparationCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Zero(t, preparationCount, "a changed all-evidence state must return to review before freezing")
+	refreshedReview := perform(t, h, http.MethodGet, changedPost.Header().Get("Location"), nil, cookies)
+	require.Equal(t, http.StatusOK, refreshedReview.Code)
+	assert.Contains(t, refreshedReview.Body.String(), "Current evidence availability changed since your review")
+	evidenceFingerprint, err = preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
 	post := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"},
+		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
 	}, postCookies)
 	require.Equal(t, http.StatusSeeOther, post.Code, post.Body.String())
 	statusURL := post.Header().Get("Location")
@@ -113,20 +232,44 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, submitted.FrozenSpec)
 	var frozen struct {
-		Evidence []domain.CustomDeckPreparationEvidence `json:"evidence"`
+		Evidence  []domain.CustomDeckPreparationEvidence `json:"evidence"`
+		Omissions []domain.CustomDeckPreparationOmission `json:"omissions"`
 	}
 	require.NoError(t, json.Unmarshal(submitted.FrozenSpec, &frozen))
-	require.Len(t, frozen.Evidence, 1)
-	assert.Equal(t, book.ID, frozen.Evidence[0].BookID)
-	assert.Equal(t, source.ID, frozen.Evidence[0].SourceMaterialID)
-	assert.Equal(t, runID, frozen.Evidence[0].AnalysisRunID)
-	assert.Equal(t, corpus.ID, frozen.Evidence[0].CorpusID)
-	assert.Equal(t, "haus", frozen.Evidence[0].Lemma)
-	assert.Equal(t, "NOUN", frozen.Evidence[0].UPOS)
-	assert.Equal(t, "Haus", frozen.Evidence[0].Target)
-	assert.Equal(t, sentence, frozen.Evidence[0].Sentence)
+	require.Len(t, frozen.Evidence, 2)
+	var hausEvidence *domain.CustomDeckPreparationEvidence
+	for i := range frozen.Evidence {
+		if frozen.Evidence[i].Lemma == "haus" {
+			hausEvidence = &frozen.Evidence[i]
+		}
+	}
+	require.NotNil(t, hausEvidence)
+	assert.Equal(t, book.ID, hausEvidence.BookID)
+	assert.Equal(t, source.ID, hausEvidence.SourceMaterialID)
+	assert.Equal(t, runID, hausEvidence.AnalysisRunID)
+	assert.Equal(t, corpus.ID, hausEvidence.CorpusID)
+	assert.Equal(t, "NOUN", hausEvidence.UPOS)
+	assert.Equal(t, "Haus", hausEvidence.Target)
+	assert.Equal(t, sentence, hausEvidence.Sentence)
+	require.Len(t, frozen.Omissions, 2)
+	frozenOmissionKinds := map[string]string{}
+	for _, omission := range frozen.Omissions {
+		frozenOmissionKinds[omission.Lemma] = omission.Kind
+	}
+	assert.Equal(t, "evidence", frozenOmissionKinds["missingwort"])
+	assert.Equal(t, "quality", frozenOmissionKinds["badwort"])
+	repeatedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, repeatedPost.Code)
+	assert.Equal(t, statusURL, repeatedPost.Header().Get("Location"), "uncertain repeat resolves to the same durable generation")
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Equal(t, 1, preparationCount)
 	changedSentence := "The source changed after this Custom deck was submitted."
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
+	require.NoError(t, err)
+	hausStart := strings.Index(sentence, "Haus")
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL,true)`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.Cleanup(t, "river client", func() error { return client.Stop(context.Background()) })
@@ -136,7 +279,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		require.Equal(t, http.StatusOK, status.Code)
 		ready, err = preparationService.Get(ctx, alice.ID, preparationID)
 		require.NoError(t, err)
-		if ready.State == "ready" || ready.State == "failed" {
+		if ready.State == "complete_with_omissions" || ready.State == "failed" {
 			break
 		}
 		select {
@@ -145,10 +288,28 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
-	require.Equal(t, "ready", ready.State, ready.Error)
+	require.Equal(t, "complete_with_omissions", ready.State, ready.Error)
 	require.Greater(t, ready.TotalCards, 0)
+	require.Len(t, ready.Omissions, 3)
+	completedOmissionKinds := map[string]string{}
+	for _, omission := range ready.Omissions {
+		completedOmissionKinds[omission.Lemma] = omission.Kind
+	}
+	assert.Equal(t, "evidence", completedOmissionKinds["missingwort"])
+	assert.Equal(t, "quality", completedOmissionKinds["badwort"])
+	assert.Equal(t, "meaning", completedOmissionKinds["baum"])
+	translationRequestsBeforeRedelivery := len(provider.requests)
+	redeliveryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: provider, Configured: true}
+	require.NoError(t, redeliveryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 2, MaxAttempts: 3},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: preparationID},
+	}))
+	assert.Len(t, provider.requests, translationRequestsBeforeRedelivery, "redelivery of a complete-with-omissions generation is terminal")
 	status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
 	assert.Contains(t, status.Body.String(), "ready")
+	assert.Contains(t, status.Body.String(), "missingwort")
+	assert.Contains(t, status.Body.String(), "baum")
+	assert.Contains(t, status.Body.String(), "badwort")
 	assert.Contains(t, status.Body.String(), "Private source title")
 	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
 	assert.NotContains(t, status.Body.String(), changedSentence)
@@ -156,10 +317,124 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, download.Code)
 	assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"))
 	assert.True(t, strings.HasPrefix(download.Body.String(), "PK"), "download must be a real APKG ZIP")
-	require.Len(t, provider.requests, 1)
-	assert.NotContains(t, fmt.Sprint(provider.requests[0]), "Private source title", "provider request must not include Book title")
-	assert.Contains(t, fmt.Sprint(provider.requests[0]), sentence, "provider request must use the submission-time sentence")
-	assert.NotContains(t, fmt.Sprint(provider.requests[0]), changedSentence, "queued evidence changes must not alter provider inputs")
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, qualityBook.ID)
+	require.NoError(t, err)
+	allMissingPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
+	require.Equal(t, http.StatusOK, allMissingPage.Code)
+	assert.Contains(t, allMissingPage.Body.String(), "no selected identity has current eligible evidence")
+	assert.NotContains(t, allMissingPage.Body.String(), ">Prepare deck</button>")
+	allMissingFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	allMissingPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"59feee1c-6859-44f5-8dc7-2fdf298d7482"}, "expected_evidence": {allMissingFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusConflict, allMissingPost.Code)
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Equal(t, 1, preparationCount, "all-zero current evidence must not create another generation")
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, qualityBook.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND corpus_id=$3 AND analysis_run_id=$4 AND source_document_id=$5 AND start_offset=$6 AND end_offset=$7`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	require.NoError(t, err)
+	retryFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	require.NoError(t, client.Stop(ctx))
+	failingProvider := &customDeckFailTranslation{}
+	failureWorkers := river.NewWorkers()
+	prepareddeck.AddCustomDeckPreparationWorker(failureWorkers, store, presentation, failingProvider, true)
+	failureClient, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: failureWorkers})
+	require.NoError(t, err)
+	recoveryService := prepareddeck.NewCustomDeckPreparationService(store, failureClient, presentation, failingProvider)
+	h.services.CustomDeckPreparation = recoveryService
+	cancelledPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "550a15b8-2068-43bd-86ad-2e1f09f460de", retryFingerprint)
+	require.NoError(t, err)
+	cancelPost := perform(t, h, http.MethodPost, "/vocabulary/deck-preparations/"+cancelledPreparation.ID+"/cancel", url.Values{"csrf_token": {csrf}}, postCookies)
+	require.Equal(t, http.StatusSeeOther, cancelPost.Code)
+	cancelledStatus := perform(t, h, http.MethodGet, cancelPost.Header().Get("Location"), nil, cookies)
+	require.Equal(t, http.StatusOK, cancelledStatus.Code)
+	assert.Contains(t, cancelledStatus.Body.String(), "Preparation cancelled")
+	cancelledPreparation, err = recoveryService.Get(ctx, alice.ID, cancelledPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "cancelled", cancelledPreparation.State)
+	inFlightPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "bc4e1589-68a8-42b1-92e4-727132766de2", retryFingerprint)
+	require.NoError(t, err)
+	cancelProvider := &customDeckCancelTranslation{cancel: func() error {
+		return store.CancelCustomDeckPreparation(ctx, alice.ID, inFlightPreparation.ID)
+	}}
+	cancelWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: cancelProvider, Configured: true}
+	require.NoError(t, cancelWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: inFlightPreparation.ID},
+	}))
+	inFlightPreparation, err = recoveryService.Get(ctx, alice.ID, inFlightPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "cancelled", inFlightPreparation.State)
+	assert.Equal(t, 1, cancelProvider.calls, "an in-flight cancellation stops further provider requests")
+	failedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "1eb7d21b-a6e9-42c4-9339-6feeb8dd29e8", retryFingerprint)
+	require.NoError(t, err)
+	failureWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: failingProvider, Configured: true}
+	require.NoError(t, failureWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: failedPreparation.ID},
+	}))
+	failedPreparation, err = recoveryService.Get(ctx, alice.ID, failedPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", failedPreparation.State)
+	malformedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "a7e59d94-a40f-42c1-ae54-a9673fbda021", retryFingerprint)
+	require.NoError(t, err)
+	malformedWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: &customDeckMalformedTranslation{}, Configured: true}
+	require.NoError(t, malformedWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: malformedPreparation.ID},
+	}))
+	malformedPreparation, err = recoveryService.Get(ctx, alice.ID, malformedPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", malformedPreparation.State, "malformed enrichment outcomes fail closed")
+	failedStatusURL := "/vocabulary/deck-preparations/" + failedPreparation.ID
+	failedStatus := perform(t, h, http.MethodGet, failedStatusURL, nil, cookies)
+	require.Equal(t, http.StatusOK, failedStatus.Code)
+	assert.Contains(t, failedStatus.Body.String(), "failed")
+	assert.Contains(t, failedStatus.Body.String(), "Previous Ready preparation")
+	assert.Contains(t, failedStatus.Body.String(), preparationID+"/download")
+	previousDownload := perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+preparationID+"/download", nil, cookies)
+	assert.Equal(t, http.StatusOK, previousDownload.Code, "a failed replacement must keep the old Ready result downloadable")
+	retryKey := "12894429-9e3b-4a97-9f98-507ad734359b"
+	retryPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {retryKey}, "expected_evidence": {retryFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, retryPost.Code, retryPost.Body.String())
+	repeatedRetry := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {retryKey}, "expected_evidence": {retryFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, repeatedRetry.Code)
+	assert.Equal(t, retryPost.Header().Get("Location"), repeatedRetry.Header().Get("Location"))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Equal(t, 6, preparationCount, "retry creates one new durable generation despite repeated submission")
+	retryPreparationID := strings.TrimPrefix(retryPost.Header().Get("Location"), "/vocabulary/deck-preparations/")
+	retryProvider := &customDeckFixtureTranslation{}
+	retryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: retryProvider, Configured: true}
+	require.NoError(t, retryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: retryPreparationID},
+	}))
+	retried, err := recoveryService.Get(ctx, alice.ID, retryPreparationID)
+	require.NoError(t, err)
+	require.Equal(t, "complete_with_omissions", retried.State, retried.Error)
+	require.Len(t, provider.requests, 2)
+	require.Len(t, retryProvider.requests, 2)
+	providerRequests := fmt.Sprint(append(provider.requests, retryProvider.requests...))
+	assert.NotContains(t, providerRequests, "Private source title", "provider requests must not include Book title")
+	assert.Contains(t, providerRequests, sentence, "provider request must use the submission-time sentence")
+	assert.NotContains(t, providerRequests, changedSentence, "queued evidence changes must not alter provider inputs")
 	bobCookies, _ := loginCookies(t, h, "custom-prep-bob", "bob-password")
 	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, statusURL, nil, bobCookies).Code)
 

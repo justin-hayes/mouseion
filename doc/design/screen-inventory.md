@@ -191,9 +191,10 @@ learner-facing screen.
 Browse now includes current-evidence search, Book/POS/learner-state filters, and
 count sorts; Import is its deployed peer at `/vocabulary/import`. Concordance at
 `/vocabulary/concordance` includes applied multi-Book and grammar filters, KWIC,
-and a focused textual sentence-study view. The broader Concordance contract and
-Custom-deck preparation below remain target work. Named Custom decks now support
-identity-list editing and deletion. Their product and
+and a focused textual sentence-study view. The broader Concordance contract
+remains target work. Named Custom decks support identity-list editing,
+deletion, and durable preparation generations with item-level omissions and
+prior-Ready retention. Their product and
 acceptance contract is [Vocabulary Browse,
 Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
@@ -203,8 +204,8 @@ Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-cus
 | Selection review | Review all selected identities, including missing evidence; explicitly name a Custom deck. | Long paged review, missing filter, clear confirmation, and explicit naming are shipped; unavailable-language selection remains read-only |
 | Concordance | Search exact surface, effective lemma + POS, or analyzer lemma + POS evidence; inspect analyzer attribution and original context. | Exact modes, applied multi-Book/grammar summary, correction/exclusion labels, 25-result KWIC paging, native sentence disclosure, and narrow reflow are shipped |
 | Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual token/head/dependent evidence, identified target, explained missing parse, and return to the originating result are shipped; optional diagram remains unnecessary |
-| Saved Custom deck | Edit an identity shortlist independently of Reading; review evidence and submit preparation. | Named deck list, rename, paged identity review, missing filter, add/remove, current Book/analysis/correction links, unavailable-language read-only state, and native deletion confirmation are shipped; preparation and artifact history remain target work |
-| Custom deck preparation | Inspect durable progress and omissions, retry/prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card, complete with omissions, prior Ready during replacement, safe retry/uncertain submission |
+| Saved Custom deck | Edit an identity shortlist independently of Reading; review current evidence and submit preparation. | Named deck list, rename, paged identity review, missing filter, add/remove, current Book/analysis/correction links, unavailable-language read-only state, native deletion confirmation, evidence-change reconfirmation, all-zero disabled preparation, and idempotent submission are shipped |
+| Custom deck preparation | Inspect durable status and item-level outcomes, cancel or retry/prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card withheld, complete with evidence/quality/meaning omissions, prior Ready during replacement, safe retry and uncertain submission |
 
 ## Inactive and supporting implementation
 
