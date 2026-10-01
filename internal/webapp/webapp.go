@@ -106,7 +106,7 @@ type AnalysisJobStore interface {
 }
 
 type VocabularyBrowseStore interface {
-	ListVocabularyBrowsePage(context.Context, string, string, string, int) (domain.VocabularyBrowsePage, error)
+	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
 }
 
 // StoreDependencies groups the focused persistence capabilities consumed by the

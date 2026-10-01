@@ -852,7 +852,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			}
 		}
 		if language != "" {
-			<p>Viewing active study language <code>{ language }</code>. { fmt.Sprintf("%d Books contribute current vocabulary evidence", page.ContributingBooks) }; { fmt.Sprintf("%d do not", page.NoncontributingBooks) }.</p>
+			<p>Viewing active study language <code>{ language }</code>. { fmt.Sprintf("%d of %d Books in the applied Book scope contribute current vocabulary evidence", page.ContributingBooks, page.ContributingBooks+page.NoncontributingBooks) }; { fmt.Sprintf("%d do not", page.NoncontributingBooks) }.</p>
 			if page.AnalyzedBooks > 0 && page.BooksWithoutCurrentAnalysis > 0 {
 				<p role="note">This is a partial corpus: some Books do not have a current completed analysis.</p>
 			}
@@ -863,18 +863,38 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				}
 				</ul></details>
 			}
-			<form method="get" action="/vocabulary"><label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/><button type="submit">Search</button></form>
+			<form method="get" action="/vocabulary" class="data-width">
+				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
+				<fieldset><legend>Books (optional scope)</legend>
+					<p>With no Books selected, counts include every active-language Book. Selected Books narrow displayed occurrence and distinct-Book counts.</p>
+					for _, book := range page.Books {
+						<label><input type="checkbox" name="book" value={ book.ID } checked?={ vocabularyBrowseContains(page.SelectedBooks, book.ID) }/>{ book.Title } — { vocabularyBookEvidenceState(book) }</label>
+					}
+				</fieldset>
+				<fieldset><legend>Part of speech</legend>
+					for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV"} {
+						<label><input type="checkbox" name="pos" value={ pos } checked?={ vocabularyBrowseContains(page.SelectedUPOS, pos) }/>{ pos }</label>
+					}
+				</fieldset>
+				<label for="vocabulary-known-filter">Known</label><select id="vocabulary-known-filter" name="known"><option value="any" selected?={ page.KnownFilter == "any" || page.KnownFilter == "" }>Any</option><option value="known" selected?={ page.KnownFilter == "known" }>Known</option><option value="not-known" selected?={ page.KnownFilter == "not-known" }>Not Known</option><option value="not-known-or-reserved" selected?={ page.KnownFilter == "not-known-or-reserved" }>Not Known or Reserved</option></select>
+				<label for="vocabulary-reserved-filter">Reserved</label><select id="vocabulary-reserved-filter" name="reserved"><option value="any" selected?={ page.ReservedFilter == "any" || page.ReservedFilter == "" }>Any</option><option value="reserved" selected?={ page.ReservedFilter == "reserved" }>Reserved</option><option value="not-reserved" selected?={ page.ReservedFilter == "not-reserved" }>Not Reserved</option></select>
+				<label for="vocabulary-sort">Order</label><select id="vocabulary-sort" name="sort"><option value="lemma" selected?={ page.Sort == "lemma" || page.Sort == "" }>Lemma, then part of speech</option><option value="occurrences" selected?={ page.Sort == "occurrences" }>Most occurrences</option><option value="books" selected?={ page.Sort == "books" }>Most Books</option></select>
+				<button type="submit">Apply search and filters</button>
+			</form>
 			if page.Total == 0 && page.InventoryTotal == 0 && page.AnalyzedBooks == 0 {
 				<p>No current analyzed Books contribute vocabulary yet.</p>
 			}
 			if page.Total == 0 && page.InventoryTotal == 0 && page.AnalyzedBooks > 0 {
 				<p>The current analyzed corpus contains no eligible vocabulary identities.</p>
 			}
-			if page.Total == 0 && page.InventoryTotal > 0 {
-				<p>No current identities match this prefix. Clear the search to see the full inventory.</p>
+			if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
+				<p>No eligible identities have current evidence in the applied Book and part-of-speech scope.</p>
+			}
+			if page.Total == 0 && page.ScopedInventoryTotal > 0 {
+				<p>No current identities match the applied prefix and learner-state filters in this Book and part-of-speech scope. Clear or broaden those controls to see more of the inventory.</p>
 			}
 			if page.Total > 0 {
-				<p>{ fmt.Sprintf("%d effective identities", page.Total) }. Counts are scoped to the active study language.</p>
+				<p>{ fmt.Sprintf("%d effective identities", page.Total) }. { fmt.Sprintf("The applied Book and part-of-speech scope contains %d of %d identities in the full active-language corpus", page.ScopedInventoryTotal, page.InventoryTotal) }; Known and Reserved filters only narrow identities and do not change their evidence counts. Sorts use the complete eligible scope with lemma and part of speech as tie-breaks.</p>
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Books</th><th scope="col">Learner state</th><th scope="col">Evidence</th></tr></thead><tbody>
 				for _, row := range page.Rows {
@@ -904,15 +924,48 @@ templ VocabularyViewsNav(active string) {
 	</nav>
 }
 
+templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence across analyzed Books.", nil)
+		@VocabularyViewsNav("browse")
+		<p>Active study language: <code>{ language }</code>.</p>
+		@Feedback(FeedbackError, "Browse could not be loaded", "Your search and filters were not applied. Try again; the selected study language and controls have been retained.")
+		<form method="get" action="/vocabulary">
+			<input type="hidden" name="q" value={ query.Prefix }/>
+			for _, bookID := range query.BookIDs {
+				<input type="hidden" name="book" value={ bookID }/>
+			}
+			for _, pos := range query.UPOS {
+				<input type="hidden" name="pos" value={ pos }/>
+			}
+			<input type="hidden" name="known" value={ query.KnownFilter }/>
+			<input type="hidden" name="reserved" value={ query.ReservedFilter }/>
+			<input type="hidden" name="sort" value={ query.Sort }/>
+			<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
+			<button type="submit">Retry Browse</button>
+		</form>
+		<a href="/vocabulary">Clear search and filters</a>
+	}
+}
+
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
 		if page.Page > 1 {
-			<a href={ templ.SafeURL(fmt.Sprintf("/vocabulary?q=%s&page=%d", url.QueryEscape(query), page.Page-1)) }>Previous</a>
+			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) }>Previous</a>
 		}
 		if page.Page*25 < int(page.Total) {
-			<a href={ templ.SafeURL(fmt.Sprintf("/vocabulary?q=%s&page=%d", url.QueryEscape(query), page.Page+1)) }>Next</a>
+			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) }>Next</a>
 		}
 	</nav></section>
+}
+
+func vocabularyBrowseContains(values []string, value string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
 
 func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {

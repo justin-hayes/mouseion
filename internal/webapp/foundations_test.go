@@ -3,6 +3,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -259,8 +260,8 @@ func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]dom
 func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
-func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _, _ string, page int) (domain.VocabularyBrowsePage, error) {
-	return domain.VocabularyBrowsePage{Page: page}, nil
+func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+	return domain.VocabularyBrowsePage{Page: query.Page}, nil
 }
 
 func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
@@ -290,8 +291,43 @@ func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
 func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyBrowsePager(domain.VocabularyBrowsePage{Page: 2, Total: 51}, "haus").Render(context.Background(), &output))
-	assert.Contains(t, output.String(), `href="/vocabulary?q=haus&amp;page=1"`)
-	assert.Contains(t, output.String(), `href="/vocabulary?q=haus&amp;page=3"`)
+	assert.Contains(t, output.String(), `href="/vocabulary?page=1&amp;q=haus"`)
+	assert.Contains(t, output.String(), `href="/vocabulary?page=3&amp;q=haus"`)
+}
+
+func TestVocabularyBrowsePagerPreservesAllAppliedControls(t *testing.T) {
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences"}
+	url := vocabularyBrowsePageURL(3, page, "Haus")
+	for _, value := range []string{"q=Haus", "book=book-1", "book=book-2", "pos=NOUN", "known=not-known", "reserved=not-reserved", "sort=occurrences", "page=3"} {
+		assert.Contains(t, url, value)
+	}
+}
+
+type failedVocabularyBrowseStore struct{ knownVocabContextStore }
+
+func (failedVocabularyBrowseStore) ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+	return domain.VocabularyBrowsePage{}, errors.New("database unavailable")
+}
+
+func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
+	store := failedVocabularyBrowseStore{}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, VocabularyBrowse: store}}}
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", nil)
+	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
+		ActiveLanguage: "de",
+		Options:        []activeStudyLanguageOption{{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true}},
+	}))
+	response := httptest.NewRecorder()
+	h.vocabularyPage(response, request)
+
+	assert.Equal(t, http.StatusInternalServerError, response.Code)
+	for _, want := range []string{
+		"Browse could not be loaded", "Your search and filters were not applied", "Retry Browse",
+		`name="q" value="Haus"`, `name="book" value="book-1"`, `name="pos" value="NOUN"`,
+		`name="known" value="not-known-or-reserved"`, `name="reserved" value="not-reserved"`, `name="sort" value="books"`, `name="page" value="2"`,
+	} {
+		assert.Contains(t, response.Body.String(), want)
+	}
 }
 
 func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
