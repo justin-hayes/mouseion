@@ -245,6 +245,15 @@ func (s *PostgresStore) CancelCustomDeckPreparation(ctx context.Context, owner, 
 	return nil
 }
 
+func (s *PostgresStore) CustomDeckPreparationCancelled(ctx context.Context, owner, id string) (bool, error) {
+	var cancelled bool
+	err := s.pool.QueryRow(ctx, `SELECT state='cancelled' FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id).Scan(&cancelled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	return cancelled, err
+}
+
 func (s *PostgresStore) LatestCustomDeckPreparation(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
 	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
  FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2

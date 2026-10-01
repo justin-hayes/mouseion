@@ -200,7 +200,21 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	work := deck.WorkProjection()
 	results := make([]cardexport.StoredResult, 0, len(work))
 	for _, item := range work {
+		cancelled, cancelErr := w.Store.CustomDeckPreparationCancelled(ctx, a.OwnerID, a.PreparationID)
+		if cancelErr != nil {
+			return cancelErr
+		}
+		if cancelled {
+			return nil
+		}
 		response, translateErr := w.Provider.Translate(ctx, item.Request)
+		cancelled, cancelErr = w.Store.CustomDeckPreparationCancelled(ctx, a.OwnerID, a.PreparationID)
+		if cancelErr != nil {
+			return cancelErr
+		}
+		if cancelled {
+			return nil
+		}
 		if translateErr != nil {
 			if job.MaxAttempts > 0 && job.Attempt >= job.MaxAttempts {
 				return w.fail(ctx, a, fmt.Errorf("translation failed after %d attempts", job.Attempt))
