@@ -45,11 +45,19 @@ func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID
 	if s == nil || s.store == nil || s.client == nil || s.presentation == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckID) == "" || strings.TrimSpace(actionKey) == "" {
 		return domain.CustomDeckPreparation{}, ErrInvalidInput
 	}
-	tx, err := s.store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	tx, err := s.store.Pool().Begin(ctx)
 	if err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	var lockedDeckID string
+	err = tx.QueryRow(ctx, `SELECT id::text FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2 FOR UPDATE`, owner, deckID).Scan(&lockedDeckID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.CustomDeckPreparation{}, persistence.ErrCustomVocabularyDeckNotFound
+	}
+	if err != nil {
+		return domain.CustomDeckPreparation{}, err
+	}
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1||':'||$2,0))`, owner, deckID); err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}

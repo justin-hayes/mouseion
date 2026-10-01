@@ -1023,18 +1023,18 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 					<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download prepared APKG</a></p>
 				}
 			}
-			if len(preparationHistory) > 0 {
-				<h2>Preparation history</h2>
-				<ul>
-				for _, item := range preparationHistory {
-					<li><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+item.ID) }>{ item.State }</a> — { fmt.Sprintf("%d cards", item.TotalCards) }
-					if item.ID == preparation.ID {
-						<strong>Latest generation</strong>
-					}
-					</li>
+		}
+		if len(preparationHistory) > 0 {
+			<h2>Preparation history</h2>
+			<ul>
+			for _, item := range preparationHistory {
+				<li><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+item.ID) }>{ item.State }</a> — { fmt.Sprintf("%d cards", item.TotalCards) }
+				if preparation != nil && item.ID == preparation.ID {
+					<strong>Latest generation</strong>
 				}
-				</ul>
+				</li>
 			}
+			</ul>
 		}
 		if missingOnly {
 			<p><a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,false)) }>Show all deck identities</a></p>
