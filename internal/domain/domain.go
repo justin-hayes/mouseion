@@ -179,6 +179,37 @@ type CustomVocabularyDeck struct {
 	IdentityCount      int64
 }
 
+// CustomDeckPreparation is an immutable APKG generation for a saved Custom
+// deck. The saved identity set may later change without changing this record.
+type CustomDeckPreparation struct {
+	ID, OwnerID, DeckID, Language, DeckName, Filename string
+	State, Error                                      string
+	FrozenSpec                                        []byte
+	Artifact                                          []byte
+	SelectedIdentities, TotalCards                    int
+	CreatedAt                                         time.Time
+	StartedAt, CompletedAt                            *time.Time
+	Evidence                                          []CustomDeckPreparationEvidence
+}
+
+type CustomDeckPreparationEvidence struct {
+	BookID           string `json:"book_id"`
+	BookTitle        string `json:"book_title"`
+	SourceMaterialID string `json:"source_material_id"`
+	AnalysisRunID    string `json:"analysis_run_id"`
+	CorpusID         string `json:"corpus_id"`
+	UnitID           string `json:"unit_id"`
+	RawLemma         string `json:"raw_lemma"`
+	AnalyzerLemma    string `json:"analyzer_lemma"`
+	Lemma            string `json:"lemma"`
+	UPOS             string `json:"upos"`
+	Sentence         string `json:"sentence"`
+	Target           string `json:"target"`
+	SentenceOrdinal  int64  `json:"sentence_ordinal"`
+	StartOffset      int64  `json:"start_offset"`
+	EndOffset        int64  `json:"end_offset"`
+}
+
 type VocabularyBrowseBook struct {
 	ID                    string `json:"id"`
 	Title                 string `json:"title"`

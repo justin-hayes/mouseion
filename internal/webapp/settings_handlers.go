@@ -264,7 +264,99 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 		fail(w, err)
 		return
 	}
-	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly))
+	var preparation *domain.CustomDeckPreparation
+	if h.services.CustomDeckPreparation != nil {
+		latest, latestErr := h.services.CustomDeckPreparation.Latest(r.Context(), user(r).ID, deck.ID)
+		if latestErr == nil {
+			preparation = &latest
+		} else if !errors.Is(latestErr, persistence.ErrNotFound) {
+			fail(w, latestErr)
+			return
+		}
+	}
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, uuid.NewString()))
+}
+
+func (h *Handler) prepareCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.CustomDeckPreparation == nil {
+		http.NotFound(w, r)
+		return
+	}
+	owner, deckID := user(r).ID, r.PathValue("id")
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), owner, deckID)
+	if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !h.requireEditableStudyLanguage(w, r, deck.Language) {
+		return
+	}
+	preparation, err := h.services.CustomDeckPreparation.Submit(r.Context(), owner, deckID, r.FormValue("action_key"))
+	if errors.Is(err, persistence.ErrCustomDeckPreparationUnavailable) {
+		http.Error(w, "No selected identity currently has eligible evidence for preparation.", http.StatusConflict)
+		return
+	}
+	if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	http.Redirect(w, r, "/vocabulary/deck-preparations/"+url.PathEscape(preparation.ID), http.StatusSeeOther)
+}
+
+func (h *Handler) customDeckPreparationStatus(w http.ResponseWriter, r *http.Request) {
+	if h.services.CustomDeckPreparation == nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := h.services.CustomDeckPreparation.Get(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), user(r).ID, p.DeckID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, CustomDeckPreparationStatusPage(user(r), h.csrf(w, r), p, deck))
+}
+
+func (h *Handler) downloadCustomDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if h.services.CustomDeckPreparation == nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := h.services.CustomDeckPreparation.Download(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.anki")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": p.Filename}))
+	w.Header().Set("X-Mouseion-Deck-Name", p.DeckName)
+	w.Header().Set("X-Mouseion-Cards-Total", strconv.Itoa(p.TotalCards))
+	if _, err := w.Write(p.Artifact); err != nil {
+		log.Printf("write Custom deck APKG: %v", err)
+	}
 }
 
 func (h *Handler) renameCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {

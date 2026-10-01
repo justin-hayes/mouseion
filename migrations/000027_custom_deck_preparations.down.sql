@@ -1,0 +1,2 @@
+DROP TABLE public.custom_vocabulary_deck_preparation_identities;
+DROP TABLE public.custom_vocabulary_deck_preparations;

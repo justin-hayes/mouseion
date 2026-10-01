@@ -981,7 +981,7 @@ templ VocabularySelectionClearConfirmView(user domain.User, csrf, language strin
 	}
 }
 
-templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool) {
+templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, actionKey string) {
 	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
@@ -996,6 +996,17 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		</ul>
 		if editable {
 			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/rename") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="custom-deck-name">Rename deck</label><input id="custom-deck-name" name="name" value={ deck.Name } required maxlength="120"/><button type="submit">Save name</button></form>
+			if deck.MissingCount < deck.IdentityCount {
+				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/preparations") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="action_key" value={ actionKey }/><p>Prepare freezes current eligible cross-Book evidence; later deck edits will not change this preparation.</p><button type="submit">Prepare deck</button></form>
+			} else {
+				<p role="status">Preparation is unavailable because no selected identity has current eligible evidence.</p>
+			}
+			if preparation != nil {
+				<p>Latest preparation: <a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID) }>{ preparation.State }</a>.</p>
+				if preparation.State == "ready" {
+					<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download prepared APKG</a></p>
+				}
+			}
 		}
 		if missingOnly {
 			<p><a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,false)) }>Show all deck identities</a></p>
@@ -1033,6 +1044,30 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		}
 		<p><a href="/vocabulary/selection">Browse selection and saved decks</a></p>
 		<p><a href="/vocabulary">Return to Browse</a></p>
+	}
+}
+
+templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation domain.CustomDeckPreparation, deck domain.CustomVocabularyDeck) {
+	@ShellLayout("Custom deck preparation", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Custom deck · "+deck.Name, "Preparation status and the frozen sentence evidence for this generation.", nil)
+		@VocabularyViewsNav("browse")
+		<p>Study language <code>{ preparation.Language }</code> · { fmt.Sprintf("%d selected identities", preparation.SelectedIdentities) }.</p>
+		<p role="status"><strong>{ preparation.State }</strong></p>
+		if preparation.State == "queued" || preparation.State == "preparing" {
+			<p>This durable preparation can continue while you leave this page. Return here to check its status.</p>
+		} else if preparation.State == "ready" {
+			<p>{ fmt.Sprintf("%d cards are ready", preparation.TotalCards) }.</p>
+			<h2>Frozen representative sentences</h2>
+			<ul>
+			for _, evidence := range preparation.Evidence {
+				<li><strong>{ evidence.Lemma }</strong> <code>{ evidence.UPOS }</code> — <span class="reading-text">{ evidence.Sentence }</span> <small>({ evidence.BookTitle})</small></li>
+			}
+			</ul>
+			<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download APKG</a></p>
+		} else if preparation.State == "failed" {
+			<p role="alert">Preparation did not complete. Your saved Custom deck and any earlier preparation remain unchanged.</p>
+		}
+		<p><a href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>Return to Custom deck</a></p>
 	}
 }
 
