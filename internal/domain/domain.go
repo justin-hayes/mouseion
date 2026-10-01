@@ -124,6 +124,7 @@ type VocabularyBrowseRow struct {
 	Reserved        bool
 	Generated       bool
 	Corrected       bool
+	Selected        bool
 }
 
 type VocabularyBrowsePage struct {
@@ -142,6 +143,7 @@ type VocabularyBrowsePage struct {
 	ReservedFilter              string
 	Sort                        string
 	Page                        int
+	SelectionCount              int
 }
 
 type VocabularyBrowseQuery struct {
@@ -152,6 +154,22 @@ type VocabularyBrowseQuery struct {
 	ReservedFilter string
 	Sort           string
 	Page           int
+}
+
+// VocabularyIdentity is an effective lemma/POS identity retained by the
+// learner's unnamed selection or a saved Custom deck.
+type VocabularyIdentity struct {
+	CanonicalLemma  string
+	UPOS            string
+	OccurrenceCount int64
+	BookCount       int64
+	MissingEvidence bool
+}
+
+type CustomVocabularyDeck struct {
+	ID, Language, Name string
+	Identities         []VocabularyIdentity
+	MissingCount       int64
 }
 
 type VocabularyBrowseBook struct {

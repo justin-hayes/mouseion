@@ -896,15 +896,81 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			if page.Total > 0 {
 				<p>{ fmt.Sprintf("%d effective identities", page.Total) }. { fmt.Sprintf("The applied Book and part-of-speech scope contains %d of %d identities in the full active-language corpus", page.ScopedInventoryTotal, page.InventoryTotal) }; Known and Reserved filters only narrow identities and do not change their evidence counts. Sorts use the complete eligible scope with lemma and part of speech as tie-breaks.</p>
 				@ResponsiveTable("Current effective vocabulary") {
-					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Books</th><th scope="col">Learner state</th><th scope="col">Evidence</th></tr></thead><tbody>
+					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Books</th><th scope="col">Learner state</th><th scope="col">Evidence</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(row.CanonicalLemma, row.UPOS)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ fmt.Sprintf("%d", row.BookCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>{ vocabularyBrowseEvidence(row) }</td></tr>
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(row.CanonicalLemma, row.UPOS)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ fmt.Sprintf("%d", row.BookCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>{ vocabularyBrowseEvidence(row) }</td><td>
+						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
+					</td></tr>
 				}
 				</tbody>
 				}
 				@VocabularyBrowsePager(page, query)
 			}
+			<p><a href="/vocabulary/selection">Browse selection ({ fmt.Sprintf("%d", page.SelectionCount) })</a></p>
 		}
+	}
+}
+
+templ VocabularySelectionPageView(user domain.User, csrf, language string, identities []domain.VocabularyIdentity, total, missing, visibleTotal, page int, missingOnly bool, creationKey, retryName, creationError string) {
+	@ShellLayout("Review Browse selection", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Review Browse selection", "An unnamed, language-specific shortlist; it is not a deck until you name one.", nil)
+		@VocabularyViewsNav("browse")
+		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities", total) }; { fmt.Sprintf("%d currently lack evidence", missing) }.</p>
+		if creationError != "" {
+			<p role="alert">{ creationError }</p>
+		}
+		if missingOnly {
+			<p><a href="/vocabulary/selection">Show all selected identities</a></p>
+		} else {
+			<p><a href="/vocabulary/selection?missing=true">Show only identities missing current evidence</a></p>
+		}
+		if len(identities) == 0 {
+			<p>No identities in this selection view.</p>
+		}
+		<ul>
+		for _, identity := range identities {
+			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }
+			<form method="post" action="/vocabulary/selection/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="outline">Remove</button></form></li>
+		}
+		</ul>
+		@VocabularySelectionPager(page,visibleTotal,missingOnly)
+		<a role="button" class="outline secondary" href="/vocabulary/selection/clear-confirm">Clear selection</a>
+		if total > 0 || creationError != "" {
+			<h2>Name a Custom deck</h2><p>Creating a deck saves these identities only; it does not prepare or download a card package.</p>
+			<form method="post" action="/vocabulary/decks"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="creation_key" value={ creationKey }/><label for="custom-deck-name">Deck name</label><input id="custom-deck-name" name="name" value={ retryName } required maxlength="120"/><button type="submit">Create Custom deck</button></form>
+		}
+	}
+}
+
+templ VocabularySelectionPager(page,total int, missingOnly bool) {
+	if page > 1 {
+		<a href={ templ.SafeURL(vocabularySelectionPageURL(page-1,missingOnly)) }>Previous page</a>
+	}
+	if page*25 < total {
+		<a href={ templ.SafeURL(vocabularySelectionPageURL(page+1,missingOnly)) }>Next page</a>
+	}
+}
+
+templ VocabularySelectionClearConfirmView(user domain.User, csrf, language string, count int) {
+	@ShellLayout("Confirm clearing selection", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Clear Browse selection?", "This removes only the unnamed selection for this study language. Saved Custom decks are not changed.", nil)
+		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities will be removed", count) }.</p>
+		<form method="post" action="/vocabulary/selection/clear"><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Confirm clear selection</button></form>
+		<p><a href="/vocabulary/selection">Cancel and keep selection</a></p>
+	}
+}
+
+templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck) {
+	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities. Preparation is not part of this action.", nil)
+		@VocabularyViewsNav("browse")
+		<p>Study language <code>{ deck.Language }</code>. { fmt.Sprintf("%d identities", len(deck.Identities)) }; { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }.</p>
+		<ul>
+		for _, identity := range deck.Identities {
+			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }</li>
+		}
+		</ul>
+		<p><a href="/vocabulary">Return to Browse</a></p>
 	}
 }
 

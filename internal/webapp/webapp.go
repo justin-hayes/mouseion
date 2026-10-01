@@ -109,6 +109,14 @@ type VocabularyBrowseStore interface {
 	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
 }
 
+type VocabularySelectionStore interface {
+	SetVocabularyBrowseSelection(context.Context, string, string, string, string, bool) error
+	ListVocabularyBrowseSelection(context.Context, string, string) ([]domain.VocabularyIdentity, error)
+	ClearVocabularyBrowseSelection(context.Context, string, string) error
+	CreateCustomVocabularyDeck(context.Context, string, string, string, string) (domain.CustomVocabularyDeck, error)
+	GetCustomVocabularyDeck(context.Context, string, string) (domain.CustomVocabularyDeck, error)
+}
+
 type VocabularyConcordanceStore interface {
 	ListVocabularyConcordance(context.Context, string, string, domain.ConcordanceLookup) (domain.ConcordanceResult, error)
 	GetVocabularySentenceStudy(context.Context, string, string, string, string, string, int64, int64, string) (domain.SentenceStudy, error)
@@ -126,6 +134,7 @@ type StoreDependencies struct {
 	Covers                BookCoverStore
 	LemmaReview           LemmaReviewStore
 	VocabularyBrowse      VocabularyBrowseStore
+	VocabularySelection   VocabularySelectionStore
 	VocabularyConcordance VocabularyConcordanceStore
 }
 
@@ -281,6 +290,13 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
 	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyPage)))
+	h.mux.Handle("POST /vocabulary/selection/{action}", h.user(http.HandlerFunc(h.setVocabularySelection)))
+	h.mux.Handle("GET /vocabulary/selection", h.user(http.HandlerFunc(h.vocabularySelectionPage)))
+	h.mux.Handle("POST /vocabulary/selection/remove", h.user(http.HandlerFunc(h.removeVocabularySelection)))
+	h.mux.Handle("POST /vocabulary/selection/clear", h.user(http.HandlerFunc(h.clearVocabularySelection)))
+	h.mux.Handle("GET /vocabulary/selection/clear-confirm", h.user(http.HandlerFunc(h.confirmClearVocabularySelection)))
+	h.mux.Handle("POST /vocabulary/decks", h.user(http.HandlerFunc(h.createCustomVocabularyDeck)))
+	h.mux.Handle("GET /vocabulary/decks/{id}", h.user(http.HandlerFunc(h.customVocabularyDeckPage)))
 	h.mux.Handle("GET /vocabulary/concordance", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
 	h.mux.Handle("GET /vocabulary/concordance/sentence", h.user(http.HandlerFunc(h.vocabularySentenceStudyPage)))
 	h.mux.Handle("GET /vocabulary/import", h.user(http.HandlerFunc(h.vocabularyImportPage)))
