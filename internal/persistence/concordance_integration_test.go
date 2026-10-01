@@ -169,6 +169,19 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		UnitID: "epub-unit-v1:0:browse-to-read", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
 		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
 	}})
+	var toReadCorpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceToReadBook.ID).Scan(&toReadCorpusID))
+	goal, err := store.CreatePrimaryGoal(ctx, alice.ID, "de", aliceToReadBook.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goal_snapshot_vocabulary(owner_id,snapshot_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,$3,'de','haus','NOUN',1,'[]','[]','{}')`, alice.ID, goal.SnapshotID, toReadCorpusID)
+	require.NoError(t, err)
+	browseDeck, err := store.PutDeck(ctx, alice.ID, "de", "Browse generated identity")
+	require.NoError(t, err)
+	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{
+		OwnerID: alice.ID, Language: "de", CanonicalLemma: "heim", UPOS: "NOUN", FirstDeckID: browseDeck.ID,
+		FirstSourceMaterialID: &aliceToReadSource.ID,
+	})
+	require.NoError(t, err)
 	staleBook, staleSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse without current analysis", "browse-old", false, []domain.ExtractedUnit{
 		concordanceUnit(0, "browse-old", "Haus", 0, 4),
 	})
@@ -193,6 +206,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.Len(t, page.Rows, 1)
 	assert.Equal(t, "haus", page.Rows[0].CanonicalLemma)
 	assert.True(t, page.Rows[0].Known, "Known identities remain visible when current evidence exists")
+	assert.True(t, page.Rows[0].Reserved, "Reserved identities remain visible when current evidence exists")
 	assert.Equal(t, int64(1), page.Rows[0].BookCount, "the To Read Book contributes independently of Inbox")
 	assert.Equal(t, int64(2), page.AnalyzedBooks)
 	assert.Equal(t, int64(1), page.NoncontributingBooks)
@@ -227,6 +241,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	assert.Equal(t, int64(1), page.Rows[0].BookCount)
 	assert.False(t, page.Rows[0].Known)
 	assert.True(t, page.Rows[0].Corrected)
+	assert.True(t, page.Rows[0].Generated, "Generated does not imply Known")
 	assert.Equal(t, int64(1), page.Total)
 	assert.Equal(t, int64(2), page.ContributingBooks)
 	assert.Equal(t, int64(1), page.NoncontributingBooks)
