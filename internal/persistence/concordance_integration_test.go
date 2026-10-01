@@ -134,6 +134,133 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	assert.Empty(t, bobDependents, "dependents query must remain owner-scoped")
 }
 
+func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	alice, err := store.CreateUser(ctx, "browse-alice", false)
+	require.NoError(t, err)
+	bob, err := store.CreateUser(ctx, "browse-bob", false)
+	require.NoError(t, err)
+	var aliceBook string
+	var aliceOtherBook string
+	for owner, text := range map[string]string{alice.ID: "alice", bob.ID: "bob"} {
+		textLen := int64(len(text))
+		book, source := createConcordanceBook(t, ctx, store, owner, "Browse "+text, text, false, []domain.ExtractedUnit{
+			concordanceUnit(0, "browse", text+" Haus", 0, uint64(textLen+5)),
+		})
+		insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{
+			UnitID: "epub-unit-v1:0:browse", Ordinal: 0, Text: text + " Haus", Start: 0, End: textLen + 5,
+			Tokens: []concordanceToken{{Surface: text, Lemma: text, Upos: "NOUN", Start: 0, End: textLen}, {Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: textLen + 1, End: textLen + 5}},
+		}})
+		if owner == alice.ID {
+			aliceBook = book.ID
+			_, err := store.PutKnownVocabulary(ctx, alice.ID, "de", "haus", "NOUN")
+			require.NoError(t, err)
+			_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "ghost", "NOUN")
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook, domain.BookDispositionSetAside))
+	aliceToReadBook, aliceToReadSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse To Read", "browse-to-read", true, []domain.ExtractedUnit{
+		concordanceUnit(0, "browse-to-read", "Haus", 0, 4),
+	})
+	aliceOtherBook = aliceToReadBook.ID
+	insertConcordanceAnalysis(t, ctx, store, aliceToReadSource, true, []concordanceSentence{{
+		UnitID: "epub-unit-v1:0:browse-to-read", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
+		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
+	}})
+	staleBook, staleSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse without current analysis", "browse-old", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "browse-old", "Haus", 0, 4),
+	})
+	insertConcordanceAnalysis(t, ctx, store, staleSource, false, []concordanceSentence{{
+		UnitID: "epub-unit-v1:0:browse-old", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
+		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
+	}})
+	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
+	require.NoError(t, err)
+	var corpusID, analysisRunID string
+	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text, analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceBook).Scan(&corpusID, &analysisRunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `
+		INSERT INTO occurrence_lemma_corrections(owner_id, book_id, corpus_id, analysis_run_id, source_document_id, start_offset, end_offset, canonical_lemma, normalization_profile, normalization_version, excluded)
+		VALUES ($1,$2,$3,$4,'epub-unit-v1:0:browse',$5,$6,'heim','test-profile','1',false),
+		       ($1,$2,$3,$4,'epub-unit-v1:0:browse',0,$7,NULL,NULL,NULL,true)`,
+		alice.ID, aliceBook, corpusID, analysisRunID, int64(len("alice"))+1, int64(len("alice"))+5, int64(len("alice")))
+	require.NoError(t, err)
+
+	page, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", "ha", 1)
+	require.NoError(t, err)
+	require.Len(t, page.Rows, 1)
+	assert.Equal(t, "haus", page.Rows[0].CanonicalLemma)
+	assert.True(t, page.Rows[0].Known, "Known identities remain visible when current evidence exists")
+	assert.Equal(t, int64(1), page.Rows[0].BookCount, "the To Read Book contributes independently of Inbox")
+	assert.Equal(t, int64(2), page.AnalyzedBooks)
+	assert.Equal(t, int64(1), page.NoncontributingBooks)
+	assert.Equal(t, int64(1), page.BooksWithoutCurrentAnalysis)
+	assert.Len(t, page.Books, 3)
+	assert.NotEmpty(t, aliceOtherBook)
+	bookEvidence := make(map[string]domain.VocabularyBrowseBook, len(page.Books))
+	for _, book := range page.Books {
+		bookEvidence[book.Title] = book
+	}
+	assert.True(t, bookEvidence["Browse alice"].HasCurrentAnalysis)
+	assert.True(t, bookEvidence["Browse alice"].HasVocabularyEvidence)
+	assert.True(t, bookEvidence["Browse To Read"].HasVocabularyEvidence)
+	assert.False(t, bookEvidence["Browse without current analysis"].HasCurrentAnalysis)
+
+	ghost, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", "ghost", 1)
+	require.NoError(t, err)
+	assert.Empty(t, ghost.Rows, "Known-only identities without current evidence must not be shown")
+	assert.Zero(t, ghost.Total)
+	assert.Equal(t, int64(2), ghost.InventoryTotal, "prefix filtering must not change the complete inventory count")
+	excluded, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", "ali", 1)
+	require.NoError(t, err)
+	assert.Empty(t, excluded.Rows, "an excluded occurrence must contribute no effective identity")
+	assert.Zero(t, excluded.Total)
+	assert.Equal(t, int64(2), excluded.InventoryTotal)
+
+	page, err = store.ListVocabularyBrowsePage(ctx, alice.ID, "de", "hei", 1)
+	require.NoError(t, err)
+	require.Len(t, page.Rows, 1)
+	assert.Equal(t, "heim", page.Rows[0].CanonicalLemma)
+	assert.Equal(t, int64(1), page.Rows[0].OccurrenceCount)
+	assert.Equal(t, int64(1), page.Rows[0].BookCount)
+	assert.False(t, page.Rows[0].Known)
+	assert.True(t, page.Rows[0].Corrected)
+	assert.Equal(t, int64(1), page.Total)
+	assert.Equal(t, int64(2), page.ContributingBooks)
+	assert.Equal(t, int64(1), page.NoncontributingBooks)
+	assert.Equal(t, int64(1), page.BooksWithoutCurrentAnalysis)
+	var promotedRun string
+	err = store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2`, alice.ID, staleSource.ID).Scan(&promotedRun)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, alice.ID, staleBook.ID, staleSource.ID, promotedRun)
+	require.NoError(t, err)
+	promoted, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", "ha", 1)
+	require.NoError(t, err)
+	require.Len(t, promoted.Rows, 1)
+	assert.Equal(t, int64(2), promoted.Rows[0].OccurrenceCount)
+	assert.Equal(t, int64(2), promoted.Rows[0].BookCount)
+	assert.Equal(t, int64(3), promoted.AnalyzedBooks)
+	assert.Zero(t, promoted.BooksWithoutCurrentAnalysis)
+
+	bookDetail, err := store.GetBookDetail(ctx, alice.ID, aliceBook)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionSetAside, bookDetail.Disposition, "Browse and analysis promotion must preserve disposition")
+
+	italian, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "it", "", 1)
+	require.NoError(t, err)
+	assert.Empty(t, italian.Rows, "Books in another study language must not contribute German evidence")
+	assert.Equal(t, int64(1), italian.NoncontributingBooks)
+	assert.Equal(t, int64(1), italian.BooksWithoutCurrentAnalysis)
+
+	bobPage, err := store.ListVocabularyBrowsePage(ctx, bob.ID, "de", "ha", 1)
+	require.NoError(t, err)
+	require.Len(t, bobPage.Rows, 1)
+	assert.False(t, bobPage.Rows[0].Known, "learner state must not leak across owners")
+	assert.Equal(t, int64(1), bobPage.Rows[0].OccurrenceCount)
+}
+
 func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))

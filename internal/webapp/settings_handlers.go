@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -20,6 +21,39 @@ func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
+	u := user(r)
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if !learnerLanguagePresent(languages, knownLanguages, language) {
+		language = ""
+	}
+	if language == "" {
+		render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), "", domain.VocabularyBrowsePage{}, ""))
+		return
+	}
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	query := r.URL.Query().Get("q")
+	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(r.Context(), u.ID, language, query, page)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, query))
+}
+
+func (h *Handler) vocabularyImportPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
@@ -164,7 +198,7 @@ func knownVocabImportAction() string {
 }
 
 func knownVocabImportRecoveryTarget() string {
-	return "/vocabulary"
+	return "/vocabulary/import"
 }
 
 func knownVocabJobLabel(status string) string {

@@ -228,7 +228,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, domain.DeckPreparationQueued, requeued.State)
 	assert.Empty(t, requeued.Error)
 
-	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary", nil, aliceCookies)
+	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary/import", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, deVocabulary.Code)
 	body := deVocabulary.Body.String()
 	assert.True(t, strings.Contains(body, `enctype="multipart/form-data"`), "import form missing: body=%s", body)

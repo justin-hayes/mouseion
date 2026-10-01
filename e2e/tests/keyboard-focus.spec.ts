@@ -197,7 +197,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('known-vocabulary import works with enhancement disabled and enabled', async ({ page }) => {
     for (const disabled of [true, false]) {
       await signIn(page, disabled);
-      await page.goto('/vocabulary');
+      await page.goto('/vocabulary/import');
       const switcher = page.getByLabel('Study language');
       if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
       const form = page.locator('form[hx-post*="/vocabulary/import"]');

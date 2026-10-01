@@ -113,6 +113,37 @@ type StudyLanguage struct {
 	Language, DisplayName string
 }
 
+// VocabularyBrowseRow is one currently evidenced effective identity in a
+// learner's selected study language.
+type VocabularyBrowseRow struct {
+	CanonicalLemma  string
+	UPOS            string
+	OccurrenceCount int64
+	BookCount       int64
+	Known           bool
+	Reserved        bool
+	Generated       bool
+	Corrected       bool
+}
+
+type VocabularyBrowsePage struct {
+	Rows                        []VocabularyBrowseRow
+	Books                       []VocabularyBrowseBook
+	Total                       int64
+	InventoryTotal              int64
+	AnalyzedBooks               int64
+	ContributingBooks           int64
+	NoncontributingBooks        int64
+	BooksWithoutCurrentAnalysis int64
+	Page                        int
+}
+
+type VocabularyBrowseBook struct {
+	Title                 string `json:"title"`
+	HasCurrentAnalysis    bool   `json:"has_current_analysis"`
+	HasVocabularyEvidence bool   `json:"has_vocabulary_evidence"`
+}
+
 // ResolveActiveStudyLanguage applies the lazy defaulting rules for the
 // learner's stored language pointer. Stored and recent values only win when
 // they still belong to the derived study-language set.

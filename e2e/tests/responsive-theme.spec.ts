@@ -112,8 +112,8 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
-    await page.goto('/vocabulary');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await page.goto('/vocabulary/import');
+    await expect(page.getByRole('heading', { name: 'Vocabulary · Import known vocabulary', exact: true })).toBeVisible();
     await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
   });

@@ -59,8 +59,8 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_book_id"]')).toHaveCount(1);
     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
 
-    await page.goto('/vocabulary');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await page.goto('/vocabulary/import');
+    await expect(page.getByRole('heading', { name: 'Vocabulary · Import known vocabulary', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
     await expect(page.locator('.table-region')).toHaveCount(0);
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);

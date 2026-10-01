@@ -171,30 +171,31 @@ from the My Books disposition, and Read again preserves earlier completions.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Vocabulary import (shipped) | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to the active language with no per-page picker and no known-vocabulary list |
+| Vocabulary Browse (shipped) | `GET /vocabulary` | Browse effective lemma + POS identities with current evidence in the active study language. | Prefix search and server-rendered page links | No study language, no current analysis, truly empty inventory, partial corpus, filtered zero, correction provenance, Known/Reserved/Generated state |
+| Vocabulary import (shipped) | `GET /vocabulary/import`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to active language with no per-page picker and no known-vocabulary list |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
-Vocabulary is the canonical destination for known-vocabulary import, scoped to the
-active study language; its per-page language picker is removed in favour of the
-shell-level switcher. Known-vocabulary-only languages (no current chosen-language
-Book) remain selectable there as read-only "no books" entries; import stays
-limited to the derived study-language set. The page does not display the
-known-vocabulary read model. Changing a Book's language state does
+Vocabulary is the canonical destination for Browse and known-vocabulary import,
+scoped to the active study language; its per-page language picker is removed in
+favour of the shell-level switcher. Known-vocabulary-only languages (no current
+chosen-language Book) remain selectable there as read-only "no books" entries;
+import stays limited to the derived study-language set. Browse does not display
+Known-only identities without current evidence. Changing a Book's language state does
 not remove books, analyses, prepared artifacts, or historical vocabulary
 provenance,
 known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
 learner-facing screen.
 
-### Accepted Vocabulary target — not shipped
+### Accepted Vocabulary target — partially shipped
 
-The existing import workflow becomes a peer view; the following are
-**conceptual screens, not deployed routes**. Their product and acceptance
-contract is [Vocabulary Browse, Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
-Implementation must keep the shipped import flow usable during transition.
+Browse and Import are deployed peer views at `/vocabulary` and
+`/vocabulary/import`. The remaining following screens are **conceptual, not
+deployed routes**. Their product and acceptance contract is [Vocabulary Browse,
+Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
 | Screen | Learner goal and primary exit | Required states |
 |---|---|---|
-| Browse (Vocabulary landing) | Find an effective lemma + POS across current analyzed Books; inspect Concordance or select it. | Current/partial/no analyzed corpus, zero filtered matches, Book-scoped counts, Known/Reserved and generated provenance, corrected identity, stable paging, failed/slow query |
+| Browse extensions | Open an identity in Concordance or select it for later deck review. | Concordance lookup and selection workflows are not yet available |
 | Selection review | Review all selected identities, including missing evidence; explicitly name a Custom deck. | Long paged review, missing filter, clear confirmation, uncertain create outcome, language unavailable |
 | Concordance | Search exact surface or effective lemma + POS, inspect analyzer attribution, and apply Book and grammar filters. | Applied-versus-draft controls, corrected/excluded evidence, zero/partial/error, paged KWIC, native expandable sentence, compact/zoom reflow |
 | Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual syntax, optional diagram, missing parse, return/focus recovery |

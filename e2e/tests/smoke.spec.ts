@@ -184,18 +184,19 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/vocabulary');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vocabulary · Browse', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
-    await expect(page.getByText(/Viewing German/)).toBeVisible();
+    await expect(page.getByText(/active study language.*de/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
     await expect(page.locator('.table-region')).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
     await expect(page).toHaveURL('/vocabulary');
-    await expect(page.getByText(/Viewing fr/)).toBeVisible();
+    await expect(page.getByText(/active study language.*fr/)).toBeVisible();
     await expect(page.getByText('bonjour')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /import known vocabulary/i })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page.getByText(/Viewing German/)).toBeVisible();
+    await expect(page.getByText(/active study language.*de/)).toBeVisible();
+    await page.goto('/vocabulary/import');
     await submitKnownVocabularyImport(page);
     await page.goto('/library');
     const primaryNavigation = page.locator('nav.site-header__nav');
@@ -210,7 +211,7 @@ test.describe('authenticated learner smoke', () => {
   test('asserts initial HTML before HTMX enhancement and observes status', async ({ page }) => {
     // The import form and its results region are server-rendered only once a
     // study language is selected on the Vocabulary page.
-    await page.goto('/vocabulary');
+    await page.goto('/vocabulary/import');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     const importForm = page.locator('form[hx-post*="/vocabulary/import"]');

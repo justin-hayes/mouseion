@@ -842,9 +842,120 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 		}
 	}
 }
+templ VocabularyBrowsePageView(user domain.User, csrf string, language string, page domain.VocabularyBrowsePage, query string) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence across analyzed Books.", nil)
+		@VocabularyViewsNav("browse")
+		if language == "" {
+			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before browsing vocabulary.") {
+				<a href="/catalogs">Connect a catalog</a>
+			}
+		}
+		if language != "" {
+			<p>Viewing active study language <code>{ language }</code>. { fmt.Sprintf("%d Books contribute current vocabulary evidence", page.ContributingBooks) }; { fmt.Sprintf("%d do not", page.NoncontributingBooks) }.</p>
+			if page.AnalyzedBooks > 0 && page.BooksWithoutCurrentAnalysis > 0 {
+				<p role="note">This is a partial corpus: some Books do not have a current completed analysis.</p>
+			}
+			if len(page.Books) > 0 {
+				<details><summary>Book analysis and vocabulary evidence</summary><ul>
+				for _, book := range page.Books {
+					<li><strong>{ book.Title }</strong> — { vocabularyBookEvidenceState(book) }</li>
+				}
+				</ul></details>
+			}
+			<form method="get" action="/vocabulary"><label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/><button type="submit">Search</button></form>
+			if page.Total == 0 && page.InventoryTotal == 0 && page.AnalyzedBooks == 0 {
+				<p>No current analyzed Books contribute vocabulary yet.</p>
+			}
+			if page.Total == 0 && page.InventoryTotal == 0 && page.AnalyzedBooks > 0 {
+				<p>The current analyzed corpus contains no eligible vocabulary identities.</p>
+			}
+			if page.Total == 0 && page.InventoryTotal > 0 {
+				<p>No current identities match this prefix. Clear the search to see the full inventory.</p>
+			}
+			if page.Total > 0 {
+				<p>{ fmt.Sprintf("%d effective identities", page.Total) }. Counts are scoped to the active study language.</p>
+				@ResponsiveTable("Current effective vocabulary") {
+					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Books</th><th scope="col">Learner state</th><th scope="col">Evidence</th></tr></thead><tbody>
+				for _, row := range page.Rows {
+					<tr><th scope="row">{ row.CanonicalLemma }</th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ fmt.Sprintf("%d", row.BookCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>{ vocabularyBrowseEvidence(row) }</td></tr>
+				}
+				</tbody>
+				}
+				@VocabularyBrowsePager(page, query)
+			}
+		}
+	}
+}
+
+templ VocabularyViewsNav(active string) {
+	<nav aria-label="Vocabulary views">
+		if active == "browse" {
+			<a href="/vocabulary" aria-current="page">Browse</a>
+		} else {
+			<a href="/vocabulary">Browse</a>
+		}
+		 ·
+		if active == "import" {
+			<a href="/vocabulary/import" aria-current="page">Import known vocabulary</a>
+		} else {
+			<a href="/vocabulary/import">Import known vocabulary</a>
+		}
+	</nav>
+}
+
+templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
+	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
+		if page.Page > 1 {
+			<a href={ templ.SafeURL(fmt.Sprintf("/vocabulary?q=%s&page=%d", url.QueryEscape(query), page.Page-1)) }>Previous</a>
+		}
+		if page.Page*25 < int(page.Total) {
+			<a href={ templ.SafeURL(fmt.Sprintf("/vocabulary?q=%s&page=%d", url.QueryEscape(query), page.Page+1)) }>Next</a>
+		}
+	</nav></section>
+}
+
+func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
+	state := "Not Known or Reserved"
+	if row.Known {
+		state = "Known"
+	}
+	if row.Reserved {
+		if row.Known {
+			return "Known · Reserved"
+		}
+		state = "Reserved"
+	}
+	return state
+}
+
+func vocabularyBrowseEvidence(row domain.VocabularyBrowseRow) string {
+	if row.Corrected {
+		if row.Generated {
+			return "Includes confirmed correction · Generated"
+		}
+		return "Includes confirmed correction"
+	}
+	if row.Generated {
+		return "Analyzer attribution · Generated"
+	}
+	return "Analyzer attribution"
+}
+
+func vocabularyBookEvidenceState(book domain.VocabularyBrowseBook) string {
+	if book.HasVocabularyEvidence {
+		return "Contributes current eligible vocabulary evidence"
+	}
+	if book.HasCurrentAnalysis {
+		return "Current analysis; no eligible vocabulary occurrences"
+	}
+	return "No current completed analysis"
+}
+
 templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, message string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
-		@PageHeader("Vocabulary", "Import words you already know so pre-learning decks focus on new vocabulary.", nil)
+		@PageHeader("Vocabulary · Import known vocabulary", "Add words you already know without changing current corpus evidence.", nil)
+		@VocabularyViewsNav("import")
 		if language == "" {
 			if len(languages) == 0 {
 				@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
