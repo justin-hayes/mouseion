@@ -2,7 +2,9 @@ package persistence
 
 import (
 	"context"
+	"strings"
 
+	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -152,7 +154,9 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 	}
 	rows, err := s.queries().ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
 		Owner: owner, Language: language, Mode: lookup.Mode, Term: lookup.Term,
-		Upos: lookup.UPOS, Offset: (int64(lookup.Page) - 1) * 25,
+		Upos: lookup.UPOS, BookIds: strings.Join(lookup.BookIDs, ","),
+		GrammarDirection: lookup.GrammarDirection, Relation: lookup.Relation,
+		Offset: (int64(lookup.Page) - 1) * 25,
 	})
 	if err != nil {
 		return domain.ConcordanceResult{}, err
@@ -179,6 +183,38 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 		result.Occurrences = append(result.Occurrences, occurrence)
 	}
 	return result, nil
+}
+
+// GetVocabularySentenceStudy returns the complete token-level analyzer parse
+// for one sentence in the Book's still-current analysis.
+func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, book, run, corpus, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
+	rows, err := s.queries().GetVocabularySentenceStudy(ctx, sqlcgen.GetVocabularySentenceStudyParams{
+		Owner: owner, Book: book, AnalysisRun: run, Corpus: corpus, UnitID: unit,
+		SentenceOrdinal: sentence, TargetOrdinal: target,
+	})
+	if err != nil {
+		return domain.SentenceStudy{}, err
+	}
+	if len(rows) == 0 {
+		return domain.SentenceStudy{}, pgx.ErrNoRows
+	}
+	first := rows[0]
+	study := domain.SentenceStudy{BookID: first.BookID, BookTitle: first.BookTitle,
+		ChapterTitle: first.ChapterTitle, SentenceText: first.SentenceText,
+		SentenceOrdinal: first.SentenceOrdinal, TargetOrdinal: first.TargetOrdinal,
+		TargetSurface: targetSurface,
+		Tokens:        make([]domain.SentenceStudyToken, 0, len(rows))}
+	for _, row := range rows {
+		if row.TokenOrdinal < 0 {
+			continue // A sentence may be valid source text with no syntax tokens.
+		}
+		study.Tokens = append(study.Tokens, domain.SentenceStudyToken{Surface: row.Surface,
+			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma, UPOS: row.Upos,
+			Dependency: row.Dependency, HeadSurface: row.HeadSurface,
+			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head, Corrected: row.Corrected,
+			Excluded: row.Excluded})
+	}
+	return study, nil
 }
 
 func concordanceOccurrenceFromFields(

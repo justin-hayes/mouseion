@@ -405,8 +405,9 @@ vocabulary** are separate, connected peer views. Browse is shipped at
 vocabulary identities from current analyzed Books in the active study language,
 not the Book catalog or its recurring-deck candidate list. Browse identity links
 and exact surface/effective/analyzer lookup with paged KWIC context are shipped.
-Book/grammar filters, focused sentence study, saved Browse selection, and Custom
-decks remain unshipped. Concordance exposes sentence context without altering analyzer evidence. A
+Applied multi-Book and grammar filters plus focused textual sentence study are
+also shipped. Saved Browse selection and Custom decks remain unshipped.
+Concordance exposes sentence context without altering analyzer evidence. A
 learner's Browse selection opens review before they name a Custom deck; the
 saved deck prepares its own cross-Book artifact independently of Reading and
 Book Prepared decks. Return paths among the Vocabulary views and from focused
@@ -415,10 +416,10 @@ navigation or new study-state transition. Known import retains its existing
 contract rather than merging with Browse inventory or presenting a Known-only
 vocabulary list.
 
-The hierarchy above describes both shipped and target behavior; present only the
-implemented Concordance lookup/KWIC slice as available, not the remaining
-grammar, sentence-study, or Custom-deck interactions. My Books remains the only
-bibliographic browse surface.
+The hierarchy above describes both shipped and target behavior; present the
+implemented Concordance lookup/KWIC, grammar exploration, and sentence-study
+interactions as available, not the remaining Custom-deck workflows. My Books
+remains the only bibliographic browse surface.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 

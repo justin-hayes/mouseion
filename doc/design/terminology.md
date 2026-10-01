@@ -128,9 +128,10 @@ and vocabulary knowledge remain independent facts.
 
 These are accepted terms from the [Vocabulary feature
 specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
-Browse is available; exact surface/effective/analyzer lookup and KWIC context are
-available in the initial Concordance slice. Browse selection, focused sentence
-study, and Custom decks remain target terms for unshipped workflows. Known,
+Browse is available; exact surface/effective/analyzer lookup, scoped grammar
+exploration, KWIC context, and focused sentence study are available in
+Concordance. Browse selection and Custom decks remain target terms for unshipped
+workflows. Known,
 Reserved, and Generated remain separate facts in Browse and on Custom decks.
 
 Current-reading completion records durable history and accepts eligible frozen

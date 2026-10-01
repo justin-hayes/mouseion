@@ -189,9 +189,10 @@ learner-facing screen.
 ### Accepted Vocabulary target — partially shipped
 
 Browse now includes current-evidence search, Book/POS/learner-state filters, and
-count sorts; Import is its deployed peer at `/vocabulary/import`. An initial
-Concordance lookup/KWIC slice is deployed at `/vocabulary/concordance`; the full
-Concordance contract and Custom-deck screens below remain target work. Their product and
+count sorts; Import is its deployed peer at `/vocabulary/import`. Concordance at
+`/vocabulary/concordance` includes applied multi-Book and grammar filters, KWIC,
+and a focused textual sentence-study view. The broader Concordance contract and
+Custom-deck screens below remain target work. Their product and
 acceptance contract is [Vocabulary Browse,
 Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
@@ -199,8 +200,8 @@ Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-cus
 |---|---|---|
 | Browse extensions | Open an identity in Concordance or select it for later deck review. | Identity handoff to Concordance is shipped; saved selection workflows are not yet available |
 | Selection review | Review all selected identities, including missing evidence; explicitly name a Custom deck. | Long paged review, missing filter, clear confirmation, uncertain create outcome, language unavailable |
-| Concordance | Search exact surface, effective lemma + POS, or analyzer lemma + POS evidence; inspect analyzer attribution and original context. | Exact modes, applied summary, correction/exclusion labels, 25-result KWIC paging, native sentence disclosure, and narrow reflow are shipped; Book/grammar filters and focused sentence study remain target |
-| Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual syntax, optional diagram, missing parse, return/focus recovery |
+| Concordance | Search exact surface, effective lemma + POS, or analyzer lemma + POS evidence; inspect analyzer attribution and original context. | Exact modes, applied multi-Book/grammar summary, correction/exclusion labels, 25-result KWIC paging, native sentence disclosure, and narrow reflow are shipped |
+| Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual token/head/dependent evidence, identified target, explained missing parse, and return to the originating result are shipped; optional diagram remains unnecessary |
 | Saved Custom deck | Edit an identity shortlist independently of Reading; review evidence and submit preparation. | Missing/all-missing evidence, read-only unavailable language, edit/delete confirmation, changed evidence before submit, uncertain save |
 | Custom deck preparation | Inspect durable progress and omissions, retry/prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card, complete with omissions, prior Ready during replacement, safe retry/uncertain submission |
 

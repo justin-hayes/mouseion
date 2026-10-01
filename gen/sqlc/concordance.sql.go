@@ -11,6 +11,119 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getVocabularySentenceStudy = `-- name: GetVocabularySentenceStudy :many
+
+SELECT COALESCE(t.surface, '')::text AS surface,
+       COALESCE(t.raw_lemma, '')::text AS raw_lemma,
+       COALESCE(t.upos, '')::text AS upos,
+       COALESCE(t.dependency, '')::text AS dependency,
+       COALESCE(t.head, 0)::bigint AS head,
+       COALESCE(h.surface, '')::text AS head_surface,
+       COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
+       COALESCE(d.canonical_lemma, t.canonical_lemma, '')::text AS effective_lemma,
+       (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
+       COALESCE(d.excluded, false)::boolean AS excluded,
+       s.sentence_text,
+       s.sentence_ordinal,
+       $1::bigint AS target_ordinal,
+       ca.book_id::text AS book_id,
+       b.title AS book_title,
+       u.title AS chapter_title
+  FROM current_analysis_identity ca
+  JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
+  JOIN corpus_sentences s ON s.owner_id=ca.owner_id AND s.analysis_run_id=ca.analysis_run_id
+       AND s.corpus_id=ca.corpus_id AND s.unit_id=$2
+  LEFT JOIN corpus_tokens t ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id
+       AND t.corpus_id=s.corpus_id AND t.sentence_ordinal=s.sentence_ordinal
+  JOIN source_material_units u ON u.owner_id=ca.owner_id AND u.source_material_id=ca.source_material_id
+       AND u.snapshot_id=ca.snapshot_id AND u.unit_id=s.unit_id
+  LEFT JOIN corpus_tokens h ON h.owner_id=t.owner_id AND h.language=t.language
+       AND h.analysis_run_id=t.analysis_run_id AND h.corpus_id=t.corpus_id
+       AND h.sentence_ordinal=t.sentence_ordinal AND h.token_ordinal=t.head
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=ca.owner_id AND d.book_id=ca.book_id
+       AND d.corpus_id=ca.corpus_id AND d.analysis_run_id=ca.analysis_run_id
+       AND d.source_document_id=s.unit_id AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
+ WHERE ca.owner_id=$3 AND ca.book_id=$4
+   AND ca.analysis_run_id=$5 AND ca.corpus_id=$6
+   AND s.sentence_ordinal=$7
+ ORDER BY t.token_ordinal
+`
+
+type GetVocabularySentenceStudyParams struct {
+	TargetOrdinal   int64
+	UnitID          string
+	Owner           string
+	Book            string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+}
+
+type GetVocabularySentenceStudyRow struct {
+	Surface         string
+	RawLemma        string
+	Upos            string
+	Dependency      string
+	Head            int64
+	HeadSurface     string
+	TokenOrdinal    int64
+	EffectiveLemma  string
+	Corrected       bool
+	Excluded        bool
+	SentenceText    string
+	SentenceOrdinal int64
+	TargetOrdinal   int64
+	BookID          string
+	BookTitle       string
+	ChapterTitle    string
+}
+
+// Concordance occurrence queries read from the shared occurrence model.
+func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabularySentenceStudyParams) ([]GetVocabularySentenceStudyRow, error) {
+	rows, err := q.db.Query(ctx, getVocabularySentenceStudy,
+		arg.TargetOrdinal,
+		arg.UnitID,
+		arg.Owner,
+		arg.Book,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetVocabularySentenceStudyRow{}
+	for rows.Next() {
+		var i GetVocabularySentenceStudyRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.RawLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.Head,
+			&i.HeadSurface,
+			&i.TokenOrdinal,
+			&i.EffectiveLemma,
+			&i.Corrected,
+			&i.Excluded,
+			&i.SentenceText,
+			&i.SentenceOrdinal,
+			&i.TargetOrdinal,
+			&i.BookID,
+			&i.BookTitle,
+			&i.ChapterTitle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBookDependentsByGovernorLemma = `-- name: ListBookDependentsByGovernorLemma :many
 SELECT o.surface,
        o.canonical_lemma,
@@ -1188,7 +1301,6 @@ func (q *Queries) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx context
 }
 
 const listVocabularyConcordance = `-- name: ListVocabularyConcordance :many
-
 SELECT o.surface,
        o.canonical_lemma,
        o.upos,
@@ -1225,25 +1337,49 @@ SELECT o.surface,
     AND d.analysis_run_id::text=o.analysis_run_id AND d.source_document_id=o.unit_id
     AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
  WHERE o.owner_id=$1 AND o.language=$2
-   AND ($3::text <> 'surface' OR o.surface=$4)
-   AND ($3::text <> 'effective' OR
+   AND ($3::text='governor' OR $4::text <> 'surface' OR o.surface=$5)
+   AND ($3::text='governor' OR $4::text <> 'effective' OR
         (NOT COALESCE(d.excluded, false)
-         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$4
-         AND o.upos=$5))
-   AND ($3::text <> 'analyzer' OR
-        (t.raw_lemma=$4 AND o.upos=$5))
+         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$5
+         AND o.upos=$6))
+   AND ($3::text='governor' OR $4::text <> 'analyzer' OR
+        (t.raw_lemma=$5 AND o.upos=$6))
+   AND ($7::text = '' OR o.book_id::text = ANY(string_to_array($7, ',')))
+   AND ($3::text = '' OR
+        ($3::text = 'own' AND o.dependency=$8) OR
+        ($3::text = 'governor' AND o.dependency=$8 AND EXISTS (
+          SELECT 1
+            FROM corpus_tokens g
+            LEFT JOIN occurrence_lemma_corrections gd ON gd.owner_id=o.owner_id
+              AND gd.book_id::text=o.book_id AND gd.corpus_id::text=g.corpus_id::text
+              AND gd.analysis_run_id::text=g.analysis_run_id::text
+              AND gd.source_document_id=o.unit_id
+              AND gd.start_offset=g.start_offset AND gd.end_offset=g.end_offset
+           WHERE g.owner_id=o.owner_id AND g.language=o.language
+             AND g.analysis_run_id::text=o.analysis_run_id AND g.corpus_id::text=o.corpus_id
+             AND g.sentence_ordinal=o.sentence_ordinal AND g.token_ordinal=o.head_ordinal
+             AND NOT COALESCE(gd.excluded, false)
+             AND (($4::text='effective'
+                   AND COALESCE(gd.canonical_lemma, g.canonical_lemma)=$5
+                   AND g.upos=$6)
+               OR ($4::text='analyzer' AND g.raw_lemma=$5 AND g.upos=$6)
+               OR ($4::text='surface' AND g.surface=$5))
+        )))
  ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
- LIMIT 26 OFFSET $6::bigint
+ LIMIT 26 OFFSET $9::bigint
 `
 
 type ListVocabularyConcordanceParams struct {
-	Owner    string
-	Language string
-	Mode     string
-	Term     string
-	Upos     string
-	Offset   int64
+	Owner            string
+	Language         string
+	GrammarDirection string
+	Mode             string
+	Term             string
+	Upos             string
+	BookIds          string
+	Relation         string
+	Offset           int64
 }
 
 type ListVocabularyConcordanceRow struct {
@@ -1276,14 +1412,16 @@ type ListVocabularyConcordanceRow struct {
 	Excluded            bool
 }
 
-// Concordance occurrence queries read from the shared occurrence model.
 func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {
 	rows, err := q.db.Query(ctx, listVocabularyConcordance,
 		arg.Owner,
 		arg.Language,
+		arg.GrammarDirection,
 		arg.Mode,
 		arg.Term,
 		arg.Upos,
+		arg.BookIds,
+		arg.Relation,
 		arg.Offset,
 	)
 	if err != nil {
