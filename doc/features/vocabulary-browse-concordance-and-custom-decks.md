@@ -97,9 +97,10 @@ occurrences merely because text or positions match.
   POS, both scoped effective counts, Known/Reserved state, concise Generated
   provenance, and a correction indicator. Link to the identity's Concordance
   for exact examples, source attribution, and analyzer decisions.
-- Use stable server-rendered pagination, preserving applied query, filters,
-  and sort. A recoverable **Browse selection** is an unnamed owner- and
-  language-scoped set of effective identities. Selection is not deck creation.
+- Use stable **25-result** server-rendered pagination, preserving applied
+  query, filters, and sort. A recoverable **Browse selection** is an unnamed
+  owner- and language-scoped set of effective identities. Selection is not
+  deck creation.
   It survives pages, query/filter/sort changes, visits, and switching active
   languages; languages have separate selections. A visible selected count opens
   review of *all* selected identities, including off-page and no-longer-
@@ -258,9 +259,10 @@ no on-demand NLP pass is implied.
   syntax is always present when evidence exists. From sentence study, return
   to the applied page and originating result when still present, otherwise
   focus the summary; do not rely solely on URL fragments.
-- Concordance uses server-rendered Previous/Next paging preserving mode,
-  term/POS, Books, grammar, and page. State returned range, page and whether
-  more results exist; an exact total can be deferred and must never be faked.
+- Concordance uses **25-result** server-rendered Previous/Next paging,
+  preserving mode, term/POS, Books, grammar, and page. State returned range,
+  page and whether more results exist; an exact total can be deferred and
+  must never be faked.
   Never call a truncated result set complete. Browse likewise pages stably
   with full-corpus scoped counts and count sorting. Announce a changed summary
   once, not every row. Book/identity, current evidence, Known/Reserved/Generated,

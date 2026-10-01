@@ -42,17 +42,6 @@ Books. When NLP capability discovery is degraded, Vocabulary keeps derived
 languages legible from stored display names and does not offer an unrelated
 language for import.
 
-**Accepted target, not yet shipped:** Vocabulary becomes a Browse-led
-destination with a cross-Book effective-identity browser, learner-facing
-Concordance (including syntax), Custom decks, and the existing import as a peer
-view. It does not add a fifth destination, change Book prepared-deck/current-
-reading selection, or treat generation as Known vocabulary. The
-[Vocabulary feature specification](features/vocabulary-browse-concordance-and-custom-decks.md)
-defines the implementation contract and
-[ADR 0082](adr/0082-independent-custom-vocabulary-decks.md) records the
-independent saved-selection/frozen-preparation boundary. The existing
-`/vocabulary` route remains import-only until this target is implemented.
-
 ## Feature specifications
 
 - [Analysis Insights](features/analysis-insights.md) — learner-facing coverage, threshold, and difficulty information after book analysis.
