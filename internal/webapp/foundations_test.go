@@ -206,7 +206,7 @@ func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 
 func TestKnownVocabImportTargetsVocabulary(t *testing.T) {
 	assert.Equal(t, "/vocabulary/import", knownVocabImportAction())
-	assert.Equal(t, "/vocabulary", knownVocabImportRecoveryTarget())
+	assert.Equal(t, "/vocabulary/import", knownVocabImportRecoveryTarget())
 }
 
 func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.T) {
@@ -239,7 +239,7 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 			if test.state == rivertype.JobStateDiscarded || test.state == rivertype.JobStateCancelled {
 				for _, want := range []string{
 					`Selected language: <code>de</code>`,
-					`href="/vocabulary"`,
+					`href="/vocabulary/import"`,
 					"Return to Vocabulary to retry the import",
 				} {
 					assert.True(t, strings.Contains(html, want), "recovery status missing %q: %s", want, html)
@@ -259,6 +259,9 @@ func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]dom
 func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
+func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _, _ string, page int) (domain.VocabularyBrowsePage, error) {
+	return domain.VocabularyBrowsePage{Page: page}, nil
+}
 
 func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/vocabulary/import?language=it&return_to=known-vocab", nil)
@@ -269,7 +272,8 @@ func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
 }
 
 func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: knownVocabContextStore{}}}}
+	store := knownVocabContextStore{}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, VocabularyBrowse: store}}}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?language=it", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
@@ -279,8 +283,15 @@ func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
 	h.vocabularyPage(response, request)
 
 	assert.Equal(t, http.StatusOK, response.Code)
-	assert.True(t, strings.Contains(response.Body.String(), "Viewing <strong>German</strong> <code>de</code>"), "vocabulary page body=%s", response.Body.String())
+	assert.True(t, strings.Contains(response.Body.String(), "active study language <code>de</code>"), "vocabulary page body=%s", response.Body.String())
 	assert.False(t, strings.Contains(response.Body.String(), "Italian"), "vocabulary page body=%s", response.Body.String())
+}
+
+func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing.T) {
+	var output bytes.Buffer
+	require.NoError(t, VocabularyBrowsePager(domain.VocabularyBrowsePage{Page: 2, Total: 51}, "haus").Render(context.Background(), &output))
+	assert.Contains(t, output.String(), `href="/vocabulary?q=haus&amp;page=1"`)
+	assert.Contains(t, output.String(), `href="/vocabulary?q=haus&amp;page=3"`)
 }
 
 func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {

@@ -307,6 +307,14 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), KnownVocab: known, SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
 
+	browse := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	assert.Equal(t, http.StatusOK, browse.Code)
+	assert.Contains(t, browse.Body.String(), "No current analyzed Books contribute vocabulary yet.")
+	assert.Contains(t, browse.Body.String(), `href="/vocabulary/import"`)
+	importPage := perform(t, h, http.MethodGet, "/vocabulary/import", nil, cookies)
+	assert.Equal(t, http.StatusOK, importPage.Code)
+	assert.Contains(t, importPage.Body.String(), `action="/vocabulary/import"`)
+
 	imported := multipartUpload(t, h, "/vocabulary/import?language=it", cookies, map[string]string{"csrf_token": csrf, "language": "it"}, "Haus\n")
 	assert.Equal(t, http.StatusSeeOther, imported.Code)
 	assert.Equal(t, "/vocabulary/imports/77/status", imported.Header().Get("Location"))

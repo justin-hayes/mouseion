@@ -173,7 +173,7 @@ func activeStudyLanguageReturnPath(raw, language string) string {
 		}
 		return legacyJourneyURL
 	}
-	if u.Path == "/library" || u.Path == "/reading" || u.Path == "/vocabulary" {
+	if u.Path == "/library" || u.Path == "/reading" || u.Path == "/vocabulary" || u.Path == "/vocabulary/import" {
 		query := u.Query()
 		// A saved mode change removes any request-only language override so the
 		// learner's new active language wins.

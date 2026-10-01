@@ -25,17 +25,19 @@ type allStoreCapabilities interface {
 	AnalysisJobStore
 	BookCoverStore
 	LemmaReviewStore
+	VocabularyBrowseStore
 }
 
 func storeDependencies(store allStoreCapabilities) StoreDependencies {
 	return StoreDependencies{
-		StudyLanguages: store,
-		Books:          store,
-		Goals:          store,
-		CurrentReading: store,
-		Catalog:        store,
-		AnalysisJobs:   store,
-		Covers:         store,
-		LemmaReview:    store,
+		StudyLanguages:   store,
+		Books:            store,
+		Goals:            store,
+		CurrentReading:   store,
+		Catalog:          store,
+		AnalysisJobs:     store,
+		Covers:           store,
+		LemmaReview:      store,
+		VocabularyBrowse: store,
 	}
 }

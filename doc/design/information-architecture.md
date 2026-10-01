@@ -384,40 +384,41 @@ Reading view but never changes the stored active mode. A newly arrived study
 language appears passively
 in the switcher (marked "new") without changing the mode.
 
-Vocabulary currently owns the additive known-vocabulary import workflow,
-scoped to the active language; import is always eligible there. The page presents import
-status and result summaries but does not display the known-vocabulary read model.
-Import eligibility remains limited to the derived study-language set, and
+Vocabulary owns Browse and the additive known-vocabulary import workflow,
+scoped to the active language; import remains an accessible peer view. Browse
+lists current, owner-specific effective vocabulary evidence and distinguishes
+analysis coverage from an empty or filtered inventory. It does not display
+Known-only identities without current occurrences. Import remains eligible only
+for the derived study-language set and retains its existing additive behavior;
 known-vocabulary-only languages stay selectable in the switcher as read-only
-"no books" entries. Catalog
-metadata changes do not delete known-vocabulary rows, books, analyses, decks, or
-artifact provenance. Journey and Goal relationships remain independent of
-vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0072,
-ADR 0050, ADR 0051, and ADR 0056.
+"no books" entries. Catalog metadata changes do not delete known-vocabulary
+rows, books, analyses, decks, or artifact provenance. Reading and Book Prepared
+deck behavior remains independent of Browse.
 
-### Accepted Vocabulary target (not shipped)
+### Accepted Vocabulary target (partially shipped)
 
 The [Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md)
 and [ADR 0082](../adr/0082-independent-custom-vocabulary-decks.md) define the
 implementation target. Keep exactly the existing four primary destinations;
 within Vocabulary, **Browse** (landing), **Concordance**, and **Import known
-vocabulary** are separate, connected peer views. Browse covers effective
+vocabulary** are separate, connected peer views. Browse is shipped at
+`/vocabulary`; import is shipped at `/vocabulary/import`. Browse covers effective
 vocabulary identities from current analyzed Books in the active study language,
-not the Book catalog or its recurring-deck candidate list. Browse identity
-links and direct lookup both enter Concordance, which exposes sentence context
-and syntax without altering analyzer evidence. A learner's Browse selection
-opens review before they name a Custom deck; the saved deck prepares its own
-cross-Book artifact independently of Reading and Book Prepared decks. Return
-paths among the Vocabulary views and from focused sentence study preserve
-context. Reading gains no permanent Vocabulary navigation or new study-state
-transition. Known import retains its existing contract rather than merging
-with Browse inventory or presenting a Known-vocabulary list.
+not the Book catalog or its recurring-deck candidate list. Concordance, Browse
+identity links, saved Browse selection, and Custom decks remain unshipped. The
+target is for identity links and direct lookup to enter Concordance, which
+exposes sentence context and syntax without altering analyzer evidence. A
+learner's Browse selection opens review before they name a Custom deck; the
+saved deck prepares its own cross-Book artifact independently of Reading and
+Book Prepared decks. Return paths among the Vocabulary views and from focused
+sentence study preserve context. Reading gains no permanent Vocabulary
+navigation or new study-state transition. Known import retains its existing
+contract rather than merging with Browse inventory or presenting a Known-only
+vocabulary list.
 
-The conceptual hierarchy above does **not** designate shipped URLs for new
-views. Until implementation lands, `/vocabulary` continues to present import
-and status; the target landing and any nested routes must be introduced
-without describing unbuilt screens as available. My Books remains the only
-bibliographic browse surface.
+The conceptual hierarchy above describes both shipped and target behavior;
+do not present the unshipped Concordance or Custom-deck interactions as
+available. My Books remains the only bibliographic browse surface.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 

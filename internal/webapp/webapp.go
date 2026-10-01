@@ -105,17 +105,22 @@ type AnalysisJobStore interface {
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
 }
 
+type VocabularyBrowseStore interface {
+	ListVocabularyBrowsePage(context.Context, string, string, string, int) (domain.VocabularyBrowsePage, error)
+}
+
 // StoreDependencies groups the focused persistence capabilities consumed by the
 // web application. Production supplies one persistence store to every field.
 type StoreDependencies struct {
-	StudyLanguages StudyLanguageStore
-	Books          BookStore
-	Goals          GoalStore
-	CurrentReading CurrentReadingStore
-	Catalog        CatalogStore
-	AnalysisJobs   AnalysisJobStore
-	Covers         BookCoverStore
-	LemmaReview    LemmaReviewStore
+	StudyLanguages   StudyLanguageStore
+	Books            BookStore
+	Goals            GoalStore
+	CurrentReading   CurrentReadingStore
+	Catalog          CatalogStore
+	AnalysisJobs     AnalysisJobStore
+	Covers           BookCoverStore
+	LemmaReview      LemmaReviewStore
+	VocabularyBrowse VocabularyBrowseStore
 }
 
 type csrfFailureContextKey struct{}
@@ -270,6 +275,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
 	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyPage)))
+	h.mux.Handle("GET /vocabulary/import", h.user(http.HandlerFunc(h.vocabularyImportPage)))
 	h.mux.Handle("POST /active-study-language", h.user(http.HandlerFunc(h.activeStudyLanguage)))
 	h.mux.Handle("POST /vocabulary/import", h.user(http.HandlerFunc(h.importKnownVocab)))
 	h.mux.Handle("GET /vocabulary/imports/{id}/status", h.user(http.HandlerFunc(h.knownVocabImportStatus)))
