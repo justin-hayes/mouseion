@@ -126,6 +126,23 @@ func (s *CustomDeckPreparationService) Latest(ctx context.Context, owner, deckID
 	return addCustomPreparationEvidence(p, err)
 }
 
+func (s *CustomDeckPreparationService) List(ctx context.Context, owner, deckID string) ([]domain.CustomDeckPreparation, error) {
+	if s == nil || s.store == nil {
+		return nil, ErrInvalidInput
+	}
+	preparations, err := s.store.ListCustomDeckPreparations(ctx, owner, deckID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range preparations {
+		preparations[i], err = addCustomPreparationEvidence(preparations[i], nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return preparations, nil
+}
+
 func (s *CustomDeckPreparationService) LatestReady(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
 	if s == nil || s.store == nil {
 		return domain.CustomDeckPreparation{}, ErrInvalidInput

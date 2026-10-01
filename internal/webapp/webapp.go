@@ -195,6 +195,7 @@ type CustomDeckPreparation interface {
 	EvidenceFingerprint(context.Context, string, string) (string, error)
 	Get(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	Latest(context.Context, string, string) (domain.CustomDeckPreparation, error)
+	List(context.Context, string, string) ([]domain.CustomDeckPreparation, error)
 	LatestReady(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	Download(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	Cancel(context.Context, string, string) error

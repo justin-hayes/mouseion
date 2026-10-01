@@ -265,12 +265,18 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var preparation *domain.CustomDeckPreparation
+	var preparationHistory []domain.CustomDeckPreparation
 	if h.services.CustomDeckPreparation != nil {
 		latest, latestErr := h.services.CustomDeckPreparation.Latest(r.Context(), user(r).ID, deck.ID)
 		if latestErr == nil {
 			preparation = &latest
 		} else if !errors.Is(latestErr, persistence.ErrNotFound) {
 			fail(w, latestErr)
+			return
+		}
+		preparationHistory, err = h.services.CustomDeckPreparation.List(r.Context(), user(r).ID, deck.ID)
+		if err != nil {
+			fail(w, err)
 			return
 		}
 	}
@@ -282,7 +288,7 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
-	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, preparationHistory, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
 }
 
 func (h *Handler) prepareCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
@@ -340,9 +346,12 @@ func (h *Handler) customDeckPreparationStatus(w http.ResponseWriter, r *http.Req
 		fail(w, err)
 		return
 	}
-	if previous, previousErr := h.services.CustomDeckPreparation.LatestReady(r.Context(), user(r).ID, p.DeckID); previousErr == nil && previous.ID != p.ID {
-		p.PreviousReadyID = previous.ID
-		p.PreviousReadyCards = previous.TotalCards
+	if previous, previousErr := h.services.CustomDeckPreparation.LatestReady(r.Context(), user(r).ID, p.DeckID); previousErr == nil {
+		p.LatestReady = previous.ID == p.ID
+		if previous.ID != p.ID {
+			p.PreviousReadyID = previous.ID
+			p.PreviousReadyCards = previous.TotalCards
+		}
 	} else if previousErr != nil && !errors.Is(previousErr, persistence.ErrNotFound) {
 		fail(w, previousErr)
 		return

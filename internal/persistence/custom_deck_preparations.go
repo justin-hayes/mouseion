@@ -264,6 +264,25 @@ func (s *PostgresStore) LatestCustomDeckPreparation(ctx context.Context, owner, 
 	return p, err
 }
 
+func (s *PostgresStore) ListCustomDeckPreparations(ctx context.Context, owner, deckID string) ([]domain.CustomDeckPreparation, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+customDeckPreparationColumns+`
+	 FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2
+	 ORDER BY created_at DESC,id DESC`, owner, deckID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var preparations []domain.CustomDeckPreparation
+	for rows.Next() {
+		p, scanErr := scanCustomDeckPreparation(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		preparations = append(preparations, p)
+	}
+	return preparations, rows.Err()
+}
+
 func (s *PostgresStore) LatestReadyCustomDeckPreparation(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
 	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
  FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2

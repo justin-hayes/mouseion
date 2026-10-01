@@ -193,6 +193,7 @@ type CustomDeckPreparation struct {
 	Omissions                                         []CustomDeckPreparationOmission
 	PreviousReadyID                                   string
 	PreviousReadyCards                                int
+	LatestReady                                       bool
 }
 
 type CustomDeckPreparationOmission struct {
