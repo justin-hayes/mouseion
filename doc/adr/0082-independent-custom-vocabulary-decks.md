@@ -47,6 +47,20 @@ already imported or saved outside Mouseion. A deck whose language leaves the
 derived study-language set is retained as read-only history until that language
 returns, not moved to another language.
 
+The first persistence slice stores the unnamed Browse selection as owner,
+language, canonical lemma, and UPOS rows with a composite identity key. Saved
+Custom decks have an owner-scoped UUID, language, learner name, and a separate
+identity relation with the same effective-identity key. Neither relation has a
+foreign key to a Book, analysis, or occurrence: losing evidence therefore does
+not delete or transfer learner intent. Owner foreign keys cascade on account
+deletion; deleting a deck cascades only its identity rows. A unique owner-scoped
+creation key makes a retried explicit naming action resolve to its original
+deck. Creation and copying the current language's selection into the deck, then
+clearing only that selection, are one transaction serialized with selection
+add/remove/clear for the same owner and language. The schema is additive; its
+down migration removes only these new tables and is not a production rollback
+plan.
+
 The [feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md)
 owns detailed eligible evidence, cross-Book sentence choice, omissions,
 recovery, UI, accessibility, export/privacy, Anki overlap, and acceptance

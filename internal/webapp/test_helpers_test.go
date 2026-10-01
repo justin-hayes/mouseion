@@ -30,7 +30,7 @@ type allStoreCapabilities interface {
 }
 
 func storeDependencies(store allStoreCapabilities) StoreDependencies {
-	return StoreDependencies{
+	dependencies := StoreDependencies{
 		StudyLanguages:        store,
 		Books:                 store,
 		Goals:                 store,
@@ -42,4 +42,8 @@ func storeDependencies(store allStoreCapabilities) StoreDependencies {
 		VocabularyBrowse:      store,
 		VocabularyConcordance: store,
 	}
+	if selectionStore, ok := store.(VocabularySelectionStore); ok {
+		dependencies.VocabularySelection = selectionStore
+	}
+	return dependencies
 }

@@ -11,9 +11,11 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -64,7 +66,147 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
 		return
 	}
+	if h.services.Store.VocabularySelection != nil {
+		selection, selectionErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), u.ID, language)
+		if selectionErr != nil {
+			fail(w, selectionErr)
+			return
+		}
+		selected := make(map[string]bool, len(selection))
+		for _, identity := range selection {
+			selected[identity.CanonicalLemma+"\x00"+identity.UPOS] = true
+		}
+		browse.SelectionCount = len(selection)
+		for i := range browse.Rows {
+			browse.Rows[i].Selected = selected[browse.Rows[i].CanonicalLemma+"\x00"+browse.Rows[i].UPOS]
+		}
+	}
 	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, prefix))
+}
+
+func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	u := user(r)
+	language, _ := activeStudyLanguageForContext(r.Context())
+	selected := r.PathValue("action") == "add"
+	err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), u.ID, language, r.FormValue("lemma"), r.FormValue("upos"), selected)
+	if err != nil {
+		if errors.Is(err, persistence.ErrVocabularyIdentityNotCurrent) {
+			http.Error(w, "This identity no longer has current evidence. Refresh Browse before selecting it.", http.StatusConflict)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/vocabulary")
+}
+
+func (h *Handler) vocabularySelectionPage(w http.ResponseWriter, r *http.Request) {
+	language, _ := activeStudyLanguageForContext(r.Context())
+	selection, err := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), user(r).ID, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	page := 1
+	if parsed, parseErr := strconv.Atoi(r.URL.Query().Get("page")); parseErr == nil && parsed > 1 {
+		page = parsed
+	}
+	missingOnly := r.URL.Query().Get("missing") == "true"
+	filtered := selection[:0]
+	var missing int
+	for _, identity := range selection {
+		if identity.MissingEvidence {
+			missing++
+		}
+		if !missingOnly || identity.MissingEvidence {
+			filtered = append(filtered, identity)
+		}
+	}
+	visibleTotal := len(filtered)
+	lastPage := visibleTotal / 25
+	if visibleTotal%25 != 0 {
+		lastPage++
+	}
+	lastPage = max(1, lastPage)
+	page = min(page, lastPage)
+	start := (page - 1) * 25
+	end := min(start+25, visibleTotal)
+	render(w, r, VocabularySelectionPageView(user(r), h.csrf(w, r), language, filtered[start:end], len(selection), missing, visibleTotal, page, missingOnly, uuid.NewString(), "", ""))
+}
+
+func (h *Handler) removeVocabularySelection(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), user(r).ID, language, r.FormValue("lemma"), r.FormValue("upos"), false); err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/vocabulary/selection")
+}
+
+func (h *Handler) clearVocabularySelection(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	if err := h.services.Store.VocabularySelection.ClearVocabularyBrowseSelection(r.Context(), user(r).ID, language); err != nil {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/vocabulary/selection")
+}
+
+func (h *Handler) confirmClearVocabularySelection(w http.ResponseWriter, r *http.Request) {
+	language, _ := activeStudyLanguageForContext(r.Context())
+	selection, err := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), user(r).ID, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, VocabularySelectionClearConfirmView(user(r), h.csrf(w, r), language, len(selection)))
+}
+
+func (h *Handler) createCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	deck, err := h.services.Store.VocabularySelection.CreateCustomVocabularyDeck(r.Context(), user(r).ID, language, r.FormValue("name"), r.FormValue("creation_key"))
+	if err != nil {
+		selection, listErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), user(r).ID, language)
+		if listErr != nil {
+			fail(w, err)
+			return
+		}
+		var missing int
+		for _, identity := range selection {
+			if identity.MissingEvidence {
+				missing++
+			}
+		}
+		log.Printf("mouseion: create Custom deck: %v", err)
+		renderStatus(w, r, http.StatusInternalServerError, VocabularySelectionPageView(user(r), h.csrf(w, r), language, selection, len(selection), missing, len(selection), 1, false, r.FormValue("creation_key"), r.FormValue("name"), "Deck creation did not complete. Your selection is unchanged; retry this same action."))
+		return
+	}
+	redirect(w, r, "/vocabulary/decks/"+deck.ID)
+}
+
+func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Request) {
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), user(r).ID, r.PathValue("id"))
+	if err != nil {
+		if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+			http.NotFound(w, r)
+		} else {
+			fail(w, err)
+		}
+		return
+	}
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck))
 }
 
 func vocabularyBrowseRequestState(value, positive, negative string) string {
@@ -270,4 +412,33 @@ func knownVocabJobBusy(status string) bool {
 	default:
 		return true
 	}
+}
+
+func vocabularySelectionAction(selected bool) string {
+	if selected {
+		return "/vocabulary/selection/remove"
+	}
+	return "/vocabulary/selection/add"
+}
+
+func vocabularySelectionButton(selected bool) string {
+	if selected {
+		return "Remove from selection"
+	}
+	return "Select"
+}
+
+func selectionEvidenceLabel(identity domain.VocabularyIdentity) string {
+	if identity.MissingEvidence {
+		return "No current evidence"
+	}
+	return fmt.Sprintf("%d occurrences · %d Books", identity.OccurrenceCount, identity.BookCount)
+}
+
+func vocabularySelectionPageURL(page int, missingOnly bool) string {
+	values := url.Values{"page": []string{strconv.Itoa(page)}}
+	if missingOnly {
+		values.Set("missing", "true")
+	}
+	return "/vocabulary/selection?" + values.Encode()
 }
