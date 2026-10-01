@@ -370,6 +370,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Contains(t, allMissingPage.Body.String(), "no selected identity has current eligible evidence")
 	assert.Contains(t, allMissingPage.Body.String(), "Preparation history", "generation history remains available without current evidence")
 	assert.Contains(t, allMissingPage.Body.String(), preparationID)
+	assert.Contains(t, allMissingPage.Body.String(), "Evidence changes since the previous Ready generation")
+	assert.Contains(t, allMissingPage.Body.String(), "current eligible evidence is absent")
 	assert.NotContains(t, allMissingPage.Body.String(), ">Prepare deck</button>")
 	allMissingFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)

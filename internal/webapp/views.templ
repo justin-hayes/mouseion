@@ -981,7 +981,7 @@ templ VocabularySelectionClearConfirmView(user domain.User, csrf, language strin
 	}
 }
 
-templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, preparationHistory []domain.CustomDeckPreparation, actionKey, evidenceFingerprint string, evidenceChanged bool) {
+templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, preparationHistory []domain.CustomDeckPreparation, evidenceDifferences []customDeckEvidenceDifference, actionKey, evidenceFingerprint string, evidenceChanged bool) {
 	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
@@ -1035,6 +1035,18 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 				</li>
 			}
 			</ul>
+		}
+		if evidenceDifferences != nil {
+			<h2>Evidence changes since the previous Ready generation</h2>
+			if len(evidenceDifferences) == 0 {
+				<p>No saved-identity additions, removals, or stale representative sources were detected.</p>
+			} else {
+				<ul>
+				for _, difference := range evidenceDifferences {
+					<li><strong>{ difference.Identity }</strong> — { difference.Description }</li>
+				}
+				</ul>
+			}
 		}
 		if missingOnly {
 			<p><a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,false)) }>Show all deck identities</a></p>
