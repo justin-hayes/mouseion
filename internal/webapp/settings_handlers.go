@@ -296,6 +296,10 @@ type customDeckEvidenceDifference struct {
 	Identity, Description string
 }
 
+type customDeckEvidenceIdentity struct {
+	Lemma, UPOS string
+}
+
 func customDeckEvidenceDifferences(deck domain.CustomVocabularyDeck, history []domain.CustomDeckPreparation) []customDeckEvidenceDifference {
 	var previous *domain.CustomDeckPreparation
 	for i := range history {
@@ -307,14 +311,14 @@ func customDeckEvidenceDifferences(deck domain.CustomVocabularyDeck, history []d
 	if previous == nil {
 		return nil
 	}
-	current := make(map[string]domain.VocabularyIdentity, len(deck.Identities))
+	current := make(map[customDeckEvidenceIdentity]domain.VocabularyIdentity, len(deck.Identities))
 	for _, identity := range deck.Identities {
-		current[identity.CanonicalLemma+"\x00"+identity.UPOS] = identity
+		current[customDeckEvidenceIdentity{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS}] = identity
 	}
-	seen := make(map[string]bool)
+	seen := make(map[customDeckEvidenceIdentity]bool)
 	differences := make([]customDeckEvidenceDifference, 0)
 	compare := func(lemma, upos string, priorEvidence *domain.CustomDeckPreparationEvidence, wasEvidenceOmission bool) {
-		key := lemma + "\x00" + upos
+		key := customDeckEvidenceIdentity{Lemma: lemma, UPOS: upos}
 		seen[key] = true
 		label := fmt.Sprintf("%s (%s)", lemma, upos)
 		identity, selected := current[key]
@@ -345,7 +349,7 @@ func customDeckEvidenceDifferences(deck domain.CustomVocabularyDeck, history []d
 		compare(omission.Lemma, omission.UPOS, nil, omission.Kind == "evidence")
 	}
 	for _, identity := range deck.Identities {
-		key := identity.CanonicalLemma + "\x00" + identity.UPOS
+		key := customDeckEvidenceIdentity{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS}
 		if !seen[key] {
 			differences = append(differences, customDeckEvidenceDifference{
 				Identity:    fmt.Sprintf("%s (%s)", identity.CanonicalLemma, identity.UPOS),
