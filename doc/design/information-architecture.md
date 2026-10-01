@@ -1,6 +1,7 @@
 # Information architecture
 
-Status: **Canonical shipped route and navigation contract.** The Reading
+Status: **Canonical shipped route and navigation contract, with an explicitly
+marked accepted Vocabulary target below.** The Reading
 workflow is implemented without Journey ordering, sequential forecasts, or
 Primary Goal. ADR 0074 assigns deck work to the focused preparation task. ADR
 0072 remains historical context for retired snapshot/forecast behavior. This document follows
@@ -34,6 +35,11 @@ The product supports these top-level goals:
 6. finish a Book and retain its Read history independently from disposition;
 7. understand derived study languages and import known vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
+
+**Accepted target (not shipped):** in Vocabulary, browse effective vocabulary
+identities across analyzed Books, investigate occurrences and syntax in
+Concordance, and save cross-Book selections as Custom decks. See the
+[Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
 The recurring experience rhythm is:
 
@@ -152,12 +158,16 @@ The authenticated shell exposes four principal destinations:
   surface for synced catalog metadata;
 - **Reading** — the current Book and the To Read candidate chooser. Older
   Reading Journey and Primary Goal terms are not used on active screens;
-- **Vocabulary** — the known-vocabulary import workflow and its durable status.
+- **Vocabulary** — currently the known-vocabulary import workflow and its
+  durable status; the accepted target adds Browse, Concordance, and Custom
+  decks beneath this same destination.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
 Catalogs is a configuration and sync destination, not a book-browse surface.
-My Books remains the sole browse surface. Marking a Book To Read expresses the
-learner's reading intent and may trigger acquisition and analysis. The upstream
+My Books remains the sole **bibliographic Book** browse surface; the accepted
+Vocabulary target browses vocabulary identities, not Books or catalog entries.
+Marking a Book To Read expresses the learner's reading intent and may trigger
+acquisition and analysis. The upstream
 catalog browser is retired.
 
 Analysis jobs, deck preparation, and historical artifact provenance are
@@ -203,8 +213,16 @@ Reading (active study language)
 Catalogs
     connection setup and sync status
 
-Vocabulary
+Vocabulary (shipped)
     known-vocabulary import and status
+
+Vocabulary (accepted target, not yet shipped)
+    Browse effective identities (landing)
+        review an unnamed selection -> name/edit a Custom deck
+            prepare, inspect status/history, download
+    Concordance (from Browse identity or direct lookup)
+        KWIC -> sentence and syntax study -> applied results
+    Import known vocabulary (peer view)
 
 Secondary history
     operational analysis history
@@ -366,8 +384,8 @@ Reading view but never changes the stored active mode. A newly arrived study
 language appears passively
 in the switcher (marked "new") without changing the mode.
 
-Vocabulary owns the additive known-vocabulary import workflow, scoped to the
-active language; import is always eligible there. The page presents import
+Vocabulary currently owns the additive known-vocabulary import workflow,
+scoped to the active language; import is always eligible there. The page presents import
 status and result summaries but does not display the known-vocabulary read model.
 Import eligibility remains limited to the derived study-language set, and
 known-vocabulary-only languages stay selectable in the switcher as read-only
@@ -376,6 +394,30 @@ metadata changes do not delete known-vocabulary rows, books, analyses, decks, or
 artifact provenance. Journey and Goal relationships remain independent of
 vocabulary import; their shipped consequences are defined by ADR 0034, ADR 0072,
 ADR 0050, ADR 0051, and ADR 0056.
+
+### Accepted Vocabulary target (not shipped)
+
+The [Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md)
+and [ADR 0082](../adr/0082-independent-custom-vocabulary-decks.md) define the
+implementation target. Keep exactly the existing four primary destinations;
+within Vocabulary, **Browse** (landing), **Concordance**, and **Import known
+vocabulary** are separate, connected peer views. Browse covers effective
+vocabulary identities from current analyzed Books in the active study language,
+not the Book catalog or its recurring-deck candidate list. Browse identity
+links and direct lookup both enter Concordance, which exposes sentence context
+and syntax without altering analyzer evidence. A learner's Browse selection
+opens review before they name a Custom deck; the saved deck prepares its own
+cross-Book artifact independently of Reading and Book Prepared decks. Return
+paths among the Vocabulary views and from focused sentence study preserve
+context. Reading gains no permanent Vocabulary navigation or new study-state
+transition. Known import retains its existing contract rather than merging
+with Browse inventory or presenting a Known-vocabulary list.
+
+The conceptual hierarchy above does **not** designate shipped URLs for new
+views. Until implementation lands, `/vocabulary` continues to present import
+and status; the target landing and any nested routes must be introduced
+without describing unbuilt screens as available. My Books remains the only
+bibliographic browse surface.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 

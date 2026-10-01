@@ -202,9 +202,9 @@ scrollable data table must label and contain its own overflow.
 
 - Canonical authenticated destinations are exactly My Books, Reading,
   Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync maintenance on
-  `/catalogs`. My Books is the sole browse surface, and My Books items own per-book
-  disposition and acquisition intent. Reading owns the current Book or the
-  between-Books candidate chooser.
+  `/catalogs`. My Books is the sole bibliographic Book browse surface, and its
+  items own per-book disposition and acquisition intent. Reading owns the
+  current Book or the between-Books candidate chooser.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.
 - Reading presents one current Book or, between Books, the learner's unordered To
@@ -226,6 +226,10 @@ scrollable data table must label and contain its own overflow.
   remains governed by the applicable ADRs.
 - Vocabulary is canonical for importing known vocabulary; study languages are
   derived from chosen-language Books rather than maintained on a Settings route.
+- The [accepted Vocabulary target](../features/vocabulary-browse-concordance-and-custom-decks.md)
+  adds a vocabulary-identity Browse and learner-facing Concordance beneath the
+  existing destination; these are not shipped patterns yet. They do not
+  duplicate the My Books bibliographic browser or Reading chooser.
 - Loading, empty, error, disabled, success, degraded, historical, and
   asynchronous states are explicit.
 - Errors explain what happened and the next available action.

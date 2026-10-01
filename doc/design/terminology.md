@@ -117,6 +117,20 @@ Do not use **mastered** as a synonym for generated, assigned, exported, merely
 reviewed, or encountered while reading. Reading history, preparation state,
 and vocabulary knowledge remain independent facts.
 
+### Accepted Vocabulary terminology (not yet shipped)
+
+| Term | Meaning | Avoid |
+|---|---|---|
+| **Browse** | Vocabulary view of owner-specific effective lemma + POS identities with current analyzed evidence across active-language Books, including singletons. | Book prepared-deck candidates, Known-vocabulary list |
+| **Browse selection** | Recoverable unnamed set of effective identities awaiting review and explicit naming; scoped to one learner and study language. | Custom deck before creation, filtered results |
+| **Concordance** | Occurrence exploration with both sentence/KWIC context and analyzer-attributed syntax; effective lookup remains distinct from observed surface and analyzer-evidence lookup. | KWIC as the whole feature, global correction |
+| **Custom deck** | Learner-named editable cross-Book identity selection with independent frozen preparations, not a Reading snapshot or Book Prepared deck. | Reading deck, Custom Prepared deck |
+
+These are accepted target terms from the [Vocabulary feature
+specification](../features/vocabulary-browse-concordance-and-custom-decks.md),
+not labels for already available screens. Known, Reserved, and Generated remain
+separate facts in Browse and on Custom decks.
+
 Current-reading completion records durable history and accepts eligible frozen
 snapshot identities into modeled Known vocabulary as one idempotent transition.
 Deck readiness or review is not required, and the interface must not imply

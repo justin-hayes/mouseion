@@ -37,7 +37,9 @@ Authenticated screens use one shared shell with **Mouseion**, **My Books**,
 **Reading**, **Vocabulary**, **Catalogs**, account identity, and **Log
 out**. My Books, Reading, Vocabulary, and Catalogs are the destinations.
 Catalogs owns catalogue setup and sync maintenance at `/catalogs`. My Books is
-the sole browse surface; its items own acquisition and analysis intent.
+the sole bibliographic Book browse surface; its items own acquisition and
+analysis intent. The accepted Vocabulary target adds identity Browse, not a
+second Book catalog.
 
 The shell identifies the current destination, supports skip navigation and
 keyboard use, and preserves a clear path back to the parent Book or Reading.
@@ -169,7 +171,7 @@ from the My Books disposition, and Read again preserves earlier completions.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Vocabulary | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to the active language with no per-page picker and no known-vocabulary list |
+| Vocabulary import (shipped) | `GET /vocabulary`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to the active language with no per-page picker and no known-vocabulary list |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
 Vocabulary is the canonical destination for known-vocabulary import, scoped to the
@@ -182,6 +184,22 @@ not remove books, analyses, prepared artifacts, or historical vocabulary
 provenance,
 known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
 learner-facing screen.
+
+### Accepted Vocabulary target — not shipped
+
+The existing import workflow becomes a peer view; the following are
+**conceptual screens, not deployed routes**. Their product and acceptance
+contract is [Vocabulary Browse, Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
+Implementation must keep the shipped import flow usable during transition.
+
+| Screen | Learner goal and primary exit | Required states |
+|---|---|---|
+| Browse (Vocabulary landing) | Find an effective lemma + POS across current analyzed Books; inspect Concordance or select it. | Current/partial/no analyzed corpus, zero filtered matches, Book-scoped counts, Known/Reserved and generated provenance, corrected identity, stable paging, failed/slow query |
+| Selection review | Review all selected identities, including missing evidence; explicitly name a Custom deck. | Long paged review, missing filter, clear confirmation, uncertain create outcome, language unavailable |
+| Concordance | Search exact surface or effective lemma + POS, inspect analyzer attribution, and apply Book and grammar filters. | Applied-versus-draft controls, corrected/excluded evidence, zero/partial/error, paged KWIC, native expandable sentence, compact/zoom reflow |
+| Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual syntax, optional diagram, missing parse, return/focus recovery |
+| Saved Custom deck | Edit an identity shortlist independently of Reading; review evidence and submit preparation. | Missing/all-missing evidence, read-only unavailable language, edit/delete confirmation, changed evidence before submit, uncertain save |
+| Custom deck preparation | Inspect durable progress and omissions, retry/prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card, complete with omissions, prior Ready during replacement, safe retry/uncertain submission |
 
 ## Inactive and supporting implementation
 

@@ -33,9 +33,9 @@ and surface a material conflict rather than silently choosing one.
 
 ### Product structure
 
-- [`information-architecture.md`](information-architecture.md) — canonical
-  **My Books / Reading** architecture, navigation,
-  secondary surfaces, and explicit planner/ADR boundaries.
+- [`information-architecture.md`](information-architecture.md) — shipped
+  **My Books / Reading** architecture and navigation, plus the explicitly
+  marked accepted Vocabulary target and its peer views.
 - [`terminology.md`](terminology.md) — canonical learner-facing language.
 - [`screen-inventory.md`](screen-inventory.md) — canonical screen goals,
   transitions, states, and current-route compatibility notes.
@@ -52,6 +52,8 @@ and surface a material conflict rather than silently choosing one.
   To Read's ensure-once analysis trigger.
 - [`../features/reading-workflow.md`](../features/reading-workflow.md) — shipped
   Inbox, To Read, current-reading, completion-history, and rereading workflow.
+- [`../features/vocabulary-browse-concordance-and-custom-decks.md`](../features/vocabulary-browse-concordance-and-custom-decks.md)
+  — accepted (not yet shipped) Browse, Concordance, and Custom deck contract.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — historical
   record of the retired Reading Journey / Primary Goal model; not current product
   behavior.
