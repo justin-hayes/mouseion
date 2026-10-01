@@ -112,7 +112,19 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	submitted, err := store.GetCustomDeckPreparation(ctx, alice.ID, preparationID)
 	require.NoError(t, err)
 	require.NotEmpty(t, submitted.FrozenSpec)
-	assert.Contains(t, string(submitted.FrozenSpec), sentence)
+	var frozen struct {
+		Evidence []domain.CustomDeckPreparationEvidence `json:"evidence"`
+	}
+	require.NoError(t, json.Unmarshal(submitted.FrozenSpec, &frozen))
+	require.Len(t, frozen.Evidence, 1)
+	assert.Equal(t, book.ID, frozen.Evidence[0].BookID)
+	assert.Equal(t, source.ID, frozen.Evidence[0].SourceMaterialID)
+	assert.Equal(t, runID, frozen.Evidence[0].AnalysisRunID)
+	assert.Equal(t, corpus.ID, frozen.Evidence[0].CorpusID)
+	assert.Equal(t, "haus", frozen.Evidence[0].Lemma)
+	assert.Equal(t, "NOUN", frozen.Evidence[0].UPOS)
+	assert.Equal(t, "Haus", frozen.Evidence[0].Target)
+	assert.Equal(t, sentence, frozen.Evidence[0].Sentence)
 	changedSentence := "The source changed after this Custom deck was submitted."
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
 	require.NoError(t, err)
