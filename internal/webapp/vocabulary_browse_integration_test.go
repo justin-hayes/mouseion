@@ -4,6 +4,7 @@ package webapp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,14 +12,145 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type customDeckFixtureTranslation struct {
+	requests []enrichment.TranslationRequest
+}
+
+func (*customDeckFixtureTranslation) Name() string    { return "custom-deck-fixture" }
+func (*customDeckFixtureTranslation) Version() string { return "1" }
+func (p *customDeckFixtureTranslation) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	p.requests = append(p.requests, request)
+	return enrichment.TranslationResponse{Translation: "house", Gloss: "a building", ContextOnly: true, SentenceTranslation: "In the morning, the children visit the house and speak with their neighbors.", SentenceTranslationTargets: []string{"house"}}, nil
+}
+
+func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "custom-deck-preparation-http-secret-0123456789")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+
+	alice := createAccount(t, ctx, store, "custom-prep-alice", "alice-password", false)
+	createAccount(t, ctx, store, "custom-prep-bob", "bob-password", false)
+	book, source, corpus, bookDeck := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep", "Private source title", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, source, corpus)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
+	sentence := "Die Kinder besuchen heute das alte Haus."
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID)
+	require.NoError(t, err)
+	tokens := []struct {
+		surface, lemma, upos, dependency string
+		head                             int
+		morphology                       map[string]string
+	}{
+		{"Die", "die", "DET", "det", 1, nil},
+		{"Kinder", "Kind", "NOUN", "nsubj", 2, nil},
+		{"besuchen", "besuchen", "VERB", "root", 2, map[string]string{"VerbForm": "Fin"}},
+		{"heute", "heute", "ADV", "advmod", 2, nil},
+		{"das", "das", "DET", "det", 5, nil},
+		{"alte", "alt", "ADJ", "amod", 5, nil},
+		{"Haus", "haus", "NOUN", "obj", 2, nil},
+	}
+	for ordinal, token := range tokens {
+		start := strings.Index(sentence, token.surface)
+		morphology := token.morphology
+		if morphology == nil {
+			morphology = map[string]string{}
+		}
+		encodedMorphology, marshalErr := json.Marshal(morphology)
+		require.NoError(t, marshalErr)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, alice.ID, runID, corpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, encodedMorphology, start, start+len(token.surface))
+		require.NoError(t, err)
+	}
+	require.NoError(t, store.SetVocabularyBrowseSelection(ctx, alice.ID, "de", "haus", "NOUN", true))
+	customDeck, err := store.CreateCustomVocabularyDeck(ctx, alice.ID, "de", "German practice", "d7c38a7e-777d-4fbd-a234-67115c7f92ab")
+	require.NoError(t, err)
+	bookDeckBefore, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
+	require.NoError(t, err)
+
+	workers := river.NewWorkers()
+	provider := &customDeckFixtureTranslation{}
+	presentation := cardexport.NewPresentation(nil)
+	prepareddeck.AddCustomDeckPreparationWorker(workers, store, presentation, provider, true)
+	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.Cleanup(t, "river client", func() error { return client.Stop(context.Background()) })
+	preparationService := prepareddeck.NewCustomDeckPreparationService(store, client)
+
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CustomDeckPreparation: preparationService, SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, "custom-prep-alice", "alice-password")
+	deckPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
+	require.Equal(t, http.StatusOK, deckPage.Code)
+	csrf := hiddenToken(t, deckPage.Body.String())
+	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
+	post := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, post.Code, post.Body.String())
+	statusURL := post.Header().Get("Location")
+	var ready domain.CustomDeckPreparation
+	for {
+		status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
+		require.Equal(t, http.StatusOK, status.Code)
+		ready, err = preparationService.Get(ctx, alice.ID, strings.TrimPrefix(statusURL, "/vocabulary/deck-preparations/"))
+		require.NoError(t, err)
+		if ready.State == "ready" || ready.State == "failed" {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "custom deck preparation did not finish")
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	require.Equal(t, "ready", ready.State, ready.Error)
+	require.Greater(t, ready.TotalCards, 0)
+	status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
+	assert.Contains(t, status.Body.String(), "ready")
+	assert.Contains(t, status.Body.String(), "Private source title")
+	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
+	download := perform(t, h, http.MethodGet, statusURL+"/download", nil, cookies)
+	require.Equal(t, http.StatusOK, download.Code)
+	assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"))
+	assert.True(t, strings.HasPrefix(download.Body.String(), "PK"), "download must be a real APKG ZIP")
+	require.Len(t, provider.requests, 1)
+	assert.NotContains(t, fmt.Sprint(provider.requests[0]), "Private source title", "provider request must not include Book title")
+	bobCookies, _ := loginCookies(t, h, "custom-prep-bob", "bob-password")
+	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, statusURL, nil, bobCookies).Code)
+
+	stillOwnerDeck, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
+	require.NoError(t, err)
+	assert.Equal(t, bookDeckBefore.State, stillOwnerDeck.State)
+	assert.Equal(t, bookDeckBefore.Artifact, stillOwnerDeck.Artifact)
+	var generated, goals int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='haus'`, alice.ID).Scan(&generated))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1`, alice.ID).Scan(&goals))
+	assert.Zero(t, generated, "Custom deck export must not mark Generated vocabulary")
+	assert.Zero(t, goals, "Custom deck export must not change Reading")
+	_ = book
+}
 
 func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "vocabulary-browse-http-secret-0123456789")
