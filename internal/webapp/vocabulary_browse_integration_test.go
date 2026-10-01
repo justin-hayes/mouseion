@@ -94,9 +94,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	prepareddeck.AddCustomDeckPreparationWorker(workers, store, presentation, provider, true)
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
-	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "river client", func() error { return client.Stop(context.Background()) })
-	preparationService := prepareddeck.NewCustomDeckPreparationService(store, client)
+	preparationService := prepareddeck.NewCustomDeckPreparationService(store, client, presentation, provider)
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CustomDeckPreparation: preparationService, SessionLifetime: time.Hour})
@@ -110,11 +108,21 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	}, postCookies)
 	require.Equal(t, http.StatusSeeOther, post.Code, post.Body.String())
 	statusURL := post.Header().Get("Location")
+	preparationID := strings.TrimPrefix(statusURL, "/vocabulary/deck-preparations/")
+	submitted, err := store.GetCustomDeckPreparation(ctx, alice.ID, preparationID)
+	require.NoError(t, err)
+	require.NotEmpty(t, submitted.FrozenSpec)
+	assert.Contains(t, string(submitted.FrozenSpec), sentence)
+	changedSentence := "The source changed after this Custom deck was submitted."
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.Cleanup(t, "river client", func() error { return client.Stop(context.Background()) })
 	var ready domain.CustomDeckPreparation
 	for {
 		status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
 		require.Equal(t, http.StatusOK, status.Code)
-		ready, err = preparationService.Get(ctx, alice.ID, strings.TrimPrefix(statusURL, "/vocabulary/deck-preparations/"))
+		ready, err = preparationService.Get(ctx, alice.ID, preparationID)
 		require.NoError(t, err)
 		if ready.State == "ready" || ready.State == "failed" {
 			break
@@ -131,12 +139,15 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Contains(t, status.Body.String(), "ready")
 	assert.Contains(t, status.Body.String(), "Private source title")
 	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
+	assert.NotContains(t, status.Body.String(), changedSentence)
 	download := perform(t, h, http.MethodGet, statusURL+"/download", nil, cookies)
 	require.Equal(t, http.StatusOK, download.Code)
 	assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"))
 	assert.True(t, strings.HasPrefix(download.Body.String(), "PK"), "download must be a real APKG ZIP")
 	require.Len(t, provider.requests, 1)
 	assert.NotContains(t, fmt.Sprint(provider.requests[0]), "Private source title", "provider request must not include Book title")
+	assert.Contains(t, fmt.Sprint(provider.requests[0]), sentence, "provider request must use the submission-time sentence")
+	assert.NotContains(t, fmt.Sprint(provider.requests[0]), changedSentence, "queued evidence changes must not alter provider inputs")
 	bobCookies, _ := loginCookies(t, h, "custom-prep-bob", "bob-password")
 	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, statusURL, nil, bobCookies).Code)
 

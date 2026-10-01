@@ -177,7 +177,7 @@ func run() (err error) {
 	} else {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
-	customDeckPreparationService := prepareddeck.NewCustomDeckPreparationService(store, riverClient)
+	customDeckPreparationService := prepareddeck.NewCustomDeckPreparationService(store, riverClient, presentation, translationProvider)
 	catalogueSyncService := cataloguesync.NewService(catalogueSyncDeps, riverClient, opdsService, capabilities)
 	if err = catalogueSyncService.RegisterAll(ctx); err != nil {
 		return err

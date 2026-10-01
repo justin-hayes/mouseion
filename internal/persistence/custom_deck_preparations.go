@@ -112,15 +112,15 @@ func (s *PostgresStore) ClaimCustomDeckPreparation(ctx context.Context, owner, i
 	return p, err
 }
 
-func (s *PostgresStore) FreezeCustomDeckPreparation(ctx context.Context, owner, id string, spec []byte) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE custom_vocabulary_deck_preparations SET frozen_spec=$3::jsonb
- WHERE owner_id=$1 AND id=$2 AND state='preparing' AND frozen_spec IS NULL`, owner, id, spec)
+func FreezeCustomDeckPreparationTx(ctx context.Context, tx pgx.Tx, owner, id string, spec []byte) error {
+	tag, err := tx.Exec(ctx, `UPDATE custom_vocabulary_deck_preparations SET frozen_spec=$3::jsonb
+	 WHERE owner_id=$1 AND id=$2 AND state='queued' AND frozen_spec IS NULL`, owner, id, spec)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		var same bool
-		if err := s.pool.QueryRow(ctx, `SELECT frozen_spec=$3::jsonb FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id, spec).Scan(&same); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT frozen_spec=$3::jsonb FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2`, owner, id, spec).Scan(&same); err != nil {
 			return missing(err)
 		}
 		if !same {
@@ -177,12 +177,7 @@ func (s *PostgresStore) DownloadCustomDeckPreparation(ctx context.Context, owner
 
 // LoadCustomDeckProjections chooses one current effective occurrence for each
 // saved identity. It deliberately ignores Browse filters and Book disposition.
-func (s *PostgresStore) LoadCustomDeckProjections(ctx context.Context, owner, deckID, preparationID string) (projections []cardexport.CandidateProjection, selected int, deckName string, evidence []domain.CustomDeckPreparationEvidence, err error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
-	if err != nil {
-		return nil, 0, "", nil, err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+func (s *PostgresStore) LoadCustomDeckProjectionsTx(ctx context.Context, tx pgx.Tx, owner, deckID, preparationID string) (projections []cardexport.CandidateProjection, selected int, deckName string, evidence []domain.CustomDeckPreparationEvidence, err error) {
 	var language string
 	if err := tx.QueryRow(ctx, `SELECT language,deck_name FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2 AND id=$3`, owner, deckID, preparationID).Scan(&language, &deckName); err != nil {
 		return nil, 0, "", nil, missing(err)
@@ -267,9 +262,6 @@ ORDER BY o.book_id,o.unit_order,o.sentence_ordinal,o.token_ordinal`, owner, lang
 			Sentence: chosen.Sentence, Target: chosen.Surface, SentenceOrdinal: chosen.SentenceOrdinal,
 			StartOffset: chosen.Offset, EndOffset: chosen.EndOffset,
 		})
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, "", nil, err
 	}
 	return projections, len(identities), deckName, evidence, nil
 }

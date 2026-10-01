@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -29,19 +30,21 @@ type customDeckFrozenSpec struct {
 }
 
 type CustomDeckPreparationService struct {
-	store  *persistence.PostgresStore
-	client riverClient
+	store        *persistence.PostgresStore
+	client       riverClient
+	presentation *cardexport.Presentation
+	provider     enrichment.TranslationProvider
 }
 
-func NewCustomDeckPreparationService(store *persistence.PostgresStore, client riverClient) *CustomDeckPreparationService {
-	return &CustomDeckPreparationService{store: store, client: client}
+func NewCustomDeckPreparationService(store *persistence.PostgresStore, client riverClient, presentation *cardexport.Presentation, provider enrichment.TranslationProvider) *CustomDeckPreparationService {
+	return &CustomDeckPreparationService{store: store, client: client, presentation: presentation, provider: provider}
 }
 
 func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID, actionKey string) (result domain.CustomDeckPreparation, err error) {
-	if s == nil || s.store == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckID) == "" || strings.TrimSpace(actionKey) == "" {
+	if s == nil || s.store == nil || s.client == nil || s.presentation == nil || s.provider == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckID) == "" || strings.TrimSpace(actionKey) == "" {
 		return domain.CustomDeckPreparation{}, ErrInvalidInput
 	}
-	tx, err := s.store.Pool().Begin(ctx)
+	tx, err := s.store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}
@@ -52,6 +55,35 @@ func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID
 	p, err := persistence.CreateCustomDeckPreparationTx(ctx, tx, owner, deckID, actionKey)
 	if err != nil {
 		return domain.CustomDeckPreparation{}, err
+	}
+	if len(p.FrozenSpec) == 0 {
+		projections, _, deckName, evidence, buildErr := s.store.LoadCustomDeckProjectionsTx(ctx, tx, owner, p.DeckID, p.ID)
+		if buildErr != nil {
+			return domain.CustomDeckPreparation{}, buildErr
+		}
+		for i := range projections {
+			projections[i].Provider = s.provider.Name()
+			projections[i].ProviderVersion = s.provider.Version()
+			projections[i].TargetLanguage = "en"
+			projections[i].RequireContextualGloss = true
+		}
+		deck, _, freezeErr := s.presentation.Freeze(ctx, owner, deckName, projections)
+		if freezeErr != nil {
+			return domain.CustomDeckPreparation{}, freezeErr
+		}
+		presentationJSON, marshalErr := json.Marshal(deck.StorageProjection())
+		if marshalErr != nil {
+			return domain.CustomDeckPreparation{}, marshalErr
+		}
+		frozen := customDeckFrozenSpec{Presentation: presentationJSON, Evidence: evidence}
+		encoded, marshalErr := json.Marshal(frozen)
+		if marshalErr != nil {
+			return domain.CustomDeckPreparation{}, marshalErr
+		}
+		if err = persistence.FreezeCustomDeckPreparationTx(ctx, tx, owner, p.ID, encoded); err != nil {
+			return domain.CustomDeckPreparation{}, err
+		}
+		p.FrozenSpec = encoded
 	}
 	_, err = s.client.InsertTx(ctx, tx, CustomDeckPreparationJobArgs{OwnerID: owner, PreparationID: p.ID}, &river.InsertOpts{
 		Queue: Queue, MaxAttempts: durableJobMaxAttempts,
@@ -126,37 +158,9 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	}
 	var frozen customDeckFrozenSpec
 	if len(p.FrozenSpec) == 0 {
-		projections, selected, deckName, evidence, buildErr := w.Store.LoadCustomDeckProjections(ctx, a.OwnerID, p.DeckID, a.PreparationID)
-		if buildErr != nil {
-			return w.fail(ctx, a, buildErr)
-		}
-		if len(projections) == 0 {
-			return w.fail(ctx, a, errors.New("no selected identity has a current qualifying sentence"))
-		}
-		for i := range projections {
-			projections[i].Provider = w.Provider.Name()
-			projections[i].ProviderVersion = w.Provider.Version()
-			projections[i].TargetLanguage = "en"
-			projections[i].RequireContextualGloss = true
-		}
-		deck, _, freezeErr := w.Presentation.Freeze(ctx, a.OwnerID, deckName, projections)
-		if freezeErr != nil {
-			return w.fail(ctx, a, freezeErr)
-		}
-		presentationJSON, marshalErr := json.Marshal(deck.StorageProjection())
-		if marshalErr != nil {
-			return w.fail(ctx, a, marshalErr)
-		}
-		frozen = customDeckFrozenSpec{Presentation: presentationJSON, Evidence: evidence}
-		encoded, marshalErr := json.Marshal(frozen)
-		if marshalErr != nil {
-			return w.fail(ctx, a, marshalErr)
-		}
-		if freezeErr = w.Store.FreezeCustomDeckPreparation(ctx, a.OwnerID, a.PreparationID, encoded); freezeErr != nil {
-			return freezeErr
-		}
-		p.SelectedIdentities = selected
-	} else if err = json.Unmarshal(p.FrozenSpec, &frozen); err != nil {
+		return w.fail(ctx, a, errors.New("Custom deck preparation is missing its submission-time frozen specification"))
+	}
+	if err = json.Unmarshal(p.FrozenSpec, &frozen); err != nil {
 		return w.fail(ctx, a, fmt.Errorf("decode frozen Custom deck: %w", err))
 	}
 	var projection cardexport.StorageProjection
