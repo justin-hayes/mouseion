@@ -46,6 +46,14 @@ type customDeckCancelTranslation struct {
 	calls  int
 }
 
+type customDeckMalformedTranslation struct{}
+
+func (*customDeckMalformedTranslation) Name() string    { return "custom-deck-fixture" }
+func (*customDeckMalformedTranslation) Version() string { return "1" }
+func (*customDeckMalformedTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	return enrichment.TranslationResponse{}, nil
+}
+
 func (*customDeckCancelTranslation) Name() string    { return "custom-deck-fixture" }
 func (*customDeckCancelTranslation) Version() string { return "1" }
 func (p *customDeckCancelTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
@@ -348,6 +356,16 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	failedPreparation, err = recoveryService.Get(ctx, alice.ID, failedPreparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "failed", failedPreparation.State)
+	malformedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "a7e59d94-a40f-42c1-ae54-a9673fbda021", retryFingerprint)
+	require.NoError(t, err)
+	malformedWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: &customDeckMalformedTranslation{}, Configured: true}
+	require.NoError(t, malformedWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: malformedPreparation.ID},
+	}))
+	malformedPreparation, err = recoveryService.Get(ctx, alice.ID, malformedPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", malformedPreparation.State, "malformed enrichment outcomes fail closed")
 	failedStatusURL := "/vocabulary/deck-preparations/" + failedPreparation.ID
 	failedStatus := perform(t, h, http.MethodGet, failedStatusURL, nil, cookies)
 	require.Equal(t, http.StatusOK, failedStatus.Code)
@@ -367,7 +385,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, repeatedRetry.Code)
 	assert.Equal(t, retryPost.Header().Get("Location"), repeatedRetry.Header().Get("Location"))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
-	assert.Equal(t, 5, preparationCount, "retry creates one new durable generation despite repeated submission")
+	assert.Equal(t, 6, preparationCount, "retry creates one new durable generation despite repeated submission")
 	retryPreparationID := strings.TrimPrefix(retryPost.Header().Get("Location"), "/vocabulary/deck-preparations/")
 	retryProvider := &customDeckFixtureTranslation{}
 	retryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: retryProvider, Configured: true}
