@@ -90,6 +90,9 @@ func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request)
 	}
 	u := user(r)
 	language, _ := activeStudyLanguageForContext(r.Context())
+	if !h.requireEditableStudyLanguage(w, r, language) {
+		return
+	}
 	selected := r.PathValue("action") == "add"
 	err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), u.ID, language, r.FormValue("lemma"), r.FormValue("upos"), selected)
 	if err != nil {
@@ -105,7 +108,18 @@ func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request)
 
 func (h *Handler) vocabularySelectionPage(w http.ResponseWriter, r *http.Request) {
 	language, _ := activeStudyLanguageForContext(r.Context())
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	editable := studyLanguagePresent(languages, language)
 	selection, err := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), user(r).ID, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	decks, err := h.services.Store.VocabularySelection.ListCustomVocabularyDecks(r.Context(), user(r).ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -134,7 +148,7 @@ func (h *Handler) vocabularySelectionPage(w http.ResponseWriter, r *http.Request
 	page = min(page, lastPage)
 	start := (page - 1) * 25
 	end := min(start+25, visibleTotal)
-	render(w, r, VocabularySelectionPageView(user(r), h.csrf(w, r), language, filtered[start:end], len(selection), missing, visibleTotal, page, missingOnly, uuid.NewString(), "", ""))
+	render(w, r, VocabularySelectionPageView(user(r), h.csrf(w, r), language, filtered[start:end], len(selection), missing, visibleTotal, page, missingOnly, uuid.NewString(), "", "", decks, editable))
 }
 
 func (h *Handler) removeVocabularySelection(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +156,9 @@ func (h *Handler) removeVocabularySelection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
+	if !h.requireEditableStudyLanguage(w, r, language) {
+		return
+	}
 	if err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), user(r).ID, language, r.FormValue("lemma"), r.FormValue("upos"), false); err != nil {
 		fail(w, err)
 		return
@@ -154,6 +171,9 @@ func (h *Handler) clearVocabularySelection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
+	if !h.requireEditableStudyLanguage(w, r, language) {
+		return
+	}
 	if err := h.services.Store.VocabularySelection.ClearVocabularyBrowseSelection(r.Context(), user(r).ID, language); err != nil {
 		fail(w, err)
 		return
@@ -168,7 +188,12 @@ func (h *Handler) confirmClearVocabularySelection(w http.ResponseWriter, r *http
 		fail(w, err)
 		return
 	}
-	render(w, r, VocabularySelectionClearConfirmView(user(r), h.csrf(w, r), language, len(selection)))
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, VocabularySelectionClearConfirmView(user(r), h.csrf(w, r), language, len(selection), studyLanguagePresent(languages, language)))
 }
 
 func (h *Handler) createCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
@@ -176,6 +201,9 @@ func (h *Handler) createCustomVocabularyDeck(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
+	if !h.requireEditableStudyLanguage(w, r, language) {
+		return
+	}
 	deck, err := h.services.Store.VocabularySelection.CreateCustomVocabularyDeck(r.Context(), user(r).ID, language, r.FormValue("name"), r.FormValue("creation_key"))
 	if err != nil {
 		selection, listErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), user(r).ID, language)
@@ -190,7 +218,12 @@ func (h *Handler) createCustomVocabularyDeck(w http.ResponseWriter, r *http.Requ
 			}
 		}
 		log.Printf("mouseion: create Custom deck: %v", err)
-		renderStatus(w, r, http.StatusInternalServerError, VocabularySelectionPageView(user(r), h.csrf(w, r), language, selection, len(selection), missing, len(selection), 1, false, r.FormValue("creation_key"), r.FormValue("name"), "Deck creation did not complete. Your selection is unchanged; retry this same action."))
+		decks, decksErr := h.services.Store.VocabularySelection.ListCustomVocabularyDecks(r.Context(), user(r).ID)
+		if decksErr != nil {
+			fail(w, decksErr)
+			return
+		}
+		renderStatus(w, r, http.StatusInternalServerError, VocabularySelectionPageView(user(r), h.csrf(w, r), language, selection, len(selection), missing, len(selection), 1, false, r.FormValue("creation_key"), r.FormValue("name"), "Deck creation did not complete. Your selection is unchanged; retry this same action.", decks, true))
 		return
 	}
 	redirect(w, r, "/vocabulary/decks/"+deck.ID)
@@ -206,7 +239,151 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 		}
 		return
 	}
-	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck))
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	editable := studyLanguagePresent(languages, deck.Language)
+	page := 1
+	if parsed, parseErr := strconv.Atoi(r.URL.Query().Get("page")); parseErr == nil && parsed > 1 {
+		page = parsed
+	}
+	missingOnly := r.URL.Query().Get("missing") == "true"
+	filtered := make([]domain.VocabularyIdentity, 0, len(deck.Identities))
+	for _, identity := range deck.Identities {
+		if !missingOnly || identity.MissingEvidence {
+			filtered = append(filtered, identity)
+		}
+	}
+	lastPage := max(1, (len(filtered)+24)/25)
+	page = min(page, lastPage)
+	start, end := (page-1)*25, min(page*25, len(filtered))
+	decks, err := h.services.Store.VocabularySelection.ListCustomVocabularyDecks(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly))
+}
+
+func (h *Handler) renameCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !h.requireEditableStudyLanguage(w, r, deck.Language) {
+		return
+	}
+	if err := h.services.Store.VocabularySelection.RenameCustomVocabularyDeck(r.Context(), user(r).ID, deck.ID, r.FormValue("name")); err != nil {
+		if errors.Is(err, persistence.ErrCustomVocabularyDeckNameInvalid) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/vocabulary/decks/"+deck.ID)
+}
+
+func (h *Handler) setCustomVocabularyDeckIdentity(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner, id := user(r).ID, r.PathValue("id")
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), owner, id)
+	if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !h.requireEditableStudyLanguage(w, r, deck.Language) {
+		return
+	}
+	action := r.PathValue("action")
+	if action != "add" && action != "remove" {
+		http.NotFound(w, r)
+		return
+	}
+	if err := h.services.Store.VocabularySelection.SetCustomVocabularyDeckIdentity(r.Context(), owner, id, r.FormValue("lemma"), r.FormValue("upos"), action == "add"); err != nil {
+		if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/vocabulary/decks/"+id)
+}
+
+func (h *Handler) confirmDeleteCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	render(w, r, CustomVocabularyDeckDeleteConfirmView(user(r), h.csrf(w, r), deck, studyLanguagePresent(languages, deck.Language)))
+}
+
+func (h *Handler) deleteCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner, id := user(r).ID, r.PathValue("id")
+	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), owner, id)
+	if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !h.requireEditableStudyLanguage(w, r, deck.Language) {
+		return
+	}
+	if err := h.services.Store.VocabularySelection.DeleteCustomVocabularyDeck(r.Context(), owner, id); err != nil {
+		if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	redirect(w, r, "/vocabulary/selection")
+}
+
+func (h *Handler) requireEditableStudyLanguage(w http.ResponseWriter, r *http.Request, language string) bool {
+	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), user(r).ID)
+	if err != nil {
+		fail(w, err)
+		return false
+	}
+	if language == "" || !studyLanguagePresent(languages, language) {
+		http.Error(w, "This language is not currently available for editing.", http.StatusConflict)
+		return false
+	}
+	return true
 }
 
 func vocabularyBrowseRequestState(value, positive, negative string) string {
@@ -441,4 +618,12 @@ func vocabularySelectionPageURL(page int, missingOnly bool) string {
 		values.Set("missing", "true")
 	}
 	return "/vocabulary/selection?" + values.Encode()
+}
+
+func customVocabularyDeckPageURL(deckID string, page int, missingOnly bool) string {
+	values := url.Values{"page": []string{strconv.Itoa(page)}}
+	if missingOnly {
+		values.Set("missing", "true")
+	}
+	return "/vocabulary/decks/" + url.PathEscape(deckID) + "?" + values.Encode()
 }

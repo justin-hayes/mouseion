@@ -46,8 +46,10 @@ product area. The implementation redirects `GET /known-vocab` to `/vocabulary`.
 New known-vocabulary functionality belongs in Vocabulary. The partially deployed
 target adds Browse as its landing view and Concordance as another peer view,
 while keeping import distinct. Browse, exact-lookup/KWIC, applied Book and
-grammar filters, and focused textual sentence study are available. Custom decks
-remain target behavior.
+grammar filters, and focused textual sentence study are available. Named Custom
+decks and recoverable Browse selection are now available, including read-only
+retention when a deck language leaves the derived study-language set; Custom
+deck preparation remains target behavior.
 
 ## Study-language model
 

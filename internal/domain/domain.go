@@ -164,12 +164,19 @@ type VocabularyIdentity struct {
 	OccurrenceCount int64
 	BookCount       int64
 	MissingEvidence bool
+	EvidenceBooks   []VocabularyIdentityBook
+}
+
+type VocabularyIdentityBook struct {
+	ID, Title, AnalysisRunID string
+	OccurrenceCount          int64
 }
 
 type CustomVocabularyDeck struct {
 	ID, Language, Name string
 	Identities         []VocabularyIdentity
 	MissingCount       int64
+	IdentityCount      int64
 }
 
 type VocabularyBrowseBook struct {

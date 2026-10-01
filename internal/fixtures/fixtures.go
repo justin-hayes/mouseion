@@ -534,6 +534,7 @@ func (s *Store) CreateCustomVocabularyDeck(_ context.Context, owner, language, n
 			deck.MissingCount++
 		}
 	}
+	deck.IdentityCount = int64(len(deck.Identities))
 	s.customVocabularyDecks[deck.ID] = deck
 	s.customDeckActions[actionKey] = deck.ID
 	delete(s.vocabularySelections, selectionKey)
@@ -549,6 +550,68 @@ func (s *Store) GetCustomVocabularyDeck(_ context.Context, owner, id string) (do
 	}
 	_ = owner
 	return deck, nil
+}
+
+func (s *Store) ListCustomVocabularyDecks(_ context.Context, owner string) ([]domain.CustomVocabularyDeck, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner != OwnerID {
+		return nil, nil
+	}
+	var decks []domain.CustomVocabularyDeck
+	for _, deck := range s.customVocabularyDecks {
+		decks = append(decks, deck)
+	}
+	return decks, nil
+}
+
+func (s *Store) RenameCustomVocabularyDeck(_ context.Context, _, id, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	deck, ok := s.customVocabularyDecks[id]
+	if !ok {
+		return persistence.ErrCustomVocabularyDeckNotFound
+	}
+	deck.Name = strings.TrimSpace(name)
+	s.customVocabularyDecks[id] = deck
+	return nil
+}
+
+func (s *Store) SetCustomVocabularyDeckIdentity(_ context.Context, _, id, lemma, upos string, selected bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	deck, ok := s.customVocabularyDecks[id]
+	if !ok {
+		return persistence.ErrCustomVocabularyDeckNotFound
+	}
+	identities := deck.Identities[:0]
+	found := false
+	for _, identity := range deck.Identities {
+		if identity.CanonicalLemma == lemma && identity.UPOS == upos {
+			found = true
+			if !selected {
+				continue
+			}
+		}
+		identities = append(identities, identity)
+	}
+	if selected && !found {
+		identities = append(identities, domain.VocabularyIdentity{CanonicalLemma: lemma, UPOS: upos, MissingEvidence: true})
+	}
+	deck.Identities = identities
+	deck.IdentityCount = int64(len(identities))
+	s.customVocabularyDecks[id] = deck
+	return nil
+}
+
+func (s *Store) DeleteCustomVocabularyDeck(_ context.Context, _, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.customVocabularyDecks[id]; !ok {
+		return persistence.ErrCustomVocabularyDeckNotFound
+	}
+	delete(s.customVocabularyDecks, id)
+	return nil
 }
 
 // ListVocabularyConcordance serves deterministic synthetic evidence so browser
