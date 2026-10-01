@@ -5,6 +5,7 @@ package webapp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,12 +24,21 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type customDeckFixtureTranslation struct {
 	requests []enrichment.TranslationRequest
+}
+
+type customDeckFailTranslation struct{}
+
+func (*customDeckFailTranslation) Name() string    { return "custom-deck-fixture" }
+func (*customDeckFailTranslation) Version() string { return "1" }
+func (*customDeckFailTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	return enrichment.TranslationResponse{}, errors.New("temporary translation transport failure")
 }
 
 func (*customDeckFixtureTranslation) Name() string    { return "custom-deck-fixture" }
@@ -210,6 +220,10 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	changedSentence := "The source changed after this Custom deck was submitted."
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
 	require.NoError(t, err)
+	hausUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
+	hausStart := strings.Index(sentence, "Haus")
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL,true)`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
+	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.Cleanup(t, "river client", func() error { return client.Stop(context.Background()) })
 	var ready domain.CustomDeckPreparation
@@ -264,13 +278,30 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND corpus_id=$3 AND analysis_run_id=$4 AND source_document_id=$5 AND start_offset=$6 AND end_offset=$7`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
+	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
 	require.NoError(t, err)
 	retryFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
-	failedPreparation, err := store.CreateCustomDeckPreparation(ctx, alice.ID, customDeck.ID, "1eb7d21b-a6e9-42c4-9339-6feeb8dd29e8", retryFingerprint)
+	require.NoError(t, client.Stop(ctx))
+	failingProvider := &customDeckFailTranslation{}
+	failureWorkers := river.NewWorkers()
+	prepareddeck.AddCustomDeckPreparationWorker(failureWorkers, store, presentation, failingProvider, true)
+	failureClient, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: failureWorkers})
 	require.NoError(t, err)
-	require.NoError(t, store.FailCustomDeckPreparation(ctx, alice.ID, failedPreparation.ID, "Custom deck preparation failed; review the deck and retry."))
+	recoveryService := prepareddeck.NewCustomDeckPreparationService(store, failureClient, presentation, failingProvider)
+	h.services.CustomDeckPreparation = recoveryService
+	failedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "1eb7d21b-a6e9-42c4-9339-6feeb8dd29e8", retryFingerprint)
+	require.NoError(t, err)
+	failureWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: failingProvider, Configured: true}
+	require.NoError(t, failureWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: failedPreparation.ID},
+	}))
+	failedPreparation, err = recoveryService.Get(ctx, alice.ID, failedPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", failedPreparation.State)
 	failedStatusURL := "/vocabulary/deck-preparations/" + failedPreparation.ID
 	failedStatus := perform(t, h, http.MethodGet, failedStatusURL, nil, cookies)
 	require.Equal(t, http.StatusOK, failedStatus.Code)
@@ -292,22 +323,18 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
 	assert.Equal(t, 3, preparationCount, "retry creates one new durable generation despite repeated submission")
 	retryPreparationID := strings.TrimPrefix(retryPost.Header().Get("Location"), "/vocabulary/deck-preparations/")
-	var retried domain.CustomDeckPreparation
-	for {
-		retried, err = preparationService.Get(ctx, alice.ID, retryPreparationID)
-		require.NoError(t, err)
-		if retried.State == "complete_with_omissions" || retried.State == "failed" {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "retried Custom deck preparation did not finish")
-		case <-time.After(20 * time.Millisecond):
-		}
-	}
+	retryProvider := &customDeckFixtureTranslation{}
+	retryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: retryProvider, Configured: true}
+	require.NoError(t, retryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: retryPreparationID},
+	}))
+	retried, err := recoveryService.Get(ctx, alice.ID, retryPreparationID)
+	require.NoError(t, err)
 	require.Equal(t, "complete_with_omissions", retried.State, retried.Error)
-	require.Len(t, provider.requests, 4)
-	providerRequests := fmt.Sprint(provider.requests)
+	require.Len(t, provider.requests, 2)
+	require.Len(t, retryProvider.requests, 2)
+	providerRequests := fmt.Sprint(append(provider.requests, retryProvider.requests...))
 	assert.NotContains(t, providerRequests, "Private source title", "provider requests must not include Book title")
 	assert.Contains(t, providerRequests, sentence, "provider request must use the submission-time sentence")
 	assert.NotContains(t, providerRequests, changedSentence, "queued evidence changes must not alter provider inputs")
