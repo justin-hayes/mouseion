@@ -247,6 +247,13 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Equal(t, "evidence", ready.Omissions[0].Kind)
 	assert.Equal(t, "meaning", ready.Omissions[1].Kind)
 	assert.Equal(t, "baum", ready.Omissions[1].Lemma)
+	translationRequestsBeforeRedelivery := len(provider.requests)
+	redeliveryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: provider, Configured: true}
+	require.NoError(t, redeliveryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 2, MaxAttempts: 3},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: preparationID},
+	}))
+	assert.Len(t, provider.requests, translationRequestsBeforeRedelivery, "redelivery of a complete-with-omissions generation is terminal")
 	status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
 	assert.Contains(t, status.Body.String(), "ready")
 	assert.Contains(t, status.Body.String(), "missingwort")

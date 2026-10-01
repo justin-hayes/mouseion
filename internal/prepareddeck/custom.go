@@ -169,7 +169,7 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	if err != nil {
 		return err
 	}
-	if p.State == "ready" || p.State == "failed" || p.State == "cancelled" {
+	if p.State == "ready" || p.State == "complete_with_omissions" || p.State == "failed" || p.State == "cancelled" {
 		return nil
 	}
 	if !w.Configured || w.Provider == nil {
