@@ -216,7 +216,6 @@ type Querier interface {
 	ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error)
 	ListBookDependentsByGovernorLemma(ctx context.Context, arg ListBookDependentsByGovernorLemmaParams) ([]ListBookDependentsByGovernorLemmaRow, error)
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
-	// Concordance occurrence queries read from the shared occurrence model.
 	ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error)
 	ListBookOccurrencesByLemmaAndDependency(ctx context.Context, arg ListBookOccurrencesByLemmaAndDependencyParams) ([]ListBookOccurrencesByLemmaAndDependencyRow, error)
 	ListBookOccurrencesBySurface(ctx context.Context, arg ListBookOccurrencesBySurfaceParams) ([]ListBookOccurrencesBySurfaceRow, error)
@@ -266,6 +265,8 @@ type Querier interface {
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	ListUnscopedCatalogueEntryAliases(ctx context.Context, arg ListUnscopedCatalogueEntryAliasesParams) ([]ListUnscopedCatalogueEntryAliasesRow, error)
+	// Concordance occurrence queries read from the shared occurrence model.
+	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)
 	LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error)
 	LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)

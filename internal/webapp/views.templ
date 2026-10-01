@@ -898,7 +898,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Books</th><th scope="col">Learner state</th><th scope="col">Evidence</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row">{ row.CanonicalLemma }</th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ fmt.Sprintf("%d", row.BookCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>{ vocabularyBrowseEvidence(row) }</td></tr>
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(row.CanonicalLemma, row.UPOS)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ fmt.Sprintf("%d", row.BookCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>{ vocabularyBrowseEvidence(row) }</td></tr>
 				}
 				</tbody>
 				}
@@ -916,12 +916,165 @@ templ VocabularyViewsNav(active string) {
 			<a href="/vocabulary">Browse</a>
 		}
 		 ·
+		if active == "concordance" {
+			<a href="/vocabulary/concordance" aria-current="page">Concordance</a>
+		} else {
+			<a href="/vocabulary/concordance">Concordance</a>
+		}
+		 ·
 		if active == "import" {
 			<a href="/vocabulary/import" aria-current="page">Import known vocabulary</a>
 		} else {
 			<a href="/vocabulary/import">Import known vocabulary</a>
 		}
 	</nav>
+}
+
+templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message string) {
+	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Concordance", "Find analyzed occurrences and inspect their original context.", nil)
+		@VocabularyViewsNav("concordance")
+		if language == "" {
+			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before looking up vocabulary.") {
+				<a href="/catalogs">Connect a catalog</a>
+			}
+		}
+		if language != "" {
+			<p>Active study language: <code>{ language }</code>. Results use only current analyzed evidence in your Books.</p>
+			<form method="get" action="/vocabulary/concordance" class="concordance-query">
+				<label for="concordance-mode">Lookup evidence</label>
+				<select id="concordance-mode" name="mode">
+					<option value="surface" selected?={ lookup.Mode == "surface" }>Observed surface</option>
+					<option value="effective" selected?={ lookup.Mode == "effective" }>Effective lemma</option>
+					<option value="analyzer" selected?={ lookup.Mode == "analyzer" }>Analyzer lemma (evidence)</option>
+				</select>
+				<label for="concordance-term">Exact term</label><input id="concordance-term" type="search" name="term" value={ lookup.Term } required/>
+				<label for="concordance-upos">Part of speech (lemma lookup)</label>
+				<select id="concordance-upos" name="upos"><option value="">Choose when using a lemma</option>
+					for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV", "PROPN", "PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "NUM", "PART", "INTJ", "PUNCT", "SYM", "X"} {
+						<option value={ pos } selected?={ lookup.UPOS == pos }>{ pos }</option>
+					}
+				</select>
+				<button type="submit">Find</button>
+			</form>
+			if message != "" {
+				<p role="alert">{ message }</p>
+			}
+			if applied {
+				<section id="concordance-results" aria-labelledby="concordance-summary">
+					<h2 id="concordance-summary" tabindex="-1">Current results</h2>
+					<p>{ concordanceAppliedSummary(lookup) }.</p>
+					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }.</p>
+					if result.HasNext {
+						<p>More results are available.</p>
+					}
+					if len(result.Occurrences) == 0 {
+						<p>No current analyzed occurrences match this exact lookup.</p>
+					}
+					if len(result.Occurrences) > 0 {
+						<ol class="concordance-results">
+						for _, occurrence := range result.Occurrences {
+							<li>
+								<details class="concordance-row">
+									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
+										<span>{ concordanceBefore(occurrence) }</span> <strong>{ occurrence.Surface }</strong> <span>{ concordanceAfter(occurrence) }</span>
+										<small>{ occurrence.BookTitle } · { concordanceLocation(occurrence) }</small>
+									</summary>
+									<div class="concordance-context">
+										<p class="reading-text">{ occurrence.SentenceText }</p>
+										<p><strong>{ occurrence.BookTitle }</strong> · { concordanceLocation(occurrence) }</p>
+										<p>Observed surface: <strong>{ occurrence.Surface }</strong>. Analyzer lemma (evidence): <code>{ occurrence.RawLemma }</code> · <code>{ occurrence.UPOS }</code>. Effective lemma: <code>{ occurrence.EffectiveLemma }</code>{ concordanceDecisionLabel(occurrence) }</p>
+										<p><small>Dependency: <code>{ occurrence.Dependency }</code> · head: { occurrence.HeadSurface }</small></p>
+									</div>
+								</details>
+							</li>
+						}
+						</ol>
+					}
+					if result.HasPrevious || result.HasNext {
+						<nav aria-label="Concordance pages">
+							if result.HasPrevious {
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) }>Previous</a>
+							}
+							if result.HasNext {
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) }>Next</a>
+							}
+						</nav>
+					}
+				</section>
+			}
+		}
+	}
+}
+
+func vocabularyIdentityConcordanceURL(lemma, upos string) string {
+	values := url.Values{"mode": {"effective"}, "term": {lemma}, "upos": {upos}}
+	return "/vocabulary/concordance?" + values.Encode()
+}
+
+func concordanceAppliedSummary(lookup domain.ConcordanceLookup) string {
+	switch lookup.Mode {
+	case "effective":
+		return "Applied effective lemma + " + lookup.UPOS + " lookup for “" + lookup.Term + "” across all current Books"
+	case "analyzer":
+		return "Applied analyzer lemma evidence + " + lookup.UPOS + " lookup for “" + lookup.Term + "” across all current Books"
+	default:
+		return "Applied exact observed surface lookup for “" + lookup.Term + "” across all current Books"
+	}
+}
+
+func concordanceResultRange(result domain.ConcordanceResult) string {
+	if len(result.Occurrences) == 0 {
+		return "No results on this page"
+	}
+	start := (result.Page-1)*25 + 1
+	return fmt.Sprintf("Results %d–%d", start, start+len(result.Occurrences)-1)
+}
+
+func concordanceLocation(occurrence domain.ConcordanceResultOccurrence) string {
+	if occurrence.ChapterTitle != "" {
+		return occurrence.ChapterTitle
+	}
+	return "sentence " + fmt.Sprintf("%d", occurrence.SentenceOrdinal+1)
+}
+
+func concordanceDecisionLabel(occurrence domain.ConcordanceResultOccurrence) string {
+	var labels []string
+	if occurrence.Corrected {
+		labels = append(labels, "corrected for this occurrence")
+	}
+	if occurrence.Excluded {
+		labels = append(labels, "excluded from effective vocabulary; retained as analyzer evidence")
+	}
+	if len(labels) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(labels, "; ") + ")"
+}
+
+func concordanceBefore(occurrence domain.ConcordanceResultOccurrence) string {
+	start := int(occurrence.SentenceStartOffset)
+	if start < 0 || start > len(occurrence.SentenceText) {
+		return "…"
+	}
+	runes := []rune(occurrence.SentenceText[:start])
+	if len(runes) > 44 {
+		runes = runes[len(runes)-44:]
+		return "…" + string(runes)
+	}
+	return string(runes)
+}
+
+func concordanceAfter(occurrence domain.ConcordanceResultOccurrence) string {
+	end := int(occurrence.SentenceEndOffset)
+	if end < 0 || end > len(occurrence.SentenceText) {
+		return "…"
+	}
+	runes := []rune(occurrence.SentenceText[end:])
+	if len(runes) > 44 {
+		return string(runes[:44]) + "…"
+	}
+	return string(runes)
 }
 
 templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {

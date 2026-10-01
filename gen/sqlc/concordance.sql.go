@@ -139,7 +139,6 @@ func (q *Queries) ListBookDependentsByGovernorLemma(ctx context.Context, arg Lis
 }
 
 const listBookOccurrencesByLemma = `-- name: ListBookOccurrencesByLemma :many
-
 SELECT o.surface,
        o.canonical_lemma,
        o.upos,
@@ -206,7 +205,6 @@ type ListBookOccurrencesByLemmaRow struct {
 	TokenOrdinal        int64
 }
 
-// Concordance occurrence queries read from the shared occurrence model.
 func (q *Queries) ListBookOccurrencesByLemma(ctx context.Context, arg ListBookOccurrencesByLemmaParams) ([]ListBookOccurrencesByLemmaRow, error) {
 	rows, err := q.db.Query(ctx, listBookOccurrencesByLemma,
 		arg.Owner,
@@ -1178,6 +1176,151 @@ func (q *Queries) ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx context
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVocabularyConcordance = `-- name: ListVocabularyConcordance :many
+
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       t.raw_lemma,
+       COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
+       (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
+       COALESCE(d.excluded, false)::boolean AS excluded
+  FROM concordance_occurrences o
+  JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
+    AND t.analysis_run_id::text=o.analysis_run_id AND t.corpus_id::text=o.corpus_id
+    AND t.sentence_ordinal=o.sentence_ordinal AND t.token_ordinal=o.token_ordinal
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
+    AND d.book_id::text=o.book_id AND d.corpus_id::text=o.corpus_id
+    AND d.analysis_run_id::text=o.analysis_run_id AND d.source_document_id=o.unit_id
+    AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
+ WHERE o.owner_id=$1 AND o.language=$2
+   AND ($3::text <> 'surface' OR o.surface=$4)
+   AND ($3::text <> 'effective' OR
+        (NOT COALESCE(d.excluded, false)
+         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$4
+         AND o.upos=$5))
+   AND ($3::text <> 'analyzer' OR
+        (t.raw_lemma=$4 AND o.upos=$5))
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal
+ LIMIT 26 OFFSET $6::bigint
+`
+
+type ListVocabularyConcordanceParams struct {
+	Owner    string
+	Language string
+	Mode     string
+	Term     string
+	Upos     string
+	Offset   int64
+}
+
+type ListVocabularyConcordanceRow struct {
+	Surface             string
+	CanonicalLemma      string
+	Upos                string
+	Dependency          string
+	HeadOrdinal         int64
+	HeadSurface         pgtype.Text
+	SentenceText        string
+	SentenceStartOffset int64
+	SentenceEndOffset   int64
+	UnitStartOffset     int64
+	UnitEndOffset       int64
+	BookStartOffset     int64
+	BookEndOffset       int64
+	BookID              string
+	BookTitle           string
+	SourceMaterialID    string
+	AnalysisRunID       string
+	CorpusID            string
+	UnitID              string
+	ChapterTitle        string
+	UnitOrder           int64
+	SentenceOrdinal     int64
+	TokenOrdinal        int64
+	RawLemma            string
+	EffectiveLemma      string
+	Corrected           bool
+	Excluded            bool
+}
+
+// Concordance occurrence queries read from the shared occurrence model.
+func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {
+	rows, err := q.db.Query(ctx, listVocabularyConcordance,
+		arg.Owner,
+		arg.Language,
+		arg.Mode,
+		arg.Term,
+		arg.Upos,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVocabularyConcordanceRow{}
+	for rows.Next() {
+		var i ListVocabularyConcordanceRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.HeadSurface,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.RawLemma,
+			&i.EffectiveLemma,
+			&i.Corrected,
+			&i.Excluded,
 		); err != nil {
 			return nil, err
 		}

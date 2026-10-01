@@ -130,6 +130,92 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.NotContains(t, secondPage.Body.String(), "wort00")
 }
 
+func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "concordance-http-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+
+	alice := createAccount(t, ctx, store, "concordance-http-alice", "alice-password", false)
+	bob := createAccount(t, ctx, store, "concordance-http-bob", "bob-password", false)
+	_, aliceSource, aliceCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "concordance-http-alice", "Alice Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	_, bobSource, bobCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, bob.ID, "concordance-http-bob", "Bob Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	staleBook, staleSource, staleCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "concordance-http-stale", "Stale Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, aliceSource, aliceCorpus)
+	seedBrowseHTTPToken(t, ctx, store, bobSource, bobCorpus)
+	seedBrowseHTTPToken(t, ctx, store, staleSource, staleCorpus)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, staleBook.ID)
+	require.NoError(t, err)
+
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, aliceCorpus.ID).Scan(&runID))
+	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(aliceSource.SourceIdentifier, "migration-"))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) SELECT $1,b.id,$2,$3,$4,0,4,'heim','de','1',false FROM books b WHERE b.owner_id=$1 AND b.title='Alice Concordance Book'`, alice.ID, aliceCorpus.ID, runID, unitID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,1,'Haus',10,14)`, alice.ID, runID, aliceCorpus.ID, unitID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,1,0,'Haus','haus','haus','NOUN','root',0,'{}',10,14)`, alice.ID, runID, aliceCorpus.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) SELECT $1,b.id,$2,$3,$4,10,14,NULL,NULL,NULL,true FROM books b WHERE b.owner_id=$1 AND b.title='Alice Concordance Book'`, alice.ID, aliceCorpus.ID, runID, unitID)
+	require.NoError(t, err)
+
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, "concordance-http-alice", "alice-password")
+	corrected := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=heim&upos=NOUN", nil, cookies)
+	require.Equal(t, http.StatusOK, corrected.Code)
+	assert.Contains(t, corrected.Body.String(), "Alice Concordance Book")
+	assert.Contains(t, corrected.Body.String(), "Analyzer lemma (evidence)")
+	assert.Contains(t, corrected.Body.String(), "corrected for this occurrence")
+	assert.NotContains(t, corrected.Body.String(), "Bob Concordance Book")
+	assert.NotContains(t, corrected.Body.String(), "Stale Concordance Book")
+	assert.NotContains(t, corrected.Body.String(), "excluded from effective vocabulary")
+	excludedEffective := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN", nil, cookies)
+	require.Equal(t, http.StatusOK, excludedEffective.Code)
+	assert.Contains(t, excludedEffective.Body.String(), "No current analyzed occurrences match this exact lookup.")
+
+	surface := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, cookies)
+	require.Equal(t, http.StatusOK, surface.Code)
+	assert.Contains(t, surface.Body.String(), "excluded from effective vocabulary")
+	assert.Contains(t, surface.Body.String(), "retained as analyzer evidence")
+
+	analyzer := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=analyzer&term=haus&upos=NOUN", nil, cookies)
+	require.Equal(t, http.StatusOK, analyzer.Code)
+	assert.Contains(t, analyzer.Body.String(), "Applied analyzer lemma evidence")
+	assert.Contains(t, analyzer.Body.String(), "Haus")
+
+	for ordinal := int64(2); ordinal < 26; ordinal++ {
+		start := 20 + ordinal*5
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,'Haus',$6,$7)`, alice.ID, runID, aliceCorpus.ID, unitID, ordinal, start, start+4)
+		require.NoError(t, err)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,'Haus','haus','haus','NOUN','root',0,'{}',$5,$6)`, alice.ID, runID, aliceCorpus.ID, ordinal, start, start+4)
+		require.NoError(t, err)
+	}
+	firstPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, cookies)
+	require.Equal(t, http.StatusOK, firstPage.Code)
+	assert.Contains(t, firstPage.Body.String(), "Results 1–25")
+	assert.Contains(t, firstPage.Body.String(), `href="/vocabulary/concordance?mode=surface&amp;page=2&amp;term=Haus"`)
+	secondPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&page=2", nil, cookies)
+	require.Equal(t, http.StatusOK, secondPage.Code)
+	assert.Contains(t, secondPage.Body.String(), "Results 26–26")
+	assert.Contains(t, secondPage.Body.String(), `href="/vocabulary/concordance?mode=surface&amp;page=1&amp;term=Haus"`)
+	unchangedEffective := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN", nil, cookies)
+	require.Equal(t, http.StatusOK, unchangedEffective.Code)
+	assert.Equal(t, 24, strings.Count(unchangedEffective.Body.String(), `class="concordance-row"`))
+	assert.NotContains(t, unchangedEffective.Body.String(), "corrected for this occurrence")
+	assert.NotContains(t, unchangedEffective.Body.String(), "excluded from effective vocabulary")
+
+	noLeak := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, func() []*http.Cookie {
+		cookies, _ := loginCookies(t, h, "concordance-http-bob", "bob-password")
+		return cookies
+	}())
+	require.Equal(t, http.StatusOK, noLeak.Code)
+	assert.Contains(t, noLeak.Body.String(), "Bob Concordance Book")
+	assert.NotContains(t, noLeak.Body.String(), "Alice Concordance Book")
+}
+
 func seedBrowseHTTPToken(t *testing.T, ctx context.Context, store *persistence.PostgresStore, source domain.SourceMaterial, corpus domain.Corpus) {
 	t.Helper()
 	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))

@@ -10,7 +10,7 @@ is historical. Learner-facing copy uses reading and preparation facts as defined
 [`terminology.md`](../terminology.md).
 
 This document describes the **shipped import workflow**. The accepted,
-not-yet-shipped [Vocabulary Browse, Concordance, and Custom deck
+partially shipped [Vocabulary Browse, Concordance, and Custom deck
 specification](../../features/vocabulary-browse-concordance-and-custom-decks.md)
 adds peer views beneath the same destination; it does not replace the import
 contract or turn import into a Known-vocabulary list.
@@ -34,17 +34,20 @@ The product behavior is defined primarily by:
 ## Canonical destination
 
 **Vocabulary** is currently the primary-navigation destination for
-known-vocabulary import. The shipped view has one explicit workflow:
+vocabulary work. Its deployed peer views are Browse, an initial exact-lookup
+Concordance slice, and known-vocabulary import. This supporting workflow owns
+the import path:
 
 1. **Known-vocabulary import** — submit an additive lemma file for the active
    study language and understand its durable processing result.
 
 The retained `/known-vocab` route is compatibility surface, not an independent
 product area. The implementation redirects `GET /known-vocab` to `/vocabulary`.
-New known-vocabulary functionality belongs in Vocabulary. The accepted target
-adds Browse as its landing view and Concordance as another peer view, while
-keeping import distinct; until implemented, the shipped route remains
-import-first.
+New known-vocabulary functionality belongs in Vocabulary. The partially deployed
+target adds Browse as its landing view and Concordance as another peer view,
+while keeping import distinct. Browse and the initial exact-lookup/KWIC
+Concordance slice are available; grammar filters, focused sentence study, and
+Custom decks remain target behavior.
 
 ## Study-language model
 

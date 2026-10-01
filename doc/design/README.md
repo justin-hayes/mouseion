@@ -53,7 +53,7 @@ and surface a material conflict rather than silently choosing one.
 - [`../features/reading-workflow.md`](../features/reading-workflow.md) — shipped
   Inbox, To Read, current-reading, completion-history, and rereading workflow.
 - [`../features/vocabulary-browse-concordance-and-custom-decks.md`](../features/vocabulary-browse-concordance-and-custom-decks.md)
-  — accepted (not yet shipped) Browse, Concordance, and Custom deck contract.
+  — accepted, partially shipped Browse, Concordance, and Custom deck contract.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — historical
   record of the retired Reading Journey / Primary Goal model; not current product
   behavior.

@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const fixtureAddr = process.env.MOUSEION_FIXTURE_ADDR ?? '127.0.0.1:8099';
+const fixtureURL = process.env.MOUSEION_FIXTURE_URL ?? `http://${fixtureAddr}`;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -12,7 +15,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['html', { outputFolder: 'playwright-report', open: 'never' }], ['line']] : 'list',
   use: {
-    baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+    baseURL: fixtureURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -26,9 +29,9 @@ export default defineConfig({
   ],
   webServer: {
     command: process.env.MOUSEION_FIXTURE_BIN ?? 'go run ../cmd/fixtureserver',
-    url: process.env.MOUSEION_FIXTURE_URL ? `${process.env.MOUSEION_FIXTURE_URL}/healthz` : 'http://127.0.0.1:8099/healthz',
+    url: `${fixtureURL}/healthz`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
-    env: { MOUSEION_FIXTURE_ADDR: '127.0.0.1:8099' },
+    env: { MOUSEION_FIXTURE_ADDR: fixtureAddr },
   },
 });

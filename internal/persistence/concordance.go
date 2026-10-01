@@ -138,6 +138,49 @@ func (s *PostgresStore) ListStudyLanguageDependentsByGovernorLemma(ctx context.C
 	return mapConcordanceRows(rows), nil
 }
 
+// ListVocabularyConcordance returns one page of exact effective, observed
+// surface, or analyzer-evidence matches from current analyses. Fetching one
+// extra row determines whether a next page exists without inventing a total.
+func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	if lookup.Page < 1 {
+		lookup.Page = 1
+	}
+	const maxConcordancePage = int((1<<31-1)/25 + 1)
+	if lookup.Page > maxConcordancePage {
+		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: true}, nil
+	}
+	rows, err := s.queries().ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
+		Owner: owner, Language: language, Mode: lookup.Mode, Term: lookup.Term,
+		Upos: lookup.UPOS, Offset: (int64(lookup.Page) - 1) * 25,
+	})
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1}
+	if len(rows) > 25 {
+		result.HasNext = true
+		rows = rows[:25]
+	}
+	for _, row := range rows {
+		occurrence := domain.ConcordanceResultOccurrence{
+			ConcordanceOccurrence: concordanceOccurrenceFromFields(
+				row.Surface, row.CanonicalLemma, row.Upos, row.Dependency,
+				row.HeadOrdinal, pgText(row.HeadSurface), row.SentenceText,
+				row.SentenceStartOffset, row.SentenceEndOffset, row.UnitStartOffset,
+				row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset,
+				row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID,
+				row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder,
+				row.SentenceOrdinal, row.TokenOrdinal,
+			),
+			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma,
+			Corrected: row.Corrected, Excluded: row.Excluded,
+		}
+		result.Occurrences = append(result.Occurrences, occurrence)
+	}
+	return result, nil
+}
+
 func concordanceOccurrenceFromFields(
 	surface, canonicalLemma, upos, dependency string,
 	headOrdinal int64, headSurface, sentenceText string,
