@@ -190,6 +190,16 @@ type CustomDeckPreparation struct {
 	CreatedAt                                         time.Time
 	StartedAt, CompletedAt                            *time.Time
 	Evidence                                          []CustomDeckPreparationEvidence
+	Omissions                                         []CustomDeckPreparationOmission
+	PreviousReadyID                                   string
+	PreviousReadyCards                                int
+}
+
+type CustomDeckPreparationOmission struct {
+	Lemma  string `json:"lemma"`
+	UPOS   string `json:"upos"`
+	Kind   string `json:"kind"`
+	Reason string `json:"reason"`
 }
 
 type CustomDeckPreparationEvidence struct {

@@ -2,6 +2,8 @@ package persistence
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,26 +18,27 @@ import (
 )
 
 var ErrCustomDeckPreparationUnavailable = errors.New("custom deck has no current eligible evidence")
+var ErrCustomDeckPreparationEvidenceChanged = errors.New("current evidence availability changed since review")
 
 const customDeckPreparationColumns = `id::text,owner_id::text,custom_deck_id::text,language,deck_name,filename,state,
- frozen_spec,artifact,total_cards,selected_identities,error,created_at,started_at,completed_at`
+	 frozen_spec,artifact,total_cards,selected_identities,error,created_at,started_at,completed_at,omissions`
 
 func scanCustomDeckPreparation(row pgx.Row) (domain.CustomDeckPreparation, error) {
 	var p domain.CustomDeckPreparation
 	err := row.Scan(&p.ID, &p.OwnerID, &p.DeckID, &p.Language, &p.DeckName, &p.Filename, &p.State,
-		&p.FrozenSpec, &p.Artifact, &p.TotalCards, &p.SelectedIdentities, &p.Error, &p.CreatedAt, &p.StartedAt, &p.CompletedAt)
+		&p.FrozenSpec, &p.Artifact, &p.TotalCards, &p.SelectedIdentities, &p.Error, &p.CreatedAt, &p.StartedAt, &p.CompletedAt, &p.Omissions)
 	return p, err
 }
 
 // CreateCustomDeckPreparation records one explicit, idempotent generation.
 // The unique action key makes a browser retry resolve to its original row.
-func (s *PostgresStore) CreateCustomDeckPreparation(ctx context.Context, owner, deckID, actionKey string) (result domain.CustomDeckPreparation, err error) {
+func (s *PostgresStore) CreateCustomDeckPreparation(ctx context.Context, owner, deckID, actionKey, expectedEvidence string) (result domain.CustomDeckPreparation, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	result, err = CreateCustomDeckPreparationTx(ctx, tx, owner, deckID, actionKey)
+	result, err = CreateCustomDeckPreparationTx(ctx, tx, owner, deckID, actionKey, expectedEvidence)
 	if err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}
@@ -45,7 +48,75 @@ func (s *PostgresStore) CreateCustomDeckPreparation(ctx context.Context, owner, 
 	return result, nil
 }
 
-func CreateCustomDeckPreparationTx(ctx context.Context, tx pgx.Tx, owner, deckID, actionKey string) (domain.CustomDeckPreparation, error) {
+func (s *PostgresStore) CustomDeckEvidenceFingerprint(ctx context.Context, owner, deckID string) (string, error) {
+	rows, err := s.pool.Query(ctx, customDeckEvidenceFingerprintQuery, owner, deckID)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	return fingerprintCustomDeckEvidence(rows)
+}
+
+const customDeckEvidenceFingerprintQuery = `SELECT i.canonical_lemma,i.upos,EXISTS (
+ SELECT 1 FROM concordance_occurrences o
+ JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
+  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
+ JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_tag=o.language AND b.language_state='chosen'
+ LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+ WHERE o.owner_id=i.owner_id AND o.language=i.language AND o.upos=i.upos
+  AND COALESCE(c.canonical_lemma,o.canonical_lemma)=i.canonical_lemma AND NOT COALESCE(c.excluded,false)
+  AND o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
+  AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
+) FROM custom_vocabulary_deck_identities i WHERE i.owner_id=$1 AND i.deck_id=$2
+ ORDER BY i.canonical_lemma,i.upos`
+
+type customDeckEvidenceRows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+}
+
+func fingerprintCustomDeckEvidence(rows customDeckEvidenceRows) (string, error) {
+	h := sha256.New()
+	for rows.Next() {
+		var lemma, upos string
+		var hasEvidence bool
+		if err := rows.Scan(&lemma, &upos, &hasEvidence); err != nil {
+			return "", err
+		}
+		if _, err := fmt.Fprintf(h, "%d:%s:%s:%t\n", len(lemma), lemma, upos, hasEvidence); err != nil {
+			return "", err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func CreateCustomDeckPreparationTx(ctx context.Context, tx pgx.Tx, owner, deckID, actionKey, expectedEvidence string) (domain.CustomDeckPreparation, error) {
+	existing, lookupErr := scanCustomDeckPreparation(tx.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
+	 FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2 AND submission_key=$3`, owner, deckID, actionKey))
+	if lookupErr == nil {
+		return existing, nil
+	}
+	if !errors.Is(lookupErr, pgx.ErrNoRows) {
+		return domain.CustomDeckPreparation{}, lookupErr
+	}
+	rows, err := tx.Query(ctx, customDeckEvidenceFingerprintQuery, owner, deckID)
+	if err != nil {
+		return domain.CustomDeckPreparation{}, err
+	}
+	currentEvidence, err := fingerprintCustomDeckEvidence(rows)
+	rows.Close()
+	if err != nil {
+		return domain.CustomDeckPreparation{}, err
+	}
+	if expectedEvidence == "" || currentEvidence != expectedEvidence {
+		return domain.CustomDeckPreparation{}, ErrCustomDeckPreparationEvidenceChanged
+	}
 	p, err := scanCustomDeckPreparation(tx.QueryRow(ctx, `
 WITH eligible AS (
  SELECT count(*) FILTER (WHERE EXISTS (
@@ -130,11 +201,19 @@ func FreezeCustomDeckPreparationTx(ctx context.Context, tx pgx.Tx, owner, id str
 	return nil
 }
 
-func (s *PostgresStore) CompleteCustomDeckPreparation(ctx context.Context, owner, id string, artifact []byte, total int) (domain.CustomDeckPreparation, error) {
+func (s *PostgresStore) CompleteCustomDeckPreparation(ctx context.Context, owner, id string, artifact []byte, total int, omissions []domain.CustomDeckPreparationOmission) (domain.CustomDeckPreparation, error) {
+	encodedOmissions, err := json.Marshal(omissions)
+	if err != nil {
+		return domain.CustomDeckPreparation{}, err
+	}
+	state := "ready"
+	if len(omissions) > 0 {
+		state = "complete_with_omissions"
+	}
 	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `UPDATE custom_vocabulary_deck_preparations
- SET state='ready',artifact=$3,total_cards=$4,completed_at=now(),error=''
- WHERE owner_id=$1 AND id=$2 AND state='preparing' AND frozen_spec IS NOT NULL AND $4>0
- RETURNING `+customDeckPreparationColumns, owner, id, artifact, total))
+	 SET state=$5,artifact=$3,total_cards=$4,completed_at=now(),error='',omissions=$6::jsonb
+	 WHERE owner_id=$1 AND id=$2 AND state='preparing' AND frozen_spec IS NOT NULL AND $4>0
+	 RETURNING `+customDeckPreparationColumns, owner, id, artifact, total, state, encodedOmissions))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.CustomDeckPreparation{}, ErrInvalidTransition
 	}
@@ -163,11 +242,21 @@ func (s *PostgresStore) LatestCustomDeckPreparation(ctx context.Context, owner, 
 	return p, err
 }
 
+func (s *PostgresStore) LatestReadyCustomDeckPreparation(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
+	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
+ FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2
+ AND state IN ('ready','complete_with_omissions') ORDER BY created_at DESC,id DESC LIMIT 1`, owner, deckID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.CustomDeckPreparation{}, ErrNotFound
+	}
+	return p, err
+}
+
 func (s *PostgresStore) DownloadCustomDeckPreparation(ctx context.Context, owner, id string) (domain.CustomDeckPreparation, error) {
 	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
- FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2 AND state='ready'
- AND id=(SELECT p2.id FROM custom_vocabulary_deck_preparations p2
-   WHERE p2.owner_id=$1 AND p2.custom_deck_id=custom_vocabulary_deck_preparations.custom_deck_id AND p2.state='ready'
+	 FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2 AND state IN ('ready','complete_with_omissions')
+	 AND id=(SELECT p2.id FROM custom_vocabulary_deck_preparations p2
+	   WHERE p2.owner_id=$1 AND p2.custom_deck_id=custom_vocabulary_deck_preparations.custom_deck_id AND p2.state IN ('ready','complete_with_omissions')
    ORDER BY p2.created_at DESC,p2.id DESC LIMIT 1)`, owner, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.CustomDeckPreparation{}, ErrNotFound
@@ -177,27 +266,27 @@ func (s *PostgresStore) DownloadCustomDeckPreparation(ctx context.Context, owner
 
 // LoadCustomDeckProjections chooses one current effective occurrence for each
 // saved identity. It deliberately ignores Browse filters and Book disposition.
-func (s *PostgresStore) LoadCustomDeckProjectionsTx(ctx context.Context, tx pgx.Tx, owner, deckID, preparationID string) (projections []cardexport.CandidateProjection, selected int, deckName string, evidence []domain.CustomDeckPreparationEvidence, err error) {
+func (s *PostgresStore) LoadCustomDeckProjectionsTx(ctx context.Context, tx pgx.Tx, owner, deckID, preparationID string) (projections []cardexport.CandidateProjection, selected int, deckName string, evidence []domain.CustomDeckPreparationEvidence, omissions []domain.CustomDeckPreparationOmission, err error) {
 	var language string
 	if err := tx.QueryRow(ctx, `SELECT language,deck_name FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2 AND id=$3`, owner, deckID, preparationID).Scan(&language, &deckName); err != nil {
-		return nil, 0, "", nil, missing(err)
+		return nil, 0, "", nil, nil, missing(err)
 	}
 	identityRows, err := tx.Query(ctx, `SELECT canonical_lemma,upos FROM custom_vocabulary_deck_preparation_identities WHERE owner_id=$1 AND preparation_id=$2 ORDER BY canonical_lemma,upos`, owner, preparationID)
 	if err != nil {
-		return nil, 0, "", nil, err
+		return nil, 0, "", nil, nil, err
 	}
 	var identities []domain.VocabularyIdentity
 	for identityRows.Next() {
 		var identity domain.VocabularyIdentity
 		if err := identityRows.Scan(&identity.CanonicalLemma, &identity.UPOS); err != nil {
 			identityRows.Close()
-			return nil, 0, "", nil, err
+			return nil, 0, "", nil, nil, err
 		}
 		identities = append(identities, identity)
 	}
 	if err := identityRows.Err(); err != nil {
 		identityRows.Close()
-		return nil, 0, "", nil, err
+		return nil, 0, "", nil, nil, err
 	}
 	identityRows.Close()
 	projections = make([]cardexport.CandidateProjection, 0, len(identities))
@@ -208,6 +297,7 @@ SELECT o.book_id,o.source_material_id,o.analysis_run_id,o.corpus_id,o.sentence_o
 FROM concordance_occurrences o
 JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
+JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_tag=o.language AND b.language_state='chosen'
 JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.analysis_run_id::text=o.analysis_run_id
  AND t.corpus_id::text=o.corpus_id AND t.sentence_ordinal=o.sentence_ordinal AND t.token_ordinal=o.token_ordinal
 LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
@@ -219,14 +309,14 @@ WHERE o.owner_id=$1 AND o.language=$2 AND o.upos=$4
  AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
 ORDER BY o.book_id,o.unit_order,o.sentence_ordinal,o.token_ordinal`, owner, language, identity.CanonicalLemma, identity.UPOS)
 		if queryErr != nil {
-			return nil, 0, "", nil, queryErr
+			return nil, 0, "", nil, nil, queryErr
 		}
 		var candidates []customDeckOccurrence
 		for rows.Next() {
 			var candidate customDeckOccurrence
 			if queryErr = rows.Scan(&candidate.BookID, &candidate.SourceID, &candidate.AnalysisRunID, &candidate.CorpusID, &candidate.SentenceOrdinal, &candidate.Sentence, &candidate.Surface, &candidate.BookTitle, &candidate.UnitID, &candidate.Offset, &candidate.EndOffset, &candidate.AnalyzerLemma, &candidate.RawLemma); queryErr != nil {
 				rows.Close()
-				return nil, 0, "", nil, queryErr
+				return nil, 0, "", nil, nil, queryErr
 			}
 			candidate.Quality = cardexport.ScoreSentenceQuality(candidate.Sentence, candidate.Surface, candidate.Offset)
 			candidates = append(candidates, candidate)
@@ -234,25 +324,30 @@ ORDER BY o.book_id,o.unit_order,o.sentence_ordinal,o.token_ordinal`, owner, lang
 		queryErr = rows.Err()
 		rows.Close()
 		if queryErr != nil {
-			return nil, 0, "", nil, queryErr
+			return nil, 0, "", nil, nil, queryErr
 		}
 		chosen, ok := chooseCustomDeckOccurrence(candidates)
 		if !ok {
+			kind, reason := "evidence", "No current eligible evidence exists for this identity."
+			if len(candidates) > 0 {
+				kind, reason = "quality", "No current representative sentence passed the sentence-quality gate."
+			}
+			omissions = append(omissions, domain.CustomDeckPreparationOmission{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS, Kind: kind, Reason: reason})
 			continue
 		}
 		refs, marshalErr := json.Marshal([]map[string]any{{"sentence_index": 0, "text": chosen.Sentence, "location": map[string]any{"start_offset": chosen.Offset}}})
 		if marshalErr != nil {
-			return nil, 0, "", nil, marshalErr
+			return nil, 0, "", nil, nil, marshalErr
 		}
 		forms, marshalErr := json.Marshal([]string{chosen.Surface})
 		if marshalErr != nil {
-			return nil, 0, "", nil, marshalErr
+			return nil, 0, "", nil, nil, marshalErr
 		}
 		candidate := domain.SelectionCandidate{OwnerID: owner, CorpusID: chosen.CorpusID, Language: language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, OccurrenceCount: 1, FirstEncounter: chosen.Offset, ObservedForms: forms, SentenceReferences: refs}
 		entry := cardexport.Entry{OwnerID: owner, Language: language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, CorpusID: chosen.CorpusID, SentenceOrdinal: chosen.SentenceOrdinal, Sentence: chosen.Sentence, TargetWord: chosen.Surface, SourceDocument: chosen.BookTitle, FirstEncounter: chosen.Offset}
 		tokens, tokenErr := loadCustomDeckSentenceTokens(ctx, tx, owner, chosen.CorpusID, chosen.SentenceOrdinal)
 		if tokenErr != nil {
-			return nil, 0, "", nil, tokenErr
+			return nil, 0, "", nil, nil, tokenErr
 		}
 		projections = append(projections, cardexport.CandidateProjection{OwnerID: owner, DeckName: deckName, Candidate: candidate, Entry: entry, Sentences: map[int64]analyzer.Sentence{0: {Text: chosen.Sentence, Tokens: tokens}}})
 		evidence = append(evidence, domain.CustomDeckPreparationEvidence{
@@ -263,7 +358,7 @@ ORDER BY o.book_id,o.unit_order,o.sentence_ordinal,o.token_ordinal`, owner, lang
 			StartOffset: chosen.Offset, EndOffset: chosen.EndOffset,
 		})
 	}
-	return projections, len(identities), deckName, evidence, nil
+	return projections, len(identities), deckName, evidence, omissions, nil
 }
 
 func loadCustomDeckSentenceTokens(ctx context.Context, tx pgx.Tx, owner, corpusID string, ordinal int64) ([]analyzer.Token, error) {

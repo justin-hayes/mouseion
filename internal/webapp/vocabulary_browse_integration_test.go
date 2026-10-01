@@ -50,6 +50,15 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	alice := createAccount(t, ctx, store, "custom-prep-alice", "alice-password", false)
 	createAccount(t, ctx, store, "custom-prep-bob", "bob-password", false)
 	book, source, corpus, bookDeck := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep", "Private source title", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	missingBook, missingSource, missingCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-missing", "Missing German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "missingwort", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, missingSource, missingCorpus)
+	var missingRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, missingCorpus.ID).Scan(&missingRunID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='Ein missingwort bleibt.',end_offset=23 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, missingCorpus.ID, missingRunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='missingwort',raw_lemma='missingwort',canonical_lemma='missingwort',start_offset=4,end_offset=15 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, missingCorpus.ID, missingRunID)
+	require.NoError(t, err)
+	_, _, _, _ = seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-other", "Other German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", OccurrenceCount: 1}})
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
@@ -85,6 +94,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, store.SetVocabularyBrowseSelection(ctx, alice.ID, "de", "haus", "NOUN", true))
 	customDeck, err := store.CreateCustomVocabularyDeck(ctx, alice.ID, "de", "German practice", "d7c38a7e-777d-4fbd-a234-67115c7f92ab")
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','missingwort','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
 	bookDeckBefore, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
 	require.NoError(t, err)
 
@@ -103,8 +114,28 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, deckPage.Code)
 	csrf := hiddenToken(t, deckPage.Body.String())
 	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
+	evidenceFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, missingBook.ID)
+	require.NoError(t, err)
+	changedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, evidenceFingerprint, changedFingerprint, "the review token tracks all-evidence loss per identity")
+	changedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"814900c1-0130-4e43-ade3-4c0d97bbf30e"}, "expected_evidence": {evidenceFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, changedPost.Code)
+	assert.Contains(t, changedPost.Header().Get("Location"), "evidence_changed=true")
+	var preparationCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Zero(t, preparationCount, "a changed all-evidence state must return to review before freezing")
+	refreshedReview := perform(t, h, http.MethodGet, changedPost.Header().Get("Location"), nil, cookies)
+	require.Equal(t, http.StatusOK, refreshedReview.Code)
+	assert.Contains(t, refreshedReview.Body.String(), "Current evidence availability changed since your review")
+	evidenceFingerprint, err = preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
 	post := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"},
+		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
 	}, postCookies)
 	require.Equal(t, http.StatusSeeOther, post.Code, post.Body.String())
 	statusURL := post.Header().Get("Location")
@@ -113,7 +144,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, submitted.FrozenSpec)
 	var frozen struct {
-		Evidence []domain.CustomDeckPreparationEvidence `json:"evidence"`
+		Evidence  []domain.CustomDeckPreparationEvidence `json:"evidence"`
+		Omissions []domain.CustomDeckPreparationOmission `json:"omissions"`
 	}
 	require.NoError(t, json.Unmarshal(submitted.FrozenSpec, &frozen))
 	require.Len(t, frozen.Evidence, 1)
@@ -125,6 +157,9 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Equal(t, "NOUN", frozen.Evidence[0].UPOS)
 	assert.Equal(t, "Haus", frozen.Evidence[0].Target)
 	assert.Equal(t, sentence, frozen.Evidence[0].Sentence)
+	require.Len(t, frozen.Omissions, 1)
+	assert.Equal(t, "evidence", frozen.Omissions[0].Kind)
+	assert.Equal(t, "missingwort", frozen.Omissions[0].Lemma)
 	changedSentence := "The source changed after this Custom deck was submitted."
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
 	require.NoError(t, err)
@@ -136,7 +171,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		require.Equal(t, http.StatusOK, status.Code)
 		ready, err = preparationService.Get(ctx, alice.ID, preparationID)
 		require.NoError(t, err)
-		if ready.State == "ready" || ready.State == "failed" {
+		if ready.State == "complete_with_omissions" || ready.State == "failed" {
 			break
 		}
 		select {
@@ -145,10 +180,12 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
-	require.Equal(t, "ready", ready.State, ready.Error)
+	require.Equal(t, "complete_with_omissions", ready.State, ready.Error)
 	require.Greater(t, ready.TotalCards, 0)
+	require.Len(t, ready.Omissions, 1)
 	status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
 	assert.Contains(t, status.Body.String(), "ready")
+	assert.Contains(t, status.Body.String(), "missingwort")
 	assert.Contains(t, status.Body.String(), "Private source title")
 	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
 	assert.NotContains(t, status.Body.String(), changedSentence)
@@ -156,6 +193,20 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, download.Code)
 	assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"))
 	assert.True(t, strings.HasPrefix(download.Body.String(), "PK"), "download must be a real APKG ZIP")
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
+	require.NoError(t, err)
+	allMissingPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
+	require.Equal(t, http.StatusOK, allMissingPage.Code)
+	assert.Contains(t, allMissingPage.Body.String(), "no selected identity has current eligible evidence")
+	assert.NotContains(t, allMissingPage.Body.String(), ">Prepare deck</button>")
+	allMissingFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	allMissingPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"59feee1c-6859-44f5-8dc7-2fdf298d7482"}, "expected_evidence": {allMissingFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusConflict, allMissingPost.Code)
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Equal(t, 1, preparationCount, "all-zero current evidence must not create another generation")
 	require.Len(t, provider.requests, 1)
 	assert.NotContains(t, fmt.Sprint(provider.requests[0]), "Private source title", "provider request must not include Book title")
 	assert.Contains(t, fmt.Sprint(provider.requests[0]), sentence, "provider request must use the submission-time sentence")

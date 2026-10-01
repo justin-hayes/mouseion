@@ -27,6 +27,7 @@ func (CustomDeckPreparationJobArgs) Kind() string { return "custom_deck_preparat
 type customDeckFrozenSpec struct {
 	Presentation json.RawMessage                        `json:"presentation"`
 	Evidence     []domain.CustomDeckPreparationEvidence `json:"evidence"`
+	Omissions    []domain.CustomDeckPreparationOmission `json:"omissions"`
 }
 
 type CustomDeckPreparationService struct {
@@ -40,8 +41,8 @@ func NewCustomDeckPreparationService(store *persistence.PostgresStore, client ri
 	return &CustomDeckPreparationService{store: store, client: client, presentation: presentation, provider: provider}
 }
 
-func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID, actionKey string) (result domain.CustomDeckPreparation, err error) {
-	if s == nil || s.store == nil || s.client == nil || s.presentation == nil || s.provider == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckID) == "" || strings.TrimSpace(actionKey) == "" {
+func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID, actionKey, expectedEvidence string) (result domain.CustomDeckPreparation, err error) {
+	if s == nil || s.store == nil || s.client == nil || s.presentation == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckID) == "" || strings.TrimSpace(actionKey) == "" {
 		return domain.CustomDeckPreparation{}, ErrInvalidInput
 	}
 	tx, err := s.store.Pool().BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
@@ -52,18 +53,22 @@ func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1||':'||$2,0))`, owner, deckID); err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}
-	p, err := persistence.CreateCustomDeckPreparationTx(ctx, tx, owner, deckID, actionKey)
+	p, err := persistence.CreateCustomDeckPreparationTx(ctx, tx, owner, deckID, actionKey, expectedEvidence)
 	if err != nil {
 		return domain.CustomDeckPreparation{}, err
 	}
 	if len(p.FrozenSpec) == 0 {
-		projections, _, deckName, evidence, buildErr := s.store.LoadCustomDeckProjectionsTx(ctx, tx, owner, p.DeckID, p.ID)
+		projections, _, deckName, evidence, omissions, buildErr := s.store.LoadCustomDeckProjectionsTx(ctx, tx, owner, p.DeckID, p.ID)
 		if buildErr != nil {
 			return domain.CustomDeckPreparation{}, buildErr
 		}
+		providerName, providerVersion := "unconfigured", "unconfigured"
+		if s.provider != nil {
+			providerName, providerVersion = s.provider.Name(), s.provider.Version()
+		}
 		for i := range projections {
-			projections[i].Provider = s.provider.Name()
-			projections[i].ProviderVersion = s.provider.Version()
+			projections[i].Provider = providerName
+			projections[i].ProviderVersion = providerVersion
 			projections[i].TargetLanguage = "en"
 			projections[i].RequireContextualGloss = true
 		}
@@ -75,7 +80,7 @@ func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID
 		if marshalErr != nil {
 			return domain.CustomDeckPreparation{}, marshalErr
 		}
-		frozen := customDeckFrozenSpec{Presentation: presentationJSON, Evidence: evidence}
+		frozen := customDeckFrozenSpec{Presentation: presentationJSON, Evidence: evidence, Omissions: omissions}
 		encoded, marshalErr := json.Marshal(frozen)
 		if marshalErr != nil {
 			return domain.CustomDeckPreparation{}, marshalErr
@@ -98,6 +103,13 @@ func (s *CustomDeckPreparationService) Submit(ctx context.Context, owner, deckID
 	return p, nil
 }
 
+func (s *CustomDeckPreparationService) EvidenceFingerprint(ctx context.Context, owner, deckID string) (string, error) {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(deckID) == "" {
+		return "", ErrInvalidInput
+	}
+	return s.store.CustomDeckEvidenceFingerprint(ctx, owner, deckID)
+}
+
 func (s *CustomDeckPreparationService) Get(ctx context.Context, owner, preparationID string) (domain.CustomDeckPreparation, error) {
 	if s == nil || s.store == nil {
 		return domain.CustomDeckPreparation{}, ErrInvalidInput
@@ -112,6 +124,13 @@ func (s *CustomDeckPreparationService) Latest(ctx context.Context, owner, deckID
 	}
 	p, err := s.store.LatestCustomDeckPreparation(ctx, owner, deckID)
 	return addCustomPreparationEvidence(p, err)
+}
+
+func (s *CustomDeckPreparationService) LatestReady(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
+	if s == nil || s.store == nil {
+		return domain.CustomDeckPreparation{}, ErrInvalidInput
+	}
+	return s.store.LatestReadyCustomDeckPreparation(ctx, owner, deckID)
 }
 
 func addCustomPreparationEvidence(p domain.CustomDeckPreparation, err error) (domain.CustomDeckPreparation, error) {
@@ -176,6 +195,9 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	for _, item := range work {
 		response, translateErr := w.Provider.Translate(ctx, item.Request)
 		if translateErr != nil {
+			if job.MaxAttempts > 0 && job.Attempt >= job.MaxAttempts {
+				return w.fail(ctx, a, fmt.Errorf("translation failed after %d attempts", job.Attempt))
+			}
 			return translateErr // River retries the exact frozen inputs.
 		}
 		results = append(results, cardexport.StoredResult{CacheKey: item.CacheKey, Record: enrichment.CacheEntry{
@@ -194,7 +216,20 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	if artifact.Completeness.TotalCards == 0 || len(artifact.APKG) == 0 {
 		return w.fail(ctx, a, errors.New("preparation produced no exportable cards"))
 	}
-	_, err = w.Store.CompleteCustomDeckPreparation(ctx, a.OwnerID, a.PreparationID, artifact.APKG, artifact.Completeness.TotalCards)
+	for _, omitted := range deck.Diagnostics().QualityOmissions {
+		frozen.Omissions = append(frozen.Omissions, domain.CustomDeckPreparationOmission{Kind: "quality", Lemma: omitted.CanonicalLemma, UPOS: omitted.UPOS, Reason: strings.Join(omitted.Reasons, ", ")})
+	}
+	for _, omitted := range artifact.Diagnostics.MeaningOmissions {
+		lemma, upos := omitted.Target, ""
+		for _, evidence := range frozen.Evidence {
+			if evidence.Target == omitted.Target {
+				lemma, upos = evidence.Lemma, evidence.UPOS
+				break
+			}
+		}
+		frozen.Omissions = append(frozen.Omissions, domain.CustomDeckPreparationOmission{Kind: "meaning", Lemma: lemma, UPOS: upos, Reason: omitted.Reason})
+	}
+	_, err = w.Store.CompleteCustomDeckPreparation(ctx, a.OwnerID, a.PreparationID, artifact.APKG, artifact.Completeness.TotalCards, frozen.Omissions)
 	return err
 }
 

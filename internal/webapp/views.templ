@@ -981,7 +981,7 @@ templ VocabularySelectionClearConfirmView(user domain.User, csrf, language strin
 	}
 }
 
-templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, actionKey string) {
+templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, actionKey, evidenceFingerprint string, evidenceChanged bool) {
 	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
@@ -995,15 +995,18 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		}
 		</ul>
 		if editable {
+			if evidenceChanged {
+				<p role="status">Current evidence availability changed since your review. The refreshed evidence is shown below; confirm again to prepare.</p>
+			}
 			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/rename") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="custom-deck-name">Rename deck</label><input id="custom-deck-name" name="name" value={ deck.Name } required maxlength="120"/><button type="submit">Save name</button></form>
 			if deck.MissingCount < deck.IdentityCount {
-				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/preparations") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="action_key" value={ actionKey }/><p>Prepare freezes current eligible cross-Book evidence; later deck edits will not change this preparation.</p><button type="submit">Prepare deck</button></form>
+				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/preparations") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="action_key" value={ actionKey }/><input type="hidden" name="expected_evidence" value={ evidenceFingerprint }/><p>Prepare freezes current eligible cross-Book evidence; later deck edits will not change this preparation.</p><button type="submit">Prepare deck</button></form>
 			} else {
 				<p role="status">Preparation is unavailable because no selected identity has current eligible evidence.</p>
 			}
 			if preparation != nil {
 				<p>Latest preparation: <a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID) }>{ preparation.State }</a>.</p>
-				if preparation.State == "ready" {
+				if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
 					<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download prepared APKG</a></p>
 				}
 			}
@@ -1055,7 +1058,7 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 		<p role="status"><strong>{ preparation.State }</strong></p>
 		if preparation.State == "queued" || preparation.State == "preparing" {
 			<p>This durable preparation can continue while you leave this page. Return here to check its status.</p>
-		} else if preparation.State == "ready" {
+		} else if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
 			<p>{ fmt.Sprintf("%d cards are ready", preparation.TotalCards) }.</p>
 			<h2>Frozen representative sentences</h2>
 			<ul>
@@ -1064,8 +1067,18 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 			}
 			</ul>
 			<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download APKG</a></p>
+			if len(preparation.Omissions) > 0 {
+				<h2>Omitted identities</h2><ul>
+				for _, omission := range preparation.Omissions {
+					<li><strong>{ omission.Lemma }</strong> <code>{ omission.UPOS }</code> — { omission.Kind }: { omission.Reason }</li>
+				}
+				</ul>
+			}
 		} else if preparation.State == "failed" {
-			<p role="alert">Preparation did not complete. Your saved Custom deck and any earlier preparation remain unchanged.</p>
+			<p role="alert">Preparation did not complete. Review the saved deck and prepare again to retry. Your earlier Ready preparation remains available.</p>
+		}
+		if preparation.PreviousReadyID != "" {
+			<p role="status">Previous Ready preparation ({ fmt.Sprintf("%d cards", preparation.PreviousReadyCards) }): <a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.PreviousReadyID+"/download") }>Download previous Ready APKG</a>.</p>
 		}
 		<p><a href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>Return to Custom deck</a></p>
 	}

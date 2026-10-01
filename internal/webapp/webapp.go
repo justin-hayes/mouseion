@@ -191,9 +191,11 @@ type PreparedDeck interface {
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
 }
 type CustomDeckPreparation interface {
-	Submit(context.Context, string, string, string) (domain.CustomDeckPreparation, error)
+	Submit(context.Context, string, string, string, string) (domain.CustomDeckPreparation, error)
+	EvidenceFingerprint(context.Context, string, string) (string, error)
 	Get(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	Latest(context.Context, string, string) (domain.CustomDeckPreparation, error)
+	LatestReady(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	Download(context.Context, string, string) (domain.CustomDeckPreparation, error)
 }
 type PreparedDeckForGoalSnapshot interface {
