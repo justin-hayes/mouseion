@@ -219,15 +219,12 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	for _, omitted := range deck.Diagnostics().QualityOmissions {
 		frozen.Omissions = append(frozen.Omissions, domain.CustomDeckPreparationOmission{Kind: "quality", Lemma: omitted.CanonicalLemma, UPOS: omitted.UPOS, Reason: strings.Join(omitted.Reasons, ", ")})
 	}
-	for _, omitted := range artifact.Diagnostics.MeaningOmissions {
-		lemma, upos := omitted.Target, ""
-		for _, evidence := range frozen.Evidence {
-			if evidence.Target == omitted.Target {
-				lemma, upos = evidence.Lemma, evidence.UPOS
-				break
-			}
+	for i, result := range results {
+		if result.OmissionReason == "" || i >= len(work) {
+			continue
 		}
-		frozen.Omissions = append(frozen.Omissions, domain.CustomDeckPreparationOmission{Kind: "meaning", Lemma: lemma, UPOS: upos, Reason: omitted.Reason})
+		identity := work[i].Request
+		frozen.Omissions = append(frozen.Omissions, domain.CustomDeckPreparationOmission{Kind: "meaning", Lemma: identity.CanonicalLemma, UPOS: identity.UPOS, Reason: result.OmissionReason})
 	}
 	_, err = w.Store.CompleteCustomDeckPreparation(ctx, a.OwnerID, a.PreparationID, artifact.APKG, artifact.Completeness.TotalCards, frozen.Omissions)
 	return err

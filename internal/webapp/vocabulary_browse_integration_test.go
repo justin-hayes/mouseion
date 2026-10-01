@@ -116,7 +116,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
 	evidenceFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, missingBook.ID)
+	missingUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(missingSource.SourceIdentifier, "migration-"))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,4,15,NULL,NULL,NULL,true)`, alice.ID, missingBook.ID, missingCorpus.ID, missingRunID, missingUnitID)
 	require.NoError(t, err)
 	changedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
@@ -160,6 +161,13 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Len(t, frozen.Omissions, 1)
 	assert.Equal(t, "evidence", frozen.Omissions[0].Kind)
 	assert.Equal(t, "missingwort", frozen.Omissions[0].Lemma)
+	repeatedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, repeatedPost.Code)
+	assert.Equal(t, statusURL, repeatedPost.Header().Get("Location"), "uncertain repeat resolves to the same durable generation")
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Equal(t, 1, preparationCount)
 	changedSentence := "The source changed after this Custom deck was submitted."
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
 	require.NoError(t, err)
@@ -207,10 +215,55 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusConflict, allMissingPost.Code)
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
 	assert.Equal(t, 1, preparationCount, "all-zero current evidence must not create another generation")
-	require.Len(t, provider.requests, 1)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	require.NoError(t, err)
+	retryFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	failedPreparation, err := store.CreateCustomDeckPreparation(ctx, alice.ID, customDeck.ID, "1eb7d21b-a6e9-42c4-9339-6feeb8dd29e8", retryFingerprint)
+	require.NoError(t, err)
+	require.NoError(t, store.FailCustomDeckPreparation(ctx, alice.ID, failedPreparation.ID, "Custom deck preparation failed; review the deck and retry."))
+	failedStatusURL := "/vocabulary/deck-preparations/" + failedPreparation.ID
+	failedStatus := perform(t, h, http.MethodGet, failedStatusURL, nil, cookies)
+	require.Equal(t, http.StatusOK, failedStatus.Code)
+	assert.Contains(t, failedStatus.Body.String(), "failed")
+	assert.Contains(t, failedStatus.Body.String(), "Previous Ready preparation")
+	assert.Contains(t, failedStatus.Body.String(), preparationID+"/download")
+	previousDownload := perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+preparationID+"/download", nil, cookies)
+	assert.Equal(t, http.StatusOK, previousDownload.Code, "a failed replacement must keep the old Ready result downloadable")
+	retryKey := "12894429-9e3b-4a97-9f98-507ad734359b"
+	retryPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {retryKey}, "expected_evidence": {retryFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, retryPost.Code, retryPost.Body.String())
+	repeatedRetry := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
+		"csrf_token": {csrf}, "action_key": {retryKey}, "expected_evidence": {retryFingerprint},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, repeatedRetry.Code)
+	assert.Equal(t, retryPost.Header().Get("Location"), repeatedRetry.Header().Get("Location"))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
+	assert.Equal(t, 3, preparationCount, "retry creates one new durable generation despite repeated submission")
+	retryPreparationID := strings.TrimPrefix(retryPost.Header().Get("Location"), "/vocabulary/deck-preparations/")
+	var retried domain.CustomDeckPreparation
+	for {
+		retried, err = preparationService.Get(ctx, alice.ID, retryPreparationID)
+		require.NoError(t, err)
+		if retried.State == "complete_with_omissions" || retried.State == "failed" {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "retried Custom deck preparation did not finish")
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	require.Equal(t, "complete_with_omissions", retried.State, retried.Error)
+	require.Len(t, provider.requests, 2)
 	assert.NotContains(t, fmt.Sprint(provider.requests[0]), "Private source title", "provider request must not include Book title")
 	assert.Contains(t, fmt.Sprint(provider.requests[0]), sentence, "provider request must use the submission-time sentence")
 	assert.NotContains(t, fmt.Sprint(provider.requests[0]), changedSentence, "queued evidence changes must not alter provider inputs")
+	assert.NotContains(t, fmt.Sprint(provider.requests[1]), "Private source title", "retry provider request must not include Book title")
 	bobCookies, _ := loginCookies(t, h, "custom-prep-bob", "bob-password")
 	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, statusURL, nil, bobCookies).Code)
 
