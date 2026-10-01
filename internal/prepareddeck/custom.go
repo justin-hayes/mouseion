@@ -204,7 +204,7 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 			CacheKey: item.CacheKey, Translation: response.Translation, FallbackGloss: response.Gloss,
 			SentenceTranslation: response.SentenceTranslation, SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
 			SenseSelection: append([]int(nil), response.SenseOrder...), CachedAt: time.Now().UTC(),
-		}})
+		}, OmissionReason: response.UnresolvedReason})
 	}
 	artifact, _, err := w.Presentation.Finalize(ctx, deck, results, cardexport.RunFacts{
 		Consent: true, Configured: true, ExecutionMode: string(domain.PreparedDeckExecutionStandard),

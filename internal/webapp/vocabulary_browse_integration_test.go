@@ -35,6 +35,9 @@ func (*customDeckFixtureTranslation) Name() string    { return "custom-deck-fixt
 func (*customDeckFixtureTranslation) Version() string { return "1" }
 func (p *customDeckFixtureTranslation) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.requests = append(p.requests, request)
+	if request.CanonicalLemma == "baum" {
+		return enrichment.TranslationResponse{UnresolvedReason: "The context does not distinguish this meaning."}, nil
+	}
 	return enrichment.TranslationResponse{Translation: "house", Gloss: "a building", ContextOnly: true, SentenceTranslation: "In the morning, the children visit the house and speak with their neighbors.", SentenceTranslationTargets: []string{"house"}}, nil
 }
 
@@ -58,7 +61,35 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='missingwort',raw_lemma='missingwort',canonical_lemma='missingwort',start_offset=4,end_offset=15 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, missingCorpus.ID, missingRunID)
 	require.NoError(t, err)
-	_, _, _, _ = seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-other", "Other German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", OccurrenceCount: 1}})
+	otherBook, otherSource, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-other", "Other German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, otherSource, otherCorpus)
+	var otherRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, otherCorpus.ID).Scan(&otherRunID))
+	baumSentence := "Kinder sehen heute einen Baum im Garten."
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, otherCorpus.ID, otherRunID, baumSentence, len(baumSentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, otherCorpus.ID, otherRunID)
+	require.NoError(t, err)
+	baumTokens := []struct {
+		surface, lemma, upos, dependency string
+		head                             int
+		morphology                       map[string]string
+	}{
+		{"Kinder", "Kind", "NOUN", "nsubj", 1, nil}, {"sehen", "sehen", "VERB", "root", 1, map[string]string{"VerbForm": "Fin"}},
+		{"heute", "heute", "ADV", "advmod", 1, nil}, {"einen", "ein", "DET", "det", 4, nil},
+		{"Baum", "baum", "NOUN", "obj", 1, nil}, {"im", "in", "ADP", "case", 6, nil}, {"Garten", "Garten", "NOUN", "obl", 1, nil},
+	}
+	for ordinal, token := range baumTokens {
+		features := token.morphology
+		if features == nil {
+			features = map[string]string{}
+		}
+		morphology, marshalErr := json.Marshal(features)
+		require.NoError(t, marshalErr)
+		start := strings.Index(baumSentence, token.surface)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, alice.ID, otherRunID, otherCorpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, morphology, start, start+len(token.surface))
+		require.NoError(t, err)
+	}
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
@@ -95,6 +126,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	customDeck, err := store.CreateCustomVocabularyDeck(ctx, alice.ID, "de", "German practice", "d7c38a7e-777d-4fbd-a234-67115c7f92ab")
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','missingwort','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','baum','NOUN')`, alice.ID, customDeck.ID)
 	require.NoError(t, err)
 	bookDeckBefore, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
 	require.NoError(t, err)
@@ -149,15 +182,21 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		Omissions []domain.CustomDeckPreparationOmission `json:"omissions"`
 	}
 	require.NoError(t, json.Unmarshal(submitted.FrozenSpec, &frozen))
-	require.Len(t, frozen.Evidence, 1)
-	assert.Equal(t, book.ID, frozen.Evidence[0].BookID)
-	assert.Equal(t, source.ID, frozen.Evidence[0].SourceMaterialID)
-	assert.Equal(t, runID, frozen.Evidence[0].AnalysisRunID)
-	assert.Equal(t, corpus.ID, frozen.Evidence[0].CorpusID)
-	assert.Equal(t, "haus", frozen.Evidence[0].Lemma)
-	assert.Equal(t, "NOUN", frozen.Evidence[0].UPOS)
-	assert.Equal(t, "Haus", frozen.Evidence[0].Target)
-	assert.Equal(t, sentence, frozen.Evidence[0].Sentence)
+	require.Len(t, frozen.Evidence, 2)
+	var hausEvidence *domain.CustomDeckPreparationEvidence
+	for i := range frozen.Evidence {
+		if frozen.Evidence[i].Lemma == "haus" {
+			hausEvidence = &frozen.Evidence[i]
+		}
+	}
+	require.NotNil(t, hausEvidence)
+	assert.Equal(t, book.ID, hausEvidence.BookID)
+	assert.Equal(t, source.ID, hausEvidence.SourceMaterialID)
+	assert.Equal(t, runID, hausEvidence.AnalysisRunID)
+	assert.Equal(t, corpus.ID, hausEvidence.CorpusID)
+	assert.Equal(t, "NOUN", hausEvidence.UPOS)
+	assert.Equal(t, "Haus", hausEvidence.Target)
+	assert.Equal(t, sentence, hausEvidence.Sentence)
 	require.Len(t, frozen.Omissions, 1)
 	assert.Equal(t, "evidence", frozen.Omissions[0].Kind)
 	assert.Equal(t, "missingwort", frozen.Omissions[0].Lemma)
@@ -190,10 +229,14 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	}
 	require.Equal(t, "complete_with_omissions", ready.State, ready.Error)
 	require.Greater(t, ready.TotalCards, 0)
-	require.Len(t, ready.Omissions, 1)
+	require.Len(t, ready.Omissions, 2)
+	assert.Equal(t, "evidence", ready.Omissions[0].Kind)
+	assert.Equal(t, "meaning", ready.Omissions[1].Kind)
+	assert.Equal(t, "baum", ready.Omissions[1].Lemma)
 	status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
 	assert.Contains(t, status.Body.String(), "ready")
 	assert.Contains(t, status.Body.String(), "missingwort")
+	assert.Contains(t, status.Body.String(), "baum")
 	assert.Contains(t, status.Body.String(), "Private source title")
 	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
 	assert.NotContains(t, status.Body.String(), changedSentence)
@@ -202,6 +245,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"))
 	assert.True(t, strings.HasPrefix(download.Body.String(), "PK"), "download must be a real APKG ZIP")
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
 	require.NoError(t, err)
 	allMissingPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, allMissingPage.Code)
@@ -216,6 +261,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
 	assert.Equal(t, 1, preparationCount, "all-zero current evidence must not create another generation")
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, corpus.ID, runID, sentence, len(sentence))
 	require.NoError(t, err)
@@ -259,11 +306,11 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 		}
 	}
 	require.Equal(t, "complete_with_omissions", retried.State, retried.Error)
-	require.Len(t, provider.requests, 2)
-	assert.NotContains(t, fmt.Sprint(provider.requests[0]), "Private source title", "provider request must not include Book title")
-	assert.Contains(t, fmt.Sprint(provider.requests[0]), sentence, "provider request must use the submission-time sentence")
-	assert.NotContains(t, fmt.Sprint(provider.requests[0]), changedSentence, "queued evidence changes must not alter provider inputs")
-	assert.NotContains(t, fmt.Sprint(provider.requests[1]), "Private source title", "retry provider request must not include Book title")
+	require.Len(t, provider.requests, 4)
+	providerRequests := fmt.Sprint(provider.requests)
+	assert.NotContains(t, providerRequests, "Private source title", "provider requests must not include Book title")
+	assert.Contains(t, providerRequests, sentence, "provider request must use the submission-time sentence")
+	assert.NotContains(t, providerRequests, changedSentence, "queued evidence changes must not alter provider inputs")
 	bobCookies, _ := loginCookies(t, h, "custom-prep-bob", "bob-password")
 	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, statusURL, nil, bobCookies).Code)
 
