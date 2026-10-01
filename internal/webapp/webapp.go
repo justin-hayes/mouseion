@@ -115,6 +115,10 @@ type VocabularySelectionStore interface {
 	ClearVocabularyBrowseSelection(context.Context, string, string) error
 	CreateCustomVocabularyDeck(context.Context, string, string, string, string) (domain.CustomVocabularyDeck, error)
 	GetCustomVocabularyDeck(context.Context, string, string) (domain.CustomVocabularyDeck, error)
+	ListCustomVocabularyDecks(context.Context, string) ([]domain.CustomVocabularyDeck, error)
+	RenameCustomVocabularyDeck(context.Context, string, string, string) error
+	SetCustomVocabularyDeckIdentity(context.Context, string, string, string, string, bool) error
+	DeleteCustomVocabularyDeck(context.Context, string, string) error
 }
 
 type VocabularyConcordanceStore interface {
@@ -297,6 +301,10 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /vocabulary/selection/clear-confirm", h.user(http.HandlerFunc(h.confirmClearVocabularySelection)))
 	h.mux.Handle("POST /vocabulary/decks", h.user(http.HandlerFunc(h.createCustomVocabularyDeck)))
 	h.mux.Handle("GET /vocabulary/decks/{id}", h.user(http.HandlerFunc(h.customVocabularyDeckPage)))
+	h.mux.Handle("POST /vocabulary/decks/{id}/rename", h.user(http.HandlerFunc(h.renameCustomVocabularyDeck)))
+	h.mux.Handle("POST /vocabulary/decks/{id}/identities/{action}", h.user(http.HandlerFunc(h.setCustomVocabularyDeckIdentity)))
+	h.mux.Handle("GET /vocabulary/decks/{id}/delete-confirm", h.user(http.HandlerFunc(h.confirmDeleteCustomVocabularyDeck)))
+	h.mux.Handle("POST /vocabulary/decks/{id}/delete", h.user(http.HandlerFunc(h.deleteCustomVocabularyDeck)))
 	h.mux.Handle("GET /vocabulary/concordance", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
 	h.mux.Handle("GET /vocabulary/concordance/sentence", h.user(http.HandlerFunc(h.vocabularySentenceStudyPage)))
 	h.mux.Handle("GET /vocabulary/import", h.user(http.HandlerFunc(h.vocabularyImportPage)))

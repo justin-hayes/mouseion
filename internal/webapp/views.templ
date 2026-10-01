@@ -911,11 +911,14 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 	}
 }
 
-templ VocabularySelectionPageView(user domain.User, csrf, language string, identities []domain.VocabularyIdentity, total, missing, visibleTotal, page int, missingOnly bool, creationKey, retryName, creationError string) {
+templ VocabularySelectionPageView(user domain.User, csrf, language string, identities []domain.VocabularyIdentity, total, missing, visibleTotal, page int, missingOnly bool, creationKey, retryName, creationError string, decks []domain.CustomVocabularyDeck, editable bool) {
 	@ShellLayout("Review Browse selection", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Review Browse selection", "An unnamed, language-specific shortlist; it is not a deck until you name one.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities", total) }; { fmt.Sprintf("%d currently lack evidence", missing) }.</p>
+		if !editable {
+			<p role="status">This language is not currently in your study-language set. The unnamed selection is retained and read-only.</p>
+		}
 		if creationError != "" {
 			<p role="alert">{ creationError }</p>
 		}
@@ -927,15 +930,29 @@ templ VocabularySelectionPageView(user domain.User, csrf, language string, ident
 		if len(identities) == 0 {
 			<p>No identities in this selection view.</p>
 		}
+		<h2>Saved Custom decks</h2>
+		if len(decks) == 0 {
+			<p>No saved Custom decks yet.</p>
+		}
+		<ul>
+		for _, deck := range decks {
+			<li><a href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>{ deck.Name }</a> — { deck.Language }, { fmt.Sprintf("%d identities", deck.IdentityCount) }, { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }</li>
+		}
+		</ul>
 		<ul>
 		for _, identity := range identities {
 			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }
-			<form method="post" action="/vocabulary/selection/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="outline">Remove</button></form></li>
+			if editable {
+				<form method="post" action="/vocabulary/selection/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="outline">Remove</button></form>
+			}
+			</li>
 		}
 		</ul>
 		@VocabularySelectionPager(page,visibleTotal,missingOnly)
-		<a role="button" class="outline secondary" href="/vocabulary/selection/clear-confirm">Clear selection</a>
-		if total > 0 || creationError != "" {
+		if editable {
+			<a role="button" class="outline secondary" href="/vocabulary/selection/clear-confirm">Clear selection</a>
+		}
+		if editable && (total > 0 || creationError != "") {
 			<h2>Name a Custom deck</h2><p>Creating a deck saves these identities only; it does not prepare or download a card package.</p>
 			<form method="post" action="/vocabulary/decks"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="creation_key" value={ creationKey }/><label for="custom-deck-name">Deck name</label><input id="custom-deck-name" name="name" value={ retryName } required maxlength="120"/><button type="submit">Create Custom deck</button></form>
 		}
@@ -951,26 +968,85 @@ templ VocabularySelectionPager(page,total int, missingOnly bool) {
 	}
 }
 
-templ VocabularySelectionClearConfirmView(user domain.User, csrf, language string, count int) {
+templ VocabularySelectionClearConfirmView(user domain.User, csrf, language string, count int, editable bool) {
 	@ShellLayout("Confirm clearing selection", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Clear Browse selection?", "This removes only the unnamed selection for this study language. Saved Custom decks are not changed.", nil)
 		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities will be removed", count) }.</p>
-		<form method="post" action="/vocabulary/selection/clear"><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Confirm clear selection</button></form>
+		if editable {
+			<form method="post" action="/vocabulary/selection/clear"><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Confirm clear selection</button></form>
+		} else {
+			<p role="status">This language is unavailable; clearing is disabled until it returns.</p>
+		}
 		<p><a href="/vocabulary/selection">Cancel and keep selection</a></p>
 	}
 }
 
-templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck) {
+templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool) {
 	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
-		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities. Preparation is not part of this action.", nil)
+		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Study language <code>{ deck.Language }</code>. { fmt.Sprintf("%d identities", len(deck.Identities)) }; { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }.</p>
-		<ul>
-		for _, identity := range deck.Identities {
-			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }</li>
+		if !editable {
+			<p role="status">This study language is currently unavailable. This deck is read-only; its saved identities and history are retained.</p>
+		}
+		<h2>Decks</h2><ul>
+		for _, other := range decks {
+			<li><a href={ templ.SafeURL("/vocabulary/decks/"+other.ID) }>{ other.Name }</a> ({ other.Language })</li>
 		}
 		</ul>
+		if editable {
+			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/rename") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="custom-deck-name">Rename deck</label><input id="custom-deck-name" name="name" value={ deck.Name } required maxlength="120"/><button type="submit">Save name</button></form>
+		}
+		if missingOnly {
+			<p><a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,false)) }>Show all deck identities</a></p>
+		} else {
+			<p><a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,true)) }>Show only identities missing current evidence</a></p>
+		}
+		<ul>
+		for _, identity := range identities {
+			<li><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(identity.CanonicalLemma, identity.UPOS)) }><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code></a> — { selectionEvidenceLabel(identity) }
+				if len(identity.EvidenceBooks) > 0 {
+					<ul aria-label={ "Current evidence for "+identity.CanonicalLemma }>
+					for _, book := range identity.EvidenceBooks {
+						<li>{ fmt.Sprintf("%d occurrences in the current analysis of ", book.OccurrenceCount) }<a href={ templ.SafeURL("/books/"+book.ID+"/analyses/"+book.AnalysisRunID) }>{ book.Title }</a> · <a href={ templ.SafeURL("/reading/books/"+book.ID+"/lemma-review") }>Review occurrences</a></li>
+					}
+					</ul>
+				}
+			if editable {
+				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="outline" type="submit">Remove</button></form>
+			}
+			</li>
+		}
+		</ul>
+		if len(deck.Identities) > 25 {
+			<p>Page { fmt.Sprintf("%d", page) } of { fmt.Sprintf("%d", lastPage) }</p>
+			if page > 1 {
+				<a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,page-1,missingOnly)) }>Previous page</a>
+			}
+			if page < lastPage {
+				<a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,page+1,missingOnly)) }>Next page</a>
+			}
+		}
+		if editable {
+			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/add") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="identity-lemma">Add an identity</label><input id="identity-lemma" name="lemma" required/><label for="identity-upos">Part of speech</label><select id="identity-upos" name="upos"><option>NOUN</option><option>VERB</option><option>ADJ</option><option>ADV</option></select><button type="submit">Add identity</button></form>
+			<a role="button" class="outline secondary" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete-confirm") }>Delete Custom deck</a>
+		}
+		<p><a href="/vocabulary/selection">Browse selection and saved decks</a></p>
 		<p><a href="/vocabulary">Return to Browse</a></p>
+	}
+}
+
+templ CustomVocabularyDeckDeleteConfirmView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, editable bool) {
+	@ShellLayout("Delete Custom deck", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Delete Custom deck?", "This removes the saved deck and its identities from Mouseion.", nil)
+		<p><strong>{ deck.Name }</strong> ({ deck.Language })</p>
+		<p>Mouseion cannot revoke APKG files already downloaded or remove notes already imported into Anki. Deletion withdraws any associated artifact from future Mouseion downloads.</p>
+		if editable {
+			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Confirm delete Custom deck</button></form>
+		} else {
+			<p role="status">This language is unavailable; deletion is disabled until it returns.</p>
+		}
+		<p><a href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>Cancel and keep deck</a></p>
 	}
 }
 
