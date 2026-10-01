@@ -4,6 +4,7 @@ package fixtures
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -492,6 +493,22 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		}
 	}
 	return result, nil
+}
+
+func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
+	if book != "fixture-concordance-book" || unit != "fixture-concordance-unit" || sentence != 0 {
+		return domain.SentenceStudy{}, errors.New("sentence study not found")
+	}
+	return domain.SentenceStudy{BookID: book, BookTitle: "Corrected evidence", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,
+		SentenceText: "Das Haus sieht gut aus.", SentenceOrdinal: sentence, TargetOrdinal: target,
+		Tokens: []domain.SentenceStudyToken{
+			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Haus", Ordinal: 0},
+			{Surface: "Haus", RawLemma: "haus", EffectiveLemma: "heim", UPOS: "NOUN", Dependency: "obj", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 1, Corrected: true},
+			{Surface: "sieht", RawLemma: "sehen", EffectiveLemma: "sehen", UPOS: "VERB", Dependency: "root", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 2},
+			{Surface: "gut", RawLemma: "gut", EffectiveLemma: "gut", UPOS: "ADV", Dependency: "advmod", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 3},
+			{Surface: "aus", RawLemma: "aus", EffectiveLemma: "aus", UPOS: "PART", Dependency: "compound:prt", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 4},
+			{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 5},
+		}}, nil
 }
 
 func fixtureConcordanceOccurrence(bookTitle, rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {

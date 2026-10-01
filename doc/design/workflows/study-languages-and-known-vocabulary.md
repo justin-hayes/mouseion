@@ -45,9 +45,9 @@ The retained `/known-vocab` route is compatibility surface, not an independent
 product area. The implementation redirects `GET /known-vocab` to `/vocabulary`.
 New known-vocabulary functionality belongs in Vocabulary. The partially deployed
 target adds Browse as its landing view and Concordance as another peer view,
-while keeping import distinct. Browse and the initial exact-lookup/KWIC
-Concordance slice are available; grammar filters, focused sentence study, and
-Custom decks remain target behavior.
+while keeping import distinct. Browse, exact-lookup/KWIC, applied Book and
+grammar filters, and focused textual sentence study are available. Custom decks
+remain target behavior.
 
 ## Study-language model
 

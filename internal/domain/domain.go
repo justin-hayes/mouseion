@@ -370,6 +370,9 @@ type ConcordanceOccurrence struct {
 // vocabulary identity.
 type ConcordanceLookup struct {
 	Mode, Term, UPOS string
+	BookIDs          []string
+	GrammarDirection string
+	Relation         string
 	Page             int
 }
 
@@ -384,6 +387,19 @@ type ConcordanceResultOccurrence struct {
 	ConcordanceOccurrence
 	RawLemma, EffectiveLemma string
 	Corrected, Excluded      bool
+}
+
+type SentenceStudy struct {
+	BookID, BookTitle, ChapterTitle, SentenceText string
+	TargetSurface, GrammarDirection, Relation     string
+	SentenceOrdinal, TargetOrdinal                int64
+	Tokens                                        []SentenceStudyToken
+}
+
+type SentenceStudyToken struct {
+	Surface, RawLemma, EffectiveLemma, UPOS, Dependency, HeadSurface string
+	Ordinal, HeadOrdinal                                             int64
+	Corrected, Excluded                                              bool
 }
 
 type AnalysisJob struct {

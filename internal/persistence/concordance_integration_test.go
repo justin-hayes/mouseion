@@ -118,6 +118,60 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	languageDependents, err := store.ListStudyLanguageDependentsByGovernorLemma(ctx, alice.ID, "de", "das", "DET", "obj")
 	require.NoError(t, err)
 	require.Len(t, languageDependents, 1)
+
+	ownRelation, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
+		Mode: "effective", Term: "haus", UPOS: "NOUN", BookIDs: []string{bookA.ID, bookB.ID},
+		GrammarDirection: "own", Relation: "obj", Page: 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, ownRelation.Occurrences, 1)
+	assert.Equal(t, bookA.ID, ownRelation.Occurrences[0].BookID)
+
+	governorDependents, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
+		Mode: "effective", Term: "das", UPOS: "DET", BookIDs: []string{bookA.ID},
+		GrammarDirection: "governor", Relation: "obj", Page: 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, governorDependents.Occurrences, 1)
+	assert.Equal(t, "Haus", governorDependents.Occurrences[0].Surface)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version) VALUES($1,$2,$3,$4,$5,2,5,'der','de','1')`,
+		alice.ID, bookA.ID, governorDependents.Occurrences[0].CorpusID,
+		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].UnitID)
+	require.NoError(t, err)
+	correctedGovernor, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
+		Mode: "effective", Term: "der", UPOS: "DET", BookIDs: []string{bookA.ID},
+		GrammarDirection: "governor", Relation: "obj", Page: 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, correctedGovernor.Occurrences, 1)
+	uncorrectedGovernor, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
+		Mode: "effective", Term: "das", UPOS: "DET", BookIDs: []string{bookA.ID},
+		GrammarDirection: "governor", Relation: "obj", Page: 1,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, uncorrectedGovernor.Occurrences)
+
+	study, err := store.GetVocabularySentenceStudy(ctx, alice.ID, bookA.ID,
+		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].CorpusID,
+		governorDependents.Occurrences[0].UnitID, governorDependents.Occurrences[0].SentenceOrdinal,
+		governorDependents.Occurrences[0].TokenOrdinal, governorDependents.Occurrences[0].Surface)
+	require.NoError(t, err)
+	assert.Equal(t, "Das Haus", study.SentenceText)
+	assert.Equal(t, int64(1), study.TargetOrdinal)
+	assert.Len(t, study.Tokens, 2)
+	assert.True(t, study.Tokens[0].Corrected)
+	assert.Equal(t, "der", study.Tokens[0].EffectiveLemma)
+	assert.Equal(t, "obj", study.Tokens[1].Dependency)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=1`, alice.ID, governorDependents.Occurrences[0].CorpusID, governorDependents.Occurrences[0].AnalysisRunID)
+	// Missing parse rows do not invalidate a complete sentence source.
+	require.NoError(t, err)
+	parseGap, err := store.GetVocabularySentenceStudy(ctx, alice.ID, bookA.ID,
+		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].CorpusID,
+		governorDependents.Occurrences[0].UnitID, 1, 0, "Haus")
+	require.NoError(t, err)
+	assert.Equal(t, "Das Haus", parseGap.SentenceText)
+	assert.Empty(t, parseGap.Tokens)
+	assert.Equal(t, "Haus", parseGap.TargetSurface)
 	assert.Equal(t, bookRows[0], languageDependents[0])
 
 	bobRows, err := store.ListStudyLanguageOccurrencesBySurface(ctx, bob.ID, "de", "Haus")

@@ -930,7 +930,7 @@ templ VocabularyViewsNav(active string) {
 	</nav>
 }
 
-templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message string) {
+templ VocabularyConcordancePageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message string) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "Find analyzed occurrences and inspect their original context.", nil)
 		@VocabularyViewsNav("concordance")
@@ -942,6 +942,12 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 		if language != "" {
 			<p>Active study language: <code>{ language }</code>. Results use only current analyzed evidence in your Books.</p>
 			<form method="get" action="/vocabulary/concordance" class="concordance-query">
+				for _, bookID := range lookup.BookIDs {
+					<input type="hidden" name="book" value={ bookID }/>
+				}
+				if lookup.GrammarDirection != "" {
+					<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
+				}
 				<label for="concordance-mode">Lookup evidence</label>
 				<select id="concordance-mode" name="mode">
 					<option value="surface" selected?={ lookup.Mode == "surface" }>Observed surface</option>
@@ -957,13 +963,41 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 				</select>
 				<button type="submit">Find</button>
 			</form>
+			<details>
+				<summary>Books (applied: { concordanceBookScope(lookup, books) })</summary>
+				<form method="get" action="/vocabulary/concordance">
+					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
+					if lookup.GrammarDirection != "" {
+						<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
+					}
+					<fieldset><legend>Search current analysis in</legend>
+						for _, book := range books {
+							<label><input type="checkbox" name="book" value={ book.BookID } checked?={ concordanceBookSelected(lookup.BookIDs, book.BookID) }/>{ concordanceBookTitle(book) }</label>
+						}
+					</fieldset>
+					<button type="submit">Apply Books</button>
+				</form>
+			</details>
+			<details>
+				<summary>Grammar (applied: { concordanceGrammarScope(lookup) })</summary>
+				<form method="get" action="/vocabulary/concordance">
+					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
+					for _, bookID := range lookup.BookIDs {
+						<input type="hidden" name="book" value={ bookID }/>
+					}
+					<label for="concordance-grammar">Grammar direction</label>
+					<select id="concordance-grammar" name="grammar"><option value="">No grammar filter</option><option value="own" selected?={ lookup.GrammarDirection == "own" }>Queried occurrence's own relation</option><option value="governor" selected?={ lookup.GrammarDirection == "governor" }>Dependents of queried governor</option></select>
+					<label for="concordance-relation">Dependency relation</label><input id="concordance-relation" name="relation" value={ lookup.Relation } placeholder="e.g. nsubj"/>
+					<button type="submit">Apply grammar</button>
+				</form>
+			</details>
 			if message != "" {
 				<p role="alert">{ message }</p>
 			}
 			if applied {
 				<section id="concordance-results" aria-labelledby="concordance-summary">
 					<h2 id="concordance-summary" tabindex="-1">Current results</h2>
-					<p>{ concordanceAppliedSummary(lookup) }.</p>
+					<p>{ concordanceAppliedSummary(lookup) } · { concordanceBookScope(lookup, books) } · { concordanceGrammarScope(lookup) }.</p>
 					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }.</p>
 					if result.HasNext {
 						<p>More results are available.</p>
@@ -975,7 +1009,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 						<ol class="concordance-results">
 						for _, occurrence := range result.Occurrences {
 							<li>
-								<details class="concordance-row">
+								<details class="concordance-row" id={ concordanceOccurrenceID(occurrence) } tabindex="-1">
 									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
 										<span>{ concordanceBefore(occurrence) }</span> <strong>{ occurrence.Surface }</strong> <span>{ concordanceAfter(occurrence) }</span>
 										<small>{ occurrence.BookTitle } · { concordanceLocation(occurrence) }</small>
@@ -987,6 +1021,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 										<p><small>Dependency: <code>{ occurrence.Dependency }</code> · head: { occurrence.HeadSurface }</small></p>
 									</div>
 								</details>
+								<a href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }>Study this sentence and its syntax</a>
 							</li>
 						}
 						</ol>
@@ -1007,6 +1042,53 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 	}
 }
 
+templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back string) {
+	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Study this sentence and its syntax", "A complete source sentence with syntax attributed to the analyzer.", nil)
+		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
+		<section class="reading-width" aria-labelledby="sentence-study-heading">
+			<h2 id="sentence-study-heading">{ study.BookTitle }</h2>
+			<p>{ study.ChapterTitle } · sentence { fmt.Sprintf("%d", study.SentenceOrdinal+1) }</p>
+			<p>Identified target: <strong>{ sentenceStudyTarget(study) }</strong></p>
+			<p class="reading-text sentence-study-text">
+				{ study.SentenceText }
+			</p>
+			if len(study.Tokens) == 0 {
+				<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>
+			} else {
+				<h3>Analyzer-attributed tokens</h3>
+				<ol class="sentence-study-tokens">
+					for _, token := range study.Tokens {
+						<li>
+							if token.Ordinal == study.TargetOrdinal {
+								<strong>{ token.Surface } — identified target</strong>
+							} else {
+								<strong>{ token.Surface }</strong>
+							}
+							: <code>{ token.UPOS }</code>, lemma evidence <code>{ token.RawLemma }</code>, effective lemma <code>{ token.EffectiveLemma }</code>;
+							dependency <code>{ token.Dependency }</code>, head { token.HeadSurface } (token { fmt.Sprintf("%d", token.HeadOrdinal+1) }).
+							if token.Corrected {
+								<span> Corrected for this occurrence.</span>
+							}
+							if token.Excluded {
+								<span> Excluded from effective vocabulary; retained as syntax evidence.</span>
+							}
+						</li>
+					}
+				</ol>
+				if study.GrammarDirection == "governor" {
+					<h3>Relevant dependents · <code>{ study.Relation }</code></h3>
+					<ul>
+						for _, token := range sentenceStudyRelevantDependents(study) {
+							<li>{ token.Surface } — token { fmt.Sprintf("%d", token.Ordinal+1) }, head { token.HeadSurface }, relation <code>{ token.Dependency }</code>{ concordanceDecisionLabelForStudy(token) }</li>
+						}
+					</ul>
+				}
+			}
+		</section>
+	}
+}
+
 func vocabularyIdentityConcordanceURL(lemma, upos string) string {
 	values := url.Values{"mode": {"effective"}, "term": {lemma}, "upos": {upos}}
 	return "/vocabulary/concordance?" + values.Encode()
@@ -1015,12 +1097,96 @@ func vocabularyIdentityConcordanceURL(lemma, upos string) string {
 func concordanceAppliedSummary(lookup domain.ConcordanceLookup) string {
 	switch lookup.Mode {
 	case "effective":
-		return "Applied effective lemma + " + lookup.UPOS + " lookup for “" + lookup.Term + "” across all current Books"
+		return "Applied effective lemma + " + lookup.UPOS + " lookup for “" + lookup.Term + "”"
 	case "analyzer":
-		return "Applied analyzer lemma evidence + " + lookup.UPOS + " lookup for “" + lookup.Term + "” across all current Books"
+		return "Applied analyzer lemma evidence + " + lookup.UPOS + " lookup for “" + lookup.Term + "”"
 	default:
-		return "Applied exact observed surface lookup for “" + lookup.Term + "” across all current Books"
+		return "Applied exact observed surface lookup for “" + lookup.Term + "”"
 	}
+}
+
+func concordanceBookScope(lookup domain.ConcordanceLookup, books []domain.SourceMaterialSummary) string {
+	if len(lookup.BookIDs) == 0 { return "all current Books" }
+	titles := make([]string, 0, len(lookup.BookIDs))
+	for _, bookID := range lookup.BookIDs {
+		for _, book := range books {
+			if book.BookID == bookID {
+				titles = append(titles, concordanceBookTitle(book))
+				break
+			}
+		}
+	}
+	if len(titles) == 0 { return "selected Book subset (unavailable or no current match)" }
+	return strings.Join(titles, ", ")
+}
+
+func concordanceGrammarScope(lookup domain.ConcordanceLookup) string {
+	if lookup.GrammarDirection == "own" { return "own relation: " + lookup.Relation }
+	if lookup.GrammarDirection == "governor" { return "governor dependents, relation: " + lookup.Relation }
+	return "no grammar filter"
+}
+
+func concordanceBookSelected(ids []string, candidate string) bool {
+	for _, id := range ids { if id == candidate { return true } }
+	return false
+}
+
+func concordanceBookTitle(book domain.SourceMaterialSummary) string {
+	if book.BookTitle != "" { return book.BookTitle }
+	return book.Source.Title
+}
+
+func concordanceOccurrenceID(occurrence domain.ConcordanceResultOccurrence) string {
+	return fmt.Sprintf("occurrence-%s-%d-%d", occurrence.BookID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
+}
+
+func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, lookup domain.ConcordanceLookup) string {
+	values := url.Values{
+		"book": {occurrence.BookID}, "run": {occurrence.AnalysisRunID}, "corpus": {occurrence.CorpusID},
+		"unit": {occurrence.UnitID}, "sentence": {fmt.Sprintf("%d", occurrence.SentenceOrdinal)},
+		"target": {fmt.Sprintf("%d", occurrence.TokenOrdinal)}, "target_surface": {occurrence.Surface},
+	}
+	if lookup.GrammarDirection != "" {
+		values.Set("grammar", lookup.GrammarDirection)
+		values.Set("relation", lookup.Relation)
+	}
+	back := vocabularyConcordancePageURL(lookup.Page, lookup) + "#" + concordanceOccurrenceID(occurrence)
+	values.Set("return", back)
+	return "/vocabulary/concordance/sentence?" + values.Encode()
+}
+
+func sentenceStudyTarget(study domain.SentenceStudy) string {
+	for _, token := range study.Tokens {
+		if token.Ordinal == study.TargetOrdinal {
+			return token.Surface
+		}
+	}
+	if study.TargetSurface != "" { return study.TargetSurface + " (syntax evidence unavailable)" }
+	return "Target unavailable in syntax evidence"
+}
+
+func sentenceStudyRelevantDependents(study domain.SentenceStudy) []domain.SentenceStudyToken {
+	var target *domain.SentenceStudyToken
+	for i := range study.Tokens {
+		if study.Tokens[i].Ordinal == study.TargetOrdinal {
+			target = &study.Tokens[i]
+			break
+		}
+	}
+	if target == nil { return nil }
+	var relevant []domain.SentenceStudyToken
+	for _, token := range study.Tokens {
+		if token.HeadOrdinal == target.HeadOrdinal && token.Dependency == study.Relation {
+			relevant = append(relevant, token)
+		}
+	}
+	return relevant
+}
+
+func concordanceDecisionLabelForStudy(token domain.SentenceStudyToken) string {
+	if token.Excluded { return " (excluded from effective vocabulary; retained as syntax evidence)" }
+	if token.Corrected { return " (corrected for this occurrence)" }
+	return ""
 }
 
 func concordanceResultRange(result domain.ConcordanceResult) string {
