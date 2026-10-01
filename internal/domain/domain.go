@@ -131,14 +131,31 @@ type VocabularyBrowsePage struct {
 	Books                       []VocabularyBrowseBook
 	Total                       int64
 	InventoryTotal              int64
+	ScopedInventoryTotal        int64
 	AnalyzedBooks               int64
 	ContributingBooks           int64
 	NoncontributingBooks        int64
 	BooksWithoutCurrentAnalysis int64
+	SelectedBooks               []string
+	SelectedUPOS                []string
+	KnownFilter                 string
+	ReservedFilter              string
+	Sort                        string
 	Page                        int
 }
 
+type VocabularyBrowseQuery struct {
+	Prefix         string
+	BookIDs        []string
+	UPOS           []string
+	KnownFilter    string
+	ReservedFilter string
+	Sort           string
+	Page           int
+}
+
 type VocabularyBrowseBook struct {
+	ID                    string `json:"id"`
 	Title                 string `json:"title"`
 	HasCurrentAnalysis    bool   `json:"has_current_analysis"`
 	HasVocabularyEvidence bool   `json:"has_vocabulary_evidence"`

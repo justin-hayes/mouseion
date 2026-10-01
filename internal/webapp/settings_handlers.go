@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -44,13 +45,55 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil || page < 1 {
 		page = 1
 	}
-	query := r.URL.Query().Get("q")
-	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(r.Context(), u.ID, language, query, page)
+	prefix := r.URL.Query().Get("q")
+	values := r.URL.Query()
+	bookIDs := values["book"]
+	upos := values["pos"]
+	known := vocabularyBrowseRequestState(values.Get("known"), "known", "not-known")
+	reserved := vocabularyBrowseRequestState(values.Get("reserved"), "reserved", "not-reserved")
+	sortBy := values.Get("sort")
+	if sortBy != "occurrences" && sortBy != "books" {
+		sortBy = "lemma"
+	}
+	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(r.Context(), u.ID, language, domain.VocabularyBrowseQuery{
+		Prefix: prefix, BookIDs: bookIDs, UPOS: upos, KnownFilter: known, ReservedFilter: reserved, Sort: sortBy, Page: page,
+	})
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, query))
+	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, prefix))
+}
+
+func vocabularyBrowseRequestState(value, positive, negative string) string {
+	if value == positive || value == negative || value == "neither" && positive == "known" {
+		return value
+	}
+	return "any"
+}
+
+func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query string) string {
+	values := url.Values{}
+	if query != "" {
+		values.Set("q", query)
+	}
+	for _, book := range browse.SelectedBooks {
+		values.Add("book", book)
+	}
+	for _, pos := range browse.SelectedUPOS {
+		values.Add("pos", pos)
+	}
+	if browse.KnownFilter != "any" && browse.KnownFilter != "" {
+		values.Set("known", browse.KnownFilter)
+	}
+	if browse.ReservedFilter != "any" && browse.ReservedFilter != "" {
+		values.Set("reserved", browse.ReservedFilter)
+	}
+	if browse.Sort != "" && browse.Sort != "lemma" {
+		values.Set("sort", browse.Sort)
+	}
+	values.Set("page", strconv.Itoa(page))
+	return "/vocabulary?" + values.Encode()
 }
 
 func (h *Handler) vocabularyImportPage(w http.ResponseWriter, r *http.Request) {

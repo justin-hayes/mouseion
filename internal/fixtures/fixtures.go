@@ -461,11 +461,11 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 
 // ListVocabularyBrowsePage returns no analysis evidence: the fixture server
 // intentionally models navigation and page states, not PostgreSQL/NLP output.
-func (s *Store) ListVocabularyBrowsePage(_ context.Context, _ string, _ string, _ string, page int) (domain.VocabularyBrowsePage, error) {
-	if page < 1 {
-		page = 1
+func (s *Store) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+	if query.Page < 1 {
+		query.Page = 1
 	}
-	return domain.VocabularyBrowsePage{Page: page}, nil
+	return domain.VocabularyBrowsePage{Page: query.Page}, nil
 }
 func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()

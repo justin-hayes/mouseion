@@ -259,8 +259,8 @@ func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]dom
 func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
-func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _, _ string, page int) (domain.VocabularyBrowsePage, error) {
-	return domain.VocabularyBrowsePage{Page: page}, nil
+func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+	return domain.VocabularyBrowsePage{Page: query.Page}, nil
 }
 
 func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
@@ -290,8 +290,16 @@ func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
 func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyBrowsePager(domain.VocabularyBrowsePage{Page: 2, Total: 51}, "haus").Render(context.Background(), &output))
-	assert.Contains(t, output.String(), `href="/vocabulary?q=haus&amp;page=1"`)
-	assert.Contains(t, output.String(), `href="/vocabulary?q=haus&amp;page=3"`)
+	assert.Contains(t, output.String(), `href="/vocabulary?page=1&amp;q=haus"`)
+	assert.Contains(t, output.String(), `href="/vocabulary?page=3&amp;q=haus"`)
+}
+
+func TestVocabularyBrowsePagerPreservesAllAppliedControls(t *testing.T) {
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences"}
+	url := vocabularyBrowsePageURL(3, page, "Haus")
+	for _, value := range []string{"q=Haus", "book=book-1", "book=book-2", "pos=NOUN", "known=not-known", "reserved=not-reserved", "sort=occurrences", "page=3"} {
+		assert.Contains(t, url, value)
+	}
 }
 
 func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
