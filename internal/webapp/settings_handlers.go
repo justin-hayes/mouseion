@@ -323,16 +323,14 @@ func customDeckEvidenceDifferences(deck domain.CustomVocabularyDeck, history []d
 			return
 		}
 		if priorEvidence != nil {
+			if priorEvidence.EvidenceCurrent {
+				return
+			}
 			if identity.MissingEvidence {
 				differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "current eligible evidence is absent; the earlier frozen sentence remains in history"})
 				return
 			}
-			for _, book := range identity.EvidenceBooks {
-				if book.ID == priorEvidence.BookID && book.AnalysisRunID == priorEvidence.AnalysisRunID {
-					return
-				}
-			}
-			differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "the earlier representative Book or analysis is no longer current; current evidence exists"})
+			differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "the frozen representative occurrence is no longer eligible; current evidence exists"})
 			return
 		}
 		if wasEvidenceOmission && !identity.MissingEvidence {

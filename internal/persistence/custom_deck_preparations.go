@@ -283,6 +283,26 @@ func (s *PostgresStore) ListCustomDeckPreparations(ctx context.Context, owner, d
 	return preparations, rows.Err()
 }
 
+func (s *PostgresStore) CustomDeckPreparationEvidenceCurrent(ctx context.Context, owner string, evidence domain.CustomDeckPreparationEvidence) (bool, error) {
+	var current bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (
+	 SELECT 1 FROM concordance_occurrences o
+	 JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
+	  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
+	 JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_tag=o.language AND b.language_state='chosen'
+	 LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+	  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+	  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+	 WHERE o.owner_id=$1 AND o.book_id::text=$2 AND o.source_material_id::text=$3
+	  AND o.analysis_run_id::text=$4 AND o.corpus_id::text=$5 AND o.unit_id=$6
+	  AND o.unit_start_offset=$7 AND o.unit_end_offset=$8 AND o.upos=$9
+	  AND COALESCE(c.canonical_lemma,o.canonical_lemma)=$10 AND o.surface=$11
+	  AND NOT COALESCE(c.excluded,false)
+	)`, owner, evidence.BookID, evidence.SourceMaterialID, evidence.AnalysisRunID, evidence.CorpusID,
+		evidence.UnitID, evidence.StartOffset, evidence.EndOffset, evidence.UPOS, evidence.Lemma, evidence.Target).Scan(&current)
+	return current, err
+}
+
 func (s *PostgresStore) LatestReadyCustomDeckPreparation(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
 	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
  FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2

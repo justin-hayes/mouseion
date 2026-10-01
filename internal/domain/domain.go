@@ -219,6 +219,7 @@ type CustomDeckPreparationEvidence struct {
 	SentenceOrdinal  int64  `json:"sentence_ordinal"`
 	StartOffset      int64  `json:"start_offset"`
 	EndOffset        int64  `json:"end_offset"`
+	EvidenceCurrent  bool   `json:"-"`
 }
 
 type VocabularyBrowseBook struct {

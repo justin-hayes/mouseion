@@ -147,6 +147,12 @@ func (s *CustomDeckPreparationService) List(ctx context.Context, owner, deckID s
 		if err != nil {
 			return nil, err
 		}
+		for evidenceIndex := range preparations[i].Evidence {
+			preparations[i].Evidence[evidenceIndex].EvidenceCurrent, err = s.store.CustomDeckPreparationEvidenceCurrent(ctx, owner, preparations[i].Evidence[evidenceIndex])
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return preparations, nil
 }
