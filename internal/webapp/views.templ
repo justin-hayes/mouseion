@@ -1058,6 +1058,7 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 		<p role="status"><strong>{ preparation.State }</strong></p>
 		if preparation.State == "queued" || preparation.State == "preparing" {
 			<p>This durable preparation can continue while you leave this page. Return here to check its status.</p>
+			<form method="post" action={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Cancel preparation</button></form>
 		} else if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
 			<p>{ fmt.Sprintf("%d cards are ready", preparation.TotalCards) }.</p>
 			<h2>Frozen representative sentences</h2>
@@ -1076,6 +1077,8 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 			}
 		} else if preparation.State == "failed" {
 			<p role="alert">Preparation did not complete. Review the saved deck and prepare again to retry. Your earlier Ready preparation remains available.</p>
+		} else if preparation.State == "cancelled" {
+			<p role="status">Preparation cancelled. You can return to the saved deck and prepare again when ready.</p>
 		}
 		if preparation.PreviousReadyID != "" {
 			<p role="status">Previous Ready preparation ({ fmt.Sprintf("%d cards", preparation.PreviousReadyCards) }): <a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.PreviousReadyID+"/download") }>Download previous Ready APKG</a>.</p>

@@ -152,6 +152,13 @@ func (s *CustomDeckPreparationService) Download(ctx context.Context, owner, prep
 	return s.store.DownloadCustomDeckPreparation(ctx, owner, preparationID)
 }
 
+func (s *CustomDeckPreparationService) Cancel(ctx context.Context, owner, preparationID string) error {
+	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(preparationID) == "" {
+		return ErrInvalidInput
+	}
+	return s.store.CancelCustomDeckPreparation(ctx, owner, preparationID)
+}
+
 type CustomDeckPreparationWorker struct {
 	river.WorkerDefaults[CustomDeckPreparationJobArgs]
 	Store        *persistence.PostgresStore

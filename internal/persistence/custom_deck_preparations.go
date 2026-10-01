@@ -232,6 +232,19 @@ func (s *PostgresStore) FailCustomDeckPreparation(ctx context.Context, owner, id
 	return nil
 }
 
+func (s *PostgresStore) CancelCustomDeckPreparation(ctx context.Context, owner, id string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE custom_vocabulary_deck_preparations
+	 SET state='cancelled',error='Preparation cancelled.',completed_at=now()
+	 WHERE owner_id=$1 AND id=$2 AND state IN ('queued','preparing')`, owner, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrInvalidTransition
+	}
+	return nil
+}
+
 func (s *PostgresStore) LatestCustomDeckPreparation(ctx context.Context, owner, deckID string) (domain.CustomDeckPreparation, error) {
 	p, err := scanCustomDeckPreparation(s.pool.QueryRow(ctx, `SELECT `+customDeckPreparationColumns+`
  FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2

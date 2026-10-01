@@ -299,6 +299,16 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	recoveryService := prepareddeck.NewCustomDeckPreparationService(store, failureClient, presentation, failingProvider)
 	h.services.CustomDeckPreparation = recoveryService
+	cancelledPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "550a15b8-2068-43bd-86ad-2e1f09f460de", retryFingerprint)
+	require.NoError(t, err)
+	cancelPost := perform(t, h, http.MethodPost, "/vocabulary/deck-preparations/"+cancelledPreparation.ID+"/cancel", url.Values{"csrf_token": {csrf}}, postCookies)
+	require.Equal(t, http.StatusSeeOther, cancelPost.Code)
+	cancelledStatus := perform(t, h, http.MethodGet, cancelPost.Header().Get("Location"), nil, cookies)
+	require.Equal(t, http.StatusOK, cancelledStatus.Code)
+	assert.Contains(t, cancelledStatus.Body.String(), "Preparation cancelled")
+	cancelledPreparation, err = recoveryService.Get(ctx, alice.ID, cancelledPreparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "cancelled", cancelledPreparation.State)
 	failedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "1eb7d21b-a6e9-42c4-9339-6feeb8dd29e8", retryFingerprint)
 	require.NoError(t, err)
 	failureWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: failingProvider, Configured: true}
@@ -328,7 +338,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, repeatedRetry.Code)
 	assert.Equal(t, retryPost.Header().Get("Location"), repeatedRetry.Header().Get("Location"))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
-	assert.Equal(t, 3, preparationCount, "retry creates one new durable generation despite repeated submission")
+	assert.Equal(t, 4, preparationCount, "retry creates one new durable generation despite repeated submission")
 	retryPreparationID := strings.TrimPrefix(retryPost.Header().Get("Location"), "/vocabulary/deck-preparations/")
 	retryProvider := &customDeckFixtureTranslation{}
 	retryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: retryProvider, Configured: true}

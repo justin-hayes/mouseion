@@ -197,6 +197,7 @@ type CustomDeckPreparation interface {
 	Latest(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	LatestReady(context.Context, string, string) (domain.CustomDeckPreparation, error)
 	Download(context.Context, string, string) (domain.CustomDeckPreparation, error)
+	Cancel(context.Context, string, string) error
 }
 type PreparedDeckForGoalSnapshot interface {
 	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
@@ -313,6 +314,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /vocabulary/decks/{id}/preparations", h.user(http.HandlerFunc(h.prepareCustomVocabularyDeck)))
 	h.mux.Handle("GET /vocabulary/deck-preparations/{id}", h.user(http.HandlerFunc(h.customDeckPreparationStatus)))
 	h.mux.Handle("GET /vocabulary/deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadCustomDeckPreparation)))
+	h.mux.Handle("POST /vocabulary/deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelCustomDeckPreparation)))
 	h.mux.Handle("POST /vocabulary/decks/{id}/rename", h.user(http.HandlerFunc(h.renameCustomVocabularyDeck)))
 	h.mux.Handle("POST /vocabulary/decks/{id}/identities/{action}", h.user(http.HandlerFunc(h.setCustomVocabularyDeckIdentity)))
 	h.mux.Handle("GET /vocabulary/decks/{id}/delete-confirm", h.user(http.HandlerFunc(h.confirmDeleteCustomVocabularyDeck)))

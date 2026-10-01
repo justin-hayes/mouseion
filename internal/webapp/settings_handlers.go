@@ -355,6 +355,30 @@ func (h *Handler) customDeckPreparationStatus(w http.ResponseWriter, r *http.Req
 	render(w, r, CustomDeckPreparationStatusPage(user(r), h.csrf(w, r), p, deck))
 }
 
+func (h *Handler) cancelCustomDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	if h.services.CustomDeckPreparation == nil {
+		http.NotFound(w, r)
+		return
+	}
+	owner, id := user(r).ID, r.PathValue("id")
+	err := h.services.CustomDeckPreparation.Cancel(r.Context(), owner, id)
+	if errors.Is(err, persistence.ErrInvalidTransition) {
+		_, err = h.services.CustomDeckPreparation.Get(r.Context(), owner, id)
+	}
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	http.Redirect(w, r, "/vocabulary/deck-preparations/"+url.PathEscape(id), http.StatusSeeOther)
+}
+
 func (h *Handler) downloadCustomDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if h.services.CustomDeckPreparation == nil {
 		http.NotFound(w, r)
