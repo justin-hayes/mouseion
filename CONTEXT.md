@@ -94,6 +94,14 @@ does not mark vocabulary Known. Reading completion owns the vocabulary
 transition; a current reading with an empty snapshot requires no deck.
 _Avoid_: study plan, in-app review deck.
 
+**Custom deck**:
+An owner- and study-language-scoped saved, editable shortlist of effective
+vocabulary identities evidenced across Books, with independently prepared study
+artifacts. It is independent of any one Book's Prepared deck and of Reading's
+frozen vocabulary snapshot, and its creation or use does not change Known or
+Reserved vocabulary.
+_Avoid_: custom Prepared deck, Reading deck.
+
 **Deck specification**:
 The frozen, presentation-independent data of a prepared deck: the selected
 vocabulary, its representative sentence and target, and the syntax, morphology,
@@ -333,6 +341,19 @@ analyzed occurrence in learner-facing vocabulary after any confirmed
 correction. It can differ from the preserved analyzer assignment; an excluded
 occurrence contributes none.
 _Avoid_: edited analyzer lemma, global corrected lemma.
+
+**Vocabulary Browse inventory**:
+The active-study-language collection of effective vocabulary identities
+evidenced by currently analyzed Books, including single occurrences and
+identities that are Known or Reserved. It is not the recurring-vocabulary pool
+used for Book prepared decks or current-reading snapshots.
+_Avoid_: prepared-deck candidates, known-vocabulary list.
+
+**Browse selection**:
+An owner- and study-language-scoped unnamed selection of effective vocabulary
+identities made in Vocabulary Browse before creating a Custom deck. It is
+recoverable but is not itself a saved deck or preparation artifact.
+_Avoid_: custom deck, prepared deck, temporary filter result.
 
 **Lemma review flag**:
 A non-authoritative indication that an analyzed occurrence's lemma may assign
