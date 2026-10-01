@@ -73,9 +73,9 @@ WITH all_books AS (
 ), eligible AS (
   SELECT * FROM annotated
   WHERE ($3='' OR left(lower(lemma),length(lower($3)))=lower($3))
-	    AND ($6='any' OR ($6='known' AND known) OR ($6='not-known' AND NOT known) OR $6='neither')
+	    AND ($6='any' OR ($6='known' AND known) OR ($6='not-known' AND NOT known) OR $6='not-known-or-reserved')
 	    AND ($7='any' OR ($7='reserved' AND reserved) OR ($7='not-reserved' AND NOT reserved))
-    AND ($6<>'neither' OR (NOT known AND NOT reserved))
+    AND ($6<>'not-known-or-reserved' OR (NOT known AND NOT reserved))
 ), page_rows AS (
   SELECT * FROM eligible
   ORDER BY CASE WHEN $8='occurrences' THEN occurrences END DESC,
@@ -156,7 +156,7 @@ func vocabularyBrowseUPOS(values []string) []string {
 }
 
 func vocabularyBrowseStateFilter(value string) string {
-	if value == "known" || value == "not-known" || value == "neither" || value == "reserved" || value == "not-reserved" {
+	if value == "known" || value == "not-known" || value == "not-known-or-reserved" || value == "reserved" || value == "not-reserved" {
 		return value
 	}
 	return "any"

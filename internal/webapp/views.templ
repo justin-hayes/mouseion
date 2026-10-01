@@ -876,7 +876,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 						<label><input type="checkbox" name="pos" value={ pos } checked?={ vocabularyBrowseContains(page.SelectedUPOS, pos) }/>{ pos }</label>
 					}
 				</fieldset>
-				<label for="vocabulary-known-filter">Known</label><select id="vocabulary-known-filter" name="known"><option value="any" selected?={ page.KnownFilter == "any" || page.KnownFilter == "" }>Any</option><option value="known" selected?={ page.KnownFilter == "known" }>Known</option><option value="not-known" selected?={ page.KnownFilter == "not-known" }>Not Known</option><option value="neither" selected?={ page.KnownFilter == "neither" }>Not Known or Reserved</option></select>
+				<label for="vocabulary-known-filter">Known</label><select id="vocabulary-known-filter" name="known"><option value="any" selected?={ page.KnownFilter == "any" || page.KnownFilter == "" }>Any</option><option value="known" selected?={ page.KnownFilter == "known" }>Known</option><option value="not-known" selected?={ page.KnownFilter == "not-known" }>Not Known</option><option value="not-known-or-reserved" selected?={ page.KnownFilter == "not-known-or-reserved" }>Not Known or Reserved</option></select>
 				<label for="vocabulary-reserved-filter">Reserved</label><select id="vocabulary-reserved-filter" name="reserved"><option value="any" selected?={ page.ReservedFilter == "any" || page.ReservedFilter == "" }>Any</option><option value="reserved" selected?={ page.ReservedFilter == "reserved" }>Reserved</option><option value="not-reserved" selected?={ page.ReservedFilter == "not-reserved" }>Not Reserved</option></select>
 				<label for="vocabulary-sort">Order</label><select id="vocabulary-sort" name="sort"><option value="lemma" selected?={ page.Sort == "lemma" || page.Sort == "" }>Lemma, then part of speech</option><option value="occurrences" selected?={ page.Sort == "occurrences" }>Most occurrences</option><option value="books" selected?={ page.Sort == "books" }>Most Books</option></select>
 				<button type="submit">Apply search and filters</button>
@@ -922,6 +922,30 @@ templ VocabularyViewsNav(active string) {
 			<a href="/vocabulary/import">Import known vocabulary</a>
 		}
 	</nav>
+}
+
+templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence across analyzed Books.", nil)
+		@VocabularyViewsNav("browse")
+		<p>Active study language: <code>{ language }</code>.</p>
+		@Feedback(FeedbackError, "Browse could not be loaded", "Your search and filters were not applied. Try again; the selected study language and controls have been retained.")
+		<form method="get" action="/vocabulary">
+			<input type="hidden" name="q" value={ query.Prefix }/>
+			for _, bookID := range query.BookIDs {
+				<input type="hidden" name="book" value={ bookID }/>
+			}
+			for _, pos := range query.UPOS {
+				<input type="hidden" name="pos" value={ pos }/>
+			}
+			<input type="hidden" name="known" value={ query.KnownFilter }/>
+			<input type="hidden" name="reserved" value={ query.ReservedFilter }/>
+			<input type="hidden" name="sort" value={ query.Sort }/>
+			<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
+			<button type="submit">Retry Browse</button>
+		</form>
+		<a href="/vocabulary">Clear search and filters</a>
+	}
 }
 
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {

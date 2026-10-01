@@ -55,18 +55,20 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	if sortBy != "occurrences" && sortBy != "books" {
 		sortBy = "lemma"
 	}
-	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(r.Context(), u.ID, language, domain.VocabularyBrowseQuery{
+	browseQuery := domain.VocabularyBrowseQuery{
 		Prefix: prefix, BookIDs: bookIDs, UPOS: upos, KnownFilter: known, ReservedFilter: reserved, Sort: sortBy, Page: page,
-	})
+	}
+	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(r.Context(), u.ID, language, browseQuery)
 	if err != nil {
-		fail(w, err)
+		log.Printf("mouseion: load vocabulary Browse: %v", err)
+		renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
 		return
 	}
 	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, prefix))
 }
 
 func vocabularyBrowseRequestState(value, positive, negative string) string {
-	if value == positive || value == negative || value == "neither" && positive == "known" {
+	if value == positive || value == negative || value == "not-known-or-reserved" && positive == "known" {
 		return value
 	}
 	return "any"

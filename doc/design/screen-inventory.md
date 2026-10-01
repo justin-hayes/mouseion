@@ -171,7 +171,7 @@ from the My Books disposition, and Read again preserves earlier completions.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Vocabulary Browse (shipped) | `GET /vocabulary` | Browse effective lemma + POS identities with current evidence in the active study language. | Prefix search and server-rendered page links | No study language, no current analysis, truly empty inventory, partial corpus, filtered zero, correction provenance, Known/Reserved/Generated state |
+| Vocabulary Browse (shipped) | `GET /vocabulary` | Browse effective lemma + POS identities with current evidence in the active study language. | Canonical-lemma prefix search; optional Book/POS/Known/Reserved filters and count sort; server-rendered 25-result page links | No study language, no current analysis, truly empty inventory, partial corpus, filtered zero, recoverable query error, correction provenance, Known/Reserved/Generated state |
 | Vocabulary import (shipped) | `GET /vocabulary/import`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to active language with no per-page picker and no known-vocabulary list |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
@@ -188,9 +188,10 @@ learner-facing screen.
 
 ### Accepted Vocabulary target — partially shipped
 
-Browse and Import are deployed peer views at `/vocabulary` and
-`/vocabulary/import`. The remaining following screens are **conceptual, not
-deployed routes**. Their product and acceptance contract is [Vocabulary Browse,
+Browse now includes current-evidence search, Book/POS/learner-state filters, and
+count sorts; Import is its deployed peer at `/vocabulary/import`. The remaining
+following screens are **conceptual, not deployed routes**. Their product and
+acceptance contract is [Vocabulary Browse,
 Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
 | Screen | Learner goal and primary exit | Required states |

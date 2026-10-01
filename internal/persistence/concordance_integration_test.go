@@ -259,11 +259,11 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	assert.Equal(t, int64(3), promoted.AnalyzedBooks)
 	assert.Zero(t, promoted.BooksWithoutCurrentAnalysis)
 
-	neither, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{KnownFilter: "neither", Sort: "occurrences", Page: 1})
+	notKnownOrReserved, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{KnownFilter: "not-known-or-reserved", Sort: "occurrences", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, neither.Rows, 1)
-	assert.Equal(t, "heim", neither.Rows[0].CanonicalLemma, "the Not Known or Reserved view excludes either learner state")
-	assert.Equal(t, int64(1), neither.Rows[0].OccurrenceCount)
+	require.Len(t, notKnownOrReserved.Rows, 1)
+	assert.Equal(t, "heim", notKnownOrReserved.Rows[0].CanonicalLemma, "the Not Known or Reserved view excludes either learner state")
+	assert.Equal(t, int64(1), notKnownOrReserved.Rows[0].OccurrenceCount)
 
 	byOccurrences, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{Sort: "occurrences", Page: 1})
 	require.NoError(t, err)
