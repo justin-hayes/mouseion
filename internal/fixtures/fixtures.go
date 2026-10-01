@@ -467,6 +467,47 @@ func (s *Store) ListVocabularyBrowsePage(_ context.Context, _, _ string, query d
 	}
 	return domain.VocabularyBrowsePage{Page: query.Page}, nil
 }
+
+// ListVocabularyConcordance serves deterministic synthetic evidence so browser
+// smoke tests can exercise KWIC presentation without PostgreSQL or NLP.
+func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+	if query.Page < 1 {
+		query.Page = 1
+	}
+	result := domain.ConcordanceResult{Page: query.Page, HasPrevious: query.Page > 1}
+	if query.Page > 1 {
+		return result, nil
+	}
+	fixtureRows := []domain.ConcordanceResultOccurrence{
+		fixtureConcordanceOccurrence("Corrected evidence", "haus", "heim", true, false),
+		fixtureConcordanceOccurrence("Excluded evidence", "haus", "haus", false, true),
+		fixtureConcordanceOccurrence("Unchanged evidence", "haus", "haus", false, false),
+	}
+	for _, occurrence := range fixtureRows {
+		matches := query.Mode == "surface" && query.Term == occurrence.Surface ||
+			query.Mode == "analyzer" && query.Term == occurrence.RawLemma && query.UPOS == occurrence.UPOS ||
+			query.Mode == "effective" && !occurrence.Excluded && query.Term == occurrence.EffectiveLemma && query.UPOS == occurrence.UPOS
+		if matches {
+			result.Occurrences = append(result.Occurrences, occurrence)
+		}
+	}
+	return result, nil
+}
+
+func fixtureConcordanceOccurrence(bookTitle, rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {
+	return domain.ConcordanceResultOccurrence{
+		ConcordanceOccurrence: domain.ConcordanceOccurrence{
+			Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "obj",
+			HeadOrdinal: 1, HeadSurface: "sieht", SentenceText: "Das Haus sieht gut aus.",
+			SentenceStartOffset: 4, SentenceEndOffset: 8, BookID: "fixture-concordance-book",
+			BookTitle: bookTitle, SourceMaterialID: "fixture-concordance-source",
+			AnalysisRunID: "fixture-concordance-run", CorpusID: "fixture-concordance-corpus",
+			UnitID: "fixture-concordance-unit", ChapterTitle: "Kapitel 1", UnitOrder: 0,
+			SentenceOrdinal: 0, TokenOrdinal: 1,
+		},
+		RawLemma: rawLemma, EffectiveLemma: effectiveLemma, Corrected: corrected, Excluded: excluded,
+	}
+}
 func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -365,6 +365,27 @@ type ConcordanceOccurrence struct {
 	UnitOrder, SentenceOrdinal, TokenOrdinal  int64
 }
 
+// ConcordanceLookup describes one exact learner-facing lookup. Analyzer mode
+// names preserved analyzer evidence and is deliberately distinct from effective
+// vocabulary identity.
+type ConcordanceLookup struct {
+	Mode, Term, UPOS string
+	Page             int
+}
+
+type ConcordanceResult struct {
+	Occurrences []ConcordanceResultOccurrence
+	Page        int
+	HasPrevious bool
+	HasNext     bool
+}
+
+type ConcordanceResultOccurrence struct {
+	ConcordanceOccurrence
+	RawLemma, EffectiveLemma string
+	Corrected, Excluded      bool
+}
+
 type AnalysisJob struct {
 	ID, DisplayNumber                                       int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string

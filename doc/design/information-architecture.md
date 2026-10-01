@@ -36,9 +36,10 @@ The product supports these top-level goals:
 7. understand derived study languages and import known vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
 
-**Accepted target (not shipped):** in Vocabulary, browse effective vocabulary
-identities across analyzed Books, investigate occurrences and syntax in
-Concordance, and save cross-Book selections as Custom decks. See the
+**Accepted target (partially shipped):** in Vocabulary, Browse effective
+identities across analyzed Books and inspect exact occurrences in Concordance;
+the initial Browse and Concordance slices are deployed. Grammar exploration,
+focused sentence study, and saved cross-Book Custom decks remain target work. See the
 [Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
 The recurring experience rhythm is:
@@ -213,16 +214,14 @@ Reading (active study language)
 Catalogs
     connection setup and sync status
 
-Vocabulary (shipped)
-    known-vocabulary import and status
-
-Vocabulary (accepted target, not yet shipped)
-    Browse effective identities (landing)
-        review an unnamed selection -> name/edit a Custom deck
-            prepare, inspect status/history, download
-    Concordance (from Browse identity or direct lookup)
-        KWIC -> sentence and syntax study -> applied results
-    Import known vocabulary (peer view)
+Vocabulary (partially shipped)
+    Browse effective identities (shipped landing)
+    Concordance exact lookup and KWIC context (shipped slice)
+    focused sentence study and grammar exploration (target)
+    Import known vocabulary (shipped peer view)
+    saved Custom decks (target)
+        prepare, inspect status/history, download
+    review an unnamed selection -> name/edit a Custom deck (target)
 
 Secondary history
     operational analysis history
@@ -404,10 +403,10 @@ within Vocabulary, **Browse** (landing), **Concordance**, and **Import known
 vocabulary** are separate, connected peer views. Browse is shipped at
 `/vocabulary`; import is shipped at `/vocabulary/import`. Browse covers effective
 vocabulary identities from current analyzed Books in the active study language,
-not the Book catalog or its recurring-deck candidate list. Concordance, Browse
-identity links, saved Browse selection, and Custom decks remain unshipped. The
-target is for identity links and direct lookup to enter Concordance, which
-exposes sentence context and syntax without altering analyzer evidence. A
+not the Book catalog or its recurring-deck candidate list. Browse identity links
+and exact surface/effective/analyzer lookup with paged KWIC context are shipped.
+Book/grammar filters, focused sentence study, saved Browse selection, and Custom
+decks remain unshipped. Concordance exposes sentence context without altering analyzer evidence. A
 learner's Browse selection opens review before they name a Custom deck; the
 saved deck prepares its own cross-Book artifact independently of Reading and
 Book Prepared decks. Return paths among the Vocabulary views and from focused
@@ -416,9 +415,10 @@ navigation or new study-state transition. Known import retains its existing
 contract rather than merging with Browse inventory or presenting a Known-only
 vocabulary list.
 
-The conceptual hierarchy above describes both shipped and target behavior;
-do not present the unshipped Concordance or Custom-deck interactions as
-available. My Books remains the only bibliographic browse surface.
+The hierarchy above describes both shipped and target behavior; present only the
+implemented Concordance lookup/KWIC slice as available, not the remaining
+grammar, sentence-study, or Custom-deck interactions. My Books remains the only
+bibliographic browse surface.
 
 <a id="contract-changes-requiring-planneradr-work"></a>
 

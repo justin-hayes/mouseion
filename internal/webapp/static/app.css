@@ -252,6 +252,44 @@ article.narrow {
   line-height: var(--mouseion-line-height-reading);
 }
 
+.concordance-query {
+  max-width: var(--mouseion-width-data);
+}
+
+.concordance-results {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.concordance-row {
+  border-bottom: 1px solid var(--mouseion-color-border);
+  padding-block: var(--mouseion-space-2);
+}
+
+.concordance-row summary {
+  line-height: 1.6;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.concordance-row summary strong {
+  color: var(--mouseion-color-accent);
+}
+
+.concordance-row summary small {
+  color: var(--mouseion-color-text-muted);
+  display: block;
+}
+
+.concordance-context {
+  max-width: var(--mouseion-width-reading);
+  padding-inline: var(--mouseion-space-3);
+}
+
+.concordance-context p {
+  overflow-wrap: anywhere;
+}
+
 .metadata {
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);

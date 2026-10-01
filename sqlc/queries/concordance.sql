@@ -1,5 +1,53 @@
 -- Concordance occurrence queries read from the shared occurrence model.
 
+-- name: ListVocabularyConcordance :many
+SELECT o.surface,
+       o.canonical_lemma,
+       o.upos,
+       o.dependency,
+       o.head_ordinal,
+       o.head_surface,
+       o.sentence_text,
+       o.sentence_start_offset,
+       o.sentence_end_offset,
+       o.unit_start_offset,
+       o.unit_end_offset,
+       o.book_start_offset,
+       o.book_end_offset,
+       o.book_id,
+       o.book_title,
+       o.source_material_id,
+       o.analysis_run_id,
+       o.corpus_id,
+       o.unit_id,
+       o.chapter_title,
+       o.unit_order,
+       o.sentence_ordinal,
+       o.token_ordinal,
+       t.raw_lemma,
+       COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
+       (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
+       COALESCE(d.excluded, false)::boolean AS excluded
+  FROM concordance_occurrences o
+  JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
+    AND t.analysis_run_id::text=o.analysis_run_id AND t.corpus_id::text=o.corpus_id
+    AND t.sentence_ordinal=o.sentence_ordinal AND t.token_ordinal=o.token_ordinal
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
+    AND d.book_id::text=o.book_id AND d.corpus_id::text=o.corpus_id
+    AND d.analysis_run_id::text=o.analysis_run_id AND d.source_document_id=o.unit_id
+    AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
+ WHERE o.owner_id=sqlc.arg('owner') AND o.language=sqlc.arg('language')
+   AND (sqlc.arg('mode')::text <> 'surface' OR o.surface=sqlc.arg('term'))
+   AND (sqlc.arg('mode')::text <> 'effective' OR
+        (NOT COALESCE(d.excluded, false)
+         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=sqlc.arg('term')
+         AND o.upos=sqlc.arg('upos')))
+   AND (sqlc.arg('mode')::text <> 'analyzer' OR
+        (t.raw_lemma=sqlc.arg('term') AND o.upos=sqlc.arg('upos')))
+ ORDER BY lower(o.book_title), o.book_title, o.book_id,
+          o.unit_order, o.sentence_ordinal, o.token_ordinal
+ LIMIT 26 OFFSET sqlc.arg('offset')::bigint;
+
 -- name: ListBookOccurrencesByLemma :many
 SELECT o.surface,
        o.canonical_lemma,

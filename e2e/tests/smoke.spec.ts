@@ -92,6 +92,37 @@ test.describe('authenticated learner smoke', () => {
     expect(route?.status()).toBe(404);
   });
 
+  test('Concordance lookup is server-rendered and submits without JavaScript', async ({ browser }) => {
+    const noScript = await browser.newPage({
+      baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+      javaScriptEnabled: false,
+      viewport: { width: 375, height: 812 },
+    });
+    try {
+      await signIn(noScript);
+      await noScript.goto('/vocabulary/concordance');
+      await expect(noScript.getByRole('heading', { name: 'Vocabulary · Concordance', exact: true })).toBeVisible();
+      await expect(noScript.getByLabel('Lookup evidence')).toHaveValue('surface');
+      await noScript.getByLabel('Exact term').fill('Haus');
+      await noScript.getByRole('button', { name: 'Find', exact: true }).click();
+      await expect(noScript).toHaveURL(/mode=surface.*term=Haus/);
+      await expect(noScript.getByRole('heading', { name: 'Current results' })).toBeVisible();
+      const rows = noScript.locator('details.concordance-row');
+      await expect(rows).toHaveCount(3);
+      await expect(rows.nth(0)).toContainText('Corrected evidence');
+      await expect(rows.nth(0)).toContainText('corrected for this occurrence');
+      await expect(rows.nth(1)).toContainText('Excluded evidence');
+      await expect(rows.nth(1)).toContainText('excluded from effective vocabulary');
+      await expect(rows.nth(2)).toContainText('Unchanged evidence');
+      await rows.nth(2).locator('summary').click();
+      await expect(rows.nth(2).getByText('Das Haus sieht gut aus.', { exact: true })).toBeVisible();
+      const overflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(overflow).toBe(false);
+    } finally {
+      await noScript.close();
+    }
+  });
+
   test('metadata-only book detail URLs are retired', async ({ page }) => {
     const response = await page.goto('/books/fixture-metadata-only');
     expect(response?.status()).toBe(404);
