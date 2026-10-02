@@ -135,11 +135,13 @@ type FrozenDeck struct {
 	manifest manifest
 }
 
-// WithAnkiDeckID returns a copy rendered into the specified stable Anki deck
-// identity. A zero ID retains the historical name-derived identity.
-func (d FrozenDeck) WithAnkiDeckID(id int64) FrozenDeck {
+// WithAnkiDeckIdentity returns a copy rendered with a stable Anki deck ID and
+// the learner's current display name in the deck description. A zero ID retains
+// the historical name-derived identity.
+func (d FrozenDeck) WithAnkiDeckIdentity(id int64, displayName string) FrozenDeck {
 	d.manifest = d.manifest.clone()
 	d.manifest.ankiDeckID = id
+	d.manifest.ankiDeckDescription = customDeckAnkiDescription(displayName)
 	return d
 }
 

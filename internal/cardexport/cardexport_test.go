@@ -238,12 +238,12 @@ func TestGreekPreparedDeckUsesLanguageHierarchyAndTag(t *testing.T) {
 
 func TestCustomDeckAnkiIdentityIsRenameStableAndCollisionSafe(t *testing.T) {
 	deckID := "018f7e7a-9d20-7c8e-b131-3a5310e10dd7"
-	firstName := CustomDeckName("de", "Study", deckID)
-	renamed := CustomDeckName("de", "Renamed", deckID)
-	other := CustomDeckName("de", "Study", "018f7e7a-9d20-7c8e-b131-3a5310e10dd8")
-	assert.NotEqual(t, DeckName("de", "Study"), firstName)
+	firstName := CustomDeckName(deckID)
+	renamed := CustomDeckName(deckID)
+	other := CustomDeckName("018f7e7a-9d20-7c8e-b131-3a5310e10dd8")
+	assert.Equal(t, firstName, renamed, "renaming changes the display name, not Anki's deck name")
+	assert.NotEqual(t, DeckName("de", "Study"), DeckName("de", firstName))
 	assert.NotEqual(t, firstName, other)
-	assert.NotEqual(t, firstName, renamed, "the learner's display name should be reflected")
 	assert.Equal(t, CustomDeckAnkiID(deckID), CustomDeckAnkiID(deckID), "stable deck UUID retains Anki identity across rename")
 	assert.NotEqual(t, CustomDeckAnkiID(deckID), CustomDeckAnkiID("018f7e7a-9d20-7c8e-b131-3a5310e10dd8"))
 	assert.NotEqual(t, stableID("deck|"+DeckName("de", "Study")), CustomDeckAnkiID(deckID), "Custom deck IDs use a Book-distinct namespace")
@@ -253,9 +253,10 @@ func TestCustomDeckAnkiIdentityIsRenameStableAndCollisionSafe(t *testing.T) {
 		TargetWord: "Haus", SourceDocument: "A Book",
 	})
 	require.NoError(t, err)
-	first, err := renderAPKGWithDeckID(t.Context(), firstName, CustomDeckAnkiID(deckID), []Note{note}, "")
+	ankiDeckName := DeckName("de", firstName)
+	first, err := renderAPKGWithDeckID(t.Context(), ankiDeckName, CustomDeckAnkiID(deckID), []Note{note}, customDeckAnkiDescription("Study"))
 	require.NoError(t, err)
-	second, err := renderAPKGWithDeckID(t.Context(), renamed, CustomDeckAnkiID(deckID), []Note{note}, "")
+	second, err := renderAPKGWithDeckID(t.Context(), DeckName("de", renamed), CustomDeckAnkiID(deckID), []Note{note}, customDeckAnkiDescription("Renamed"))
 	require.NoError(t, err)
 	var firstDecks, secondDecks map[string]legacyDeck
 	require.NoError(t, json.Unmarshal([]byte(collectionColumn(t, first, "decks")), &firstDecks))
@@ -264,11 +265,13 @@ func TestCustomDeckAnkiIdentityIsRenameStableAndCollisionSafe(t *testing.T) {
 	require.Len(t, secondDecks, 1)
 	for key, deck := range firstDecks {
 		assert.Equal(t, strconv.FormatInt(CustomDeckAnkiID(deckID), 10), key)
-		assert.Equal(t, firstName, deck.Name)
+		assert.Equal(t, ankiDeckName, deck.Name)
+		assert.Contains(t, deck.Desc, "Custom deck: Study")
 	}
 	for key, deck := range secondDecks {
 		assert.Equal(t, strconv.FormatInt(CustomDeckAnkiID(deckID), 10), key)
-		assert.Equal(t, renamed, deck.Name)
+		assert.Equal(t, ankiDeckName, deck.Name)
+		assert.Contains(t, deck.Desc, "Custom deck: Renamed")
 	}
 	assert.Contains(t, collectionColumn(t, first, "models"), noteTypeName)
 	assert.Contains(t, collectionColumn(t, second, "models"), noteTypeName)

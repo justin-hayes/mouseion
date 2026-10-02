@@ -332,7 +332,7 @@ func (s *PostgresStore) LoadCustomDeckProjectionsTx(ctx context.Context, tx pgx.
 	if err := tx.QueryRow(ctx, `SELECT language,deck_name FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2 AND id=$3`, owner, deckID, preparationID).Scan(&language, &deckName); err != nil {
 		return nil, 0, "", nil, nil, missing(err)
 	}
-	deckName = cardexport.CustomDeckName(language, deckName, deckID)
+	deckName = cardexport.CustomDeckName(deckID)
 	identityRows, err := tx.Query(ctx, `SELECT canonical_lemma,upos FROM custom_vocabulary_deck_preparation_identities WHERE owner_id=$1 AND preparation_id=$2 ORDER BY canonical_lemma,upos`, owner, preparationID)
 	if err != nil {
 		return nil, 0, "", nil, nil, err

@@ -36,19 +36,20 @@ func TestRealAnkiImportAcceptance(t *testing.T) {
 	}
 	deckID := "018f7e7a-9d20-7c8e-b131-3a5310e10dd7"
 	stableID := CustomDeckAnkiID(deckID)
+	customAnkiDeckName := DeckName("de", CustomDeckName(deckID))
 	packages := []struct {
-		filename, deckName string
-		deckID             int64
-		note               Note
+		filename, deckName, description string
+		deckID                          int64
+		note                            Note
 	}{
-		{"book.apkg", DeckName("de", "Book A"), 0, book},
-		{"custom.apkg", CustomDeckName("de", "Study", deckID), stableID, custom},
-		{"renamed-prepare-again.apkg", CustomDeckName("de", "Renamed", deckID), stableID, changed},
+		{"book.apkg", DeckName("de", "Book A"), "", 0, book},
+		{"custom.apkg", customAnkiDeckName, customDeckAnkiDescription("Study"), stableID, custom},
+		{"renamed-prepare-again.apkg", customAnkiDeckName, customDeckAnkiDescription("Renamed"), stableID, changed},
 	}
 	// Use one shared temp directory for the package sequence and real importer.
 	work := t.TempDir()
 	for _, item := range packages {
-		apkg, renderErr := renderAPKGWithDeckID(t.Context(), item.deckName, item.deckID, []Note{item.note}, "")
+		apkg, renderErr := renderAPKGWithDeckID(t.Context(), item.deckName, item.deckID, []Note{item.note}, item.description)
 		if renderErr != nil {
 			t.Fatal(renderErr)
 		}
@@ -60,7 +61,7 @@ func TestRealAnkiImportAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(t.Context(), python, script, work, book.Key[:20], custom.Identity, changed.Identity, CustomDeckName("de", "Study", deckID), CustomDeckName("de", "Renamed", deckID))
+	cmd := exec.CommandContext(t.Context(), python, script, work, book.Key[:20], custom.Identity, changed.Identity, customAnkiDeckName)
 	if output, runErr := cmd.CombinedOutput(); runErr != nil {
 		t.Fatalf("real Anki import acceptance failed: %v\n%s", runErr, output)
 	} else {
