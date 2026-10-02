@@ -3,9 +3,11 @@ package persistence
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -65,6 +67,7 @@ WITH all_books AS (
     AND (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
   GROUP BY lemma,upos
 ), annotated AS (
+  -- Every scoped identity belongs to grouped; avoid a second aggregate join.
   SELECT g.*,
     EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND k.upos=g.upos) AS known,
     EXISTS (SELECT 1 FROM primary_goal_snapshots ps
@@ -73,10 +76,10 @@ WITH all_books AS (
       WHERE ps.owner_id=$1 AND ps.language=$2 AND pv.language=$2
         AND pv.canonical_lemma=g.lemma AND pv.upos=g.upos AND ps.released_at IS NULL) AS reserved,
     EXISTS (SELECT 1 FROM generated_vocabulary v WHERE v.owner_id=$1 AND v.language=$2 AND v.canonical_lemma=g.lemma AND v.upos=g.upos) AS generated
-  FROM grouped g
+  FROM scoped_grouped g
 ), eligible AS (
-  SELECT sg.lemma,sg.upos,sg.occurrences,sg.books,sg.corrected,a.known,a.reserved,a.generated
-  FROM annotated a JOIN scoped_grouped sg USING (lemma,upos)
+  SELECT a.lemma,a.upos,a.occurrences,a.books,a.corrected,a.known,a.reserved,a.generated
+  FROM annotated a
   WHERE ($3='' OR left(lower(lemma),length(lower($3)))=lower($3))
 	    AND ($6='any' OR ($6='known' AND a.known) OR ($6='not-known' AND NOT a.known) OR $6='not-known-or-reserved')
 	    AND ($7='any' OR ($7='reserved' AND a.reserved) OR ($7='not-reserved' AND NOT a.reserved))
@@ -134,6 +137,19 @@ ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
 		return domain.VocabularyBrowsePage{}, fmt.Errorf("query effective vocabulary browse: %w", err)
 	}
 	defer rows.Close()
+	result, err := readVocabularyBrowseRows(rows, queryParams)
+	if err != nil {
+		return domain.VocabularyBrowsePage{}, err
+	}
+	lastPage := int((result.Total + 24) / 25)
+	if lastPage > 0 && queryParams.Page > lastPage {
+		queryParams.Page = lastPage
+		return s.ListVocabularyBrowsePage(ctx, owner, language, queryParams)
+	}
+	return result, nil
+}
+
+func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	result := domain.VocabularyBrowsePage{Page: queryParams.Page, SelectedBooks: queryParams.BookIDs, SelectedUPOS: queryParams.UPOS, KnownFilter: queryParams.KnownFilter, ReservedFilter: queryParams.ReservedFilter, Sort: queryParams.Sort}
 	var bookStatus []byte
 	var corpusRevision string
@@ -155,16 +171,14 @@ ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
 			result.Rows = append(result.Rows, row)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return domain.VocabularyBrowsePage{}, fmt.Errorf("read effective vocabulary browse rows: %w", err)
+	}
+	if bookStatus == nil {
+		return domain.VocabularyBrowsePage{}, errors.New("query effective vocabulary browse: missing summary row")
+	}
 	if err := json.Unmarshal(bookStatus, &result.Books); err != nil {
 		return domain.VocabularyBrowsePage{}, fmt.Errorf("decode vocabulary Book status: %w", err)
-	}
-	if err := rows.Err(); err != nil {
-		return domain.VocabularyBrowsePage{}, err
-	}
-	lastPage := int((result.Total + 24) / 25)
-	if lastPage > 0 && queryParams.Page > lastPage {
-		queryParams.Page = lastPage
-		return s.ListVocabularyBrowsePage(ctx, owner, language, queryParams)
 	}
 	return result, nil
 }
