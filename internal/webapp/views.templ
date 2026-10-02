@@ -1063,7 +1063,8 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
-		<p>Study language <code>{ deck.Language }</code>. { fmt.Sprintf("%d identities", len(deck.Identities)) }; { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }.</p>
+		<p role="status">Study language <code>{ deck.Language }</code>. { fmt.Sprintf("%d selected identities", deck.IdentityCount) }; { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }.</p>
+		<p>Page { fmt.Sprintf("%d of %d", page, lastPage) }.</p>
 		@CustomDeckAnkiImportWarning("Before preparing or downloading")
 		if !editable {
 			<p role="status">This study language is currently unavailable. This deck is read-only; its saved identities and history are retained.</p>
@@ -1078,7 +1079,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 				<p role="status">Current evidence availability changed since your review. The refreshed evidence is shown below; confirm again to prepare.</p>
 			}
 			if preparation != nil {
-				<p>Review the current per-identity evidence below against the frozen sentence and Book provenance in preparation history before preparing again.</p>
+				<p>Review the current page's per-identity evidence against the frozen sentence and Book provenance in preparation history before preparing again.</p>
 			}
 			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/rename") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="custom-deck-name">Rename deck</label><input id="custom-deck-name" name="name" value={ deck.Name } required maxlength="120"/><button type="submit">Save name</button></form>
 			if deck.MissingCount < deck.IdentityCount {
@@ -1116,7 +1117,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 			</ul>
 		}
 		if evidenceDifferences != nil {
-			<h2>Evidence changes since the previous Ready generation</h2>
+			<h2>Evidence changes on this page since the previous Ready generation</h2>
 			if len(evidenceDifferences) == 0 {
 				<p>No saved-identity additions, removals, or stale representative sources were detected.</p>
 			} else {
@@ -1148,8 +1149,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 			</li>
 		}
 		</ul>
-		if len(deck.Identities) > 25 {
-			<p>Page { fmt.Sprintf("%d", page) } of { fmt.Sprintf("%d", lastPage) }</p>
+		if lastPage > 1 {
 			if page > 1 {
 				<a href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,page-1,missingOnly)) }>Previous page</a>
 			}

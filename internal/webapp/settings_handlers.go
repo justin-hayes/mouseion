@@ -253,7 +253,12 @@ func (h *Handler) createCustomVocabularyDeck(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Request) {
-	deck, err := h.services.Store.VocabularySelection.GetCustomVocabularyDeck(r.Context(), user(r).ID, r.PathValue("id"))
+	page := 1
+	if parsed, parseErr := strconv.Atoi(r.URL.Query().Get("page")); parseErr == nil && parsed > 1 {
+		page = parsed
+	}
+	missingOnly := r.URL.Query().Get("missing") == "true"
+	deck, visibleTotal, err := h.services.Store.VocabularySelection.ListCustomVocabularyDeckIdentityPage(r.Context(), user(r).ID, r.PathValue("id"), page, missingOnly)
 	if err != nil {
 		if errors.Is(err, persistence.ErrCustomVocabularyDeckNotFound) {
 			http.NotFound(w, r)
@@ -268,20 +273,15 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	editable := studyLanguagePresent(languages, deck.Language)
-	page := 1
-	if parsed, parseErr := strconv.Atoi(r.URL.Query().Get("page")); parseErr == nil && parsed > 1 {
-		page = parsed
-	}
-	missingOnly := r.URL.Query().Get("missing") == "true"
-	filtered := make([]domain.VocabularyIdentity, 0, len(deck.Identities))
-	for _, identity := range deck.Identities {
-		if !missingOnly || identity.MissingEvidence {
-			filtered = append(filtered, identity)
+	lastPage := max(1, int((visibleTotal+24)/25))
+	if page > lastPage {
+		page = lastPage
+		deck, _, err = h.services.Store.VocabularySelection.ListCustomVocabularyDeckIdentityPage(r.Context(), user(r).ID, r.PathValue("id"), page, missingOnly)
+		if err != nil {
+			fail(w, err)
+			return
 		}
 	}
-	lastPage := max(1, (len(filtered)+24)/25)
-	page = min(page, lastPage)
-	start, end := (page-1)*25, min(page*25, len(filtered))
 	decks, err := h.services.Store.VocabularySelection.ListCustomVocabularyDecks(r.Context(), user(r).ID)
 	if err != nil {
 		fail(w, err)
@@ -312,7 +312,7 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
-	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, preparationHistory, evidenceDifferences, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, deck.Identities, missingOnly, preparation, preparationHistory, evidenceDifferences, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
 }
 
 type customDeckEvidenceDifference struct {
@@ -342,13 +342,12 @@ func customDeckEvidenceDifferences(deck domain.CustomVocabularyDeck, history []d
 	differences := make([]customDeckEvidenceDifference, 0)
 	compare := func(lemma, upos string, priorEvidence *domain.CustomDeckPreparationEvidence, wasEvidenceOmission bool) {
 		key := customDeckEvidenceIdentity{Lemma: lemma, UPOS: upos}
-		seen[key] = true
-		label := fmt.Sprintf("%s (%s)", lemma, upos)
-		identity, selected := current[key]
-		if !selected {
-			differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "no longer in the saved selection"})
+		if _, visible := current[key]; !visible {
 			return
 		}
+		seen[key] = true
+		label := fmt.Sprintf("%s (%s)", lemma, upos)
+		identity := current[key]
 		if priorEvidence != nil {
 			if priorEvidence.EvidenceCurrent {
 				return

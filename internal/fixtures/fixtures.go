@@ -552,6 +552,28 @@ func (s *Store) GetCustomVocabularyDeck(_ context.Context, owner, id string) (do
 	return deck, nil
 }
 
+func (s *Store) ListCustomVocabularyDeckIdentityPage(ctx context.Context, owner, id string, page int, missingOnly bool) (domain.CustomVocabularyDeck, int64, error) {
+	deck, err := s.GetCustomVocabularyDeck(ctx, owner, id)
+	if err != nil {
+		return domain.CustomVocabularyDeck{}, 0, err
+	}
+	all := deck.Identities
+	deck.Identities = nil
+	filtered := make([]domain.VocabularyIdentity, 0, len(all))
+	for _, identity := range all {
+		if !missingOnly || identity.MissingEvidence {
+			filtered = append(filtered, identity)
+		}
+	}
+	if page < 1 {
+		page = 1
+	}
+	start := min((page-1)*25, len(filtered))
+	end := min(start+25, len(filtered))
+	deck.Identities = filtered[start:end]
+	return deck, int64(len(filtered)), nil
+}
+
 func (s *Store) ListCustomVocabularyDecks(_ context.Context, owner string) ([]domain.CustomVocabularyDeck, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -830,6 +830,50 @@ func TestCustomDeckEditingIsOwnerScopedAndReadOnlyWhenLanguageDisappears(t *test
 	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, deckURL, nil, cookies).Code)
 }
 
+func TestCustomDeckReviewPagesThousandMissingIdentitiesOverHTTP(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "custom-deck-scale-http-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	alice := createAccount(t, ctx, store, "custom-scale-alice", "alice-password", false)
+	_, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-scale-source", "Scale source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, source, corpus)
+	var deckID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_decks(owner_id,language,name,creation_key) VALUES($1,'de','Large review','d7c38a7e-777d-4fbd-a234-67115c7f92ab') RETURNING id::text`, alice.ID).Scan(&deckID))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos)
+SELECT $1::uuid,$2::uuid,'de','lemma-'||lpad(n::text,4,'0'),'NOUN' FROM generate_series(0,998) n
+UNION ALL SELECT $1::uuid,$2::uuid,'de','haus','NOUN'`, alice.ID, deckID)
+	require.NoError(t, err)
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, "custom-scale-alice", "alice-password")
+	pageOne := perform(t, h, http.MethodGet, "/vocabulary/decks/"+deckID, nil, cookies)
+	require.Equal(t, http.StatusOK, pageOne.Code)
+	assert.Contains(t, pageOne.Body.String(), "1000 selected identities")
+	assert.Contains(t, pageOne.Body.String(), "999 missing current evidence")
+	assert.Contains(t, pageOne.Body.String(), "Page 1 of 40")
+	assert.Contains(t, pageOne.Body.String(), "lemma-0000")
+	assert.NotContains(t, pageOne.Body.String(), "lemma-0025")
+	pageForty := perform(t, h, http.MethodGet, "/vocabulary/decks/"+deckID+"?missing=true&page=40", nil, cookies)
+	require.Equal(t, http.StatusOK, pageForty.Code)
+	assert.Contains(t, pageForty.Body.String(), "1000 selected identities")
+	assert.Contains(t, pageForty.Body.String(), "999 missing current evidence")
+	assert.Contains(t, pageForty.Body.String(), "Page 40 of 40")
+	assert.Contains(t, pageForty.Body.String(), "lemma-0998")
+	assert.NotContains(t, pageForty.Body.String(), "lemma-0974")
+	token := hiddenToken(t, pageForty.Body.String())
+	csrf := cookieNamed(t, cookies, csrfCookie)
+	postCookies := append(append([]*http.Cookie{}, cookies...), csrf)
+	removed := perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/identities/remove", url.Values{"csrf_token": {token}, "lemma": {"lemma-0998"}, "upos": {"NOUN"}}, postCookies)
+	require.Equal(t, http.StatusSeeOther, removed.Code)
+	var remaining int
+	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_identities WHERE owner_id=$1 AND deck_id=$2`, alice.ID, deckID).Scan(&remaining)
+	require.NoError(t, err)
+	assert.Equal(t, 999, remaining, "editing a late-page identity updates the durable selection")
+}
+
 func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "concordance-http-secret-0123456789")
 	ctx := context.Background()
