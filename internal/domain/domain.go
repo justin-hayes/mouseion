@@ -444,6 +444,7 @@ type ConcordanceLookup struct {
 	GrammarDirection string
 	Relation         string
 	Page             int
+	Revision         string
 }
 
 type ConcordanceResult struct {
@@ -451,6 +452,8 @@ type ConcordanceResult struct {
 	Page        int
 	HasPrevious bool
 	HasNext     bool
+	Revision    string
+	Stale       bool
 }
 
 type ConcordanceResultOccurrence struct {
