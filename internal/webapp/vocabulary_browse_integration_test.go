@@ -262,6 +262,8 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	refreshedReview := perform(t, h, http.MethodGet, changedPost.Header().Get("Location"), nil, cookies)
 	require.Equal(t, http.StatusOK, refreshedReview.Code)
 	assert.Contains(t, refreshedReview.Body.String(), "Current evidence availability changed since your review")
+	assert.Contains(t, refreshedReview.Body.String(), "Custom decks can overlap")
+	assert.Contains(t, refreshedReview.Body.String(), "Custom packages use a stable Anki deck name")
 	evidenceFingerprint, err = preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
 	post := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
@@ -354,6 +356,7 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	assert.Contains(t, status.Body.String(), "badwort")
 	assert.Contains(t, status.Body.String(), "Private source title")
 	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
+	assert.Contains(t, status.Body.String(), "does not remove notes or packages already imported or downloaded")
 	assert.NotContains(t, status.Body.String(), changedSentence)
 	download := perform(t, h, http.MethodGet, statusURL+"/download", nil, cookies)
 	require.Equal(t, http.StatusOK, download.Code)

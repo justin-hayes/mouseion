@@ -235,6 +235,18 @@ no on-demand NLP pass is implied.
   or deletion when the identity or imported deck changes. Anki-side cleanup
   may be needed. Do not silently change the existing note-identity ADRs.
 
+  The optional real-Anki backend acceptance test currently observes that
+  Book-then-Custom imports with the shared GUID leave one note under Anki's
+  default import behavior, retaining its original fields and Book deck placement.
+  A changed source sentence and renamed Prepare-again package still leave that
+  note unchanged. Keeping the Custom deck's Anki name stable lets Anki reuse the
+  same deck and update its description with the renamed learner-facing title.
+  The Anki deck-list name is a stable identity, while the learner-chosen title is
+  shown in Mouseion, the download filename, and the Anki deck description.
+  Treat these as observed behavior of the tested importer, not a guarantee across
+  Anki versions or import choices; the learner warning must not promise note
+  updates, moves, or cleanup.
+
 ## Interaction, accessibility, and failure contract
 
 - All Browse, review, Concordance, sentence-study, confirmation, preparation

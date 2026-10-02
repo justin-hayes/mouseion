@@ -986,6 +986,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Study language <code>{ deck.Language }</code>. { fmt.Sprintf("%d identities", len(deck.Identities)) }; { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }.</p>
+		@CustomDeckAnkiImportWarning("Before preparing or downloading")
 		if !editable {
 			<p role="status">This study language is currently unavailable. This deck is read-only; its saved identities and history are retained.</p>
 		}
@@ -1092,6 +1093,7 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 		@PageHeader("Custom deck · "+deck.Name, "Preparation status and the frozen sentence evidence for this generation.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Study language <code>{ preparation.Language }</code> · { fmt.Sprintf("%d selected identities", preparation.SelectedIdentities) }.</p>
+		@CustomDeckAnkiImportWarning("Before downloading")
 		<p role="status"><strong>{ preparation.State }</strong></p>
 		if preparation.State == "queued" || preparation.State == "preparing" {
 			<p>This durable preparation can continue while you leave this page. Return here to check its status.</p>
@@ -1127,6 +1129,7 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 		<p><a href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>Return to Custom deck</a></p>
 	}
 }
+
 
 templ CustomVocabularyDeckDeleteConfirmView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, editable bool) {
 	@ShellLayout("Delete Custom deck", &user, csrf, NavigationVocabulary) {
@@ -1973,3 +1976,5 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 		</article>
 	</li>
 }
+
+templ CustomDeckAnkiImportWarning(heading string) { <aside aria-label="Anki import and overlap warning"><h2>{ heading }</h2><p>Custom decks can overlap with one another and with Book decks. Notes for the same owner, study language, lemma, and part of speech keep Mouseion's existing Anki note identity across these packages. Custom packages use a stable Anki deck name; your saved deck name appears in Mouseion, the download filename, and the Anki deck description.</p><p>Anki import choices affect whether overlapping notes update or move. In the tested default import, Anki kept the original note fields and Book deck placement; the source-occurrence Identity field differed. Review the import result in Anki rather than assuming a separate note, an in-place update, or a particular card location.</p><p>Renaming or deleting a saved Custom deck does not remove notes or packages already imported or downloaded. Deleting the deck in Mouseion does not delete its Anki deck or notes; review and clean up in Anki yourself if needed.</p></aside> }
