@@ -142,6 +142,7 @@ type VocabularyBrowsePage struct {
 	KnownFilter                 string
 	ReservedFilter              string
 	Sort                        string
+	CorpusRevision              string
 	Page                        int
 	SelectionCount              int
 }
@@ -153,6 +154,7 @@ type VocabularyBrowseQuery struct {
 	KnownFilter    string
 	ReservedFilter string
 	Sort           string
+	Revision       string
 	Page           int
 }
 

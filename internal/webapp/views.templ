@@ -1485,7 +1485,7 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence across analyzed Books.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackError, "Browse could not be loaded", "Your search and filters were not applied. Try again; the selected study language and controls have been retained.")
+		@Feedback(FeedbackError, "Browse could not be loaded", "Your search and filters were not applied. Retry with these controls, or reduce the scope with a shorter prefix or fewer Books. A failed request is not an empty result.")
 		<form method="get" action="/vocabulary">
 			<input type="hidden" name="q" value={ query.Prefix }/>
 			for _, bookID := range query.BookIDs {
@@ -1496,10 +1496,25 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 			}
 			<input type="hidden" name="known" value={ query.KnownFilter }/>
 			<input type="hidden" name="reserved" value={ query.ReservedFilter }/>
-			<input type="hidden" name="sort" value={ query.Sort }/>
-			<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
-			<button type="submit">Retry Browse</button>
+		<input type="hidden" name="sort" value={ query.Sort }/>
+		<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
+		if query.Revision != "" {
+			<input type="hidden" name="rev" value={ query.Revision }/>
+		}
+		<button type="submit">Retry Browse</button>
 		</form>
+		<a href="/vocabulary">Clear search and filters</a>
+		<p>For a broad corpus, retry with one or a few Books selected. Browse does not report partial counts as complete.</p>
+	}
+}
+
+templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence across analyzed Books.", nil)
+		@VocabularyViewsNav("browse")
+		<p>Active study language: <code>{ language }</code>.</p>
+		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current corpus changed since this page was requested. Restart from the first page to avoid skipping or repeating identities.")
+		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{SelectedBooks: query.BookIDs, SelectedUPOS: query.UPOS, KnownFilter: query.KnownFilter, ReservedFilter: query.ReservedFilter, Sort: query.Sort}, query.Prefix)) }>Restart from results</a>
 		<a href="/vocabulary">Clear search and filters</a>
 	}
 }
