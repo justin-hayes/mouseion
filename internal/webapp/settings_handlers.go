@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -18,6 +20,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river/rivertype"
 )
+
+const vocabularyBrowseRequestTimeout = 8 * time.Second
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/vocabulary")
@@ -59,17 +63,29 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	browseQuery := domain.VocabularyBrowseQuery{
 		Prefix: prefix, BookIDs: bookIDs, UPOS: upos, KnownFilter: known, ReservedFilter: reserved, Sort: sortBy, Page: page,
+		Revision: values.Get("rev"),
 	}
-	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(r.Context(), u.ID, language, browseQuery)
+	// Browse is an interactive request, not a durable background job. Bound the
+	// complete read (including the optional selection lookup) so an unusually
+	// broad corpus can never leave the learner waiting indefinitely or turn a
+	// partially-read result into a successful page.
+	browseCtx, cancel := context.WithTimeout(r.Context(), vocabularyBrowseRequestTimeout)
+	defer cancel()
+	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
 	if err != nil {
 		log.Printf("mouseion: load vocabulary Browse: %v", err)
-		renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
+		renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
+		return
+	}
+	if browseQuery.Revision != "" && browseQuery.Revision != browse.CorpusRevision {
+		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
 		return
 	}
 	if h.services.Store.VocabularySelection != nil {
-		selection, selectionErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), u.ID, language)
+		selection, selectionErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(browseCtx, u.ID, language)
 		if selectionErr != nil {
-			fail(w, selectionErr)
+			log.Printf("mouseion: load vocabulary Browse selection: %v", selectionErr)
+			renderStatus(w, r, vocabularyBrowseErrorStatus(selectionErr, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
 			return
 		}
 		selected := make(map[string]bool, len(selection))
@@ -82,6 +98,13 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, prefix))
+}
+
+func vocabularyBrowseErrorStatus(err error, ctx context.Context) int {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return http.StatusGatewayTimeout
+	}
+	return http.StatusInternalServerError
 }
 
 func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request) {
@@ -625,6 +648,9 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 	}
 	if browse.Sort != "" && browse.Sort != "lemma" {
 		values.Set("sort", browse.Sort)
+	}
+	if browse.CorpusRevision != "" {
+		values.Set("rev", browse.CorpusRevision)
 	}
 	values.Set("page", strconv.Itoa(page))
 	return "/vocabulary?" + values.Encode()
