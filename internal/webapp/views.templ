@@ -111,6 +111,7 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
   }
 };
 window.concordanceRequestID = 0;
+var renderedPageURL = window.location.pathname + window.location.search;
 document.addEventListener('submit', async function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-concordance-apply]');
   if (!form) return;
@@ -168,6 +169,7 @@ document.addEventListener('submit', async function (evt) {
     main.replaceWith(nextMain);
     document.title = parsed.title;
     window.history.pushState({}, '', response.url || targetURL.href);
+    renderedPageURL = window.location.pathname + window.location.search;
     var summary = nextMain.querySelector('#concordance-summary');
     if (summary) summary.focus();
   } catch (error) {
@@ -187,7 +189,10 @@ document.addEventListener('submit', async function (evt) {
     }
   }
 });
-window.addEventListener('popstate', function () { window.location.reload(); });
+window.addEventListener('popstate', function () {
+  // A same-page fragment jump must not reload and discard keyboard focus.
+  if (window.location.pathname + window.location.search !== renderedPageURL) window.location.reload();
+});
 document.addEventListener('htmx:afterSwap', function (evt) {
 			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
 			var region = document.getElementById(id);

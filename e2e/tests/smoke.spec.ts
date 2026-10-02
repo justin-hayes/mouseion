@@ -157,6 +157,11 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
     await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”', { timeout: 5000 });
     await expect(page).toHaveURL(/term=Haus2/);
+    await page.goBack();
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
+    await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
+    await page.goForward();
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
     await page.evaluate(() => {
       const nativeFetch = window.fetch.bind(window);
       window.fetch = (input, init) => {

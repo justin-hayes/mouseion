@@ -183,6 +183,9 @@ scrollable data table must label and contain its own overflow.
 - Preserve a coherent server-rendered state before HTMX or custom JavaScript.
 - Keep Pico's visible focus behavior and map any custom focus treatment through
   `--mouseion-color-focus`.
+- Keep same-page skip links and return anchors native: fragment navigation must
+  retain focus on its target, not trigger an application reload. Enhanced results
+  still restore server-rendered content when Back or Forward changes the applied query.
 - Use semantic status text in addition to color.
 - Treat a Book cover as redundant visual identity when title text is adjacent:
   use empty image alternative text, hide cover placeholders from the

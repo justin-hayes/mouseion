@@ -499,13 +499,17 @@ func (s *Store) ListVocabularyBrowseSelection(_ context.Context, owner, language
 	for _, value := range values {
 		result = append(result, value)
 	}
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].CanonicalLemma == result[j].CanonicalLemma {
-			return result[i].UPOS < result[j].UPOS
-		}
-		return result[i].CanonicalLemma < result[j].CanonicalLemma
-	})
+	sortVocabularyIdentities(result)
 	return result, nil
+}
+
+func sortVocabularyIdentities(identities []domain.VocabularyIdentity) {
+	sort.Slice(identities, func(i, j int) bool {
+		if identities[i].CanonicalLemma == identities[j].CanonicalLemma {
+			return identities[i].UPOS < identities[j].UPOS
+		}
+		return identities[i].CanonicalLemma < identities[j].CanonicalLemma
+	})
 }
 
 func (s *Store) ClearVocabularyBrowseSelection(_ context.Context, owner, language string) error {
@@ -534,6 +538,7 @@ func (s *Store) CreateCustomVocabularyDeck(_ context.Context, owner, language, n
 			deck.MissingCount++
 		}
 	}
+	sortVocabularyIdentities(deck.Identities)
 	deck.IdentityCount = int64(len(deck.Identities))
 	s.customVocabularyDecks[deck.ID] = deck
 	s.customDeckActions[actionKey] = deck.ID
@@ -621,7 +626,14 @@ func (s *Store) SetCustomVocabularyDeckIdentity(_ context.Context, _, id, lemma,
 		identities = append(identities, domain.VocabularyIdentity{CanonicalLemma: lemma, UPOS: upos, MissingEvidence: true})
 	}
 	deck.Identities = identities
+	sortVocabularyIdentities(deck.Identities)
 	deck.IdentityCount = int64(len(identities))
+	deck.MissingCount = 0
+	for _, identity := range identities {
+		if identity.MissingEvidence {
+			deck.MissingCount++
+		}
+	}
 	s.customVocabularyDecks[id] = deck
 	return nil
 }
