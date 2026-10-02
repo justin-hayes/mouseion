@@ -981,7 +981,7 @@ templ VocabularySelectionClearConfirmView(user domain.User, csrf, language strin
 	}
 }
 
-templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, actionKey, evidenceFingerprint string, evidenceChanged bool) {
+templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, preparationHistory []domain.CustomDeckPreparation, evidenceDifferences []customDeckEvidenceDifference, actionKey, evidenceFingerprint string, evidenceChanged bool) {
 	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
 		@VocabularyViewsNav("browse")
@@ -998,9 +998,22 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 			if evidenceChanged {
 				<p role="status">Current evidence availability changed since your review. The refreshed evidence is shown below; confirm again to prepare.</p>
 			}
+			if preparation != nil {
+				<p>Review the current per-identity evidence below against the frozen sentence and Book provenance in preparation history before preparing again.</p>
+			}
 			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/rename") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="custom-deck-name">Rename deck</label><input id="custom-deck-name" name="name" value={ deck.Name } required maxlength="120"/><button type="submit">Save name</button></form>
 			if deck.MissingCount < deck.IdentityCount {
-				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/preparations") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="action_key" value={ actionKey }/><input type="hidden" name="expected_evidence" value={ evidenceFingerprint }/><p>Prepare freezes current eligible cross-Book evidence; later deck edits will not change this preparation.</p><button type="submit">Prepare deck</button></form>
+				if preparation == nil || (preparation.State != "queued" && preparation.State != "preparing") {
+					<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/preparations") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="action_key" value={ actionKey }/><input type="hidden" name="expected_evidence" value={ evidenceFingerprint }/><p>Prepare freezes the current saved selection and eligible cross-Book evidence; later deck or Book changes will not change this generation.</p>
+					if preparation != nil {
+						<button type="submit">Prepare again</button>
+					} else {
+						<button type="submit">Prepare deck</button>
+					}
+					</form>
+				} else {
+					<p role="status">A preparation is already in progress; wait for it to finish before preparing again.</p>
+				}
 			} else {
 				<p role="status">Preparation is unavailable because no selected identity has current eligible evidence.</p>
 			}
@@ -1009,6 +1022,30 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 				if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
 					<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download prepared APKG</a></p>
 				}
+			}
+		}
+		if len(preparationHistory) > 0 {
+			<h2>Preparation history</h2>
+			<ul>
+			for _, item := range preparationHistory {
+				<li><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+item.ID) }>{ item.State }</a> — { fmt.Sprintf("%d cards", item.TotalCards) }
+				if preparation != nil && item.ID == preparation.ID {
+					<strong>Latest generation</strong>
+				}
+				</li>
+			}
+			</ul>
+		}
+		if evidenceDifferences != nil {
+			<h2>Evidence changes since the previous Ready generation</h2>
+			if len(evidenceDifferences) == 0 {
+				<p>No saved-identity additions, removals, or stale representative sources were detected.</p>
+			} else {
+				<ul>
+				for _, difference := range evidenceDifferences {
+					<li><strong>{ difference.Identity }</strong> — { difference.Description }</li>
+				}
+				</ul>
 			}
 		}
 		if missingOnly {
@@ -1067,7 +1104,11 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 				<li><strong>{ evidence.Lemma }</strong> <code>{ evidence.UPOS }</code> — <span class="reading-text">{ evidence.Sentence }</span> <small>({ evidence.BookTitle})</small></li>
 			}
 			</ul>
-			<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download APKG</a></p>
+			if preparation.LatestReady {
+				<p><a href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download APKG</a></p>
+			} else {
+				<p>This generation is historical; only the newest Ready preparation is downloadable through Mouseion.</p>
+			}
 			if len(preparation.Omissions) > 0 {
 				<h2>Omitted identities</h2><ul>
 				for _, omission := range preparation.Omissions {

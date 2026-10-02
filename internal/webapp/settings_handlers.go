@@ -265,6 +265,7 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var preparation *domain.CustomDeckPreparation
+	var preparationHistory []domain.CustomDeckPreparation
 	if h.services.CustomDeckPreparation != nil {
 		latest, latestErr := h.services.CustomDeckPreparation.Latest(r.Context(), user(r).ID, deck.ID)
 		if latestErr == nil {
@@ -273,7 +274,13 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 			fail(w, latestErr)
 			return
 		}
+		preparationHistory, err = h.services.CustomDeckPreparation.List(r.Context(), user(r).ID, deck.ID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
 	}
+	evidenceDifferences := customDeckEvidenceDifferences(deck, preparationHistory)
 	evidenceFingerprint := ""
 	if editable && h.services.CustomDeckPreparation != nil {
 		evidenceFingerprint, err = h.services.CustomDeckPreparation.EvidenceFingerprint(r.Context(), user(r).ID, deck.ID)
@@ -282,7 +289,75 @@ func (h *Handler) customVocabularyDeckPage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
-	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
+	render(w, r, CustomVocabularyDeckPageView(user(r), h.csrf(w, r), deck, decks, editable, page, lastPage, filtered[start:end], missingOnly, preparation, preparationHistory, evidenceDifferences, uuid.NewString(), evidenceFingerprint, r.URL.Query().Get("evidence_changed") == "true"))
+}
+
+type customDeckEvidenceDifference struct {
+	Identity, Description string
+}
+
+type customDeckEvidenceIdentity struct {
+	Lemma, UPOS string
+}
+
+func customDeckEvidenceDifferences(deck domain.CustomVocabularyDeck, history []domain.CustomDeckPreparation) []customDeckEvidenceDifference {
+	var previous *domain.CustomDeckPreparation
+	for i := range history {
+		if history[i].State == "ready" || history[i].State == "complete_with_omissions" {
+			previous = &history[i]
+			break
+		}
+	}
+	if previous == nil {
+		return nil
+	}
+	current := make(map[customDeckEvidenceIdentity]domain.VocabularyIdentity, len(deck.Identities))
+	for _, identity := range deck.Identities {
+		current[customDeckEvidenceIdentity{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS}] = identity
+	}
+	seen := make(map[customDeckEvidenceIdentity]bool)
+	differences := make([]customDeckEvidenceDifference, 0)
+	compare := func(lemma, upos string, priorEvidence *domain.CustomDeckPreparationEvidence, wasEvidenceOmission bool) {
+		key := customDeckEvidenceIdentity{Lemma: lemma, UPOS: upos}
+		seen[key] = true
+		label := fmt.Sprintf("%s (%s)", lemma, upos)
+		identity, selected := current[key]
+		if !selected {
+			differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "no longer in the saved selection"})
+			return
+		}
+		if priorEvidence != nil {
+			if priorEvidence.EvidenceCurrent {
+				return
+			}
+			if identity.MissingEvidence {
+				differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "current eligible evidence is absent; the earlier frozen sentence remains in history"})
+				return
+			}
+			differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "the frozen representative occurrence is no longer eligible; current evidence exists"})
+			return
+		}
+		if wasEvidenceOmission && !identity.MissingEvidence {
+			differences = append(differences, customDeckEvidenceDifference{Identity: label, Description: "current eligible evidence is now available for a replacement"})
+		}
+	}
+	for i := range previous.Evidence {
+		evidence := &previous.Evidence[i]
+		compare(evidence.Lemma, evidence.UPOS, evidence, false)
+	}
+	for _, omission := range previous.Omissions {
+		compare(omission.Lemma, omission.UPOS, nil, omission.Kind == "evidence")
+	}
+	for _, identity := range deck.Identities {
+		key := customDeckEvidenceIdentity{Lemma: identity.CanonicalLemma, UPOS: identity.UPOS}
+		if !seen[key] {
+			differences = append(differences, customDeckEvidenceDifference{
+				Identity:    fmt.Sprintf("%s (%s)", identity.CanonicalLemma, identity.UPOS),
+				Description: "added to the saved selection since the previous Ready generation",
+			})
+		}
+	}
+	return differences
 }
 
 func (h *Handler) prepareCustomVocabularyDeck(w http.ResponseWriter, r *http.Request) {
@@ -340,9 +415,12 @@ func (h *Handler) customDeckPreparationStatus(w http.ResponseWriter, r *http.Req
 		fail(w, err)
 		return
 	}
-	if previous, previousErr := h.services.CustomDeckPreparation.LatestReady(r.Context(), user(r).ID, p.DeckID); previousErr == nil && previous.ID != p.ID {
-		p.PreviousReadyID = previous.ID
-		p.PreviousReadyCards = previous.TotalCards
+	if previous, previousErr := h.services.CustomDeckPreparation.LatestReady(r.Context(), user(r).ID, p.DeckID); previousErr == nil {
+		p.LatestReady = previous.ID == p.ID
+		if previous.ID != p.ID {
+			p.PreviousReadyID = previous.ID
+			p.PreviousReadyCards = previous.TotalCards
+		}
 	} else if previousErr != nil && !errors.Is(previousErr, persistence.ErrNotFound) {
 		fail(w, previousErr)
 		return

@@ -188,10 +188,52 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	cookies, _ := loginCookies(t, h, "custom-prep-alice", "alice-password")
 	deckPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, deckPage.Code)
+	assert.Contains(t, deckPage.Body.String(), "Prepare deck")
 	csrf := hiddenToken(t, deckPage.Body.String())
 	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
 	hausUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
 	evidenceFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	selectionEdit, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if rollbackErr := selectionEdit.Rollback(context.Background()); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			t.Errorf("rollback concurrent deck edit: %v", rollbackErr)
+		}
+	})
+	_, err = selectionEdit.Exec(ctx, `SELECT id FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2 FOR UPDATE`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	type submissionResult struct {
+		preparation domain.CustomDeckPreparation
+		err         error
+	}
+	submittedDuringEdit := make(chan submissionResult, 1)
+	go func() {
+		p, submitErr := preparationService.Submit(ctx, alice.ID, customDeck.ID, "c365b0d3-1f35-4360-94bd-9b2e4e501294", evidenceFingerprint)
+		submittedDuringEdit <- submissionResult{preparation: p, err: submitErr}
+	}()
+	deadline := time.Now().Add(3 * time.Second)
+	waitingForDeckLock := false
+	for time.Now().Before(deadline) {
+		err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+		 WHERE wait_event_type='Lock' AND query LIKE 'SELECT id::text FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2 FOR UPDATE%')`).Scan(&waitingForDeckLock)
+		require.NoError(t, err)
+		if waitingForDeckLock {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	require.True(t, waitingForDeckLock, "preparation should wait for an in-flight deck edit")
+	_, err = selectionEdit.Exec(ctx, `DELETE FROM custom_vocabulary_deck_identities WHERE owner_id=$1 AND deck_id=$2 AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	_, err = selectionEdit.Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','neuwort','NOUN')`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	require.NoError(t, selectionEdit.Commit(ctx))
+	concurrentSubmission := <-submittedDuringEdit
+	require.ErrorIs(t, concurrentSubmission.err, persistence.ErrCustomDeckPreparationEvidenceChanged)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM custom_vocabulary_deck_identities WHERE owner_id=$1 AND deck_id=$2 AND canonical_lemma='neuwort' AND upos='NOUN'`, alice.ID, customDeck.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','haus','NOUN')`, alice.ID, customDeck.ID)
 	require.NoError(t, err)
 	countOnlySentence := "Am Morgen sehen die Kinder heute ein Haus im Garten."
 	countOnlyTargetOffset := strings.Index(countOnlySentence, "Haus")
@@ -326,6 +368,10 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	allMissingPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, allMissingPage.Code)
 	assert.Contains(t, allMissingPage.Body.String(), "no selected identity has current eligible evidence")
+	assert.Contains(t, allMissingPage.Body.String(), "Preparation history", "generation history remains available without current evidence")
+	assert.Contains(t, allMissingPage.Body.String(), preparationID)
+	assert.Contains(t, allMissingPage.Body.String(), "Evidence changes since the previous Ready generation")
+	assert.Contains(t, allMissingPage.Body.String(), "current eligible evidence is absent")
 	assert.NotContains(t, allMissingPage.Body.String(), ">Prepare deck</button>")
 	allMissingFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
 	require.NoError(t, err)
@@ -429,6 +475,16 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	retried, err := recoveryService.Get(ctx, alice.ID, retryPreparationID)
 	require.NoError(t, err)
 	require.Equal(t, "complete_with_omissions", retried.State, retried.Error)
+	newestDownload := perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+retryPreparationID+"/download", nil, cookies)
+	assert.Equal(t, http.StatusOK, newestDownload.Code)
+	previousDownload = perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+preparationID+"/download", nil, cookies)
+	assert.Equal(t, http.StatusNotFound, previousDownload.Code, "only the newest successful generation remains downloadable through Mouseion")
+	deckAfterReplacement := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
+	assert.Contains(t, deckAfterReplacement.Body.String(), "Prepare again")
+	assert.Contains(t, deckAfterReplacement.Body.String(), "Preparation history")
+	assert.Contains(t, deckAfterReplacement.Body.String(), retryPreparationID)
+	historicalStatus := perform(t, h, http.MethodGet, statusURL, nil, cookies)
+	assert.Contains(t, historicalStatus.Body.String(), "This generation is historical")
 	require.Len(t, provider.requests, 2)
 	require.Len(t, retryProvider.requests, 2)
 	providerRequests := fmt.Sprint(append(provider.requests, retryProvider.requests...))
