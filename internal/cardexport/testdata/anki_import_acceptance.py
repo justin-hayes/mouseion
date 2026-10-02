@@ -21,7 +21,7 @@ def import_package(filename: str) -> None:
 
 
 def snapshot():
-    notes = collection.db.all("select id,guid,flds from notes")
+    notes = collection.db.all("select id,guid,flds,mid from notes")
     cards = collection.db.all("select nid,did from cards")
     decks = {
         name: {"id": deck_id}
@@ -35,6 +35,22 @@ def snapshot():
 import_package("book.apkg")
 book_note, book_card, decks = snapshot()
 assert book_note[1] == expected_guid
+book_model = collection.models.get(book_note[3])
+assert book_model["name"] == "Mouseion Vocab Recognition"
+assert [field["name"] for field in book_model["flds"]] == [
+    "Identity",
+    "Text",
+    "Article",
+    "Lemma",
+    "Plural",
+    "IPA",
+    "PrincipalParts",
+    "POS",
+    "Gloss",
+    "English",
+    "EnglishSentence",
+    "BookTitle",
+]
 assert "Mouseion\x1fde\x1fBook A" in decks
 book_fields = book_note[2]
 book_deck_id = decks["Mouseion\x1fde\x1fBook A"]["id"]
