@@ -68,6 +68,7 @@ type Artifact struct {
 type manifest struct {
 	owner                string
 	deckName             string
+	ankiDeckID           int64
 	schemaVersion        int
 	accepted             []RenderInput
 	omitted              []Omission
@@ -922,6 +923,19 @@ func DeckName(language, bookTitle string) string {
 	return "Mouseion::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(bookTitle)
 }
 
+// CustomDeckName includes the learner's label and a stable suffix so different
+// saved Custom decks never collapse into the same Anki deck by name.
+func CustomDeckName(language, name, deckID string) string {
+	stableSuffix := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(deckID)), "-", "")
+	return "Mouseion::Custom::" + strings.TrimSpace(language) + "::" + strings.TrimSpace(name) + " [" + stableSuffix + "]"
+}
+
+// CustomDeckAnkiID derives a stable, collision-safe Anki deck ID from the
+// persisted Custom deck UUID; it is intentionally independent of deck name.
+func CustomDeckAnkiID(deckID string) int64 {
+	return stableID("mouseion-custom-deck|" + strings.TrimSpace(deckID))
+}
+
 func DownloadFilename(bookTitle string) string {
 	original := strings.TrimSpace(bookTitle)
 	var b strings.Builder
@@ -1160,10 +1174,10 @@ func renderManifest(ctx context.Context, manifest manifest, outcomes []ExactEnri
 			}
 			diagnostics = appendUniqueCodes(diagnostics, codes...)
 		}
-		artifact, err := renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+		artifact, err := renderAccepted(ctx, manifest.owner, manifest.deckName, manifest.ankiDeckID, entries, omitted)
 		return artifact, diagnostics, err
 	}
-	artifact, err := renderAccepted(ctx, manifest.owner, manifest.deckName, entries, omitted)
+	artifact, err := renderAccepted(ctx, manifest.owner, manifest.deckName, manifest.ankiDeckID, entries, omitted)
 	return artifact, nil, err
 }
 
@@ -1268,7 +1282,7 @@ func candidateKey(candidate domain.SelectionCandidate) string {
 	return candidate.Language + "\x00" + candidate.CanonicalLemma + "\x00" + candidate.UPOS
 }
 
-func renderAccepted(ctx context.Context, owner, deckName string, entries []RenderInput, omitted []Omission) (Artifact, error) {
+func renderAccepted(ctx context.Context, owner, deckName string, ankiDeckID int64, entries []RenderInput, omitted []Omission) (Artifact, error) {
 	type acceptedNote struct {
 		input RenderInput
 		note  Note
@@ -1313,7 +1327,7 @@ func renderAccepted(ctx context.Context, owner, deckName string, entries []Rende
 		language = entries[0].Language
 	}
 	ankiDeckName := DeckName(language, deckName)
-	apkg, err := renderAPKG(ctx, ankiDeckName, notes, deckDescription(entries))
+	apkg, err := renderAPKGWithDeckID(ctx, ankiDeckName, ankiDeckID, notes, deckDescription(entries))
 	if err != nil {
 		return Artifact{}, fmt.Errorf("render Anki package: %w", err)
 	}

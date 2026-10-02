@@ -228,6 +228,7 @@ func (w *CustomDeckPreparationWorker) Work(ctx context.Context, job *river.Job[C
 	if err != nil {
 		return w.fail(ctx, a, err)
 	}
+	deck = deck.WithAnkiDeckID(cardexport.CustomDeckAnkiID(p.DeckID))
 	work := deck.WorkProjection()
 	results := make([]cardexport.StoredResult, 0, len(work))
 	for _, item := range work {

@@ -135,6 +135,14 @@ type FrozenDeck struct {
 	manifest manifest
 }
 
+// WithAnkiDeckID returns a copy rendered into the specified stable Anki deck
+// identity. A zero ID retains the historical name-derived identity.
+func (d FrozenDeck) WithAnkiDeckID(id int64) FrozenDeck {
+	d.manifest = d.manifest.clone()
+	d.manifest.ankiDeckID = id
+	return d
+}
+
 // Freeze selects representative sentences, resolves local lexical facts,
 // quality-gates each candidate, and constructs exact external identities. The
 // empty-deck variant is intentionally folded into this operation: the
