@@ -915,18 +915,20 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	require.Equal(t, http.StatusOK, corrected.Code)
 	assert.Contains(t, corrected.Body.String(), "Alice Concordance Book")
 	assert.Contains(t, corrected.Body.String(), "Analyzer lemma (evidence)")
-	assert.Contains(t, corrected.Body.String(), "corrected for this occurrence")
 	assert.NotContains(t, corrected.Body.String(), "Bob Concordance Book")
-	assert.NotContains(t, strings.SplitN(corrected.Body.String(), `<section id="concordance-results"`, 2)[1], "Stale Concordance Book")
-	assert.NotContains(t, corrected.Body.String(), "excluded from effective vocabulary")
+	correctedResults := strings.SplitN(corrected.Body.String(), `<section id="concordance-results"`, 2)[1]
+	assert.NotContains(t, correctedResults, "Stale Concordance Book")
+	assert.NotContains(t, correctedResults, "corrected for this occurrence")
+	assert.NotContains(t, correctedResults, "excluded from effective vocabulary")
 	excludedEffective := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN&book="+aliceBook.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, excludedEffective.Code)
 	assert.Contains(t, excludedEffective.Body.String(), "No current analyzed occurrences match this exact lookup.")
 
 	surface := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&book="+aliceBook.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, surface.Code)
-	assert.Contains(t, surface.Body.String(), "excluded from effective vocabulary")
-	assert.Contains(t, surface.Body.String(), "retained as analyzer evidence")
+	surfaceResults := strings.SplitN(surface.Body.String(), `<section id="concordance-results"`, 2)[1]
+	assert.NotContains(t, surfaceResults, "excluded from effective vocabulary")
+	assert.NotContains(t, surfaceResults, "retained as analyzer evidence")
 
 	analyzer := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=analyzer&term=haus&upos=NOUN&book="+aliceBook.ID, nil, cookies)
 	require.Equal(t, http.StatusOK, analyzer.Code)
@@ -961,6 +963,10 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	require.Equal(t, http.StatusOK, studyPage.Code)
 	assert.Contains(t, studyPage.Body.String(), "Analyzer-attributed tokens")
 	assert.Contains(t, studyPage.Body.String(), "Alice Concordance Book")
+	assert.Contains(t, studyPage.Body.String(), "Corrected for this occurrence.")
+	excludedStudyPage := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?book="+aliceBook.ID+"&run="+aliceRun+"&corpus="+aliceCorpus.ID+"&unit="+domain.EPUBUnitID(0, strings.TrimPrefix(aliceSource.SourceIdentifier, "migration-"))+"&sentence=1&target=0&target_surface=Haus", nil, cookies)
+	require.Equal(t, http.StatusOK, excludedStudyPage.Code)
+	assert.Contains(t, excludedStudyPage.Body.String(), "Excluded from effective vocabulary; retained as syntax evidence.")
 
 	for ordinal := int64(2); ordinal < 26; ordinal++ {
 		start := 20 + ordinal*5
