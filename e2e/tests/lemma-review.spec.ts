@@ -12,7 +12,11 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await page.getByRole('button', { name: /sign in|log in/i }).press('Enter');
     await expect(page).toHaveURL(/\/library/);
     const language = page.getByLabel('Study language');
-    if (await language.inputValue() !== 'de') await language.selectOption('de');
+    if (await language.inputValue() !== 'de') {
+      await language.selectOption('de');
+      await page.getByRole('button', { name: 'Switch language' }).click();
+      await expect(page.getByLabel('Study language')).toHaveValue('de');
+    }
     await page.goto('/reading/books/fixture-book/lemma-review?form=Weg');
     await expect(page.getByRole('heading', { name: "Stop before changing this Book's vocabulary" })).toBeVisible();
     await expect(page.getByText(/stop this reading without marking it finished/i)).toBeVisible();

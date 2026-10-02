@@ -622,6 +622,12 @@ func (s *Store) SetCustomVocabularyDeckIdentity(_ context.Context, _, id, lemma,
 	}
 	deck.Identities = identities
 	deck.IdentityCount = int64(len(identities))
+	deck.MissingCount = 0
+	for _, identity := range identities {
+		if identity.MissingEvidence {
+			deck.MissingCount++
+		}
+	}
 	s.customVocabularyDecks[id] = deck
 	return nil
 }
