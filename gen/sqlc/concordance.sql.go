@@ -1329,12 +1329,13 @@ SELECT o.surface,
        (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
        COALESCE(d.excluded, false)::boolean AS excluded
   FROM concordance_occurrences o
+  -- The view exposes these UUIDs as text; keep the indexed token keys uncast.
   JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
-    AND t.analysis_run_id::text=o.analysis_run_id AND t.corpus_id::text=o.corpus_id
+    AND t.analysis_run_id=o.analysis_run_id::uuid AND t.corpus_id=o.corpus_id::uuid
     AND t.sentence_ordinal=o.sentence_ordinal AND t.token_ordinal=o.token_ordinal
   LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
-    AND d.book_id::text=o.book_id AND d.corpus_id::text=o.corpus_id
-    AND d.analysis_run_id::text=o.analysis_run_id AND d.source_document_id=o.unit_id
+    AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
+    AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
     AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
  WHERE o.owner_id=$1 AND o.language=$2
    AND ($3::text='governor' OR $4::text <> 'surface' OR o.surface=$5)
@@ -1351,12 +1352,12 @@ SELECT o.surface,
           SELECT 1
             FROM corpus_tokens g
             LEFT JOIN occurrence_lemma_corrections gd ON gd.owner_id=o.owner_id
-              AND gd.book_id::text=o.book_id AND gd.corpus_id::text=g.corpus_id::text
-              AND gd.analysis_run_id::text=g.analysis_run_id::text
+              AND gd.book_id=o.book_id::uuid AND gd.corpus_id=g.corpus_id
+              AND gd.analysis_run_id=g.analysis_run_id
               AND gd.source_document_id=o.unit_id
               AND gd.start_offset=g.start_offset AND gd.end_offset=g.end_offset
            WHERE g.owner_id=o.owner_id AND g.language=o.language
-             AND g.analysis_run_id::text=o.analysis_run_id AND g.corpus_id::text=o.corpus_id
+             AND g.analysis_run_id=o.analysis_run_id::uuid AND g.corpus_id=o.corpus_id::uuid
              AND g.sentence_ordinal=o.sentence_ordinal AND g.token_ordinal=o.head_ordinal
              AND NOT COALESCE(gd.excluded, false)
              AND (($4::text='effective'
