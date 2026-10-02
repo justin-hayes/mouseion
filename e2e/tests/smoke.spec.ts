@@ -104,6 +104,7 @@ test.describe('authenticated learner smoke', () => {
       await noScript.goto('/vocabulary/concordance');
       await expect(noScript.getByRole('heading', { name: 'Vocabulary · Concordance', exact: true })).toBeVisible();
       await expect(noScript.getByLabel('Lookup evidence')).toHaveValue('surface');
+      await expect(noScript.getByLabel('Part of speech')).toBeHidden();
       for (const disclosure of ['Books (applied: all current Books)', 'Grammar (applied: no grammar filter)']) {
         const summary = noScript.getByText(disclosure, { exact: true });
         await summary.focus();
@@ -117,16 +118,22 @@ test.describe('authenticated learner smoke', () => {
       await expect(noScript.getByRole('heading', { name: 'Current results' })).toBeVisible();
       const rows = noScript.locator('details.concordance-row');
       await expect(rows).toHaveCount(3);
-      await expect(rows.nth(0)).toContainText('Corrected evidence');
-      await expect(rows.nth(0)).toContainText('corrected for this occurrence');
-      await expect(rows.nth(1)).toContainText('Excluded evidence');
-      await expect(rows.nth(1)).toContainText('excluded from effective vocabulary');
-      await expect(rows.nth(2)).toContainText('Unchanged evidence');
+      const studyLinks = noScript.getByRole('link', { name: 'Study this sentence and its syntax' });
+      await expect(studyLinks).toHaveCount(3);
+      await expect(studyLinks.nth(0)).toBeVisible();
+      await expect(studyLinks.nth(0)).toContainText('Study');
+      await expect(rows.nth(0)).not.toHaveAttribute('open', '');
+      await expect(studyLinks.nth(0).locator('xpath=ancestor::details')).toHaveCount(0);
       await rows.nth(2).locator('summary').focus();
       await noScript.keyboard.press('Enter');
       await expect(rows.nth(2)).toHaveAttribute('open', '');
       await expect(rows.nth(2).getByText('Das Haus sieht gut aus.', { exact: true })).toBeVisible();
-      await rows.nth(0).locator('..').getByRole('link', { name: 'Study this sentence and its syntax' }).click();
+      const expandedContext = rows.nth(2).locator('.concordance-context');
+      await expect(expandedContext.locator('.concordance-observed-target')).toHaveText('Haus');
+      await expect(expandedContext).not.toContainText('Unchanged evidence');
+      await expect(expandedContext).not.toContainText('Analyzer lemma');
+      await expect(expandedContext).not.toContainText('Dependency:');
+      await studyLinks.nth(0).click();
       await expect(noScript.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
       await expect(noScript.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
       await expect(noScript.locator('.sentence-study-tokens')).toContainText('Corrected for this occurrence');
@@ -134,8 +141,12 @@ test.describe('authenticated learner smoke', () => {
       await expect(noScript).toHaveURL(/\/vocabulary\/concordance\?.*#occurrence-fixture-concordance-book-0-1$/);
       await expect(noScript.getByRole('heading', { name: 'Current results' })).toBeVisible();
       await expect.poll(() => noScript.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-concordance-book-0-1');
-      const overflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-      expect(overflow).toBe(false);
+      const compactOverflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(compactOverflow).toBe(false);
+      await noScript.setViewportSize({ width: 1280, height: 800 });
+      const firstRowBox = await rows.first().boundingBox();
+      expect(firstRowBox).not.toBeNull();
+      expect(firstRowBox!.y + firstRowBox!.height).toBeLessThan(800);
     } finally {
       await noScript.close();
     }

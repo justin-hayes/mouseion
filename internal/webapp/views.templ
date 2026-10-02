@@ -1268,19 +1268,25 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				if lookup.GrammarDirection != "" {
 					<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
 				}
-				<label for="concordance-mode">Lookup evidence</label>
-				<select id="concordance-mode" name="mode">
-					<option value="surface" selected?={ lookup.Mode == "surface" }>Observed surface</option>
-					<option value="effective" selected?={ lookup.Mode == "effective" }>Effective lemma</option>
-					<option value="analyzer" selected?={ lookup.Mode == "analyzer" }>Analyzer lemma (evidence)</option>
-				</select>
-				<label for="concordance-term">Exact term</label><input id="concordance-term" type="search" name="term" value={ lookup.Term } required/>
-				<label for="concordance-upos">Part of speech (lemma lookup)</label>
-				<select id="concordance-upos" name="upos"><option value="">Choose when using a lemma</option>
-					for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV", "PROPN", "PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "NUM", "PART", "INTJ", "PUNCT", "SYM", "X"} {
-						<option value={ pos } selected?={ lookup.UPOS == pos }>{ pos }</option>
-					}
-				</select>
+				<div class="concordance-query-field">
+					<label for="concordance-mode">Lookup evidence</label>
+					<select id="concordance-mode" name="mode">
+						<option value="surface" selected?={ lookup.Mode == "surface" }>Observed surface</option>
+						<option value="effective" selected?={ lookup.Mode == "effective" }>Effective lemma</option>
+						<option value="analyzer" selected?={ lookup.Mode == "analyzer" }>Analyzer lemma (evidence)</option>
+					</select>
+				</div>
+				<div class="concordance-query-field">
+					<label for="concordance-term">Exact term</label><input id="concordance-term" type="search" name="term" value={ lookup.Term } required/>
+				</div>
+				<div class="concordance-pos-field">
+					<label for="concordance-upos">Part of speech</label>
+					<select id="concordance-upos" name="upos"><option value="">Choose for a lemma lookup</option>
+						for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV", "PROPN", "PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "NUM", "PART", "INTJ", "PUNCT", "SYM", "X"} {
+							<option value={ pos } selected?={ lookup.UPOS == pos }>{ pos }</option>
+						}
+					</select>
+				</div>
 				<button type="submit">Find</button>
 			</form>
 			<details>
@@ -1331,20 +1337,26 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					if len(result.Occurrences) > 0 {
 						<ol class="concordance-results">
 						for _, occurrence := range result.Occurrences {
-							<li>
+							<li class="concordance-result">
 								<details class="concordance-row" id={ concordanceOccurrenceID(occurrence) } tabindex="-1">
 									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
-										<span>{ concordanceBefore(occurrence) }</span> <strong>{ occurrence.Surface }</strong> <span>{ concordanceAfter(occurrence) }</span>
-										<small>{ occurrence.BookTitle } · { concordanceLocation(occurrence) }</small>
+										<span class="concordance-book-title">{ occurrence.BookTitle }</span>
+										<span class="concordance-before">{ concordanceBefore(occurrence) }</span>
+										<strong class="concordance-surface">{ occurrence.Surface }</strong>
+										<span class="concordance-after">{ concordanceAfter(occurrence) }</span>
 									</summary>
 									<div class="concordance-context">
-										<p class="reading-text">{ occurrence.SentenceText }</p>
-										<p><strong>{ occurrence.BookTitle }</strong> · { concordanceLocation(occurrence) }</p>
-										<p>Observed surface: <strong>{ occurrence.Surface }</strong>. Analyzer lemma (evidence): <code>{ occurrence.RawLemma }</code> · <code>{ occurrence.UPOS }</code>. Effective lemma: <code>{ occurrence.EffectiveLemma }</code>{ concordanceDecisionLabel(occurrence) }</p>
-										<p><small>Dependency: <code>{ occurrence.Dependency }</code> · head: { occurrence.HeadSurface }</small></p>
+										{{ before, target, after := concordanceSentenceParts(occurrence) }}
+										<p class="reading-text">
+											if target != "" {
+												{ before }<strong class="concordance-observed-target">{ target }</strong>{ after }
+											} else {
+												{ occurrence.SentenceText }
+											}
+										</p>
 									</div>
 								</details>
-								<a href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }>Study this sentence and its syntax</a>
+								<a class="concordance-study-link" aria-label="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }><span aria-hidden="true">↗</span><span class="concordance-study-label">Study</span></a>
 							</li>
 						}
 						</ol>
@@ -1564,6 +1576,16 @@ func concordanceAfter(occurrence domain.ConcordanceResultOccurrence) string {
 		return string(runes[:44]) + "…"
 	}
 	return string(runes)
+}
+
+func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (string, string, string) {
+	start := int(occurrence.SentenceStartOffset)
+	end := int(occurrence.SentenceEndOffset)
+	text := occurrence.SentenceText
+	if start < 0 || end <= start || end > len(text) || text[start:end] != occurrence.Surface {
+		return "", "", ""
+	}
+	return text[:start], text[start:end], text[end:]
 }
 
 templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
