@@ -115,6 +115,7 @@ type VocabularySelectionStore interface {
 	ClearVocabularyBrowseSelection(context.Context, string, string) error
 	CreateCustomVocabularyDeck(context.Context, string, string, string, string) (domain.CustomVocabularyDeck, error)
 	GetCustomVocabularyDeck(context.Context, string, string) (domain.CustomVocabularyDeck, error)
+	ListCustomVocabularyDeckIdentityPage(context.Context, string, string, int, bool) (domain.CustomVocabularyDeck, int64, error)
 	ListCustomVocabularyDecks(context.Context, string) ([]domain.CustomVocabularyDeck, error)
 	RenameCustomVocabularyDeck(context.Context, string, string, string) error
 	SetCustomVocabularyDeckIdentity(context.Context, string, string, string, string, bool) error

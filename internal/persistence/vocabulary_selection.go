@@ -162,11 +162,8 @@ func (s *PostgresStore) CreateCustomVocabularyDeck(ctx context.Context, owner, l
 	if err := tx.Commit(ctx); err != nil {
 		return domain.CustomVocabularyDeck{}, err
 	}
-	deck.Identities, err = s.ListCustomVocabularyDeckIdentities(ctx, owner, deck.ID)
-	if err != nil {
-		return domain.CustomVocabularyDeck{}, err
-	}
-	return deck, nil
+	createdDeck, _, err := s.ListCustomVocabularyDeckIdentityPage(ctx, owner, deck.ID, 1, false)
+	return createdDeck, err
 }
 
 func (s *PostgresStore) ListCustomVocabularyDeckIdentities(ctx context.Context, owner, deck string) ([]domain.VocabularyIdentity, error) {
@@ -245,6 +242,139 @@ WHERE i.owner_id=$1 AND i.deck_id=$2 ORDER BY i.canonical_lemma,i.upos,b.title,b
 		return nil, err
 	}
 	return identities, nil
+}
+
+// ListCustomVocabularyDeckIdentityPage loads only the identities needed to
+// render one review page. Totals are computed over the complete saved set, so
+// paging and the missing-evidence filter never hide selected identities.
+func (s *PostgresStore) ListCustomVocabularyDeckIdentityPage(ctx context.Context, owner, deckID string, page int, missingOnly bool) (domain.CustomVocabularyDeck, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	var deck domain.CustomVocabularyDeck
+	if err := s.pool.QueryRow(ctx, `
+WITH target AS (
+ SELECT id,language,name FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2
+), evidence AS (
+ SELECT DISTINCT COALESCE(c.canonical_lemma,o.canonical_lemma) AS lemma,o.upos
+ FROM target t JOIN concordance_occurrences o ON o.owner_id=$1 AND o.language=t.language
+ JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
+  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
+ JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=o.language
+ LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+ WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
+  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
+), totals AS (
+ SELECT count(*)::bigint AS total,
+  count(*) FILTER (WHERE e.lemma IS NULL)::bigint AS missing
+ FROM custom_vocabulary_deck_identities i
+ LEFT JOIN evidence e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
+ WHERE i.owner_id=$1 AND i.deck_id=$2
+)
+SELECT t.id::text,t.language,t.name,totals.total,totals.missing
+FROM target t CROSS JOIN totals`, owner, deckID).Scan(&deck.ID, &deck.Language, &deck.Name, &deck.IdentityCount, &deck.MissingCount); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.CustomVocabularyDeck{}, 0, ErrCustomVocabularyDeckNotFound
+		}
+		return domain.CustomVocabularyDeck{}, 0, err
+	}
+	visibleTotal := deck.IdentityCount
+	if missingOnly {
+		visibleTotal = deck.MissingCount
+	}
+	lastPage := max(int64(1), (visibleTotal+24)/25)
+	if int64(page) > lastPage {
+		page = int(lastPage)
+	}
+	rows, err := s.pool.Query(ctx, `
+WITH target AS (SELECT language FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2), evidence AS (
+ SELECT COALESCE(c.canonical_lemma,o.canonical_lemma) AS lemma,o.upos,
+  count(*)::bigint AS occurrences,count(DISTINCT o.book_id)::bigint AS books
+ FROM target t JOIN concordance_occurrences o ON o.owner_id=$1 AND o.language=t.language
+ JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
+  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
+ JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=t.language
+ LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+ WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
+  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
+ GROUP BY 1,2
+)
+SELECT i.canonical_lemma,i.upos,COALESCE(e.occurrences,0),COALESCE(e.books,0),e.lemma IS NULL
+FROM custom_vocabulary_deck_identities i
+LEFT JOIN evidence e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
+WHERE i.owner_id=$1 AND i.deck_id=$2 AND (NOT $4 OR e.lemma IS NULL)
+ORDER BY i.canonical_lemma,i.upos LIMIT 25 OFFSET (($3::bigint-1)*25)`, owner, deckID, page, missingOnly)
+	if err != nil {
+		return domain.CustomVocabularyDeck{}, 0, err
+	}
+	for rows.Next() {
+		var identity domain.VocabularyIdentity
+		if err := rows.Scan(&identity.CanonicalLemma, &identity.UPOS, &identity.OccurrenceCount, &identity.BookCount, &identity.MissingEvidence); err != nil {
+			rows.Close()
+			return domain.CustomVocabularyDeck{}, 0, err
+		}
+		deck.Identities = append(deck.Identities, identity)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return domain.CustomVocabularyDeck{}, 0, err
+	}
+	rows.Close()
+	if len(deck.Identities) == 0 {
+		return deck, visibleTotal, nil
+	}
+	bookRows, err := s.pool.Query(ctx, `
+WITH target AS (SELECT language FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2), evidence AS (
+ SELECT COALESCE(c.canonical_lemma,o.canonical_lemma) AS lemma,o.upos,o.book_id::text AS book_id,
+  o.analysis_run_id::text AS run_id,count(*)::bigint AS occurrences
+ FROM target t JOIN concordance_occurrences o ON o.owner_id=$1 AND o.language=t.language
+ JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
+  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
+ JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=t.language
+ LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+ WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
+  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
+ GROUP BY 1,2,3,4
+), selected_page AS (
+ SELECT i.canonical_lemma,i.upos FROM custom_vocabulary_deck_identities i
+ LEFT JOIN (SELECT DISTINCT lemma,upos FROM evidence) e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
+ WHERE i.owner_id=$1 AND i.deck_id=$2 AND (NOT $4 OR e.lemma IS NULL)
+ ORDER BY i.canonical_lemma,i.upos LIMIT 25 OFFSET (($3::bigint-1)*25)
+)
+SELECT p.canonical_lemma,p.upos,b.id::text,b.title,e.run_id,e.occurrences
+FROM selected_page p JOIN evidence e ON e.lemma=p.canonical_lemma AND e.upos=p.upos
+JOIN books b ON b.owner_id=$1 AND b.id::text=e.book_id
+ORDER BY p.canonical_lemma,p.upos,b.title,b.id`, owner, deckID, page, missingOnly)
+	if err != nil {
+		return domain.CustomVocabularyDeck{}, 0, err
+	}
+	byIdentity := make(map[string]*domain.VocabularyIdentity, len(deck.Identities))
+	for i := range deck.Identities {
+		byIdentity[deck.Identities[i].CanonicalLemma+"\x00"+deck.Identities[i].UPOS] = &deck.Identities[i]
+	}
+	for bookRows.Next() {
+		var lemma, upos string
+		var book domain.VocabularyIdentityBook
+		if err := bookRows.Scan(&lemma, &upos, &book.ID, &book.Title, &book.AnalysisRunID, &book.OccurrenceCount); err != nil {
+			bookRows.Close()
+			return domain.CustomVocabularyDeck{}, 0, err
+		}
+		if identity := byIdentity[lemma+"\x00"+upos]; identity != nil {
+			identity.EvidenceBooks = append(identity.EvidenceBooks, book)
+		}
+	}
+	if err := bookRows.Err(); err != nil {
+		bookRows.Close()
+		return domain.CustomVocabularyDeck{}, 0, err
+	}
+	bookRows.Close()
+	return deck, visibleTotal, nil
 }
 
 func (s *PostgresStore) GetCustomVocabularyDeck(ctx context.Context, owner, deckID string) (domain.CustomVocabularyDeck, error) {
