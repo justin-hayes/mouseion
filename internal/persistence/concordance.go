@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -143,16 +144,50 @@ func (s *PostgresStore) ListStudyLanguageDependentsByGovernorLemma(ctx context.C
 // ListVocabularyConcordance returns one page of exact effective, observed
 // surface, or analyzer-evidence matches from current analyses. Fetching one
 // extra row determines whether a next page exists without inventing a total.
-func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (pageResult domain.ConcordanceResult, errResult error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if lookup.Page < 1 {
 		lookup.Page = 1
 	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); !errors.Is(err, pgx.ErrTxClosed) {
+			errResult = errors.Join(errResult, err)
+		}
+	}()
+	var revision string
+	err = tx.QueryRow(ctx, `
+		SELECT md5(
+		  COALESCE((SELECT jsonb_agg(jsonb_build_array(ca.book_id, ca.analysis_run_id, ca.corpus_id, b.title) ORDER BY ca.book_id)::text
+		    FROM current_analysis_identity ca
+		    JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
+		    WHERE ca.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2), '[]')
+		  || '|' || COALESCE((SELECT jsonb_agg(jsonb_build_array(d.book_id, d.corpus_id, d.analysis_run_id,
+		        d.source_document_id, d.start_offset, d.end_offset, d.canonical_lemma, d.excluded)
+		        ORDER BY d.book_id, d.corpus_id, d.analysis_run_id, d.source_document_id, d.start_offset, d.end_offset)::text
+		    FROM occurrence_lemma_corrections d
+		    JOIN current_analysis_identity ca ON ca.owner_id=d.owner_id AND ca.book_id=d.book_id
+		      AND ca.analysis_run_id=d.analysis_run_id AND ca.corpus_id=d.corpus_id
+		    JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
+		    WHERE d.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2), '[]')
+		)`, owner, language).Scan(&revision)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	if lookup.Revision != "" && lookup.Revision != revision {
+		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Stale: true}, nil
+	}
 	const maxConcordancePage = int((1<<31-1)/25 + 1)
 	if lookup.Page > maxConcordancePage {
-		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: true}, nil
+		if err := tx.Commit(ctx); err != nil {
+			return domain.ConcordanceResult{}, err
+		}
+		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: true, Revision: revision}, nil
 	}
-	rows, err := s.queries().ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
+	rows, err := sqlcgen.New(tx).ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
 		Owner: owner, Language: language, Mode: lookup.Mode, Term: lookup.Term,
 		Upos: lookup.UPOS, BookIds: strings.Join(lookup.BookIDs, ","),
 		GrammarDirection: lookup.GrammarDirection, Relation: lookup.Relation,
@@ -161,7 +196,10 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 	if err != nil {
 		return domain.ConcordanceResult{}, err
 	}
-	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision}
 	if len(rows) > 25 {
 		result.HasNext = true
 		rows = rows[:25]

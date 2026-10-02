@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.corpus_tokens_owner_language_raw_lemma_upos_idx;

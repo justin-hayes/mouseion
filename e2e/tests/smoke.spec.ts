@@ -141,6 +141,39 @@ test.describe('authenticated learner smoke', () => {
     }
   });
 
+  test('Concordance keeps its applied results labeled while an enhanced lookup is pending', async ({ page }) => {
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    await expect(page.getByRole('heading', { name: 'Current results' })).toBeVisible();
+    await page.evaluate(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (...args) => new Promise((resolve, reject) => {
+        window.setTimeout(() => nativeFetch(...args).then(resolve, reject), 1300);
+      });
+    });
+    await page.getByLabel('Exact term').fill('Haus2');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    await expect(page.locator('#concordance-request-status')).toContainText('previous results remain under their previously applied query and scope');
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
+    await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”', { timeout: 5000 });
+    await expect(page).toHaveURL(/term=Haus2/);
+    await page.evaluate(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const requestURL = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        if (requestURL.includes('term=Changed')) return Promise.resolve(new Response('', { status: 409 }));
+        return nativeFetch(input, init);
+      };
+    });
+    await page.getByLabel('Exact term').fill('Changed');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    await expect(page.locator('#concordance-request-status')).toContainText('The analyzed evidence changed');
+    const restart = page.locator('#concordance-request-status').getByRole('link', { name: 'Restart from results' });
+    await expect(restart).toHaveAttribute('href', /page=1/);
+    await expect(restart).not.toHaveAttribute('href', /rev=/);
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
+  });
+
   test('metadata-only book detail URLs are retired', async ({ page }) => {
     const response = await page.goto('/books/fixture-metadata-only');
     expect(response?.status()).toBe(404);
