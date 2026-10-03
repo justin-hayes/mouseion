@@ -543,6 +543,9 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, response.Body.String(), "haus")
 	assert.Contains(t, response.Body.String(), "Current reading")
 	assert.Contains(t, response.Body.String(), "<td>1</td>")
+	assert.Contains(t, response.Body.String(), `href="/vocabulary/concordance?book=`+aliceBook.ID+`&amp;mode=effective&amp;term=haus&amp;upos=NOUN"`, "Browse hands exact identity and Current Book to Concordance")
+	assert.NotContains(t, response.Body.String(), "Book count")
+	assert.NotContains(t, response.Body.String(), "Correction")
 	assert.NotContains(t, response.Body.String(), "Bob German")
 	assert.NotContains(t, response.Body.String(), "Alice German Other")
 	assert.NotContains(t, response.Body.String(), `action="/vocabulary/import"`)
@@ -570,16 +573,19 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	filteredQuery := url.Values{
 		"q":        {"ha"},
 		"book":     {aliceBook.ID, aliceOtherBook.ID},
-		"pos":      {"NOUN"},
-		"known":    {"known"},
-		"reserved": {"not-reserved"},
-		"sort":     {"occurrences"},
+		"pos":      {"VERB"},
+		"known":    {"not-known"},
+		"reserved": {"reserved"},
+		"sort":     {"lemma"},
 	}
 	filtered := perform(t, h, http.MethodGet, "/vocabulary?"+filteredQuery.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, filtered.Code)
 	assert.Contains(t, filtered.Body.String(), "<td>1</td>")
 	assert.NotContains(t, filtered.Body.String(), "Alice German Other")
 	assert.Contains(t, filtered.Body.String(), "haus")
+	assert.NotContains(t, filtered.Body.String(), `name="pos"`)
+	assert.NotContains(t, filtered.Body.String(), `name="known"`)
+	assert.NotContains(t, filtered.Body.String(), `name="reserved"`)
 	assert.Contains(t, filtered.Body.String(), "<td>1</td>", "the authenticated page renders only current-Book occurrence counts")
 	assert.NotContains(t, filtered.Body.String(), "heim")
 
@@ -623,9 +629,16 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, alice.ID, runID, aliceCorpus.ID, ordinal, lemma, start, start+int64(len(lemma)))
 		require.NoError(t, err)
 	}
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,30,'Zebra zebra',300,311)`, alice.ID, runID, aliceCorpus.ID, unitID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,30,0,'Zebra','zebra','zebra','NOUN','root',0,'{}',300,305),($1,'de',$2,$3,30,1,'zebra','zebra','zebra','NOUN','conj',0,'{}',306,311)`, alice.ID, runID, aliceCorpus.ID)
+	require.NoError(t, err)
 	firstPage := perform(t, h, http.MethodGet, "/vocabulary?sort=lemma&page=1", nil, cookies)
 	require.Equal(t, http.StatusOK, firstPage.Code)
 	assert.Contains(t, firstPage.Body.String(), "Page 1 of 2")
+	assert.Contains(t, firstPage.Body.String(), "<td>2</td>")
+	assert.Less(t, strings.Index(firstPage.Body.String(), ">zebra</a>"), strings.Index(firstPage.Body.String(), ">heim</a>"), "frequency outranks the legacy lemma-sort parameter")
+	assert.Less(t, strings.Index(firstPage.Body.String(), ">heim</a>"), strings.Index(firstPage.Body.String(), ">wort00</a>"), "equal counts break ties by canonical lemma")
 	assert.Contains(t, firstPage.Body.String(), "wort00")
 	assert.NotContains(t, firstPage.Body.String(), "wort24")
 	assert.Contains(t, firstPage.Body.String(), `href="/vocabulary?page=2&amp;rev=`)

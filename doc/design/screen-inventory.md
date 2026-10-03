@@ -171,7 +171,7 @@ from the My Books disposition, and Read again preserves earlier completions.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Vocabulary Browse (shipped) | `GET /vocabulary` | Browse effective lemma + POS identities with current evidence in the active study language. | Canonical-lemma prefix search; optional Book/POS/Known/Reserved filters and count sort; server-rendered 25-result page links | No study language, no current analysis, truly empty inventory, partial corpus, filtered zero, recoverable query error, correction provenance, Known/Reserved/Generated state |
+| Vocabulary Browse (shipped) | `GET /vocabulary` | Discover effective lemma + POS identities in the Current reading Book, most frequent first. | Canonical-lemma prefix search; server-rendered 25-result pages | No study language, no Current reading, no current analysis, empty eligible inventory, prefix zero, recoverable query error, truthful Known/Reserved state |
 | Vocabulary import (shipped) | `GET /vocabulary/import`, `POST /vocabulary/import`, and import status endpoint | Import known vocabulary for the active study language: upload one lemma per line and understand imported, duplicate, and rejected rows. | Import result summary | No derived study languages, no file, invalid file type, queued/processing, complete, partial rejection, failed, cancelled; scoped to active language with no per-page picker and no known-vocabulary list |
 | Direct known-vocabulary page | Compatibility `GET /known-vocab` | Redirect to the Vocabulary destination. | Vocabulary | Redirect to `/vocabulary`; remaining states belong to Vocabulary |
 
@@ -188,16 +188,15 @@ learner-facing screen.
 
 ### Accepted Vocabulary target — partially shipped
 
-The shipped Browse still has cross-Book search, Book/POS/learner-state filters,
-and count sorts. The accepted change replaces these with a Current-reading
-Book-scoped, descending-occurrence Browse, prefix search, and one include-all
-control. Its table shows lemma, POS, current-Book occurrence count, textual
-Learner state, and Select/Remove; an included Book-deck identity receives a
-separate secondary note within the Learner state cell. No Current reading or
-stale analysis leads to a Reading
-recovery state with access to the language-wide selection and saved decks;
-opening an identity starts Concordance in that Book. Import is its deployed
-peer at `/vocabulary/import`. Concordance at
+Browse now scopes evidence to the Current reading Book, ranks by descending
+effective occurrences with lemma/POS tie breaks, and retains only canonical
+lemma-prefix search. Its table shows lemma, POS, current-Book occurrence
+count, truthful learner state, and Select/Remove. The next accepted change adds
+the single include-all control and hides Known, Reserved, and this Book's
+prepared identities by default. No Current reading or stale analysis leads to a
+Reading recovery state with access to the language-wide selection and saved
+decks; opening an identity starts Concordance in that Book. Import is its
+deployed peer at `/vocabulary/import`. Concordance at
 `/vocabulary/concordance` includes applied multi-Book and grammar filters, KWIC,
 and a focused textual sentence-study view. The broader Concordance contract
 remains target work. Named Custom decks support identity-list editing,

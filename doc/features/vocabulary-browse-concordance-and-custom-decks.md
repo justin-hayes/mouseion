@@ -3,9 +3,10 @@
 Status: **Accepted specification — partially shipped** · Updated: 2026-10-03
 
 This is the cohesive product and acceptance contract for Vocabulary Browse,
-Concordance, and Custom decks. The existing cross-Book Browse and Concordance
-workbench are shipped; the Current-reading Book-scoped Browse below is an
-accepted **change to ship**, not a description of today's Browse. Occurrence
+Concordance, and Custom decks. Browse now uses Current-reading Book scope and
+frequency-first ordering; its accepted default exclusions and include-all
+control remain a **change to ship**, not a description of today's Browse. The
+cross-Book Concordance workbench is shipped. Occurrence
 review and correction have a separate [contract](lemma-review-and-correction.md).
 Concordance results are one server-rendered native list with grouped sentence
 disclosures. The accepted [server-rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
