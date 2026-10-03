@@ -188,8 +188,16 @@ learner-facing screen.
 
 ### Accepted Vocabulary target — partially shipped
 
-Browse now includes current-evidence search, Book/POS/learner-state filters, and
-count sorts; Import is its deployed peer at `/vocabulary/import`. Concordance at
+The shipped Browse still has cross-Book search, Book/POS/learner-state filters,
+and count sorts. The accepted change replaces these with a Current-reading
+Book-scoped, descending-occurrence Browse, prefix search, and one include-all
+control. Its table shows lemma, POS, current-Book occurrence count, textual
+Learner state, and Select/Remove; an included Book-deck identity receives a
+separate secondary note within the Learner state cell. No Current reading or
+stale analysis leads to a Reading
+recovery state with access to the language-wide selection and saved decks;
+opening an identity starts Concordance in that Book. Import is its deployed
+peer at `/vocabulary/import`. Concordance at
 `/vocabulary/concordance` includes applied multi-Book and grammar filters, KWIC,
 and a focused textual sentence-study view. The broader Concordance contract
 remains target work. Named Custom decks support identity-list editing,
