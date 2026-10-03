@@ -57,7 +57,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		// Legacy Book/POS/state/sort parameters are intentionally ignored. Browse
 		// is always the complete current-Book identity set in frequency order.
 		Prefix: prefix, ReadingBookID: values.Get("reading"), Sort: "occurrences", Page: page,
-		Revision: values.Get("rev"),
+		Revision: values.Get("rev"), IncludeAll: values.Get("all") == "1",
 	}
 	// Browse is an interactive request, not a durable background job. Bound the
 	// complete read (including the optional selection lookup) so an unusually
@@ -641,6 +641,9 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 	values := url.Values{}
 	if query != "" {
 		values.Set("q", query)
+	}
+	if browse.IncludeAll {
+		values.Set("all", "1")
 	}
 	readingBookID := browse.ReadingBookID
 	if readingBookID == "" {

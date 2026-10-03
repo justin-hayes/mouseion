@@ -239,8 +239,9 @@ scrollable data table must label and contain its own overflow.
   adds a vocabulary-identity Browse and learner-facing Concordance beneath the
   existing destination. Browse now scopes current evidence to the active study
   language's Current reading Book; its selection and saved Custom decks remain
-  language-wide. Browse's remaining accepted controls and behaviors are still
-  target behavior. Exact-lookup Concordance, applied Book/grammar filters, KWIC
+  language-wide. Browse's default accounted-for exclusions and include-all
+  control are shipped; other remaining accepted Browse behavior remains target
+  behavior. Exact-lookup Concordance, applied Book/grammar filters, KWIC
   disclosures, and focused textual sentence study are shipped. These views do
   not duplicate the My Books bibliographic browser or Reading chooser.
 - Loading, empty, error, disabled, success, degraded, historical, and

@@ -1,0 +1,1 @@
+DROP INDEX public.deck_preparations_owner_book_state;

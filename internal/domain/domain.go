@@ -123,6 +123,7 @@ type VocabularyBrowseRow struct {
 	Known           bool
 	Reserved        bool
 	Generated       bool
+	InBookDeck      bool
 	Corrected       bool
 	Selected        bool
 }
@@ -143,6 +144,7 @@ type VocabularyBrowsePage struct {
 	KnownFilter                  string
 	ReservedFilter               string
 	Sort                         string
+	IncludeAll                   bool
 	CorpusRevision               string
 	Page                         int
 	SelectionCount               int
@@ -157,6 +159,7 @@ type VocabularyBrowseQuery struct {
 	KnownFilter    string
 	ReservedFilter string
 	Sort           string
+	IncludeAll     bool
 	Revision       string
 	Page           int
 }
