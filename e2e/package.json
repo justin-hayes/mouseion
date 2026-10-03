@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "smoke": "playwright test",
+    "capture:concordance": "node scripts/capture-concordance-evidence.mjs",
     "build:concordance": "NODE_PATH=./node_modules esbuild ../internal/webapp/frontend/concordance.ts --bundle --format=esm --target=es2022 --minify --outfile=../internal/webapp/static/concordance.js && node scripts/normalize-concordance-bundle.mjs"
   },
   "devDependencies": {
