@@ -625,7 +625,8 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
-    await expect(page.locator('.table-region')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Current effective vocabulary' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Current effective vocabulary' }).getByRole('row')).toHaveCount(3);
     await page.getByLabel('Study language').selectOption('fr');
     await expect(page).toHaveURL('/vocabulary');
     await expect(page.getByText(/active study language.*fr/)).toBeVisible();

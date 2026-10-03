@@ -24,6 +24,8 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await search.press('Enter');
     await expect(noScriptPage).toHaveURL(/\/vocabulary\?q=haus/);
     await expect(browseForm.locator('input[name="book"], input[name="pos"], select[name="known"], select[name="reserved"], select[name="sort"]')).toHaveCount(0);
+    const hausRow = noScriptPage.getByRole('row').filter({ hasText: 'haus' });
+    await expect(hausRow).toContainText('Known');
     const noOverflow = await noScriptPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(noOverflow).toBe(true);
   } finally {

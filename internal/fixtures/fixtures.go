@@ -467,13 +467,57 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 	return out, nil
 }
 
-// ListVocabularyBrowsePage returns no analysis evidence: the fixture server
-// intentionally models navigation and page states, not PostgreSQL/NLP output.
-func (s *Store) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+// ListVocabularyBrowsePage provides representative browser-smoke rows for the
+// default Current reading. It is fixture content, not simulated NLP output.
+func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	if query.Page < 1 {
 		query.Page = 1
 	}
-	return domain.VocabularyBrowsePage{Page: query.Page}, nil
+	page := domain.VocabularyBrowsePage{Page: query.Page}
+	current, err := s.GetCurrentReading(ctx, owner, language)
+	if err != nil || !current.IsActive() {
+		return page, err
+	}
+	page.CurrentBookID = current.BookID
+	if current.BookID != BookID {
+		return page, nil
+	}
+	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
+	page.CorpusRevision = "fixture-current-reading-vocabulary-v1"
+	rows := []domain.VocabularyBrowseRow{
+		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, Generated: true},
+		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, Known: true},
+	}
+	prefix := strings.ToLower(strings.TrimSpace(query.Prefix))
+	if prefix != "" {
+		filtered := rows[:0]
+		for _, row := range rows {
+			if strings.HasPrefix(strings.ToLower(row.CanonicalLemma), prefix) {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
+	}
+	page.Total = int64(len(rows))
+	page.InventoryTotal = 2
+	page.ScopedInventoryTotal = 2
+	lastPage := max(1, int((page.Total+24)/25))
+	if page.Page > lastPage {
+		page.Page = lastPage
+	}
+	selection, err := s.ListVocabularyBrowseSelection(ctx, owner, language)
+	if err != nil {
+		return domain.VocabularyBrowsePage{}, err
+	}
+	selected := make(map[string]bool, len(selection))
+	for _, identity := range selection {
+		selected[identity.CanonicalLemma+"\x00"+identity.UPOS] = true
+	}
+	for _, row := range rows {
+		row.Selected = selected[row.CanonicalLemma+"\x00"+row.UPOS]
+		page.Rows = append(page.Rows, row)
+	}
+	return page, nil
 }
 
 func (s *Store) SetVocabularyBrowseSelection(_ context.Context, owner, language, lemma, upos string, selected bool) error {
