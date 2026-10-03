@@ -1335,7 +1335,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						<p>No results are available on this page. The search scope may have changed; use Previous or restart the lookup rather than treating this page as a zero-match search.</p>
 					}
 					if len(result.Occurrences) > 0 {
-						<ol class="concordance-results">
+						<ol id="concordance-native-results" class="concordance-results">
 						for _, occurrence := range result.Occurrences {
 							<li class="concordance-result">
 								<details class="concordance-row" id={ concordanceOccurrenceID(occurrence) } tabindex="-1">
@@ -1360,6 +1360,9 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 							</li>
 						}
 						</ol>
+						<div hidden data-concordance-island data-concordance-data={ concordanceIslandJSON(result, lookup) }>
+							<mouseion-concordance></mouseion-concordance>
+						</div>
 					}
 					if result.HasPrevious || result.HasNext {
 						<nav aria-label="Concordance pages">
@@ -1372,9 +1375,10 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						</nav>
 					}
 				</section>
+				}
 			}
+			<script type="module" src="/static/concordance.js"></script>
 		}
-	}
 }
 
 templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back string) {

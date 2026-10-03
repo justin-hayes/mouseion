@@ -663,7 +663,10 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		fixtureConcordanceOccurrence("Excluded evidence", "haus", "haus", false, true),
 		fixtureConcordanceOccurrence("Unchanged evidence", "haus", "haus", false, false),
 	}
-	for _, occurrence := range fixtureRows {
+	for i, occurrence := range fixtureRows {
+		// Each synthetic row represents a distinct sentence occurrence; keep IDs
+		// unique just as the persisted corpus query does.
+		occurrence.SentenceOrdinal = int64(i)
 		matches := query.Mode == "surface" && query.Term == occurrence.Surface ||
 			query.Mode == "analyzer" && query.Term == occurrence.RawLemma && query.UPOS == occurrence.UPOS ||
 			query.Mode == "effective" && !occurrence.Excluded && query.Term == occurrence.EffectiveLemma && query.UPOS == occurrence.UPOS
@@ -675,7 +678,7 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 }
 
 func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
-	if book != "fixture-concordance-book" || unit != "fixture-concordance-unit" || sentence != 0 {
+	if book != "fixture-concordance-book" || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 2 {
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
 	return domain.SentenceStudy{BookID: book, BookTitle: "Corrected evidence", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,

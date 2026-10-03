@@ -1,6 +1,15 @@
 {
   "name": "mouseion-browser-acceptance",
   "private": true,
-  "scripts": { "smoke": "playwright test" },
-  "devDependencies": { "@playwright/test": "1.52.0" }
+  "scripts": {
+    "smoke": "playwright test",
+    "build:concordance": "NODE_PATH=./node_modules esbuild ../internal/webapp/frontend/concordance.ts --bundle --format=esm --target=es2022 --minify --outfile=../internal/webapp/static/concordance.js && node scripts/normalize-concordance-bundle.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "esbuild": "0.25.5"
+  },
+  "dependencies": {
+    "lit": "3.3.1"
+  }
 }
