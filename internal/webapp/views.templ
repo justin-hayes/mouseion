@@ -896,6 +896,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<button type="submit">Search</button>
 			</form>
 			if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
+			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 }>Browse results</h2>
 			if page.Total == 0 && page.InventoryTotal == 0 {
 				<p>The current analysis has no eligible vocabulary identities.</p>
 			}
