@@ -157,6 +157,28 @@ occurrences merely because text or positions match.
   prepared in that state. Known/Reserved/Generated state, effective identity,
   and current evidence remain separately legible.
 
+### Browse count readiness
+
+Browse uses the exact, owner-scoped per-Book effective counts described in
+[ADR 0084](../adr/0084-browse-effective-count-projection.md). Only Books with
+matching current completed analysis contribute to across-Book totals. A Book
+with no eligible occurrences is explicitly ready with zero identities; absent
+counts do not prove an empty Book. An analysis may complete before its counts
+are ready for promotion: continue using the prior matching current analysis
+where eligible, otherwise show a named pending or failed finalization state
+instead of claiming the Book is analyzed.
+
+While counts are rebuilt for existing Books, do not return local results,
+cross-Book totals, or a zero-result claim until every currently contributing
+Book in the language has ready counts. Show **Updating** while a rebuild is
+progressing and a distinct **Browse counts unavailable** state with a recovery
+path after bounded automatic retries fail. Keep Browse selection and saved-deck
+access available through either state. A confirmed occurrence correction or
+exclusion updates ready counts with the decision; if the Book has not yet been
+rebuilt, accept the decision and retry that rebuild without exposing partial
+counts. A pending reanalysis, source change, correction, or eligibility-rule
+change cannot make historical, incomplete, or mismatched counts appear current.
+
 ## Concordance and sentence study
 
 - Browse opens an **exact effective lemma + POS** query initially restricted
