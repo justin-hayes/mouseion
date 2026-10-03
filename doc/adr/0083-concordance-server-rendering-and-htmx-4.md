@@ -1,11 +1,11 @@
 # ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4
 
-Status: **Accepted (not yet implemented)** · Date: 2026-10-03 · Author: Justin + OpenCode
+Status: **Accepted; implementation complete in PR #1404, awaiting human review and merge** · Date: 2026-10-03 · Author: Justin + OpenCode
 
 ## Context
 
-Concordance already renders complete, usable KWIC results in Templ. Its Lit
-island serializes the same occurrences into JSON and renders a second list.
+Concordance already renders complete, usable KWIC results in Templ. Its former
+Lit island serialized the same occurrences into JSON and rendered a second list.
 Lookup requests, history, pending state, and recovery are handled by separate
 handwritten JavaScript. Maintaining two result renderers, their styling, and a
 bundle pipeline is disproportionate to the client-side state needed. Mouseion
@@ -46,6 +46,10 @@ PR with separable commits and full-app browser regression coverage. If this
 needs extensive compatibility code, stop and reconsider HTMX 2 with narrowly
 scoped Alpine rather than forcing the upgrade.
 
+The implementation removes the Lit island, duplicate JSON payload, bundle/build
+pipeline, and custom row-key controller; it also completes the app-wide HTMX 4
+migration in the same PR, with separable commits. Concordance's handwritten
+request/history implementation remains temporarily for the intermediate slice.
 The [Vocabulary feature contract](../features/vocabulary-browse-concordance-and-custom-decks.md)
-defines the learner-facing behavior. This ADR records a target, not a claim
-that the currently shipped Lit island or HTMX 2.0.7 has been replaced.
+defines the learner-facing behavior. PR #1404 is subject to required human
+review before merge.

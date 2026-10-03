@@ -384,6 +384,8 @@ func writePreparationStatus(w http.ResponseWriter, p domain.DeckPreparation) {
 }
 
 func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Vary", "Accept")
+	w.Header().Add("Vary", "HX-Request-Type")
 	if h.services.PreparedDeck == nil {
 		http.NotFound(w, r)
 		return
@@ -416,7 +418,7 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 			journeyAction = emptyDeckJourneyAction()
 		}
 	}
-	if r.Header.Get("Hx-Request") == "true" {
+	if isPartialHTMXRequest(r) {
 		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, journeyAction))
 		return
 	}

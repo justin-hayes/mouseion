@@ -37,6 +37,26 @@ func TestRequireUserRedirectsOnlyBrowserNavigation(t *testing.T) {
 	}
 }
 
+func TestRequireUserDoesNotRedirectHTMXRequestTypes(t *testing.T) {
+	h := (&Handler{}).RequireUser(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		require.FailNow(t, "protected handler called")
+	}))
+	for _, requestType := range []string{"full", "partial"} {
+		t.Run(requestType, func(t *testing.T) {
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
+			r.Header.Set("Accept", "text/html")
+			r.Header.Set("Sec-Fetch-Mode", "navigate")
+			r.Header.Set("Hx-Request-Type", requestType)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+
+			assert.Equal(t, http.StatusUnauthorized, w.Code)
+			assert.Empty(t, w.Header().Get("Location"))
+			assert.Equal(t, "HX-Request-Type", w.Header().Get("Vary"))
+		})
+	}
+}
+
 func TestSafeReturnPath(t *testing.T) {
 	for raw, want := range map[string]string{
 		"/books/one?tab=jobs":       "/books/one?tab=jobs",

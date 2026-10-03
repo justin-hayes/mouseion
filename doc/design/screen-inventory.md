@@ -210,15 +210,16 @@ Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-cus
 |---|---|---|
 | Browse extensions | Open an identity in Concordance or select it for later deck review. | Identity handoff, recoverable language-scoped selection, review, clear confirmation, and explicit naming are shipped |
 | Selection review | Review all selected identities, including missing evidence; explicitly name a Custom deck. | Long paged review, missing filter, clear confirmation, and explicit naming are shipped; unavailable-language selection remains read-only |
-| Concordance | Search exact surface, effective lemma + POS, or analyzer lemma + POS evidence; scan Books and open a focused study page for occurrence evidence. | Exact modes, applied multi-Book/grammar summary, 25-result KWIC paging, Book-first truncated rows with an always-visible study icon, matched native/Lit row-key navigation, native sentence disclosure, and narrow reflow are shipped |
+| Concordance | Search exact surface, effective lemma + POS, or analyzer lemma + POS evidence; scan Books and open a focused study page for occurrence evidence. | Exact modes, applied multi-Book/grammar summary, 25-result KWIC paging, Book-first truncated rows with an always-visible study link, native click/Enter/Space sentence disclosure, exclusive named disclosures where supported, no custom row-key shortcuts, and narrow reflow are shipped |
 | Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual token/head/dependent evidence, identified target, explained missing parse, and return to the originating result are shipped; optional diagram remains unnecessary |
 | Saved Custom deck | Edit an identity shortlist independently of Reading; review current evidence and submit preparation. | Named deck list, rename, paged identity review, missing filter, add/remove, current Book/analysis/correction links, unavailable-language read-only state, native deletion confirmation, evidence-change reconfirmation, all-zero disabled preparation, idempotent submission, read-only generation history, stable Anki deck identity with learner title in package description, and overlap/cleanup warning before preparation are shipped |
 | Custom deck preparation | Inspect durable status and item-level outcomes, compare current evidence with frozen generation provenance, cancel or prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card withheld, complete with evidence/quality/meaning omissions, prior Ready during replacement, historical generation detail, newest-only download, safe retry, uncertain submission, and Anki overlap/cleanup warning before download |
 
 The accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
-targets a single Templ-rendered results list, native grouped disclosures, and
-HTMX enhancement. The Lit island and row-key shortcuts in the shipped row
-above have not yet been removed.
+ships one Templ-rendered result list, native grouped disclosures, no custom
+row-key shortcuts, and pinned app-wide HTMX 4.0.0 for existing enhanced flows.
+The handwritten Concordance lookup/history enhancement remains temporarily in
+this intermediate slice; a follow-up moves it to HTMX.
 
 ## Inactive and supporting implementation
 

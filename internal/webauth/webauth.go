@@ -62,6 +62,7 @@ func (h *Handler) RequireUser(next http.Handler) http.Handler {
 }
 
 func unauthenticated(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Vary", "HX-Request-Type")
 	if isNavigation(r) {
 		query := url.Values{}
 		query.Set("next", SafeReturnPath(r.URL.RequestURI()))
@@ -72,7 +73,7 @@ func unauthenticated(w http.ResponseWriter, r *http.Request) {
 }
 
 func isNavigation(r *http.Request) bool {
-	if r.Method != http.MethodGet || r.Header.Get("Hx-Request") == "true" {
+	if r.Method != http.MethodGet || r.Header.Get("Hx-Request-Type") != "" {
 		return false
 	}
 	if mode := r.Header.Get("Sec-Fetch-Mode"); mode != "" {

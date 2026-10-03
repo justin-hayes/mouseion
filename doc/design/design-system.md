@@ -28,7 +28,7 @@ workflow-specific.
 
 ## Dependency policy
 
-Mouseion serves Pico CSS **2.1.1** and HTMX **2.0.7** from its embedded static
+Mouseion serves Pico CSS **2.1.1** and HTMX **4.0.0** from its embedded static
 filesystem. The browser does not depend on jsDelivr or another CDN to render or
 enhance the application.
 
@@ -41,14 +41,11 @@ Pico supplies normalization and native-element defaults. HTMX enhances real
 server-rendered links and forms. Neither dependency defines Mouseion product
 semantics, terminology, or component APIs.
 
-The accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
-targets pinned, locally served HTMX **4.0.0** in place of 2.0.7, but this is
-not shipped yet. The upgrade is app-wide: audit explicit inheritance, renamed
-events, error-response swaps, and history restoration before updating the
-vendored asset and version above. Concordance's target is one Templ-owned
-result list with native disclosures; HTMX enhances requests, not rendering.
-Keep the no-JavaScript path and use a scoped HTMX network-error handler only
-where there is no response to swap.
+The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
+ships one Templ-owned result list with native disclosures and HTMX 4.0.0 for
+enhanced requests. HTMX enhances requests, not rendering. Keep the no-JavaScript
+path; HTTP error responses swap their server-rendered recovery content into the
+request target, while network failures leave existing content intact.
 
 ## Semantic color tokens
 

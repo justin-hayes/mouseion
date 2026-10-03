@@ -110,7 +110,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     let polls = 0;
     await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
       polls += 1;
-      if (route.request().headers()['hx-request'] === 'true') {
+      if (route.request().headers()['accept'] === 'text/html') {
         return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
       }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
@@ -161,7 +161,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
     let state = 'queued';
     await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
-      if (route.request().headers()['hx-request'] === 'true') {
+      if (route.request().headers()['accept'] === 'text/html') {
         return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
       }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) });

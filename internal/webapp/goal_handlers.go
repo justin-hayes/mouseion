@@ -54,7 +54,7 @@ func (h *Handler) goalSection(ctx context.Context, owner, message, pageError str
 }
 
 func (h *Handler) respondGoal(w http.ResponseWriter, r *http.Request, message, pageError, focusBookID string) {
-	if isHTMX(r) {
+	if isPartialHTMXRequest(r) {
 		section, err := h.goalSection(r.Context(), user(r).ID, message, pageError)
 		if err != nil {
 			fail(w, err)

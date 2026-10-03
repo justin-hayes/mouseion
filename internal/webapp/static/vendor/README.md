@@ -8,7 +8,7 @@ filesystem. The application does not require a browser-time connection to a CDN.
 | Asset                | Version | Upstream                                        | SHA-256                                                            |
 | -------------------- | ------: | ----------------------------------------------- | ------------------------------------------------------------------ |
 | `pico-2.1.1.min.css` |   2.1.1 | `@picocss/pico` npm package, `css/pico.min.css` | `fbc9a63fc9fc9f72d12fd7fc9806e11fa9f77ae4f9cad146b27003a1119ba3db` |
-| `htmx-2.0.7.min.js`  |   2.0.7 | `htmx.org` npm package, `dist/htmx.min.js`      | `60231ae6ba9db3825eb15a261122d5f55921c4d53b66bf637dc18b4ee27c79f9` |
+| `htmx-4.0.0.min.js`  |   4.0.0 | `htmx.org` npm package, `dist/htmx.min.js`      | `e484d9171a9db30a39c8f16e3d709d4137f3211c659f8e6125816635033d593f` |
 
 The corresponding upstream licenses are under [`licenses/`](licenses/).
 

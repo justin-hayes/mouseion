@@ -309,7 +309,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	requireHandler(t, h).services.CatalogueSync = stub
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Hx-Request", "true")
+	request.Header.Set("Hx-Request-Type", "partial")
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -324,7 +324,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	requireHandler(t, h).services.CatalogueSync = stub
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Hx-Request", "true")
+	request.Header.Set("Hx-Request-Type", "partial")
 	request.Header.Set("Hx-Target", "book-row-fixture-metadata-only")
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
@@ -342,7 +342,7 @@ func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
 	requireHandler(t, h).services.CatalogueSync = nil
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Hx-Request", "true")
+	request.Header.Set("Hx-Request-Type", "partial")
 	request.Header.Set("Hx-Target", "book-row-fixture-metadata-only")
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
