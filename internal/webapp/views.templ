@@ -1264,9 +1264,13 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				</form>
 			</details>
 			</div>
-			<div id="concordance-recovery" aria-live="polite"></div>
 			if message != "" {
-				<p role="alert">{ message }</p>
+				<div id="concordance-recovery" aria-live="polite">
+					<p role="alert">{ message }</p>
+					<a href={ templ.SafeURL(vocabularyConcordancePageURL(1, lookup)) }>Retry Concordance lookup</a>
+				</div>
+			} else {
+				<div id="concordance-recovery" aria-live="polite"></div>
 			}
 			if applied {
 				<section id="concordance-results" aria-labelledby="concordance-summary">
