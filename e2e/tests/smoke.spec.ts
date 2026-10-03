@@ -226,6 +226,15 @@ test.describe('authenticated learner smoke', () => {
     const firstRow = enhancedRows.locator('.concordance-result').first();
     await expect(firstRow.locator('.concordance-book-title')).toHaveText('Der lange Weg nach Hause');
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
+    const accentUsesMouseionToken = await firstRow.locator('.concordance-surface').evaluate(element => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--mouseion-color-accent)';
+      element.append(probe);
+      const tokenColor = getComputedStyle(probe).color;
+      probe.remove();
+      return getComputedStyle(element).color === tokenColor;
+    });
+    expect(accentUsesMouseionToken).toBe(true);
     await expect(firstRow.locator('details')).not.toHaveAttribute('open', '');
     await firstRow.locator('summary').click();
     await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
