@@ -335,6 +335,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     expect(returnedURL.searchParams.get('grammar')).toBe('own');
     expect(returnedURL.searchParams.get('relation')).toBe('obj');
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
+    expect(returnedURL.searchParams.get('focus')).toBe('occurrence-fixture-book-0-1');
 
     const next = page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' });
     await expect(next).toHaveAttribute('href', /page=2/);
@@ -351,6 +352,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     expect(returnedURL.searchParams.get('grammar')).toBe('own');
     expect(returnedURL.searchParams.get('relation')).toBe('obj');
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe(pageTwoID);
+    expect(returnedURL.searchParams.get('focus')).toBe(pageTwoID);
     await expect(page.locator('#concordance-summary').locator('..')).toContainText('page 2');
     await expect(results.locator('.concordance-book-title')).toHaveText('Der lange Weg nach Hause');
 
@@ -364,6 +366,27 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await returnLink.click();
     await expect(results).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('concordance-summary');
+  });
+
+  test('Concordance return focus is server-rendered with JavaScript disabled', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const noScriptPage = await context.newPage();
+    try {
+      await signIn(noScriptPage);
+      await noScriptPage.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj&page=2&focus=occurrence-fixture-book-25-1#occurrence-fixture-book-25-1');
+      const target = noScriptPage.locator('#occurrence-fixture-book-25-1');
+      await expect(target).toBeFocused();
+      await target.locator('..').locator('.concordance-study-link').click();
+      await noScriptPage.getByRole('link', { name: 'Return to Concordance results' }).click();
+      await expect(noScriptPage).toHaveURL(/page=2.*#occurrence-fixture-book-25-1$/);
+      expect(new URL(noScriptPage.url()).searchParams.get('focus')).toBe('occurrence-fixture-book-25-1');
+      await expect(target).toBeFocused();
+
+      await noScriptPage.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj&page=2&focus=occurrence-missing#occurrence-missing');
+      await expect(noScriptPage.locator('#concordance-summary')).toBeFocused();
+    } finally {
+      await context.close();
+    }
   });
 
   test('Concordance keeps its applied results labeled while an enhanced lookup is pending', async ({ page }) => {

@@ -19,7 +19,7 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	}}
 	component := VocabularyConcordancePageView(domain.User{}, "", "de", nil,
 		domain.ConcordanceLookup{Mode: "surface", Term: "Haus", Page: 1},
-		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1}, true, "")
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1}, true, "", "")
 	var rendered bytes.Buffer
 	if err := component.Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
@@ -43,6 +43,49 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	for _, forbidden := range []string{`data-concordance-data=`, `<mouseion-concordance`, `concordance-keyboard.js`, `concordance.js`} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("rendered page includes retired Concordance presentation code %q", forbidden)
+		}
+	}
+}
+
+func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
+	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
+		BookID: "book-1", SentenceOrdinal: 2, TokenOrdinal: 3, Surface: "Haus", SentenceText: "Ein Haus.",
+	}}
+	lookup := domain.ConcordanceLookup{Mode: "surface", Term: "Haus", Page: 1}
+	result := domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1}
+	render := func(target string, result domain.ConcordanceResult) string {
+		component := VocabularyConcordancePageView(domain.User{}, "", "de", nil, lookup, result, true, "", target)
+		var rendered bytes.Buffer
+		if err := component.Render(t.Context(), &rendered); err != nil {
+			t.Fatal(err)
+		}
+		return rendered.String()
+	}
+
+	got := render("occurrence-book-1-2-3", result)
+	if !strings.Contains(got, `id="occurrence-book-1-2-3" tabindex="-1" autofocus`) {
+		t.Fatal("returned occurrence was not focused by server-rendered autofocus")
+	}
+
+	got = render("occurrence-no-longer-present", result)
+	if !strings.Contains(got, `<h2 id="concordance-summary" tabindex="-1" autofocus>Current results</h2>`) {
+		t.Fatal("missing returned occurrence did not focus Current results in server-rendered HTML")
+	}
+}
+
+func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.T) {
+	valid := "/vocabulary/concordance?mode=surface&term=Haus&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
+	if got := safeConcordanceReturnURL(valid); got != valid {
+		t.Fatalf("safe return URL = %q, want %q", got, valid)
+	}
+	for _, invalid := range []string{
+		"https://example.com/", "//example.com/vocabulary/concordance?focus=x#x",
+		"/unrelated?focus=x#x", "/vocabulary/concordance?term=Haus&page=2&focus=x#y",
+		"/vocabulary/concordance?term=Haus&page=not-a-page&focus=x#x",
+		"/vocabulary/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
+	} {
+		if got := safeConcordanceReturnURL(invalid); got != "/vocabulary/concordance" {
+			t.Errorf("unsafe return URL %q accepted as %q", invalid, got)
 		}
 	}
 }
