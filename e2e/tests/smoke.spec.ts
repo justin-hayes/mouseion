@@ -224,6 +224,7 @@ test.describe('authenticated learner smoke', () => {
     const rows = page.locator('#concordance-native-results');
     await expect(rows).toBeVisible();
     await expect(rows.locator('.concordance-result')).toHaveCount(25);
+    await expect(page.locator('#concordance-summary')).toBeFocused();
     await expect(page.locator('.concordance-results')).toHaveCount(1);
     await expect(page.locator('[data-concordance-data], mouseion-concordance')).toHaveCount(0);
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -254,6 +255,17 @@ test.describe('authenticated learner smoke', () => {
     await expect(secondRow.locator('details')).toHaveAttribute('open', '');
     await expect(firstRow.locator('details')).not.toHaveAttribute('open', '');
     expect(concordanceRequests).toHaveLength(1);
+    await page.locator('#concordance-workflow').getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' }).click();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(1);
+    await page.goBack();
+    await expect(page).toHaveURL(/term=Haus/);
+    await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(25);
+    await page.goForward();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(1);
+    await page.goBack();
+    await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(25);
     const rowKeysDefaultPrevented = await page.evaluate(() => {
       const summary = document.querySelector('#concordance-native-results details summary')!;
       return ['ArrowDown', 'ArrowUp', 'Escape'].map(key => {
@@ -276,6 +288,44 @@ test.describe('authenticated learner smoke', () => {
     await expect(returnedOccurrence).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
     await expect(results).toContainText('lookup for “Haus”');
+  });
+
+  test('Concordance network failure keeps old results and offers the attempted query', async ({ page }) => {
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    const oldResults = page.locator('#concordance-results');
+    await expect(oldResults).toContainText('lookup for “Haus”');
+    await page.route(/\/vocabulary\/concordance.*term=Netzwerk/, route => route.abort());
+    await page.getByLabel('Exact term').fill('Netzwerk');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    const recovery = page.locator('#concordance-recovery');
+    await expect(recovery).toContainText('could not reach the server');
+    await expect(recovery.getByRole('link', { name: 'Retry Concordance lookup' })).toHaveAttribute('href', /term=Netzwerk/);
+    await expect(oldResults).toContainText('lookup for “Haus”');
+    await expect(page).toHaveURL(/term=Haus/);
+    await page.unroute(/\/vocabulary\/concordance.*term=Netzwerk/);
+  });
+
+  test('Concordance applies only the newest overlapping lookup', async ({ page }) => {
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    let releaseSlow!: () => void;
+    const slowResponse = new Promise<void>(resolve => { releaseSlow = resolve; });
+    let slowRequestStarted!: () => void;
+    const slowRequest = new Promise<void>(resolve => { slowRequestStarted = resolve; });
+    await page.route(/\/vocabulary\/concordance.*term=Langsam/, async route => {
+      slowRequestStarted();
+      await slowResponse;
+      try { await route.continue(); } catch { /* HTMX may have aborted the superseded request. */ }
+    });
+    await page.getByLabel('Exact term').fill('Langsam');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    await slowRequest;
+    await page.getByLabel('Exact term').fill('Haus2');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
+    releaseSlow();
+    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
+    await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Langsam”');
+    await expect(page).toHaveURL(/term=Haus2/);
   });
 
   test('Concordance Book and grammar drafts stay separate until explicitly applied', async ({ page }) => {
@@ -361,6 +411,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await returnLink.evaluate(link => {
       const returnURL = new URL((link as HTMLAnchorElement).href);
       returnURL.hash = 'occurrence-no-longer-present';
+      returnURL.searchParams.set('focus', 'occurrence-no-longer-present');
       (link as HTMLAnchorElement).href = returnURL.href;
     });
     await returnLink.click();
@@ -400,7 +451,8 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     });
     await page.getByLabel('Exact term').fill('Haus2');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
-    await expect(page.locator('#concordance-request-status')).toContainText('previous results remain under their previously applied query and scope');
+    await expect(page.locator('#concordance-pending')).toBeVisible();
+    await expect(page.locator('#concordance-pending')).toContainText('previous results remain under their previously applied query and scope');
     await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
     await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
     await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”', { timeout: 5000 });
@@ -410,37 +462,34 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
     await page.goForward();
     await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
-    await page.evaluate(() => {
-      const nativeFetch = window.fetch.bind(window);
-      window.fetch = (input, init) => {
-        const requestURL = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-        if (requestURL.includes('term=Changed')) return Promise.resolve(new Response('', { status: 409 }));
-        return nativeFetch(input, init);
-      };
-    });
+    await page.route('**/vocabulary/concordance?**term=Changed**', route => route.fulfill({
+      status: 409,
+      contentType: 'text/html',
+      body: '<div id="concordance-recovery" aria-live="polite"><p role="status">Current evidence changed. The attempted query was not applied.</p><a href="/vocabulary/concordance?mode=surface&page=1&term=Changed">Restart from results</a></div>',
+    }));
     await page.getByLabel('Exact term').fill('Changed');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
-    await expect(page.locator('#concordance-request-status')).toContainText('The analyzed evidence changed');
-    const restart = page.locator('#concordance-request-status').getByRole('link', { name: 'Restart from results' });
+    await expect(page.locator('#concordance-recovery')).toContainText('Current evidence changed');
+    const restart = page.locator('#concordance-recovery').getByRole('link', { name: 'Restart from results' });
     await expect(restart).toHaveAttribute('href', /page=1/);
     await expect(restart).not.toHaveAttribute('href', /rev=/);
     await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
+    await page.unroute('**/vocabulary/concordance?**term=Changed**');
 
     for (const [term, statusCode] of [['ServerError', 500], ['GatewayTimeout', 504]] as const) {
-      await page.evaluate(({ term, statusCode }) => {
-        const nativeFetch = window.fetch.bind(window);
-        window.fetch = (input, init) => {
-          const requestURL = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-          if (requestURL.includes(`term=${term}`)) return Promise.resolve(new Response('', { status: statusCode }));
-          return nativeFetch(input, init);
-        };
-      }, { term, statusCode });
+      await page.route(`**/vocabulary/concordance?**term=${term}**`, route => route.fulfill({
+        status: statusCode,
+        contentType: 'text/html',
+        body: `<div id="concordance-recovery" aria-live="polite"><p role="alert">${term} lookup failed; the previous results remain unchanged.</p><a href="/vocabulary/concordance?mode=surface&term=${term}">Retry Concordance lookup</a></div>`,
+      }));
       await page.getByLabel('Exact term').fill(term);
       await page.getByRole('button', { name: 'Find', exact: true }).click();
-      await expect(page.locator('#concordance-request-status')).toContainText('The new lookup was not applied');
-      await expect(page.locator('#concordance-request-status').getByRole('link', { name: 'Retry Concordance lookup' })).toHaveAttribute('href', new RegExp(`term=${term}`));
+      await expect(page.locator('#concordance-recovery')).toContainText(`${term} lookup failed`);
+      await expect(page.locator('#concordance-recovery').getByRole('link', { name: 'Retry Concordance lookup' })).toHaveAttribute('href', new RegExp(`term=${term}`));
       await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
       await expect(page.locator('#concordance-results')).not.toContainText(`lookup for “${term}”`);
+      await expect(page).toHaveURL(/term=Haus2/);
+      await page.unroute(`**/vocabulary/concordance?**term=${term}**`);
     }
   });
 

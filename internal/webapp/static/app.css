@@ -653,6 +653,14 @@ article.narrow {
   display: block;
 }
 
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-indicator.htmx-request {
+  display: block;
+}
+
 .catalog-pagination {
   display: flex;
   flex-wrap: wrap;
