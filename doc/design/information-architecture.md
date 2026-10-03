@@ -37,9 +37,10 @@ The product supports these top-level goals:
 8. maintain the learner-owned catalog connections that feed My Books.
 
 **Accepted target (partially shipped):** in Vocabulary, Browse effective
-identities across analyzed Books and inspect exact occurrences in Concordance;
-the initial Browse and Concordance slices are deployed. Grammar exploration,
-focused sentence study, and saved cross-Book Custom decks remain target work. See the
+identities in the active language's Current reading Book, ranked by occurrence
+count after excluding already accounted-for vocabulary by default. The shipped
+Browse still spans analyzed Books; the Book-scoped replacement is not yet
+implemented. Concordance and saved Custom decks remain cross-Book. See the
 [Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
 
 The recurring experience rhythm is:

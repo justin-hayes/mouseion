@@ -11,6 +11,8 @@ The current disposition and current-reading contract is recorded in
 records the historical Goal and ordered-Journey model.
 [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
 implemented contextual Gloss vocabulary below.
+The Book-scoped Vocabulary Browse inventory below is an accepted target;
+the shipped Browse still spans analyzed Books in the active study language.
 
 ## Language
 
@@ -60,6 +62,12 @@ The frozen recurring-vocabulary snapshot held by a current reading in its study
 language, neither counted as Known nor available for selection while active.
 Stopping, switching, setting aside, or finishing releases the reservation.
 _Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
+
+**Unknown vocabulary**:
+An eligible analyzed vocabulary identity that is neither Known nor Reserved in
+its study language. A word can be Unknown even if it has appeared in a prepared
+Book deck; generation does not establish learner knowledge.
+_Avoid_: difficult words, never generated vocabulary.
 
 **Current-reading vocabulary snapshot**:
 The immutable recurring-vocabulary identity set frozen from the Book's exact
@@ -343,16 +351,18 @@ occurrence contributes none.
 _Avoid_: edited analyzer lemma, global corrected lemma.
 
 **Vocabulary Browse inventory**:
-The active-study-language collection of effective vocabulary identities
-evidenced by currently analyzed Books, including single occurrences and
-identities that are Known or Reserved. It is not the recurring-vocabulary pool
-used for Book prepared decks or current-reading snapshots.
+The collection of effective vocabulary identities evidenced by the Book in
+the active study language's Current reading, including single occurrences and
+identities that are Known, Reserved, or previously Generated for that Book. It
+is distinct from both the filtered Browse results and the recurring-vocabulary
+pool used for Book prepared decks and current-reading snapshots.
 _Avoid_: prepared-deck candidates, known-vocabulary list.
 
 **Browse selection**:
 An owner- and study-language-scoped unnamed selection of effective vocabulary
-identities made in Vocabulary Browse before creating a Custom deck. It is
-recoverable but is not itself a saved deck or preparation artifact.
+identities made in Vocabulary Browse before creating a Custom deck. It persists
+across changes of Current reading and can contain identities not evidenced in
+the current Book; it is not itself a saved deck or preparation artifact.
 _Avoid_: custom deck, prepared deck, temporary filter result.
 
 **Lemma review flag**:

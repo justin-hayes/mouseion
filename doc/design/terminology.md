@@ -121,18 +121,22 @@ and vocabulary knowledge remain independent facts.
 
 | Term | Meaning | Avoid |
 |---|---|---|
-| **Browse** | Vocabulary view of owner-specific effective lemma + POS identities with current analyzed evidence across active-language Books, including singletons. | Book prepared-deck candidates, Known-vocabulary list |
+| **Browse** | Vocabulary view of owner-specific effective lemma + POS identities with current analyzed evidence in the active language's Current reading Book, including singletons; frequency-ranked and excluding Known, Reserved, and already prepared-for-this-Book identities by default. | Book prepared-deck candidates, Known-vocabulary list, cross-Book inventory |
 | **Browse selection** | Recoverable unnamed set of effective identities awaiting review and explicit naming; scoped to one learner and study language. | Custom deck before creation, filtered results |
 | **Concordance** | Occurrence exploration with both sentence/KWIC context and analyzer-attributed syntax; effective lookup remains distinct from observed surface and analyzer-evidence lookup. | KWIC as the whole feature, global correction |
 | **Custom deck** | Learner-named editable cross-Book identity selection with independent frozen preparations, not a Reading snapshot or Book Prepared deck. | Reading deck, Custom Prepared deck |
 
 These are accepted terms from the [Vocabulary feature
 specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
-Browse is available; exact surface/effective/analyzer lookup, scoped grammar
-exploration, KWIC context, and focused sentence study are available in
-Concordance. Browse selection and Custom decks remain target terms for unshipped
-workflows. Known,
-Reserved, and Generated remain separate facts in Browse and on Custom decks.
+The Book-scoped Browse contract is an accepted change to the shipped cross-Book
+Browse, not yet implemented. Exact surface/effective/analyzer lookup, scoped
+grammar exploration, KWIC context, and focused sentence study are available in
+Concordance. Browse selection and Custom decks are shipped; their language-wide
+scope remains independent of the Current reading Book. The simplified Browse
+table labels each identity Unknown, Known, or Reserved (both if applicable);
+when include-all reveals an identity prepared for this Book, **In a Book deck**
+appears as a separate note, not a learner-knowledge state. Generation never
+makes vocabulary Known.
 
 Current-reading completion records durable history and accepts eligible frozen
 snapshot identities into modeled Known vocabulary as one idempotent transition.

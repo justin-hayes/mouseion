@@ -3,26 +3,31 @@
 Status: **Accepted specification — partially shipped** · Updated: 2026-10-03
 
 This is the cohesive product and acceptance contract for Vocabulary Browse,
-Concordance, and Custom decks. Browse and the first Concordance workbench are
-shipped; remaining target behavior is called out below. Occurrence review and
-correction have a separate [contract](lemma-review-and-correction.md).
+Concordance, and Custom decks. The existing cross-Book Browse and Concordance
+workbench are shipped; the Current-reading Book-scoped Browse below is an
+accepted **change to ship**, not a description of today's Browse. Occurrence
+review and correction have a separate [contract](lemma-review-and-correction.md).
 The first Concordance workbench currently uses a Lit results island. The
 accepted [server-rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 replaces it in a later implementation, not in this documentation change.
 
 ## Purpose and boundaries
 
-Give a learner working in **one active study language** a way to discover
-vocabulary identities across their currently analyzed Books, investigate the
-actual occurrences and syntax, and save chosen identities for independent Anki
-study. Vocabulary remains one of four primary destinations (My Books, Reading,
-Vocabulary, Catalogs). Its peer views are **Browse** (landing),
-**Concordance**, and **Import known vocabulary**. Browse is a vocabulary-identity
-browser, not a second catalog of Books; My Books remains the sole bibliographic
-Book browser. A Browse identity opens Concordance; Concordance also permits
+Give a learner working in **one active study language** a quick way to find
+high-occurrence vocabulary in the Book they are currently reading that is not
+already Known, Reserved, or in a Book deck prepared for that Book. They can
+investigate actual occurrences and syntax across Books and save chosen
+identities for independent Anki study. Vocabulary remains one of four primary
+destinations (My Books, Reading, Vocabulary, Catalogs). Its peer views are
+**Browse** (landing), **Concordance**, and **Import known vocabulary**.
+Browse is a vocabulary-identity browser, not a second catalog of Books;
+My Books remains the sole bibliographic Book browser. A Browse identity opens
+Concordance; Concordance also permits
 direct lookup. A learner reviews a Browse selection before naming a Custom deck.
 Reading keeps its current Book, snapshot, and Book-preparation actions; no
-permanent Reading-to-Vocabulary link is required.
+permanent Reading-to-Vocabulary link is required. Browse never selects a Book
+independently of the active study language's Current reading. Concordance,
+Browse selection, and Custom decks remain language-wide, not Book-bound.
 
 The [Custom deck ADR](../adr/0082-independent-custom-vocabulary-decks.md)
 owns the durable independence/freeze decision. This feature does **not** change
@@ -46,7 +51,7 @@ search is included.
   from vocabulary counts. Neither surface spelling nor correction implies a
   language-wide rule. Preserve the raw lemma, analyzer-derived canonical
   lemma/POS, syntax, and source text as evidence.
-- Count only occurrences in each owned Book's **current completed analysis**
+- Count only occurrences in an owned Book's **current completed analysis**
   matching its current acquired source, with the normalized corpus and selected
   analysis scope (including selected ancillary units). Any Book disposition is
   eligible. Missing, stale, failed, unavailable, or still incomplete analysis
@@ -55,67 +60,98 @@ search is included.
   current completed analysis while a replacement for the same source is
   pending; switch its contribution atomically on promotion. A changed source
   makes the old analysis stale until a matching run completes.
-- **Occurrence count** sums eligible effective occurrences; **Book count** is
-  distinct owned Book IDs with at least one of them, even when two Books contain
-  identical text. A correction moves just its occurrence between identities;
+- **Occurrence count** sums eligible effective occurrences in the applied scope.
+  Browse's scope is exactly the Current reading's Book; cross-Book selection/deck
+  review and Concordance retain their own scope and may report distinct Book
+  counts. A correction moves just its occurrence between identities;
   exclusion removes just its occurrence. A singleton counts. An identity with
-  no current eligible occurrences is absent from Browse unless it remains in a
-  saved selection; being Known alone does not create a Browse row. Known,
-  Reserved, and Generated are independent of counts and do not hide identities.
-  Indicate when learner corrections contribute to a row's count; Concordance
-  supplies individual attribution. Never silently mix analyzer and effective
-  counts.
-- Disclose how many active-language Books contributed current evidence and how
-  many could not, with the applied Book subset identified where relevant. An
-  empty qualifying corpus, zero matches within a nonempty corpus, and a
-  partially analyzed library are different facts. Later analysis and occurrence
+  no eligible occurrences in the Current reading's Book is absent from Browse
+  even if retained in a saved selection; being Known alone does not create a
+  Browse row. Known, Reserved, and Generated never alter counts, though Browse
+  hides them by default under the rules below. Concordance supplies correction
+  and analyzer attribution; the simplified Browse table has no evidence column.
+  Never silently mix analyzer and effective counts.
+- Browse names the Current reading's Book and states whether it has current
+  completed analysis and eligible vocabulary evidence. No Current reading,
+  missing/stale analysis, an empty qualifying Book corpus, and zero matches
+  within a nonempty corpus are different states. Never fall back to an earlier
+  analysis, frozen snapshot, or other Books. Later analysis and occurrence
   decisions do not rewrite an already frozen snapshot or preparation.
 
-For example, three qualifying occurrences in Book A and one in Book B display
-`4 occurrences · 2 Books`; if all three in A are corrected away, display
-`1 occurrence · 1 Book`. `Drachen` corrected from `Drach/NOUN` to
+For example, three qualifying occurrences in the Current reading's Book A and
+one in Book B display `3 occurrences` in Browse; correcting all three in A
+away removes the identity from Browse even though B still has one.
+`Drachen` corrected from `Drach/NOUN` to
 `Drache/NOUN` in one dragon sentence does not change a separate kite use with
 the same surface. On reanalysis, earlier decisions never transfer to new
 occurrences merely because text or positions match.
 
 ## Browse and selection
 
-- Default to canonical-lemma alphabetical order with POS tie-break. Optional
-  sorts by **most effective occurrences** and **most contributing Books** break
-  ties by lemma then POS. These are discovery orders, not learning priority,
-  coverage, or a Reading recommendation. Search is case-insensitive
-  canonical-lemma **prefix** search, not surface search.
-- Multi-select Book and POS filters; separate Known and Reserved state filters,
-  including **Not Known or Reserved**. Show Generated provenance secondarily,
-  without treating it as a filter or exclusion state in this first version.
-  State filters narrow identities but do not alter their counts. Book filtering
-  scopes the displayed occurrence and distinct-Book counts and both count
-  sorts to those Books; explicitly label the scope. It is only a discovery
-  filter, **not** a constraint on Custom deck sentence choice. Rows show lemma,
-  POS, both scoped effective counts, Known/Reserved state, concise Generated
-  provenance, and a correction indicator. Link to the identity's Concordance
-  for exact examples, source attribution, and analyzer decisions.
-- Use stable **25-result** server-rendered pagination, preserving applied
-  query, filters, and sort. A recoverable **Browse selection** is an unnamed
+- Browse only the Book in the active study language's Current reading. Display
+  the Book's title and language beside the ranked results; do not offer a Book
+  picker or fall back to every analyzed Book. Without a Current reading, show a
+  named empty state linking to Reading; if the Book lacks current analysis, show
+  a Book-specific recovery state linking to Reading. Keep the language's Browse
+  selection and saved-deck access available in both states, without presenting
+  them as current-Book results. An analyzed Book with no eligible identities and
+  a filtered zero-result page need separate explanations.
+- Default to **most eligible effective occurrences in that Book first**, with
+  canonical lemma then POS breaking ties. This is a discovery order, not a
+  learning priority, coverage measure, or Reading recommendation. Keep only
+  case-insensitive canonical-lemma **prefix** search, not surface/substring
+  search, and one **Show already accounted-for words** control. Remove Book and
+  POS filters, independent Known/Reserved controls, and alternate sorts. Ignore
+  former Browse filter/sort URL parameters rather than widening the Book scope.
+- By default, hide identities that are Known (including imported lemma-wide
+  Known vocabulary), Reserved in the active language, **or** included in any
+  successfully prepared Book deck for this Current reading's Book, including
+  earlier preparations. An identity prepared first for another Book and later
+  for this Book is still hidden; language-wide first-generation provenance is
+  insufficient to determine Book inclusion. Omitted cards, frozen snapshot
+  membership alone, and Custom deck preparation do not count as a Book-deck
+  inclusion. The single include-all control reveals all such identities at
+  once, without changing their counts or sort. Explain the exclusions above
+  the table.
+- Rows show canonical lemma (linked to exact effective-identity Concordance),
+  analyzed POS, the Book's effective occurrence count, **Learner state**, and
+  Select/Remove. Learner state uses textual **Unknown**, **Known**, or
+  **Reserved** labels; show **Known · Reserved** when both are true rather than
+  hiding either fact. Unknown means neither Known nor Reserved, not never
+  generated. For identities revealed by include-all that appeared in a
+  successfully prepared deck for this Book, show a secondary **In a Book deck**
+  note within the Learner state cell, separate from the knowledge label. An
+  imported lemma-wide Known identity is Known regardless of analyzed POS.
+  Concordance opens initially restricted to this Book, with its existing
+  ability to inspect other Books, individual corrections, and analyzer
+  provenance. Do not show a Book count (always one in Browse) or correction
+  indicator in the simplified table.
+- Use stable **25-result** server-rendered pagination, preserving the applied
+  prefix and include-all state. A recoverable **Browse selection** is an unnamed
   owner- and language-scoped set of effective identities. Selection is not
   deck creation.
-  It survives pages, query/filter/sort changes, visits, and switching active
-  languages; languages have separate selections. A visible selected count opens
-  review of *all* selected identities, including off-page and no-longer-
-  evidenced ones. Review supports individual removal and confirmed **Clear
-  selection**. The learner explicitly names/creates a Custom deck after review;
-  only confirmed creation clears that language's unnamed selection.
+  It survives pages, prefix/toggle changes, visits, switching Current reading
+  Books, and switching active languages; languages have separate selections.
+  A visible selected count opens review of *all* selected identities, including
+  off-page, off-current-Book, and no-longer-evidenced ones. Review supports
+  individual removal and confirmed **Clear selection**. The learner explicitly
+  names/creates a Custom deck after review; only confirmed creation clears
+  that language's unnamed selection.
 - Independently page long selection/deck review, showing total selected and
-  missing-evidence counts on each page and a missing-evidence filter. A saved
+  missing-evidence counts on each page and a missing-evidence filter. Off-Book
+  identities can still have current evidence elsewhere; do not call them
+  missing-evidence merely because they are absent from Browse. A saved
   deck may be edited while all its identities lack evidence, but cannot be
   prepared in that state. Known/Reserved/Generated state, effective identity,
   and current evidence remain separately legible.
 
 ## Concordance and sentence study
 
-- Browse opens an **exact effective lemma + POS** query. Direct entry starts in
-  **exact observed surface** mode; it can switch to effective lemma + POS or an
-  explicitly named **Analyzer lemma + POS (evidence)** mode. A surface match
+- Browse opens an **exact effective lemma + POS** query initially restricted
+  to its Current reading's Book; the learner can broaden Concordance to other
+  Books. Direct entry starts in **exact observed surface** mode; it can switch
+  to effective lemma + POS or an explicitly named **Analyzer lemma + POS
+  (evidence)** mode. A surface match
   returns every observed match, even when analyzer/effective assignments
   differ and even for corrected or excluded occurrences. Effective lookup
   follows corrections and excludes omitted occurrences; analyzer-attribution
@@ -180,7 +216,7 @@ occurrences merely because text or positions match.
   **Prepare again** previews material evidence differences where appropriate.
 - Preparation is an explicit, durable asynchronous generation from the current
   saved selection and currently eligible corpus, across all Book dispositions;
-  the Browse Book filter never limits candidates. Automatically choose one
+  the Browse Book scope never limits candidates. Automatically choose one
   occurrence-specific target and **complete** representative sentence per
   identity using the existing language-appropriate sentence-quality gate and
   ranking across all Books; prefer quality, not Reading state or Book frequency.
@@ -277,14 +313,17 @@ occurrences merely because text or positions match.
   page and whether more results exist; an exact total can be deferred and
   must never be faked.
   Never call a truncated result set complete. Browse likewise pages stably
-  with full-corpus scoped counts and count sorting. Announce a changed summary
-  once, not every row. Book/identity, current evidence, Known/Reserved/Generated,
-  and analyzer syntax remain textual, not color-only.
-- Distinguish no Books with current analysis, partial corpus, genuinely empty
-  inventory, no matches within the **stated current scope**, stale/unavailable
-  Book evidence, and failed/over-budget query. Offer relevant current Book
-  recovery, Retry, or narrower scope; never silently include history or treat
-  a failed search as zero matches. For slow enhanced requests retain last
+  with complete current-Book counts and descending frequency order. A change of
+  Current reading, Book evidence/corrections, Known/Reserved state, or Book-deck
+  inclusion that alters Browse results invalidates old page links. Announce a
+  changed summary once, not every row. The Book and current-evidence scope and
+  the include-all control's meaning remain textual, not color-only. Learner
+  state stays legible in Browse and review; analyzer syntax in Concordance.
+- Distinguish no Current reading, a Current reading without current analysis,
+  a genuinely empty current-Book inventory, no matches within the **stated
+  current scope**, and failed/over-budget query. Offer Reading recovery, Retry,
+  or prefix search; never silently include history or treat a failed search as
+  zero matches. For slow enhanced requests retain last
   successful results *under their old applied-query label*, show textual
   pending status, then replace only on success. On failure say the new request
   was not applied, leave the old results and URL unchanged, and offer recovery
@@ -311,8 +350,9 @@ identities**. On a documented warm local acceptance setup, target **p95
 completed page-request time ≤2 seconds** for Browse and ordinary Concordance
 lookup/filter/paging, **≤5 seconds** for grammar-filtered Concordance. Record
 hardware, fixture composition, setup, measurement boundary, workload and p95,
-including common/high-frequency terms, Book subsets, filters, scoped count
-sorts, and early/deep pages. These are not hardware-independent promises or
+including high-frequency identities in a long Current-reading Book, prefix
+search, include-all, and early/deep pages; measure Concordance Book subsets
+and grammar filters separately. These are not hardware-independent promises or
 grounds for silently sampling counts. Browse ordering, page membership, and
 counts use complete eligible current evidence; a successful zero-result claim
 must search the complete stated eligible scope.
@@ -325,22 +365,30 @@ promotion or an occurrence decision reflects new current evidence; a
 lagging derived view marks itself updating and withholds affected results
 instead of presenting stale numbers as current. Across requests paging uses
 current evidence; if changes disrupt stable paging, offer restart-from-results
-instead of silently skipping/duplicating. At thousands of Books, a broad
-query may request narrower Book/query scope, but Book-scoped discovery must
-remain usable and no omitted scope may masquerade as zero matches. Ordinary
+instead of silently skipping/duplicating. A long Current-reading Book must
+remain browsable without scanning unrelated Books, and no omitted Book scope
+may masquerade as zero matches. Ordinary
 search is interactive, not a hidden background job; preparation remains
 durable and asynchronous, with bounded submission acknowledgement.
 
 ## Acceptance scenarios
 
 1. Two owners sharing an analyzed source see only their own Books and effective
-   correction decisions; one Book reanalysis or source staleness changes only
-   its current contribution. Browse includes singletons, Known and Reserved
-   identities, correct scoped counts, empty/partial distinctions, and every
-   disposition; Book deck/snapshot frequency rules remain unchanged.
-2. Browse prefix search, Book/POS/state filtering and both count sorts retain
-   correct counts/order through paging. Off-page and temporarily missing
-   selected identities remain in paged review after active-language switching.
+   correction decisions. Browse shows only the active language's Current
+   reading Book; stopping or switching it changes the scope. Stale analysis
+   produces Book-specific recovery, not historical or cross-Book counts;
+   singletons are eligible. Book deck/snapshot frequency rules are unchanged.
+2. Descending current-Book occurrence order and lemma/POS ties remain stable
+   through prefix search, include-all and paging. Default results exclude
+   Known (including lemma-wide imports), Reserved, and identities in any
+   successfully prepared deck for that Book, even when first generated for
+   another Book; omitted cards and Custom deck preparation do not exclude.
+   Included rows label Unknown, Known, Reserved, or Known · Reserved truthfully;
+   a prepared-for-this-Book word also has a separate Book-deck note, and a
+   lemma-wide imported Known word is never labeled Unknown for any POS.
+   Off-page, off-Book, and temporarily missing selected identities remain in
+   paged review after Current reading and active-language switching. Opening
+   a Browse identity starts a Book-restricted Concordance that can be broadened.
 3. Effective, surface and analyzer-evidence searches distinguish corrected,
    excluded, and unchanged occurrences; multi-Book, both syntax directions,
    complete sentence, source order, and direct lookup work without conflating
@@ -358,7 +406,7 @@ durable and asynchronous, with bounded submission acknowledgement.
    checked in real Anki; historical download succession is truthful.
 6. Test 400% zoom, keyboard/screen-reader traversal, no JS, slow/failed HTMX,
    stale results and uncertain repeated submissions. Measure reference-scale
-   p95 for common/high-frequency queries, grammar, subsets and later pages;
+   p95 for high-frequency queries, grammar, Concordance subsets and later pages;
    verify fresh evidence and truthful bounded failure on an extreme corpus.
 
 ## Related contracts
