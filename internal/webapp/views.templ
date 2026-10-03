@@ -900,7 +900,6 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				</fieldset>
 				<label for="vocabulary-known-filter">Known</label><select id="vocabulary-known-filter" name="known"><option value="any" selected?={ page.KnownFilter == "any" || page.KnownFilter == "" }>Any</option><option value="known" selected?={ page.KnownFilter == "known" }>Known</option><option value="not-known" selected?={ page.KnownFilter == "not-known" }>Not Known</option><option value="not-known-or-reserved" selected?={ page.KnownFilter == "not-known-or-reserved" }>Not Known or Reserved</option></select>
 				<label for="vocabulary-reserved-filter">Reserved</label><select id="vocabulary-reserved-filter" name="reserved"><option value="any" selected?={ page.ReservedFilter == "any" || page.ReservedFilter == "" }>Any</option><option value="reserved" selected?={ page.ReservedFilter == "reserved" }>Reserved</option><option value="not-reserved" selected?={ page.ReservedFilter == "not-reserved" }>Not Reserved</option></select>
-				<label for="vocabulary-sort">Order</label><select id="vocabulary-sort" name="sort"><option value="lemma" selected?={ page.Sort == "lemma" || page.Sort == "" }>Lemma, then part of speech</option><option value="occurrences" selected?={ page.Sort == "occurrences" }>Most occurrences</option><option value="books" selected?={ page.Sort == "books" }>Most Books</option></select>
 				<button type="submit">Apply search and filters</button>
 			</form>
 			if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
@@ -916,9 +915,9 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			if page.Total > 0 {
 				<p>{ fmt.Sprintf("%d effective identities in this Book", page.Total) }. Known and Reserved filters only narrow identities and do not change their evidence counts. Results use current completed analysis and effective occurrence decisions.</p>
 				@ResponsiveTable("Current effective vocabulary") {
-					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Learner state</th><th scope="col">Evidence</th><th scope="col">Browse selection</th></tr></thead><tbody>
+					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(row.CanonicalLemma, row.UPOS)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>{ vocabularyBrowseEvidence(row) }</td><td>
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(row.CanonicalLemma, row.UPOS)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>
 						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
@@ -1676,7 +1675,7 @@ func vocabularyBrowseContains(values []string, value string) bool {
 }
 
 func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
-	state := "Not Known or Reserved"
+	state := "Unknown"
 	if row.Known {
 		state = "Known"
 	}
@@ -1687,19 +1686,6 @@ func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
 		state = "Reserved"
 	}
 	return state
-}
-
-func vocabularyBrowseEvidence(row domain.VocabularyBrowseRow) string {
-	if row.Corrected {
-		if row.Generated {
-			return "Includes confirmed correction · Generated"
-		}
-		return "Includes confirmed correction"
-	}
-	if row.Generated {
-		return "Analyzer attribution · Generated"
-	}
-	return "Analyzer attribution"
 }
 
 func vocabularyBookEvidenceState(book domain.VocabularyBrowseBook) string {

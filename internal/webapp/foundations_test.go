@@ -337,7 +337,7 @@ func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	for _, want := range []string{
 		"Browse could not be loaded", "Your search and filters were not applied", "Retry Browse",
 		`name="q" value="Haus"`, `name="pos" value="NOUN"`,
-		`name="known" value="not-known-or-reserved"`, `name="reserved" value="not-reserved"`, `name="sort" value="books"`, `name="page" value="2"`,
+		`name="known" value="not-known-or-reserved"`, `name="reserved" value="not-reserved"`, `name="sort" value="occurrences"`, `name="page" value="2"`,
 	} {
 		assert.Contains(t, response.Body.String(), want)
 	}

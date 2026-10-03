@@ -57,10 +57,9 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	upos := values["pos"]
 	known := vocabularyBrowseRequestState(values.Get("known"), "known", "not-known")
 	reserved := vocabularyBrowseRequestState(values.Get("reserved"), "reserved", "not-reserved")
-	sortBy := values.Get("sort")
-	if sortBy != "occurrences" && sortBy != "books" {
-		sortBy = "occurrences"
-	}
+	// Ignore the retired alternate sort URL controls. Browse discovery order is
+	// always effective occurrence frequency within the Current reading Book.
+	sortBy := "occurrences"
 	browseQuery := domain.VocabularyBrowseQuery{
 		Prefix: prefix, BookIDs: bookIDs, UPOS: upos, KnownFilter: known, ReservedFilter: reserved, Sort: sortBy, Page: page,
 		Revision: values.Get("rev"),
