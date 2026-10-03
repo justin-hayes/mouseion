@@ -252,6 +252,7 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 
 type knownVocabContextStore struct {
 	StudyLanguageStore
+	CurrentReadingStore
 }
 
 func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
@@ -259,6 +260,9 @@ func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]dom
 }
 func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
+}
+func (knownVocabContextStore) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
+	return domain.CurrentReading{BookID: "book-1"}, nil
 }
 func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	return domain.VocabularyBrowsePage{Page: query.Page}, nil
@@ -274,7 +278,7 @@ func TestKnownVocabImportLanguageUsesShellContext(t *testing.T) {
 
 func TestVocabularyPageUsesActiveLanguageInsteadOfURLLanguage(t *testing.T) {
 	store := knownVocabContextStore{}
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, VocabularyBrowse: store}}}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}}}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?language=it", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
@@ -320,7 +324,7 @@ func (failedVocabularyBrowseStore) ListVocabularyBrowsePage(context.Context, str
 
 func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	store := failedVocabularyBrowseStore{}
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, VocabularyBrowse: store}}}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}}}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
@@ -332,11 +336,12 @@ func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, response.Code)
 	for _, want := range []string{
 		"Browse could not be loaded", "Your search and filters were not applied", "Retry Browse",
-		`name="q" value="Haus"`, `name="book" value="book-1"`, `name="pos" value="NOUN"`,
-		`name="known" value="not-known-or-reserved"`, `name="reserved" value="not-reserved"`, `name="sort" value="books"`, `name="page" value="2"`,
+		`name="q" value="Haus"`, `name="pos" value="NOUN"`,
+		`name="known" value="not-known-or-reserved"`, `name="reserved" value="not-reserved"`, `name="sort" value="occurrences"`, `name="page" value="2"`,
 	} {
 		assert.Contains(t, response.Body.String(), want)
 	}
+	assert.NotContains(t, response.Body.String(), `name="book"`)
 }
 
 type timedOutVocabularyBrowseStore struct{ knownVocabContextStore }
@@ -348,7 +353,7 @@ func (timedOutVocabularyBrowseStore) ListVocabularyBrowsePage(ctx context.Contex
 
 func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 	store := timedOutVocabularyBrowseStore{}
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, VocabularyBrowse: store}}}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}}}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&book=book-1&page=3", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
@@ -360,7 +365,7 @@ func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 
 	assert.Equal(t, http.StatusGatewayTimeout, response.Code)
 	assert.Less(t, time.Since(started), 10*time.Second)
-	for _, want := range []string{"Retry Browse", "shorter prefix or fewer Books", "name=\"q\" value=\"Haus\"", "name=\"page\" value=\"3\""} {
+	for _, want := range []string{"Retry Browse", "shorter prefix", "name=\"q\" value=\"Haus\"", "name=\"page\" value=\"3\""} {
 		assert.Contains(t, response.Body.String(), want)
 	}
 }
@@ -373,7 +378,7 @@ func (changedVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, 
 
 func TestVocabularyBrowseChangedEvidenceOffersRestartInsteadOfStalePage(t *testing.T) {
 	store := changedVocabularyBrowseStore{}
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, VocabularyBrowse: store}}}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}}}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&book=book-1&pos=NOUN&known=not-known&reserved=not-reserved&sort=books&page=2&rev=revision-old", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
@@ -385,7 +390,7 @@ func TestVocabularyBrowseChangedEvidenceOffersRestartInsteadOfStalePage(t *testi
 	assert.Equal(t, http.StatusConflict, response.Code)
 	assert.Contains(t, response.Body.String(), "Current evidence changed")
 	assert.Contains(t, response.Body.String(), "Restart from the first page")
-	assert.Contains(t, response.Body.String(), `href="/vocabulary?book=book-1`)
+	assert.NotContains(t, response.Body.String(), `href="/vocabulary?book=book-1`)
 	assert.Contains(t, response.Body.String(), `q=Haus&amp;reserved=not-reserved`)
 	assert.Contains(t, response.Body.String(), `page=1`)
 	assert.NotContains(t, response.Body.String(), "revision-new")

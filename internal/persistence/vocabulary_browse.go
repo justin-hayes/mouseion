@@ -19,6 +19,11 @@ func (s *PostgresStore) ListVocabularyBrowsePage(ctx context.Context, owner, lan
 		queryParams.Page = 1
 	}
 	queryParams.BookIDs = uniqueStrings(queryParams.BookIDs)
+	if queryParams.CurrentBookID != "" {
+		// A Current-reading request is one-Book by construction. Ignore any
+		// legacy Book filters instead of allowing them to alter or widen scope.
+		queryParams.BookIDs = nil
+	}
 	queryParams.UPOS = vocabularyBrowseUPOS(queryParams.UPOS)
 	queryParams.KnownFilter = vocabularyBrowseStateFilter(queryParams.KnownFilter)
 	queryParams.ReservedFilter = vocabularyBrowseStateFilter(queryParams.ReservedFilter)
@@ -30,6 +35,7 @@ WITH all_books AS (
   SELECT b.id::text AS id, b.title,
     EXISTS (SELECT 1 FROM current_analysis_identity cai WHERE cai.owner_id=b.owner_id AND cai.book_id=b.id) AS analyzed
   FROM books b WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
+    AND ($10='' OR b.id::text=$10)
 ), scope_books AS (
   SELECT * FROM all_books WHERE COALESCE(cardinality($4::text[]),0)=0 OR id=ANY($4::text[])
 ), current_evidence AS (
@@ -132,7 +138,7 @@ SELECT p.lemma,p.upos,p.occurrences,p.books,p.corrected,p.known,p.reserved,p.gen
 FROM summary CROSS JOIN coverage CROSS JOIN revision LEFT JOIN page_rows p ON true
 ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
 	         CASE WHEN $8='books' THEN p.books END DESC,p.lemma,p.upos`
-	rows, err := s.pool.Query(ctx, query, owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.KnownFilter, queryParams.ReservedFilter, queryParams.Sort, queryParams.Page)
+	rows, err := s.pool.Query(ctx, query, owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.KnownFilter, queryParams.ReservedFilter, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID)
 	if err != nil {
 		return domain.VocabularyBrowsePage{}, fmt.Errorf("query effective vocabulary browse: %w", err)
 	}

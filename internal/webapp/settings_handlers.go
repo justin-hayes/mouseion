@@ -57,10 +57,9 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	upos := values["pos"]
 	known := vocabularyBrowseRequestState(values.Get("known"), "known", "not-known")
 	reserved := vocabularyBrowseRequestState(values.Get("reserved"), "reserved", "not-reserved")
-	sortBy := values.Get("sort")
-	if sortBy != "occurrences" && sortBy != "books" {
-		sortBy = "lemma"
-	}
+	// Ignore the retired alternate sort URL controls. Browse discovery order is
+	// always effective occurrence frequency within the Current reading Book.
+	sortBy := "occurrences"
 	browseQuery := domain.VocabularyBrowseQuery{
 		Prefix: prefix, BookIDs: bookIDs, UPOS: upos, KnownFilter: known, ReservedFilter: reserved, Sort: sortBy, Page: page,
 		Revision: values.Get("rev"),
@@ -71,13 +70,28 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	// partially-read result into a successful page.
 	browseCtx, cancel := context.WithTimeout(r.Context(), vocabularyBrowseRequestTimeout)
 	defer cancel()
-	browse, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
-	if err != nil {
-		log.Printf("mouseion: load vocabulary Browse: %v", err)
-		renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
-		return
+	current := domain.CurrentReading{}
+	if h.services.Store.CurrentReading != nil {
+		current, err = h.services.Store.CurrentReading.GetCurrentReading(browseCtx, u.ID, language)
+		if err != nil {
+			log.Printf("mouseion: load Current reading for vocabulary Browse: %v", err)
+			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
+			return
+		}
 	}
-	if browseQuery.Revision != "" && browseQuery.Revision != browse.CorpusRevision {
+	browse := domain.VocabularyBrowsePage{Page: page}
+	if current.IsActive() {
+		browseQuery.CurrentBookID = current.BookID
+		browse.CurrentBookID = current.BookID
+		browse, err = h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
+		browse.CurrentBookID = current.BookID
+		if err != nil {
+			log.Printf("mouseion: load vocabulary Browse: %v", err)
+			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
+			return
+		}
+	}
+	if current.IsActive() && browseQuery.Revision != "" && browseQuery.Revision != browse.CorpusRevision {
 		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
 		return
 	}
