@@ -45,6 +45,20 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 			t.Errorf("rendered page includes retired Concordance presentation code %q", forbidden)
 		}
 	}
+	for _, want := range []string{
+		`id="concordance-workflow"`, `hx-select="#concordance-workflow"`, `hx-push-url="true"`,
+		`hx-sync="#concordance-workflow:replace"`, `hx-indicator="#concordance-pending"`,
+		`hx-config="timeout:9s"`, `hx-status:409=`, `hx-status:4xx=`, `hx-status:5xx=`, `id="concordance-pending"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("rendered page missing HTMX workflow behavior %q", want)
+		}
+	}
+	for _, retired := range []string{"concordanceRequestID", "history.pushState", "addEventListener('popstate'"} {
+		if strings.Contains(body, retired) {
+			t.Errorf("rendered page still includes handwritten Concordance request/history code %q", retired)
+		}
+	}
 }
 
 func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {

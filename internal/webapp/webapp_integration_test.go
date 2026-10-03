@@ -642,6 +642,9 @@ func multipartUpload(t *testing.T, h http.Handler, path string, cookies []*http.
 }
 
 func perform(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie) *httptest.ResponseRecorder {
+	return performWithHeader(t, h, method, path, form, cookies, "", "")
+}
+func performWithHeader(t *testing.T, h http.Handler, method, path string, form url.Values, cookies []*http.Cookie, header, value string) *httptest.ResponseRecorder {
 	t.Helper()
 	var body io.Reader
 	if form != nil {
@@ -650,6 +653,9 @@ func perform(t *testing.T, h http.Handler, method, path string, form url.Values,
 	r := httptest.NewRequestWithContext(t.Context(), method, path, body)
 	if form != nil {
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if header != "" {
+		r.Header.Set(header, value)
 	}
 	for _, c := range cookies {
 		r.AddCookie(c)

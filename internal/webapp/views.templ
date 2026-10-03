@@ -102,99 +102,39 @@ window.updateDeckPreparation = async function (action, target, sourceForm) {
     target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
   }
 };
-window.concordanceRequestID = 0;
-var renderedPageURL = window.location.pathname + window.location.search;
-document.addEventListener('submit', async function (evt) {
-  var form = evt.target.closest && evt.target.closest('form[data-concordance-apply]');
-  if (!form) return;
-  evt.preventDefault();
-  var requestID = ++window.concordanceRequestID;
-  var button = form.querySelector('button[type="submit"]');
-  var main = document.querySelector('main');
-  var status = document.getElementById('concordance-request-status');
-  if (!status) {
-    status = document.createElement('p');
-    status.id = 'concordance-request-status';
-    status.setAttribute('aria-live', 'polite');
-    var nav = main.querySelector('nav[aria-label="Vocabulary views"]');
-    if (nav) nav.insertAdjacentElement('afterend', status); else main.prepend(status);
-  }
-  var values = new URLSearchParams();
-  new FormData(form).forEach(function (value, key) { values.append(key, String(value)); });
-  var targetURL = new URL(form.action, window.location.href);
-  targetURL.search = values.toString();
-  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-  status.hidden = false;
-  status.textContent = document.getElementById('concordance-results')
-    ? 'Searching. The previous results remain under their previously applied query and scope.'
-    : 'Searching the applied current-analysis scope…';
-  try {
-    var response = await fetch(targetURL, {credentials: 'same-origin', headers: {'Accept': 'text/html'}});
-    var responseHTML = await response.text();
-    if (requestID !== window.concordanceRequestID) return;
-    if (response.status === 409) {
-      status.hidden = false;
-      status.setAttribute('role', 'note');
-      status.textContent = 'The analyzed evidence changed. The new page was not applied; restart the search to avoid skipping or repeating matches. ';
-      var restartURL = new URL(targetURL);
-      restartURL.searchParams.delete('rev');
-      restartURL.searchParams.set('page', '1');
-      var restart = document.createElement('a');
-      restart.href = restartURL.href;
-      restart.textContent = 'Restart from results';
-      status.append(restart);
-      return;
-    }
-    if (!response.ok) {
-      status.hidden = false;
-      status.setAttribute('role', 'alert');
-      status.textContent = 'The new lookup was not applied. Previous results, if shown, still use their old applied label. Retry this search or narrow the Book scope. ';
-      var retry = document.createElement('a');
-      retry.href = targetURL.href;
-      retry.textContent = 'Retry Concordance lookup';
-      status.append(retry);
-      return;
-    }
-    var parsed = new DOMParser().parseFromString(responseHTML, 'text/html');
-    var nextMain = parsed.querySelector('main#main-content');
-    if (!nextMain) throw new Error('The response did not contain Concordance results.');
-    main.replaceWith(nextMain);
-    document.title = parsed.title;
-    window.history.pushState({}, '', response.url || targetURL.href);
-    renderedPageURL = window.location.pathname + window.location.search;
-    var summary = nextMain.querySelector('#concordance-summary');
-    if (summary) summary.focus();
-  } catch (error) {
-    if (requestID === window.concordanceRequestID) {
-      status.hidden = false;
-      status.setAttribute('role', 'alert');
-      status.textContent = 'The new lookup was not applied. Previous results, if shown, remain unchanged. Retry or narrow the Book scope. ';
-      var retry = document.createElement('a');
-      retry.href = targetURL.href;
-      retry.textContent = 'Retry Concordance lookup';
-      status.append(retry);
-    }
-  } finally {
-    if (requestID === window.concordanceRequestID && button) {
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
-    }
-  }
-});
-window.addEventListener('popstate', function () {
-  // A same-page fragment jump must not reload and discard keyboard focus.
-  if (window.location.pathname + window.location.search !== renderedPageURL) window.location.reload();
-});
-function focusConcordanceSummaryForMissingFragment() {
-  if (!window.location.hash || !document.querySelector('#concordance-results')) return;
-  var occurrenceID;
-  try { occurrenceID = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
-  if (document.getElementById(occurrenceID)) return;
+window.showConcordanceNetworkRecovery = function (ctx) {
+  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;
+  var recovery = document.getElementById('concordance-recovery');
+  if (!recovery) return;
+  recovery.replaceChildren();
+  var message = document.createElement('p');
+  message.setAttribute('role', 'alert');
+  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';
+  var retry = document.createElement('a');
+  retry.href = ctx.request.action;
+  retry.textContent = 'Retry Concordance lookup';
+  recovery.append(message, retry);
+};
+document.addEventListener('htmx:after:swap', function (evt) {
+  var ctx = evt.detail && evt.detail.ctx;
+  if (!ctx || !ctx.target || ctx.target.id !== 'concordance-workflow') return;
   var summary = document.getElementById('concordance-summary');
-  if (summary) summary.focus({preventScroll: true});
+  if (summary) summary.focus();
+});
+document.addEventListener('htmx:after:history:restore', function () {
+  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;
+  var summary = document.getElementById('concordance-summary');
+  if (summary) summary.focus();
+});
+function focusConcordanceSummaryForMissingReturnTarget() {
+  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;
+  var target = new URLSearchParams(window.location.search).get('focus');
+  if (!target || document.getElementById(target)) return;
+  var summary = document.getElementById('concordance-summary');
+  if (summary) summary.focus();
 }
-document.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingFragment);
-window.addEventListener('hashchange', focusConcordanceSummaryForMissingFragment);
+document.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);
+window.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);
 document.addEventListener('htmx:after:swap', function (evt) {
 			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
 			var region = document.getElementById(id);
@@ -1257,6 +1197,8 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "", nil)
 		@VocabularyViewsNav("concordance")
+		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied query and scope.</p>
+		<div id="concordance-workflow" hx-on:htmx:error="window.showConcordanceNetworkRecovery(ctx)">
 		if language == "" {
 			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before looking up vocabulary.") {
 				<a href="/catalogs">Connect a catalog</a>
@@ -1264,7 +1206,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 		}
 		if language != "" {
 			<p class="concordance-language">Study language: <code>{ language }</code> <span>· Current analyzed Books</span></p>
-			<form method="get" action="/vocabulary/concordance" class="concordance-query" data-concordance-apply>
+			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
 				for _, bookID := range lookup.BookIDs {
 					<input type="hidden" name="book" value={ bookID }/>
 				}
@@ -1295,7 +1237,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			<div class="concordance-scopes">
 			<details>
 				<summary>Books (applied: { concordanceBookScope(lookup, books) })</summary>
-			<form method="get" action="/vocabulary/concordance" data-concordance-apply>
+			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
 					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 					if lookup.GrammarDirection != "" {
 						<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
@@ -1310,7 +1252,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			</details>
 			<details>
 				<summary>Grammar (applied: { concordanceGrammarScope(lookup) })</summary>
-				<form method="get" action="/vocabulary/concordance" data-concordance-apply>
+				<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
 					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 					for _, bookID := range lookup.BookIDs {
 						<input type="hidden" name="book" value={ bookID }/>
@@ -1323,7 +1265,12 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			</details>
 			</div>
 			if message != "" {
-				<p role="alert">{ message }</p>
+				<div id="concordance-recovery" aria-live="polite">
+					<p role="alert">{ message }</p>
+					<a href={ templ.SafeURL(vocabularyConcordancePageURL(1, lookup)) }>Retry Concordance lookup</a>
+				</div>
+			} else {
+				<div id="concordance-recovery" aria-live="polite"></div>
 			}
 			if applied {
 				<section id="concordance-results" aria-labelledby="concordance-summary">
@@ -1366,16 +1313,17 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					if result.HasPrevious || result.HasNext {
 						<nav aria-label="Concordance pages">
 							if result.HasPrevious {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) }>Previous</a>
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
 							}
 							if result.HasNext {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) }>Next</a>
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
 							}
 						</nav>
 					}
 				</section>
 				}
 			}
+		</div>
 		}
 }
 
@@ -1616,13 +1564,23 @@ func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (st
 	return text[:start], text[start:end], text[end:]
 }
 
-templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
+templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
 		@VocabularyViewsNav("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackError, "Concordance lookup was not applied", "The search did not complete. Retry it, or narrow the term or Book scope. A timeout or failed search is not a zero-result claim.")
-		<form method="get" action="/vocabulary/concordance" data-concordance-apply>
+		@VocabularyConcordanceErrorRecovery(books, lookup, timeout)
+	}
+}
+
+templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
+	<div id="concordance-recovery" aria-live="polite">
+		if timeout {
+			@Feedback(FeedbackError, "Concordance server timed out", "The server could not complete this search in time. Your current results, if shown, remain under their old applied label; retry or narrow the Book scope. A timeout is not a zero-result claim.")
+		} else {
+			@Feedback(FeedbackError, "Concordance lookup was not applied", "The search did not complete. Retry it, or narrow the term or Book scope. A failed search is not a zero-result claim.")
+		}
+		<form method="get" action="/vocabulary/concordance">
 			<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 			if lookup.GrammarDirection != "" {
 				<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
@@ -1636,7 +1594,7 @@ templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string
 			<button type="submit">Retry Concordance lookup from page 1</button>
 		</form>
 		<p>For an unusually broad query, select one or a few Books above. Retry begins at page 1 so it cannot silently skip matches after a scope change.</p>
-	}
+	</div>
 }
 
 templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
@@ -1644,19 +1602,25 @@ templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language stri
 		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
 		@VocabularyViewsNav("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
+		@VocabularyConcordanceChangedRecovery(books, lookup)
+	}
+}
+
+templ VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
+	<div id="concordance-recovery" aria-live="polite">
 		@Feedback(FeedbackWarning, "Current evidence changed", "This page was not applied because analyses or occurrence corrections changed after the previous result page. Restart to avoid silently skipping or repeating matches.")
 		<a role="button" href={ templ.SafeURL(vocabularyConcordanceRestartURL(lookup)) }>Restart from results</a>
 		<form method="get" action="/vocabulary/concordance">
 			<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
-			for _, bookID := range lookup.BookIDs {
-				<input type="hidden" name="book" value={ bookID }/>
-			}
 			if lookup.GrammarDirection != "" {
 				<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
 			}
+			for _, book := range books {
+				<label><input type="checkbox" name="book" value={ book.BookID } checked?={ concordanceBookSelected(lookup.BookIDs, book.BookID) }/>{ concordanceBookTitle(book) }</label>
+			}
 			<button type="submit">Retry with current evidence</button>
 		</form>
-	}
+	</div>
 }
 
 templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {

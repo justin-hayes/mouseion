@@ -36,10 +36,11 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	requestedLanguage, _ := activeStudyLanguageForContext(r.Context())
 	loadError := func(language string, books []domain.SourceMaterialSummary, err error) {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
-			renderStatus(w, r, http.StatusGatewayTimeout, VocabularyConcordanceErrorPageView(u, h.csrf(w, r), language, books, lookup))
+			h.renderConcordanceFailure(w, r, http.StatusGatewayTimeout, u, language, books, lookup, false)
 			return
 		}
-		fail(w, err)
+		log.Printf("mouseion: load Concordance context: %v", err)
+		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, books, lookup, false)
 	}
 	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(queryCtx, u.ID)
 	if err != nil {
@@ -93,15 +94,32 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
 			status = http.StatusGatewayTimeout
 		}
-		renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, h.csrf(w, r), language, bookOptions, lookup))
+		h.renderConcordanceFailure(w, r, status, u, language, bookOptions, lookup, false)
 		return
 	}
 	if result.Stale {
-		renderStatus(w, r, http.StatusConflict, VocabularyConcordanceChangedPageView(u, h.csrf(w, r), language, bookOptions, lookup))
+		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, bookOptions, lookup, true)
 		return
 	}
 	lookup.Revision = result.Revision
 	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, result, true, "", focusTarget))
+}
+
+func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, changed bool) {
+	csrf := h.csrf(w, r)
+	if isPartialHTMXRequest(r) {
+		if changed {
+			renderStatus(w, r, status, VocabularyConcordanceChangedRecovery(books, lookup))
+			return
+		}
+		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(books, lookup, status == http.StatusGatewayTimeout))
+		return
+	}
+	if changed {
+		renderStatus(w, r, status, VocabularyConcordanceChangedPageView(u, csrf, language, books, lookup))
+		return
+	}
+	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, books, lookup, status == http.StatusGatewayTimeout))
 }
 
 func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {

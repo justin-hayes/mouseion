@@ -656,6 +656,16 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		query.Page = 1
 	}
 	result := domain.ConcordanceResult{Page: query.Page, HasPrevious: query.Page > 1}
+	if query.Revision == "fixture-stale-revision" {
+		result.Stale = true
+		return result, nil
+	}
+	switch query.Term {
+	case "fixture-server-error":
+		return domain.ConcordanceResult{}, errors.New("fixture Concordance server error")
+	case "fixture-server-timeout":
+		return domain.ConcordanceResult{}, context.DeadlineExceeded
+	}
 	fixtureRows := []domain.ConcordanceResultOccurrence{
 		fixtureConcordanceOccurrence("haus", "heim", true, false),
 		fixtureConcordanceOccurrence("haus", "haus", false, true),
