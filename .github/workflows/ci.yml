@@ -68,6 +68,15 @@ jobs:
               - 'Makefile'
               - '.github/workflows/ci.yml'
 
+            frontend:
+              - 'internal/webapp/frontend/**'
+              - 'internal/webapp/static/concordance.js'
+              - 'e2e/package.json'
+              - 'e2e/package-lock.json'
+              - 'e2e/scripts/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
       # ------------------------------------------------------------------
       # Go
       # ------------------------------------------------------------------
@@ -223,6 +232,24 @@ jobs:
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.generated == 'true'
         run: git diff --exit-code
+
+      # ------------------------------------------------------------------
+      # Self-hosted Concordance bundle
+      # ------------------------------------------------------------------
+
+      - name: Set up Node for Concordance bundle verification
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.frontend == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+
+      - name: Verify committed Concordance bundle
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.frontend == 'true'
+        run: make frontend-check
 
   golangci:
     name: Go lint
