@@ -506,6 +506,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(restart).toHaveAttribute('href', /grammar=own/);
     await expect(restart).toHaveAttribute('href', /relation=obj/);
     await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
+    await expect(page).toHaveURL(/term=Haus2/);
     await page.unroute('**/vocabulary/concordance?**term=Changed**');
 
     for (const [term, statusCode] of [['ServerError', 500], ['GatewayTimeout', 504]] as const) {
