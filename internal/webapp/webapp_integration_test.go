@@ -309,7 +309,7 @@ func TestKnownVocabImportUsesDerivedLibraryLanguages(t *testing.T) {
 
 	browse := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
 	assert.Equal(t, http.StatusOK, browse.Code)
-	assert.Contains(t, browse.Body.String(), "No current analyzed Books contribute vocabulary yet.")
+	assert.Contains(t, browse.Body.String(), "No Current reading is set for this study language.")
 	assert.Contains(t, browse.Body.String(), `href="/vocabulary/import"`)
 	importPage := perform(t, h, http.MethodGet, "/vocabulary/import", nil, cookies)
 	assert.Equal(t, http.StatusOK, importPage.Code)

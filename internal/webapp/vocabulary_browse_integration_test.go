@@ -734,6 +734,9 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
 	seedBrowseHTTPToken(t, ctx, store, otherSource, otherCorpus)
 	seedBrowseHTTPToken(t, ctx, store, bobSource, bobCorpus)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, sourceBook.ID, domain.BookDispositionToRead))
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", sourceBook.ID)
+	require.NoError(t, err)
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, source.OwnerID, corpus.ID).Scan(&runID))
 	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
