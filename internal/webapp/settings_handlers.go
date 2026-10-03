@@ -56,7 +56,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	browseQuery := domain.VocabularyBrowseQuery{
 		// Legacy Book/POS/state/sort parameters are intentionally ignored. Browse
 		// is always the complete current-Book identity set in frequency order.
-		Prefix: prefix, Sort: "occurrences", Page: page,
+		Prefix: prefix, ReadingBookID: values.Get("reading"), Sort: "occurrences", Page: page,
 		Revision: values.Get("rev"),
 	}
 	// Browse is an interactive request, not a durable background job. Bound the
@@ -74,9 +74,15 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if browseQuery.ReadingBookID != "" && (!current.IsActive() || browseQuery.ReadingBookID != current.BookID) {
+		browseQuery.CurrentBookID = current.BookID
+		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
+		return
+	}
 	browse := domain.VocabularyBrowsePage{Page: page}
 	if current.IsActive() {
 		browseQuery.CurrentBookID = current.BookID
+		browseQuery.ReadingBookID = current.BookID
 		browse.CurrentBookID = current.BookID
 		browse, err = h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
 		browse.CurrentBookID = current.BookID
@@ -85,6 +91,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
 			return
 		}
+		browse.ReadingBookID = current.BookID
 	}
 	if current.IsActive() && browseQuery.Revision != "" && browseQuery.Revision != browse.CorpusRevision {
 		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
@@ -634,6 +641,13 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 	values := url.Values{}
 	if query != "" {
 		values.Set("q", query)
+	}
+	readingBookID := browse.ReadingBookID
+	if readingBookID == "" {
+		readingBookID = browse.CurrentBookID
+	}
+	if readingBookID != "" {
+		values.Set("reading", readingBookID)
 	}
 	if browse.CorpusRevision != "" {
 		values.Set("rev", browse.CorpusRevision)

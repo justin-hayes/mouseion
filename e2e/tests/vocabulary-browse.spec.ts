@@ -17,12 +17,13 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await noScriptPage.goto('/vocabulary');
     await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary · Browse' })).toBeVisible();
     const browseForm = noScriptPage.locator('form[action="/vocabulary"]');
+    await expect(browseForm.locator('input[name="reading"]')).toHaveValue('fixture-book');
     const search = noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' });
     await search.focus();
     await expect(search).toBeFocused();
     await search.fill('haus');
     await search.press('Enter');
-    await expect(noScriptPage).toHaveURL(/\/vocabulary\?q=haus/);
+    await expect(noScriptPage).toHaveURL(/\/vocabulary\?reading=fixture-book&q=haus/);
     await expect(noScriptPage.locator('#vocabulary-results-heading')).toBeFocused();
     await expect(browseForm.locator('input[name="book"], input[name="pos"], select[name="known"], select[name="reserved"], select[name="sort"]')).toHaveCount(0);
     const hausRow = noScriptPage.getByRole('row').filter({ hasText: 'haus' });

@@ -891,6 +891,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			}
 			if page.CurrentBookID != "" {
 			<form method="get" action="/vocabulary" class="data-width">
+				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>All eligible occurrences in this Book are counted. Results are ordered by frequency, then lemma and part of speech.</p>
 				<button type="submit">Search</button>
@@ -1625,6 +1626,7 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
 		<form method="get" action="/vocabulary">
 			<input type="hidden" name="q" value={ query.Prefix }/>
+			<input type="hidden" name="reading" value={ query.ReadingBookID }/>
 		<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
 		if query.Revision != "" {
 			<input type="hidden" name="rev" value={ query.Revision }/>
@@ -1641,8 +1643,8 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current corpus changed since this page was requested. Restart from the first page to avoid skipping or repeating identities.")
-		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{}, query.Prefix)) }>Restart from results</a>
+		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
+		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID}, query.Prefix)) }>Restart in the Current reading</a>
 		<a href="/vocabulary">Clear search</a>
 	}
 }
