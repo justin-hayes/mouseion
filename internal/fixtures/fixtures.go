@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -655,33 +656,50 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		query.Page = 1
 	}
 	result := domain.ConcordanceResult{Page: query.Page, HasPrevious: query.Page > 1}
-	if query.Page > 1 {
-		return result, nil
-	}
 	fixtureRows := []domain.ConcordanceResultOccurrence{
-		fixtureConcordanceOccurrence("Corrected evidence", "haus", "heim", true, false),
-		fixtureConcordanceOccurrence("Excluded evidence", "haus", "haus", false, true),
-		fixtureConcordanceOccurrence("Unchanged evidence", "haus", "haus", false, false),
+		fixtureConcordanceOccurrence("haus", "heim", true, false),
+		fixtureConcordanceOccurrence("haus", "haus", false, true),
+		fixtureConcordanceOccurrence("haus", "haus", false, false),
 	}
+	for i := 3; i < 26; i++ {
+		fixtureRows = append(fixtureRows, fixtureConcordanceOccurrence("haus", "haus", false, false))
+	}
+	var matches []domain.ConcordanceResultOccurrence
 	for i, occurrence := range fixtureRows {
 		// Each synthetic row represents a distinct sentence occurrence; keep IDs
 		// unique just as the persisted corpus query does.
 		occurrence.SentenceOrdinal = int64(i)
-		matches := query.Mode == "surface" && query.Term == occurrence.Surface ||
+		occurrenceMatches := query.Mode == "surface" && query.Term == occurrence.Surface ||
 			query.Mode == "analyzer" && query.Term == occurrence.RawLemma && query.UPOS == occurrence.UPOS ||
 			query.Mode == "effective" && !occurrence.Excluded && query.Term == occurrence.EffectiveLemma && query.UPOS == occurrence.UPOS
-		if matches {
-			result.Occurrences = append(result.Occurrences, occurrence)
+		if !occurrenceMatches {
+			continue
 		}
+		if len(query.BookIDs) > 0 && !slices.Contains(query.BookIDs, BookID) {
+			continue
+		}
+		if query.GrammarDirection != "" && (query.GrammarDirection != "own" || query.Relation != occurrence.Dependency) {
+			continue
+		}
+		matches = append(matches, occurrence)
 	}
+	const pageSize = 25
+	start := (query.Page - 1) * pageSize
+	if start >= len(matches) {
+		return result, nil
+	}
+	end := start + pageSize
+	end = min(end, len(matches))
+	result.HasNext = end < len(matches)
+	result.Occurrences = matches[start:end]
 	return result, nil
 }
 
 func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
-	if book != "fixture-concordance-book" || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 2 {
+	if book != BookID || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 25 {
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
-	return domain.SentenceStudy{BookID: book, BookTitle: "Corrected evidence", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,
+	return domain.SentenceStudy{BookID: book, BookTitle: "Der lange Weg nach Hause", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,
 		SentenceText: "Das Haus sieht gut aus.", SentenceOrdinal: sentence, TargetOrdinal: target,
 		Tokens: []domain.SentenceStudyToken{
 			{Surface: "Das", RawLemma: "der", EffectiveLemma: "der", UPOS: "DET", Dependency: "det", HeadOrdinal: 1, HeadSurface: "Haus", Ordinal: 0},
@@ -693,14 +711,14 @@ func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, uni
 		}}, nil
 }
 
-func fixtureConcordanceOccurrence(bookTitle, rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {
+func fixtureConcordanceOccurrence(rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {
 	return domain.ConcordanceResultOccurrence{
 		ConcordanceOccurrence: domain.ConcordanceOccurrence{
 			Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "obj",
 			HeadOrdinal: 1, HeadSurface: "sieht", SentenceText: "Das Haus sieht gut aus.",
-			SentenceStartOffset: 4, SentenceEndOffset: 8, BookID: "fixture-concordance-book",
-			BookTitle: bookTitle, SourceMaterialID: "fixture-concordance-source",
-			AnalysisRunID: "fixture-concordance-run", CorpusID: "fixture-concordance-corpus",
+			SentenceStartOffset: 4, SentenceEndOffset: 8, BookID: BookID,
+			BookTitle: "Der lange Weg nach Hause", SourceMaterialID: SourceID,
+			AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
 			UnitID: "fixture-concordance-unit", ChapterTitle: "Kapitel 1", UnitOrder: 0,
 			SentenceOrdinal: 0, TokenOrdinal: 1,
 		},
