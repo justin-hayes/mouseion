@@ -128,29 +128,30 @@ type VocabularyBrowseRow struct {
 }
 
 type VocabularyBrowsePage struct {
-	Rows                        []VocabularyBrowseRow
-	Books                       []VocabularyBrowseBook
-	CurrentBookID               string
-	Total                       int64
-	InventoryTotal              int64
-	ScopedInventoryTotal        int64
-	AnalyzedBooks               int64
-	ContributingBooks           int64
-	NoncontributingBooks        int64
-	BooksWithoutCurrentAnalysis int64
-	SelectedBooks               []string
-	SelectedUPOS                []string
-	KnownFilter                 string
-	ReservedFilter              string
-	Sort                        string
-	CorpusRevision              string
-	Page                        int
-	SelectionCount              int
+	Rows                         []VocabularyBrowseRow
+	Books                        []VocabularyBrowseBook
+	CurrentBookID, ReadingBookID string
+	Total                        int64
+	InventoryTotal               int64
+	ScopedInventoryTotal         int64
+	AnalyzedBooks                int64
+	ContributingBooks            int64
+	NoncontributingBooks         int64
+	BooksWithoutCurrentAnalysis  int64
+	SelectedBooks                []string
+	SelectedUPOS                 []string
+	KnownFilter                  string
+	ReservedFilter               string
+	Sort                         string
+	CorpusRevision               string
+	Page                         int
+	SelectionCount               int
 }
 
 type VocabularyBrowseQuery struct {
 	Prefix         string
 	CurrentBookID  string
+	ReadingBookID  string
 	BookIDs        []string
 	UPOS           []string
 	KnownFilter    string

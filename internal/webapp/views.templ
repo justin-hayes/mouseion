@@ -870,7 +870,7 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 }
 templ VocabularyBrowsePageView(user domain.User, csrf string, language string, page domain.VocabularyBrowsePage, query string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
-		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
+		@PageHeader("Vocabulary · Browse", "Find the most frequent vocabulary in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		if language == "" {
 			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before browsing vocabulary.") {
@@ -891,33 +891,28 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			}
 			if page.CurrentBookID != "" {
 			<form method="get" action="/vocabulary" class="data-width">
+				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
-				<p>Counts and results are limited to the Current reading Book; legacy Book filters cannot change this scope.</p>
-				<fieldset><legend>Part of speech</legend>
-					for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV"} {
-						<label><input type="checkbox" name="pos" value={ pos } checked?={ vocabularyBrowseContains(page.SelectedUPOS, pos) }/>{ pos }</label>
-					}
-				</fieldset>
-				<label for="vocabulary-known-filter">Known</label><select id="vocabulary-known-filter" name="known"><option value="any" selected?={ page.KnownFilter == "any" || page.KnownFilter == "" }>Any</option><option value="known" selected?={ page.KnownFilter == "known" }>Known</option><option value="not-known" selected?={ page.KnownFilter == "not-known" }>Not Known</option><option value="not-known-or-reserved" selected?={ page.KnownFilter == "not-known-or-reserved" }>Not Known or Reserved</option></select>
-				<label for="vocabulary-reserved-filter">Reserved</label><select id="vocabulary-reserved-filter" name="reserved"><option value="any" selected?={ page.ReservedFilter == "any" || page.ReservedFilter == "" }>Any</option><option value="reserved" selected?={ page.ReservedFilter == "reserved" }>Reserved</option><option value="not-reserved" selected?={ page.ReservedFilter == "not-reserved" }>Not Reserved</option></select>
-				<button type="submit">Apply search and filters</button>
+				<p>All eligible occurrences in this Book are counted. Results are ordered by frequency, then lemma and part of speech.</p>
+				<button type="submit">Search</button>
 			</form>
 			if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
+			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 }>Browse results</h2>
 			if page.Total == 0 && page.InventoryTotal == 0 {
 				<p>The current analysis has no eligible vocabulary identities.</p>
 			}
 			if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
-				<p>No eligible identities match the applied part-of-speech scope in this Book.</p>
+				<p>No eligible identities are in this Book.</p>
 			}
 			if page.Total == 0 && page.ScopedInventoryTotal > 0 {
-				<p>No current identities match the applied prefix and learner-state filters in this Book. Clear or broaden those controls to see more.</p>
+				<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
 			}
 			if page.Total > 0 {
-				<p>{ fmt.Sprintf("%d effective identities in this Book", page.Total) }. Known and Reserved filters only narrow identities and do not change their evidence counts. Results use current completed analysis and effective occurrence decisions.</p>
+				<p>{ fmt.Sprintf("%d effective identities in this Book", page.Total) }. Results use all current completed analysis and effective occurrence decisions, including singletons.</p>
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(row.CanonicalLemma, row.UPOS)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>
 						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
@@ -1078,7 +1073,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		}
 		<ul>
 		for _, identity := range identities {
-			<li><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(identity.CanonicalLemma, identity.UPOS)) }><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code></a> — { selectionEvidenceLabel(identity) }
+			<li><a href={ templ.SafeURL(vocabularyConcordanceURL(identity.CanonicalLemma, identity.UPOS, "")) }><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code></a> — { selectionEvidenceLabel(identity) }
 				if len(identity.EvidenceBooks) > 0 {
 					<ul aria-label={ "Current evidence for "+identity.CanonicalLemma }>
 					for _, book := range identity.EvidenceBooks {
@@ -1369,8 +1364,11 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 	}
 }
 
-func vocabularyIdentityConcordanceURL(lemma, upos string) string {
+func vocabularyConcordanceURL(lemma, upos, bookID string) string {
 	values := url.Values{"mode": {"effective"}, "term": {lemma}, "upos": {upos}}
+	if bookID != "" {
+		values.Set("book", bookID)
+	}
 	return "/vocabulary/concordance?" + values.Encode()
 }
 
@@ -1623,22 +1621,17 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackError, "Browse could not be loaded", "Your search and filters were not applied. Retry with these controls or a shorter prefix. A failed request is not an empty result.")
+		@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
 		<form method="get" action="/vocabulary">
 			<input type="hidden" name="q" value={ query.Prefix }/>
-			for _, pos := range query.UPOS {
-				<input type="hidden" name="pos" value={ pos }/>
-			}
-			<input type="hidden" name="known" value={ query.KnownFilter }/>
-			<input type="hidden" name="reserved" value={ query.ReservedFilter }/>
-		<input type="hidden" name="sort" value={ query.Sort }/>
+			<input type="hidden" name="reading" value={ query.ReadingBookID }/>
 		<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
 		if query.Revision != "" {
 			<input type="hidden" name="rev" value={ query.Revision }/>
 		}
 		<button type="submit">Retry Browse</button>
 		</form>
-		<a href="/vocabulary">Clear search and filters</a>
+		<a href="/vocabulary">Clear search</a>
 		<p>Browse does not report partial counts as complete.</p>
 	}
 }
@@ -1648,9 +1641,9 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current corpus changed since this page was requested. Restart from the first page to avoid skipping or repeating identities.")
-		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{SelectedUPOS: query.UPOS, KnownFilter: query.KnownFilter, ReservedFilter: query.ReservedFilter, Sort: query.Sort}, query.Prefix)) }>Restart from results</a>
-		<a href="/vocabulary">Clear search and filters</a>
+		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
+		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID}, query.Prefix)) }>Restart in the Current reading</a>
+		<a href="/vocabulary">Clear search</a>
 	}
 }
 
@@ -1663,15 +1656,6 @@ templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) }>Next</a>
 		}
 	</nav></section>
-}
-
-func vocabularyBrowseContains(values []string, value string) bool {
-	for _, candidate := range values {
-		if candidate == value {
-			return true
-		}
-	}
-	return false
 }
 
 func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {

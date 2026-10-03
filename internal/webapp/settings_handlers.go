@@ -53,15 +53,10 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	prefix := r.URL.Query().Get("q")
 	values := r.URL.Query()
-	bookIDs := values["book"]
-	upos := values["pos"]
-	known := vocabularyBrowseRequestState(values.Get("known"), "known", "not-known")
-	reserved := vocabularyBrowseRequestState(values.Get("reserved"), "reserved", "not-reserved")
-	// Ignore the retired alternate sort URL controls. Browse discovery order is
-	// always effective occurrence frequency within the Current reading Book.
-	sortBy := "occurrences"
 	browseQuery := domain.VocabularyBrowseQuery{
-		Prefix: prefix, BookIDs: bookIDs, UPOS: upos, KnownFilter: known, ReservedFilter: reserved, Sort: sortBy, Page: page,
+		// Legacy Book/POS/state/sort parameters are intentionally ignored. Browse
+		// is always the complete current-Book identity set in frequency order.
+		Prefix: prefix, ReadingBookID: values.Get("reading"), Sort: "occurrences", Page: page,
 		Revision: values.Get("rev"),
 	}
 	// Browse is an interactive request, not a durable background job. Bound the
@@ -79,9 +74,15 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if browseQuery.ReadingBookID != "" && (!current.IsActive() || browseQuery.ReadingBookID != current.BookID) {
+		browseQuery.CurrentBookID = current.BookID
+		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
+		return
+	}
 	browse := domain.VocabularyBrowsePage{Page: page}
 	if current.IsActive() {
 		browseQuery.CurrentBookID = current.BookID
+		browseQuery.ReadingBookID = current.BookID
 		browse.CurrentBookID = current.BookID
 		browse, err = h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
 		browse.CurrentBookID = current.BookID
@@ -90,6 +91,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
 			return
 		}
+		browse.ReadingBookID = current.BookID
 	}
 	if current.IsActive() && browseQuery.Revision != "" && browseQuery.Revision != browse.CorpusRevision {
 		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
@@ -635,32 +637,17 @@ func (h *Handler) requireEditableStudyLanguage(w http.ResponseWriter, r *http.Re
 	return true
 }
 
-func vocabularyBrowseRequestState(value, positive, negative string) string {
-	if value == positive || value == negative || value == "not-known-or-reserved" && positive == "known" {
-		return value
-	}
-	return "any"
-}
-
 func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query string) string {
 	values := url.Values{}
 	if query != "" {
 		values.Set("q", query)
 	}
-	for _, book := range browse.SelectedBooks {
-		values.Add("book", book)
+	readingBookID := browse.ReadingBookID
+	if readingBookID == "" {
+		readingBookID = browse.CurrentBookID
 	}
-	for _, pos := range browse.SelectedUPOS {
-		values.Add("pos", pos)
-	}
-	if browse.KnownFilter != "any" && browse.KnownFilter != "" {
-		values.Set("known", browse.KnownFilter)
-	}
-	if browse.ReservedFilter != "any" && browse.ReservedFilter != "" {
-		values.Set("reserved", browse.ReservedFilter)
-	}
-	if browse.Sort != "" && browse.Sort != "lemma" {
-		values.Set("sort", browse.Sort)
+	if readingBookID != "" {
+		values.Set("reading", readingBookID)
 	}
 	if browse.CorpusRevision != "" {
 		values.Set("rev", browse.CorpusRevision)
