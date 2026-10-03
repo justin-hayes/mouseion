@@ -1,4 +1,4 @@
-import { LitElement, html, nothing, type TemplateResult } from 'lit';
+import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 
 type Occurrence = {
   id: string;
@@ -28,18 +28,117 @@ function validOccurrence(value: unknown): value is Occurrence {
 }
 
 class MouseionConcordance extends LitElement {
+  static override styles = css`
+    :host {
+      display: block;
+      color: var(--mouseion-color-text, inherit);
+      font-family: var(--mouseion-font-application, sans-serif);
+    }
+    .concordance-results {
+      list-style: none;
+      padding-inline-start: 0;
+      margin-block: var(--mouseion-space-3, 0.75rem);
+    }
+    .concordance-result {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: stretch;
+      gap: var(--mouseion-space-2, 0.5rem);
+      border-bottom: 1px solid var(--mouseion-color-border, currentColor);
+    }
+    .concordance-row {
+      min-width: 0;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      padding-block: var(--mouseion-space-2, 0.5rem);
+    }
+    .concordance-row summary {
+      display: grid;
+      grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 1fr) max-content minmax(0, 1fr);
+      align-items: baseline;
+      gap: var(--mouseion-space-2, 0.5rem);
+      line-height: 1.5;
+      max-width: 100%;
+      cursor: pointer;
+    }
+    .concordance-book-title {
+      min-width: 0;
+      font-family: var(--mouseion-font-reading, serif);
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .concordance-before,
+    .concordance-after {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .concordance-surface,
+    .concordance-observed-target {
+      color: var(--mouseion-color-accent, currentColor);
+      white-space: nowrap;
+    }
+    .concordance-study-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--mouseion-space-1, 0.25rem);
+      min-width: 2.75rem;
+      padding-inline: var(--mouseion-space-2, 0.5rem);
+      color: var(--mouseion-color-accent, currentColor);
+      text-align: center;
+    }
+    .concordance-context {
+      max-width: var(--mouseion-width-reading, 42rem);
+      padding: var(--mouseion-space-2, 0.5rem) var(--mouseion-space-3, 0.75rem) 0;
+    }
+    .concordance-context p {
+      overflow-wrap: anywhere;
+      margin-block: 0 var(--mouseion-space-2, 0.5rem);
+      font-family: var(--mouseion-font-reading, serif);
+      line-height: 1.7;
+    }
+    :focus-visible {
+      outline: 2px solid var(--mouseion-color-focus, currentColor);
+      outline-offset: 2px;
+    }
+    @media (max-width: 40rem) {
+      .concordance-result { grid-template-columns: minmax(0, 1fr) auto; }
+      .concordance-row summary {
+        grid-template-columns: minmax(0, 1fr) max-content;
+        gap: var(--mouseion-space-1, 0.25rem) var(--mouseion-space-2, 0.5rem);
+      }
+      .concordance-book-title {
+        grid-column: 1 / -1;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .concordance-before { grid-column: 1; white-space: normal; }
+      .concordance-surface { grid-column: 2; grid-row: 2; }
+      .concordance-after { grid-column: 1 / -1; white-space: normal; }
+      .concordance-study-link {
+        align-self: start;
+        min-width: 0;
+        padding-inline: var(--mouseion-space-1, 0.25rem);
+      }
+      .concordance-study-label { display: inline; }
+    }
+  `;
+
   private occurrences: Occurrence[] | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener('hashchange', this.restoreFragmentFocus);
+    window.addEventListener('popstate', this.restoreFragmentFocus);
     try {
       const host = this.parentElement;
       const native = document.getElementById('concordance-native-results');
       if (!host || !native) return;
-       const fragmentTarget = location.hash ? document.getElementById(location.hash.slice(1)) : null;
-       const restoreFocusID = location.hash
-         ? fragmentTarget && native.contains(fragmentTarget) ? fragmentTarget.id : 'concordance-summary'
-         : '';
       const payload: unknown = JSON.parse(host.getAttribute('data-concordance-data') ?? '');
       if (!payload || typeof payload !== 'object' ||
           !Array.isArray((payload as Payload).occurrences) ||
@@ -51,16 +150,25 @@ class MouseionConcordance extends LitElement {
         if (!this.isConnected || !this.occurrences) return;
         native.remove();
         host.hidden = false;
-        if (restoreFocusID) document.getElementById(restoreFocusID)?.focus({ preventScroll: true });
+        this.restoreFragmentFocus();
       });
     } catch {
       // Enhancement is opportunistic. Invalid data leaves the native result list visible.
     }
   }
 
-  protected override createRenderRoot(): HTMLElement {
-    return this;
+  override disconnectedCallback(): void {
+    window.removeEventListener('hashchange', this.restoreFragmentFocus);
+    window.removeEventListener('popstate', this.restoreFragmentFocus);
+    super.disconnectedCallback();
   }
+
+  private readonly restoreFragmentFocus = (): void => {
+    if (!this.isConnected || !this.occurrences || !location.hash) return;
+    const id = location.hash.slice(1);
+    const target = this.shadowRoot?.getElementById(id);
+    (target ?? document.getElementById('concordance-summary'))?.focus({ preventScroll: true });
+  };
 
   override render(): TemplateResult | typeof nothing {
     if (!this.occurrences) return nothing;
@@ -93,7 +201,7 @@ class MouseionConcordance extends LitElement {
     if (!opening || opening.open) return;
     // Close synchronously before the browser's default summary activation. A
     // toggle event is task-queued and can race rapid successive openings.
-    this.querySelectorAll<HTMLDetailsElement>('details.concordance-row[open]').forEach((row) => {
+    this.shadowRoot?.querySelectorAll<HTMLDetailsElement>('details.concordance-row[open]').forEach((row) => {
       if (row !== opening) row.open = false;
     });
   };
@@ -107,7 +215,7 @@ class MouseionConcordance extends LitElement {
     if (!(summary instanceof HTMLElement) || summary.tagName !== 'SUMMARY' ||
         !summary.matches(':focus')) return;
 
-    const rows = Array.from(this.querySelectorAll<HTMLDetailsElement>('details.concordance-row'));
+    const rows = Array.from(this.shadowRoot?.querySelectorAll<HTMLDetailsElement>('details.concordance-row') ?? []);
     const current = summary.closest<HTMLDetailsElement>('details.concordance-row');
     const index = current ? rows.indexOf(current) : -1;
     if (index < 0) return;
