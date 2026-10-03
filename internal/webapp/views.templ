@@ -1355,7 +1355,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 										</p>
 									</div>
 								</details>
-								<a class="concordance-study-link" aria-label="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }><span aria-hidden="true">↗</span><span class="concordance-study-label">Study</span></a>
+                                <a class="concordance-study-link" aria-label="Study this sentence and its syntax" title="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }><span aria-hidden="true">↗</span></a>
 							</li>
 						}
 						</ol>
@@ -1376,7 +1376,8 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				</section>
 				}
 			}
-			<script type="module" src="/static/concordance.js"></script>
+            <script src="/static/concordance-keyboard.js" defer></script>
+            <script type="module" src="/static/concordance.js"></script>
 		}
 }
 

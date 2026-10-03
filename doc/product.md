@@ -66,7 +66,7 @@ language for import.
 - [Sentence-quality scoring](features/sentence-quality-scoring.md) — a deterministic GDEX-informed rubric computed at export time over the persisted corpus: a finite-verb-and-subject knock-out plus gradual ranking (subordinate-clause placement, deixis, entity density, length).
 - [Dictionary gloss and morphology enrichment](features/dictionary-gloss-enrichment.md) — a built-in dictionary provider over a build-time-derived SQLite index (Wiktextract/Kaikki) supplying consent-free, deterministic English glosses and morphology (article, gender, plural) for German, Italian, and Modern Greek.
 - [Learner review of analyzer lemmas](features/lemma-review-and-correction.md) — implemented Book- and analysis-scoped review of suspicious occurrence lemmas before reading/deck vocabulary freezes; the analyzer evidence remains immutable.
-- [Vocabulary Browse, Concordance, and Custom decks](features/vocabulary-browse-concordance-and-custom-decks.md) — **accepted target, not yet implemented**: Browse effective identities across current analyzed Books, inspect occurrence and syntax evidence, and prepare independent cross-Book Custom decks.
+- [Vocabulary Browse, Concordance, and Custom decks](features/vocabulary-browse-concordance-and-custom-decks.md) — **accepted specification, partially shipped**: Browse effective identities across current analyzed Books and inspect occurrence and syntax evidence; saved selections and independent cross-Book Custom decks remain target work.
 
 Retired feature records are preserved under [`doc/archive/features/`](archive/features/).
 
