@@ -893,7 +893,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			<form method="get" action="/vocabulary" class="data-width">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
-				<p>All eligible occurrences in this Book are counted. Results are ordered by frequency, then lemma and part of speech.</p>
+				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
 				<p>By default, words already Known, Reserved, or included in a successfully prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
 				<label><input type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
 				<button type="submit">Search</button>
@@ -917,11 +917,11 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				}
 			}
 			if page.Total > 0 {
-				<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Occurrence counts use all current completed analysis and effective occurrence decisions, including singletons.</p>
+				<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Counts use current completed analyses and effective occurrence decisions, including singletons.</p>
 				@ResponsiveTable("Current effective vocabulary") {
-					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
+					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 						if row.InBookDeck {
 							<small>In a Book deck</small>
 						}

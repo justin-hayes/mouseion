@@ -485,8 +485,8 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
 	page.CorpusRevision = "fixture-current-reading-vocabulary-v1"
 	rows := []domain.VocabularyBrowseRow{
-		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, Generated: true},
-		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, Known: true, InBookDeck: true},
+		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, Generated: true},
+		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
 	}
 	if !query.IncludeAll {
 		filtered := rows[:0]

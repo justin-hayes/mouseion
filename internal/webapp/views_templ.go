@@ -5373,7 +5373,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 423, "\"><p>All eligible occurrences in this Book are counted. Results are ordered by frequency, then lemma and part of speech.</p><p>By default, words already Known, Reserved, or included in a successfully prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p><label><input type=\"checkbox\" name=\"all\" value=\"1\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 423, "\"><p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p><p>By default, words already Known, Reserved, or included in a successfully prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p><label><input type=\"checkbox\" name=\"all\" value=\"1\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5463,7 +5463,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 439, ". Occurrence counts use all current completed analysis and effective occurrence decisions, including singletons.</p>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 439, ". Counts use current completed analyses and effective occurrence decisions, including singletons.</p>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5479,7 +5479,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 									}()
 								}
 								ctx = templ.InitializeContext(ctx)
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 440, "<caption>Current effective vocabulary</caption><thead><tr><th scope=\"col\">Lemma</th><th scope=\"col\">Part of speech</th><th scope=\"col\">Occurrences</th><th scope=\"col\">Learner state</th><th scope=\"col\">Browse selection</th></tr></thead><tbody>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 440, "<caption>Current effective vocabulary</caption><thead><tr><th scope=\"col\">Lemma</th><th scope=\"col\">Part of speech</th><th scope=\"col\">Occurrence counts</th><th scope=\"col\">Learner state</th><th scope=\"col\">Browse selection</th></tr></thead><tbody>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -5502,9 +5502,9 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 										return templ_7745c5c3_Err
 									}
 									var templ_7745c5c3_Var267 string
-									templ_7745c5c3_Var267, templ_7745c5c3_Err = templ.JoinStringErrs(row.CanonicalLemma)
+									templ_7745c5c3_Var267, templ_7745c5c3_Err = templ.JoinStringErrs(vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS))
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 147}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 197}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var267))
 									if templ_7745c5c3_Err != nil {
@@ -5517,7 +5517,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 									var templ_7745c5c3_Var268 string
 									templ_7745c5c3_Var268, templ_7745c5c3_Err = templ.JoinStringErrs(row.UPOS)
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 178}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 228}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var268))
 									if templ_7745c5c3_Err != nil {
@@ -5528,9 +5528,9 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 										return templ_7745c5c3_Err
 									}
 									var templ_7745c5c3_Var269 string
-									templ_7745c5c3_Var269, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", row.OccurrenceCount))
+									templ_7745c5c3_Var269, templ_7745c5c3_Err = templ.JoinStringErrs(vocabularyBrowseOccurrenceCounts(row))
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 236}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 285}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var269))
 									if templ_7745c5c3_Err != nil {
@@ -5543,7 +5543,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 									var templ_7745c5c3_Var270 string
 									templ_7745c5c3_Var270, templ_7745c5c3_Err = templ.JoinStringErrs(vocabularyBrowseState(row))
 									if templ_7745c5c3_Err != nil {
-										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 275}
+										return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 924, Col: 324}
 									}
 									_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var270))
 									if templ_7745c5c3_Err != nil {

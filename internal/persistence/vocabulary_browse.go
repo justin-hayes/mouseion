@@ -35,9 +35,10 @@ WITH all_books AS (
   SELECT b.id::text AS id, b.title,
     EXISTS (SELECT 1 FROM current_analysis_identity cai WHERE cai.owner_id=b.owner_id AND cai.book_id=b.id) AS analyzed
   FROM books b WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
-    AND ($10='' OR b.id::text=$10)
 ), scope_books AS (
-  SELECT * FROM all_books WHERE COALESCE(cardinality($4::text[]),0)=0 OR id=ANY($4::text[])
+  SELECT * FROM all_books WHERE
+    ($10<>'' AND id=$10) OR
+    ($10='' AND (COALESCE(cardinality($4::text[]),0)=0 OR id=ANY($4::text[])))
 ), current_evidence AS (
   SELECT cai.book_id::text AS book_id, t.upos,
          COALESCE(d.canonical_lemma,t.canonical_lemma) AS lemma,
@@ -68,13 +69,12 @@ WITH all_books AS (
   FROM book_identities GROUP BY lemma,upos
 ), scoped_grouped AS (
   SELECT lemma,upos,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected
-  FROM book_identities
-  WHERE (COALESCE(cardinality($4::text[]),0)=0 OR book_id=ANY($4::text[]))
-    AND (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
+  FROM book_identities JOIN scope_books ON scope_books.id=book_identities.book_id
+  WHERE (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
   GROUP BY lemma,upos
 ), annotated AS (
-  -- Every scoped identity belongs to grouped; avoid a second aggregate join.
-  SELECT g.*,
+  SELECT g.lemma,g.upos,g.occurrences,g.books,g.corrected,
+    COALESCE(all_grouped.occurrences,g.occurrences) AS across_books_occurrences,
     EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='')) AS known,
     EXISTS (SELECT 1 FROM primary_goal_snapshots ps
       JOIN primary_goals pg ON pg.owner_id=ps.owner_id AND pg.snapshot_id=ps.id
@@ -86,9 +86,9 @@ WITH all_books AS (
       JOIN deck_preparation_manifest_items mi ON mi.owner_id=p.owner_id AND mi.preparation_id=p.id
       WHERE p.owner_id=$1 AND p.book_id=$12::uuid AND p.state='ready'
         AND mi.disposition='accepted' AND mi.language=$2 AND mi.canonical_lemma=g.lemma AND mi.upos=g.upos) AS in_book_deck
-  FROM scoped_grouped g
+  FROM scoped_grouped g LEFT JOIN grouped all_grouped USING (lemma,upos)
 ), eligible AS (
-  SELECT a.lemma,a.upos,a.occurrences,a.books,a.corrected,a.known,a.reserved,a.generated,a.in_book_deck
+  SELECT a.lemma,a.upos,a.occurrences,a.across_books_occurrences,a.books,a.corrected,a.known,a.reserved,a.generated,a.in_book_deck
   FROM annotated a
   WHERE ($3='' OR left(lower(lemma),length(lower($3)))=lower($3))
 	    AND ($6='any' OR ($6='known' AND a.known) OR ($6='not-known' AND NOT a.known) OR $6='not-known-or-reserved')
@@ -98,12 +98,14 @@ WITH all_books AS (
 ), page_rows AS (
   SELECT * FROM eligible
   ORDER BY CASE WHEN $8='occurrences' THEN occurrences END DESC,
+             CASE WHEN $10<>'' THEN across_books_occurrences END DESC,
 	           CASE WHEN $8='books' THEN books END DESC, lemma, upos
 	  LIMIT 25 OFFSET (($9::bigint-1)*25)
 ), summary AS (
   SELECT (SELECT count(*)::bigint FROM eligible) AS total,
          (SELECT count(*)::bigint FROM scoped_grouped) AS scoped_total,
-         (SELECT count(*)::bigint FROM grouped) AS inventory_total
+         CASE WHEN $10<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$10)
+              ELSE (SELECT count(*)::bigint FROM grouped) END AS inventory_total
 ), coverage AS (
   SELECT count(*)::bigint AS total,
     count(*) FILTER (WHERE analyzed)::bigint AS analyzed,
@@ -115,7 +117,7 @@ WITH all_books AS (
 ), book_status AS (
   SELECT b.id,b.title,b.analyzed,
     EXISTS (SELECT 1 FROM book_identities e WHERE e.book_id=b.id) AS contributing
-  FROM all_books b
+   FROM scope_books b
 ), revision AS (
   SELECT md5(
     COALESCE((SELECT string_agg(b.id || ':' || COALESCE(cai.analysis_run_id::text,'') || ':' || COALESCE(cai.corpus_id::text,''), ',' ORDER BY b.id)
@@ -140,13 +142,14 @@ WITH all_books AS (
          AND mi.disposition='accepted' AND mi.language=$2),'')
   ) AS value
 )
-SELECT p.lemma,p.upos,p.occurrences,p.books,p.corrected,p.known,p.reserved,p.generated,p.in_book_deck,
+SELECT p.lemma,p.upos,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.known,p.reserved,p.generated,p.in_book_deck,
   summary.total,summary.scoped_total,summary.inventory_total,coverage.analyzed,coverage.contributing,
   coverage.total-coverage.contributing,coverage.total-coverage.analyzed,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('id',id,'title',title,'has_current_analysis',analyzed,
     'has_vocabulary_evidence',contributing) ORDER BY title,id) FROM book_status),'[]'::jsonb),revision.value
 FROM summary CROSS JOIN coverage CROSS JOIN revision LEFT JOIN page_rows p ON true
 ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
+             CASE WHEN $10<>'' THEN p.across_books_occurrences END DESC,
 	         CASE WHEN $8='books' THEN p.books END DESC,p.lemma,p.upos`
 	var deckBookID any
 	if queryParams.CurrentBookID != "" {
@@ -177,9 +180,9 @@ func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowse
 	for rows.Next() {
 		var row domain.VocabularyBrowseRow
 		var lemma, pos *string
-		var occurrences, books *int64
+		var occurrences, acrossBooksOccurrences, books *int64
 		var corrected, isKnown, isReserved, generated, inBookDeck *bool
-		if err := rows.Scan(&lemma, &pos, &occurrences, &books, &corrected, &isKnown, &isReserved, &generated, &inBookDeck,
+		if err := rows.Scan(&lemma, &pos, &occurrences, &acrossBooksOccurrences, &books, &corrected, &isKnown, &isReserved, &generated, &inBookDeck,
 			&result.Total, &result.ScopedInventoryTotal, &result.InventoryTotal, &result.AnalyzedBooks,
 			&result.ContributingBooks, &result.NoncontributingBooks, &result.BooksWithoutCurrentAnalysis, &bookStatus, &corpusRevision); err != nil {
 			return domain.VocabularyBrowsePage{}, err
@@ -187,7 +190,7 @@ func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowse
 		result.CorpusRevision = corpusRevision
 		if lemma != nil {
 			row.CanonicalLemma, row.UPOS = *lemma, *pos
-			row.OccurrenceCount, row.BookCount = *occurrences, *books
+			row.OccurrenceCount, row.AcrossBooksOccurrenceCount, row.BookCount = *occurrences, *acrossBooksOccurrences, *books
 			row.Corrected, row.Known, row.Reserved, row.Generated, row.InBookDeck = *corrected, *isKnown, *isReserved, *generated, *inBookDeck
 			result.Rows = append(result.Rows, row)
 		}

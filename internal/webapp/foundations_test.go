@@ -299,6 +299,32 @@ func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing
 	assert.Contains(t, output.String(), `href="/vocabulary?page=3&amp;q=haus&amp;reading=book-1"`)
 }
 
+func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *testing.T) {
+	page := domain.VocabularyBrowsePage{
+		CurrentBookID: "book-1", Total: 2, InventoryTotal: 2, ScopedInventoryTotal: 2,
+		Books: []domain.VocabularyBrowseBook{{ID: "book-1", Title: "Current Book", HasCurrentAnalysis: true, HasVocabularyEvidence: true}},
+		Rows: []domain.VocabularyBrowseRow{
+			{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 5},
+			{CanonicalLemma: "garten", UPOS: "NOUN", OccurrenceCount: 3, AcrossBooksOccurrenceCount: 3},
+			{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 4},
+		},
+	}
+	var output bytes.Buffer
+	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "de", page, "").Render(context.Background(), &output))
+	html := output.String()
+	for _, want := range []string{
+		"Occurrence counts", "In this Book: 2; Across analyzed books: 5", "In this Book: 3; Across analyzed books: 3",
+		">Haus</a>", ">gehen</a>", `name="lemma" value="haus"`,
+	} {
+		assert.Contains(t, html, want)
+	}
+	assert.NotContains(t, html, `name="lemma" value="Haus"`, "display casing must not alter selection identity")
+
+	output.Reset()
+	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "it", page, "").Render(context.Background(), &output))
+	assert.Contains(t, output.String(), ">haus</a>", "non-German noun display retains canonical casing")
+}
+
 func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.T) {
 	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences", IncludeAll: true, CorpusRevision: "revision-1"}
 	url := vocabularyBrowsePageURL(3, page, "Haus")
