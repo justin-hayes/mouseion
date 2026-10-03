@@ -109,7 +109,7 @@ window.showConcordanceNetworkRecovery = function (ctx) {
   recovery.replaceChildren();
   var message = document.createElement('p');
   message.setAttribute('role', 'alert');
-  message.textContent = 'Concordance could not reach the server or the request timed out in your browser. Your current results and URL are unchanged. Retry the attempted search.';
+  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';
   var retry = document.createElement('a');
   retry.href = ctx.request.action;
   retry.textContent = 'Retry Concordance lookup';
@@ -1206,7 +1206,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 		}
 		if language != "" {
 			<p class="concordance-language">Study language: <code>{ language }</code> <span>· Current analyzed Books</span></p>
-			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
+			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
 				for _, bookID := range lookup.BookIDs {
 					<input type="hidden" name="book" value={ bookID }/>
 				}
@@ -1237,7 +1237,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			<div class="concordance-scopes">
 			<details>
 				<summary>Books (applied: { concordanceBookScope(lookup, books) })</summary>
-			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
+			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
 					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 					if lookup.GrammarDirection != "" {
 						<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
@@ -1252,7 +1252,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			</details>
 			<details>
 				<summary>Grammar (applied: { concordanceGrammarScope(lookup) })</summary>
-				<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
+				<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
 					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 					for _, bookID := range lookup.BookIDs {
 						<input type="hidden" name="book" value={ bookID }/>
@@ -1274,7 +1274,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			}
 			if applied {
 				<section id="concordance-results" aria-labelledby="concordance-summary">
-					<h2 id="concordance-summary" tabindex="-1" aria-live="polite" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>Current results</h2>
+					<h2 id="concordance-summary" tabindex="-1" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>Current results</h2>
 					<p>{ concordanceAppliedSummary(lookup) } · { concordanceBookScope(lookup, books) } · { concordanceGrammarScope(lookup) }.</p>
 					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }{ concordanceMoreResultsText(result) }.</p>
 					if len(result.Occurrences) == 0 && lookup.Page == 1 {
@@ -1313,10 +1313,10 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					if result.HasPrevious || result.HasNext {
 						<nav aria-label="Concordance pages">
 							if result.HasPrevious {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
 							}
 							if result.HasNext {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
 							}
 						</nav>
 					}
@@ -1564,18 +1564,22 @@ func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (st
 	return text[:start], text[start:end], text[end:]
 }
 
-templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
+templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
 		@VocabularyViewsNav("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@VocabularyConcordanceErrorRecovery(books, lookup)
+		@VocabularyConcordanceErrorRecovery(books, lookup, timeout)
 	}
 }
 
-templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
+templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
 	<div id="concordance-recovery" aria-live="polite">
-		@Feedback(FeedbackError, "Concordance lookup was not applied", "The search did not complete. Retry it, or narrow the term or Book scope. A timeout or failed search is not a zero-result claim.")
+		if timeout {
+			@Feedback(FeedbackError, "Concordance server timed out", "The server could not complete this search in time. Your current results, if shown, remain under their old applied label; retry or narrow the Book scope. A timeout is not a zero-result claim.")
+		} else {
+			@Feedback(FeedbackError, "Concordance lookup was not applied", "The search did not complete. Retry it, or narrow the term or Book scope. A failed search is not a zero-result claim.")
+		}
 		<form method="get" action="/vocabulary/concordance">
 			<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 			if lookup.GrammarDirection != "" {

@@ -298,7 +298,7 @@ test.describe('authenticated learner smoke', () => {
     await page.getByLabel('Exact term').fill('Netzwerk');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     const recovery = page.locator('#concordance-recovery');
-    await expect(recovery).toContainText('could not reach the server');
+    await expect(recovery).toContainText('connection failed or the browser-side request timed out');
     const retry = recovery.getByRole('link', { name: 'Retry Concordance lookup' });
     await expect(retry).toHaveAttribute('href', /term=Netzwerk/);
     await expect(retry).toHaveAttribute('href', /book=fixture-book/);
@@ -307,6 +307,31 @@ test.describe('authenticated learner smoke', () => {
     await expect(oldResults).toContainText('lookup for “Haus”');
     await expect(page).toHaveURL(/term=Haus/);
     await page.unroute(/\/vocabulary\/concordance.*term=Netzwerk/);
+  });
+
+  test('Concordance browser-side timeout keeps old results and exposes recovery', async ({ page }) => {
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    const oldResults = page.locator('#concordance-results');
+    let releaseRequest!: () => void;
+    const requestGate = new Promise<void>(resolve => { releaseRequest = resolve; });
+    let requestStarted!: () => void;
+    const started = new Promise<void>(resolve => { requestStarted = resolve; });
+    await page.route(/\/vocabulary\/concordance.*term=Slow/, async route => {
+      requestStarted();
+      await requestGate;
+      try { await route.continue(); } catch { /* HTMX times out and aborts this request. */ }
+    });
+    try {
+      await page.getByLabel('Exact term').fill('Slow');
+      await page.getByRole('button', { name: 'Find', exact: true }).click();
+      await started;
+      await expect(page.locator('#concordance-recovery')).toContainText('browser-side request timed out', { timeout: 11_000 });
+      await expect(oldResults).toContainText('lookup for “Haus”');
+      await expect(page).toHaveURL(/term=Haus/);
+    } finally {
+      releaseRequest();
+      await page.unroute(/\/vocabulary\/concordance.*term=Slow/);
+    }
   });
 
   test('Concordance applies only the newest overlapping lookup', async ({ page }) => {

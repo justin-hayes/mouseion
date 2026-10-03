@@ -48,7 +48,7 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	for _, want := range []string{
 		`id="concordance-workflow"`, `hx-select="#concordance-workflow"`, `hx-push-url="true"`,
 		`hx-sync="#concordance-workflow:replace"`, `hx-indicator="#concordance-pending"`,
-		`hx-status:409=`, `hx-status:4xx=`, `hx-status:5xx=`, `id="concordance-pending"`,
+		`hx-config="timeout:9s"`, `hx-status:409=`, `hx-status:4xx=`, `hx-status:5xx=`, `id="concordance-pending"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("rendered page missing HTMX workflow behavior %q", want)
@@ -82,7 +82,7 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 	}
 
 	got = render("occurrence-no-longer-present", result)
-	if !strings.Contains(got, `<h2 id="concordance-summary" tabindex="-1" aria-live="polite" autofocus>Current results</h2>`) {
+	if !strings.Contains(got, `<h2 id="concordance-summary" tabindex="-1" autofocus>Current results</h2>`) {
 		t.Fatal("missing returned occurrence did not focus Current results in server-rendered HTML")
 	}
 }

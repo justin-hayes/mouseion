@@ -112,14 +112,14 @@ func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Reques
 			renderStatus(w, r, status, VocabularyConcordanceChangedRecovery(books, lookup))
 			return
 		}
-		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(books, lookup))
+		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(books, lookup, status == http.StatusGatewayTimeout))
 		return
 	}
 	if changed {
 		renderStatus(w, r, status, VocabularyConcordanceChangedPageView(u, csrf, language, books, lookup))
 		return
 	}
-	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, books, lookup))
+	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, books, lookup, status == http.StatusGatewayTimeout))
 }
 
 func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {
