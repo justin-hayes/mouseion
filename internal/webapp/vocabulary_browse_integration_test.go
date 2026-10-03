@@ -996,8 +996,13 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	focusedPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?"+focusedQuery.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, focusedPage.Code)
 	assert.Contains(t, focusedPage.Body.String(), `id="occurrence-`+aliceBook.ID+`-25-0" tabindex="-1" autofocus`)
-	assert.Contains(t, focusedPage.Body.String(), `return=%2Fvocabulary%2Fconcordance%3F`)
-	assert.Contains(t, focusedPage.Body.String(), `focus%3Doccurrence-`+aliceBook.ID+`-25-0`)
+	for _, encodedTarget := range []string{
+		`return=%2Fvocabulary%2Fconcordance%3F`, `book%3D` + aliceBook.ID,
+		`focus%3Doccurrence-` + aliceBook.ID + `-25-0`, `grammar%3Down`, `mode%3Dsurface`,
+		`page%3D2`, `relation%3Droot`, `term%3DHaus`, `rev%3D`,
+	} {
+		assert.Contains(t, focusedPage.Body.String(), encodedTarget)
+	}
 	focusedQuery.Set("focus", "occurrence-no-longer-present")
 	focusedPage = perform(t, h, http.MethodGet, "/vocabulary/concordance?"+focusedQuery.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, focusedPage.Code)
