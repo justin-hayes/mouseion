@@ -3,9 +3,10 @@
 Status: **Accepted specification — partially shipped** · Updated: 2026-10-03
 
 This is the cohesive product and acceptance contract for Vocabulary Browse,
-Concordance, and Custom decks. Browse now uses Current-reading Book scope and
-frequency-first ordering; its accepted default exclusions and include-all
-control are now shipped. Other accepted Browse behavior remains subject to the
+Concordance, and Custom decks. Browse now uses Current-reading Book scope,
+displays Book-local and across-analyzed-Books occurrence counts, and orders by
+those counts; its accepted default exclusions and include-all control are now
+shipped. Other accepted Browse behavior remains subject to the
 shipped/target distinctions below. The
 cross-Book Concordance workbench is shipped. Occurrence
 review and correction have a separate [contract](lemma-review-and-correction.md).
@@ -82,8 +83,9 @@ search is included.
   decisions do not rewrite an already frozen snapshot or preparation.
 
 For example, three qualifying occurrences in the Current reading's Book A and
-one in Book B display `3 occurrences` in Browse; correcting all three in A
-away removes the identity from Browse even though B still has one.
+one in Book B display `3` **In Book A** and `4` **Across analyzed books** in
+Browse; correcting all three in A away removes the identity from Browse even
+though B still has one.
 `Drachen` corrected from `Drach/NOUN` to
 `Drache/NOUN` in one dragon sentence does not change a separate kite use with
 the same surface. On reanalysis, earlier decisions never transfer to new
@@ -99,9 +101,13 @@ occurrences merely because text or positions match.
   selection and saved-deck access available in both states, without presenting
   them as current-Book results. An analyzed Book with no eligible identities and
   a filtered zero-result page need separate explanations.
-- Default to **most eligible effective occurrences in that Book first**, with
-  canonical lemma then POS breaking ties. This is a discovery order, not a
-  learning priority, coverage measure, or Reading recommendation. Keep only
+- Default to **most eligible effective occurrences in that Book first**, then
+  most occurrences across all owned Books with current completed analysis in the
+  active language, then canonical lemma and POS for stable ties. The second
+  count includes any Book disposition and only current effective eligible
+  occurrences; it never adds identities to the Current-reading Book inventory.
+  This is a discovery order, not a learning priority, coverage measure, or
+  Reading recommendation. Keep only
   case-insensitive canonical-lemma **prefix** search, not surface/substring
   search, and one **Show already accounted-for words** control. Remove Book and
   POS filters, independent Known/Reserved controls, and alternate sorts. Ignore
@@ -117,8 +123,11 @@ occurrences merely because text or positions match.
   once, without changing their counts or sort. Explain the exclusions above
   the table.
 - Rows show canonical lemma (linked to exact effective-identity Concordance),
-  analyzed POS, the Book's effective occurrence count, **Learner state**, and
-  Select/Remove. Learner state uses textual **Unknown**, **Known**, or
+  analyzed POS, explicitly labeled occurrence counts **In [Current Book]** and
+  **Across analyzed books**, **Learner state**, and Select/Remove. Always show
+  both counts, including when equal. Display German `NOUN` lemmas with an
+  initial capital using the shared lemma-display convention; canonical identity,
+  prefix matching, links, and selection remain unchanged. Learner state uses textual **Unknown**, **Known**, or
   **Reserved** labels; show **Known · Reserved** when both are true rather than
   hiding either fact. Unknown means neither Known nor Reserved, not never
   generated. For identities revealed by include-all that appeared in a
@@ -381,8 +390,11 @@ durable and asynchronous, with bounded submission acknowledgement.
    reading Book; stopping or switching it changes the scope. Stale analysis
    produces Book-specific recovery, not historical or cross-Book counts;
    singletons are eligible. Book deck/snapshot frequency rules are unchanged.
-2. Descending current-Book occurrence order and lemma/POS ties remain stable
-   through prefix search, include-all and paging. Default results exclude
+2. Descending current-Book occurrence order, then descending across-analyzed-
+   Books total and lemma/POS ties remain stable through prefix search,
+   include-all and paging. Both labeled counts remain visible and the cross-Book
+   total never creates a row outside the Current-reading Book inventory.
+   Default results exclude
    Known (including lemma-wide imports), Reserved, and identities in any
    successfully prepared deck for that Book, even when first generated for
    another Book; omitted cards and Custom deck preparation do not exclude.

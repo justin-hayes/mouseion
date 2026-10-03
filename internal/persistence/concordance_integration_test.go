@@ -243,6 +243,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		UnitID: "epub-unit-v1:0:browse-old", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
 		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
 	}})
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, staleBook.ID, domain.BookDispositionSetAside))
 	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
 	require.NoError(t, err)
 	var corpusID, analysisRunID string
@@ -262,6 +263,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	assert.True(t, page.Rows[0].Known, "Known identities remain visible when current evidence exists")
 	assert.True(t, page.Rows[0].Reserved, "Reserved identities remain visible when current evidence exists")
 	assert.Equal(t, int64(1), page.Rows[0].BookCount, "the To Read Book contributes independently of Inbox")
+	assert.Equal(t, int64(1), page.Rows[0].AcrossBooksOccurrenceCount)
 	assert.Equal(t, int64(2), page.AnalyzedBooks)
 	assert.Equal(t, int64(1), page.NoncontributingBooks)
 	assert.Equal(t, int64(1), page.BooksWithoutCurrentAnalysis)
@@ -310,6 +312,14 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.Len(t, promoted.Rows, 1)
 	assert.Equal(t, int64(2), promoted.Rows[0].OccurrenceCount)
 	assert.Equal(t, int64(2), promoted.Rows[0].BookCount)
+	currentBook, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceToReadBook.ID, Prefix: "ha", Sort: "occurrences", IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	require.Len(t, currentBook.Rows, 1)
+	assert.Equal(t, int64(1), currentBook.Rows[0].OccurrenceCount, "the Browse inventory and local count stay scoped to Current reading")
+	assert.Equal(t, int64(2), currentBook.Rows[0].AcrossBooksOccurrenceCount, "a current analysis in another disposition contributes to the cross-Book count")
+	onlyElsewhere, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceToReadBook.ID, Prefix: "alice", Page: 1})
+	require.NoError(t, err)
+	assert.Empty(t, onlyElsewhere.Rows, "identities found only in another Book do not enter the Current-reading inventory")
 	assert.Equal(t, int64(3), promoted.AnalyzedBooks)
 	assert.Zero(t, promoted.BooksWithoutCurrentAnalysis)
 
@@ -349,6 +359,44 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.Len(t, bobPage.Rows, 1)
 	assert.False(t, bobPage.Rows[0].Known, "learner state must not leak across owners")
 	assert.Equal(t, int64(1), bobPage.Rows[0].OccurrenceCount)
+}
+
+func TestCurrentReadingBrowseRanksLocalFrequencyThenAcrossBookTotal(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "browse-rank-owner", false)
+	require.NoError(t, err)
+	createAnalyzed := func(title, key, text string, tokens []concordanceToken) domain.Book {
+		book, source := createConcordanceBook(t, ctx, store, owner.ID, title, key, false, []domain.ExtractedUnit{
+			concordanceUnit(0, key, text, 0, uint64(len(text))),
+		})
+		insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{
+			UnitID: "epub-unit-v1:0:" + key, Ordinal: 0, Text: text, Start: 0, End: int64(len(text)), Tokens: tokens,
+		}})
+		return book
+	}
+	current := createAnalyzed("Current", "browse-rank-current", "alpha zeta", []concordanceToken{
+		{Surface: "alpha", Lemma: "alpha", Upos: "NOUN", Start: 0, End: 5},
+		{Surface: "zeta", Lemma: "zeta", Upos: "NOUN", Start: 6, End: 10},
+	})
+	createAnalyzed("Other", "browse-rank-other", "zeta zeta zeta alpha ghost", []concordanceToken{
+		{Surface: "zeta", Lemma: "zeta", Upos: "NOUN", Start: 0, End: 4},
+		{Surface: "zeta", Lemma: "zeta", Upos: "NOUN", Start: 5, End: 9},
+		{Surface: "zeta", Lemma: "zeta", Upos: "NOUN", Start: 10, End: 14},
+		{Surface: "alpha", Lemma: "alpha", Upos: "NOUN", Start: 15, End: 20},
+		{Surface: "ghost", Lemma: "ghost", Upos: "NOUN", Start: 21, End: 26},
+	})
+
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
+		CurrentBookID: current.ID, Sort: "occurrences", IncludeAll: true, Page: 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, page.Rows, 2, "an identity found only in another Book cannot broaden Browse")
+	assert.Equal(t, "zeta", page.Rows[0].CanonicalLemma, "equal local counts rank by descending across-Book total before canonical lemma")
+	assert.Equal(t, int64(1), page.Rows[0].OccurrenceCount)
+	assert.Equal(t, int64(4), page.Rows[0].AcrossBooksOccurrenceCount)
+	assert.Equal(t, "alpha", page.Rows[1].CanonicalLemma)
+	assert.Equal(t, int64(2), page.Rows[1].AcrossBooksOccurrenceCount)
 }
 
 func TestListCorpusSentencesReturnsBatchedTokenDependencyData(t *testing.T) {

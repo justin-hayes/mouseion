@@ -17,11 +17,20 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river/rivertype"
 )
 
 const vocabularyBrowseRequestTimeout = 8 * time.Second
+
+func vocabularyBrowseDisplayLemma(language, lemma, upos string) string {
+	return lemmadisplay.Format(language, lemma, upos)
+}
+
+func vocabularyBrowseOccurrenceCounts(row domain.VocabularyBrowseRow) string {
+	return fmt.Sprintf("In this Book: %d; Across analyzed books: %d", row.OccurrenceCount, row.AcrossBooksOccurrenceCount)
+}
 
 func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/vocabulary")
