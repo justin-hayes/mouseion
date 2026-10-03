@@ -152,6 +152,64 @@ test.describe('authenticated learner smoke', () => {
     }
   });
 
+  test('Concordance Lit enhancement reproduces native evidence without another search', async ({ page }) => {
+    const concordanceRequests: string[] = [];
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (url.pathname === '/vocabulary/concordance' && url.searchParams.get('term') === 'Haus') concordanceRequests.push(request.url());
+    });
+    await page.goto('/vocabulary/concordance');
+    await expect.poll(() => page.evaluate(() => Boolean(customElements.get('mouseion-concordance')))).toBe(true);
+    await page.getByLabel('Exact term').fill('Haus');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    const nativeRows = page.locator('#concordance-native-results');
+    const enhancedRows = page.locator('mouseion-concordance .concordance-results');
+    await expect(enhancedRows).toBeVisible();
+    await expect(nativeRows).toHaveCount(0);
+    await expect(enhancedRows.locator('.concordance-result')).toHaveCount(3);
+    const occurrenceIDs = await enhancedRows.locator('details.concordance-row').evaluateAll(rows => rows.map(row => row.id));
+    expect(new Set(occurrenceIDs).size).toBe(occurrenceIDs.length);
+    await expect(page.locator('#occurrence-fixture-concordance-book-0-1')).toBeVisible();
+    const firstRow = enhancedRows.locator('.concordance-result').first();
+    await expect(firstRow.locator('.concordance-book-title')).toHaveText('Corrected evidence');
+    await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
+    await expect(firstRow.locator('details')).not.toHaveAttribute('open', '');
+    await firstRow.locator('summary').click();
+    await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
+    await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
+    await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
+    const secondRow = enhancedRows.locator('.concordance-result').nth(1);
+    await secondRow.locator('summary').click();
+    await expect(secondRow.locator('details')).toHaveAttribute('open', '');
+    await expect(firstRow.locator('details')).not.toHaveAttribute('open', '');
+    expect(concordanceRequests).toHaveLength(1);
+    await page.setViewportSize({ width: 320, height: 812 });
+    const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    expect(horizontalOverflow).toBe(false);
+    await expect(firstRow.locator('.concordance-book-title')).toBeVisible();
+    await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
+    await expect(secondRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
+    await firstRow.locator('.concordance-study-link').click();
+    await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+    await page.getByRole('link', { name: 'Return to Concordance results' }).click();
+    const returnedOccurrence = page.locator('#occurrence-fixture-concordance-book-0-1');
+    await expect(returnedOccurrence).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-concordance-book-0-1');
+  });
+
+  test('Concordance native evidence remains usable when the island bundle fails', async ({ page }) => {
+    await page.route('**/static/concordance.js', route => route.fulfill({ status: 404, body: 'missing bundle' }));
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    const rows = page.locator('#concordance-native-results');
+    await expect(rows).toBeVisible();
+    await expect(rows.locator('.concordance-result')).toHaveCount(3);
+    await expect(page.locator('[data-concordance-island]')).toBeHidden();
+    const studyLink = rows.getByRole('link', { name: 'Study this sentence and its syntax' }).first();
+    await expect(studyLink).toBeVisible();
+    await rows.locator('details').first().locator('summary').click();
+    await expect(rows.locator('.concordance-context').first()).toContainText('Das Haus sieht gut aus.');
+  });
+
   test('Concordance keeps its applied results labeled while an enhanced lookup is pending', async ({ page }) => {
     await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
     await expect(page.getByRole('heading', { name: 'Current results' })).toBeVisible();
