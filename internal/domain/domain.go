@@ -130,6 +130,7 @@ type VocabularyBrowseRow struct {
 type VocabularyBrowsePage struct {
 	Rows                        []VocabularyBrowseRow
 	Books                       []VocabularyBrowseBook
+	CurrentBookID               string
 	Total                       int64
 	InventoryTotal              int64
 	ScopedInventoryTotal        int64
@@ -149,6 +150,7 @@ type VocabularyBrowsePage struct {
 
 type VocabularyBrowseQuery struct {
 	Prefix         string
+	CurrentBookID  string
 	BookIDs        []string
 	UPOS           []string
 	KnownFilter    string

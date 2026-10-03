@@ -525,7 +525,9 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	seedBrowseHTTPToken(t, ctx, store, aliceSource, aliceCorpus)
 	seedBrowseHTTPToken(t, ctx, store, aliceOtherSource, aliceOtherCorpus)
 	seedBrowseHTTPToken(t, ctx, store, bobSource, bobCorpus)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook.ID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook.ID, domain.BookDispositionToRead))
+	current, err := store.StartCurrentReading(ctx, alice.ID, "de", aliceBook.ID)
+	require.NoError(t, err)
 
 	beforeDeck, err := store.GetDeckPreparation(ctx, alice.ID, aliceDeck.ID)
 	require.NoError(t, err)
@@ -539,10 +541,18 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Alice German")
 	assert.Contains(t, response.Body.String(), "haus")
-	assert.Contains(t, response.Body.String(), "Contributes current eligible vocabulary evidence")
+	assert.Contains(t, response.Body.String(), "Current reading")
+	assert.Contains(t, response.Body.String(), "<td>1</td>")
 	assert.NotContains(t, response.Body.String(), "Bob German")
+	assert.NotContains(t, response.Body.String(), "Alice German Other")
 	assert.NotContains(t, response.Body.String(), `action="/vocabulary/import"`)
 	assert.Contains(t, response.Body.String(), `href="/vocabulary/import"`)
+	browseToken := hiddenToken(t, response.Body.String())
+	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
+	selected := perform(t, h, http.MethodPost, "/vocabulary/selection/add", url.Values{
+		"csrf_token": {browseToken}, "lemma": {"haus"}, "upos": {"NOUN"},
+	}, postCookies)
+	require.Equal(t, http.StatusSeeOther, selected.Code)
 
 	afterDeck, err := store.GetDeckPreparation(ctx, alice.ID, aliceDeck.ID)
 	require.NoError(t, err)
@@ -567,10 +577,10 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	}
 	filtered := perform(t, h, http.MethodGet, "/vocabulary?"+filteredQuery.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, filtered.Code)
-	assert.Contains(t, filtered.Body.String(), "2 of 2 Books in the applied Book scope contribute current vocabulary evidence")
-	assert.Contains(t, filtered.Body.String(), "scope contains 1 of 1 identities in the full active-language corpus")
+	assert.Contains(t, filtered.Body.String(), "<td>1</td>")
+	assert.NotContains(t, filtered.Body.String(), "Alice German Other")
 	assert.Contains(t, filtered.Body.String(), "haus")
-	assert.Contains(t, filtered.Body.String(), "<td>2</td><td>2</td>", "the authenticated page renders multi-Book scoped occurrence and Book counts")
+	assert.Contains(t, filtered.Body.String(), "<td>1</td>", "the authenticated page renders only current-Book occurrence counts")
 	assert.NotContains(t, filtered.Body.String(), "heim")
 
 	selectedBooks := []string{aliceBook.ID, aliceOtherBook.ID}
@@ -625,6 +635,47 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, secondPage.Body.String(), "wort24")
 	assert.Contains(t, secondPage.Body.String(), "wort25")
 	assert.NotContains(t, secondPage.Body.String(), "wort00")
+
+	// Current-reading scope cannot be widened by a legacy Book parameter.
+	otherBookParameter := perform(t, h, http.MethodGet, "/vocabulary?book="+url.QueryEscape(aliceOtherBook.ID), nil, cookies)
+	require.Equal(t, http.StatusOK, otherBookParameter.Code)
+	assert.NotContains(t, otherBookParameter.Body.String(), "Alice German Other")
+
+	// Switching the Current reading changes only Browse evidence scope. The
+	// language-wide selection remains intact even when its identity is off-scope.
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceOtherBook.ID, domain.BookDispositionToRead))
+	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID, aliceBook.ID, current.SnapshotID)
+	require.NoError(t, err)
+	switched := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, switched.Code)
+	assert.Contains(t, switched.Body.String(), "Current reading: Alice German Other")
+	assert.Contains(t, switched.Body.String(), "Browse selection (1)")
+
+	// Stopping Reading leaves language-wide selection/deck navigation available,
+	// but Browse must not silently fall back to the former cross-Book inventory.
+	current, err = store.GetCurrentReading(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID, current.SnapshotID))
+	noReading := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, noReading.Code)
+	assert.Contains(t, noReading.Body.String(), "No Current reading")
+	assert.Contains(t, noReading.Body.String(), `href="/reading"`)
+	assert.Contains(t, noReading.Body.String(), `href="/vocabulary/selection"`)
+	assert.NotContains(t, noReading.Body.String(), "Alice German Other")
+	assert.Contains(t, noReading.Body.String(), "Browse selection (1)")
+
+	// A Book with no current completed analysis gets Book-specific recovery and
+	// never falls back to stale analysis or another Book's evidence.
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceOtherBook.ID)
+	require.NoError(t, err)
+	stale := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, stale.Code)
+	assert.Contains(t, stale.Body.String(), "Current reading: Alice German Other")
+	assert.Contains(t, stale.Body.String(), "no current completed analysis")
+	assert.NotContains(t, stale.Body.String(), "haus")
+	assert.Contains(t, stale.Body.String(), "Browse selection (1)")
 }
 
 func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHTTP(t *testing.T) {
