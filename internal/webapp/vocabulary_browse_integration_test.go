@@ -607,6 +607,14 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, aliceSource.OwnerID, aliceCorpus.ID).Scan(&runID))
 	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(aliceSource.SourceIdentifier, "migration-"))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,0,4,'heim','de','1',false)`, alice.ID, aliceBook.ID, aliceCorpus.ID, runID, unitID)
+	require.NoError(t, err)
+	correctedHaus := perform(t, h, http.MethodGet, "/vocabulary?q=haus", nil, cookies)
+	require.Equal(t, http.StatusOK, correctedHaus.Code)
+	assert.NotContains(t, correctedHaus.Body.String(), `term=haus`)
+	correctedHeim := perform(t, h, http.MethodGet, "/vocabulary?q=heim", nil, cookies)
+	require.Equal(t, http.StatusOK, correctedHeim.Code)
+	assert.Contains(t, correctedHeim.Body.String(), "<td>1</td>", "the corrected occurrence moves to the effective identity in the Current reading only")
 	for ordinal := int64(1); ordinal <= 26; ordinal++ {
 		lemma := fmt.Sprintf("wort%02d", ordinal-1)
 		start := ordinal * 10
@@ -704,6 +712,11 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, italianBrowse.Body.String(), "haus")
 	assert.Contains(t, italianBrowse.Body.String(), "<td>1</td>")
 	assert.NotContains(t, italianBrowse.Body.String(), "Alice German")
+	assert.Contains(t, italianBrowse.Body.String(), "Browse selection (0)", "selection is separate by study language")
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
+	germanBrowse := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, germanBrowse.Code)
+	assert.Contains(t, germanBrowse.Body.String(), "Browse selection (1)", "switching languages retains the German selection")
 }
 
 func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHTTP(t *testing.T) {
