@@ -336,11 +336,12 @@ func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, response.Code)
 	for _, want := range []string{
 		"Browse could not be loaded", "Your search and filters were not applied", "Retry Browse",
-		`name="q" value="Haus"`, `name="book" value="book-1"`, `name="pos" value="NOUN"`,
+		`name="q" value="Haus"`, `name="pos" value="NOUN"`,
 		`name="known" value="not-known-or-reserved"`, `name="reserved" value="not-reserved"`, `name="sort" value="books"`, `name="page" value="2"`,
 	} {
 		assert.Contains(t, response.Body.String(), want)
 	}
+	assert.NotContains(t, response.Body.String(), `name="book"`)
 }
 
 type timedOutVocabularyBrowseStore struct{ knownVocabContextStore }
@@ -364,7 +365,7 @@ func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 
 	assert.Equal(t, http.StatusGatewayTimeout, response.Code)
 	assert.Less(t, time.Since(started), 10*time.Second)
-	for _, want := range []string{"Retry Browse", "shorter prefix or fewer Books", "name=\"q\" value=\"Haus\"", "name=\"page\" value=\"3\""} {
+	for _, want := range []string{"Retry Browse", "shorter prefix", "name=\"q\" value=\"Haus\"", "name=\"page\" value=\"3\""} {
 		assert.Contains(t, response.Body.String(), want)
 	}
 }
@@ -389,7 +390,7 @@ func TestVocabularyBrowseChangedEvidenceOffersRestartInsteadOfStalePage(t *testi
 	assert.Equal(t, http.StatusConflict, response.Code)
 	assert.Contains(t, response.Body.String(), "Current evidence changed")
 	assert.Contains(t, response.Body.String(), "Restart from the first page")
-	assert.Contains(t, response.Body.String(), `href="/vocabulary?book=book-1`)
+	assert.NotContains(t, response.Body.String(), `href="/vocabulary?book=book-1`)
 	assert.Contains(t, response.Body.String(), `q=Haus&amp;reserved=not-reserved`)
 	assert.Contains(t, response.Body.String(), `page=1`)
 	assert.NotContains(t, response.Body.String(), "revision-new")

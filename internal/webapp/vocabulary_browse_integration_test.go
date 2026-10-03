@@ -676,6 +676,17 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, stale.Body.String(), "no current completed analysis")
 	assert.NotContains(t, stale.Body.String(), "haus")
 	assert.Contains(t, stale.Body.String(), "Browse selection (1)")
+	current, err = store.GetCurrentReading(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID, current.SnapshotID))
+	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_tag='it' WHERE owner_id=$1 AND id=$2`, alice.ID, aliceOtherBook.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "it"))
+	italianNoReading := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, italianNoReading.Code)
+	assert.Contains(t, italianNoReading.Body.String(), "active study language <code>it</code>")
+	assert.Contains(t, italianNoReading.Body.String(), "No Current reading")
+	assert.NotContains(t, italianNoReading.Body.String(), "Alice German")
 }
 
 func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHTTP(t *testing.T) {
