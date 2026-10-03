@@ -509,6 +509,59 @@ func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
 	_ = book
 }
 
+func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "browse-render-rank", false)
+	require.NoError(t, err)
+	current, currentSource, currentCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "render-current", "Current", []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "zeta", UPOS: "NOUN", OccurrenceCount: 1},
+	})
+	_, otherSource, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "render-other", "Other", []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "zeta", UPOS: "NOUN", OccurrenceCount: 3},
+	})
+	seedBrowseEvidenceTokens(t, ctx, store, currentSource, currentCorpus, []string{"alpha", "zeta"})
+	seedBrowseEvidenceTokens(t, ctx, store, otherSource, otherCorpus, []string{"alpha", "zeta", "zeta", "zeta"})
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
+		CurrentBookID: current.ID, Sort: "occurrences", IncludeAll: true, Page: 1,
+	})
+	require.NoError(t, err)
+	page.CurrentBookID = current.ID
+	page.ReadingBookID = current.ID
+	require.Len(t, page.Rows, 2)
+	require.Len(t, page.Books, 1)
+	assert.Equal(t, "Current", page.Books[0].Title)
+	assert.Equal(t, "zeta", page.Rows[0].CanonicalLemma)
+	assert.Equal(t, int64(1), page.Rows[0].OccurrenceCount)
+	assert.Equal(t, int64(4), page.Rows[0].AcrossBooksOccurrenceCount)
+	var output strings.Builder
+	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "de", page, "").Render(ctx, &output))
+	html := output.String()
+	assert.Less(t, strings.Index(html, ">Zeta</a>"), strings.Index(html, ">Alpha</a>"), "rendering preserves the evidence projection's cross-Book tie-break")
+	assert.Contains(t, html, "In this Book: 1; Across analyzed books: 4")
+	assert.Contains(t, html, "In this Book: 1; Across analyzed books: 2")
+}
+
+func seedBrowseEvidenceTokens(t *testing.T, ctx context.Context, store *persistence.PostgresStore, source domain.SourceMaterial, corpus domain.Corpus, lemmas []string) {
+	t.Helper()
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, source.OwnerID, corpus.ID).Scan(&runID))
+	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
+	for ordinal, lemma := range lemmas {
+		start := int64(ordinal * 20)
+		end := start + int64(len(lemma))
+		_, err := store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, source.OwnerID, runID, corpus.ID, unitID, ordinal, lemma, start, end)
+		require.NoError(t, err)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, source.OwnerID, runID, corpus.ID, ordinal, lemma, start, end)
+		require.NoError(t, err)
+	}
+}
+
 func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "vocabulary-browse-http-secret-0123456789")
 	ctx := context.Background()
@@ -694,10 +747,10 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.Equal(t, http.StatusOK, firstPage.Code)
 	assert.Contains(t, firstPage.Body.String(), "Page 1 of 2")
 	assert.Contains(t, firstPage.Body.String(), "In this Book: 2; Across analyzed books: 2")
-	assert.Contains(t, firstPage.Body.String(), ">zebra</a>")
-	assert.Contains(t, firstPage.Body.String(), ">heim</a>")
-	assert.Less(t, strings.Index(firstPage.Body.String(), ">zebra</a>"), strings.Index(firstPage.Body.String(), ">heim</a>"), "frequency outranks the legacy lemma-sort parameter")
-	assert.Less(t, strings.Index(firstPage.Body.String(), ">heim</a>"), strings.Index(firstPage.Body.String(), ">wort00</a>"), "equal counts break ties by canonical lemma")
+	assert.Contains(t, firstPage.Body.String(), ">Zebra</a>")
+	assert.Contains(t, firstPage.Body.String(), ">Heim</a>")
+	assert.Less(t, strings.Index(firstPage.Body.String(), ">Zebra</a>"), strings.Index(firstPage.Body.String(), ">Heim</a>"), "frequency outranks the legacy lemma-sort parameter")
+	assert.Less(t, strings.Index(firstPage.Body.String(), ">Heim</a>"), strings.Index(firstPage.Body.String(), ">Wort00</a>"), "equal counts break ties by canonical lemma")
 	assert.Contains(t, firstPage.Body.String(), "wort00")
 	assert.NotContains(t, firstPage.Body.String(), "wort24")
 	assert.Contains(t, firstPage.Body.String(), `href="/vocabulary?all=1&amp;page=2&amp;reading=`+aliceBook.ID+`&amp;rev=`)
@@ -718,20 +771,20 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	secondPage := perform(t, h, http.MethodGet, "/vocabulary?sort=lemma&page=2&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, secondPage.Code)
 	assert.Contains(t, secondPage.Body.String(), "Page 2 of 2")
-	assert.Contains(t, secondPage.Body.String(), "wort24")
-	assert.Contains(t, secondPage.Body.String(), "wort25")
-	assert.NotContains(t, secondPage.Body.String(), "wort00")
+	assert.Contains(t, secondPage.Body.String(), ">Wort24</a>")
+	assert.Contains(t, secondPage.Body.String(), ">Wort25changed</a>")
+	assert.NotContains(t, secondPage.Body.String(), ">Wort00</a>")
 	prefixFirst := perform(t, h, http.MethodGet, "/vocabulary?q=wort&page=1&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, prefixFirst.Code)
 	assert.Contains(t, prefixFirst.Body.String(), "Page 1 of 2")
-	assert.Contains(t, prefixFirst.Body.String(), "wort00")
-	assert.Contains(t, prefixFirst.Body.String(), "wort24")
-	assert.NotContains(t, prefixFirst.Body.String(), "heim")
+	assert.Contains(t, prefixFirst.Body.String(), ">Wort00</a>")
+	assert.Contains(t, prefixFirst.Body.String(), ">Wort24</a>")
+	assert.NotContains(t, prefixFirst.Body.String(), ">Heim</a>")
 	assert.Contains(t, prefixFirst.Body.String(), `href="/vocabulary?all=1&amp;page=2&amp;q=wort&amp;reading=`+aliceBook.ID+`&amp;rev=`)
 	prefixSecond := perform(t, h, http.MethodGet, "/vocabulary?q=wort&page=2&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, prefixSecond.Code)
-	assert.Contains(t, prefixSecond.Body.String(), "wort25")
-	assert.NotContains(t, prefixSecond.Body.String(), "wort24")
+	assert.Contains(t, prefixSecond.Body.String(), ">Wort25changed</a>")
+	assert.NotContains(t, prefixSecond.Body.String(), ">Wort24</a>")
 
 	// The same lemma's POS identities have a stable secondary ordering.
 	for ordinal, pos := range map[int64]string{31: "VERB", 32: "NOUN"} {
@@ -740,32 +793,13 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,'tie','tie','tie',$5,'root',0,'{}',310,313)`, alice.ID, runID, aliceCorpus.ID, ordinal, pos)
 		require.NoError(t, err)
 	}
-	for ordinal, lemma := range map[int64]string{33: "tiealpha", 34: "tiezeta"} {
-		start := ordinal * 10
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, alice.ID, runID, aliceCorpus.ID, unitID, ordinal, lemma, start, start+int64(len(lemma)))
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, alice.ID, runID, aliceCorpus.ID, ordinal, lemma, start, start+int64(len(lemma)))
-		require.NoError(t, err)
-	}
-	var otherRunID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, aliceOtherCorpus.ID).Scan(&otherRunID))
-	otherUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(aliceOtherSource.SourceIdentifier, "migration-"))
-	for ordinal := int64(40); ordinal < 43; ordinal++ {
-		start := ordinal * 10
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,'tiezeta',$6,$7)`, alice.ID, otherRunID, aliceOtherCorpus.ID, otherUnitID, ordinal, start, start+7)
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,'tiezeta','tiezeta','tiezeta','NOUN','root',0,'{}',$5,$6)`, alice.ID, otherRunID, aliceOtherCorpus.ID, ordinal, start, start+7)
-		require.NoError(t, err)
-	}
 	tieRows, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Prefix: "tie", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, tieRows.Rows, 4)
-	assert.Equal(t, "tiezeta", tieRows.Rows[0].CanonicalLemma)
-	assert.Equal(t, int64(1), tieRows.Rows[0].OccurrenceCount)
-	assert.Equal(t, int64(4), tieRows.Rows[0].AcrossBooksOccurrenceCount)
+	require.Len(t, tieRows.Rows, 2)
+	assert.Equal(t, "NOUN", tieRows.Rows[0].UPOS)
+	assert.Equal(t, "VERB", tieRows.Rows[1].UPOS)
 	tieBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=tie&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, tieBrowse.Code)
-	assert.Less(t, strings.Index(tieBrowse.Body.String(), ">tiezeta</a>"), strings.Index(tieBrowse.Body.String(), ">tiealpha</a>"), "equal local counts sort by cross-Book totals in the rendered view")
 	assert.Less(t, strings.Index(tieBrowse.Body.String(), ">NOUN</code>"), strings.Index(tieBrowse.Body.String(), ">VERB</code>"), "HTTP rows break same-lemma ties by POS")
 
 	// Current-reading scope cannot be widened by a legacy Book parameter.

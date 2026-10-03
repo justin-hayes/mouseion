@@ -69,9 +69,8 @@ WITH all_books AS (
   FROM book_identities GROUP BY lemma,upos
 ), scoped_grouped AS (
   SELECT lemma,upos,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books,bool_or(corrected) AS corrected
-  FROM book_identities
-  WHERE (($10<>'' AND book_id=$10) OR ($10='' AND (COALESCE(cardinality($4::text[]),0)=0 OR book_id=ANY($4::text[]))))
-    AND (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
+  FROM book_identities JOIN scope_books ON scope_books.id=book_identities.book_id
+  WHERE (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
   GROUP BY lemma,upos
 ), annotated AS (
   SELECT g.lemma,g.upos,g.occurrences,g.books,g.corrected,
@@ -105,7 +104,8 @@ WITH all_books AS (
 ), summary AS (
   SELECT (SELECT count(*)::bigint FROM eligible) AS total,
          (SELECT count(*)::bigint FROM scoped_grouped) AS scoped_total,
-         (SELECT count(*)::bigint FROM grouped) AS inventory_total
+         CASE WHEN $10<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$10)
+              ELSE (SELECT count(*)::bigint FROM grouped) END AS inventory_total
 ), coverage AS (
   SELECT count(*)::bigint AS total,
     count(*) FILTER (WHERE analyzed)::bigint AS analyzed,
@@ -117,7 +117,7 @@ WITH all_books AS (
 ), book_status AS (
   SELECT b.id,b.title,b.analyzed,
     EXISTS (SELECT 1 FROM book_identities e WHERE e.book_id=b.id) AS contributing
-  FROM all_books b
+   FROM scope_books b
 ), revision AS (
   SELECT md5(
     COALESCE((SELECT string_agg(b.id || ':' || COALESCE(cai.analysis_run_id::text,'') || ':' || COALESCE(cai.corpus_id::text,''), ',' ORDER BY b.id)

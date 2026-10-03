@@ -123,7 +123,7 @@ occurrences merely because text or positions match.
   once, without changing their counts or sort. Explain the exclusions above
   the table.
 - Rows show canonical lemma (linked to exact effective-identity Concordance),
-  analyzed POS, explicitly labeled occurrence counts **In [Current Book]** and
+  analyzed POS, explicitly labeled occurrence counts **In this Book** and
   **Across analyzed books**, **Learner state**, and Select/Remove. Always show
   both counts, including when equal. Display German `NOUN` lemmas with an
   initial capital using the shared lemma-display convention; canonical identity,
