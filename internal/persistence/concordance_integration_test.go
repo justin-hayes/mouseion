@@ -359,6 +359,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.Len(t, bobPage.Rows, 1)
 	assert.False(t, bobPage.Rows[0].Known, "learner state must not leak across owners")
 	assert.Equal(t, int64(1), bobPage.Rows[0].OccurrenceCount)
+	assert.Equal(t, int64(1), bobPage.Rows[0].AcrossBooksOccurrenceCount, "Alice's matching German Books must not contribute to Bob's total")
 }
 
 func TestCurrentReadingBrowseRanksLocalFrequencyThenAcrossBookTotal(t *testing.T) {
