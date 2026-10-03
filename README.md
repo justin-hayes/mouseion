@@ -38,14 +38,11 @@ make test
 make lint
 ```
 
-The learner-facing Concordance enhancement is a self-hosted Lit bundle; Lit is
-scoped to that feature and is not loaded from a CDN. After changing its
-TypeScript source, run `make frontend` to regenerate the committed
-`internal/webapp/static/concordance.js` asset. Run `make frontend-check` to
-rebuild it from the pinned `e2e` dependencies and fail if the committed asset is
-stale. CI runs this verification when its inputs change. Browser smoke tests
-continue to exercise the committed self-hosted asset without an implicit
-postinstall build.
+Concordance occurrences are rendered once by the server as native disclosures
+and ordinary paging and study links. The existing lookup request/history
+enhancement remains temporarily; no Concordance-specific client rendering bundle
+is required. Browser smoke tests exercise both enhanced requests and
+JavaScript-disabled navigation.
 
 Database-backed integration tests always execute rather than using Go's test
 result cache. Use either `make test-integration` for the full internal package

@@ -170,7 +170,7 @@ amendments.
 80. [ADR 0080: LLM-proposed English target alignment on recognition cards](adr/0080-llm-proposed-english-target-alignment.md) — accepts validated multi-span English alignments from new provider responses while leaving existing cached translations and ready decks unchanged until explicit re-preparation.
 81. [ADR 0081: Learner-owned occurrence lemma corrections before vocabulary freeze](adr/0081-learner-owned-occurrence-lemma-corrections.md) — derives owner-scoped effective vocabulary from immutable analysis plus learner-confirmed occurrence decisions; gates only high-risk unresolved review before Reading or deck freeze.
 82. [ADR 0082: Independent saved Custom decks and frozen preparations](adr/0082-independent-custom-vocabulary-decks.md) — **accepted, not yet implemented**: separates editable cross-Book selections and their frozen generations from Reading and Book Prepared decks without changing learner knowledge state.
-83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted, not yet implemented**: replaces duplicate Lit results with one Templ list and plans an app-wide HTMX 4 upgrade without Alpine.
+83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted; server-rendered list implemented, HTMX 4 migration pending**: removes duplicate Lit results and plans an app-wide HTMX 4 upgrade without Alpine.
 
 ### Superseded or historical decisions
 

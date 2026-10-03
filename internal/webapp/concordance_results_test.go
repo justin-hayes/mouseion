@@ -2,8 +2,6 @@ package webapp
 
 import (
 	"bytes"
-	"encoding/json"
-	"html"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -11,8 +9,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func TestConcordanceIslandDataIsEscapedAndKeepsNativeResults(t *testing.T) {
-	sentence := `Vor 🐈 <script>alert(1)</script> Haus.`
+func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
+	sentence := `Vor 🐈 Haus.`
 	start := int64(strings.Index(sentence, "Haus"))
 	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
 		BookID: "book-1", BookTitle: `Title </script><img src=x>`, SentenceText: sentence,
@@ -28,27 +26,24 @@ func TestConcordanceIslandDataIsEscapedAndKeepsNativeResults(t *testing.T) {
 	}
 	body := rendered.String()
 	for _, want := range []string{
-		`id="concordance-native-results" class="concordance-results"`,
-		`<details class="concordance-row"`,
-		`<div hidden data-concordance-island data-concordance-data=`,
-		`<mouseion-concordance></mouseion-concordance>`,
-		`\u003c/script\u003e\u003cimg`,
+		`<ol id="concordance-native-results" class="concordance-results">`,
+		`<details class="concordance-row" name="concordance-occurrences"`,
+		`<a class="concordance-study-link"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("rendered page missing %q", want)
 		}
 	}
-	if strings.Contains(body, `</script><img`) {
-		t.Fatal("island JSON can terminate its script element")
+	if got := strings.Count(body, `class="concordance-results"`); got != 1 {
+		t.Fatalf("rendered %d Concordance result lists, want exactly one", got)
 	}
-	dataStart := strings.Index(body, `data-concordance-data="`) + len(`data-concordance-data="`)
-	dataEnd := strings.Index(body[dataStart:], `"`)
-	var payload concordanceIslandData
-	if err := json.Unmarshal([]byte(html.UnescapeString(body[dataStart:dataStart+dataEnd])), &payload); err != nil {
-		t.Fatalf("decode rendered island data: %v", err)
+	if !strings.Contains(body, `Title &lt;/script&gt;&lt;img src=x&gt;`) || strings.Contains(body, `</script><img src=x>`) {
+		t.Fatal("Book title was not escaped in the server-rendered list")
 	}
-	if got, want := payload.Occurrences[0].TargetStart, len([]rune(`Vor 🐈 <script>alert(1)</script> `))+1; got != want {
-		t.Errorf("UTF-16 target offset = %d, want %d", got, want)
+	for _, forbidden := range []string{`data-concordance-data=`, `<mouseion-concordance`, `concordance-keyboard.js`, `concordance.js`} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("rendered page includes retired Concordance presentation code %q", forbidden)
+		}
 	}
 }
 

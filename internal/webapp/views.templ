@@ -193,6 +193,16 @@ window.addEventListener('popstate', function () {
   // A same-page fragment jump must not reload and discard keyboard focus.
   if (window.location.pathname + window.location.search !== renderedPageURL) window.location.reload();
 });
+function focusConcordanceSummaryForMissingFragment() {
+  if (!window.location.hash || !document.querySelector('#concordance-results')) return;
+  var occurrenceID;
+  try { occurrenceID = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
+  if (document.getElementById(occurrenceID)) return;
+  var summary = document.getElementById('concordance-summary');
+  if (summary) summary.focus({preventScroll: true});
+}
+document.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingFragment);
+window.addEventListener('hashchange', focusConcordanceSummaryForMissingFragment);
 document.addEventListener('htmx:afterSwap', function (evt) {
 			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
 			var region = document.getElementById(id);
@@ -1337,7 +1347,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						<ol id="concordance-native-results" class="concordance-results">
 						for _, occurrence := range result.Occurrences {
 							<li class="concordance-result">
-								<details class="concordance-row" id={ concordanceOccurrenceID(occurrence) } tabindex="-1">
+								<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1">
 									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
 										<span class="concordance-book-title">{ occurrence.BookTitle }</span>
 										<span class="concordance-before">{ concordanceBefore(occurrence) }</span>
@@ -1359,9 +1369,6 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 							</li>
 						}
 						</ol>
-						<div hidden data-concordance-island data-concordance-data={ concordanceIslandJSON(result, lookup) }>
-							<mouseion-concordance></mouseion-concordance>
-						</div>
 					}
 					if result.HasPrevious || result.HasNext {
 						<nav aria-label="Concordance pages">
@@ -1376,8 +1383,6 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				</section>
 				}
 			}
-            <script src="/static/concordance-keyboard.js" defer></script>
-            <script type="module" src="/static/concordance.js"></script>
 		}
 }
 
