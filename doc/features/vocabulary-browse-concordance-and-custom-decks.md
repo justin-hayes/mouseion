@@ -6,6 +6,9 @@ This is the cohesive product and acceptance contract for Vocabulary Browse,
 Concordance, and Custom decks. Browse and the first Concordance workbench are
 shipped; remaining target behavior is called out below. Occurrence review and
 correction have a separate [contract](lemma-review-and-correction.md).
+The first Concordance workbench currently uses a Lit results island. The
+accepted [server-rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
+replaces it in a later implementation, not in this documentation change.
 
 ## Purpose and boundaries
 
@@ -250,24 +253,25 @@ occurrences merely because text or positions match.
   once. Long reviews have their own paging and summaries, not a hidden
   current-page-only selection. Confirm Clear selection and deck deletion
   natively with their consequences stated.
-- KWIC uses a named native disclosure per row (Enter/Space), with a distinct
-  icon-only study link reachable by Tab whether the row is collapsed or open.
-  The Book title is the first column and truncates when needed. When JavaScript
-  runs, Up/Down moves focus between row disclosures in both the native list and
-  Lit enhancement; elsewhere, including at the first/last row, arrows keep
-  normal scrolling behavior. With JavaScript disabled, native disclosures and
-  page scrolling remain available. Enhancement closes the old row upon opening
-  another; without JS multiple open disclosures are acceptable. **Do not close
-  on blur** and strand the study link. Escape may close an open row and return
-  focus to its control; explicit close retains focus; opening another keeps
-  focus on the new control. At narrow widths and 400% zoom, reflow into readable,
-  wrapping sentence layouts instead of squeezing KWIC columns or scrolling the
-  whole page.
+- KWIC uses one server-rendered list with a native `<details>`/`<summary>`
+  disclosure per row. Clicking its summary expands the sentence, while native
+  Enter/Space activation remains available. A distinct icon-only study link is
+  reachable by Tab whether the row is collapsed or open. The Book title is the
+  first column and truncates when needed. Do not add custom Up/Down or Escape
+  row-key shortcuts: arrows keep normal scrolling behavior. A shared disclosure
+  `name` closes the old row when another opens in supporting browsers, including
+  without JavaScript; multiple open rows elsewhere are acceptable. **Do not
+  close on blur** and strand the study link. Explicit close retains focus;
+  opening another keeps focus on the new control. At narrow widths and 400%
+  zoom, reflow into readable, wrapping sentence layouts instead of squeezing
+  KWIC columns or scrolling the whole page.
   Visible truncated alignment is not the only way to perceive the full context.
   A diagram, if present, scrolls separately and never traps focus; textual
   syntax is always present when evidence exists. From sentence study, return
   to the applied page and originating result when still present, otherwise
-  focus the summary; do not rely solely on URL fragments.
+  focus the Current results summary; carry a server-readable return target
+  as well as the URL fragment so absent occurrences do not depend on
+  client-side focus repair.
 - Concordance uses **25-result** server-rendered Previous/Next paging,
   preserving mode, term/POS, Books, grammar, and page. State returned range,
   page and whether more results exist; an exact total can be deferred and
@@ -283,8 +287,12 @@ occurrences merely because text or positions match.
   a failed search as zero matches. For slow enhanced requests retain last
   successful results *under their old applied-query label*, show textual
   pending status, then replace only on success. On failure say the new request
-  was not applied; native full-page requests use browser loading and an
-  explicit error/recovery page. Preserve entered terms and scope for retry.
+  was not applied, leave the old results and URL unchanged, and offer recovery
+  for the attempted query. Distinguish changed evidence (409), server timeout,
+  and network failure from a successful empty result; HTMX status-specific
+  swaps and a scoped network-error hook may enhance this without replacing
+  the results. Native full-page requests use browser loading and an explicit
+  error/recovery page. Preserve entered terms and scope for retry.
 - Show durable queued/running/failed/cancelled/ready and complete-with-omission
   states; allow leaving and returning. If a submission times out or its outcome
   is uncertain, inspect durable saved-deck/preparation state before offering

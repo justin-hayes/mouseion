@@ -41,6 +41,15 @@ Pico supplies normalization and native-element defaults. HTMX enhances real
 server-rendered links and forms. Neither dependency defines Mouseion product
 semantics, terminology, or component APIs.
 
+The accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
+targets pinned, locally served HTMX **4.0.0** in place of 2.0.7, but this is
+not shipped yet. The upgrade is app-wide: audit explicit inheritance, renamed
+events, error-response swaps, and history restoration before updating the
+vendored asset and version above. Concordance's target is one Templ-owned
+result list with native disclosures; HTMX enhances requests, not rendering.
+Keep the no-JavaScript path and use a scoped HTMX network-error handler only
+where there is no response to swap.
+
 ## Semantic color tokens
 
 Application CSS and future components use Mouseion tokens rather than direct

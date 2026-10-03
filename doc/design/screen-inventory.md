@@ -207,6 +207,11 @@ Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-cus
 | Saved Custom deck | Edit an identity shortlist independently of Reading; review current evidence and submit preparation. | Named deck list, rename, paged identity review, missing filter, add/remove, current Book/analysis/correction links, unavailable-language read-only state, native deletion confirmation, evidence-change reconfirmation, all-zero disabled preparation, idempotent submission, read-only generation history, stable Anki deck identity with learner title in package description, and overlap/cleanup warning before preparation are shipped |
 | Custom deck preparation | Inspect durable status and item-level outcomes, compare current evidence with frozen generation provenance, cancel or prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card withheld, complete with evidence/quality/meaning omissions, prior Ready during replacement, historical generation detail, newest-only download, safe retry, uncertain submission, and Anki overlap/cleanup warning before download |
 
+The accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
+targets a single Templ-rendered results list, native grouped disclosures, and
+HTMX enhancement. The Lit island and row-key shortcuts in the shipped row
+above have not yet been removed.
+
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
