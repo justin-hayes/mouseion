@@ -26,6 +26,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		Relation:         strings.TrimSpace(r.URL.Query().Get("relation")), Page: 1,
 		Revision: strings.TrimSpace(r.URL.Query().Get("rev")),
 	}
+	focusTarget := strings.TrimSpace(r.URL.Query().Get("focus"))
 	if lookup.Mode == "" {
 		lookup.Mode = "surface"
 	}
@@ -66,23 +67,23 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	if lookup.Mode != "surface" && lookup.Mode != "effective" && lookup.Mode != "analyzer" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose observed surface, effective lemma, or analyzer lemma evidence."))
+		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose observed surface, effective lemma, or analyzer lemma evidence.", ""))
 		return
 	}
 	if lookup.GrammarDirection != "" && lookup.GrammarDirection != "own" && lookup.GrammarDirection != "governor" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose queried occurrence relation or governor dependents."))
+		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose queried occurrence relation or governor dependents.", ""))
 		return
 	}
 	if lookup.GrammarDirection != "" && lookup.Relation == "" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose a dependency relation before applying grammar."))
+		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose a dependency relation before applying grammar.", ""))
 		return
 	}
 	if language == "" || lookup.Term == "" {
-		render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, ""))
+		render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "", ""))
 		return
 	}
 	if lookup.Mode != "surface" && lookup.UPOS == "" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Part of speech is required for lemma lookup."))
+		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Part of speech is required for lemma lookup.", ""))
 		return
 	}
 	result, err := h.services.Store.VocabularyConcordance.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
@@ -100,7 +101,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	lookup.Revision = result.Revision
-	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, result, true, ""))
+	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, result, true, "", focusTarget))
 }
 
 func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {
@@ -119,15 +120,39 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		http.NotFound(w, r)
 		return
 	}
-	back := query.Get("return")
-	if !strings.HasPrefix(back, "/vocabulary/concordance?") {
-		back = "/vocabulary/concordance"
-	}
+	back := safeConcordanceReturnURL(query.Get("return"))
 	if direction := query.Get("grammar"); direction == "own" || direction == "governor" {
 		study.GrammarDirection = direction
 		study.Relation = query.Get("relation")
 	}
 	render(w, r, VocabularySentenceStudyPageView(u, h.csrf(w, r), study, back))
+}
+
+func safeConcordanceReturnURL(candidate string) string {
+	parsed, err := url.Parse(candidate)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil || parsed.Path != "/vocabulary/concordance" || parsed.RawPath != "" {
+		return "/vocabulary/concordance"
+	}
+	values, err := url.ParseQuery(parsed.RawQuery)
+	if err != nil {
+		return "/vocabulary/concordance"
+	}
+	focus := values.Get("focus")
+	if focus == "" || parsed.Fragment != focus || values.Get("term") == "" {
+		return "/vocabulary/concordance"
+	}
+	for key := range values {
+		switch key {
+		case "mode", "term", "upos", "book", "grammar", "relation", "rev", "page", "focus":
+		default:
+			return "/vocabulary/concordance"
+		}
+	}
+	page, err := strconv.Atoi(values.Get("page"))
+	if err != nil || page < 1 {
+		return "/vocabulary/concordance"
+	}
+	return parsed.String()
 }
 
 func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) string {

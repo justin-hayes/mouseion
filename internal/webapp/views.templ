@@ -1253,7 +1253,7 @@ templ VocabularyViewsNav(active string) {
 	</nav>
 }
 
-templ VocabularyConcordancePageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message string) {
+templ VocabularyConcordancePageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message, focusTarget string) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "", nil)
 		@VocabularyViewsNav("concordance")
@@ -1327,7 +1327,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			}
 			if applied {
 				<section id="concordance-results" aria-labelledby="concordance-summary">
-					<h2 id="concordance-summary" tabindex="-1">Current results</h2>
+					<h2 id="concordance-summary" tabindex="-1" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>Current results</h2>
 					<p>{ concordanceAppliedSummary(lookup) } · { concordanceBookScope(lookup, books) } · { concordanceGrammarScope(lookup) }.</p>
 					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }{ concordanceMoreResultsText(result) }.</p>
 					if len(result.Occurrences) == 0 && lookup.Page == 1 {
@@ -1340,7 +1340,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						<ol id="concordance-native-results" class="concordance-results">
 						for _, occurrence := range result.Occurrences {
 							<li class="concordance-result">
-								<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1">
+								<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
 									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
 										<span class="concordance-book-title">{ occurrence.BookTitle }</span>
 										<span class="concordance-before">{ concordanceBefore(occurrence) }</span>
@@ -1477,6 +1477,22 @@ func concordanceOccurrenceID(occurrence domain.ConcordanceResultOccurrence) stri
 	return fmt.Sprintf("occurrence-%s-%d-%d", occurrence.BookID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
 }
 
+func concordanceFocusMatches(occurrence domain.ConcordanceResultOccurrence, focusTarget string) bool {
+	return focusTarget != "" && focusTarget == concordanceOccurrenceID(occurrence)
+}
+
+func concordanceFocusFallsBackToSummary(occurrences []domain.ConcordanceResultOccurrence, focusTarget string) bool {
+	if focusTarget == "" {
+		return false
+	}
+	for _, occurrence := range occurrences {
+		if concordanceFocusMatches(occurrence, focusTarget) {
+			return false
+		}
+	}
+	return true
+}
+
 func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, lookup domain.ConcordanceLookup) string {
 	values := url.Values{
 		"book": {occurrence.BookID}, "run": {occurrence.AnalysisRunID}, "corpus": {occurrence.CorpusID},
@@ -1487,7 +1503,12 @@ func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, l
 		values.Set("grammar", lookup.GrammarDirection)
 		values.Set("relation", lookup.Relation)
 	}
-	back := vocabularyConcordancePageURL(lookup.Page, lookup) + "#" + concordanceOccurrenceID(occurrence)
+	focusTarget := concordanceOccurrenceID(occurrence)
+	backValues, _ := url.Parse(vocabularyConcordancePageURL(lookup.Page, lookup))
+	backQuery := backValues.Query()
+	backQuery.Set("focus", focusTarget)
+	backValues.RawQuery = backQuery.Encode()
+	back := backValues.String() + "#" + url.PathEscape(focusTarget)
 	values.Set("return", back)
 	return "/vocabulary/concordance/sentence?" + values.Encode()
 }

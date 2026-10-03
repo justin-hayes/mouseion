@@ -992,6 +992,21 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	require.Equal(t, http.StatusOK, secondPage.Code)
 	assert.Contains(t, secondPage.Body.String(), "Results 26–28")
 	assert.Contains(t, secondPage.Body.String(), `href="/vocabulary/concordance?mode=surface&amp;page=1&amp;rev=`)
+	focusedQuery := url.Values{"mode": {"surface"}, "term": {"Haus"}, "book": {aliceBook.ID}, "grammar": {"own"}, "relation": {"root"}, "page": {"2"}, "focus": {"occurrence-" + aliceBook.ID + "-25-0"}}
+	focusedPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?"+focusedQuery.Encode(), nil, cookies)
+	require.Equal(t, http.StatusOK, focusedPage.Code)
+	assert.Contains(t, focusedPage.Body.String(), `id="occurrence-`+aliceBook.ID+`-25-0" tabindex="-1" autofocus`)
+	for _, encodedTarget := range []string{
+		`return=%2Fvocabulary%2Fconcordance%3F`, `book%3D` + aliceBook.ID,
+		`focus%3Doccurrence-` + aliceBook.ID + `-25-0`, `grammar%3Down`, `mode%3Dsurface`,
+		`page%3D2`, `relation%3Droot`, `term%3DHaus`, `rev%3D`,
+	} {
+		assert.Contains(t, focusedPage.Body.String(), encodedTarget)
+	}
+	focusedQuery.Set("focus", "occurrence-no-longer-present")
+	focusedPage = perform(t, h, http.MethodGet, "/vocabulary/concordance?"+focusedQuery.Encode(), nil, cookies)
+	require.Equal(t, http.StatusOK, focusedPage.Code)
+	assert.Contains(t, focusedPage.Body.String(), `<h2 id="concordance-summary" tabindex="-1" autofocus>Current results</h2>`)
 	outOfRangePage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&page=99", nil, cookies)
 	require.Equal(t, http.StatusOK, outOfRangePage.Code)
 	assert.Contains(t, outOfRangePage.Body.String(), "No results are available on this page")
