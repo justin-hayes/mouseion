@@ -40,6 +40,13 @@ async function expectConcordanceScanSpace(page: Page, selector: string) {
   expect(scan.visibleRows).toBeGreaterThanOrEqual(4);
 }
 
+async function concordanceFocusedID(page: Page) {
+  return page.evaluate(() => {
+    const root = document.querySelector('mouseion-concordance')?.shadowRoot;
+    return root?.activeElement?.id ?? document.activeElement?.id;
+  });
+}
+
 test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
@@ -204,6 +211,7 @@ test.describe('authenticated learner smoke', () => {
     await expect.poll(() => page.evaluate(() => Boolean(customElements.get('mouseion-concordance')))).toBe(true);
     await page.getByLabel('Exact term').fill('Haus');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
+    await expect.poll(() => page.locator('mouseion-concordance').evaluate(host => host.shadowRoot !== null)).toBe(true);
     const nativeRows = page.locator('#concordance-native-results');
     const enhancedRows = page.locator('mouseion-concordance .concordance-results');
     await expect(enhancedRows).toBeVisible();
@@ -214,7 +222,7 @@ test.describe('authenticated learner smoke', () => {
     const occurrenceIDs = await enhancedRows.locator('details.concordance-row').evaluateAll(rows => rows.map(row => row.id));
     expect(new Set(occurrenceIDs).size).toBe(occurrenceIDs.length);
     expect(occurrenceIDs).toEqual(Array.from({ length: 25 }, (_, index) => `occurrence-fixture-book-${index}-1`));
-    await expect(page.locator('#occurrence-fixture-book-0-1')).toBeVisible();
+    await expect(page.locator('mouseion-concordance #occurrence-fixture-book-0-1')).toBeVisible();
     const firstRow = enhancedRows.locator('.concordance-result').first();
     await expect(firstRow.locator('.concordance-book-title')).toHaveText('Der lange Weg nach Hause');
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
@@ -237,9 +245,15 @@ test.describe('authenticated learner smoke', () => {
     await firstRow.locator('.concordance-study-link').click();
     await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
-    const returnedOccurrence = page.locator('#occurrence-fixture-book-0-1');
+    const returnedOccurrence = page.locator('mouseion-concordance #occurrence-fixture-book-0-1');
     await expect(returnedOccurrence).toBeVisible();
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
+    await expect.poll(() => concordanceFocusedID(page)).toBe('occurrence-fixture-book-0-1');
+
+    await page.evaluate(() => history.pushState({}, '', '#occurrence-fixture-book-1-1'));
+    await page.goBack();
+    await expect.poll(() => concordanceFocusedID(page)).toBe('occurrence-fixture-book-0-1');
+    await page.goForward();
+    await expect.poll(() => concordanceFocusedID(page)).toBe('occurrence-fixture-book-1-1');
   });
 
   test('Concordance Book and grammar drafts stay separate until explicitly applied', async ({ page }) => {
@@ -257,6 +271,8 @@ test.describe('authenticated learner smoke', () => {
     await expect(currentResults).toContainText('all current Books');
     await books.getByRole('button', { name: 'Apply Books' }).click();
     await expect(page).toHaveURL(/book=/);
+    await expect.poll(() => page.locator('mouseion-concordance').evaluate(host => host.shadowRoot !== null)).toBe(true);
+    await expect(page.locator('#concordance-native-results')).toHaveCount(0);
     await expect(currentResults).toContainText(bookTitle);
     await expect(currentResults).toContainText('no grammar filter');
 
@@ -320,7 +336,7 @@ test.describe('authenticated learner smoke', () => {
     expect(returnedURL.searchParams.getAll('book')).toEqual(['fixture-book']);
     expect(returnedURL.searchParams.get('grammar')).toBe('own');
     expect(returnedURL.searchParams.get('relation')).toBe('obj');
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
+    await expect.poll(() => concordanceFocusedID(page)).toBe('occurrence-fixture-book-0-1');
 
     const next = page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' });
     await expect(next).toHaveAttribute('href', /page=2/);
@@ -336,7 +352,7 @@ test.describe('authenticated learner smoke', () => {
     expect(returnedURL.searchParams.getAll('book')).toEqual(['fixture-book']);
     expect(returnedURL.searchParams.get('grammar')).toBe('own');
     expect(returnedURL.searchParams.get('relation')).toBe('obj');
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe(pageTwoID);
+    await expect.poll(() => concordanceFocusedID(page)).toBe(pageTwoID);
     await expect(page.locator('#concordance-summary').locator('..')).toContainText('page 2');
     await expect(results.locator('.concordance-book-title')).toHaveText('Der lange Weg nach Hause');
 
@@ -365,6 +381,26 @@ test.describe('authenticated learner smoke', () => {
     await expect(studyLink).toBeVisible();
     await rows.locator('details').first().locator('summary').click();
     await expect(rows.locator('.concordance-context').first()).toContainText('Das Haus sieht gut aus.');
+  });
+
+  test('Concordance keeps native evidence when the presentation payload is invalid', async ({ page }) => {
+    await page.addInitScript(() => {
+      const invalidateIsland = (node: Node) => {
+        if (!(node instanceof Element)) return;
+        const islands = [node, ...Array.from(node.querySelectorAll('[data-concordance-island]'))]
+          .filter(element => element.matches('[data-concordance-island]'));
+        islands.forEach(island => island.setAttribute('data-concordance-data', '{invalid json'));
+      };
+      new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(invalidateIsland)))
+        .observe(document, { childList: true, subtree: true });
+    });
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    const native = page.locator('#concordance-native-results');
+    await expect(native).toBeVisible();
+    await expect(native.locator('.concordance-result')).toHaveCount(25);
+    await expect(page.locator('[data-concordance-island]')).toBeHidden();
+    await native.locator('details').first().locator('summary').click();
+    await expect(native.locator('.concordance-context').first()).toContainText('Das Haus sieht gut aus.');
   });
 
   test('Concordance keeps its applied results labeled while an enhanced lookup is pending', async ({ page }) => {
