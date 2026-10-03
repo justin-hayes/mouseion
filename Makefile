@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ frontend dev clean go-tmp browser-smoke sqlc dictionary-index
+.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ frontend frontend-check dev clean go-tmp browser-smoke sqlc dictionary-index
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -93,6 +93,11 @@ templ:
 
 frontend:
 	cd e2e && npm ci --ignore-scripts && npm run build:concordance
+
+# Rebuild from the pinned frontend dependencies and ensure the committed bundle
+# matches its source. Use `make frontend` to intentionally regenerate the asset.
+frontend-check: frontend
+	git diff --exit-code -- internal/webapp/static/concordance.js
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs
