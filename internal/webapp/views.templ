@@ -1252,7 +1252,7 @@ templ VocabularyViewsNav(active string) {
 
 templ VocabularyConcordancePageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message string) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
-		@PageHeader("Vocabulary · Concordance", "Find analyzed occurrences and inspect their original context.", nil)
+		@PageHeader("Vocabulary · Concordance", "", nil)
 		@VocabularyViewsNav("concordance")
 		if language == "" {
 			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before looking up vocabulary.") {
@@ -1260,7 +1260,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			}
 		}
 		if language != "" {
-			<p>Active study language: <code>{ language }</code>. Results use only current analyzed evidence in your Books.</p>
+			<p class="concordance-language">Study language: <code>{ language }</code> <span>· Current analyzed Books</span></p>
 			<form method="get" action="/vocabulary/concordance" class="concordance-query" data-concordance-apply>
 				for _, bookID := range lookup.BookIDs {
 					<input type="hidden" name="book" value={ bookID }/>
@@ -1289,6 +1289,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				</div>
 				<button type="submit">Find</button>
 			</form>
+			<div class="concordance-scopes">
 			<details>
 				<summary>Books (applied: { concordanceBookScope(lookup, books) })</summary>
 			<form method="get" action="/vocabulary/concordance" data-concordance-apply>
@@ -1317,6 +1318,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					<button type="submit">Apply grammar</button>
 				</form>
 			</details>
+			</div>
 			if message != "" {
 				<p role="alert">{ message }</p>
 			}
@@ -1324,10 +1326,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				<section id="concordance-results" aria-labelledby="concordance-summary">
 					<h2 id="concordance-summary" tabindex="-1">Current results</h2>
 					<p>{ concordanceAppliedSummary(lookup) } · { concordanceBookScope(lookup, books) } · { concordanceGrammarScope(lookup) }.</p>
-					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }.</p>
-					if result.HasNext {
-						<p>More results are available.</p>
-					}
+					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }{ concordanceMoreResultsText(result) }.</p>
 					if len(result.Occurrences) == 0 && lookup.Page == 1 {
 						<p>No current analyzed occurrences match this exact lookup.</p>
 					}
@@ -1534,6 +1533,11 @@ func concordanceResultRange(result domain.ConcordanceResult) string {
 	}
 	start := (result.Page-1)*25 + 1
 	return fmt.Sprintf("Results %d–%d", start, start+len(result.Occurrences)-1)
+}
+
+func concordanceMoreResultsText(result domain.ConcordanceResult) string {
+	if result.HasNext { return " · more results available" }
+	return ""
 }
 
 func concordanceLocation(occurrence domain.ConcordanceResultOccurrence) string {

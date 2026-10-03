@@ -252,12 +252,36 @@ article.narrow {
   line-height: var(--mouseion-line-height-reading);
 }
 
+#main-content:has(form.concordance-query) > .page-header {
+  margin-bottom: var(--mouseion-space-2);
+  padding-bottom: var(--mouseion-space-2);
+}
+
+#main-content:has(form.concordance-query) > .page-header .page-header__content h1 {
+  margin-bottom: 0;
+}
+
+#main-content:has(form.concordance-query) > nav[aria-label="Vocabulary views"] {
+  margin-block: 0 var(--mouseion-space-2);
+  font-size: var(--mouseion-font-size-metadata);
+}
+
+.concordance-language {
+  margin-block: 0 var(--mouseion-space-2);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+}
+
 .concordance-query {
   max-width: var(--mouseion-width-data);
   display: grid;
   grid-template-columns: minmax(11rem, 0.9fr) minmax(13rem, 1.4fr) minmax(10rem, 0.8fr) auto;
   align-items: end;
   gap: var(--mouseion-space-2) var(--mouseion-space-3);
+}
+
+.concordance-query:has(#concordance-mode option[value="surface"]:checked) {
+  grid-template-columns: minmax(11rem, 0.8fr) minmax(18rem, 1.4fr) auto;
 }
 
 .concordance-query-field,
@@ -292,10 +316,44 @@ article.narrow {
   grid-column: 4;
 }
 
+.concordance-query:has(#concordance-mode option[value="surface"]:checked) > button {
+  grid-column: 3;
+}
+
+.concordance-scopes {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  margin-block: 0 var(--mouseion-space-2);
+}
+
+.concordance-scopes details {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+
+.concordance-scopes summary {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
 .concordance-results {
   list-style: none;
   padding-inline-start: 0;
   margin-block: var(--mouseion-space-3);
+}
+
+#main-content:has(form.concordance-query) #concordance-summary {
+  margin-block: var(--mouseion-space-2) var(--mouseion-space-1);
+}
+
+#main-content:has(form.concordance-query) #concordance-results > p {
+  margin-block: 0 var(--mouseion-space-1);
+  font-size: var(--mouseion-font-size-metadata);
 }
 
 .concordance-result {
@@ -371,6 +429,14 @@ article.narrow {
   .concordance-query {
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
+  }
+
+  .concordance-query:has(#concordance-mode option[value="surface"]:checked) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .concordance-query:has(#concordance-mode option[value="surface"]:checked) > button {
+    grid-column: 1;
   }
 
   .concordance-query-field,
