@@ -643,9 +643,13 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 
 	// Switching the Current reading changes only Browse evidence scope. The
 	// language-wide selection remains intact even when its identity is off-scope.
+	beforeSwitch, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1})
+	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceOtherBook.ID, domain.BookDispositionToRead))
 	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID, aliceBook.ID, current.SnapshotID)
 	require.NoError(t, err)
+	staleSwitchPage := perform(t, h, http.MethodGet, "/vocabulary?page=2&rev="+url.QueryEscape(beforeSwitch.CorpusRevision), nil, cookies)
+	assert.Equal(t, http.StatusConflict, staleSwitchPage.Code, "a Book switch invalidates pagination under the old scope revision")
 	switched := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
 	require.Equal(t, http.StatusOK, switched.Code)
 	assert.Contains(t, switched.Body.String(), "Current reading: Alice German Other")
