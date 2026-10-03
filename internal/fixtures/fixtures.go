@@ -473,7 +473,7 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	if query.Page < 1 {
 		query.Page = 1
 	}
-	page := domain.VocabularyBrowsePage{Page: query.Page}
+	page := domain.VocabularyBrowsePage{Page: query.Page, IncludeAll: query.IncludeAll}
 	current, err := s.GetCurrentReading(ctx, owner, language)
 	if err != nil || !current.IsActive() {
 		return page, err
@@ -486,7 +486,16 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	page.CorpusRevision = "fixture-current-reading-vocabulary-v1"
 	rows := []domain.VocabularyBrowseRow{
 		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, Generated: true},
-		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, Known: true},
+		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, Known: true, InBookDeck: true},
+	}
+	if !query.IncludeAll {
+		filtered := rows[:0]
+		for _, row := range rows {
+			if !row.Known && !row.Reserved && !row.InBookDeck {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
 	}
 	prefix := strings.ToLower(strings.TrimSpace(query.Prefix))
 	if prefix != "" {

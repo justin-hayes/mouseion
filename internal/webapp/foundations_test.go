@@ -300,9 +300,9 @@ func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing
 }
 
 func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.T) {
-	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences", CorpusRevision: "revision-1"}
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences", IncludeAll: true, CorpusRevision: "revision-1"}
 	url := vocabularyBrowsePageURL(3, page, "Haus")
-	for _, value := range []string{"q=Haus", "reading=current-book", "page=3", "rev=revision-1"} {
+	for _, value := range []string{"q=Haus", "reading=current-book", "page=3", "all=1", "rev=revision-1"} {
 		assert.Contains(t, url, value)
 	}
 	for _, obsolete := range []string{"book=", "pos=", "known=", "reserved=", "sort="} {
@@ -331,7 +331,7 @@ func (failedVocabularyBrowseStore) ListVocabularyBrowsePage(context.Context, str
 func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	store := failedVocabularyBrowseStore{}
 	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}}}
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&all=1&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
 		Options:        []activeStudyLanguageOption{{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true}},
@@ -343,6 +343,7 @@ func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	for _, want := range []string{
 		"Browse could not be loaded", "Your search was not applied", "Retry Browse",
 		`name="q" value="Haus"`, `name="reading" value="book-1"`, `name="page" value="2"`,
+		`name="all" value="1"`,
 	} {
 		assert.Contains(t, response.Body.String(), want)
 	}

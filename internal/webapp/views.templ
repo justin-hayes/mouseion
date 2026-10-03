@@ -894,25 +894,38 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>All eligible occurrences in this Book are counted. Results are ordered by frequency, then lemma and part of speech.</p>
+				<p>By default, words already Known, Reserved, or included in a successfully prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
+				<label><input type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
 				<button type="submit">Search</button>
 			</form>
 			if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
-			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 }>Browse results</h2>
+			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h2>
 			if page.Total == 0 && page.InventoryTotal == 0 {
 				<p>The current analysis has no eligible vocabulary identities.</p>
 			}
 			if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
 				<p>No eligible identities are in this Book.</p>
 			}
-			if page.Total == 0 && page.ScopedInventoryTotal > 0 {
-				<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+			if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
+				<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>
+			}
+			if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
+				if query != "" && !page.IncludeAll {
+					<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>
+				} else {
+					<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+				}
 			}
 			if page.Total > 0 {
-				<p>{ fmt.Sprintf("%d effective identities in this Book", page.Total) }. Results use all current completed analysis and effective occurrence decisions, including singletons.</p>
+				<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Occurrence counts use all current completed analysis and effective occurrence decisions, including singletons.</p>
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }
+						if row.InBookDeck {
+							<small>In a Book deck</small>
+						}
+					</td><td>
 						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
@@ -1625,7 +1638,10 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		<form method="get" action="/vocabulary">
 			<input type="hidden" name="q" value={ query.Prefix }/>
 			<input type="hidden" name="reading" value={ query.ReadingBookID }/>
-		<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
+			<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
+		if query.IncludeAll {
+			<input type="hidden" name="all" value="1"/>
+		}
 		if query.Revision != "" {
 			<input type="hidden" name="rev" value={ query.Revision }/>
 		}
@@ -1642,7 +1658,7 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 		@VocabularyViewsNav("browse")
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
-		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID}, query.Prefix)) }>Restart in the Current reading</a>
+		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll}, query.Prefix)) }>Restart in the Current reading</a>
 		<a href="/vocabulary">Clear search</a>
 	}
 }
