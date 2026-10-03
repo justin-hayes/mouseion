@@ -142,7 +142,8 @@ test.describe('authenticated learner smoke', () => {
       const studyLinks = noScript.getByRole('link', { name: 'Study this sentence and its syntax' });
       await expect(studyLinks).toHaveCount(25);
       await expect(studyLinks.nth(0)).toBeVisible();
-      await expect(studyLinks.nth(0)).toContainText('Study');
+      await expect(studyLinks.nth(0)).toHaveAttribute('title', 'Study this sentence and its syntax');
+      await expect(studyLinks.nth(0)).toHaveText('↗');
       await expect(rows.nth(0)).not.toHaveAttribute('open', '');
       await expect(studyLinks.nth(0).locator('xpath=ancestor::details')).toHaveCount(0);
       await rows.nth(2).locator('summary').focus();
@@ -199,6 +200,33 @@ test.describe('authenticated learner smoke', () => {
     } finally {
       await noScript.close();
     }
+  });
+
+  test('Concordance native fallback shares row navigation when the Lit bundle fails', async ({ page }) => {
+    await page.route('**/static/concordance.js', route => route.abort());
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    const rows = page.locator('#concordance-native-results details.concordance-row');
+    await expect(rows).toHaveCount(25);
+    const summaries = rows.locator('summary');
+    await summaries.nth(3).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(summaries.nth(4)).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(summaries.nth(3)).toBeFocused();
+
+    const boundaryDefaultPrevented = await page.evaluate(() => {
+      const summary = document.querySelector('#concordance-native-results details.concordance-row:last-child summary');
+      summary?.focus();
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true, composed: true });
+      summary?.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(boundaryDefaultPrevented).toBe(false);
+
+    const studyLink = page.locator('#concordance-native-results .concordance-study-link').first();
+    await studyLink.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(studyLink).toBeFocused();
   });
 
   test('Concordance Lit enhancement reproduces native evidence without another search', async ({ page }) => {
@@ -295,7 +323,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(currentResults).toContainText('own relation: obj');
   });
 
-  test('Concordance scanning keyboard trial and study return cross the 25-result page boundary', async ({ page }) => {
+test('Concordance row navigation and study return cross the 25-result page boundary', async ({ page }) => {
     const query = 'mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj';
     await page.goto(`/vocabulary/concordance?${query}&page=1`);
     const results = page.locator('mouseion-concordance .concordance-results');
@@ -318,6 +346,15 @@ test.describe('authenticated learner smoke', () => {
     await summaries.first().focus();
     await page.keyboard.press('ArrowUp');
     await expect(summaries.first()).toBeFocused();
+    const upAtStartPrevented = await page.evaluate(() => {
+      const host = document.querySelector('mouseion-concordance');
+      const summary = host?.shadowRoot?.querySelector('details.concordance-row summary');
+      summary?.focus();
+      const event = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true, composed: true });
+      summary?.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(upAtStartPrevented).toBe(false);
     await summaries.nth(5).focus();
     await page.keyboard.press('Space');
     await expect(disclosures.nth(5)).toHaveAttribute('open', '');

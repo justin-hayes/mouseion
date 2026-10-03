@@ -1,16 +1,11 @@
 # Vocabulary Browse, Concordance, and Custom decks
 
-Status: **Accepted target specification — not yet implemented** · Date: 2026-10-01
+Status: **Accepted specification — partially shipped** · Updated: 2026-10-03
 
-This is the implementation handoff for [Specify Vocabulary browse, custom decks,
-and Concordance](https://github.com/justin-hayes/mouseion/issues/1330). Its
-closed child decisions and resolution comments are the decision record; this
-document is the cohesive product and acceptance contract. The shipped
-Vocabulary screen remains an import-and-status surface. The existing
-[Concordance](concordance-foundation.md) and
-[dependency](dependency-parse-foundation.md) foundations persist/query analyzer
-evidence, but do not provide this learner-facing experience. Occurrence review
-and correction already have a separate [contract](lemma-review-and-correction.md).
+This is the cohesive product and acceptance contract for Vocabulary Browse,
+Concordance, and Custom decks. Browse and the first Concordance workbench are
+shipped; remaining target behavior is called out below. Occurrence review and
+correction have a separate [contract](lemma-review-and-correction.md).
 
 ## Purpose and boundaries
 
@@ -130,13 +125,14 @@ occurrences merely because text or positions match.
   learner can restrict to any selected subset, including multiple Books. No
   stale/historical corpus is included. Grammar exploration supports (a)
   restricting queried occurrences by their own dependency relation and (b)
-  listing a queried governor's dependents in a selected relation. Give each
-  result a complete original sentence, identified observed target, Book title,
-  readable structural location where available, source order, analyzer
-  lemma/POS, effective correction/exclusion state, relation, and head surface.
-  Sort deterministically by source order; offsets support highlighting but are
-  not required as user-facing metadata. Source and analyzer attribution must
-  not be rewritten to look like the learner's correction.
+  listing a queried governor's dependents in a selected relation. Each collapsed
+  result shows its Book title, KWIC context centered on the observed target, and
+  a link to study that exact sentence. Structural location, source order,
+  analyzer lemma/POS, effective correction/exclusion state, relation, and head
+  surface are available on the dedicated sentence-study page, not repeated in
+  the flowing sentence. Sort deterministically by source order; offsets support
+  highlighting but are not required as user-facing metadata. Source and analyzer
+  attribution must not be rewritten to look like the learner's correction.
 - Keep a compact always-visible lookup strip with explicit mode, term, POS
   when applicable, and **Find**. Book and grammar controls have separate
   disclosures and **Apply Books** / **Apply grammar** actions. The **Current
@@ -145,23 +141,19 @@ occurrences merely because text or positions match.
   draft controls retains text for editing but does not relabel or rerun old
   results. Returning from sentence study restores applied query, page, and
   subset rather than beginning a new search.
-- Wide-screen results are a full-width continuous KWIC list centered on the
-  **observed surface**, with compact truncated left/right windows. One result
-  at a time expands *in its row* to the complete sentence and Book provenance;
-  activating it again closes it. Its separate **Study this sentence and its
-  syntax** link opens a focused view with complete sentence, source, and
-  analyzer-attributed dependency evidence. A diagram may complement, never
-  replace, structured textual tokens, relations/heads, and relevant
+- Results are a continuous KWIC list centered on the **observed surface**, with
+  compact, truncated left/right windows and the Book title as the first column.
+  The Book title stays compact and truncates when needed, including at narrow
+  widths. A separate, icon-only study link is visible at the end of every
+  collapsed row; its accessible name and tooltip identify the action. Expanding
+  a row reveals only the complete flowing sentence with the observed target
+  emphasized. It does not repeat Book/location or technical evidence. The study
+  link opens a focused view with the complete sentence, Book and structural
+  location, analyzer/effective token evidence, correction/exclusion state, and
+  analyzer-attributed dependency relations and heads. A diagram may complement,
+  never replace, structured textual tokens, relations/heads, and relevant
   dependents. If syntax evidence is missing, keep the valid sentence, explain
-  the gap, and omit the diagram. Do not implement the superseded floating peek,
-  fixed top/bottom panel, or arrow-key row-navigation prototypes.
-
-The current analyzer-keyed single-Book/language queries are a **foundation**,
-not implementation of this contract. Implementation must apply owner- and
-exact-analysis-scoped learner decisions to effective lookup, governor matching,
-and attribution, support multi-Book subsets, and preserve surface/analyzer
-evidence paths. Existing syntax data and current-analysis links are reused;
-no on-demand NLP pass is implied.
+  the gap, and omit the diagram.
 
 ## Custom decks, preparation, and Anki
 
@@ -259,13 +251,18 @@ no on-demand NLP pass is implied.
   current-page-only selection. Confirm Clear selection and deck deletion
   natively with their consequences stated.
 - KWIC uses a named native disclosure per row (Enter/Space), with a distinct
-  study link reachable by Tab when expanded. Enhancement closes the old row
-  upon opening another; without JS multiple open disclosures are acceptable.
-  **Do not close on blur** and strand the study link. Escape may close an open
-  row and return focus to its control; explicit close retains focus; opening
-  another keeps focus on the new control. Up/Down retain normal page scrolling.
-  At narrow widths and 400% zoom, reflow into readable, wrapping sentence
-  layouts instead of squeezing KWIC columns or scrolling the whole page.
+  icon-only study link reachable by Tab whether the row is collapsed or open.
+  The Book title is the first column and truncates when needed. When JavaScript
+  runs, Up/Down moves focus between row disclosures in both the native list and
+  Lit enhancement; elsewhere, including at the first/last row, arrows keep
+  normal scrolling behavior. With JavaScript disabled, native disclosures and
+  page scrolling remain available. Enhancement closes the old row upon opening
+  another; without JS multiple open disclosures are acceptable. **Do not close
+  on blur** and strand the study link. Escape may close an open row and return
+  focus to its control; explicit close retains focus; opening another keeps
+  focus on the new control. At narrow widths and 400% zoom, reflow into readable,
+  wrapping sentence layouts instead of squeezing KWIC columns or scrolling the
+  whole page.
   Visible truncated alignment is not the only way to perceive the full context.
   A diagram, if present, scrolls separately and never traps focus; textual
   syntax is always present when evidence exists. From sentence study, return

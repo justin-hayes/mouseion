@@ -456,8 +456,9 @@ article.narrow {
 
   .concordance-book-title {
     grid-column: 1 / -1;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .concordance-before {
@@ -481,9 +482,6 @@ article.narrow {
     padding-inline: var(--mouseion-space-1);
   }
 
-  .concordance-study-label {
-    display: inline;
-  }
 }
 
 .metadata {

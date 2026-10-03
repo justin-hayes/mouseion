@@ -114,8 +114,9 @@ class MouseionConcordance extends LitElement {
       }
       .concordance-book-title {
         grid-column: 1 / -1;
-        white-space: normal;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .concordance-before { grid-column: 1; white-space: normal; }
       .concordance-surface { grid-column: 2; grid-row: 2; }
@@ -125,7 +126,6 @@ class MouseionConcordance extends LitElement {
         min-width: 0;
         padding-inline: var(--mouseion-space-1, 0.25rem);
       }
-      .concordance-study-label { display: inline; }
     }
   `;
 
@@ -174,7 +174,7 @@ class MouseionConcordance extends LitElement {
     if (!this.occurrences) return nothing;
     return html`<ol class="concordance-results">
       ${this.occurrences.map((row) => html`<li class="concordance-result">
-        <details class="concordance-row" id=${row.id} tabindex="-1" @keydown=${this.onRowKeyDown}>
+        <details class="concordance-row" id=${row.id} tabindex="-1">
           <summary aria-label=${`Occurrence of ${row.surface} in ${row.bookTitle}`} @click=${this.onRowClick}>
             <span class="concordance-book-title">${row.bookTitle}</span>
             <span class="concordance-before">${row.left}</span>
@@ -183,8 +183,8 @@ class MouseionConcordance extends LitElement {
           </summary>
           <div class="concordance-context"><p class="reading-text">${this.sentence(row)}</p></div>
         </details>
-        <a class="concordance-study-link" aria-label="Study this sentence and its syntax" href=${row.studyUrl}>
-          <span aria-hidden="true">↗</span><span class="concordance-study-label">Study</span>
+        <a class="concordance-study-link" aria-label="Study this sentence and its syntax" title="Study this sentence and its syntax" href=${row.studyUrl}>
+          <span aria-hidden="true">↗</span>
         </a>
       </li>`)}
     </ol>`;
@@ -206,32 +206,6 @@ class MouseionConcordance extends LitElement {
     });
   };
 
-  private readonly onRowKeyDown = (event: KeyboardEvent): void => {
-    // Experimental island-only trial for #1379. The accepted feature contract
-    // keeps Up/Down as normal page scrolling; this focused-summary behavior is
-    // intentionally not applied to the native fallback or other controls.
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    const summary = event.target;
-    if (!(summary instanceof HTMLElement) || summary.tagName !== 'SUMMARY' ||
-        !summary.matches(':focus')) return;
-
-    const rows = Array.from(this.shadowRoot?.querySelectorAll<HTMLDetailsElement>('details.concordance-row') ?? []);
-    const current = summary.closest<HTMLDetailsElement>('details.concordance-row');
-    const index = current ? rows.indexOf(current) : -1;
-    if (index < 0) return;
-
-    if (event.key === 'ArrowDown' && index < rows.length - 1) {
-      event.preventDefault();
-      rows[index + 1].querySelector('summary')?.focus();
-    } else if (event.key === 'ArrowUp' && index > 0) {
-      event.preventDefault();
-      rows[index - 1].querySelector('summary')?.focus();
-    } else if (event.key === 'Escape' && current?.open) {
-      event.preventDefault();
-      current.open = false;
-      summary.focus();
-    }
-  };
 }
 
 if (!customElements.get('mouseion-concordance')) {
