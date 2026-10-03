@@ -912,7 +912,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrences</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyBrowseConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>
+					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ row.CanonicalLemma }</a></th><td><code>{ row.UPOS }</code></td><td>{ fmt.Sprintf("%d", row.OccurrenceCount) }</td><td>{ vocabularyBrowseState(row) }</td><td>
 						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
@@ -1073,7 +1073,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		}
 		<ul>
 		for _, identity := range identities {
-			<li><a href={ templ.SafeURL(vocabularyIdentityConcordanceURL(identity.CanonicalLemma, identity.UPOS)) }><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code></a> — { selectionEvidenceLabel(identity) }
+			<li><a href={ templ.SafeURL(vocabularyConcordanceURL(identity.CanonicalLemma, identity.UPOS, "")) }><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code></a> — { selectionEvidenceLabel(identity) }
 				if len(identity.EvidenceBooks) > 0 {
 					<ul aria-label={ "Current evidence for "+identity.CanonicalLemma }>
 					for _, book := range identity.EvidenceBooks {
@@ -1364,13 +1364,11 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 	}
 }
 
-func vocabularyIdentityConcordanceURL(lemma, upos string) string {
+func vocabularyConcordanceURL(lemma, upos, bookID string) string {
 	values := url.Values{"mode": {"effective"}, "term": {lemma}, "upos": {upos}}
-	return "/vocabulary/concordance?" + values.Encode()
-}
-
-func vocabularyBrowseConcordanceURL(lemma, upos, bookID string) string {
-	values := url.Values{"mode": {"effective"}, "term": {lemma}, "upos": {upos}, "book": {bookID}}
+	if bookID != "" {
+		values.Set("book", bookID)
+	}
 	return "/vocabulary/concordance?" + values.Encode()
 }
 
