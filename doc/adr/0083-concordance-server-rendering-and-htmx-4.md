@@ -1,6 +1,6 @@
 # ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4
 
-Status: **Accepted; server-rendered Concordance slice implemented, HTMX 4 migration pending** · Date: 2026-10-03 · Author: Justin + OpenCode
+Status: **Accepted; implementation complete in PR #1404, awaiting human review and merge** · Date: 2026-10-03 · Author: Justin + OpenCode
 
 ## Context
 
@@ -46,8 +46,10 @@ PR with separable commits and full-app browser regression coverage. If this
 needs extensive compatibility code, stop and reconsider HTMX 2 with narrowly
 scoped Alpine rather than forcing the upgrade.
 
-The first implementation slice removes the Lit island, duplicate JSON payload,
-bundle/build pipeline, and custom row-key controller while keeping the existing
-request/history implementation temporarily. The [Vocabulary feature contract](../features/vocabulary-browse-concordance-and-custom-decks.md)
-defines the learner-facing behavior. This ADR's HTMX 4 request migration and
-combined-delivery requirement remain pending.
+The implementation removes the Lit island, duplicate JSON payload, bundle/build
+pipeline, and custom row-key controller; it also completes the app-wide HTMX 4
+migration in the same PR, with separable commits. Concordance's handwritten
+request/history implementation remains temporarily for the intermediate slice.
+The [Vocabulary feature contract](../features/vocabulary-browse-concordance-and-custom-decks.md)
+defines the learner-facing behavior. PR #1404 is subject to required human
+review before merge.

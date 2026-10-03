@@ -79,6 +79,53 @@ test.describe('My Books collection browsing', () => {
     }
   });
 
+  test('restores pushed My Books history from a full server response', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
+
+    const historyResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === '/library' && !url.searchParams.has('q');
+    });
+    await page.goBack();
+    const response = await historyResponse;
+    expect(await response.text()).toContain('<!doctype html>');
+    await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+  });
+
+  test('shows actionable server errors in the enhanced results region', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    await page.route('**/library*', async route => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('q') !== 'htmx-error-check') return route.continue();
+      await route.fulfill({
+        status: 503,
+        contentType: 'text/html',
+        body: '<article role="alert"><strong>My Books could not be loaded.</strong><p>Try again.</p></article>',
+      });
+    });
+    await page.getByLabel('Search My Books').fill('htmx-error-check');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect(page.locator('main [role="alert"]')).toContainText('Try again.');
+  });
+
+  test('keeps the current results when an enhancement request fails on the network', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    const currentResults = page.locator('#library-results');
+    await expect(currentResults.getByText('Der lange Weg nach Hause')).toBeVisible();
+    await page.route('**/library*', route => route.abort());
+    await page.getByLabel('Search My Books').fill('network-error-check');
+    const failedRequest = page.waitForEvent('requestfailed', request => new URL(request.url()).searchParams.get('q') === 'network-error-check');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await failedRequest;
+    await expect(currentResults.getByText('Der lange Weg nach Hause')).toBeVisible();
+  });
+
   test('reviews needs-language books without actions', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture sync runs once per browser suite.');
     await signIn(page);

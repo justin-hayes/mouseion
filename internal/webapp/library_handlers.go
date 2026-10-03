@@ -21,6 +21,7 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/library")
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Vary", "HX-Request-Type")
 	u := user(r)
 	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
 	goal, goalErr := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, activeLanguage)
@@ -103,7 +104,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	if goal.IsActive() {
 		goalBookID = goal.BookID
 	}
-	if isHTMX(r) && browse.Enabled {
+	if isPartialHTMXRequest(r) && browse.Enabled {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
 		return
 	}

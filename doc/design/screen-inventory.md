@@ -215,10 +215,11 @@ Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-cus
 | Saved Custom deck | Edit an identity shortlist independently of Reading; review current evidence and submit preparation. | Named deck list, rename, paged identity review, missing filter, add/remove, current Book/analysis/correction links, unavailable-language read-only state, native deletion confirmation, evidence-change reconfirmation, all-zero disabled preparation, idempotent submission, read-only generation history, stable Anki deck identity with learner title in package description, and overlap/cleanup warning before preparation are shipped |
 | Custom deck preparation | Inspect durable status and item-level outcomes, compare current evidence with frozen generation provenance, cancel or prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card withheld, complete with evidence/quality/meaning omissions, prior Ready during replacement, historical generation detail, newest-only download, safe retry, uncertain submission, and Anki overlap/cleanup warning before download |
 
-The first slice of the accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
-is shipped: one Templ-rendered result list, native grouped disclosures, and no
-custom row-key shortcuts. The existing handwritten lookup/history enhancement
-remains temporarily; the app-wide HTMX 4 migration is pending.
+The accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
+ships one Templ-rendered result list, native grouped disclosures, no custom
+row-key shortcuts, and pinned app-wide HTMX 4.0.0 for existing enhanced flows.
+The handwritten Concordance lookup/history enhancement remains temporarily in
+this intermediate slice; a follow-up moves it to HTMX.
 
 ## Inactive and supporting implementation
 

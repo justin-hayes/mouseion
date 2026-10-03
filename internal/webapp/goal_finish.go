@@ -62,7 +62,7 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 		AlreadyKnownCount:        result.Completion.AlreadyKnownVocabularyCount,
 	}
 
-	if isHTMX(r) {
+	if isPartialHTMXRequest(r) {
 		render(w, r, PrimaryGoalFinish(outcome))
 		return
 	}

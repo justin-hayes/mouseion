@@ -131,7 +131,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		result.Book = detail.Book
 	}
 	message := refreshMessage(result)
-	if isHTMX(r) {
+	if isPartialHTMXRequest(r) {
 		row := domain.MyBook{Book: result.Book}
 		if refreshed, readErr := h.services.Store.Books.GetBookDetail(r.Context(), u.ID, result.Book.ID); readErr == nil {
 			row = refreshed
@@ -157,7 +157,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
 	message := "Metadata could not be refreshed. Check the connection and try again."
-	if isHTMX(r) {
+	if isPartialHTMXRequest(r) {
 		book, ok := h.bookDetail(w, r, u.ID, bookID)
 		if !ok {
 			return

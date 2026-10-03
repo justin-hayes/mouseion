@@ -429,7 +429,7 @@ func performReadingRequest(t *testing.T, h http.Handler, method, path string, fo
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	if htmx {
-		request.Header.Set("Hx-Request", "true")
+		request.Header.Set("Hx-Request-Type", "partial")
 	}
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)

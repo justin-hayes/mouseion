@@ -26,7 +26,7 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 	html := output.String()
 	for _, want := range []string{
 		`href="/static/vendor/pico-2.1.1.min.css"`,
-		`src="/static/vendor/htmx-2.0.7.min.js"`,
+		`src="/static/vendor/htmx-4.0.0.min.js"`,
 	} {
 		assert.True(t, strings.Contains(html, want), "layout missing bundled asset %q", want)
 	}
@@ -37,7 +37,7 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 		want string
 	}{
 		{path: "/static/vendor/pico-2.1.1.min.css", want: "Pico CSS"},
-		{path: "/static/vendor/htmx-2.0.7.min.js", want: `version:"2.0.7"`},
+		{path: "/static/vendor/htmx-4.0.0.min.js", want: "htmx"},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
@@ -123,7 +123,7 @@ func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, Layout("Mouseion", nil, "csrf-token").Render(context.Background(), &output))
-	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `could not be updated:`, `aria-label="Deck preparation progress"`} {
+	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `aria-label="Deck preparation progress"`} {
 		assert.True(t, strings.Contains(output.String(), pattern), "application shell missing %q: %s", pattern, output.String())
 	}
 }

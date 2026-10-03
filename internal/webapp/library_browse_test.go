@@ -174,13 +174,14 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
 	assert.Equal(t, "/library?q=Dampf", legacy.Header().Get("Location"))
 	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
-	htmxRequest.Header.Set("Hx-Request", "true")
+	htmxRequest.Header.Set("Hx-Request-Type", "partial")
 	for _, cookie := range cookies {
 		htmxRequest.AddCookie(cookie)
 	}
 	htmxResponse := httptest.NewRecorder()
 	handler.ServeHTTP(htmxResponse, htmxRequest)
 	assert.Equal(t, http.StatusOK, htmxResponse.Code)
+	assert.Equal(t, "HX-Request-Type", htmxResponse.Header().Get("Vary"))
 	assert.True(t, strings.Contains(htmxResponse.Body.String(), `<section id="library-results"`), "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
 	assert.False(t, strings.Contains(htmxResponse.Body.String(), "<!doctype html>"), "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
 	store.result.Total = 0

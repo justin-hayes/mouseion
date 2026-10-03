@@ -18,20 +18,12 @@ templ Layout(title string, user *domain.User, csrf string) {
 }
 
 templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext) {
-	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-2.0.7.min.js" defer></script><script>
+	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 };
-document.addEventListener('htmx:responseError', function (evt) {
-  var target = evt.detail.target;
-  if (!target) return;
-  var text = ((evt.detail.xhr && evt.detail.xhr.responseText) || 'Request failed').trim();
-  var workflowNode = target.closest && target.closest('[data-workflow]');
-  var workflow = workflowNode ? workflowNode.getAttribute('data-workflow') : 'This operation';
-  target.innerHTML = '<article role="alert"><strong>' + window.escapeHtml(workflow) + ' could not be updated:</strong> ' + window.escapeHtml(text) + '<p><small>Review this operation or try again.</small></p></article>';
-});
 document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
   if (!form) return;
@@ -79,7 +71,7 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
     html += '<progress aria-label="Deck preparation progress" value="' + Number(preparation.progress || 0) + '" max="100">' + Number(preparation.progress || 0) + '%</progress>';
     if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';
     if (preparation.ready) {
-      var readyResponse = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'text/html', 'HX-Request': 'true'}});
+      var readyResponse = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'text/html', 'HX-Request-Type': 'partial'}});
       if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));
       target.outerHTML = await readyResponse.text(); return;
     } else if (active) {
@@ -203,15 +195,16 @@ function focusConcordanceSummaryForMissingFragment() {
 }
 document.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingFragment);
 window.addEventListener('hashchange', focusConcordanceSummaryForMissingFragment);
-document.addEventListener('htmx:afterSwap', function (evt) {
+document.addEventListener('htmx:after:swap', function (evt) {
 			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
 			var region = document.getElementById(id);
 			if (!region) return;
 			var focusID = region.getAttribute('data-focus-id');
 			if (!focusID) return;
-			var swappedTarget = evt.detail && evt.detail.target;
+			var ctx = evt.detail && evt.detail.ctx;
+			var swappedTarget = ctx && ctx.target;
 			if (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;
-			var source = evt.detail && evt.detail.elt;
+			var source = ctx && ctx.sourceElement;
 			var targetSelector = source && source.getAttribute('hx-target');
 			var target = targetSelector ? document.querySelector(targetSelector) : null;
 			var targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));
