@@ -55,10 +55,15 @@ WITH all_books AS (
      LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=s.owner_id AND r.book_id=s.book_id
        AND r.analysis_run_id=s.analysis_run_id AND r.corpus_id=s.corpus_id
        AND r.language=$2 AND r.builder_version=1
-     JOIN river_job failed ON failed.kind='rebuild_vocabulary_browse_counts' AND failed.state='discarded'
-       AND failed.args->>'owner_id'=s.owner_id::text AND failed.args->>'book_id'=s.book_id::text
-       AND failed.args->>'run_id'=s.analysis_run_id::text
-     WHERE r.owner_id IS NULL
+      JOIN river_job failed ON failed.kind='rebuild_vocabulary_browse_counts' AND failed.state='discarded'
+        AND failed.args->>'owner_id'=s.owner_id::text AND failed.args->>'book_id'=s.book_id::text
+        AND failed.args->>'run_id'=s.analysis_run_id::text
+      WHERE r.owner_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM river_job active
+          WHERE active.kind='rebuild_vocabulary_browse_counts'
+            AND active.state IN ('available','pending','running','retryable','scheduled')
+            AND active.args->>'owner_id'=s.owner_id::text AND active.args->>'book_id'=s.book_id::text
+            AND active.args->>'run_id'=s.analysis_run_id::text)
    ) AS failed
  ), projection_ready AS MATERIALIZED (
    SELECT r.owner_id,r.book_id,r.analysis_run_id,r.corpus_id
