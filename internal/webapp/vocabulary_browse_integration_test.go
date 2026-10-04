@@ -1026,6 +1026,30 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 	secondPageAdd := url.Values{"csrf_token": {token}, "lemma": {"wort25"}, "upos": {"NOUN"}}
 	added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", secondPageAdd, postCookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
+	// Reproduce the saved-selection timeout with a few hundred analyzed tokens
+	// and 100 selected identities. The selection read for Browse must only
+	// inspect the saved set and this visible page, not recompute review evidence.
+	_, err = store.Pool().Exec(ctx, `
+INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
+SELECT $1,$2,$3,$4,n,'bulkword',n*10,n*10+8 FROM generate_series(100,374) n`, alice.ID, runID, corpus.ID, unitID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `
+INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
+SELECT $1,'de',$2,$3,n,0,'bulkword','bulkword','bulkword','NOUN','root',0,'{}',n*10,n*10+8 FROM generate_series(100,374) n`, alice.ID, runID, corpus.ID)
+	require.NoError(t, err)
+	buildBrowseProjection(t, ctx, store, sourceBook.ID)
+	for i := range 98 {
+		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de',$2,'NOUN')`, alice.ID, fmt.Sprintf("saved%03d", i))
+		require.NoError(t, err)
+	}
+	started := time.Now()
+	selectedPage := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
+	assert.Less(t, time.Since(started), 8*time.Second, "a large current corpus and saved selection must stay within Browse's request deadline")
+	require.Equal(t, http.StatusOK, selectedPage.Code)
+	assert.Contains(t, selectedPage.Body.String(), "Browse selection (100)")
+	assert.Contains(t, selectedPage.Body.String(), "Remove from selection", "a visible saved identity is marked selected")
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_selections WHERE owner_id=$1 AND language='de' AND canonical_lemma LIKE 'saved%'`, alice.ID)
+	require.NoError(t, err)
 	review := perform(t, h, http.MethodGet, "/vocabulary/selection", nil, cookies)
 	require.Equal(t, http.StatusOK, review.Code)
 	assert.Contains(t, review.Body.String(), "2 selected identities")
@@ -1033,6 +1057,10 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 	assert.NotContains(t, review.Body.String(), "Private German")
 	removed := perform(t, h, http.MethodPost, "/vocabulary/selection/remove", url.Values{"csrf_token": {token}, "lemma": {"wort25"}, "upos": {"NOUN"}}, postCookies)
 	require.Equal(t, http.StatusSeeOther, removed.Code)
+	removedBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
+	require.Equal(t, http.StatusOK, removedBrowse.Code)
+	assert.Contains(t, removedBrowse.Body.String(), "Browse selection (1)")
+	assert.Contains(t, removedBrowse.Body.String(), ">Select</button>", "removing an identity updates its visible Browse action")
 	remainingSelection, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	require.Len(t, remainingSelection, 1)
@@ -1052,6 +1080,10 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 	stillSelected, err = store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, stillSelected, "only the explicit confirmation POST clears the selection")
+	clearedBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
+	require.Equal(t, http.StatusOK, clearedBrowse.Code)
+	assert.Contains(t, clearedBrowse.Body.String(), "Browse selection (0)")
+	assert.Contains(t, clearedBrowse.Body.String(), ">Select</button>", "clearing the selection updates its visible Browse action")
 	for _, identity := range []domain.VocabularyIdentity{{CanonicalLemma: "haus", UPOS: "NOUN"}, {CanonicalLemma: "wort25", UPOS: "NOUN"}} {
 		form := url.Values{"csrf_token": {token}, "lemma": {identity.CanonicalLemma}, "upos": {identity.UPOS}}
 		added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", form, postCookies)

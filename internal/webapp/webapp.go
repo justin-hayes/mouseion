@@ -123,6 +123,10 @@ type VocabularySelectionStore interface {
 	DeleteCustomVocabularyDeck(context.Context, string, string) error
 }
 
+type VocabularyBrowseSelectionStateStore interface {
+	VocabularyBrowseSelectionState(context.Context, string, string, []domain.VocabularyBrowseRow) (int, []bool, error)
+}
+
 type VocabularyConcordanceStore interface {
 	ListVocabularyConcordance(context.Context, string, string, domain.ConcordanceLookup) (domain.ConcordanceResult, error)
 	GetVocabularySentenceStudy(context.Context, string, string, string, string, string, int64, int64, string) (domain.SentenceStudy, error)
@@ -141,6 +145,7 @@ type StoreDependencies struct {
 	LemmaReview           LemmaReviewStore
 	VocabularyBrowse      VocabularyBrowseStore
 	VocabularySelection   VocabularySelectionStore
+	BrowseSelectionState  VocabularyBrowseSelectionStateStore
 	VocabularyConcordance VocabularyConcordanceStore
 }
 
