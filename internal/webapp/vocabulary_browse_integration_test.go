@@ -1065,6 +1065,17 @@ SELECT $1,'de',$2,$3,n,0,'bulkword','bulkword','bulkword','NOUN','root',0,'{}',n
 	assert.Contains(t, review.Body.String(), "2 selected identities")
 	assert.Contains(t, review.Body.String(), "2 occurrences · 2 Books")
 	assert.NotContains(t, review.Body.String(), "Private German")
+	// An analysis awaiting its Browse-count rebuild still contributes current
+	// evidence rather than making a selected identity appear missing.
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, sourceBook.ID)
+	require.NoError(t, err)
+	withoutProjection, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	require.Len(t, withoutProjection, 2)
+	assert.EqualValues(t, 2, withoutProjection[0].OccurrenceCount)
+	assert.EqualValues(t, 2, withoutProjection[0].BookCount)
+	assert.False(t, withoutProjection[1].MissingEvidence)
+	buildBrowseProjection(t, ctx, store, sourceBook.ID)
 	removed := perform(t, h, http.MethodPost, "/vocabulary/selection/remove", url.Values{"csrf_token": {token}, "lemma": {"wort25"}, "upos": {"NOUN"}}, postCookies)
 	require.Equal(t, http.StatusSeeOther, removed.Code)
 	removedBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
@@ -1138,6 +1149,54 @@ SELECT $1,'de',$2,$3,n,0,'bulkword','bulkword','bulkword','NOUN','root',0,'{}',n
 	require.NoError(t, err)
 	require.Len(t, otherLanguage, 1)
 	assert.Equal(t, "casa", otherLanguage[0].CanonicalLemma, "creating a German deck must preserve the Italian selection")
+}
+
+func TestBrowseSelectionReviewWith217IdentitiesAndLargeCorpus(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "vocabulary-selection-scale-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "selection-scale-owner", "owner-password", false)
+	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "selection-scale", "Large German Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, source, corpus)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&runID))
+	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
+	_, err = store.Pool().Exec(ctx, `
+INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
+SELECT $1,$2,$3,$4,n,'anders',n*10,n*10+6 FROM generate_series(1,10000) n`, owner.ID, runID, corpus.ID, unitID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `
+INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
+SELECT $1,'de',$2,$3,n,0,'anders','anders','anders','NOUN','root',0,'{}',n*10,n*10+6 FROM generate_series(1,10000) n`, owner.ID, runID, corpus.ID)
+	require.NoError(t, err)
+	buildBrowseProjection(t, ctx, store, book.ID)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos)
+SELECT $1::uuid,'de','saved'||lpad(n::text,3,'0'),'NOUN' FROM generate_series(1,216) n
+UNION ALL SELECT $1::uuid,'de','haus','NOUN'`, owner.ID)
+	require.NoError(t, err)
+
+	// Review must not traverse the full normalized corpus merely to mark the
+	// selected identities with their existing per-Book Browse counts.
+	reviewCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	selected, err := store.ListVocabularyBrowseSelection(reviewCtx, owner.ID, "de")
+	require.NoError(t, err, "review must finish before the interactive request deadline")
+	require.Len(t, selected, 217)
+	assert.Equal(t, "haus", selected[0].CanonicalLemma)
+	assert.EqualValues(t, 1, selected[0].OccurrenceCount)
+	assert.False(t, selected[0].MissingEvidence)
+	assert.True(t, selected[1].MissingEvidence)
+
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, "selection-scale-owner", "owner-password")
+	review := perform(t, h, http.MethodGet, "/vocabulary/selection", nil, cookies)
+	require.Equal(t, http.StatusOK, review.Code)
+	assert.Contains(t, review.Body.String(), "217 selected identities")
+	assert.Contains(t, review.Body.String(), "216 currently lack evidence")
 }
 
 func TestCustomDeckEditingIsOwnerScopedAndReadOnlyWhenLanguageDisappears(t *testing.T) {
