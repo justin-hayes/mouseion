@@ -309,9 +309,10 @@ func TestVocabularyBrowseSelectionEnhancesNativeFormAndPreservesPage(t *testing.
 	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "de", page, "ha").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
-	assert.Contains(t, html, `action="/vocabulary/selection/add"`)
+	assert.Contains(t, html, `id="vocabulary-browse-results"`)
+	assert.Contains(t, html, `action="/vocabulary/selection/add?all=1&amp;page=2&amp;q=ha&amp;reading=book-1&amp;rev=rev-1"`)
 	assert.Contains(t, html, `hx-post="/vocabulary/selection/add?all=1&amp;page=2&amp;q=ha&amp;reading=book-1&amp;rev=rev-1"`)
-	assert.Contains(t, html, `hx-select="#vocabulary-workflow"`)
+	assert.Contains(t, html, `hx-select="#vocabulary-browse-results"`)
 	assert.Contains(t, html, `hx-status:409="target:#vocabulary-recovery`)
 	assert.Contains(t, html, `Browse selection (3)`)
 }

@@ -142,14 +142,14 @@ func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request)
 	err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), u.ID, language, r.FormValue("lemma"), r.FormValue("upos"), selected)
 	if err != nil {
 		if errors.Is(err, persistence.ErrVocabularyIdentityNotCurrent) {
-			if isPartialHTMXRequest(r) {
+			if isEnhancedVocabularySelectionRequest(r) {
 				renderStatus(w, r, http.StatusConflict, VocabularyBrowseSelectionChangedPageView(u, h.csrf(w, r)))
 				return
 			}
 			http.Error(w, "This identity no longer has current evidence. Refresh Browse before selecting it.", http.StatusConflict)
 			return
 		}
-		if isPartialHTMXRequest(r) {
+		if isEnhancedVocabularySelectionRequest(r) {
 			log.Printf("mouseion: update Browse selection: %v", err)
 			renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseSelectionErrorPageView(u, h.csrf(w, r)))
 			return
@@ -157,11 +157,11 @@ func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request)
 		fail(w, err)
 		return
 	}
-	if isPartialHTMXRequest(r) {
+	if isEnhancedVocabularySelectionRequest(r) {
 		h.vocabularyPageAfterSelection(w, r)
 		return
 	}
-	redirect(w, r, "/vocabulary")
+	redirect(w, r, vocabularyBrowseReturnURL(r))
 }
 
 func (h *Handler) vocabularyPageAfterSelection(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +171,19 @@ func (h *Handler) vocabularyPageAfterSelection(w http.ResponseWriter, r *http.Re
 	browseRequest.URL = &browseURL
 	browseRequest.Method = http.MethodGet
 	h.vocabularyPage(w, browseRequest)
+}
+
+// HTMX 4 sends HX-Request-Type: full when hx-select extracts a fragment from a
+// complete response. That is still an enhanced request, not a native form post.
+func isEnhancedVocabularySelectionRequest(r *http.Request) bool {
+	return r.Header.Get("Hx-Request") == "true"
+}
+
+func vocabularyBrowseReturnURL(r *http.Request) string {
+	if r.URL.RawQuery != "" {
+		return "/vocabulary?" + r.URL.RawQuery
+	}
+	return "/vocabulary"
 }
 
 func (h *Handler) vocabularySelectionPage(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +240,7 @@ func (h *Handler) removeVocabularySelection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), user(r).ID, language, r.FormValue("lemma"), r.FormValue("upos"), false); err != nil {
-		if isPartialHTMXRequest(r) {
+		if isEnhancedVocabularySelectionRequest(r) {
 			log.Printf("mouseion: remove Browse selection: %v", err)
 			renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseSelectionErrorPageView(user(r), h.csrf(w, r)))
 			return
@@ -235,8 +248,12 @@ func (h *Handler) removeVocabularySelection(w http.ResponseWriter, r *http.Reque
 		fail(w, err)
 		return
 	}
-	if isPartialHTMXRequest(r) {
+	if isEnhancedVocabularySelectionRequest(r) {
 		h.vocabularyPageAfterSelection(w, r)
+		return
+	}
+	if r.URL.RawQuery != "" {
+		redirect(w, r, vocabularyBrowseReturnURL(r))
 		return
 	}
 	redirect(w, r, "/vocabulary/selection")

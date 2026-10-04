@@ -141,7 +141,7 @@ document.addEventListener('htmx:before:swap', function (evt) {
 });
 document.addEventListener('htmx:after:swap', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
-  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-workflow') return;
+  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;
   if (ctx.vocabularySelection) {
     var forms = document.querySelectorAll('#vocabulary-workflow form[data-vocabulary-selection]');
     for (var i = 0; i < forms.length; i++) {
@@ -161,7 +161,7 @@ document.addEventListener('htmx:after:history:restore', function () {
 });
 document.addEventListener('htmx:after:swap', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
-  if (!ctx || !ctx.target || ctx.target.id !== 'concordance-workflow') return;
+  if (!ctx || !ctx.target || (ctx.target.id !== 'concordance-workflow' && ctx.target.id !== 'concordance-results')) return;
   var summary = document.getElementById('concordance-summary');
   if (summary) summary.focus();
 });
@@ -953,7 +953,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<p><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, ranked using current analyzed Books in this language.</p>
 			}
 			if page.CurrentBookID != "" {
-			<form method="get" action="/vocabulary" class="data-width" hx-get="/vocabulary" hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
+			<form method="get" action="/vocabulary" class="data-width" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
@@ -961,6 +961,8 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<label><input type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
 			<button type="submit">Search</button>
 			</form>
+			}
+			<div id="vocabulary-browse-results">
 			if page.BrowseCountsUnavailable {
 				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work; your Browse selection and saved decks remain available.</p>
 			} else if page.BrowseCountsUpdating {
@@ -993,7 +995,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 							<small>In a Book deck</small>
 						}
 					</td><td>
-						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) } hx-post={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-sync="#vocabulary-workflow:queue all" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" data-vocabulary-selection><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
+						<form method="post" action={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-post={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-sync="#vocabulary-workflow:queue all" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" data-vocabulary-selection><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
 				</tbody>
@@ -1001,10 +1003,10 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@VocabularyBrowsePager(page, query)
 			}
 			}
-			}
 			<p><a href="/vocabulary/selection">Browse selection ({ fmt.Sprintf("%d", page.SelectionCount) })</a></p>
-		}
 		<div id="vocabulary-recovery" aria-live="polite"></div>
+		</div>
+		}
 		</div>
 	}
 }
@@ -1385,10 +1387,10 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					if result.HasPrevious || result.HasNext {
 						<nav aria-label="Concordance pages">
 							if result.HasPrevious {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
 							}
 							if result.HasNext {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
+								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
 							}
 						</nav>
 					}
@@ -1759,10 +1761,10 @@ templ VocabularyBrowseSelectionErrorPageView(user domain.User, csrf string) {
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
 		if page.Page > 1 {
-			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
+			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
 		}
 		if page.Page*25 < int(page.Total) {
-			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
+			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
 		}
 	</nav></section>
 }

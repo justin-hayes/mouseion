@@ -8,6 +8,11 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
+async function clearSelection(page: Page) {
+  await page.goto('/vocabulary/selection/clear-confirm');
+  await page.getByRole('button', { name: 'Confirm clear selection' }).click();
+}
+
 test('Current-reading Browse keeps its prefix form usable without JavaScript', async ({ page, browser }) => {
   const baseURL = process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099';
   const noScriptContext = await browser.newContext({ baseURL, javaScriptEnabled: false });
@@ -43,4 +48,43 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   await page.goto('/vocabulary');
   await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('Browse keeps the current page and controls while selecting a word on page two', async ({ page }) => {
+  await signIn(page);
+  await clearSelection(page);
+  await page.goto('/vocabulary?q=paging');
+  await page.locator('form[action="/vocabulary"]').evaluate(element => element.setAttribute('data-stable-search', 'yes'));
+  await page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link', { name: 'Next' }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+  await expect(page.locator('form[action="/vocabulary"]')).toHaveAttribute('data-stable-search', 'yes');
+  await page.locator('#vocabulary-workflow').evaluate(element => element.setAttribute('data-stable-controls', 'yes'));
+  const row = page.getByRole('row').filter({ hasText: 'paging25' });
+  await row.getByRole('button', { name: 'Select', exact: true }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+  await expect(page.locator('#vocabulary-workflow')).toHaveAttribute('data-stable-controls', 'yes');
+  await expect(page.getByRole('link', { name: 'Browse selection (1)' })).toBeVisible();
+  await expect(row.getByRole('button', { name: 'Remove from selection' })).toBeFocused();
+  await row.getByRole('button', { name: 'Remove from selection' }).click();
+  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Browse selection (0)' })).toBeVisible();
+  await expect(row.getByRole('button', { name: 'Select', exact: true })).toBeFocused();
+});
+
+test('Browse selection returns to the same page without JavaScript', async ({ browser }) => {
+  const noScriptContext = await browser.newContext({ baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099', javaScriptEnabled: false });
+  const page = await noScriptContext.newPage();
+  try {
+    await signIn(page);
+    await clearSelection(page);
+    await page.goto('/vocabulary?q=paging&page=2&reading=fixture-book');
+    await page.getByRole('row').filter({ hasText: 'paging25' }).getByRole('button', { name: 'Select', exact: true }).click();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.getByText('Page 2 of 2')).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'paging25' }).getByRole('button', { name: 'Remove from selection' })).toBeVisible();
+  } finally {
+    await noScriptContext.close();
+  }
 });
