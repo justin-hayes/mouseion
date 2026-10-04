@@ -115,6 +115,50 @@ window.showConcordanceNetworkRecovery = function (ctx) {
   retry.textContent = 'Retry Concordance lookup';
   recovery.append(message, retry);
 };
+window.showVocabularyNetworkRecovery = function (ctx) {
+  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#vocabulary-workflow') || ctx.response) return;
+  var recovery = document.getElementById('vocabulary-recovery');
+  if (!recovery) return;
+  recovery.replaceChildren();
+  var message = document.createElement('p');
+  message.setAttribute('role', 'alert');
+  message.textContent = ctx.request.method === 'POST'
+    ? 'The selection request received no response. It may have succeeded; check the selection before trying again.'
+    : 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';
+  var retry = document.createElement('a');
+  retry.href = ctx.request.method === 'POST' ? '/vocabulary/selection' : ctx.request.action;
+  retry.textContent = ctx.request.method === 'POST' ? 'Review Browse selection' : 'Retry Browse';
+  recovery.append(message, retry);
+};
+document.addEventListener('htmx:before:swap', function (evt) {
+  var ctx = evt.detail && evt.detail.ctx;
+  var source = ctx && ctx.sourceElement;
+  if (!source || !source.matches('form[data-vocabulary-selection]')) return;
+  ctx.vocabularySelection = {
+    lemma: source.querySelector('[name="lemma"]').value,
+    upos: source.querySelector('[name="upos"]').value
+  };
+});
+document.addEventListener('htmx:after:swap', function (evt) {
+  var ctx = evt.detail && evt.detail.ctx;
+  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-workflow') return;
+  if (ctx.vocabularySelection) {
+    var forms = document.querySelectorAll('#vocabulary-workflow form[data-vocabulary-selection]');
+    for (var i = 0; i < forms.length; i++) {
+      if (forms[i].querySelector('[name="lemma"]').value === ctx.vocabularySelection.lemma && forms[i].querySelector('[name="upos"]').value === ctx.vocabularySelection.upos) {
+        forms[i].querySelector('button').focus();
+        return;
+      }
+    }
+  }
+  var summary = document.getElementById('vocabulary-results-heading');
+  if (summary) summary.focus();
+});
+document.addEventListener('htmx:after:history:restore', function () {
+  if (window.location.pathname !== '/vocabulary') return;
+  var summary = document.getElementById('vocabulary-results-heading');
+  if (summary) summary.focus();
+});
 document.addEventListener('htmx:after:swap', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
   if (!ctx || !ctx.target || ctx.target.id !== 'concordance-workflow') return;
@@ -889,6 +933,8 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Browse", "Find the most frequent vocabulary in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
+		<p id="vocabulary-pending" class="htmx-indicator" role="status">Loading Browse. The previous results remain visible until the request completes.</p>
+		<div id="vocabulary-workflow" hx-on:htmx:error="window.showVocabularyNetworkRecovery(ctx)">
 		if language == "" {
 			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before browsing vocabulary.") {
 				<a href="/catalogs">Connect a catalog</a>
@@ -907,7 +953,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<p><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, ranked using current analyzed Books in this language.</p>
 			}
 			if page.CurrentBookID != "" {
-			<form method="get" action="/vocabulary" class="data-width">
+			<form method="get" action="/vocabulary" class="data-width" hx-get="/vocabulary" hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
@@ -947,7 +993,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 							<small>In a Book deck</small>
 						}
 					</td><td>
-						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
+						<form method="post" action={ templ.SafeURL(vocabularySelectionAction(row.Selected)) } hx-post={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-sync="#vocabulary-workflow:queue all" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" data-vocabulary-selection><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
 				</tbody>
@@ -958,6 +1004,8 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			}
 			<p><a href="/vocabulary/selection">Browse selection ({ fmt.Sprintf("%d", page.SelectionCount) })</a></p>
 		}
+		<div id="vocabulary-recovery" aria-live="polite"></div>
+		</div>
 	}
 }
 
@@ -1654,6 +1702,7 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
+		<div id="vocabulary-recovery" aria-live="polite">
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
 		<form method="get" action="/vocabulary">
@@ -1670,6 +1719,7 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		</form>
 		<a href="/vocabulary">Clear search</a>
 		<p>Browse does not report partial counts as complete.</p>
+		</div>
 	}
 }
 
@@ -1677,20 +1727,42 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
+		<div id="vocabulary-recovery" aria-live="polite">
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
 		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll}, query.Prefix)) }>Restart in the Current reading</a>
 		<a href="/vocabulary">Clear search</a>
+		</div>
+	}
+}
+
+templ VocabularyBrowseSelectionChangedPageView(user domain.User, csrf string) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Browse", "", nil)
+		<div id="vocabulary-recovery" aria-live="polite">
+			@Feedback(FeedbackWarning, "Selection not changed", "This identity no longer has current evidence. Refresh Browse before selecting it.")
+			<a href="/vocabulary">Refresh Browse</a>
+		</div>
+	}
+}
+
+templ VocabularyBrowseSelectionErrorPageView(user domain.User, csrf string) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+		@PageHeader("Vocabulary · Browse", "", nil)
+		<div id="vocabulary-recovery" aria-live="polite">
+			@Feedback(FeedbackError, "Selection could not be updated", "Your previous Browse results remain visible. Check the selection before retrying.")
+			<a href="/vocabulary/selection">Review Browse selection</a>
+		</div>
 	}
 }
 
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
 		if page.Page > 1 {
-			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) }>Previous</a>
+			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
 		}
 		if page.Page*25 < int(page.Total) {
-			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) }>Next</a>
+			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-workflow" hx-select="#vocabulary-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
 		}
 	</nav></section>
 }
