@@ -476,10 +476,14 @@ func readingChooserEvidenceState(book domain.MyBook) (readingChooserState, strin
 		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
 	}
 	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
+	state := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisState))
+	evidenceState := book.Acquired.EvidenceState()
+	if state == "completed" && evidenceState != domain.BookStale && (status == "analyzing" || status == "not analyzed") {
+		return readingChooserInProgress, analysisPublicationPendingDescription
+	}
 	if strings.Contains(status, "queued") || strings.Contains(status, "running") || status == "analyzing" {
 		return readingChooserInProgress, "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
 	}
-	evidenceState := book.Acquired.EvidenceState()
 	if evidenceState == domain.BookStale {
 		return readingChooserNeedsAttention, "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."
 	}

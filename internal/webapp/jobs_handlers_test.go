@@ -32,3 +32,23 @@ func TestJobState(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalysisFinalizationFailureCanBeRetried(t *testing.T) {
+	status := analysis.Status{LogicalState: "finalization-failed"}
+	if !jobRetryable(status) {
+		t.Fatal("completed corpus with failed publication should be retryable")
+	}
+	if got := analysisStatusSummary(status); got != "The analysis corpus is complete, but finalization failed. Its corpus was retained; retry to finish selection and publication without rerunning NLP." {
+		t.Fatalf("analysisStatusSummary() = %q", got)
+	}
+}
+
+func TestCancelledAnalysisFinalizationCanBeRetried(t *testing.T) {
+	status := analysis.Status{LogicalState: "finalization-cancelled"}
+	if !jobRetryable(status) {
+		t.Fatal("cancelled finalization should be retryable")
+	}
+	if got := analysisStatusSummary(status); got != "Analysis finalization was cancelled. The completed corpus was retained; retry when you are ready." {
+		t.Fatalf("analysisStatusSummary() = %q", got)
+	}
+}

@@ -18,6 +18,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+const analysisPublicationPendingDescription = "Analysis completed, but publication is pending or failed. This Book is not shown as analyzed until its result is published; retry analysis to finish publication."
+
 type journeyBookView struct {
 	Book                    domain.SourceMaterialSummary
 	BookID                  string
@@ -141,6 +143,9 @@ func journeyEvidenceDescription(item journeyBookView) string {
 	case "stale":
 		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
 	case "incomplete":
+		if strings.EqualFold(strings.TrimSpace(item.Book.AnalysisState), "completed") {
+			return analysisPublicationPendingDescription
+		}
 		return "A completed analysis has not produced usable coverage for this book yet."
 	case "failed":
 		return "The last analysis failed. Retry analysis to produce current evidence."
