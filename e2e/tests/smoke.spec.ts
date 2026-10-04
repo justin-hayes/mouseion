@@ -350,6 +350,18 @@ test.describe('authenticated learner smoke', () => {
     await expect(results).toContainText('lookup for “Haus”');
   });
 
+  test('Concordance paging preserves the query controls in the DOM', async ({ page }) => {
+    await page.goto('/vocabulary/concordance');
+    await page.getByLabel('Exact term').fill('Haus');
+    await page.getByRole('button', { name: 'Find', exact: true }).click();
+    await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(25);
+    await page.getByLabel('Exact term').evaluate(element => element.setAttribute('data-stable-control', 'yes'));
+    await page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' }).click();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(1);
+    await expect(page.getByLabel('Exact term')).toHaveAttribute('data-stable-control', 'yes');
+  });
+
   test('Concordance network failure keeps old results and offers the attempted query', async ({ page }) => {
     await page.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj');
     const oldResults = page.locator('#concordance-results');

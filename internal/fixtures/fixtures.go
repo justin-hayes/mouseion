@@ -484,6 +484,27 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	}
 	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
 	page.CorpusRevision = "fixture-current-reading-vocabulary-v1"
+	if query.Prefix == "paging" {
+		// A deliberately paged fixture for browser interaction checks; the ordinary
+		// two-row fixture remains small and representative on every other query.
+		page.Total, page.InventoryTotal, page.ScopedInventoryTotal = 26, 26, 26
+		page.Page = min(page.Page, 2)
+		start := (page.Page - 1) * 25
+		rows := make([]domain.VocabularyBrowseRow, 0, min(start+25, 26)-start)
+		for i := start; i < min(start+25, 26); i++ {
+			rows = append(rows, domain.VocabularyBrowseRow{CanonicalLemma: fmt.Sprintf("paging%02d", i), UPOS: "NOUN", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 1})
+		}
+		count, selected, selectionErr := s.VocabularyBrowseSelectionState(ctx, owner, language, rows)
+		if selectionErr != nil {
+			return domain.VocabularyBrowsePage{}, selectionErr
+		}
+		page.SelectionCount = count
+		for i := range rows {
+			rows[i].Selected = selected[i]
+		}
+		page.Rows = rows
+		return page, nil
+	}
 	rows := []domain.VocabularyBrowseRow{
 		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, Generated: true},
 		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
