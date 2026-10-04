@@ -1024,6 +1024,16 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 	require.Equal(t, http.StatusOK, pageTwo.Code)
 	assert.Contains(t, pageTwo.Body.String(), "wort25", "selection can be added from a later Browse page")
 	secondPageAdd := url.Values{"csrf_token": {token}, "lemma": {"wort25"}, "upos": {"NOUN"}}
+	partialAdd := performWithHeader(t, h, http.MethodPost, "/vocabulary/selection/add?page=2&reading="+url.QueryEscape(sourceBook.ID), secondPageAdd, postCookies, "HX-Request-Type", "partial")
+	require.Equal(t, http.StatusOK, partialAdd.Code)
+	assert.Contains(t, partialAdd.Body.String(), `id="vocabulary-workflow"`)
+	assert.Contains(t, partialAdd.Body.String(), "Page 2 of 2")
+	assert.Contains(t, partialAdd.Body.String(), "Browse selection (2)")
+	assert.Contains(t, partialAdd.Body.String(), "Remove from selection")
+	partialRemove := performWithHeader(t, h, http.MethodPost, "/vocabulary/selection/remove?page=2&reading="+url.QueryEscape(sourceBook.ID), secondPageAdd, postCookies, "HX-Request-Type", "partial")
+	require.Equal(t, http.StatusOK, partialRemove.Code)
+	assert.Contains(t, partialRemove.Body.String(), "Page 2 of 2")
+	assert.Contains(t, partialRemove.Body.String(), "Browse selection (1)")
 	added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", secondPageAdd, postCookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
 	// Reproduce the saved-selection timeout with a few hundred analyzed tokens

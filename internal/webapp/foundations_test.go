@@ -297,6 +297,23 @@ func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing
 	require.NoError(t, VocabularyBrowsePager(domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1"}, "haus").Render(context.Background(), &output))
 	assert.Contains(t, output.String(), `href="/vocabulary?page=1&amp;q=haus&amp;reading=book-1"`)
 	assert.Contains(t, output.String(), `href="/vocabulary?page=3&amp;q=haus&amp;reading=book-1"`)
+	assert.Contains(t, output.String(), `hx-get="/vocabulary?page=3&amp;q=haus&amp;reading=book-1"`)
+	assert.Contains(t, output.String(), `hx-push-url="true"`)
+}
+
+func TestVocabularyBrowseSelectionEnhancesNativeFormAndPreservesPage(t *testing.T) {
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1", IncludeAll: true, SelectionCount: 3,
+		Books: []domain.VocabularyBrowseBook{{ID: "book-1", Title: "Current Book", HasCurrentAnalysis: true}},
+		Rows:  []domain.VocabularyBrowseRow{{CanonicalLemma: "haus", UPOS: "NOUN"}}}
+	var output bytes.Buffer
+	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "de", page, "ha").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `id="vocabulary-workflow"`)
+	assert.Contains(t, html, `action="/vocabulary/selection/add"`)
+	assert.Contains(t, html, `hx-post="/vocabulary/selection/add?all=1&amp;page=2&amp;q=ha&amp;reading=book-1&amp;rev=rev-1"`)
+	assert.Contains(t, html, `hx-select="#vocabulary-workflow"`)
+	assert.Contains(t, html, `hx-status:409="target:#vocabulary-recovery`)
+	assert.Contains(t, html, `Browse selection (3)`)
 }
 
 func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *testing.T) {
@@ -366,6 +383,7 @@ func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	h.vocabularyPage(response, request)
 
 	assert.Equal(t, http.StatusInternalServerError, response.Code)
+	assert.Contains(t, response.Body.String(), `id="vocabulary-recovery"`)
 	for _, want := range []string{
 		"Browse could not be loaded", "Your search was not applied", "Retry Browse",
 		`name="q" value="Haus"`, `name="reading" value="book-1"`, `name="page" value="2"`,
@@ -420,6 +438,7 @@ func TestVocabularyBrowseChangedEvidenceOffersRestartInsteadOfStalePage(t *testi
 	h.vocabularyPage(response, request)
 
 	assert.Equal(t, http.StatusConflict, response.Code)
+	assert.Contains(t, response.Body.String(), `id="vocabulary-recovery"`)
 	assert.Contains(t, response.Body.String(), "Current evidence changed")
 	assert.Contains(t, response.Body.String(), "Restart in the Current reading")
 	assert.Contains(t, response.Body.String(), "reading=book-1")

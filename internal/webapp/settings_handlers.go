@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -141,13 +142,35 @@ func (h *Handler) setVocabularySelection(w http.ResponseWriter, r *http.Request)
 	err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), u.ID, language, r.FormValue("lemma"), r.FormValue("upos"), selected)
 	if err != nil {
 		if errors.Is(err, persistence.ErrVocabularyIdentityNotCurrent) {
+			if isPartialHTMXRequest(r) {
+				renderStatus(w, r, http.StatusConflict, VocabularyBrowseSelectionChangedPageView(u, h.csrf(w, r)))
+				return
+			}
 			http.Error(w, "This identity no longer has current evidence. Refresh Browse before selecting it.", http.StatusConflict)
+			return
+		}
+		if isPartialHTMXRequest(r) {
+			log.Printf("mouseion: update Browse selection: %v", err)
+			renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseSelectionErrorPageView(u, h.csrf(w, r)))
 			return
 		}
 		fail(w, err)
 		return
 	}
+	if isPartialHTMXRequest(r) {
+		h.vocabularyPageAfterSelection(w, r)
+		return
+	}
 	redirect(w, r, "/vocabulary")
+}
+
+func (h *Handler) vocabularyPageAfterSelection(w http.ResponseWriter, r *http.Request) {
+	browseRequest := r.Clone(r.Context())
+	browseURL := *r.URL
+	browseURL.Path = "/vocabulary"
+	browseRequest.URL = &browseURL
+	browseRequest.Method = http.MethodGet
+	h.vocabularyPage(w, browseRequest)
 }
 
 func (h *Handler) vocabularySelectionPage(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +227,16 @@ func (h *Handler) removeVocabularySelection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err := h.services.Store.VocabularySelection.SetVocabularyBrowseSelection(r.Context(), user(r).ID, language, r.FormValue("lemma"), r.FormValue("upos"), false); err != nil {
+		if isPartialHTMXRequest(r) {
+			log.Printf("mouseion: remove Browse selection: %v", err)
+			renderStatus(w, r, http.StatusInternalServerError, VocabularyBrowseSelectionErrorPageView(user(r), h.csrf(w, r)))
+			return
+		}
 		fail(w, err)
+		return
+	}
+	if isPartialHTMXRequest(r) {
+		h.vocabularyPageAfterSelection(w, r)
 		return
 	}
 	redirect(w, r, "/vocabulary/selection")
@@ -662,6 +694,10 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 	}
 	values.Set("page", strconv.Itoa(page))
 	return "/vocabulary?" + values.Encode()
+}
+
+func vocabularyBrowseSelectionURL(selected bool, page domain.VocabularyBrowsePage, query string) string {
+	return vocabularySelectionAction(selected) + "?" + strings.TrimPrefix(vocabularyBrowsePageURL(page.Page, page, query), "/vocabulary?")
 }
 
 func (h *Handler) vocabularyImportPage(w http.ResponseWriter, r *http.Request) {
