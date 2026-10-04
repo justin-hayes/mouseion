@@ -105,6 +105,101 @@ func TestVocabularyBrowseCountProjectionIsReadyForNonemptyAndEmptyBooks(t *testi
 	}
 }
 
+func TestVocabularyBrowseCountsTrackReadyOccurrenceDecisionsAtomically(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "browse-decision-count-owner", false)
+	require.NoError(t, err)
+	units := []domain.ExtractedUnit{concordanceUnit(0, "browse-decision-count", "Haus Haus Haus Baum Baum", 0, 24)}
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Browse decision counts", "browse-decision-count", false, units)
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{{
+		UnitID: "epub-unit-v1:0:browse-decision-count", Ordinal: 0, Text: "Haus Haus Haus Baum Baum", Start: 0, End: 24,
+		Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 5, End: 9},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 10, End: 14},
+			{Surface: "Baum", Lemma: "baum", Upos: "NOUN", Start: 15, End: 19},
+			{Surface: "Baum", Lemma: "baum", Upos: "NOUN", Start: 20, End: 24},
+		},
+	}})
+	var runID, corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID, &corpusID))
+	projectionTx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, projectionTx, owner.ID, book.ID, source.ID, runID, corpusID, "de"))
+	require.NoError(t, projectionTx.Commit(ctx))
+
+	getOccurrences := func() []domain.LemmaReviewOccurrence {
+		occurrences, listErr := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Haus")
+		require.NoError(t, listErr)
+		return occurrences
+	}
+	checkCounts := func(want map[string]int64) {
+		t.Helper()
+		page, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+		require.NoError(t, browseErr)
+		assert.False(t, page.BrowseCountsUpdating)
+		got := make(map[string]int64, len(page.Rows))
+		for _, row := range page.Rows {
+			got[row.CanonicalLemma] = row.OccurrenceCount
+			assert.Equal(t, row.OccurrenceCount, row.AcrossBooksOccurrenceCount)
+		}
+		assert.Equal(t, want, got)
+	}
+	checkCounts(map[string]int64{"haus": 3, "baum": 2})
+
+	occurrences := getOccurrences()
+	require.Len(t, occurrences, 3)
+	corrected := occurrences[0]
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{
+		Occurrence: corrected, CanonicalLemma: "gebäude", NormalizationProfile: "german-post-1996", NormalizationVersion: "6",
+	}}))
+	checkCounts(map[string]int64{"haus": 2, "gebäude": 1, "baum": 2})
+
+	occurrences = getOccurrences()
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[2], Excluded: true}}))
+	checkCounts(map[string]int64{"haus": 1, "gebäude": 1, "baum": 2})
+
+	occurrences = getOccurrences()
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[2], CanonicalLemma: "haus"}}))
+	checkCounts(map[string]int64{"haus": 2, "gebäude": 1, "baum": 2})
+
+	occurrences = getOccurrences()
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus"}}))
+	checkCounts(map[string]int64{"haus": 3, "baum": 2})
+
+	occurrences = getOccurrences()
+	stale := append([]domain.LemmaReviewOccurrence(nil), occurrences[:2]...)
+	proposal := []domain.LemmaReviewDecision{
+		{Occurrence: occurrences[0], CanonicalLemma: "heim", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+		{Occurrence: occurrences[1], CanonicalLemma: "heim", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+	}
+	require.NoError(t, store.PutLemmaDecisions(ctx, proposal))
+	checkCounts(map[string]int64{"haus": 1, "heim": 2, "baum": 2})
+	latest := getOccurrences()
+	retry := []domain.LemmaReviewDecision{
+		{Occurrence: latest[0], CanonicalLemma: "heim", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+		{Occurrence: latest[1], CanonicalLemma: "heim", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"},
+	}
+	require.NoError(t, store.PutLemmaDecisions(ctx, retry), "replaying the already-applied decision must not double-count")
+	checkCounts(map[string]int64{"haus": 1, "heim": 2, "baum": 2})
+	staleReplay := []domain.LemmaReviewDecision{
+		{Occurrence: stale[0], CanonicalLemma: "haus"},
+		{Occurrence: stale[1], CanonicalLemma: "haus"},
+	}
+	require.ErrorIs(t, store.PutLemmaDecisions(ctx, staleReplay), ErrNotFound, "a stale multi-occurrence replay must roll back without changing counts")
+	checkCounts(map[string]int64{"haus": 1, "heim": 2, "baum": 2})
+
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+	require.NoError(t, err)
+	occurrences = getOccurrences()
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus"}}))
+	pending, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	assert.True(t, pending.BrowseCountsUpdating, "a decision made without ready counts invalidates the old projection until its rebuild completes")
+	assert.Empty(t, pending.Rows, "an unready projection never leaks a stale or partial count")
+}
+
 func buildBrowseProjectionsForOwner(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string) {
 	t.Helper()
 	rows, err := store.Pool().Query(ctx, `SELECT cai.book_id::text,cai.source_material_id::text,cai.analysis_run_id::text,cai.corpus_id::text,s.language

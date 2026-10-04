@@ -575,6 +575,68 @@ func TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably(t *testing.T) {
 	assert.Zero(t, page.InventoryTotal)
 }
 
+func TestBrowseCountsRebuildDiscardsCandidateWhenDecisionChangesDuringScan(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	owner, err := store.CreateUser(ctx, "browse-count-decision-race", false)
+	require.NoError(t, err)
+	book, _ := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+	var runID, corpusID, unitID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT cai.analysis_run_id::text,cai.corpus_id::text,u.unit_id
+		FROM current_analysis_identity cai JOIN source_material_units u ON u.owner_id=cai.owner_id AND u.source_material_id=cai.source_material_id
+		WHERE cai.owner_id=$1 AND cai.book_id=$2 LIMIT 1`, owner.ID, book.ID).Scan(&runID, &corpusID, &unitID))
+	_, err = pool.Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
+		VALUES($1,$2,$3,$4,0,'Guten Tag.',0,10)`, owner.ID, runID, corpusID, unitID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
+		VALUES($1,'de',$2,$3,0,0,'Tag','Tag','tag','NOUN','root',0,'{}',6,9)`, owner.ID, runID, corpusID)
+	require.NoError(t, err)
+	var eligibleTokens int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens t JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.analysis_run_id=t.analysis_run_id AND s.corpus_id=t.corpus_id AND s.sentence_ordinal=t.sentence_ordinal
+		JOIN source_material_units u ON u.owner_id=$1 AND u.source_material_id=(SELECT source_material_id FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2) AND u.snapshot_id=(SELECT snapshot_id FROM analysis_runs WHERE owner_id=$1 AND id=$3) AND u.unit_id=s.unit_id
+		WHERE t.owner_id=$1 AND t.analysis_run_id=$3 AND t.corpus_id=$4 AND t.language='de' AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'`, owner.ID, book.ID, runID, corpusID).Scan(&eligibleTokens))
+	require.Equal(t, 1, eligibleTokens)
+	_, err = pool.Exec(ctx, `CREATE FUNCTION pause_browse_count_candidate() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(1); RETURN NEW; END $$;
+		CREATE TRIGGER pause_browse_count_candidate BEFORE INSERT ON vocabulary_browse_counts FOR EACH ROW EXECUTE FUNCTION pause_browse_count_candidate()`)
+	require.NoError(t, err)
+	worker := &BrowseCountsRebuildWorker{Pool: pool}
+	result := make(chan error, 1)
+	go func() {
+		result <- worker.Work(ctx, &river.Job[BrowseCountsRebuildArgs]{Args: BrowseCountsRebuildArgs{OwnerID: owner.ID, BookID: book.ID, RunID: runID}})
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var scanning bool
+		err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE state='active' AND wait_event='PgSleep' AND query ILIKE '%INSERT INTO vocabulary_browse_counts%')`).Scan(&scanning)
+		require.NoError(t, err)
+		if scanning {
+			break
+		}
+		require.Less(t, time.Now(), deadline, "rebuild did not reach its staged candidate scan")
+		time.Sleep(10 * time.Millisecond)
+	}
+	occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Tag")
+	require.NoError(t, err)
+	require.Len(t, occurrences, 1)
+	decisionStart := time.Now()
+	require.NoError(t, store.PutLemmaCorrection(ctx, occurrences[0], "tageszeit", "german-post-1996", "6"))
+	assert.Less(t, time.Since(decisionStart), 750*time.Millisecond, "a decision on an unready Book must not wait for the full rebuild scan")
+	require.ErrorIs(t, <-result, persistence.ErrBrowseCountDecisionsChanged, "the stale staged candidate must be discarded")
+	_, err = pool.Exec(ctx, `DROP TRIGGER pause_browse_count_candidate ON vocabulary_browse_counts; DROP FUNCTION pause_browse_count_candidate()`)
+	require.NoError(t, err)
+	require.NoError(t, worker.Work(ctx, &river.Job[BrowseCountsRebuildArgs]{Args: BrowseCountsRebuildArgs{OwnerID: owner.ID, BookID: book.ID, RunID: runID}}))
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	require.False(t, page.BrowseCountsUpdating)
+	require.Len(t, page.Rows, 1)
+	assert.Equal(t, "tageszeit", page.Rows[0].CanonicalLemma)
+	assert.Equal(t, int64(1), page.Rows[0].OccurrenceCount)
+}
+
 func TestBrowseCountsDiscardedRebuildIsReportedAsUnavailable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
