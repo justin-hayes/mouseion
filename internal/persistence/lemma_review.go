@@ -183,22 +183,7 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
 			return err
 		}
-		q := sqlcgen.New(tx)
-		for _, decision := range decisions {
-			if decision.Occurrence.OwnerID != owner || decision.Occurrence.BookID != book {
-				return ErrNotFound
-			}
-			if err := putLemmaDecisionTx(ctx, q, decision); err != nil {
-				return err
-			}
-			if err := resolveLemmaReviewFlag(ctx, tx, decision); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner, book); err != nil {
-			return err
-		}
-		return nil
+		return applyLemmaDecisionsTx(ctx, tx, owner, book, decisions)
 	})
 }
 
@@ -226,23 +211,42 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions 
 		if fingerprint != expectedFingerprint {
 			return ErrNotFound
 		}
-		q := sqlcgen.New(tx)
-		for _, decision := range decisions {
-			if decision.Occurrence.OwnerID != owner || decision.Occurrence.BookID != book {
-				return ErrNotFound
-			}
-			if err := putLemmaDecisionTx(ctx, q, decision); err != nil {
-				return err
-			}
-			if err := resolveLemmaReviewFlag(ctx, tx, decision); err != nil {
-				return err
-			}
+		return applyLemmaDecisionsTx(ctx, tx, owner, book, decisions)
+	})
+}
+
+func applyLemmaDecisionsTx(ctx context.Context, tx pgx.Tx, owner, book string, decisions []domain.LemmaReviewDecision) error {
+	countReadiness, err := browseCountReadinessForDecision(ctx, tx, owner, book)
+	if err != nil {
+		return err
+	}
+	q := sqlcgen.New(tx)
+	var changed []domain.LemmaReviewDecision
+	for _, decision := range decisions {
+		if decision.Occurrence.OwnerID != owner || decision.Occurrence.BookID != book {
+			return ErrNotFound
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner, book); err != nil {
+		updated, err := putLemmaDecisionTx(ctx, q, decision)
+		if err != nil {
 			return err
 		}
+		if updated {
+			changed = append(changed, decision)
+		}
+		if err := resolveLemmaReviewFlag(ctx, tx, decision); err != nil {
+			return err
+		}
+	}
+	if len(changed) == 0 {
 		return nil
-	})
+	}
+	if countReadiness.ready {
+		return applyVocabularyBrowseDecisionDeltasTx(ctx, tx, countReadiness, changed)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner, book); err != nil {
+		return err
+	}
+	return nil
 }
 
 func resolveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, decision domain.LemmaReviewDecision) error {
@@ -262,13 +266,13 @@ func lockLemmaReviewLearnerState(ctx context.Context, tx pgx.Tx, owner string) e
 	return err
 }
 
-func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) error {
+func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, error) {
 	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
 	current, err := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
 		Owner: occurrence.OwnerID, Book: occurrence.BookID, Corpus: occurrence.CorpusID, AnalysisRun: occurrence.AnalysisRunID,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	currentLemma, currentExcluded := "", false
 	for _, row := range current {
@@ -281,8 +285,13 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 		}
 	}
 	if currentLemma != occurrence.CorrectedLemma || currentExcluded != occurrence.Excluded {
-		return ErrNotFound
+		return false, ErrNotFound
 	}
+	desiredLemma := lemma
+	if excluded || lemma == occurrence.CanonicalLemma {
+		desiredLemma = ""
+	}
+	changed := currentLemma != desiredLemma || currentExcluded != excluded
 	expectedLemma := pgtype.Text{String: occurrence.CorrectedLemma, Valid: occurrence.CorrectedLemma != ""}
 	if lemma == occurrence.CanonicalLemma && !excluded {
 		deleted, deleteErr := q.DeleteOccurrenceLemmaCorrection(ctx, sqlcgen.DeleteOccurrenceLemmaCorrectionParams{
@@ -294,21 +303,21 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 			ExpectedExcluded:       occurrence.Excluded,
 		})
 		if deleteErr != nil {
-			return deleteErr
+			return false, deleteErr
 		}
 		if deleted == 0 {
 			rows, lookupErr := q.ListLemmaReviewOccurrences(ctx, sqlcgen.ListLemmaReviewOccurrencesParams{Owner: occurrence.OwnerID, Book: occurrence.BookID, Surface: occurrence.Surface})
 			if lookupErr != nil {
-				return lookupErr
+				return false, lookupErr
 			}
 			for _, row := range rows {
 				if row.AnalysisRunID == occurrence.AnalysisRunID && row.UnitID == occurrence.SourceDocumentID && row.StartOffset == occurrence.StartOffset && row.EndOffset == occurrence.EndOffset && row.RawLemma == occurrence.RawLemma && row.CanonicalLemma == occurrence.CanonicalLemma && row.Upos == occurrence.UPOS && row.CorrectedLemma == occurrence.CorrectedLemma && row.Excluded == occurrence.Excluded {
-					return nil
+					return false, nil
 				}
 			}
-			return ErrNotFound
+			return false, ErrNotFound
 		}
-		return nil
+		return changed, nil
 	}
 	var correctedLemma, normalizationProfile, normalizationVersion pgtype.Text
 	if !excluded {
@@ -326,9 +335,9 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 		ExpectedExcluded:       occurrence.Excluded,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
+		return false, ErrNotFound
 	}
-	return err
+	return changed && err == nil, err
 }
 
 func (s *PostgresStore) HasCurrentLemmaCorrections(ctx context.Context, owner, bookID string) (bool, error) {
