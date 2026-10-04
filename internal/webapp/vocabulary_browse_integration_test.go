@@ -527,6 +527,10 @@ func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.
 	})
 	seedBrowseEvidenceTokens(t, ctx, store, currentSource, currentCorpus, []string{"alpha", "zeta"})
 	seedBrowseEvidenceTokens(t, ctx, store, otherSource, otherCorpus, []string{"alpha", "zeta", "zeta", "zeta"})
+	buildBrowseProjection(t, ctx, store, current.ID)
+	var otherBookID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT book_id::text FROM current_analysis_identity WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, otherSource.ID).Scan(&otherBookID))
+	buildBrowseProjection(t, ctx, store, otherBookID)
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
 		CurrentBookID: current.ID, Sort: "occurrences", IncludeAll: true, Page: 1,
 	})
@@ -545,6 +549,19 @@ func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.
 	assert.Less(t, strings.Index(html, ">Zeta</a>"), strings.Index(html, ">Alpha</a>"), "rendering preserves the evidence projection's cross-Book tie-break")
 	assert.Contains(t, html, "In this Book: 1; Across analyzed books: 4")
 	assert.Contains(t, html, "In this Book: 1; Across analyzed books: 2")
+
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, otherBookID)
+	require.NoError(t, err)
+	updating, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: current.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	updating.CurrentBookID = current.ID
+	updating.ReadingBookID = current.ID
+	assert.True(t, updating.BrowseCountsUpdating)
+	assert.Empty(t, updating.Rows, "a missing contributing projection must withhold the entire language result")
+	var updatingHTML strings.Builder
+	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "de", updating, "").Render(ctx, &updatingHTML))
+	assert.Contains(t, updatingHTML.String(), "Updating Browse counts")
+	assert.NotContains(t, updatingHTML.String(), "no eligible vocabulary identities", "updating must not be represented as an empty result")
 }
 
 func seedBrowseEvidenceTokens(t *testing.T, ctx context.Context, store *persistence.PostgresStore, source domain.SourceMaterial, corpus domain.Corpus, lemmas []string) {
@@ -560,6 +577,16 @@ func seedBrowseEvidenceTokens(t *testing.T, ctx context.Context, store *persiste
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, source.OwnerID, runID, corpus.ID, ordinal, lemma, start, end)
 		require.NoError(t, err)
 	}
+}
+
+func buildBrowseProjection(t *testing.T, ctx context.Context, store *persistence.PostgresStore, bookID string) {
+	t.Helper()
+	var ownerID, sourceID, runID, corpusID, language string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT cai.owner_id::text,cai.source_material_id::text,cai.analysis_run_id::text,cai.corpus_id::text,s.language FROM current_analysis_identity cai JOIN source_materials s ON s.owner_id=cai.owner_id AND s.id=cai.source_material_id WHERE cai.book_id=$1`, bookID).Scan(&ownerID, &sourceID, &runID, &corpusID, &language))
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(ctx, tx, ownerID, bookID, sourceID, runID, corpusID, language))
+	require.NoError(t, tx.Commit(ctx))
 }
 
 func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) {
@@ -704,9 +731,13 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(aliceSource.SourceIdentifier, "migration-"))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,0,4,'heim','de','1',false)`, alice.ID, aliceBook.ID, aliceCorpus.ID, runID, unitID)
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceBook.ID)
+	require.NoError(t, err)
 	correctedHaus := perform(t, h, http.MethodGet, "/vocabulary?q=haus&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, correctedHaus.Code)
+	assert.Contains(t, correctedHaus.Body.String(), "Updating Browse counts")
 	assert.NotContains(t, correctedHaus.Body.String(), `term=haus`)
+	buildBrowseProjection(t, ctx, store, aliceBook.ID)
 	correctedHeim := perform(t, h, http.MethodGet, "/vocabulary?q=heim&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, correctedHeim.Code)
 	assert.Contains(t, correctedHeim.Body.String(), "In this Book: 1; Across analyzed books: 1", "the corrected occurrence moves to the effective identity in the Current reading only")
@@ -723,6 +754,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, alice.ID, runID, aliceCorpus.ID, ordinal, lemma, start, start+int64(len(lemma)))
 		require.NoError(t, err)
 	}
+	buildBrowseProjection(t, ctx, store, aliceBook.ID)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,'de','wort00','')`, alice.ID)
 	require.NoError(t, err)
 	var activeSnapshotID string
@@ -743,6 +775,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,30,0,'Zebra','zebra','zebra','NOUN','root',0,'{}',300,305),($1,'de',$2,$3,30,1,'zebra','zebra','zebra','NOUN','conj',0,'{}',306,311)`, alice.ID, runID, aliceCorpus.ID)
 	require.NoError(t, err)
+	buildBrowseProjection(t, ctx, store, aliceBook.ID)
 	firstPage := perform(t, h, http.MethodGet, "/vocabulary?sort=lemma&page=1&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, firstPage.Code)
 	assert.Contains(t, firstPage.Body.String(), "Page 1 of 2")
@@ -756,7 +789,13 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, firstPage.Body.String(), `href="/vocabulary?all=1&amp;page=2&amp;reading=`+aliceBook.ID+`&amp;rev=`)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,300,305,NULL,NULL,NULL,true)`, alice.ID, aliceBook.ID, aliceCorpus.ID, runID, unitID)
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceBook.ID)
+	require.NoError(t, err)
 	excludedBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=zebra&all=1", nil, cookies)
+	require.Equal(t, http.StatusOK, excludedBrowse.Code)
+	assert.Contains(t, excludedBrowse.Body.String(), "Updating Browse counts")
+	buildBrowseProjection(t, ctx, store, aliceBook.ID)
+	excludedBrowse = perform(t, h, http.MethodGet, "/vocabulary?q=zebra&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, excludedBrowse.Code)
 	assert.Contains(t, excludedBrowse.Body.String(), "zebra")
 	assert.Contains(t, excludedBrowse.Body.String(), "In this Book: 1; Across analyzed books: 1", "excluding one of two occurrences updates both effective counts over HTTP")
@@ -764,6 +803,9 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,260,266,'wort25changed','de','1',false)`, alice.ID, aliceBook.ID, aliceCorpus.ID, runID, unitID)
 	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceBook.ID)
+	require.NoError(t, err)
+	buildBrowseProjection(t, ctx, store, aliceBook.ID)
 	changedPage := perform(t, h, http.MethodGet, "/vocabulary?sort=lemma&page=2&all=1&rev="+revisionPage.CorpusRevision, nil, cookies)
 	assert.Equal(t, http.StatusConflict, changedPage.Code)
 	assert.Contains(t, changedPage.Body.String(), "Current evidence changed")
@@ -793,6 +835,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,'tie','tie','tie',$5,'root',0,'{}',310,313)`, alice.ID, runID, aliceCorpus.ID, ordinal, pos)
 		require.NoError(t, err)
 	}
+	buildBrowseProjection(t, ctx, store, aliceBook.ID)
 	tieRows, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Prefix: "tie", Page: 1})
 	require.NoError(t, err)
 	require.Len(t, tieRows.Rows, 2)
@@ -860,6 +903,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, aliceOtherCorpus.ID).Scan(&italianRunID))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, alice.ID, aliceOtherBook.ID, aliceOtherSource.ID, italianRunID)
 	require.NoError(t, err)
+	buildBrowseProjection(t, ctx, store, aliceOtherBook.ID)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "it"))
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceOtherBook.ID, domain.BookDispositionToRead))
 	_, err = store.StartCurrentReading(ctx, alice.ID, "it", aliceOtherBook.ID)
@@ -1382,6 +1426,9 @@ func seedBrowseHTTPToken(t *testing.T, ctx context.Context, store *persistence.P
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,0,'Haus','haus','haus','NOUN','root',0,'{}',0,4)`, source.OwnerID, runID, corpus.ID)
 	require.NoError(t, err)
+	var bookID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT book_id::text FROM current_analysis_identity WHERE owner_id=$1 AND source_material_id=$2`, source.OwnerID, source.ID).Scan(&bookID))
+	buildBrowseProjection(t, ctx, store, bookID)
 }
 
 func seedBrowseHTTPDependencySentence(t *testing.T, ctx context.Context, store *persistence.PostgresStore, source domain.SourceMaterial, corpus domain.Corpus) {

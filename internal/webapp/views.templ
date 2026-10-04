@@ -887,7 +887,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
 				<p><a href="/reading">Review this Book in Reading</a></p>
 			} else if len(page.Books) > 0 {
-				<p><strong>Current reading: { page.Books[0].Title }</strong> — one Book, current completed analysis only.</p>
+				<p><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, ranked using current analyzed Books in this language.</p>
 			}
 			if page.CurrentBookID != "" {
 			<form method="get" action="/vocabulary" class="data-width">
@@ -896,9 +896,13 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
 				<p>By default, words already Known, Reserved, or included in a successfully prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
 				<label><input type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
-				<button type="submit">Search</button>
+			<button type="submit">Search</button>
 			</form>
-			if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
+			if page.BrowseCountsUnavailable {
+				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work; your Browse selection and saved decks remain available.</p>
+			} else if page.BrowseCountsUpdating {
+				<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Your Browse selection and saved decks remain available.</p>
+			} else if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
 			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h2>
 			if page.Total == 0 && page.InventoryTotal == 0 {
 				<p>The current analysis has no eligible vocabulary identities.</p>

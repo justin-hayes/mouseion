@@ -39,42 +39,40 @@ WITH all_books AS (
   SELECT * FROM all_books WHERE
     ($10<>'' AND id=$10) OR
     ($10='' AND (COALESCE(cardinality($4::text[]),0)=0 OR id=ANY($4::text[])))
-), projection_ready AS MATERIALIZED (
-  SELECT r.owner_id,r.book_id,r.analysis_run_id,r.corpus_id
-  FROM vocabulary_browse_count_readiness r
-  JOIN current_analysis_identity cai ON cai.owner_id=r.owner_id AND cai.book_id=r.book_id
-    AND cai.analysis_run_id=r.analysis_run_id AND cai.corpus_id=r.corpus_id
-  WHERE r.owner_id=$1 AND r.language=$2 AND r.builder_version=1
-    AND (SELECT count(*) FROM all_books WHERE analyzed)=1
-    AND NOT EXISTS (SELECT 1 FROM occurrence_lemma_corrections d WHERE d.owner_id=$1 AND d.book_id=r.book_id AND d.analysis_run_id=r.analysis_run_id)
-), current_evidence AS (
+ ), projection_scope AS MATERIALIZED (
+   SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id
+   FROM current_analysis_identity cai JOIN all_books b ON b.id=cai.book_id::text
+ ), projection_status AS MATERIALIZED (
+   SELECT NOT EXISTS (
+     SELECT 1 FROM projection_scope s
+     LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=s.owner_id AND r.book_id=s.book_id
+       AND r.analysis_run_id=s.analysis_run_id AND r.corpus_id=s.corpus_id
+       AND r.language=$2 AND r.builder_version=1
+     WHERE r.owner_id IS NULL
+   ) AS ready,
+   EXISTS (
+     SELECT 1 FROM projection_scope s
+     LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=s.owner_id AND r.book_id=s.book_id
+       AND r.analysis_run_id=s.analysis_run_id AND r.corpus_id=s.corpus_id
+       AND r.language=$2 AND r.builder_version=1
+     JOIN river_job failed ON failed.kind='rebuild_vocabulary_browse_counts' AND failed.state='discarded'
+       AND failed.args->>'owner_id'=s.owner_id::text AND failed.args->>'book_id'=s.book_id::text
+       AND failed.args->>'run_id'=s.analysis_run_id::text
+     WHERE r.owner_id IS NULL
+   ) AS failed
+ ), projection_ready AS MATERIALIZED (
+   SELECT r.owner_id,r.book_id,r.analysis_run_id,r.corpus_id
+   FROM projection_scope r CROSS JOIN projection_status status
+   WHERE status.ready
+     AND EXISTS (SELECT 1 FROM vocabulary_browse_count_readiness ready
+       WHERE ready.owner_id=r.owner_id AND ready.book_id=r.book_id
+         AND ready.analysis_run_id=r.analysis_run_id AND ready.corpus_id=r.corpus_id
+         AND ready.language=$2 AND ready.builder_version=1)
+ ), current_evidence AS (
   SELECT p.book_id::text AS book_id,c.upos,c.canonical_lemma AS lemma,c.corrected,c.occurrence_count
   FROM vocabulary_browse_counts c JOIN projection_ready p
     ON p.owner_id=c.owner_id AND p.book_id=c.book_id AND p.analysis_run_id=c.analysis_run_id AND p.corpus_id=c.corpus_id
-  UNION ALL
-  SELECT cai.book_id::text AS book_id,t.upos,
-         COALESCE(d.canonical_lemma,t.canonical_lemma) AS lemma,
-         d.canonical_lemma IS NOT NULL AS corrected,1::bigint AS occurrence_count
-  FROM corpus_tokens t
-  JOIN current_analysis_identity cai
-    ON cai.owner_id=t.owner_id AND cai.analysis_run_id=t.analysis_run_id AND cai.corpus_id=t.corpus_id
-  JOIN all_books b ON b.id=cai.book_id::text
-  JOIN corpus_sentences s
-    ON s.owner_id=t.owner_id AND s.analysis_run_id=t.analysis_run_id AND s.corpus_id=t.corpus_id
-   AND s.sentence_ordinal=t.sentence_ordinal
-  JOIN source_material_units u
-    ON u.owner_id=cai.owner_id AND u.source_material_id=cai.source_material_id
-   AND u.snapshot_id=cai.snapshot_id AND u.unit_id=s.unit_id
-  LEFT JOIN occurrence_lemma_corrections d
-    ON d.owner_id=t.owner_id AND d.book_id=cai.book_id
-   AND d.corpus_id=t.corpus_id AND d.analysis_run_id=t.analysis_run_id
-   AND d.source_document_id=s.unit_id
-   AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
-   WHERE t.owner_id=$1 AND t.language=$2 AND t.upos IN ('NOUN','VERB','ADJ','ADV')
-     AND t.dependency <> 'compound:prt' AND COALESCE(d.excluded,false)=false
-     AND COALESCE(d.canonical_lemma,t.canonical_lemma) ~ '[[:alpha:]]'
-     AND NOT EXISTS (SELECT 1 FROM projection_ready)
-), book_identities AS MATERIALIZED (
+ ), book_identities AS MATERIALIZED (
    SELECT book_id,lemma,upos,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected
    FROM current_evidence GROUP BY book_id,lemma,upos
 ), grouped AS (
@@ -115,10 +113,12 @@ WITH all_books AS (
 	           CASE WHEN $8='books' THEN books END DESC, lemma, upos
 	  LIMIT 25 OFFSET (($9::bigint-1)*25)
 ), summary AS (
-  SELECT (SELECT count(*)::bigint FROM eligible) AS total,
-         (SELECT count(*)::bigint FROM scoped_grouped) AS scoped_total,
-         CASE WHEN $10<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$10)
-              ELSE (SELECT count(*)::bigint FROM grouped) END AS inventory_total
+   SELECT (SELECT count(*)::bigint FROM eligible) AS total,
+          (SELECT count(*)::bigint FROM scoped_grouped) AS scoped_total,
+          CASE WHEN $10<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$10)
+               ELSE (SELECT count(*)::bigint FROM grouped) END AS inventory_total,
+          NOT (SELECT ready OR failed FROM projection_status) AS browse_counts_updating,
+          (SELECT failed FROM projection_status) AS browse_counts_unavailable
 ), coverage AS (
   SELECT count(*)::bigint AS total,
     count(*) FILTER (WHERE analyzed)::bigint AS analyzed,
@@ -156,8 +156,9 @@ WITH all_books AS (
   ) AS value
 )
 SELECT p.lemma,p.upos,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.known,p.reserved,p.generated,p.in_book_deck,
-  summary.total,summary.scoped_total,summary.inventory_total,coverage.analyzed,coverage.contributing,
-  coverage.total-coverage.contributing,coverage.total-coverage.analyzed,
+   summary.total,summary.scoped_total,summary.inventory_total,coverage.analyzed,coverage.contributing,
+   coverage.total-coverage.contributing,coverage.total-coverage.analyzed,
+   summary.browse_counts_updating,summary.browse_counts_unavailable,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('id',id,'title',title,'has_current_analysis',analyzed,
     'has_vocabulary_evidence',contributing) ORDER BY title,id) FROM book_status),'[]'::jsonb),revision.value
 FROM summary CROSS JOIN coverage CROSS JOIN revision LEFT JOIN page_rows p ON true
@@ -197,7 +198,7 @@ func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowse
 		var corrected, isKnown, isReserved, generated, inBookDeck *bool
 		if err := rows.Scan(&lemma, &pos, &occurrences, &acrossBooksOccurrences, &books, &corrected, &isKnown, &isReserved, &generated, &inBookDeck,
 			&result.Total, &result.ScopedInventoryTotal, &result.InventoryTotal, &result.AnalyzedBooks,
-			&result.ContributingBooks, &result.NoncontributingBooks, &result.BooksWithoutCurrentAnalysis, &bookStatus, &corpusRevision); err != nil {
+			&result.ContributingBooks, &result.NoncontributingBooks, &result.BooksWithoutCurrentAnalysis, &result.BrowseCountsUpdating, &result.BrowseCountsUnavailable, &bookStatus, &corpusRevision); err != nil {
 			return domain.VocabularyBrowsePage{}, err
 		}
 		result.CorpusRevision = corpusRevision

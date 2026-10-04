@@ -575,6 +575,39 @@ func TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably(t *testing.T) {
 	assert.Zero(t, page.InventoryTotal)
 }
 
+func TestBrowseCountsDiscardedRebuildIsReportedAsUnavailable(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "browse-count-failed", false)
+	require.NoError(t, err)
+	book, _ := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+	var runID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID))
+	_, err = pool.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+	require.NoError(t, err)
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	require.NoError(t, err)
+	job, err := riverClient.Insert(ctx, BrowseCountsRebuildArgs{OwnerID: owner.ID, BookID: book.ID, RunID: runID}, &river.InsertOpts{Queue: Queue, MaxAttempts: 1})
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE river_job SET state='discarded',finalized_at=now() WHERE id=$1`, job.Job.ID)
+	require.NoError(t, err)
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	assert.True(t, page.BrowseCountsUnavailable)
+	assert.False(t, page.BrowseCountsUpdating)
+	assert.Empty(t, page.Rows)
+	service := NewService(pool, riverClient)
+	require.NoError(t, service.EnqueueMissingBrowseCountRebuilds(ctx), "operator restart reconciliation safely requeues a discarded build")
+	var queued int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind=$1 AND state IN ('available','pending','retryable','scheduled') AND args->>'owner_id'=$2 AND args->>'book_id'=$3 AND args->>'run_id'=$4`, (BrowseCountsRebuildArgs{}).Kind(), owner.ID, book.ID, runID).Scan(&queued))
+	assert.Equal(t, 1, queued)
+}
+
 func TestEmptyAnalysisPublicationAtomicallyPublishesReadyBrowseCounts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
