@@ -240,6 +240,11 @@ article.narrow {
   max-width: var(--mouseion-width-data);
 }
 
+/* Keep short later pages scrollable to their results summary after a page swap. */
+#vocabulary-browse-results:has(nav[aria-label="Browse pages"]) {
+  min-height: 100vh;
+}
+
 .bibliographic-title {
   font-family: var(--mouseion-font-reading);
   font-weight: 600;
