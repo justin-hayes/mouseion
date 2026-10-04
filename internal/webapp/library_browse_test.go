@@ -155,7 +155,7 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 			handler.services.Store = storeDependencies(store)
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
 			if tc.partial {
-				request.Header.Set("HX-Request-Type", "partial")
+				request.Header.Set("Hx-Request-Type", "partial")
 			}
 			for _, cookie := range cookies {
 				request.AddCookie(cookie)

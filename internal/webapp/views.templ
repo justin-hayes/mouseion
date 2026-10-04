@@ -304,14 +304,14 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
 				if browse.TextNoMatch && browse.NeedsLanguage {
-					No books awaiting a language match “{ browse.Query }”. <a data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, true, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, true, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+					No books awaiting a language match “{ browse.Query }”. <a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, true, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, true, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
 				} else if browse.TextNoMatch {
 					if browse.History {
 						No books with reading history in { myBooksLanguageName(browse) } match “{ browse.Query }”.
 					} else {
 						No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”.
 					}
-					<a data-focus-results="true" href={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">Clear search</a>
+					<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
 				} else if browse.NeedsLanguage {
 					No books are awaiting a language in the local collection.
 				} else if browse.History {
