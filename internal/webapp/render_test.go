@@ -18,6 +18,18 @@ func (c *recordingComponent) Render(context.Context, io.Writer) error {
 	return nil
 }
 
+type failingComponent struct {
+	renders int
+}
+
+func (c *failingComponent) Render(_ context.Context, w io.Writer) error {
+	c.renders++
+	if _, err := io.WriteString(w, "partial page"); err != nil {
+		return err
+	}
+	return errors.New("render failed")
+}
+
 type countingResponseWriter struct {
 	header      http.Header
 	statusCalls int
@@ -108,6 +120,40 @@ func TestRenderAndRenderStatusPreserveSuccessfulResponses(t *testing.T) {
 			}
 			if got := w.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
 				t.Fatalf("Content-Type = %q, want HTML content type", got)
+			}
+			if component.renders != 1 {
+				t.Fatalf("component rendered %d times, want 1", component.renders)
+			}
+		})
+	}
+}
+
+func TestRenderAndRenderStatusDiscardPartialContentOnFailure(t *testing.T) {
+	tests := []struct {
+		name   string
+		render func(http.ResponseWriter, *http.Request, *failingComponent)
+	}{
+		{name: "normal", render: func(w http.ResponseWriter, r *http.Request, c *failingComponent) {
+			render(w, r, c)
+		}},
+		{name: "explicit status", render: func(w http.ResponseWriter, r *http.Request, c *failingComponent) {
+			renderStatus(w, r, http.StatusAccepted, c)
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+			w := httptest.NewRecorder()
+			component := &failingComponent{}
+
+			test.render(w, r, component)
+
+			if w.Code != http.StatusInternalServerError {
+				t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+			}
+			if got := w.Body.String(); got != "unable to render page\n" {
+				t.Fatalf("body = %q, want clean server error", got)
 			}
 			if component.renders != 1 {
 				t.Fatalf("component rendered %d times, want 1", component.renders)

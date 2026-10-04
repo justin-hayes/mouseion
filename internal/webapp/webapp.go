@@ -2,6 +2,7 @@
 package webapp
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
@@ -354,9 +355,14 @@ func render(w http.ResponseWriter, r *http.Request, component interface {
 	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := component.Render(r.Context(), w); err != nil {
+	var body bytes.Buffer
+	if err := component.Render(r.Context(), &body); err != nil {
 		http.Error(w, "unable to render page", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := body.WriteTo(w); err != nil {
+		return
 	}
 }
 func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {
@@ -416,9 +422,14 @@ func renderStatus(w http.ResponseWriter, r *http.Request, status int, component 
 	if _, failed := r.Context().Value(csrfFailureContextKey{}).(error); failed {
 		return
 	}
+	var body bytes.Buffer
+	if err := component.Render(r.Context(), &body); err != nil {
+		http.Error(w, "unable to render page", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	if err := component.Render(r.Context(), w); err != nil {
-		http.Error(w, "unable to render page", http.StatusInternalServerError)
+	if _, err := body.WriteTo(w); err != nil {
+		return
 	}
 }
