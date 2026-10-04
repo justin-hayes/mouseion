@@ -152,7 +152,13 @@ document.addEventListener('htmx:after:swap', function (evt) {
     }
   }
   var summary = document.getElementById('vocabulary-results-heading');
-  if (summary) summary.focus();
+  if (summary) {
+    summary.focus();
+    var clicked = ctx.sourceEvent && ctx.sourceEvent.target;
+    if (clicked && clicked.closest && clicked.closest('nav[aria-label="Browse pages"]')) {
+      summary.scrollIntoView({block: 'start'});
+    }
+  }
 });
 document.addEventListener('htmx:after:history:restore', function () {
   if (window.location.pathname !== '/vocabulary') return;

@@ -73,6 +73,24 @@ test('Browse keeps the current page and controls while selecting a word on page 
   await expect(row.getByRole('button', { name: 'Select', exact: true })).toBeFocused();
 });
 
+test('Browse pagination lands on the new results rather than above them', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/vocabulary?q=paging');
+  for (const [direction, number] of [['Next', 2], ['Previous', 1]] as const) {
+    await page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link', { name: direction }).click();
+    await expect(page.getByText(`Page ${number} of 2`)).toBeVisible();
+    const heading = page.locator('#vocabulary-results-heading');
+    await expect(heading).toBeFocused();
+    const results = await heading.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return { top: bounds.top, bottom: bounds.bottom, viewportHeight: window.innerHeight };
+    });
+    expect(results.top).toBeGreaterThanOrEqual(-1); // Subpixel rounding at narrow widths.
+    expect(results.bottom).toBeLessThan(results.viewportHeight);
+    expect(results.top).toBeLessThan(160);
+  }
+});
+
 test('Browse selection returns to the same page without JavaScript', async ({ browser }) => {
   const noScriptContext = await browser.newContext({ baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099', javaScriptEnabled: false });
   const page = await noScriptContext.newPage();
