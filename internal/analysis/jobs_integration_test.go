@@ -528,6 +528,13 @@ func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
 	assert.Equal(t, 1, calls, "publication retry must not rerun NLP")
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&currentCount))
 	assert.Equal(t, 1, currentCount, "retry promotes exactly the completed analysis")
+	var readyRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&readyRunID))
+	assert.Equal(t, handle.RunID, readyRunID, "published analysis and ready Browse counts share one exact run")
+	var projectedOccurrences, persistedOccurrences int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT COALESCE(sum(occurrence_count),0) FROM vocabulary_browse_counts WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&projectedOccurrences))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens t JOIN current_analysis_identity cai ON cai.owner_id=t.owner_id AND cai.analysis_run_id=t.analysis_run_id AND cai.corpus_id=t.corpus_id WHERE cai.owner_id=$1 AND cai.book_id=$2 AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'`, owner.ID, book.ID).Scan(&persistedOccurrences))
+	assert.Equal(t, persistedOccurrences, projectedOccurrences, "projection is built from persisted corpus evidence")
 	var corpusCount int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID).Scan(&corpusCount))
 	assert.Equal(t, 1, corpusCount, "publication replay does not duplicate corpus evidence")
@@ -538,6 +545,34 @@ func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
 	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID}, retry.JobID))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&currentCount))
 	assert.Zero(t, currentCount, "a replay after a source revision change cannot keep stale analysis current")
+}
+
+func TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	owner, err := store.CreateUser(ctx, "browse-count-rebuild", false)
+	require.NoError(t, err)
+	book, _ := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+	var runID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID))
+	_, err = pool.Exec(ctx, `DELETE FROM vocabulary_browse_counts WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+	require.NoError(t, err)
+
+	worker := &BrowseCountsRebuildWorker{Pool: pool}
+	require.NoError(t, worker.Work(ctx, &river.Job[BrowseCountsRebuildArgs]{Args: BrowseCountsRebuildArgs{OwnerID: owner.ID, BookID: book.ID, RunID: runID}}))
+	var readyRun string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&readyRun))
+	assert.Equal(t, runID, readyRun)
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	assert.Empty(t, page.Rows, "fixture has an empty eligible corpus, but the rebuild still publishes readiness")
+	assert.Zero(t, page.InventoryTotal)
 }
 
 func TestCompletedAnalysisPublicationDoesNotPromoteSupersededRun(t *testing.T) {

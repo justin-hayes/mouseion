@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lexical"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
@@ -1304,6 +1305,13 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 		return fmt.Errorf("check completed analysis eligibility: %w", err)
 	}
 	if eligible {
+		var corpusID string
+		if err = tx.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
+			return fmt.Errorf("load completed corpus for Browse projection: %w", err)
+		}
+		if err = persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, bookID, a.SourceMaterialID, a.RunID, corpusID, a.Language); err != nil {
+			return fmt.Errorf("build Browse projection for analysis publication: %w", err)
+		}
 		if _, err = tx.Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id,promoted_at)
 			VALUES($1,$2,$3,$4,now())
 			ON CONFLICT(owner_id,book_id) DO UPDATE SET source_material_id=excluded.source_material_id,analysis_run_id=excluded.analysis_run_id,promoted_at=excluded.promoted_at
@@ -1540,6 +1548,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 		workers = workerSets[0]
 	}
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities, Selection: selectionService})
+	river.AddWorker(workers, &BrowseCountsRebuildWorker{Pool: pool})
 	if standardWorkers < 1 {
 		standardWorkers = 1
 	}

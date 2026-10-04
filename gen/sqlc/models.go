@@ -922,6 +922,28 @@ type User struct {
 	ActiveStudyLanguage pgtype.Text
 }
 
+type VocabularyBrowseCount struct {
+	OwnerID         string
+	BookID          string
+	Language        string
+	AnalysisRunID   string
+	CorpusID        string
+	CanonicalLemma  string
+	Upos            string
+	OccurrenceCount int64
+	Corrected       bool
+}
+
+type VocabularyBrowseCountReadiness struct {
+	OwnerID        string
+	BookID         string
+	Language       string
+	AnalysisRunID  string
+	CorpusID       string
+	BuilderVersion int
+	ReadyAt        time.Time
+}
+
 type VocabularyBrowseSelection struct {
 	OwnerID        string
 	Language       string
