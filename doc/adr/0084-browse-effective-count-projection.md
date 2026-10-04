@@ -1,6 +1,6 @@
 # ADR 0084: Project effective vocabulary counts for Browse
 
-Status: **Accepted (not yet implemented)** · Date: 2026-10-03 · Author: Justin + OpenCode
+Status: **Accepted (partially implemented; corpus-scale acceptance measurement pending)** · Date: 2026-10-03 · Author: Justin + OpenCode
 
 ## Context
 
