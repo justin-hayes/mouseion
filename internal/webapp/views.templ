@@ -18,7 +18,7 @@ templ Layout(title string, user *domain.User, csrf string) {
 }
 
 templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext) {
-	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script>
+	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -265,7 +265,23 @@ templ NeedsLanguageBookRow(book domain.MyBook) {
 }
 
 templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selected, focusResults bool) {
-	<a class="outline" data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">{ label }</a>
+	<a class="outline" data-my-books-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
+}
+
+templ MyBooksResultsError(message, retryURL string) {
+	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
+		<h2 id="library-books-heading" tabindex="-1">My Books could not be loaded</h2>
+		<p role="alert">{ message }</p>
+		<p><a class="outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
+	</section>
+}
+
+templ MyBooksFailurePage(user domain.User, csrf, message, retryURL string) {
+	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
+		@PageHeader("My Books", "Your working collection is temporarily unavailable.", nil)
+		@Feedback(FeedbackError, "My Books needs attention", message)
+		<p><a role="button" class="outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
+	}
 }
 
 templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
@@ -398,7 +414,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			}
 			@MyBooksDispositionFilters(browse)
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true">
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
 					<label for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>
@@ -406,6 +422,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					</div>
 				</form>
 			</section>
+			<div id="library-recovery" aria-live="polite"></div>
 			@MyBooksResults(csrf, books, browse)
 		} else if len(books) > 0 {
 			<section class="library-list" aria-labelledby="acquired-books-heading">

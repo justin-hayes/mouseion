@@ -26,7 +26,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
 	goal, goalErr := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, activeLanguage)
 	if goalErr != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", "", false, MyBooksBrowseState{}))
+		h.renderMyBooksFailure(w, r, u, "My Books could not be loaded. Try refreshing the page.")
 		return
 	}
 	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(r.URL)
@@ -82,22 +82,22 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
+		h.renderMyBooksFailure(w, r, u, "My Books could not be loaded. Try refreshing the page.")
 		return
 	}
 	if err = h.annotateMyBooksWithDisposition(r.Context(), u.ID, books); err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
+		h.renderMyBooksFailure(w, r, u, "My Books could not be loaded. Try refreshing the page.")
 		return
 	}
 	refreshableBookIDs, err := h.refreshableMyBookIDs(r.Context(), u.ID, books)
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
+		h.renderMyBooksFailure(w, r, u, "My Books could not be loaded. Try refreshing the page.")
 		return
 	}
 	browse.RefreshableBookIDs = refreshableBookIDs
 	connections, err := h.services.Store.Catalog.ListOpdsConnections(r.Context(), u.ID)
 	if err != nil {
-		renderStatus(w, r, http.StatusInternalServerError, MyBooksPage(u, h.csrf(w, r), nil, "", "My Books could not be loaded. Try refreshing the page.", goal.BookID, false, browse))
+		h.renderMyBooksFailure(w, r, u, "My Books could not be loaded. Try refreshing the page.")
 		return
 	}
 	goalBookID := ""
@@ -109,6 +109,18 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
+}
+
+func (h *Handler) renderMyBooksFailure(w http.ResponseWriter, r *http.Request, u domain.User, message string) {
+	retryURL := "/library"
+	if r.URL != nil {
+		retryURL = (&url.URL{Path: "/library", RawQuery: r.URL.RawQuery}).String()
+	}
+	if isPartialHTMXRequest(r) {
+		renderStatus(w, r, http.StatusInternalServerError, MyBooksResultsError(message, retryURL))
+		return
+	}
+	renderStatus(w, r, http.StatusInternalServerError, MyBooksFailurePage(u, h.csrf(w, r), message, retryURL))
 }
 
 func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request) {
