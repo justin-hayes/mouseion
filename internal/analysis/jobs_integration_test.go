@@ -610,6 +610,11 @@ func TestBrowseCountsDiscardedRebuildIsReportedAsUnavailable(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, retried.BrowseCountsUnavailable)
 	assert.True(t, retried.BrowseCountsUpdating, "an active replacement attempt takes precedence over a discarded prior attempt")
+	require.NoError(t, (&BrowseCountsRebuildWorker{Pool: pool}).Work(ctx, &river.Job[BrowseCountsRebuildArgs]{Args: BrowseCountsRebuildArgs{OwnerID: owner.ID, BookID: book.ID, RunID: runID}}))
+	completedRetry, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	assert.False(t, completedRetry.BrowseCountsUpdating)
+	assert.False(t, completedRetry.BrowseCountsUnavailable)
 }
 
 func TestEmptyAnalysisPublicationAtomicallyPublishesReadyBrowseCounts(t *testing.T) {
