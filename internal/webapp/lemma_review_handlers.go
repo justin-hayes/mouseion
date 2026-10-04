@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log"
 	"maps"
 	"net/http"
 	"net/url"
@@ -734,6 +735,15 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		}
 		fail(w, err)
 		return
+	}
+	if rebuilder, ok := h.services.Analysis.(interface {
+		EnqueueBrowseCountRebuild(context.Context, string, string) error
+	}); ok {
+		if err := rebuilder.EnqueueBrowseCountRebuild(r.Context(), owner.ID, bookID); err != nil {
+			// The committed decision is safe: startup reconciliation will enqueue
+			// this missing projection if the immediate queue write is unavailable.
+			log.Printf("mouseion: could not enqueue Browse count rebuild; startup reconciliation will retry")
+		}
 	}
 	if requiresReprepare {
 		var handle prepareddeck.Handle

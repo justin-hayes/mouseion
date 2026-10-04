@@ -104,3 +104,26 @@ func TestVocabularyBrowseCountProjectionIsReadyForNonemptyAndEmptyBooks(t *testi
 		})
 	}
 }
+
+func buildBrowseProjectionsForOwner(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string) {
+	t.Helper()
+	rows, err := store.Pool().Query(ctx, `SELECT cai.book_id::text,cai.source_material_id::text,cai.analysis_run_id::text,cai.corpus_id::text,s.language
+		FROM current_analysis_identity cai JOIN source_materials s ON s.owner_id=cai.owner_id AND s.id=cai.source_material_id
+		WHERE cai.owner_id=$1`, ownerID)
+	require.NoError(t, err)
+	type currentBook struct{ bookID, sourceID, runID, corpusID, language string }
+	var books []currentBook
+	for rows.Next() {
+		var book currentBook
+		require.NoError(t, rows.Scan(&book.bookID, &book.sourceID, &book.runID, &book.corpusID, &book.language))
+		books = append(books, book)
+	}
+	require.NoError(t, rows.Err())
+	rows.Close()
+	for _, book := range books {
+		tx, beginErr := store.Pool().Begin(ctx)
+		require.NoError(t, beginErr)
+		require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, tx, ownerID, book.bookID, book.sourceID, book.runID, book.corpusID, book.language))
+		require.NoError(t, tx.Commit(ctx))
+	}
+}

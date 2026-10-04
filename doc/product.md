@@ -171,7 +171,7 @@ amendments.
 81. [ADR 0081: Learner-owned occurrence lemma corrections before vocabulary freeze](adr/0081-learner-owned-occurrence-lemma-corrections.md) — derives owner-scoped effective vocabulary from immutable analysis plus learner-confirmed occurrence decisions; gates only high-risk unresolved review before Reading or deck freeze.
 82. [ADR 0082: Independent saved Custom decks and frozen preparations](adr/0082-independent-custom-vocabulary-decks.md) — **accepted, not yet implemented**: separates editable cross-Book selections and their frozen generations from Reading and Book Prepared decks without changing learner knowledge state.
 83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted; implementation complete in PR #1404, awaiting human review and merge**: removes duplicate Lit results and migrates the app to HTMX 4 without Alpine.
-84. [ADR 0084: Project effective vocabulary counts for Browse](adr/0084-browse-effective-count-projection.md) — **accepted, not yet implemented**: stages exact per-Book counts for atomic analysis promotion and occurrence decisions, with a gated background rebuild for existing Books.
+84. [ADR 0084: Project effective vocabulary counts for Browse](adr/0084-browse-effective-count-projection.md) — **accepted; partially implemented**: Browse gates on exact per-Book projections and durable rebuilds; the 500-Book/50-million-token acceptance measurement remains pending.
 
 ### Superseded or historical decisions
 

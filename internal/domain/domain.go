@@ -140,6 +140,8 @@ type VocabularyBrowsePage struct {
 	ContributingBooks            int64
 	NoncontributingBooks         int64
 	BooksWithoutCurrentAnalysis  int64
+	BrowseCountsUpdating         bool
+	BrowseCountsUnavailable      bool
 	SelectedBooks                []string
 	SelectedUPOS                 []string
 	KnownFilter                  string
