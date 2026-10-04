@@ -27,19 +27,26 @@ func TestVocabularyBrowseCountProjectionIsReadyForNonemptyAndEmptyBooks(t *testi
 		{name: "nonempty", text: "Haus Haus", tokens: []concordanceToken{
 			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4},
 			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 5, End: 9},
-		}, wantRows: 1, wantCount: 2},
+		}, wantRows: 1, wantCount: 3},
 		{name: "empty", text: "no eligible tokens", wantRows: 0},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
-			book, source := createConcordanceBook(t, ctx, store, owner.ID, "Browse count "+fixture.name, "browse-count-"+fixture.name, false, []domain.ExtractedUnit{
-				concordanceUnit(0, "browse-count-"+fixture.name, fixture.text, 0, uint64(len(fixture.text))),
-			})
+			units := []domain.ExtractedUnit{concordanceUnit(0, "browse-count-"+fixture.name, fixture.text, 0, uint64(len(fixture.text)))}
+			if fixture.wantCount > 0 {
+				units = append(units, concordanceUnit(1, "browse-count-ancillary-"+fixture.name, "Haus", 11, 15))
+			}
+			book, source := createConcordanceBook(t, ctx, store, owner.ID, "Browse count "+fixture.name, "browse-count-"+fixture.name, false, units)
 			var sentences []concordanceSentence
 			if len(fixture.tokens) > 0 {
 				sentences = []concordanceSentence{{
 					UnitID: "epub-unit-v1:0:browse-count-" + fixture.name, Ordinal: 0,
 					Text: fixture.text, Start: 0, End: int64(len(fixture.text)), Tokens: fixture.tokens,
 				}}
+				sentences = append(sentences, concordanceSentence{
+					UnitID: "epub-unit-v1:1:browse-count-ancillary-" + fixture.name, Ordinal: 1,
+					Text: "Haus", Start: 11, End: 15,
+					Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 11, End: 15}},
+				})
 			}
 			insertConcordanceAnalysis(t, ctx, store, source, false, sentences)
 			var runID, corpusID string
@@ -69,6 +76,30 @@ func TestVocabularyBrowseCountProjectionIsReadyForNonemptyAndEmptyBooks(t *testi
 				assert.Equal(t, "de", projectedLanguage)
 				assert.Equal(t, fixture.wantCount, occurrences)
 				assert.Equal(t, fixture.wantCount, page.Rows[0].OccurrenceCount)
+
+				otherOwner, userErr := store.CreateUser(ctx, "browse-count-other-owner", false)
+				require.NoError(t, userErr)
+				otherBook, otherSource := createConcordanceBook(t, ctx, store, otherOwner.ID, "Other owner", "browse-count-other-owner", false, []domain.ExtractedUnit{
+					concordanceUnit(0, "browse-count-other-owner", "Haus", 0, 4),
+				})
+				insertConcordanceAnalysis(t, ctx, store, otherSource, true, []concordanceSentence{{
+					UnitID: "epub-unit-v1:0:browse-count-other-owner", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
+					Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
+				}})
+				var otherRun, otherCorpus string
+				require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, otherOwner.ID, otherBook.ID).Scan(&otherRun, &otherCorpus))
+				otherTx, txErr := store.Pool().Begin(ctx)
+				require.NoError(t, txErr)
+				require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, otherTx, otherOwner.ID, otherBook.ID, otherSource.ID, otherRun, otherCorpus, "de"))
+				require.NoError(t, otherTx.Commit(ctx))
+
+				aliceAfterOtherOwner, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+				require.NoError(t, browseErr)
+				require.Len(t, aliceAfterOtherOwner.Rows, 1)
+				assert.Equal(t, fixture.wantCount, aliceAfterOtherOwner.Rows[0].AcrossBooksOccurrenceCount, "another owner's matching projection must not leak into this Browse inventory")
+				wrongLanguage, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "it", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+				require.NoError(t, browseErr)
+				assert.Empty(t, wrongLanguage.Rows, "German projection rows must not appear in another study language")
 			}
 		})
 	}
