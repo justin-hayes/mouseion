@@ -103,6 +103,37 @@ WHERE s.owner_id=$1 AND s.language=$2 ORDER BY s.canonical_lemma,s.upos`
 	return identities, rows.Err()
 }
 
+// VocabularyBrowseSelectionState reads only the saved-selection count and
+// membership for the identities on the current Browse page. Review evidence
+// remains the responsibility of ListVocabularyBrowseSelection; joining every
+// saved identity to current corpus evidence here makes Browse scale with the
+// complete cross-Book corpus for no visible benefit.
+func (s *PostgresStore) VocabularyBrowseSelectionState(ctx context.Context, owner, language string, rows []domain.VocabularyBrowseRow) (int, []bool, error) {
+	lemmas := make([]string, len(rows))
+	upos := make([]string, len(rows))
+	for i, row := range rows {
+		lemmas[i], upos[i] = row.CanonicalLemma, row.UPOS
+	}
+	const query = `
+WITH visible AS (
+ SELECT lemma,upos,ordinality
+ FROM unnest($3::text[],$4::text[]) WITH ORDINALITY AS v(lemma,upos,ordinality)
+), matched AS (
+ SELECT v.ordinality,s.canonical_lemma IS NOT NULL AS selected
+ FROM visible v LEFT JOIN vocabulary_browse_selections s
+  ON s.owner_id=$1 AND s.language=$2 AND s.canonical_lemma=v.lemma AND s.upos=v.upos
+)
+SELECT (SELECT count(*)::bigint FROM vocabulary_browse_selections WHERE owner_id=$1 AND language=$2),
+ COALESCE(array_agg(selected ORDER BY ordinality),ARRAY[]::boolean[])
+FROM matched`
+	var count int64
+	var selected []bool
+	if err := s.pool.QueryRow(ctx, query, owner, language, lemmas, upos).Scan(&count, &selected); err != nil {
+		return 0, nil, fmt.Errorf("read Browse selection state: %w", err)
+	}
+	return int(count), selected, nil
+}
+
 func (s *PostgresStore) ClearVocabularyBrowseSelection(ctx context.Context, owner, language string) (err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

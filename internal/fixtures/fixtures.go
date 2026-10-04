@@ -514,16 +514,13 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	if page.Page > lastPage {
 		page.Page = lastPage
 	}
-	selection, err := s.ListVocabularyBrowseSelection(ctx, owner, language)
+	count, selected, err := s.VocabularyBrowseSelectionState(ctx, owner, language, rows)
 	if err != nil {
 		return domain.VocabularyBrowsePage{}, err
 	}
-	selected := make(map[string]bool, len(selection))
-	for _, identity := range selection {
-		selected[identity.CanonicalLemma+"\x00"+identity.UPOS] = true
-	}
-	for _, row := range rows {
-		row.Selected = selected[row.CanonicalLemma+"\x00"+row.UPOS]
+	page.SelectionCount = count
+	for i, row := range rows {
+		row.Selected = i < len(selected) && selected[i]
 		page.Rows = append(page.Rows, row)
 	}
 	return page, nil
@@ -555,6 +552,22 @@ func (s *Store) ListVocabularyBrowseSelection(_ context.Context, owner, language
 	}
 	sortVocabularyIdentities(result)
 	return result, nil
+}
+
+func (s *Store) VocabularyBrowseSelectionState(ctx context.Context, owner, language string, rows []domain.VocabularyBrowseRow) (int, []bool, error) {
+	selection, err := s.ListVocabularyBrowseSelection(ctx, owner, language)
+	if err != nil {
+		return 0, nil, err
+	}
+	selected := make(map[string]bool, len(selection))
+	for _, identity := range selection {
+		selected[identity.CanonicalLemma+"\x00"+identity.UPOS] = true
+	}
+	flags := make([]bool, len(rows))
+	for i, row := range rows {
+		flags[i] = selected[row.CanonicalLemma+"\x00"+row.UPOS]
+	}
+	return len(selection), flags, nil
 }
 
 func sortVocabularyIdentities(identities []domain.VocabularyIdentity) {

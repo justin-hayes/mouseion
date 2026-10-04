@@ -106,20 +106,16 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
 		return
 	}
-	if h.services.Store.VocabularySelection != nil {
-		selection, selectionErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(browseCtx, u.ID, language)
+	if h.services.Store.BrowseSelectionState != nil {
+		count, selected, selectionErr := h.services.Store.BrowseSelectionState.VocabularyBrowseSelectionState(browseCtx, u.ID, language, browse.Rows)
 		if selectionErr != nil {
 			log.Printf("mouseion: load vocabulary Browse selection: %v", selectionErr)
 			renderStatus(w, r, vocabularyBrowseErrorStatus(selectionErr, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
 			return
 		}
-		selected := make(map[string]bool, len(selection))
-		for _, identity := range selection {
-			selected[identity.CanonicalLemma+"\x00"+identity.UPOS] = true
-		}
-		browse.SelectionCount = len(selection)
+		browse.SelectionCount = count
 		for i := range browse.Rows {
-			browse.Rows[i].Selected = selected[browse.Rows[i].CanonicalLemma+"\x00"+browse.Rows[i].UPOS]
+			browse.Rows[i].Selected = i < len(selected) && selected[i]
 		}
 	}
 	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, prefix))
