@@ -43,6 +43,66 @@ async function expectConcordanceScanSpace(page: Page, selector: string) {
 test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
+  test('expired enhanced action signs in and returns without exposing the raw failure', async ({ page }) => {
+    await page.goto('/library');
+    await page.getByLabel('Search My Books').fill('retry after sign in');
+
+    await page.context().clearCookies();
+    const unauthorized = page.waitForResponse(response =>
+      response.url().includes('/library') && response.status() === 401,
+    );
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await unauthorized;
+
+    await expect(page).toHaveURL(/\/login\?/);
+    await expect.poll(() => new URL(page.url()).searchParams.get('next'))
+      .toBe('/library?q=retry+after+sign+in');
+    await expect(page.getByRole('heading', { name: /sign in|log in/i })).toBeVisible();
+    await page.getByLabel('Username').fill('fixture-learner');
+    await page.getByLabel('Password').fill('fixture-password');
+    await page.getByRole('button', { name: /sign in|log in/i }).click();
+
+    await expect(page).toHaveURL(/\/library\?q=retry\+after\+sign\+in$/);
+    await expect(page.getByText('authentication required')).toHaveCount(0);
+  });
+
+  test('expired enhanced My Books mutation explains that it was not completed', async ({ page }) => {
+    await page.goto('/library');
+    const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
+    await page.evaluate(token => {
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = '/library/books/fixture-book/refresh';
+      form.setAttribute('hx-post', form.action);
+      form.setAttribute('hx-target', '#library-results');
+      form.innerHTML = '<input type="hidden" name="csrf_token"><button type="submit">Refresh metadata</button>';
+      form.querySelector('input[name="csrf_token"]')!.value = token;
+      document.getElementById('main-content')!.prepend(form);
+      window.htmx.process(form);
+    }, csrf);
+
+    await page.context().clearCookies();
+    let refreshRequests = 0;
+    page.on('request', request => {
+      if (request.url().includes('/library/books/fixture-book/refresh')) refreshRequests++;
+    });
+    const unauthorized = page.waitForResponse(response =>
+      response.url().includes('/library/books/fixture-book/refresh') && response.status() === 401,
+    );
+    await page.getByRole('button', { name: 'Refresh metadata' }).click();
+    await unauthorized;
+
+    await expect(page).toHaveURL(/\/login\?/);
+    await expect(page.getByRole('alert'))
+      .toHaveText('Your session expired. The action was not completed. Sign in and retry it.');
+    await page.getByLabel('Username').fill('fixture-learner');
+    await page.getByLabel('Password').fill('fixture-password');
+    await page.getByRole('button', { name: /sign in|log in/i }).click();
+
+    await expect(page).toHaveURL(/\/library$/);
+    expect(refreshRequests).toBe(1);
+  });
+
   test('login and library expose representative content', async ({ page }) => {
     await expect(page.getByRole('heading', { name: /my books|welcome/i }).first()).toBeVisible();
     await page.getByRole('link', { name: /my books/i }).first().click();
