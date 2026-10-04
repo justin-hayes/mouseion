@@ -878,6 +878,35 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, germanBrowse.Body.String(), "Browse selection (1)", "switching languages retains the German selection")
 }
 
+func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "vocabulary-browse-projection-secret-0123456789")
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "browse-projection-http", "projection-password", false)
+	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "browse-projection-http", "Projected German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2}})
+	seedBrowseHTTPToken(t, ctx, store, source, corpus)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	var runID, corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID, &corpusID))
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(ctx, tx, owner.ID, book.ID, source.ID, runID, corpusID, "de"))
+	require.NoError(t, tx.Commit(ctx))
+
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, "browse-projection-http", "projection-password")
+	response := perform(t, h, http.MethodGet, "/vocabulary?q=ha&all=1", nil, cookies)
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), "haus")
+	assert.Contains(t, response.Body.String(), "In this Book: 1")
+}
+
 func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHTTP(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "vocabulary-selection-http-secret-0123456789")
 	ctx := context.Background()

@@ -169,6 +169,9 @@ func run() (err error) {
 		}
 	}()
 	analysisService := analysis.NewService(store.Pool(), riverClient)
+	if err = analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
+		return fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
+	}
 	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
 	externalEnrichmentService := enrichmentjob.NewService(store.Pool(), riverClient, enrichmentService)
 	var preparedDeckService *prepareddeck.Service

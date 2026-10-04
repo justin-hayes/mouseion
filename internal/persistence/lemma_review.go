@@ -45,9 +45,13 @@ func (s *PostgresStore) SaveLemmaReviewFlags(ctx context.Context, flags []domain
 				AND t.start_offset=$5 AND t.end_offset=$6 AND s.unit_id=$7)`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.StartOffset, o.EndOffset, o.SourceDocumentID).Scan(&occurrenceExists); err != nil {
 				return err
 			}
-			if !occurrenceExists { return ErrNotFound }
+			if !occurrenceExists {
+				return ErrNotFound
+			}
 			provenanceValue := flag.Provenance
-			if provenanceValue == nil { provenanceValue = map[string]any{} }
+			if provenanceValue == nil {
+				provenanceValue = map[string]any{}
+			}
 			provenance, err := json.Marshal(provenanceValue)
 			if err != nil {
 				return err
@@ -191,6 +195,9 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 				return err
 			}
 		}
+		if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner, book); err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -230,6 +237,9 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions 
 			if err := resolveLemmaReviewFlag(ctx, tx, decision); err != nil {
 				return err
 			}
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner, book); err != nil {
+			return err
 		}
 		return nil
 	})
