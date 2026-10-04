@@ -980,6 +980,7 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, alice.ID, runID, corpus.ID, ordinal, lemma, start, start+int64(len(lemma)))
 		require.NoError(t, err)
 	}
+	buildBrowseProjection(t, ctx, store, sourceBook.ID)
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "selection-http-alice", "alice-password")

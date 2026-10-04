@@ -255,6 +255,8 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		       ($1,$2,$3,$4,'epub-unit-v1:0:browse',0,$7,NULL,NULL,NULL,true)`,
 		alice.ID, aliceBook, corpusID, analysisRunID, int64(len("alice"))+1, int64(len("alice"))+5, int64(len("alice")))
 	require.NoError(t, err)
+	buildBrowseProjectionsForOwner(t, ctx, store, alice.ID)
+	buildBrowseProjectionsForOwner(t, ctx, store, bob.ID)
 
 	page, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{Prefix: "ha", Page: 1})
 	require.NoError(t, err)
@@ -307,6 +309,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, alice.ID, staleBook.ID, staleSource.ID, promotedRun)
 	require.NoError(t, err)
+	buildBrowseProjectionsForOwner(t, ctx, store, alice.ID)
 	promoted, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{Prefix: "ha", Page: 1})
 	require.NoError(t, err)
 	require.Len(t, promoted.Rows, 1)
@@ -390,6 +393,7 @@ func TestCurrentReadingBrowseRanksLocalFrequencyThenAcrossBookTotal(t *testing.T
 		{Surface: "alpha", Lemma: "alpha", Upos: "NOUN", Start: 15, End: 20},
 		{Surface: "ghost", Lemma: "ghost", Upos: "NOUN", Start: 21, End: 26},
 	})
+	buildBrowseProjectionsForOwner(t, ctx, store, owner.ID)
 
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
 		CurrentBookID: current.ID, Sort: "occurrences", IncludeAll: true, Page: 1,
