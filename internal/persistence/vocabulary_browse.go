@@ -88,7 +88,9 @@ WITH all_books AS (
   FROM book_identities JOIN scope_books ON scope_books.id=book_identities.book_id
   WHERE (COALESCE(cardinality($5::text[]),0)=0 OR upos=ANY($5::text[]))
   GROUP BY lemma,upos
-), annotated AS (
+ ), annotated AS MATERIALIZED (
+  -- The eligibility filter reads several annotated learner-state columns.
+  -- Inlining repeats correlated lookups and can exceed the Browse deadline.
   SELECT g.lemma,g.upos,g.occurrences,g.books,g.corrected,
     COALESCE(all_grouped.occurrences,g.occurrences) AS across_books_occurrences,
     EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='')) AS known,
