@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -949,6 +950,25 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "haus")
 	assert.Contains(t, response.Body.String(), "In this Book: 1")
+	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+	require.NoError(t, err)
+	updating := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, updating.Code)
+	assert.Contains(t, updating.Body.String(), "Updating Browse counts")
+	assert.Contains(t, updating.Body.String(), `href="/vocabulary/selection"`, "saved selection stays reachable while projections are incomplete")
+	assert.NotContains(t, updating.Body.String(), "no eligible vocabulary identities")
+	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	riverClient, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
+	require.NoError(t, err)
+	failedJob, err := riverClient.Insert(ctx, analysis.BrowseCountsRebuildArgs{OwnerID: owner.ID, BookID: book.ID, RunID: runID}, &river.InsertOpts{Queue: analysis.Queue, MaxAttempts: 1})
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE river_job SET state='discarded',finalized_at=now() WHERE id=$1`, failedJob.Job.ID)
+	require.NoError(t, err)
+	unavailable := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
+	require.Equal(t, http.StatusOK, unavailable.Code)
+	assert.Contains(t, unavailable.Body.String(), "Browse counts unavailable")
+	assert.Contains(t, unavailable.Body.String(), "restart Mouseion")
+	assert.Contains(t, unavailable.Body.String(), `href="/vocabulary/selection"`, "saved selection remains reachable after exhausted rebuild retries")
 }
 
 func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHTTP(t *testing.T) {
