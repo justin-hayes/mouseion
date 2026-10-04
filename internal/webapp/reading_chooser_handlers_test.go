@@ -72,6 +72,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Contains(t, body, "Start reading")
 	assert.Contains(t, body, "Confirm start reading")
 	assert.Contains(t, body, "Analysis in progress")
+	assert.Contains(t, body, "This Book is not shown as analyzed until its result is published")
 	assert.Contains(t, body, "Review To Read books")
 	assert.Contains(t, body, "Needs attention")
 	assert.Contains(t, body, "The last analysis did not complete.")

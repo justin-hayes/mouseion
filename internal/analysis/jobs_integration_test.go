@@ -41,6 +41,17 @@ func putAnalysisSourceWithUnits(ctx context.Context, store *persistence.Postgres
 	}, domain.ExtractedUnits{SchemaVersion: domain.ExtractedUnitsSchemaVersion, Units: units})
 }
 
+func countingTagAnalyzer(calls *int) *analyzertest.Fake {
+	return &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		*calls = *calls + 1
+		length := uint64(len([]rune(req.Document.Text)))
+		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language,
+			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
+			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
+			Sentences:            []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: length}, Tokens: []analyzer.Token{{Surface: "Tag", RawLemma: "Tag", CanonicalLemma: "tag", UPOS: "NOUN", Dependency: "root", Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 3}}}}}}, nil
+	}}
+}
+
 func makeCurrentAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string) (domain.Book, domain.SourceMaterial) {
 	t.Helper()
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Current retry guard", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
@@ -462,6 +473,213 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, noOpHandle.ID, noOpDuplicate.ID)
 	assert.Len(t, analyzed, 5, "no-op duplicate submission created another analysis")
+}
+
+func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-publication-retry", false)
+	require.NoError(t, err)
+	book, source := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+	var previousRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&previousRunID))
+
+	calls := 0
+	fake := countingTagAnalyzer(&calls)
+	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.Cleanup(t, "analysis client", func() error { return client.Stop(context.Background()) })
+	service := NewService(pool, client)
+
+	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_analysis_publication() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated publication failure'; END $$;
+		CREATE TRIGGER reject_analysis_publication BEFORE UPDATE ON book_current_analyses FOR EACH ROW EXECUTE FUNCTION reject_analysis_publication()`)
+	require.NoError(t, err)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	first, err := service.Wait(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateDiscarded, first.State)
+	assert.Equal(t, "finalization-failed", first.LogicalState)
+	assert.Equal(t, 1, calls, "initial analyzer execution")
+
+	var corpusStatus string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT c.status FROM analysis_runs r JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&corpusStatus))
+	assert.Equal(t, "complete", corpusStatus, "completed corpus must survive publication failure")
+	var currentCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&currentCount))
+	var retainedRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&retainedRunID))
+	assert.Equal(t, previousRunID, retainedRunID, "failed replacement publication retains the previous current analysis")
+
+	_, err = pool.Exec(ctx, `DROP TRIGGER reject_analysis_publication ON book_current_analyses; DROP FUNCTION reject_analysis_publication()`)
+	require.NoError(t, err)
+	retry, err := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+	require.NoError(t, err)
+	assert.Equal(t, handle.RunID, retry.RunID, "publication retry reuses the completed run")
+	status, err := service.Wait(ctx, owner.ID, retry.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, status.State)
+	assert.Equal(t, 1, calls, "publication retry must not rerun NLP")
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&currentCount))
+	assert.Equal(t, 1, currentCount, "retry promotes exactly the completed analysis")
+	var corpusCount int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID).Scan(&corpusCount))
+	assert.Equal(t, 1, corpusCount, "publication replay does not duplicate corpus evidence")
+	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID}, retry.JobID))
+
+	_, err = putAnalysisSource(ctx, store, owner.ID, "current-retry-guard", book.Title, "Changed source.", "sha256:publication-retry-changed")
+	require.NoError(t, err)
+	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID}, retry.JobID))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&currentCount))
+	assert.Zero(t, currentCount, "a replay after a source revision change cannot keep stale analysis current")
+}
+
+func TestCompletedAnalysisPublicationDoesNotPromoteSupersededRun(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	owner, err := store.CreateUser(ctx, "analysis-superseded-publication", false)
+	require.NoError(t, err)
+	book, source := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+	var previousRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&previousRunID))
+	var snapshotID, artifactHash string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT r.snapshot_id::text,c.artifact_hash FROM analysis_runs r JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, previousRunID).Scan(&snapshotID, &artifactHash))
+
+	var oldRunID string
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at) VALUES($1,$2,$3,$4,'test','1','older-candidate','completed',now()) RETURNING id::text`, owner.ID, source.ID, source.ContentRevisionID, snapshotID).Scan(&oldRunID))
+	var corpusID string
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',0,0,0,0,0,0,0,0) RETURNING id::text`, owner.ID, source.ID, artifactHash, oldRunID).Scan(&corpusID))
+	_, err = pool.Exec(ctx, `UPDATE analysis_runs SET corpus_id=$1 WHERE owner_id=$2 AND id=$3`, corpusID, owner.ID, oldRunID)
+	require.NoError(t, err)
+	var oldJobID, newJobID, oldDisplay, newDisplay int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT COALESCE(MAX(river_job_id),0)+1,COALESCE(MAX(display_number),0)+1 FROM analysis_jobs`).Scan(&oldJobID, &oldDisplay))
+	newJobID, newDisplay = oldJobID+1, oldDisplay+1
+	_, err = pool.Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,corpus_id,progress,display_number,analysis_run_id) VALUES($1,$2,$3,$4,$5,100,$6,$7)`, oldJobID, owner.ID, source.ID, source.ContentHash, corpusID, oldDisplay, oldRunID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state) VALUES($1,$2,$3,$4,'test','1','newer-candidate','queued')`, owner.ID, source.ID, source.ContentRevisionID, snapshotID)
+	require.NoError(t, err)
+	var newerRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id::text FROM analysis_runs WHERE owner_id=$1 AND source_material_id=$2 AND config_identity='newer-candidate'`, owner.ID, source.ID).Scan(&newerRunID))
+	_, err = pool.Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,progress,display_number,analysis_run_id) VALUES($1,$2,$3,$4,0,$5,$6)`, newJobID, owner.ID, source.ID, source.ContentHash, newDisplay, newerRunID)
+	require.NoError(t, err)
+
+	worker := &Worker{Pool: pool}
+	require.NoError(t, worker.publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: oldRunID}, 0))
+	var currentRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&currentRunID))
+	assert.Equal(t, previousRunID, currentRunID, "a newer run fences publication of the older completed corpus")
+	var exposed int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, oldRunID).Scan(&exposed))
+	assert.Zero(t, exposed)
+}
+
+func TestCompletedCorpusRetryRebuildsSelectionWithoutRerunningNLP(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-selection-retry", false)
+	require.NoError(t, err)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Selection retry", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "selection-retry", book.Title, "Guten Tag.", "sha256:selection-retry")
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+
+	calls := 0
+	fake := countingTagAnalyzer(&calls)
+	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.Cleanup(t, "analysis client", func() error { return client.Stop(context.Background()) })
+	service := NewService(pool, client)
+	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_selection_candidates() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated selection failure'; END $$;
+		CREATE TRIGGER reject_selection_candidates BEFORE INSERT ON selection_candidates FOR EACH ROW EXECUTE FUNCTION reject_selection_candidates()`)
+	require.NoError(t, err)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	failed, err := service.Wait(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateDiscarded, failed.State)
+	assert.Equal(t, 1, calls)
+	var corpusID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&corpusID))
+	var corpusStatus string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID).Scan(&corpusStatus))
+	assert.Equal(t, "complete", corpusStatus)
+
+	_, err = pool.Exec(ctx, `DROP TRIGGER reject_selection_candidates ON selection_candidates; DROP FUNCTION reject_selection_candidates()`)
+	require.NoError(t, err)
+	retry, err := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+	require.NoError(t, err)
+	status, err := service.Wait(ctx, owner.ID, retry.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, status.State)
+	assert.Equal(t, 1, calls, "selection replay must use persisted evidence rather than rerunning NLP")
+	var candidates, promoted int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID).Scan(&candidates))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&promoted))
+	assert.Equal(t, 1, candidates)
+	assert.Equal(t, 1, promoted)
+}
+
+func TestQueuedPublicationCanBeCancelledAndRetriedWithoutDiscardingCorpus(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-finalization-cancel", false)
+	require.NoError(t, err)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Finalization cancel", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "finalization-cancel", book.Title, "Guten Tag.", "sha256:finalization-cancel")
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	service := NewService(pool, client)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	require.NoError(t, store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: source.ContentHash, Language: "de", SchemaVersion: "1", NormalizationProfile: "casefold", NormalizationVersion: "1", AnalyzerName: "fake", AnalyzerVersion: "1"}, nil))
+	corpus, err := store.PutCorpus(ctx, owner.ID, source.ID, source.ContentHash)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE corpora SET analysis_run_id=$1,status='complete',analyzable_token_count=0,distinct_lemma_count=0 WHERE owner_id=$2 AND id=$3`, handle.RunID, owner.ID, corpus.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$3,completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID, corpus.ID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$3,progress=100 WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID, corpus.ID)
+	require.NoError(t, err)
+
+	cancelled, err := service.Cancel(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCancelled, cancelled.State)
+	assert.Equal(t, "finalization-cancelled", cancelled.LogicalState)
+	var corpusStatus string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&corpusStatus))
+	assert.Equal(t, "complete", corpusStatus, "cancelling finalization retains the immutable corpus")
+
+	retry, err := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
+	require.NoError(t, err)
+	assert.Equal(t, handle.RunID, retry.RunID)
+	assert.NotEqual(t, handle.JobID, retry.JobID, "retry uses a fresh River attempt")
 }
 
 func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {

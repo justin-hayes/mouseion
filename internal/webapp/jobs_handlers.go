@@ -250,6 +250,12 @@ func analysisStatusSummary(status analysis.Status) string {
 	switch status.LogicalState {
 	case "completed":
 		return "Analysis complete. Open the exact result to review its insights."
+	case "finalization-failed":
+		return "The analysis corpus is complete, but finalization failed. Its corpus was retained; retry to finish selection and publication without rerunning NLP."
+	case "finalization-cancelled":
+		return "Analysis finalization was cancelled. The completed corpus was retained; retry when you are ready."
+	case "finalizing":
+		return "The analysis corpus is complete; selection and publication are still in progress."
 	case "failed":
 		return "Analysis failed. Review the message and retry the EPUB snapshot when you are ready."
 	case "cancelled":
@@ -259,7 +265,7 @@ func analysisStatusSummary(status analysis.Status) string {
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)
 }
 func jobRetryable(status analysis.Status) bool {
-	return status.LogicalState == "failed" || status.LogicalState == "cancelled"
+	return status.LogicalState == "failed" || status.LogicalState == "cancelled" || status.LogicalState == "finalization-failed" || status.LogicalState == "finalization-cancelled"
 }
 func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
 	ids := make([]string, 0, len(jobs))
