@@ -575,6 +575,31 @@ func TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably(t *testing.T) {
 	assert.Zero(t, page.InventoryTotal)
 }
 
+func TestEmptyAnalysisPublicationAtomicallyPublishesReadyBrowseCounts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	owner, err := store.CreateUser(ctx, "browse-empty-publication", false)
+	require.NoError(t, err)
+	book, source := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
+	var runID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID))
+	_, err = pool.Exec(ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
+	require.NoError(t, err)
+	worker := &Worker{Pool: pool}
+	require.NoError(t, worker.publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: runID, Language: "de"}, 0))
+	var readyRun string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&readyRun))
+	assert.Equal(t, runID, readyRun)
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	require.NoError(t, err)
+	assert.Empty(t, page.Rows)
+	assert.Zero(t, page.InventoryTotal)
+}
+
 func TestCompletedAnalysisPublicationDoesNotPromoteSupersededRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
