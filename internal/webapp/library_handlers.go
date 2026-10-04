@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
 type myBooksBrowseReader interface {
@@ -34,7 +35,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(r.URL)
 	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
 		// #nosec G710 -- myBooksFilteredURL constructs only a local /library URL and escapes query values.
-		http.Redirect(w, r, myBooksFilteredURL(query, page, needsLanguage, disposition), http.StatusSeeOther)
+		redirectMyBooksBrowse(w, r, myBooksFilteredURL(query, page, needsLanguage, disposition))
 		return
 	}
 	requestedLanguage := activeLanguage
@@ -56,7 +57,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		browse.History = history
 		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
 			lastPage := myBooksPageCount(result.Total)
-			http.Redirect(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history), http.StatusSeeOther)
+			redirectMyBooksBrowse(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history))
 			return
 		}
 		if err == nil && page > 1 && result.Total == 0 {
@@ -67,7 +68,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 					lastPage = 1
 				}
 			}
-			http.Redirect(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history), http.StatusSeeOther)
+			redirectMyBooksBrowse(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history))
 			return
 		}
 	} else if reader, ok := h.services.Store.Books.(interface {
@@ -111,6 +112,18 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
+}
+
+// redirectMyBooksBrowse preserves ordinary browser redirects while asking
+// HTMX to navigate the whole page instead of swapping a followed 3xx document
+// into the results region.
+func redirectMyBooksBrowse(w http.ResponseWriter, r *http.Request, path string) {
+	if isPartialHTMXRequest(r) {
+		w.Header().Set("Hx-Redirect", webauth.SafeReturnPath(path))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther) //nolint:gosec // SafeReturnPath rejects external redirect destinations.
 }
 
 func (h *Handler) renderMyBooksFailure(w http.ResponseWriter, r *http.Request, u domain.User) {
