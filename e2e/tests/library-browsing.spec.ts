@@ -96,6 +96,46 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
   });
 
+  test('navigates to a complete corrected page after enhanced browse redirects', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+
+    for (const [requestPath, correctedPath] of [
+      ['/library?language=de&q=Der', '/library?q=Der'],
+      ['/library?page=999', '/library'],
+    ]) {
+      await page.goto('/library');
+      await page.evaluate(({ requestPath }) => {
+        document.querySelector('[data-test-browse-correction]')?.remove();
+        const link = document.createElement('a');
+        link.href = requestPath;
+        link.textContent = 'Test corrected browse navigation';
+        link.setAttribute('data-test-browse-correction', '');
+        link.setAttribute('data-my-books-enhanced', '');
+        link.setAttribute('hx-get', requestPath);
+        link.setAttribute('hx-target', '#library-results');
+        link.setAttribute('hx-swap', 'outerHTML');
+        document.querySelector('#library-results')?.append(link);
+      }, { requestPath });
+
+      const navigation = page.waitForNavigation();
+      await page.locator('[data-test-browse-correction]').click();
+      const destination = await navigation;
+      expect(destination?.status()).toBe(200);
+      expect(await destination?.text()).toContain('<!doctype html>');
+      await expect(page).toHaveURL(correctedPath);
+      await expect(page.locator('#library-results')).toBeVisible();
+      await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+      if (correctedPath === '/library?q=Der') {
+        await page.goBack();
+        await expect(page).toHaveURL('/library');
+        await page.goForward();
+        await expect(page).toHaveURL(correctedPath);
+        await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+      }
+    }
+  });
+
   test('shows actionable errors from a failed My Books handler in the enhanced results region', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');

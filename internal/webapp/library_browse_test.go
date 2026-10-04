@@ -221,6 +221,20 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	legacy := request("/library?language=it&q=Dampf")
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
 	assert.Equal(t, "/library?q=Dampf", legacy.Header().Get("Location"))
+	partialRequest := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+		r.Header.Set("Hx-Request-Type", "partial")
+		for _, cookie := range cookies {
+			r.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, r)
+		return response
+	}
+	partialLegacy := partialRequest("/library?language=it&q=Dampf")
+	assert.Equal(t, http.StatusOK, partialLegacy.Code)
+	assert.Equal(t, "/library?q=Dampf", partialLegacy.Header().Get("Hx-Redirect"))
+	assert.Empty(t, partialLegacy.Header().Get("Location"))
 	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
 	htmxRequest.Header.Set("Hx-Request-Type", "partial")
 	for _, cookie := range cookies {
@@ -240,6 +254,10 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	response = request("/library?page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, "/library?page=2", response.Header().Get("Location"))
+	partialStalePage := partialRequest("/library?page=3")
+	assert.Equal(t, http.StatusOK, partialStalePage.Code)
+	assert.Equal(t, "/library?page=2", partialStalePage.Header().Get("Hx-Redirect"))
+	assert.Empty(t, partialStalePage.Header().Get("Location"))
 	store.result = persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{{Book: domain.Book{ID: "unknown-book", OwnerID: fixtures.OwnerID, Title: "Unknown Book", LanguageState: domain.LanguageUnknown}}},
 		Total: 1, ScopeTotal: 1, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: domain.LanguageUnknown, Count: 1}},
