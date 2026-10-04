@@ -3,6 +3,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -125,6 +126,7 @@ func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
 type browseRecordingStore struct {
 	*fixtures.Store
 	result      persistence.MyBooksBrowseResult
+	err         error
 	owner       string
 	query       string
 	language    string
@@ -135,7 +137,49 @@ type browseRecordingStore struct {
 
 func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	s.owner, s.query, s.language, s.disposition, s.offset, s.limit = owner, query, language, disposition, offset, limit
-	return s.result, nil
+	return s.result, s.err
+}
+
+func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		partial bool
+	}{
+		{name: "full page"},
+		{name: "partial", partial: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, cookies, _, fixtureStore := goalFixtureSession(t)
+			handler := requireHandler(t, h)
+			store := &browseRecordingStore{Store: fixtureStore, err: errors.New("read failed")}
+			handler.services.Store = storeDependencies(store)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
+			if tc.partial {
+				request.Header.Set("Hx-Request-Type", "partial")
+			}
+			for _, cookie := range cookies {
+				request.AddCookie(cookie)
+			}
+			response := httptest.NewRecorder()
+			response.Header().Add("Vary", "Accept-Encoding")
+			handler.ServeHTTP(response, request)
+
+			assert.Equal(t, http.StatusInternalServerError, response.Code)
+			assert.Equal(t, "text/html; charset=utf-8", response.Header().Get("Content-Type"))
+			vary := strings.Join(response.Header().Values("Vary"), ",")
+			assert.Contains(t, vary, "Accept-Encoding")
+			assert.Contains(t, vary, "HX-Request-Type")
+			assert.Contains(t, response.Body.String(), "Try again")
+			if tc.partial {
+				assert.Contains(t, response.Body.String(), `<section id="library-results"`)
+				assert.NotContains(t, response.Body.String(), "<!doctype html>")
+				assert.Contains(t, response.Body.String(), `href="/library?q=Dampf"`)
+			} else {
+				assert.Contains(t, response.Body.String(), "<!doctype html>")
+				assert.Contains(t, response.Body.String(), `href="/library?q=Dampf"`)
+			}
+		})
+	}
 }
 
 func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
@@ -153,6 +197,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 			r.AddCookie(cookie)
 		}
 		response := httptest.NewRecorder()
+		response.Header().Add("Vary", "Accept-Encoding")
 		handler.ServeHTTP(response, r)
 		return response
 	}
@@ -160,6 +205,9 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	for _, path := range []string{"/library", "/library?page=0", "/library?page=invalid"} {
 		response := request(path)
 		assert.Equal(t, http.StatusOK, response.Code, path)
+		vary := strings.Join(response.Header().Values("Vary"), ",")
+		assert.Contains(t, vary, "HX-Request-Type", "GET %s", path)
+		assert.Contains(t, vary, "Accept-Encoding", "GET %s", path)
 		assert.Equal(t, fixtures.OwnerID, store.owner, "GET %s", path)
 		assert.Equal(t, 0, store.offset, "GET %s", path)
 		assert.Equal(t, myBooksPageSize, store.limit, "GET %s", path)
@@ -179,9 +227,12 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 		htmxRequest.AddCookie(cookie)
 	}
 	htmxResponse := httptest.NewRecorder()
+	htmxResponse.Header().Add("Vary", "Accept-Encoding")
 	handler.ServeHTTP(htmxResponse, htmxRequest)
 	assert.Equal(t, http.StatusOK, htmxResponse.Code)
-	assert.Equal(t, "HX-Request-Type", htmxResponse.Header().Get("Vary"))
+	partialVary := strings.Join(htmxResponse.Header().Values("Vary"), ",")
+	assert.Contains(t, partialVary, "HX-Request-Type")
+	assert.Contains(t, partialVary, "Accept-Encoding")
 	assert.True(t, strings.Contains(htmxResponse.Body.String(), `<section id="library-results"`), "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
 	assert.False(t, strings.Contains(htmxResponse.Body.String(), "<!doctype html>"), "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
 	store.result.Total = 0

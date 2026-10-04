@@ -117,6 +117,8 @@ background watcher. The learner expresses intent again to refresh evidence.
 | Analysis complete | Show current evidence and the optional deck action. | Inspect analysis or prepare deck |
 | Stale current content | Explain that existing evidence is for an older revision. | Re-analyze from the Journey card |
 | Unavailable acquisition | Preserve the Book and any Journey membership; mark evidence unavailable. | Retry or check catalog connection |
+| My Books request failed | Enhanced HTTP failures stay inside the results region with a retry; full-page requests show a coherent error and retry. | Retry the current request |
+| My Books enhancement unavailable | Keep current results and URL, announce the connection failure separately, and offer retry without taking focus. | Retry the attempted request |
 
 ## Navigation and responsive rules
 

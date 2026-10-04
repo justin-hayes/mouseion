@@ -96,21 +96,17 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
   });
 
-  test('shows actionable server errors in the enhanced results region', async ({ page }) => {
+  test('shows actionable errors from a failed My Books handler in the enhanced results region', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
-    await page.route('**/library*', async route => {
-      const url = new URL(route.request().url());
-      if (url.searchParams.get('q') !== 'htmx-error-check') return route.continue();
-      await route.fulfill({
-        status: 503,
-        contentType: 'text/html',
-        body: '<article role="alert"><strong>My Books could not be loaded.</strong><p>Try again.</p></article>',
-      });
-    });
-    await page.getByLabel('Search My Books').fill('htmx-error-check');
+    await page.getByLabel('Search My Books').fill('fixture-handler-error');
+    const failure = page.waitForResponse(response => new URL(response.url()).searchParams.get('q') === 'fixture-handler-error');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.locator('main [role="alert"]')).toContainText('Try again.');
+    const response = await failure;
+    expect(response.status()).toBe(500);
+    expect(await response.text()).toContain('My Books could not be loaded');
+    await expect(page.locator('#library-results [role="alert"]')).toContainText('My Books could not be loaded');
+    await expect(page.locator('#library-results a', { hasText: 'Try again' })).toHaveAttribute('href', '/library?q=fixture-handler-error');
   });
 
   test('keeps the current results when an enhancement request fails on the network', async ({ page }) => {
@@ -124,6 +120,8 @@ test.describe('My Books collection browsing', () => {
     await page.getByRole('button', { name: 'Search' }).click();
     await failedRequest;
     await expect(currentResults.getByText('Der lange Weg nach Hause')).toBeVisible();
+    await expect(page.locator('#library-recovery [role="alert"]')).toContainText('connection failed');
+    await expect(page.locator('#library-recovery a', { hasText: 'Retry My Books request' })).toHaveAttribute('href', /network-error-check/);
   });
 
   test('reviews needs-language books without actions', async ({ page }) => {

@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -31,8 +32,9 @@ func main() {
 	authService := auth.New(authStore, auth.DefaultSessionLifetime)
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
+	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularySelection: store, VocabularyConcordance: store}
+	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: books, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularySelection: store, VocabularyConcordance: store}
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
@@ -60,6 +62,17 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}).ListenAndServe())
+}
+
+// fixtureBooksStore exposes one deterministic real handler failure for browser
+// acceptance of enhanced My Books error responses.
+type fixtureBooksStore struct{ *fixtures.Store }
+
+func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+	if query == "fixture-handler-error" {
+		return persistence.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
+	}
+	return s.Store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
 }
 
 type fixtureLemmaSuggestions struct{}
