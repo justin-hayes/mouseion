@@ -66,23 +66,49 @@ ON CONFLICT DO NOTHING`
 	return tx.Commit(ctx)
 }
 
+// ListVocabularyBrowseSelection uses the current per-Book Browse projection
+// when ready. Only Books awaiting a rebuild need to recount raw occurrences;
+// otherwise a review of a small saved selection scans the entire corpus.
 func (s *PostgresStore) ListVocabularyBrowseSelection(ctx context.Context, owner, language string) ([]domain.VocabularyIdentity, error) {
 	const query = `
-WITH evidence AS (
- SELECT o.book_id, COALESCE(d.canonical_lemma,o.canonical_lemma) AS lemma,o.upos
- FROM concordance_occurrences o
- JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
-  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
- JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_tag=o.language AND b.language_state='chosen'
- JOIN vocabulary_browse_selections s ON s.owner_id=o.owner_id AND s.language=o.language
- LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id AND d.book_id::text=o.book_id
-  AND d.corpus_id::text=o.corpus_id AND d.analysis_run_id::text=o.analysis_run_id
-  AND d.source_document_id=o.unit_id AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
- WHERE o.owner_id=$1 AND o.language=$2 AND s.canonical_lemma=COALESCE(d.canonical_lemma,o.canonical_lemma)
-  AND s.upos=o.upos AND o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
-  AND COALESCE(d.excluded,false)=false
+WITH current_books AS MATERIALIZED (
+ SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id,cai.source_material_id,cai.snapshot_id,
+  r.owner_id IS NOT NULL AS counts_ready
+ FROM current_analysis_identity cai
+ JOIN books b ON b.owner_id=cai.owner_id AND b.id=cai.book_id
+  AND b.language_state='chosen' AND b.language_tag=$2
+ LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
+  AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
+  AND r.language=$2 AND r.builder_version=1
+ WHERE cai.owner_id=$1
+), evidence AS (
+ SELECT c.book_id,c.canonical_lemma AS lemma,c.upos,c.occurrence_count
+ FROM current_books b
+ JOIN vocabulary_browse_counts c ON c.owner_id=b.owner_id AND c.book_id=b.book_id
+  AND c.analysis_run_id=b.analysis_run_id AND c.corpus_id=b.corpus_id AND c.language=$2
+ JOIN vocabulary_browse_selections s ON s.owner_id=c.owner_id AND s.language=c.language
+  AND s.canonical_lemma=c.canonical_lemma AND s.upos=c.upos
+ WHERE b.counts_ready
+ UNION ALL
+ SELECT b.book_id,COALESCE(d.canonical_lemma,t.canonical_lemma),t.upos,count(*)::bigint
+ FROM current_books b
+ JOIN corpus_tokens t ON t.owner_id=b.owner_id AND t.analysis_run_id=b.analysis_run_id
+  AND t.corpus_id=b.corpus_id AND t.language=$2
+ JOIN corpus_sentences sentence ON sentence.owner_id=t.owner_id AND sentence.analysis_run_id=t.analysis_run_id
+  AND sentence.corpus_id=t.corpus_id AND sentence.sentence_ordinal=t.sentence_ordinal
+ JOIN source_material_units u ON u.owner_id=b.owner_id AND u.source_material_id=b.source_material_id
+  AND u.snapshot_id=b.snapshot_id AND u.unit_id=sentence.unit_id
+ LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=b.owner_id AND d.book_id=b.book_id
+  AND d.corpus_id=t.corpus_id AND d.analysis_run_id=t.analysis_run_id
+  AND d.source_document_id=sentence.unit_id AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
+ JOIN vocabulary_browse_selections s ON s.owner_id=t.owner_id AND s.language=t.language
+  AND s.canonical_lemma=COALESCE(d.canonical_lemma,t.canonical_lemma) AND s.upos=t.upos
+ WHERE NOT b.counts_ready AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
+  AND COALESCE(d.excluded,false)=false AND COALESCE(d.canonical_lemma,t.canonical_lemma) ~ '[[:alpha:]]'
+ GROUP BY b.book_id,COALESCE(d.canonical_lemma,t.canonical_lemma),t.upos
 ), counts AS (
- SELECT lemma,upos,count(*)::bigint AS occurrences,count(DISTINCT book_id)::bigint AS books FROM evidence GROUP BY lemma,upos
+ SELECT lemma,upos,sum(occurrence_count)::bigint AS occurrences,count(*)::bigint AS books
+ FROM evidence GROUP BY lemma,upos
 )
 SELECT s.canonical_lemma,s.upos,COALESCE(c.occurrences,0),COALESCE(c.books,0),c.lemma IS NULL
 FROM vocabulary_browse_selections s LEFT JOIN counts c ON c.lemma=s.canonical_lemma AND c.upos=s.upos
