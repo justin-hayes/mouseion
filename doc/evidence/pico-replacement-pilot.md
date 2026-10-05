@@ -46,7 +46,9 @@ changed. Screenshots are included in [`pico-replacement-pilot/`](pico-replacemen
   form's layout. The candidate still needs a separate Mouseion-owned control
   layer and workflow styling.
 - **Targets and focus:** the tested native text fields were 24px high in the
-  candidate, below the established 44px touch target. A focused field retained
+  candidate, below the 44px touch-target requirement from [the parent spec,
+  #1441](https://github.com/justin-hayes/mouseion/issues/1441). Focused fields in
+  all four viewport/theme combinations retained
   only the browser's 1px automatic outline, not the documented Mouseion focus
   token. Existing app CSS also references 17 distinct `--pico-*` variables,
   which would need deliberate replacement or removal.
@@ -66,9 +68,12 @@ changed. Screenshots are included in [`pico-replacement-pilot/`](pico-replacemen
 - **Override effort:** the pilot retained the complete existing 1,847-line
   Mouseion stylesheet and required no new native-control selector overrides;
   it only mapped DaisyUI themes and applied one `btn btn-primary` candidate
-  class. That small integration was insufficient. The required override count
-  to restore controls and page hierarchy was not estimated because it would be
-  a migration implementation, outside this decision gate.
+  class. That small integration was insufficient. At minimum, restoring the
+  observed form contract needs separate native-control, control-group spacing,
+  and focus rules; Book-card/action layout also needs adjustment. This is a
+  lower bound of four cross-workflow styling areas before checking the remaining
+  app surfaces, not a complete port estimate. This amount of work was not
+  implemented because that would cross the decision gate.
 
 ## Build compatibility
 
