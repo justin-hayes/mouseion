@@ -1,11 +1,19 @@
 import { expect, Page, test } from '@playwright/test';
 
+function fixtureBaseURL() {
+  return process.env.MOUSEION_FIXTURE_URL ?? `http://${process.env.MOUSEION_FIXTURE_ADDR ?? '127.0.0.1:8099'}`;
+}
+
 async function signIn(page: Page) {
   await page.goto('/login');
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
   await expect(page).toHaveURL(/\/library/);
+  await page.getByLabel('Study language').selectOption('de');
+  const noScriptSwitch = page.getByRole('button', { name: 'Switch language' });
+  if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();
+  await expect(page).toHaveURL(/\/library$/);
 }
 
 async function clearSelection(page: Page) {
@@ -14,7 +22,7 @@ async function clearSelection(page: Page) {
 }
 
 test('Current-reading Browse keeps its prefix form usable without JavaScript', async ({ page, browser }) => {
-  const baseURL = process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099';
+  const baseURL = fixtureBaseURL();
   const noScriptContext = await browser.newContext({ baseURL, javaScriptEnabled: false });
   const noScriptPage = await noScriptContext.newPage();
   try {
@@ -92,7 +100,7 @@ test('Browse pagination lands on the new results rather than above them', async 
 });
 
 test('Browse selection returns to the same page without JavaScript', async ({ browser }) => {
-  const noScriptContext = await browser.newContext({ baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099', javaScriptEnabled: false });
+  const noScriptContext = await browser.newContext({ baseURL: fixtureBaseURL(), javaScriptEnabled: false });
   const page = await noScriptContext.newPage();
   try {
     await signIn(page);

@@ -115,6 +115,85 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
   });
 
+  test('Vocabulary Browse and selection own their responsive styling while peer views retain Pico', async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/vocabulary');
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Current effective vocabulary' })).toBeVisible();
+    await expectNoPageOverflow(page);
+    const firstResult = page.getByRole('row').nth(1);
+    const firstResultSize = await firstResult.boundingBox();
+    expect(firstResultSize).not.toBeNull();
+    expect(firstResultSize!.height).toBeGreaterThanOrEqual(44);
+    expect(await textContrast(page.locator('.vocabulary-filter button'))).toBeGreaterThanOrEqual(4.5);
+    expect(await textContrast(page.locator('#vocabulary-prefix'))).toBeGreaterThanOrEqual(4.5);
+
+    const addFirstResult = firstResult.getByRole('button', { name: 'Select', exact: true });
+    if (await addFirstResult.count()) await addFirstResult.click();
+
+    const browseControls = page.locator('.vocabulary-filter input[type="search"], .vocabulary-filter label:has(input[type="checkbox"]), .vocabulary-filter button, #vocabulary-browse-results td button, #vocabulary-browse-results tbody th a, nav[aria-label="Vocabulary views"] a');
+    const browseBoxes = await browseControls.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, height: box.height, text: node.textContent?.trim() };
+    }));
+    for (const box of browseBoxes) {
+      expect(box.width, box.text).toBeGreaterThanOrEqual(44);
+      expect(box.height, box.text).toBeGreaterThanOrEqual(44);
+    }
+
+    await page.goto('/vocabulary?q=paging');
+    const browsePageLinks = page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link');
+    const pageLinkBoxes = await browsePageLinks.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, height: box.height, text: node.textContent?.trim() };
+    }));
+    for (const box of pageLinkBoxes) {
+      expect(box.width, box.text).toBeGreaterThanOrEqual(44);
+      expect(box.height, box.text).toBeGreaterThanOrEqual(44);
+    }
+
+    const tableRegion = page.locator('.table-region');
+    await expect(tableRegion).toBeVisible();
+    expect(await tableRegion.evaluate((node) => getComputedStyle(node).overflowX)).toBe('auto');
+    await page.locator('#vocabulary-prefix').focus();
+    expect(await page.locator('#vocabulary-prefix').evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    expect(await textContrast(page.locator('.vocabulary-filter button'))).toBeGreaterThanOrEqual(4.5);
+    expect(await textContrast(page.locator('#vocabulary-prefix'))).toBeGreaterThanOrEqual(4.5);
+    await expectNoPageOverflow(page);
+
+    await page.goto('/vocabulary/selection');
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Review Browse selection' })).toBeVisible();
+    const selectionControls = page.locator('.vocabulary-selection-filter, .vocabulary-selection-page-link, .vocabulary-deck-link, .vocabulary-selection-list button, form[action="/vocabulary/decks"] :is(input:not([type="hidden"]), button), a[role="button"]:visible');
+    const selectionBoxes = await selectionControls.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, height: box.height, text: node.textContent?.trim() };
+    }));
+    for (const box of selectionBoxes) {
+      expect(box.width, box.text).toBeGreaterThanOrEqual(44);
+      expect(box.height, box.text).toBeGreaterThanOrEqual(44);
+    }
+    await expect(page.getByLabel('Deck name')).toBeVisible();
+    expect(await textContrast(page.getByLabel('Deck name'))).toBeGreaterThanOrEqual(4.5);
+    expect(await textContrast(page.getByRole('button', { name: 'Create Custom deck' }))).toBeGreaterThanOrEqual(4.5);
+    await expectNoPageOverflow(page);
+
+    await page.goto('/vocabulary/selection/clear-confirm');
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirm clear selection' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Cancel and keep selection' })).toHaveCSS('min-height', '44px');
+
+    await page.goto('/vocabulary/concordance');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(1);
+  });
+
   test('shared shell keeps native navigation, language context, focus, and touch targets', async ({ page }) => {
     await page.goto('/login');
     await expect(page.locator('body > a.skip-link[href="#main-content"]')).toHaveCount(1);
