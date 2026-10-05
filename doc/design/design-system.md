@@ -1,14 +1,16 @@
 # Design system
 
 Status: **Mouseion owns the shared shell, reusable patterns, My Books, Reading,
-Catalogs, Vocabulary Browse/selection, known-vocabulary import, and Custom decks;
+Catalogs, Vocabulary Browse/selection, Concordance, occurrence-level lemma review,
+known-vocabulary import, and Custom decks;
 Pico remains for unmigrated content, with sign-in on Tailwind/daisyUI**
 
 Mouseion's design system is a semantic layer above native HTML and a staged CSS
 foundation. It supports a server-rendered, HTMX-enhanced product whose visual
 character is a calm digital scholarly reading desk. Mouseion's `app.css` owns the
 shared application shell, reusable interaction patterns, and migrated My Books,
-Reading, Catalogs, Vocabulary Browse/selection, known-vocabulary import, and
+Reading, Catalogs, Vocabulary Browse/selection, Concordance and sentence study,
+occurrence-level lemma review, known-vocabulary import, and
 Custom deck content. Pico remains the foundation for unmigrated page content;
 Tailwind CSS with daisyUI is used only by the deliberately redesigned sign-in route.
 Mouseion-owned tokens, typography roles, responsive rules, and interaction
@@ -72,6 +74,8 @@ compiler, or network access.
 | Vocabulary Browse and selection review/confirmation | `app.css` | Browse, the recoverable unnamed selection, its clear confirmation, and the saved-deck list do not load Pico. Mouseion owns their native-element baseline, responsive results and controls; selection, focus recovery, and ordinary-form behavior remain server-rendered. |
 | Known-vocabulary import | `app.css` | The labeled file form, import feedback, rejection details, and recovery states do not load Pico. Mouseion owns their route styling; native multipart forms and HTMX enhancement retain the same server-rendered behavior. |
 | Saved Custom decks, identity editing, deletion confirmation, and preparation status | `app.css` | Saved-deck review, edit forms, consequential deletion, preparation actions, status, and evidence lists do not load Pico. Mouseion owns their native-element baseline and responsive presentation; ordinary forms and links remain the interaction path. |
+| Vocabulary Concordance and sentence study | `app.css` | Applied exact lookup, Book/grammar filters, KWIC disclosures, sentence context, analyzer evidence, and return-to-results behavior do not load Pico. Vocabulary-owned styles preserve source-text typography, labeled filters, native disclosures, and server-rendered navigation. |
+| Reading occurrence-level lemma review | `app.css` | Exact-form occurrence review, evidence and recovery states, selected-context preview, and confirmation do not load Pico. Reading-owned styles keep long source sentences readable and native forms, fieldsets, disclosures, and consequential actions usable. |
 | Other authenticated routes and anonymous/shared pages | `app.css` for shell and shared components; Pico 2.1.1 for unmigrated page content | These routes do not load `login.css`. Mouseion styles only its owned shell and component classes; it does not globally reset Pico-backed content. |
 | Shared anonymous/authenticated shell | `app.css` | `ShellLayout` remains the sole shell and navigation system. Navigation landmarks, current state, active-language control, focus, and compact behavior are styled explicitly through Mouseion tokens rather than Pico defaults. |
 | Shared page patterns | `app.css` | Page headings, actions, feedback, status, tables, and confirmations use explicit Mouseion styling on their owned classes; page-specific markup and unconverted content can continue using Pico. |
@@ -317,7 +321,8 @@ current My Books / Reading architecture.
 
 Current implementation adoption covers My Books (`/library`), Reading (`/reading`),
 Catalogs (`/catalogs`), analysis jobs, focused deck preparation,
-known-vocabulary import, and Vocabulary Browse/selection/Custom decks. `/journey` is
+known-vocabulary import, Vocabulary Browse/selection/Concordance/sentence study,
+occurrence-level lemma review, and Custom decks. `/journey` is
 only a compatibility redirect and is not an adopted screen. Reading presents the
 current Book, its frozen evidence, and an explicit completion receipt that returns
 to the candidate chooser.

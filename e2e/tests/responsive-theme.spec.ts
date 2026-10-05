@@ -30,6 +30,10 @@ async function expectNoPageOverflow(page: Page) {
     document: document.documentElement.scrollWidth,
     body: document.body.scrollWidth,
     viewport: window.innerWidth,
+    offenders: Array.from(document.querySelectorAll('body *')).map((node) => {
+      const box = node.getBoundingClientRect();
+      return { tag: node.tagName, className: (node as HTMLElement).className, right: Math.round(box.right), text: node.textContent?.trim().slice(0, 40) };
+    }).filter((node) => node.right > window.innerWidth + 1).slice(0, 8),
   }));
   expect(sizes.document, JSON.stringify(sizes)).toBeLessThanOrEqual(sizes.viewport + 1);
   expect(sizes.body, JSON.stringify(sizes)).toBeLessThanOrEqual(sizes.viewport + 1);
@@ -194,7 +198,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
   });
 
-  test('Vocabulary Browse and selection own their responsive styling while peer views retain Pico', async ({ page }) => {
+  test('Vocabulary Browse and selection own their responsive styling', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/vocabulary');
@@ -270,7 +274,54 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('link', { name: 'Cancel and keep selection' })).toHaveCSS('min-height', '44px');
 
     await page.goto('/vocabulary/concordance');
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(1);
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+  });
+
+  test('Concordance and occurrence review use owned styles at compact, desktop, dark, and 200% text size', async ({ page }) => {
+    await signIn(page);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+      await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+      await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+      const row = page.locator('#concordance-native-results .concordance-result').first();
+      await row.locator('summary').focus();
+      await expect(row.locator('summary')).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(row.locator('details')).toHaveAttribute('open', '');
+      const source = row.locator('.concordance-context p');
+      await source.evaluate((node) => {
+        node.textContent = 'Das Haus, das seit vielen Jahren am ruhigen Rand des kleinen Dorfes steht, sieht trotz des langen Winters überraschend gut aus. '.repeat(2);
+      });
+      await expect(source).toBeVisible();
+      await expectNoPageOverflow(page);
+      expect(await textContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(4.5);
+      await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+      expect(await textContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(4.5);
+      await page.locator('html').evaluate((node) => node.removeAttribute('data-theme'));
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+      await expectNoPageOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
+    await expect(page.locator('body')).toHaveClass('reading-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    const sentence = page.locator('.lemma-review .reading-text').first();
+    await expect(sentence).toBeVisible();
+    await sentence.evaluate((node) => {
+      node.textContent = 'Der Weg führt durch die historische Altstadt, vorbei an schmalen Häusern und einem alten Brunnen, bis hin zum Marktplatz, auf dem sich die Bewohner am frühen Morgen treffen.';
+    });
+    const exactForm = page.getByLabel('Exact observed form');
+    await exactForm.focus();
+    expect(await exactForm.evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+    await expectNoPageOverflow(page);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    expect(await textContrast(exactForm)).toBeGreaterThanOrEqual(4.5);
+    await expectNoPageOverflow(page);
   });
 
   test('shared shell keeps native navigation, language context, focus, and touch targets', async ({ page }) => {

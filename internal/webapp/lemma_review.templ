@@ -7,8 +7,8 @@ import (
 )
 
 templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal, recovery lemmaReviewRecovery, suggestion *lemmaReviewSuggestion) {
-	@ShellLayout("Review a word", &user, csrf, NavigationReadingJourney) {
-		<main class="container data-width">
+	@ShellLayout("Review a word", &user, csrf, NavigationReadingJourney, shellStyleReading) {
+		<main class="container data-width lemma-review">
 			<p><a href="/reading">Back to Reading</a></p>
 			<h1>Review a word in { title }</h1>
 			<p>Search one exact observed form in this Book's current analysis. Each decision starts with one occurrence; review sentence contexts and explicitly select any additional occurrences to include. Analyzer results remain unchanged.</p>

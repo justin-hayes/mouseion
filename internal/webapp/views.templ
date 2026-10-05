@@ -1280,7 +1280,7 @@ templ VocabularyViewsNav(active string) {
 }
 
 templ VocabularyConcordancePageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message, focusTarget string) {
-	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "", nil)
 		@VocabularyViewsNav("concordance")
 		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied query and scope.</p>
@@ -1414,7 +1414,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 }
 
 templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back string) {
-	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Study this sentence and its syntax", "A complete source sentence with syntax attributed to the analyzer.", nil)
 		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
 		<section class="reading-width" aria-labelledby="sentence-study-heading">
@@ -1654,7 +1654,7 @@ func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (st
 }
 
 templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
-	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
 		@VocabularyViewsNav("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
@@ -1687,7 +1687,7 @@ templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, l
 }
 
 templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
-	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
 		@VocabularyViewsNav("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
