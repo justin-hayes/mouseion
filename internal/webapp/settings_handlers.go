@@ -299,6 +299,14 @@ func (h *Handler) createCustomVocabularyDeck(w http.ResponseWriter, r *http.Requ
 	}
 	deck, err := h.services.Store.VocabularySelection.CreateCustomVocabularyDeck(r.Context(), user(r).ID, language, r.FormValue("name"), r.FormValue("creation_key"))
 	if err != nil {
+		// The request may have lost its response after the transaction committed.
+		// Creation keys make this one retry a durable lookup of the original deck;
+		// the conflict path does not consume a subsequent Browse selection.
+		deck, err = h.services.Store.VocabularySelection.CreateCustomVocabularyDeck(r.Context(), user(r).ID, language, r.FormValue("name"), r.FormValue("creation_key"))
+		if err == nil {
+			redirect(w, r, "/vocabulary/decks/"+deck.ID)
+			return
+		}
 		selection, listErr := h.services.Store.VocabularySelection.ListVocabularyBrowseSelection(r.Context(), user(r).ID, language)
 		if listErr != nil {
 			fail(w, err)
