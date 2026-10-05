@@ -99,6 +99,55 @@ body {
   font-family: var(--mouseion-font-application);
 }
 
+/* My Books owns its native-element baseline and does not depend on Pico resets. */
+body.my-books-shell {
+  margin: 0;
+}
+
+body.my-books-shell,
+body.my-books-shell *,
+body.my-books-shell *::before,
+body.my-books-shell *::after {
+  box-sizing: border-box;
+}
+
+body.my-books-shell :is(button, input, select, textarea) {
+  color: inherit;
+  font: inherit;
+}
+
+body.my-books-shell :focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 2px;
+}
+
+body.my-books-shell a {
+  color: var(--mouseion-color-accent);
+}
+
+body.my-books-shell a.outline,
+body.my-books-shell a[role="button"] {
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-accent);
+  background: transparent;
+  font: inherit;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+
+body.my-books-shell a.outline:hover,
+body.my-books-shell a[role="button"]:hover {
+  background: var(--mouseion-color-surface-quiet);
+}
+
 body > header.container,
 body > main.container {
   width: 100%;
@@ -1271,12 +1320,28 @@ progress {
 }
 
 .library-search__controls input {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-border);
   border-right: 0;
   border-radius: var(--mouseion-radius) 0 0 var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  background: var(--mouseion-color-surface-raised);
 }
 
 .library-search__controls button {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-accent);
   border-radius: 0 var(--mouseion-radius) var(--mouseion-radius) 0;
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.library-search__controls button:hover {
+  background: var(--mouseion-color-accent-hover);
 }
 
 .library-language-pills,
@@ -1297,7 +1362,7 @@ progress {
   overflow-wrap: anywhere;
 }
 
-.library-filters a[aria-current="page"] {
+body.my-books-shell .library-filters a[aria-current="page"] {
   border-color: var(--mouseion-color-accent);
   background: var(--mouseion-color-accent);
   color: var(--mouseion-color-surface-raised);
@@ -1658,8 +1723,12 @@ progress {
 }
 
 .more-actions > summary {
-	color: var(--mouseion-color-text-muted);
-	font-weight: 600;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--mouseion-color-text-muted);
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .more-actions__body {
@@ -1943,7 +2012,7 @@ progress {
 
   .library-search__controls input,
   .library-search__controls button {
-    border: var(--pico-border-width) solid var(--pico-form-element-border-color);
+    border: 1px solid var(--mouseion-color-border);
     border-radius: var(--mouseion-radius);
   }
 

@@ -69,6 +69,16 @@ func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	assert.Contains(t, library.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
 
+func TestMyBooksUsesOwnedStylesWithoutPicoWhileOtherLearnerPagesRetainPico(t *testing.T) {
+	var myBooks, reading bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &myBooks))
+	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
+
+	assert.Contains(t, myBooks.String(), `href="/static/app.css"`)
+	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
+	assert.Contains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
+}
+
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {
 	for _, test := range []struct {
 		name       string

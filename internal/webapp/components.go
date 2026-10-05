@@ -14,12 +14,42 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
-// loginStylesheet keeps Tailwind/daisyUI off shells owned by Pico.
+// loginStylesheet keeps Tailwind/daisyUI scoped to the sign-in route.
 func loginStylesheet(enabled []bool) templ.Component {
 	if len(enabled) == 0 || !enabled[0] {
 		return templ.NopComponent
 	}
 	return templ.Raw(`<link rel="stylesheet" href="/static/login.css">`)
+}
+
+type shellStyle uint8
+
+const (
+	shellStylePico shellStyle = iota
+	shellStyleLogin
+	shellStyleMyBooks
+)
+
+func selectedShellStyle(styles []shellStyle) shellStyle {
+	if len(styles) == 0 {
+		return shellStylePico
+	}
+	return styles[0]
+}
+
+func loginStylesRequested(styles []shellStyle) []bool {
+	return []bool{selectedShellStyle(styles) == shellStyleLogin}
+}
+
+func shellIncludesPico(styles []shellStyle) bool {
+	return selectedShellStyle(styles) != shellStyleMyBooks
+}
+
+func shellBodyClass(styles []shellStyle) string {
+	if selectedShellStyle(styles) == shellStyleMyBooks {
+		return "my-books-shell"
+	}
+	return ""
 }
 
 func studyLanguagePresent(languages []domain.StudyLanguage, language string) bool {
