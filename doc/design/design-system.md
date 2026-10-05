@@ -1,15 +1,15 @@
 # Design system
 
 Status: **Mouseion owns the shared shell, reusable patterns, My Books, Reading,
-Vocabulary Browse/selection, known-vocabulary import, and Custom decks; Pico
-remains for unmigrated content, with sign-in on Tailwind/daisyUI**
+Catalogs, Vocabulary Browse/selection, known-vocabulary import, and Custom decks;
+Pico remains for unmigrated content, with sign-in on Tailwind/daisyUI**
 
 Mouseion's design system is a semantic layer above native HTML and a staged CSS
 foundation. It supports a server-rendered, HTMX-enhanced product whose visual
 character is a calm digital scholarly reading desk. Mouseion's `app.css` owns the
 shared application shell, reusable interaction patterns, and migrated My Books,
-Reading, Vocabulary Browse/selection, known-vocabulary import, and Custom deck
-content. Pico remains the foundation for unmigrated page content;
+Reading, Catalogs, Vocabulary Browse/selection, known-vocabulary import, and
+Custom deck content. Pico remains the foundation for unmigrated page content;
 Tailwind CSS with daisyUI is used only by the deliberately redesigned sign-in route.
 Mouseion-owned tokens, typography roles, responsive rules, and interaction
 contracts are the durable system.
@@ -68,6 +68,7 @@ compiler, or network access.
 | Anonymous sign-in and first-account form (`/login`) | `login.css` (Tailwind/daisyUI) plus shared shell and token rules in `app.css` | The route opts into `login.css`; its utility vocabulary is explicitly declared in the stylesheet source. Tailwind Preflight is not imported. |
 | My Books (`/library`) | `app.css` | The route does not load Pico. Its page styles, native-element baseline, shell, controls, and HTMX fragments are owned by Mouseion; preserve native list semantics and the server-rendered fallback. |
 | Reading (`/reading` and focused Reading tasks) | `app.css` | Current reading, the unordered candidate chooser, completion receipt, and deck-preparation task do not load Pico. Mouseion owns the native-element baseline and responsive Reading patterns; preserve native lists, disclosures, and server-rendered actions. |
+| Catalogs (`/catalogs`) | `app.css` | Connection setup, credential editing, sync status/actions, and deletion confirmation do not load Pico. Keep labeled native forms, clear consequences, server-rendered recovery, and the shared account/language controls. |
 | Vocabulary Browse and selection review/confirmation | `app.css` | Browse, the recoverable unnamed selection, its clear confirmation, and the saved-deck list do not load Pico. Mouseion owns their native-element baseline, responsive results and controls; selection, focus recovery, and ordinary-form behavior remain server-rendered. |
 | Known-vocabulary import | `app.css` | The labeled file form, import feedback, rejection details, and recovery states do not load Pico. Mouseion owns their route styling; native multipart forms and HTMX enhancement retain the same server-rendered behavior. |
 | Saved Custom decks, identity editing, deletion confirmation, and preparation status | `app.css` | Saved-deck review, edit forms, consequential deletion, preparation actions, status, and evidence lists do not load Pico. Mouseion owns their native-element baseline and responsive presentation; ordinary forms and links remain the interaction path. |
@@ -315,8 +316,8 @@ The first rollout is complete and preserved as history in
 current My Books / Reading architecture.
 
 Current implementation adoption covers My Books (`/library`), Reading (`/reading`),
-analysis jobs, focused deck preparation, known-vocabulary import, and Vocabulary
-Browse/selection/Custom decks. `/journey` is
+Catalogs (`/catalogs`), analysis jobs, focused deck preparation,
+known-vocabulary import, and Vocabulary Browse/selection/Custom decks. `/journey` is
 only a compatibility redirect and is not an adopted screen. Reading presents the
 current Book, its frozen evidence, and an explicit completion receipt that returns
 to the candidate chooser.

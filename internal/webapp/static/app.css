@@ -100,33 +100,33 @@ body {
 }
 
 /* Migrated product surfaces own their native-element baseline without Pico. */
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) {
   margin: 0;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell),
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) *,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) *::before,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) *::after {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell),
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) *,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) *::before,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) *::after {
   box-sizing: border-box;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) :is(button, input, select, textarea) {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) :is(button, input, select, textarea) {
   color: inherit;
   font: inherit;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) :focus-visible {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) :focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
   outline-offset: 2px;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) a {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a {
   color: var(--mouseion-color-accent);
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) a.outline,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) a[role="button"] {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a.outline,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a[role="button"] {
   box-sizing: border-box;
   display: inline-flex;
   min-height: 44px;
@@ -143,8 +143,8 @@ body:is(.my-books-shell, .reading-shell, .vocabulary-shell) a[role="button"] {
   text-decoration: none;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) a.outline:hover,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell) a[role="button"]:hover {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a.outline:hover,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a[role="button"]:hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
@@ -1258,6 +1258,104 @@ article.narrow {
 .catalog-list,
 .catalog-list article {
   min-width: 0;
+}
+
+/* Catalog maintenance is a deliberate Pico-free route. Keep native forms,
+   status disclosures, and destructive confirmations clear at any width. */
+body.catalogs-shell :is(button, input, select, textarea) {
+  max-width: 100%;
+}
+
+body.catalogs-shell :is(button, input:not([type="hidden"]), select, textarea) {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+body.catalogs-shell button {
+  border-color: var(--mouseion-color-accent);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+body.catalogs-shell button:hover:not(:disabled) {
+  background: var(--mouseion-color-accent-hover);
+}
+
+body.catalogs-shell button:is(.outline, .secondary) {
+  border-color: var(--mouseion-color-border);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.catalogs-shell button:is(.outline, .secondary):hover:not(:disabled) {
+  background: var(--mouseion-color-surface-quiet);
+}
+
+body.catalogs-shell button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+body.catalogs-shell label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--mouseion-space-1);
+  font-weight: 600;
+}
+
+body.catalogs-shell label small {
+  color: var(--mouseion-color-text-muted);
+  font-weight: 400;
+}
+
+body.catalogs-shell .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--mouseion-space-4);
+  margin-bottom: var(--mouseion-space-4);
+}
+
+body.catalogs-shell form {
+  max-width: 100%;
+}
+
+body.catalogs-shell details > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+body.catalogs-shell .catalog-list article > :is(div[role="status"], p, details, .action-group) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+body.catalogs-shell .catalog-list article div[role="status"] {
+  border-inline-start: 3px solid var(--mouseion-color-info);
+  padding-inline-start: var(--mouseion-space-3);
+}
+
+body.catalogs-shell .catalog-list article div[role="status"] p {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+body.catalogs-shell .catalog-list article details form {
+  margin-block: var(--mouseion-space-3);
+}
+
+body.catalogs-shell .confirmation__body {
+  overflow-wrap: anywhere;
 }
 
 .catalog-list {
