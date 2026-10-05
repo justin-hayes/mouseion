@@ -30,6 +30,7 @@ const (
 	shellStyleMyBooks
 	shellStyleReading
 	shellStyleVocabulary
+	shellStyleCatalogs
 )
 
 func selectedShellStyle(styles []shellStyle) shellStyle {
@@ -45,7 +46,7 @@ func loginStylesRequested(styles []shellStyle) []bool {
 
 func shellIncludesPico(styles []shellStyle) bool {
 	style := selectedShellStyle(styles)
-	return style != shellStyleMyBooks && style != shellStyleReading && style != shellStyleVocabulary
+	return style != shellStyleMyBooks && style != shellStyleReading && style != shellStyleVocabulary && style != shellStyleCatalogs
 }
 
 func shellBodyClass(styles []shellStyle) string {
@@ -56,6 +57,8 @@ func shellBodyClass(styles []shellStyle) string {
 		return "reading-shell"
 	case shellStyleVocabulary:
 		return "vocabulary-shell"
+	case shellStyleCatalogs:
+		return "catalogs-shell"
 	case shellStylePico, shellStyleLogin:
 		return ""
 	}

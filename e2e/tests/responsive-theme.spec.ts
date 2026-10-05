@@ -69,6 +69,74 @@ async function textContrast(element: Locator) {
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('Catalogs owns its styling and preserves legible, recoverable controls', async ({ page, browser }) => {
+    await signIn(page);
+
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/catalogs');
+      await expect(page.locator('body')).toHaveClass('catalogs-shell');
+      await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible();
+      const addConnectionForm = page.locator('#catalog-connection-form');
+      await expect(addConnectionForm.getByLabel('Name', { exact: true })).toBeVisible();
+      await expect(addConnectionForm.getByLabel('Catalog URL', { exact: true })).toBeVisible();
+      await expect(addConnectionForm.getByLabel('Username (optional)')).toBeVisible();
+      await expect(addConnectionForm.getByLabel('Password (optional, encrypted at rest)')).toBeVisible();
+      await expect(page.getByRole('status').first()).toContainText('Last synced');
+      await expect(page.getByText('Authentication failed for this connection.')).toBeVisible();
+      const deletionConfirmations = page.locator('.confirmation');
+      await expect(deletionConfirmations).toHaveCount(5);
+      expect(await deletionConfirmations.evaluateAll((nodes) => nodes.every((node) => !(node as HTMLDetailsElement).open))).toBe(true);
+      await expect(deletionConfirmations.first().locator('summary')).toHaveText('Delete catalog connection');
+      await deletionConfirmations.first().locator('summary').click();
+      await expect(deletionConfirmations.first()).toContainText('Books already in My Books and their artifacts remain available.');
+      await expect(deletionConfirmations.first().getByRole('button', { name: 'Confirm deletion' })).toBeVisible();
+      await deletionConfirmations.first().locator('summary').click();
+
+      // Model an unusually long upstream status to ensure it wraps instead of
+      // widening the page or pushing controls beyond the viewport.
+      await page.locator('#connection-status-fixture-failed-connection').evaluate((node) => {
+        const message = document.createElement('p');
+        message.textContent = 'Status detail '.repeat(40);
+        node.append(message);
+      });
+      await expectNoPageOverflow(page);
+
+      const controls = page.locator('#main-content :is(button, input:not([type="hidden"]), summary, a[role="button"]):visible');
+      await expect44pxTouchTargets(controls);
+      await addConnectionForm.getByLabel('Name', { exact: true }).focus();
+      expect(await addConnectionForm.getByLabel('Name', { exact: true }).evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+      expect(await textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
+      await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+      expect(await textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
+      await expectNoPageOverflow(page);
+    }
+
+    const noScriptContext = await browser.newContext({
+      baseURL: test.info().project.use.baseURL,
+      javaScriptEnabled: false,
+    });
+    const noScriptPage = await noScriptContext.newPage();
+    try {
+      await noScriptPage.goto('/login');
+      await noScriptPage.getByLabel('Username').fill('fixture-learner');
+      await noScriptPage.getByLabel('Password').fill('fixture-password');
+      await noScriptPage.getByRole('button', { name: 'Sign in' }).click();
+      await expect(noScriptPage).toHaveURL(/\/library/);
+      await noScriptPage.goto('/catalogs');
+      await expect(noScriptPage.getByLabel('Study language')).toBeVisible();
+      await expect(noScriptPage.getByRole('button', { name: 'Switch language' })).toBeVisible();
+      await noScriptPage.getByLabel('Study language').selectOption('it');
+      await noScriptPage.getByRole('button', { name: 'Switch language' }).click();
+      await expect(noScriptPage).toHaveURL(/\/catalogs$/);
+      await expect(noScriptPage.getByLabel('Study language')).toHaveValue('it');
+      await expect(noScriptPage.getByRole('button', { name: 'Log out' })).toBeVisible();
+    } finally {
+      await noScriptContext.close();
+    }
+  });
+
   test('Reading uses Mouseion-owned styling for the current Book and unordered chooser', async ({ page }) => {
     await signIn(page);
     await page.getByLabel('Study language').selectOption('de');
