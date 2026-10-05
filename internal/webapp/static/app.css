@@ -99,34 +99,34 @@ body {
   font-family: var(--mouseion-font-application);
 }
 
-/* My Books owns its native-element baseline and does not depend on Pico resets. */
-body.my-books-shell {
+/* Migrated product surfaces own their native-element baseline without Pico. */
+body:is(.my-books-shell, .reading-shell) {
   margin: 0;
 }
 
-body.my-books-shell,
-body.my-books-shell *,
-body.my-books-shell *::before,
-body.my-books-shell *::after {
+body:is(.my-books-shell, .reading-shell),
+body:is(.my-books-shell, .reading-shell) *,
+body:is(.my-books-shell, .reading-shell) *::before,
+body:is(.my-books-shell, .reading-shell) *::after {
   box-sizing: border-box;
 }
 
-body.my-books-shell :is(button, input, select, textarea) {
+body:is(.my-books-shell, .reading-shell) :is(button, input, select, textarea) {
   color: inherit;
   font: inherit;
 }
 
-body.my-books-shell :focus-visible {
+body:is(.my-books-shell, .reading-shell) :focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
   outline-offset: 2px;
 }
 
-body.my-books-shell a {
+body:is(.my-books-shell, .reading-shell) a {
   color: var(--mouseion-color-accent);
 }
 
-body.my-books-shell a.outline,
-body.my-books-shell a[role="button"] {
+body:is(.my-books-shell, .reading-shell) a.outline,
+body:is(.my-books-shell, .reading-shell) a[role="button"] {
   box-sizing: border-box;
   display: inline-flex;
   min-height: 44px;
@@ -143,9 +143,106 @@ body.my-books-shell a[role="button"] {
   text-decoration: none;
 }
 
-body.my-books-shell a.outline:hover,
-body.my-books-shell a[role="button"]:hover {
+body:is(.my-books-shell, .reading-shell) a.outline:hover,
+body:is(.my-books-shell, .reading-shell) a[role="button"]:hover {
   background: var(--mouseion-color-surface-quiet);
+}
+
+body.reading-shell :is(button, input, select, textarea) {
+  max-width: 100%;
+}
+
+body.reading-shell button {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+body.reading-shell button:hover:not(:disabled) {
+  background: var(--mouseion-color-accent-hover);
+}
+
+body.reading-shell button.outline,
+body.reading-shell button.secondary {
+  border-color: var(--mouseion-color-border);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.reading-shell button.outline:hover,
+body.reading-shell button.secondary:hover {
+  background: var(--mouseion-color-surface-quiet);
+}
+
+body.reading-shell form {
+  max-width: 100%;
+}
+
+body.reading-shell :is(input, select, textarea) {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.reading-shell summary {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+body.reading-shell .confirmation summary {
+  display: flex;
+  align-items: center;
+}
+
+body.reading-shell :is(.reading-chooser-list, .journey-list) {
+  min-width: 0;
+}
+
+body.reading-shell .reading-chooser-list {
+  padding: 0;
+}
+
+body.reading-shell .reading-chooser-book,
+body.reading-shell .journey-book,
+body.reading-shell .journey-goal,
+body.reading-shell .reading-chooser-empty,
+body.reading-shell .language-handoff,
+body.reading-shell #primary-goal-section {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.reading-shell .journey-goal {
+  color: var(--mouseion-color-text);
+}
+
+body.reading-shell .journey-book__identity,
+body.reading-shell .journey-book__evidence,
+body.reading-shell .journey-book__controls,
+body.reading-shell .goal-card__actions {
+  min-width: 0;
+}
+
+body.reading-shell .journey-book__evidence > section,
+body.reading-shell .goal-card__deck {
+  max-width: 100%;
+}
+
+body.reading-shell .journey-finish-outcome {
+  max-width: var(--mouseion-width-reading);
+  border-block: 2px solid var(--mouseion-color-text);
+  padding-block: var(--mouseion-space-6);
+}
+
+body.reading-shell .journey-finish-outcome h1 {
+  font-family: var(--mouseion-font-reading);
 }
 
 body > header.container,

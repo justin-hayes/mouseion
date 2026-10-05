@@ -58,6 +58,63 @@ async function textContrast(element: Locator) {
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('Reading uses Mouseion-owned styling for the current Book and unordered chooser', async ({ page }) => {
+    await signIn(page);
+    await page.getByLabel('Study language').selectOption('de');
+    await expect(page).toHaveURL(/\/library$/);
+
+    await page.goto('/reading');
+    await expect(page.locator('#primary-goal-section')).toBeVisible();
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    const currentBook = page.locator('#primary-goal-section article.journey-book');
+    await expect(currentBook).toBeVisible();
+    expect(await currentBook.evaluate((node) => getComputedStyle(node).display)).toBe(
+      test.info().project.name.startsWith('compact') ? 'flex' : 'grid',
+    );
+    await expect(currentBook).toContainText('Current reading');
+    await expect(currentBook).toContainText('Reserved vocabulary');
+    await expect(currentBook.getByRole('link', { name: 'Open focused deck task' })).toHaveAttribute(
+      'href',
+      /\/reading\/books\/[^/]+\/deck\/preparations\/new$/,
+    );
+
+    const controls = page.locator('#primary-goal-section summary:visible, #primary-goal-section button:visible, #primary-goal-section a[role="button"]:visible');
+    const controlBoxes = await controls.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, height: box.height, text: node.textContent?.trim() };
+    }));
+    for (const box of controlBoxes) {
+      expect(box.width, box.text).toBeGreaterThanOrEqual(44);
+      expect(box.height, box.text).toBeGreaterThanOrEqual(44);
+    }
+
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+    await page.goto('/reading/switch');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.locator('ul.reading-chooser-list').first()).toBeVisible();
+    await expect(page.locator('ol.reading-chooser-list')).toHaveCount(0);
+    await expect(page.locator('.reading-chooser-book').filter({ hasText: 'Current coverage:' }).first()).toContainText('Current coverage:');
+    await expectNoPageOverflow(page);
+    const chooserSummaries = await page.locator('.reading-chooser-book details > summary:visible').evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }));
+    for (const summary of chooserSummaries) {
+      expect(summary.width).toBeGreaterThanOrEqual(44);
+      expect(summary.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await page.goto('/library');
+    await page.getByLabel('Study language').selectOption('it');
+    await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/reading');
+    await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+  });
+
   test('shared shell keeps native navigation, language context, focus, and touch targets', async ({ page }) => {
     await page.goto('/login');
     await expect(page.locator('body > a.skip-link[href="#main-content"]')).toHaveCount(1);
