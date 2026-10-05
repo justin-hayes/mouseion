@@ -47,7 +47,7 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"container data-width lemma-review\"><p><a href=\"/reading\">Back to Reading</a></p><h1>Review a word in ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"page-container data-width lemma-review\"><p><a href=\"/reading\">Back to Reading</a></p><h1>Review a word in ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

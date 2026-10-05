@@ -16,23 +16,6 @@
   --mouseion-radius: 0.125rem;
   --mouseion-focus-width: 0.125rem;
 
-  --pico-background-color: var(--mouseion-color-surface);
-  --pico-card-background-color: var(--mouseion-color-surface-raised);
-  --pico-color: var(--mouseion-color-text);
-  --pico-muted-color: var(--mouseion-color-text-muted);
-  --pico-muted-border-color: var(--mouseion-color-border);
-  --pico-primary: var(--mouseion-color-accent);
-  --pico-primary-hover: var(--mouseion-color-accent-hover);
-  --pico-primary-background: var(--mouseion-color-accent);
-  --pico-primary-hover-background: var(--mouseion-color-accent-hover);
-  --pico-primary-border: var(--mouseion-color-accent);
-  --pico-primary-hover-border: var(--mouseion-color-accent-hover);
-  --pico-form-element-background-color: var(--mouseion-color-surface-raised);
-  --pico-form-element-border-color: #9daeb8;
-  --pico-card-background-color: var(--mouseion-color-surface-raised);
-  --pico-card-box-shadow: none;
-  --pico-border-radius: var(--mouseion-radius);
-
   /* Typography roles. */
   --mouseion-font-application: "Avenir Next", Avenir, "Gill Sans", "Segoe UI", sans-serif;
   --mouseion-font-reading: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
@@ -70,7 +53,6 @@
   --mouseion-color-success: #8ed0a6;
   --mouseion-color-warning: #f0c26b;
   --mouseion-color-danger: #ffaaa4;
-  --pico-form-element-border-color: #647985;
 }
 
 @media only screen and (prefers-color-scheme: dark) {
@@ -88,64 +70,136 @@
     --mouseion-color-success: #8ed0a6;
     --mouseion-color-warning: #f0c26b;
     --mouseion-color-danger: #ffaaa4;
-    --pico-form-element-border-color: #647985;
   }
 }
 
 body {
+  margin: 0;
   min-height: 100vh;
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface);
   font-family: var(--mouseion-font-application);
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
-/* Migrated product surfaces own their native-element baseline without Pico. */
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) {
-  margin: 0;
-}
-
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell),
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) *,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) *::before,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) *::after {
+/* Mouseion owns the native baseline on every route; controls never inherit
+   browser-specific sizing or a third-party reset. */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) :is(button, input, select, textarea) {
+:is(button, input, select, textarea) {
   color: inherit;
   font: inherit;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) :focus-visible {
+:focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
   outline-offset: 2px;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a {
+button,
+[role="button"] {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+a {
   color: var(--mouseion-color-accent);
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a.outline,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a[role="button"] {
+a.button--outline,
+a[role="button"],
+button.button--outline,
+button.button--quiet {
   box-sizing: border-box;
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--mouseion-color-accent);
+  border: 1px solid var(--mouseion-color-border);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-2) var(--mouseion-space-3);
-  color: var(--mouseion-color-accent);
-  background: transparent;
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
   font: inherit;
   font-weight: 650;
   text-align: center;
   text-decoration: none;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a.outline:hover,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a[role="button"]:hover {
+a.button--outline:hover,
+a[role="button"]:hover,
+button.button--outline:hover:not(:disabled),
+button.button--quiet:hover:not(:disabled) {
   background: var(--mouseion-color-surface-quiet);
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--mouseion-color-accent);
+}
+
+label {
+  display: block;
+}
+
+article {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+pre,
+code,
+kbd,
+samp {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--mouseion-space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 body.reading-shell :is(button, input, select, textarea) {
@@ -171,15 +225,15 @@ body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button:hover:not(:disabl
   background: var(--mouseion-color-accent-hover);
 }
 
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.outline,
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.secondary {
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--outline,
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--quiet {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.outline:hover,
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.secondary:hover {
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--outline:hover,
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--quiet:hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
@@ -249,8 +303,7 @@ body.reading-shell .journey-finish-outcome h1 {
   font-family: var(--mouseion-font-reading);
 }
 
-/* Browse and the recoverable selection are the first Vocabulary surfaces
-   migrated from Pico. Keep every rule behind the route's explicit shell class. */
+/* Vocabulary workflow controls and selection styles. */
 body.vocabulary-shell :is(button, input, select, textarea) {
   max-width: 100%;
 }
@@ -627,8 +680,8 @@ body.vocabulary-shell .custom-deck-warning + h2 {
   }
 }
 
-body > header.container,
-body > main.container {
+body > header.page-container,
+body > main.page-container {
   width: 100%;
   max-width: none;
 }
@@ -812,7 +865,7 @@ textarea {
   font: inherit;
 }
 
-/* Shared actions own their controls; legacy page content remains Pico-owned. */
+/* Shared actions use the application button variants. */
 :is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button, [role="button"]) {
   box-sizing: border-box;
   min-height: 44px;
@@ -828,18 +881,18 @@ textarea {
   text-decoration: none;
 }
 
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.outline, .secondary) {
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.button--outline, .button--quiet) {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) button:not(.outline, .secondary):hover:not(:disabled),
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) [role="button"]:not(.outline, .secondary):hover {
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) button:not(.button--outline, .button--quiet):hover:not(:disabled),
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) [role="button"]:not(.button--outline, .button--quiet):hover {
   background: var(--mouseion-color-accent-hover);
 }
 
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.outline, .secondary):hover {
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.button--outline, .button--quiet):hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
@@ -1469,13 +1522,13 @@ body.catalogs-shell button:hover:not(:disabled) {
   background: var(--mouseion-color-accent-hover);
 }
 
-body.catalogs-shell button:is(.outline, .secondary) {
+body.catalogs-shell button:is(.button--outline, .button--quiet) {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body.catalogs-shell button:is(.outline, .secondary):hover:not(:disabled) {
+body.catalogs-shell button:is(.button--outline, .button--quiet):hover:not(:disabled) {
   background: var(--mouseion-color-surface-quiet);
 }
 
@@ -1497,7 +1550,7 @@ body.catalogs-shell label small {
   font-weight: 400;
 }
 
-body.catalogs-shell .grid {
+body.catalogs-shell .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: var(--mouseion-space-4);

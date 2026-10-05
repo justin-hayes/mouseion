@@ -25,7 +25,7 @@ func loginStylesheet(enabled []bool) templ.Component {
 type shellStyle uint8
 
 const (
-	shellStylePico shellStyle = iota
+	shellStyleDefault shellStyle = iota
 	shellStyleLogin
 	shellStyleMyBooks
 	shellStyleReading
@@ -36,18 +36,13 @@ const (
 
 func selectedShellStyle(styles []shellStyle) shellStyle {
 	if len(styles) == 0 {
-		return shellStylePico
+		return shellStyleDefault
 	}
 	return styles[0]
 }
 
 func loginStylesRequested(styles []shellStyle) []bool {
 	return []bool{selectedShellStyle(styles) == shellStyleLogin}
-}
-
-func shellIncludesPico(styles []shellStyle) bool {
-	style := selectedShellStyle(styles)
-	return style != shellStyleMyBooks && style != shellStyleReading && style != shellStyleVocabulary && style != shellStyleCatalogs && style != shellStyleJobs
 }
 
 func shellBodyClass(styles []shellStyle) string {
@@ -62,7 +57,7 @@ func shellBodyClass(styles []shellStyle) string {
 		return "catalogs-shell"
 	case shellStyleJobs:
 		return "jobs-shell"
-	case shellStylePico, shellStyleLogin:
+	case shellStyleDefault, shellStyleLogin:
 		return ""
 	}
 	return ""

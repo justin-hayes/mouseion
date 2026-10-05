@@ -19,13 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
+func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, Layout("Foundations", nil, "").Render(context.Background(), &output))
 
 	html := output.String()
 	for _, want := range []string{
-		`href="/static/vendor/pico-2.1.1.min.css"`,
+		`href="/static/app.css"`,
 		`src="/static/vendor/htmx-4.0.0.min.js"`,
 	} {
 		assert.True(t, strings.Contains(html, want), "layout missing bundled asset %q", want)
@@ -36,8 +36,8 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 		path string
 		want string
 	}{
-		{path: "/static/vendor/pico-2.1.1.min.css", want: "Pico CSS"},
 		{path: "/static/vendor/htmx-4.0.0.min.js", want: "htmx"},
+		{path: "/static/app.css", want: "--mouseion-color-surface:"},
 		{path: "/static/login.css", want: ".login-screen"},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
@@ -49,13 +49,16 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 			assert.True(t, strings.Contains(response.Body.String(), asset.want), "asset body missing %q", asset.want)
 		})
 	}
+	picoRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/vendor/pico-2.1.1.min.css", nil)
+	picoResponse := httptest.NewRecorder()
+	StaticHandler().ServeHTTP(picoResponse, picoRequest)
+	assert.Equal(t, http.StatusNotFound, picoResponse.Code, "retired Pico asset must not be served")
 
-	cssRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/login.css", nil)
+	cssRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
 	cssResponse := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(cssResponse, cssRequest)
 	css := cssResponse.Body.String()
-	assert.NotContains(t, css, "*,:before,:after,::backdrop{box-sizing:border-box", "Tailwind Preflight must not reset Pico-owned pages")
-	assert.NotContains(t, css, "*,::after,::before,::backdrop{box-sizing:border-box", "Tailwind Preflight must not reset Pico-owned pages")
+	assert.Contains(t, css, "*::before", "Mouseion owns a deterministic box-sizing baseline")
 }
 
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
@@ -66,7 +69,8 @@ func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	assert.Contains(t, login.String(), `href="/static/login.css"`)
 	assert.Contains(t, login.String(), `class="login-screen`)
 	assert.NotContains(t, library.String(), `href="/static/login.css"`)
-	assert.Contains(t, library.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
+	assert.Contains(t, library.String(), `href="/static/app.css"`)
+	assert.NotContains(t, library.String(), `pico-2.1.1.min.css`)
 }
 
 func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {

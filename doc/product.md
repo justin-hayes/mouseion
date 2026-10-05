@@ -89,7 +89,7 @@ Generated-deck history and modeled Known vocabulary are deliberately separate. G
 - **Go core:** domain logic, PostgreSQL persistence, imports, coverage selection, sentence selection, Anki export, and the web/River worker process.
 - **Python/Stanza gRPC service:** long-lived, ingest-time linguistic analysis behind a versioned Protobuf contract; authoritative for advertised language and feature capabilities.
 - **PostgreSQL:** application data, per-user learning state and catalog connections, and River jobs.
-- **Web application:** server-rendered Templ views enhanced with HTMX and styled with Pico CSS.
+- **Web application:** server-rendered Templ views enhanced with HTMX and styled by Mouseion's shared design system.
 - **Deployment:** three processes—PostgreSQL, the Python NLP gRPC service, and the Go web application with River workers.
 
 ## Architecture decision records
