@@ -418,7 +418,7 @@ test.describe('responsive and theme regression coverage', () => {
     expect(colors.background).toBe(colors.tokenBackground);
 
     await page.goto('/deck-preparations/fixture-preparation/status');
-    const secondaryAction = page.locator('.action-group .outline').first();
+    const secondaryAction = page.locator('.action-group .button--outline').first();
     await expect(secondaryAction).toBeVisible();
     await secondaryAction.hover();
     expect(await textContrast(secondaryAction)).toBeGreaterThanOrEqual(4.5);
@@ -568,6 +568,8 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     await page.goto('/vocabulary/selection/clear-confirm');
     const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
+    const cleared = await page.request.post('/vocabulary/selection/clear', { form: { csrf_token: csrf } });
+    expect(cleared.ok()).toBeTruthy();
     const selected = await page.request.post('/vocabulary/selection/add', {
       form: { csrf_token: csrf, lemma: 'gehen', upos: 'VERB' },
     });

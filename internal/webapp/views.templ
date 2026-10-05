@@ -19,9 +19,6 @@ templ Layout(title string, user *domain.User, csrf string) {
 
 templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, shellStyles ...shellStyle) {
 	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title>
-	if shellIncludesPico(shellStyles) {
-		<link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/>
-	}
 	<link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -79,7 +76,7 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
       if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));
       target.outerHTML = await readyResponse.text(); return;
     } else if (active) {
-      html += '<button type="button" class="outline secondary" data-cancel-preparation>Cancel preparation</button>';
+      html += '<button type="button" class="button button--outline button--quiet" data-cancel-preparation>Cancel preparation</button>';
     } else {
       if (preparation.error) html += '<p role="alert">' + window.escapeHtml(preparation.error) + '</p>';
       html += '<button type="button" data-retry-preparation>Retry preparation</button>';
@@ -211,13 +208,13 @@ document.addEventListener('htmx:after:swap', function (evt) {
     region.removeAttribute('data-focus-id');
   });
 });
-	</script>@loginStylesheet(loginStylesRequested(shellStyles))</head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	</script>@loginStylesheet(loginStylesRequested(shellStyles))</head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
 		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
-		<li class="site-header__account"><small>{ user.Username }</small></li><li class="site-header__session"><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Log out</button></form></li></ul>
+		<li class="site-header__account"><small>{ user.Username }</small></li><li class="site-header__session"><form class="inline" method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Log out</button></form></li></ul>
 	}
-	</nav></header><main id="main-content" class="container" tabindex="-1">{ children... }</main></body></html>
+	</nav></header><main id="main-content" class="page-container" tabindex="-1">{ children... }</main></body></html>
 }
 templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, goalBookID string, hasCatalogueConnections bool) {
 	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
@@ -252,7 +249,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		}
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
-				<a class="outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
+				<a class="button button--outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
 			}
 			if book.Disposition != "" {
 				<p class="metadata"><strong>Workflow</strong>: { myBookWorkflowLabel(book) }</p>
@@ -260,7 +257,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					if book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-							<button type="submit" class="outline library-book__journey-action">Move to To Read</button>
+							<button type="submit" class="button button--outline library-book__journey-action">Move to To Read</button>
 						</form>
 					} else {
 						<p class="metadata">Choose a language in the catalog before moving this Book to To Read.</p>
@@ -269,7 +266,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-					<button type="submit" class="outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
+					<button type="submit" class="button button--outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
 			<details class="more-actions">
@@ -277,23 +274,23 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 				<div class="more-actions__body">
 					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.IsCurrentReading {
 						@Confirmation("Mark as previously read", "This records one completion from before Mouseion. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
-							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Confirm previously read</button></form>
+							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline button--quiet">Confirm previously read</button></form>
 						}
 					}
 					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
-						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="outline secondary">Read again</button></form>
+						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="button button--outline button--quiet">Read again</button></form>
 					}
 					if refreshEligible {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
 							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<button type="submit" class="outline">Refresh metadata</button>
+							<button type="submit" class="button button--outline">Refresh metadata</button>
 						</form>
 					}
 					if book.Disposition != "" && (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.IsCurrentReading {
 						@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
 							<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
 								<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-								<button type="submit" class="outline secondary">Confirm set aside</button>
+								<button type="submit" class="button button--outline button--quiet">Confirm set aside</button>
 							</form>
 						}
 					}
@@ -319,14 +316,14 @@ templ NeedsLanguageBookRow(book domain.MyBook) {
 }
 
 templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selected, focusResults bool) {
-	<a class="outline" data-my-books-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
+	<a class="button button--outline" data-my-books-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
 }
 
 templ MyBooksResultsError(message, retryURL string) {
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
 		<h2 id="library-books-heading" tabindex="-1">My Books could not be loaded</h2>
 		<p role="alert">{ message }</p>
-		<p><a class="outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
+		<p><a class="button button--outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
 	</section>
 }
 
@@ -334,7 +331,7 @@ templ MyBooksFailurePage(user domain.User, csrf, message, retryURL string) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		@PageHeader("My Books", "Your working collection is temporarily unavailable.", nil)
 		@Feedback(FeedbackError, "My Books needs attention", message)
-		<p><a role="button" class="outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
+		<p><a role="button" class="button button--outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
 	}
 }
 
@@ -344,12 +341,12 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 		@MyBooksDispositionFilterLink(browse, "Inbox", domain.BookDispositionInbox, myBooksDispositionCount(browse, domain.BookDispositionInbox))
 		@MyBooksDispositionFilterLink(browse, "To Read", domain.BookDispositionToRead, myBooksDispositionCount(browse, domain.BookDispositionToRead))
 		@MyBooksDispositionFilterLink(browse, "Set Aside", domain.BookDispositionSetAside, myBooksDispositionCount(browse, domain.BookDispositionSetAside))
-		<a class="outline" { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
+		<a class="button button--outline" { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
 	</nav>
 }
 
 templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
-	<a class="outline" { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
+	<a class="button button--outline" { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
@@ -445,7 +442,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
 				<a role="button" href="/catalogs">Set up a catalog</a>
 				if hasCatalogueConnections {
-					<a role="button" class="outline" href="/catalogs">Sync catalog</a>
+					<a role="button" class="button button--outline" href="/catalogs">Sync catalog</a>
 				}
 			}
 		}
@@ -456,7 +453,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
 				<a role="button" href="/catalogs">Set up a catalog</a>
 					if hasCatalogueConnections {
-						<a role="button" class="outline" href="/catalogs">Sync catalog</a>
+						<a role="button" class="button button--outline" href="/catalogs">Sync catalog</a>
 					}
 				}
 			} else {
@@ -494,7 +491,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
 	@ShellLayout("Reading", &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@PageHeader(journeyPageTitle(journey), "Review your current Book and other books you may want to read.", nil) {
-			<a role="button" class="outline" href="/library">Add books from My Books</a>
+			<a role="button" class="button button--outline" href="/library">Add books from My Books</a>
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -549,7 +546,7 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 		}
 		if len(journey.Provisional) == 0 {
 			@EmptyState("No other To Read books", "There are no other To Read books in this language. Add or reconsider books from My Books when you are ready.") {
-				<a role="button" class="outline" href="/library">Browse My Books</a>
+				<a role="button" class="button button--outline" href="/library">Browse My Books</a>
 			}
 		}
 		<ol class="journey-list" aria-label="To Read books">
@@ -630,7 +627,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 	if !primary {
 		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
 			if item.CanChooseGoal {
-				<a role="button" class="outline" href="/reading/switch">Switch current reading</a>
+				<a role="button" class="button button--outline" href="/reading/switch">Switch current reading</a>
 			} else if item.GoalEligibilityReason != "" {
 				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
@@ -646,12 +643,12 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
 				<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit">Mark reading finished</button></form>
 			}
-			<a role="button" class="outline" href="/reading/switch">Switch current reading</a>
+			<a role="button" class="button button--outline" href="/reading/switch">Switch current reading</a>
 			@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
-				<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="outline">Confirm stop for now</button></form>
+				<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline">Confirm stop for now</button></form>
 			}
 			@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain. You can move it back to To Read from My Books.", StatusDanger) {
-				<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="outline secondary">Confirm set aside</button></form>
+				<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline button--quiet">Confirm set aside</button></form>
 			}
 			<details class="more-actions">
 				<summary>More actions</summary>
@@ -675,10 +672,10 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 				<p>No cards were created from this snapshot.</p>
 			} else {
 			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">Re-prepare with current Meaning evidence</button></form>
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
 		}
 	} else if deckPreparationActive(preparation) {
-		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="outline secondary">Cancel preparation</button></form>
+		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button button--outline button--quiet">Cancel preparation</button></form>
 		if preparation.State == domain.DeckPreparationQueued {
 			<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit">Retry deck preparation</button></form>
 		}
@@ -698,7 +695,7 @@ templ JourneyEvidence(item journeyBookView, csrf string, primary bool) {
 		{{ action := journeyAnalysisAction(item) }}
 		if action.Status != "" {
 			if action.Label != "" && action.Submit {
-				<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">{ action.Label }</button></form>
+				<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">{ action.Label }</button></form>
 			} else if action.Label != "" && action.URL != "" {
 				<p><a href={ templ.SafeURL(action.URL) }>{ action.Label }</a></p>
 			}
@@ -766,14 +763,14 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button type="submit" class="outline">Re-prepare with current Meaning evidence</button>
+						<button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button>
 					</form>
 				}
 				<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
 				@DeckJourneyAction(journeyAction)
 			}
 		} else if deckPreparationActive(preparation) {
-			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel preparation</button></form>
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel preparation</button></form>
 		} else {
 			if preparation.State == domain.DeckPreparationFailed {
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessageFor(preparation))
@@ -859,14 +856,14 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 			if bookID != "" {
 				<input type="hidden" name="book_id" value={ bookID }/>
 			}
-			<div class="grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
+			<div class="form-grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
 		if len(connections) > 0 {
 			<h2>Catalog maintenance</h2>
 			<p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
@@ -916,14 +913,14 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry analysis</button></form>
 			}
 			if jobRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel analysis</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel analysis</button></form>
 			}
 		}
 		if status.CorpusID != "" {
 			if status.LogicalState == "completed" {
 					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
 						<p>Analysis complete. Continue with this book in Reading.</p>
-						<a role="button" class="outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
+						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
@@ -1005,7 +1002,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 							<small>In a Book deck</small>
 						}
 					</td><td>
-						<form method="post" action={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-post={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-sync="#vocabulary-workflow:queue all" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" data-vocabulary-selection><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="outline">{ vocabularySelectionButton(row.Selected) }</button></form>
+						<form method="post" action={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-post={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-sync="#vocabulary-workflow:queue all" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" data-vocabulary-selection><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="button button--outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
 				</tbody>
@@ -1053,14 +1050,14 @@ templ VocabularySelectionPageView(user domain.User, csrf, language string, ident
 		for _, identity := range identities {
 			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }
 			if editable {
-				<form method="post" action="/vocabulary/selection/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="outline">Remove</button></form>
+				<form method="post" action="/vocabulary/selection/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="button button--outline">Remove</button></form>
 			}
 			</li>
 		}
 		</ul>
 		@VocabularySelectionPager(page,visibleTotal,missingOnly)
 		if editable {
-			<a role="button" class="outline secondary" href="/vocabulary/selection/clear-confirm">Clear selection</a>
+			<a role="button" class="button button--outline button--quiet" href="/vocabulary/selection/clear-confirm">Clear selection</a>
 		}
 		if editable && (total > 0 || creationError != "") {
 			<h2>Name a Custom deck</h2><p>Creating a deck saves these identities only; it does not prepare or download a card package.</p>
@@ -1083,7 +1080,7 @@ templ VocabularySelectionClearConfirmView(user domain.User, csrf, language strin
 		@PageHeader("Clear Browse selection?", "This removes only the unnamed selection for this study language. Saved Custom decks are not changed.", nil)
 		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities will be removed", count) }.</p>
 		if editable {
-			<form method="post" action="/vocabulary/selection/clear"><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Confirm clear selection</button></form>
+			<form method="post" action="/vocabulary/selection/clear"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--quiet" type="submit">Confirm clear selection</button></form>
 		} else {
 			<p role="status">This language is unavailable; clearing is disabled until it returns.</p>
 		}
@@ -1176,7 +1173,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 					</ul>
 				}
 			if editable {
-				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="outline" type="submit">Remove</button></form>
+				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="button button--outline" type="submit">Remove</button></form>
 			}
 			</li>
 		}
@@ -1193,7 +1190,7 @@ templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.Cu
 		}
 		if editable {
 			<form class="custom-deck-form custom-deck-add-identity" method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/add") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="identity-lemma">Add an identity</label><input id="identity-lemma" name="lemma" required/><label for="identity-upos">Part of speech</label><select id="identity-upos" name="upos"><option>NOUN</option><option>VERB</option><option>ADJ</option><option>ADV</option></select><button type="submit">Add identity</button></form>
-			<a role="button" class="outline secondary" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete-confirm") }>Delete Custom deck</a>
+			<a role="button" class="button button--outline button--quiet" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete-confirm") }>Delete Custom deck</a>
 		}
 		<p><a class="vocabulary-action-link" href="/vocabulary/selection">Browse selection and saved decks</a></p>
 		<p><a class="vocabulary-action-link" href="/vocabulary">Return to Browse</a></p>
@@ -1209,7 +1206,7 @@ templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation
 		<p role="status"><strong>{ preparation.State }</strong></p>
 		if preparation.State == "queued" || preparation.State == "preparing" {
 			<p>This durable preparation can continue while you leave this page. Return here to check its status.</p>
-			<form method="post" action={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Cancel preparation</button></form>
+			<form method="post" action={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--quiet" type="submit">Cancel preparation</button></form>
 		} else if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
 			<p>{ fmt.Sprintf("%d cards are ready", preparation.TotalCards) }.</p>
 			<h2>Frozen representative sentences</h2>
@@ -1249,7 +1246,7 @@ templ CustomVocabularyDeckDeleteConfirmView(user domain.User, csrf string, deck 
 		<p><strong>{ deck.Name }</strong> ({ deck.Language })</p>
 		<p>Mouseion cannot revoke APKG files already downloaded or remove notes already imported into Anki. Deletion withdraws any associated artifact from future Mouseion downloads.</p>
 		if editable {
-			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="secondary" type="submit">Confirm delete Custom deck</button></form>
+			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--quiet" type="submit">Confirm delete Custom deck</button></form>
 		} else {
 			<p role="status">This language is unavailable; deletion is disabled until it returns.</p>
 		}
@@ -1873,7 +1870,7 @@ templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
 			@Feedback(FeedbackError, "Translation needs attention", status.Error+" Review the affected book and try again when the provider is available.")
 		}
 		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel translations</button></form>
+			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel translations</button></form>
 		}
 	}
 }
@@ -2003,7 +2000,7 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry catalog sync</button></form>
 			}
 			if catalogueSyncStatusRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="outline secondary">Cancel catalog sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel catalog sync</button></form>
 			}
 		}
 		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>
@@ -2018,7 +2015,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Try the focused deck task</a>
 		} else if item.AnalysisPreparation == nil {
 			<p><strong>Deck state:</strong> Not prepared from this analysis.</p>
-			<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Prepare deck</a>
+			<a role="button" class="button button--outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Prepare deck</a>
 		} else {
 			<p><strong>Deck state:</strong> { deckPreparationTitle(*item.AnalysisPreparation) }.</p>
 			if item.AnalysisPreparation.Error == domain.DeckPreparationRequiresRepreparationError {
@@ -2028,18 +2025,18 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
 			}
 			if deckPreparationActive(*item.AnalysisPreparation) {
-				<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline secondary">Cancel preparation</button></form>
+				<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline button--quiet">Cancel preparation</button></form>
 			} else if item.AnalysisPreparation.State == domain.DeckPreparationReady {
 				if item.AnalysisPreparation.Error != domain.DeckPreparationRequiresRepreparationError {
 					if deckPreparationEmpty(*item.AnalysisPreparation) {
 						<p role="note">No recurring vocabulary was found, so no cards were created.</p>
 					} else {
 						<a role="button" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
-						<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="outline">Re-prepare with current Meaning evidence</button></form>
+						<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
 					}
 				}
 			} else if item.AnalysisPreparation.State == domain.DeckPreparationFailed || item.AnalysisPreparation.State == domain.DeckPreparationCancelled {
-				<a role="button" class="outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Review and retry</a>
+				<a role="button" class="button button--outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Review and retry</a>
 			}
 		}
 	</section>
@@ -2092,9 +2089,9 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 	@ShellLayout(readingChooserPageTitle(chooser), &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@PageHeader(readingChooserPageTitle(chooser), readingChooserPageDescription(chooser), nil) {
 			if chooser.CurrentBookID != "" {
-				<a class="outline" href="/reading">Return to current reading</a>
+				<a class="button button--outline" href="/reading">Return to current reading</a>
 			} else {
-			<a class="outline" href="/library?disposition=to_read">Review To Read books</a>
+			<a class="button button--outline" href="/library?disposition=to_read">Review To Read books</a>
 			}
 		}
 		if message != "" {
@@ -2118,7 +2115,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 				if chooser.CurrentBookID != "" {
 					<h2 id="reading-chooser-empty-heading">No other eligible To Read books</h2>
 					<p>Your current book remains unchanged. Move another book to To Read or return to your current reading.</p>
-					<a class="outline" href="/reading">Return to current reading</a>
+					<a class="button button--outline" href="/reading">Return to current reading</a>
 				} else {
 					<h2 id="reading-chooser-empty-heading">No To Read books yet</h2>
 					<p>Move a book to To Read in My Books when you may want to read it. You can leave other books in Inbox or set them aside.</p>

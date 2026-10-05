@@ -1,5 +1,10 @@
 # Pico replacement pilot: no-go
 
+> Historical evidence only. The no-go applied to a drop-in replacement pilot;
+> the deliberately staged redesign selected in #1441 subsequently completed.
+> The shipped interface now uses the single Mouseion-owned foundation described
+> in [`doc/design/design-system.md`](../design/design-system.md).
+
 **Decision:** Do not replace Pico or start the migration described by #1441.
 Keep Pico in production and leave #1442 open for maintainer direction. The
 standalone compiler and daisyUI bundle are technically compatible, but the

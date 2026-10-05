@@ -30,6 +30,22 @@ test.describe('migration and epistemic regression coverage', () => {
     await expectPostFormsCarryCSRF(page);
   });
 
+  test('uses the single Mouseion stylesheet across full pages and task routes', async ({ page }) => {
+    for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/import', '/vocabulary/concordance', '/jobs']) {
+      const response = await page.goto(path);
+      expect(response?.ok(), `${path} should render`).toBeTruthy();
+      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+      await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
+      await expect(page.locator('[class~="outline"], [class~="secondary"], [class~="container"], [class~="grid"]')).toHaveCount(0);
+    }
+
+    const stylesheet = await page.request.get('/static/app.css');
+    expect(stylesheet.ok()).toBeTruthy();
+    const css = await stylesheet.text();
+    expect(css).not.toContain('--pico-');
+    expect(css).toContain('prefers-reduced-motion');
+  });
+
   test('shows current reading and unordered To Read choices without forecasts', async ({ page }) => {
     await page.goto('/reading');
     await expect(page.locator('#primary-goal-heading')).toHaveText('Current reading');
