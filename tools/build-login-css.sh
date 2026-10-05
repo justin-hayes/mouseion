@@ -64,8 +64,8 @@ download_verified \
   "$daisyui" "$daisyui_sha256"
 chmod +x "$tailwind"
 
-cd "$root"
+cd "$root/internal/webapp/styles"
 "$tailwind" \
-  --input internal/webapp/styles/login.css \
-  --output internal/webapp/static/login.css \
+  --input login.css \
+  --output ../static/login.css \
   --minify

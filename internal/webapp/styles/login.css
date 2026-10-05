@@ -2,6 +2,7 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
   themes: false;
+  include: button, input, alert;
 }
 
 /* Keep this route's generated utilities deliberately separate from the legacy

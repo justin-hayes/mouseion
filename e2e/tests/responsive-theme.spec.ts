@@ -47,6 +47,11 @@ test.describe('responsive and theme regression coverage', () => {
   test('sign-in controls are styled, focused, and reachable at 200 percent text size', async ({ page }) => {
     await page.goto('/login');
     await expect(page.locator('link[rel="stylesheet"][href="/static/login.css"]')).toHaveCount(1);
+    const shell = await page.locator('body > header.site-header').evaluate((node) => {
+      const style = getComputedStyle(node);
+      return style.maxWidth;
+    });
+    expect(shell).toBe('none');
 
     const username = page.getByLabel('Username');
     const initial = await username.evaluate((node) => {
