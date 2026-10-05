@@ -21,6 +21,10 @@ changed. Screenshots are included in [`pico-replacement-pilot/`](pico-replacemen
 | --- | --- | --- |
 | My Books, desktop/light | [baseline](pico-replacement-pilot/books-pico-desktop-light.png) | [candidate](pico-replacement-pilot/books-tailwind-daisyui-desktop-light.png) |
 | Catalogs form and feedback, desktop/light | [baseline](pico-replacement-pilot/catalogs-pico-desktop-light.png) | [candidate](pico-replacement-pilot/catalogs-tailwind-daisyui-desktop-light.png) |
+| My Books, compact/light | — | [candidate](pico-replacement-pilot/books-tailwind-daisyui-compact-light.png) |
+| Catalogs form and feedback, compact/light | — | [candidate](pico-replacement-pilot/catalogs-tailwind-daisyui-compact-light.png) |
+| My Books, desktop/dark | — | [candidate](pico-replacement-pilot/books-tailwind-daisyui-desktop-dark.png) |
+| Catalogs form and feedback, desktop/dark | — | [candidate](pico-replacement-pilot/catalogs-tailwind-daisyui-desktop-dark.png) |
 | My Books, compact/dark | — | [candidate](pico-replacement-pilot/books-tailwind-daisyui-compact-dark.png) |
 | Catalogs form and feedback, compact/dark | — | [candidate](pico-replacement-pilot/catalogs-tailwind-daisyui-compact-dark.png) |
 
@@ -46,15 +50,25 @@ changed. Screenshots are included in [`pico-replacement-pilot/`](pico-replacemen
   only the browser's 1px automatic outline, not the documented Mouseion focus
   token. Existing app CSS also references 17 distinct `--pico-*` variables,
   which would need deliberate replacement or removal.
-- **Responsive and themes:** the real pages were rendered in all four
-  compact/desktop × light/dark combinations. The screenshots and computed
-  dimensions exposed styling regressions in both schemes; compact candidate
-  pages did not gain page-level horizontal overflow in this sample. This is
-  not a pass for the broader 200%-zoom contract.
-- **Semantics and no-JavaScript:** the pilot changed CSS only, so native HTML
-  and the server-rendered forms were not structurally replaced. A dedicated
-  no-JavaScript interaction run and a full contrast audit were not performed;
-  they remain necessary before any future go decision.
+- **Responsive and zoom:** the real pages were rendered in all four
+  compact/desktop × light/dark combinations; candidate screenshots cover the
+  full matrix. At 200% text size, the compact Catalogs page overflowed to 453px
+  in a 375px viewport. So while ordinary compact rendering did not overflow,
+  the candidate failed the established zoom contract.
+- **Contrast:** six sampled Mouseion semantic text/status tokens stayed above
+  4.5:1 against their surface in both schemes (light: 5.31–14.71:1; dark:
+  8.49–15.69:1). This sample does not establish contrast for every component;
+  notably, reset inputs had no visible boundary to measure.
+- **Semantics and no-JavaScript:** with JavaScript disabled and candidate CSS
+  served, native sign-in still reached My Books, its Book link remained
+  available, and the Catalogs form field remained visible. This verifies the
+  server-rendered path, not the lost control styling.
+- **Override effort:** the pilot retained the complete existing 1,847-line
+  Mouseion stylesheet and required no new native-control selector overrides;
+  it only mapped DaisyUI themes and applied one `btn btn-primary` candidate
+  class. That small integration was insufficient. The required override count
+  to restore controls and page hierarchy was not estimated because it would be
+  a migration implementation, outside this decision gate.
 
 ## Build compatibility
 
