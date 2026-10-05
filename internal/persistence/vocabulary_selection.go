@@ -301,6 +301,71 @@ WHERE i.owner_id=$1 AND i.deck_id=$2 ORDER BY i.canonical_lemma,i.upos,b.title,b
 	return identities, nil
 }
 
+// customDeckReviewEvidenceCTE scopes current evidence to the saved identities.
+// Ready per-Book projections are indexed by identity; only Books whose
+// projection is unavailable fall back to reading their current occurrences.
+const customDeckReviewEvidenceCTE = `
+WITH target AS MATERIALIZED (
+ SELECT id,language,name FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2
+), deck_identities AS MATERIALIZED (
+ SELECT i.owner_id,i.deck_id,i.language,i.canonical_lemma,i.upos
+ FROM custom_vocabulary_deck_identities i JOIN target t ON t.id=i.deck_id
+ WHERE i.owner_id=$1
+), current_books AS MATERIALIZED (
+ SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id,cai.source_material_id,cai.snapshot_id,b.title,t.language,
+  r.owner_id IS NOT NULL AS counts_ready
+ FROM target t
+ JOIN current_analysis_identity cai ON cai.owner_id=$1
+ JOIN books b ON b.owner_id=cai.owner_id AND b.id=cai.book_id
+  AND b.language_state='chosen' AND b.language_tag=t.language
+ LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
+  AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
+  AND r.language=t.language AND r.builder_version=1
+), evidence AS (
+ SELECT i.canonical_lemma AS lemma,i.upos,b.book_id::text AS book_id,
+  b.analysis_run_id::text AS run_id,b.title,c.occurrence_count AS occurrences
+ FROM current_books b
+ JOIN vocabulary_browse_counts c ON c.owner_id=b.owner_id AND c.book_id=b.book_id
+  AND c.analysis_run_id=b.analysis_run_id AND c.corpus_id=b.corpus_id AND c.language=b.language
+ JOIN deck_identities i ON i.language=b.language AND i.canonical_lemma=c.canonical_lemma AND i.upos=c.upos
+ WHERE b.counts_ready
+ UNION ALL
+ SELECT i.canonical_lemma,i.upos,b.book_id::text,b.analysis_run_id::text,b.title,count(*)::bigint
+ FROM deck_identities i
+ JOIN current_books b ON b.language=i.language AND NOT b.counts_ready
+ JOIN LATERAL (
+  SELECT o.* FROM concordance_occurrences o
+  WHERE o.owner_id=b.owner_id AND o.book_id=b.book_id::text
+   AND o.analysis_run_id=b.analysis_run_id::text AND o.corpus_id=b.corpus_id::text
+   AND o.language=b.language AND o.canonical_lemma=i.canonical_lemma AND o.upos=i.upos
+ ) o ON true
+ LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+ WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
+  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma)=i.canonical_lemma
+  AND i.canonical_lemma ~ '[[:alpha:]]'
+ GROUP BY i.canonical_lemma,i.upos,b.book_id,b.analysis_run_id,b.title
+ UNION ALL
+ SELECT i.canonical_lemma,i.upos,b.book_id::text,b.analysis_run_id::text,b.title,count(*)::bigint
+ FROM current_books b
+ JOIN occurrence_lemma_corrections c ON c.owner_id=b.owner_id AND c.book_id=b.book_id
+  AND c.corpus_id=b.corpus_id AND c.analysis_run_id=b.analysis_run_id
+ JOIN corpus_sentences s ON s.owner_id=c.owner_id AND s.analysis_run_id=c.analysis_run_id
+  AND s.corpus_id=c.corpus_id AND s.unit_id=c.source_document_id
+ JOIN corpus_tokens t ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id
+  AND t.corpus_id=s.corpus_id AND t.sentence_ordinal=s.sentence_ordinal
+  AND t.start_offset=c.start_offset AND t.end_offset=c.end_offset AND t.language=b.language
+ JOIN source_material_units u ON u.owner_id=b.owner_id AND u.source_material_id=b.source_material_id
+  AND u.snapshot_id=b.snapshot_id AND u.unit_id=s.unit_id
+ JOIN deck_identities i ON i.language=b.language AND i.canonical_lemma=c.canonical_lemma AND i.upos=t.upos
+ WHERE NOT b.counts_ready AND NOT COALESCE(c.excluded,false) AND c.canonical_lemma IS NOT NULL
+  AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
+  AND c.canonical_lemma ~ '[[:alpha:]]' AND t.canonical_lemma <> c.canonical_lemma
+ GROUP BY i.canonical_lemma,i.upos,b.book_id,b.analysis_run_id,b.title
+)
+`
+
 // ListCustomVocabularyDeckIdentityPage loads only the identities needed to
 // render one review page. Totals are computed over the complete saved set, so
 // paging and the missing-evidence filter never hide selected identities.
@@ -309,29 +374,16 @@ func (s *PostgresStore) ListCustomVocabularyDeckIdentityPage(ctx context.Context
 		page = 1
 	}
 	var deck domain.CustomVocabularyDeck
-	if err := s.pool.QueryRow(ctx, `
-WITH target AS (
- SELECT id,language,name FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2
-), evidence AS (
- SELECT DISTINCT COALESCE(c.canonical_lemma,o.canonical_lemma) AS lemma,o.upos
- FROM target t JOIN concordance_occurrences o ON o.owner_id=$1 AND o.language=t.language
- JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
-  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
- JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=o.language
- LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
-  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
-  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
- WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
-  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
-), totals AS (
- SELECT count(*)::bigint AS total,
-  count(*) FILTER (WHERE e.lemma IS NULL)::bigint AS missing
- FROM custom_vocabulary_deck_identities i
- LEFT JOIN evidence e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
- WHERE i.owner_id=$1 AND i.deck_id=$2
+	totalsQuery := customDeckReviewEvidenceCTE + `, evidence_identities AS (
+ SELECT DISTINCT lemma,upos FROM evidence
 )
-SELECT t.id::text,t.language,t.name,totals.total,totals.missing
-FROM target t CROSS JOIN totals`, owner, deckID).Scan(&deck.ID, &deck.Language, &deck.Name, &deck.IdentityCount, &deck.MissingCount); err != nil {
+SELECT t.id::text,t.language,t.name,count(i.canonical_lemma)::bigint,
+ count(i.canonical_lemma) FILTER (WHERE e.lemma IS NULL)::bigint
+FROM target t
+LEFT JOIN deck_identities i ON true
+LEFT JOIN evidence_identities e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
+GROUP BY t.id,t.language,t.name`
+	if err := s.pool.QueryRow(ctx, totalsQuery, owner, deckID).Scan(&deck.ID, &deck.Language, &deck.Name, &deck.IdentityCount, &deck.MissingCount); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.CustomVocabularyDeck{}, 0, ErrCustomVocabularyDeckNotFound
 		}
@@ -345,26 +397,17 @@ FROM target t CROSS JOIN totals`, owner, deckID).Scan(&deck.ID, &deck.Language, 
 	if int64(page) > lastPage {
 		page = int(lastPage)
 	}
-	rows, err := s.pool.Query(ctx, `
-WITH target AS (SELECT language FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2), evidence AS (
- SELECT COALESCE(c.canonical_lemma,o.canonical_lemma) AS lemma,o.upos,
-  count(*)::bigint AS occurrences,count(DISTINCT o.book_id)::bigint AS books
- FROM target t JOIN concordance_occurrences o ON o.owner_id=$1 AND o.language=t.language
- JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
-  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
- JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=t.language
- LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
-  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
-  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
- WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
-  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
- GROUP BY 1,2
+	pageQuery := customDeckReviewEvidenceCTE + `, evidence_identities AS (
+ SELECT lemma,upos,sum(occurrences)::bigint AS occurrences,count(*)::bigint AS books
+ FROM evidence GROUP BY lemma,upos
 )
 SELECT i.canonical_lemma,i.upos,COALESCE(e.occurrences,0),COALESCE(e.books,0),e.lemma IS NULL
 FROM custom_vocabulary_deck_identities i
-LEFT JOIN evidence e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
+LEFT JOIN evidence_identities e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
 WHERE i.owner_id=$1 AND i.deck_id=$2 AND (NOT $4 OR e.lemma IS NULL)
-ORDER BY i.canonical_lemma,i.upos LIMIT 25 OFFSET (($3::bigint-1)*25)`, owner, deckID, page, missingOnly)
+
+ORDER BY i.canonical_lemma,i.upos LIMIT 25 OFFSET (($3::bigint-1)*25)`
+	rows, err := s.pool.Query(ctx, pageQuery, owner, deckID, page, missingOnly)
 	if err != nil {
 		return domain.CustomVocabularyDeck{}, 0, err
 	}
@@ -384,30 +427,16 @@ ORDER BY i.canonical_lemma,i.upos LIMIT 25 OFFSET (($3::bigint-1)*25)`, owner, d
 	if len(deck.Identities) == 0 {
 		return deck, visibleTotal, nil
 	}
-	bookRows, err := s.pool.Query(ctx, `
-WITH target AS (SELECT language FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2), evidence AS (
- SELECT COALESCE(c.canonical_lemma,o.canonical_lemma) AS lemma,o.upos,o.book_id::text AS book_id,
-  o.analysis_run_id::text AS run_id,count(*)::bigint AS occurrences
- FROM target t JOIN concordance_occurrences o ON o.owner_id=$1 AND o.language=t.language
- JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
-  AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
- JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=t.language
- LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
-  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
-  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
- WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
-  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
- GROUP BY 1,2,3,4
-), selected_page AS (
+	bookQuery := customDeckReviewEvidenceCTE + `, selected_page AS (
  SELECT i.canonical_lemma,i.upos FROM custom_vocabulary_deck_identities i
  LEFT JOIN (SELECT DISTINCT lemma,upos FROM evidence) e ON e.lemma=i.canonical_lemma AND e.upos=i.upos
  WHERE i.owner_id=$1 AND i.deck_id=$2 AND (NOT $4 OR e.lemma IS NULL)
  ORDER BY i.canonical_lemma,i.upos LIMIT 25 OFFSET (($3::bigint-1)*25)
 )
-SELECT p.canonical_lemma,p.upos,b.id::text,b.title,e.run_id,e.occurrences
+SELECT p.canonical_lemma,p.upos,e.book_id,e.title,e.run_id,e.occurrences
 FROM selected_page p JOIN evidence e ON e.lemma=p.canonical_lemma AND e.upos=p.upos
-JOIN books b ON b.owner_id=$1 AND b.id::text=e.book_id
-ORDER BY p.canonical_lemma,p.upos,b.title,b.id`, owner, deckID, page, missingOnly)
+ORDER BY p.canonical_lemma,p.upos,e.title,e.book_id`
+	bookRows, err := s.pool.Query(ctx, bookQuery, owner, deckID, page, missingOnly)
 	if err != nil {
 		return domain.CustomVocabularyDeck{}, 0, err
 	}
@@ -458,24 +487,69 @@ func (s *PostgresStore) GetCustomVocabularyDeck(ctx context.Context, owner, deck
 
 func (s *PostgresStore) ListCustomVocabularyDecks(ctx context.Context, owner string) ([]domain.CustomVocabularyDeck, error) {
 	rows, err := s.pool.Query(ctx, `
+WITH decks AS MATERIALIZED (
+ SELECT id,owner_id,language,name,created_at FROM custom_vocabulary_decks WHERE owner_id=$1
+), identities AS MATERIALIZED (
+ SELECT i.owner_id,i.deck_id,i.language,i.canonical_lemma,i.upos
+ FROM custom_vocabulary_deck_identities i JOIN decks d ON d.id=i.deck_id
+), current_books AS MATERIALIZED (
+ SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id,cai.source_material_id,cai.snapshot_id,
+  b.title,b.language_tag AS language,
+  r.owner_id IS NOT NULL AS counts_ready
+ FROM current_analysis_identity cai JOIN books b ON b.owner_id=cai.owner_id AND b.id=cai.book_id
+  AND b.language_state='chosen'
+ JOIN (SELECT DISTINCT language FROM decks) d ON d.language=b.language_tag
+ LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
+  AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
+  AND r.language=b.language_tag AND r.builder_version=1
+ WHERE cai.owner_id=$1
+), evidence AS (
+ SELECT i.canonical_lemma AS lemma,i.upos,b.language
+ FROM current_books b
+ JOIN vocabulary_browse_counts c ON c.owner_id=b.owner_id AND c.book_id=b.book_id
+  AND c.analysis_run_id=b.analysis_run_id AND c.corpus_id=b.corpus_id AND c.language=b.language
+ JOIN identities i ON i.language=b.language AND i.canonical_lemma=c.canonical_lemma AND i.upos=c.upos
+ WHERE b.counts_ready
+ UNION
+ SELECT i.canonical_lemma,i.upos,b.language
+ FROM identities i
+ JOIN current_books b ON b.language=i.language AND NOT b.counts_ready
+ JOIN LATERAL (
+  SELECT o.* FROM concordance_occurrences o
+  WHERE o.owner_id=b.owner_id AND o.book_id=b.book_id::text
+   AND o.analysis_run_id=b.analysis_run_id::text AND o.corpus_id=b.corpus_id::text
+   AND o.language=b.language AND o.canonical_lemma=i.canonical_lemma AND o.upos=i.upos
+ ) o ON true
+ LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
+  AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
+  AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
+ WHERE o.upos IN ('NOUN','VERB','ADJ','ADV') AND o.dependency <> 'compound:prt'
+  AND COALESCE(c.excluded,false)=false AND COALESCE(c.canonical_lemma,o.canonical_lemma)=i.canonical_lemma
+  AND i.canonical_lemma ~ '[[:alpha:]]'
+ UNION
+ SELECT i.canonical_lemma,i.upos,b.language
+ FROM current_books b
+ JOIN occurrence_lemma_corrections c ON c.owner_id=b.owner_id AND c.book_id=b.book_id
+  AND c.corpus_id=b.corpus_id AND c.analysis_run_id=b.analysis_run_id
+ JOIN corpus_sentences s ON s.owner_id=c.owner_id AND s.analysis_run_id=c.analysis_run_id
+  AND s.corpus_id=c.corpus_id AND s.unit_id=c.source_document_id
+ JOIN corpus_tokens t ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id
+  AND t.corpus_id=s.corpus_id AND t.sentence_ordinal=s.sentence_ordinal
+  AND t.start_offset=c.start_offset AND t.end_offset=c.end_offset AND t.language=b.language
+ JOIN source_material_units u ON u.owner_id=b.owner_id AND u.source_material_id=b.source_material_id
+  AND u.snapshot_id=b.snapshot_id AND u.unit_id=s.unit_id
+ JOIN identities i ON i.language=b.language AND i.canonical_lemma=c.canonical_lemma AND i.upos=t.upos
+ WHERE NOT b.counts_ready AND NOT COALESCE(c.excluded,false) AND c.canonical_lemma IS NOT NULL
+  AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
+  AND c.canonical_lemma ~ '[[:alpha:]]' AND t.canonical_lemma <> c.canonical_lemma
+)
 SELECT d.id::text,d.language,d.name,count(i.canonical_lemma)::bigint,
-	 count(i.canonical_lemma) FILTER (WHERE NOT EXISTS (
-  SELECT 1 FROM concordance_occurrences o
-  JOIN current_analysis_identity cai ON cai.owner_id=o.owner_id AND cai.book_id::text=o.book_id
-   AND cai.analysis_run_id::text=o.analysis_run_id AND cai.corpus_id::text=o.corpus_id
-  JOIN books b ON b.owner_id=o.owner_id AND b.id::text=o.book_id AND b.language_state='chosen' AND b.language_tag=o.language
-  LEFT JOIN occurrence_lemma_corrections c ON c.owner_id=o.owner_id AND c.book_id::text=o.book_id
-   AND c.corpus_id::text=o.corpus_id AND c.analysis_run_id::text=o.analysis_run_id
-   AND c.source_document_id=o.unit_id AND c.start_offset=o.unit_start_offset AND c.end_offset=o.unit_end_offset
-  WHERE o.owner_id=i.owner_id AND o.language=i.language AND o.upos=i.upos
-   AND COALESCE(c.canonical_lemma,o.canonical_lemma)=i.canonical_lemma
-    AND COALESCE(c.excluded,false)=false AND o.upos IN ('NOUN','VERB','ADJ','ADV')
-    AND o.dependency <> 'compound:prt'
-    AND COALESCE(c.canonical_lemma,o.canonical_lemma) ~ '[[:alpha:]]'
- )) AS missing_count
-FROM custom_vocabulary_decks d LEFT JOIN custom_vocabulary_deck_identities i
- ON i.owner_id=d.owner_id AND i.deck_id=d.id
-WHERE d.owner_id=$1 GROUP BY d.id,d.language,d.name ORDER BY d.created_at,d.id`, owner)
+ count(i.canonical_lemma) FILTER (WHERE e.lemma IS NULL)::bigint
+FROM decks d
+LEFT JOIN identities i ON i.owner_id=d.owner_id AND i.deck_id=d.id
+LEFT JOIN (SELECT DISTINCT language,lemma,upos FROM evidence) e
+ ON e.language=i.language AND e.lemma=i.canonical_lemma AND e.upos=i.upos
+GROUP BY d.id,d.language,d.name,d.created_at ORDER BY d.created_at,d.id`, owner)
 	if err != nil {
 		return nil, err
 	}
