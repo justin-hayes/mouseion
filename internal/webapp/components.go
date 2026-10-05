@@ -14,6 +14,14 @@ import (
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
+// loginStylesheet keeps Tailwind/daisyUI off shells owned by Pico.
+func loginStylesheet(enabled []bool) templ.Component {
+	if len(enabled) == 0 || !enabled[0] {
+		return templ.NopComponent
+	}
+	return templ.Raw(`<link rel="stylesheet" href="/static/login.css">`)
+}
+
 func studyLanguagePresent(languages []domain.StudyLanguage, language string) bool {
 	for _, candidate := range languages {
 		if candidate.Language == language {

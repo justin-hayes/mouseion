@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke sqlc dictionary-index
+.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke sqlc dictionary-index frontend-css check-frontend-css
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -90,6 +90,15 @@ lint: lint-go
 
 templ:
 	templ generate
+
+# Build the isolated sign-in stylesheet with checksummed standalone tools; the
+# committed CSS is served at runtime and is not rebuilt by Go.
+frontend-css:
+	tools/build-login-css.sh
+
+check-frontend-css:
+	tools/build-login-css.sh
+	git diff --exit-code -- internal/webapp/static/login.css
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs

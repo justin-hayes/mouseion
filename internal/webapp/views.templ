@@ -17,7 +17,7 @@ templ Layout(title string, user *domain.User, csrf string) {
 	@ShellLayout(title, user, csrf, navigationContextForTitle(title))
 }
 
-templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext) {
+templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, loginStyles ...bool) {
 	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -207,7 +207,7 @@ document.addEventListener('htmx:after:swap', function (evt) {
     region.removeAttribute('data-focus-id');
   });
 });
-</script></head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	</script>@loginStylesheet(loginStyles)</head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
 		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
@@ -817,19 +817,19 @@ func corpusUnitLabel(unit domain.CorpusSelectedUnit) string {
 }
 
 templ LoginPage(csrf, message, next string, onboarding bool) {
-	@ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in")) { <article class="narrow">
+	@ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in"), true) { <article class="narrow login-screen">
 	if onboarding {
-		<h1>Create your account</h1><p>Set up the first learner account for this Mouseion installation.</p>
+		<h1>Create your account</h1><p class="login-screen__intro">Set up the first learner account for this Mouseion installation.</p>
 	} else {
-		<h1>Sign in</h1>
+		<h1>Sign in</h1><p class="login-screen__intro">Return to your reading desk.</p>
 	}
 	if message != "" {
-		<p role="alert">{ message }</p>
+		<p class="alert alert-error login-screen__error" role="alert">{ message }</p>
 	}
 	if onboarding {
-		<form method="post" action="/onboarding"><input type="hidden" name="csrf_token" value={ csrf }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"/></label><button>Create account</button></form>
+		<form class="login-form" method="post" action="/onboarding"><input type="hidden" name="csrf_token" value={ csrf }/><label class="login-field">Username<input class="input input-bordered" name="username" required autocomplete="username"/></label><label class="login-field">Password<input class="input input-bordered" type="password" name="password" minlength="8" required autocomplete="new-password"/><small>Use at least 8 characters.</small></label><button class="btn btn-primary" type="submit">Create account</button></form>
 	} else {
-		<form method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="next" value={ next }/><label>Username<input name="username" required autocomplete="username"/></label><label>Password<input type="password" name="password" required autocomplete="current-password"/></label><button>Sign in</button></form>
+		<form class="login-form" method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="next" value={ next }/><label class="login-field">Username<input class="input input-bordered" name="username" required autocomplete="username"/></label><label class="login-field">Password<input class="input input-bordered" type="password" name="password" required autocomplete="current-password"/></label><button class="btn btn-primary" type="submit">Sign in</button></form>
 	}
 	</article> }
 }

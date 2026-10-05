@@ -1,0 +1,125 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
+  themes: false;
+  include: button, input, alert;
+}
+
+/* Keep this route's generated utilities deliberately separate from the legacy
+ * Pico routes. Login's complete utility vocabulary is declared here so scans
+ * cannot pull unrelated views or enhancement-generated markup into this asset. */
+@source inline("input input-bordered btn btn-primary alert alert-error");
+
+#main-content:has(.login-screen) {
+  display: grid;
+  align-content: start;
+  padding-block: clamp(3rem, 12vh, 8rem);
+}
+
+.narrow.login-screen {
+  width: min(100%, 32rem);
+  margin: 0 auto;
+  border: 0;
+  border-inline-start: 4px solid var(--mouseion-color-accent);
+  border-top: 0;
+  padding: clamp(1.5rem, 6vw, 3rem);
+  background: transparent;
+  box-shadow: none;
+}
+
+.login-screen h1 {
+  margin-block: 0 0.65rem;
+  font-family: var(--mouseion-font-reading);
+  font-size: clamp(2.25rem, 6vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.login-screen__intro {
+  margin-block: 0 2rem;
+  color: var(--mouseion-color-text-muted);
+}
+
+.login-screen__error {
+  margin-block: 0 1.5rem;
+  border: 1px solid var(--mouseion-color-danger);
+  border-inline-start-width: 4px;
+  padding: 0.75rem 1rem;
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+.login-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.login-field {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 650;
+}
+
+.login-field small {
+  color: var(--mouseion-color-text-muted);
+  font-weight: 400;
+}
+
+.login-screen .input {
+  box-sizing: border-box;
+  appearance: none;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: 0.125rem;
+  padding: 0.65rem 0.75rem;
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  box-shadow: none;
+  font: inherit;
+}
+
+.login-screen .input:user-invalid {
+  border-color: var(--mouseion-color-danger);
+}
+
+.login-screen .input:focus-visible {
+  border-color: var(--mouseion-color-focus);
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 2px;
+}
+
+.login-screen .btn {
+  box-sizing: border-box;
+  appearance: none;
+  min-height: 48px;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: 0.125rem;
+  padding: 0.65rem 1rem;
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.login-screen .btn:hover {
+  background: var(--mouseion-color-accent-hover);
+}
+
+.login-screen .btn:focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-screen *,
+  .login-screen *::before,
+  .login-screen *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

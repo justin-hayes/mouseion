@@ -68,6 +68,18 @@ jobs:
               - 'Makefile'
               - '.github/workflows/ci.yml'
 
+            frontend:
+              - 'internal/webapp/views.templ'
+              - 'internal/webapp/styles/**'
+              - 'internal/webapp/static/login.css'
+              - 'tools/build-login-css.sh'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
+      - name: Verify generated sign-in stylesheet
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.frontend == 'true'
+        run: make check-frontend-css
+
       # ------------------------------------------------------------------
       # Go
       # ------------------------------------------------------------------

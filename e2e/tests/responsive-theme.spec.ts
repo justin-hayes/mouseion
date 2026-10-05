@@ -44,6 +44,63 @@ async function expectNoPageOverflow(page: Page) {
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('sign-in controls are styled, focused, and reachable at 200 percent text size', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.locator('link[rel="stylesheet"][href="/static/login.css"]')).toHaveCount(1);
+    const shell = await page.locator('body > header.site-header').evaluate((node) => {
+      const style = getComputedStyle(node);
+      return style.maxWidth;
+    });
+    expect(shell).toBe('none');
+
+    const username = page.getByLabel('Username');
+    const initial = await username.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      return { background: style.backgroundColor, border: style.borderTopWidth, height: box.height };
+    });
+    expect(initial.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(parseFloat(initial.border)).toBeGreaterThan(0);
+    expect(initial.height).toBeGreaterThanOrEqual(48);
+
+    const contrast = await page.evaluate(() => {
+      const channels = (color: string) => color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? [];
+      const luminance = (color: string) => channels(color).map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+      const ratio = (foreground: string, background: string) => {
+        const a = luminance(foreground);
+        const b = luminance(background);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      };
+      const input = document.querySelector<HTMLInputElement>('.login-screen input[name="username"]')!;
+      const button = document.querySelector<HTMLButtonElement>('.login-screen button')!;
+      const inputStyle = getComputedStyle(input);
+      const buttonStyle = getComputedStyle(button);
+      return {
+        field: ratio(inputStyle.color, inputStyle.backgroundColor),
+        action: ratio(buttonStyle.color, buttonStyle.backgroundColor),
+      };
+    });
+    expect(contrast.field).toBeGreaterThanOrEqual(4.5);
+    expect(contrast.action).toBeGreaterThanOrEqual(4.5);
+
+    await username.focus();
+    const focus = await username.evaluate((node) => getComputedStyle(node).outlineStyle);
+    expect(focus).toBe('solid');
+
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+    for (const control of [username, page.getByLabel('Password'), page.getByRole('button', { name: 'Sign in' })]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(box!.x).toBeGreaterThanOrEqual(-1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
+    }
+  });
+
   test('Reading respects the reduced-motion preference', async ({ page }) => {
     await signIn(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -250,5 +307,27 @@ test.describe('responsive and theme regression coverage', () => {
       return Object.fromEntries(['--mouseion-color-text', '--mouseion-color-text-muted', '--mouseion-color-info', '--mouseion-color-success', '--mouseion-color-warning', '--mouseion-color-danger', '--mouseion-color-focus'].map((token) => [token, probe(token, '--mouseion-color-surface')]));
     });
     for (const [token, value] of Object.entries(contrast)) expect(value, token).toBeGreaterThanOrEqual(token === '--mouseion-color-focus' ? 3 : 4.5);
+  });
+});
+
+test.describe('sign-in server-rendered recovery without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('invalid credentials return an accessible styled error and remain retryable', async ({ page }) => {
+    await page.goto('/login');
+    const username = page.getByLabel('Username');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL('/login');
+    expect(await username.evaluate((node) => (node as HTMLInputElement).validity.valueMissing)).toBe(true);
+
+    await username.fill('fixture-learner');
+    await page.getByLabel('Password').fill('incorrect-password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+
+    await expect(page).toHaveURL(/\/login\?error=/);
+    await expect(page.getByRole('alert')).toHaveText('Invalid credentials');
+    await expect(page.locator('link[href="/static/login.css"]')).toHaveCount(1);
+    await expect(page.getByLabel('Username')).toBeVisible();
+    await expect(page.getByLabel('Password')).toBeVisible();
   });
 });
