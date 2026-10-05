@@ -89,6 +89,14 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 		"@media (max-width: 40rem)",
 		".site-nav__link--current",
 		"text-decoration: underline",
+		".site-header__language select",
+		"min-height: 44px",
+		".site-header a:focus-visible",
+		".site-header__brand > li > a",
+		"--mouseion-focus-width: 0.125rem",
+		".table-region:focus-visible",
+		"border-collapse: collapse",
+		"padding: var(--mouseion-space-2) var(--mouseion-space-3)",
 	} {
 		assert.True(t, strings.Contains(css, want), "compact/current class contract missing %q", want)
 	}

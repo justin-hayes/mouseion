@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from '@playwright/test';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -43,7 +43,88 @@ async function expectNoPageOverflow(page: Page) {
   }
 }
 
+async function textContrast(element: Locator) {
+  return element.evaluate((node) => {
+    const channels = (color: string) => color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? [];
+    const luminance = (color: string) => channels(color).map((channel) => {
+      const value = channel / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    const style = getComputedStyle(node);
+    const foreground = luminance(style.color);
+    const background = luminance(style.backgroundColor);
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  });
+}
+
 test.describe('responsive and theme regression coverage', () => {
+  test('shared shell keeps native navigation, language context, focus, and touch targets', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.locator('body > a.skip-link[href="#main-content"]')).toHaveCount(1);
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
+
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.skip-link')).toBeFocused();
+    const skipTop = await page.locator('.skip-link').evaluate((node) => node.getBoundingClientRect().top);
+    expect(skipTop).toBeGreaterThanOrEqual(0);
+
+    await signIn(page);
+    await page.goto('/library');
+    const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.skip-link')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(navigation.getByRole('link', { name: 'Mouseion' })).toBeFocused();
+    const navigationFocus = await navigation.getByRole('link', { name: 'Mouseion' }).evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
+    });
+    expect(navigationFocus.outlineStyle).toBe('solid');
+    expect(parseFloat(navigationFocus.outlineWidth)).toBeGreaterThanOrEqual(3);
+
+    await expect(navigation.getByRole('link', { name: 'My Books' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByLabel('Study language')).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Reading' })).toBeVisible();
+    const controls = navigation.locator('a, select, button:visible');
+    const boxes = await controls.evaluateAll((nodes) => nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { text: node.textContent?.trim(), width: box.width, height: box.height, left: box.left, right: box.right };
+    }));
+    for (const box of boxes) {
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.left, box.text).toBeGreaterThanOrEqual(-1);
+      expect(box.right, box.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
+    }
+
+    const colors = await page.locator('.site-header').evaluate((node) => {
+      const style = getComputedStyle(node);
+      const probe = document.createElement('span');
+      probe.style.backgroundColor = 'var(--mouseion-color-surface-quiet)';
+      document.body.append(probe);
+      const tokenBackground = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return { background: style.backgroundColor, tokenBackground };
+    });
+    expect(colors.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(colors.background).toBe(colors.tokenBackground);
+
+    await page.goto('/deck-preparations/fixture-preparation/status');
+    const secondaryAction = page.locator('.action-group .outline').first();
+    await expect(secondaryAction).toBeVisible();
+    await secondaryAction.hover();
+    expect(await textContrast(secondaryAction)).toBeGreaterThanOrEqual(4.5);
+
+    await page.goto('/library');
+    const activeNavigation = page.getByRole('navigation', { name: 'Primary navigation' });
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+    await expect(activeNavigation.getByRole('link', { name: 'Vocabulary' })).toBeVisible();
+    await expect(page.getByLabel('Study language')).toBeVisible();
+  });
+
   test('sign-in controls are styled, focused, and reachable at 200 percent text size', async ({ page }) => {
     await page.goto('/login');
     await expect(page.locator('link[rel="stylesheet"][href="/static/login.css"]')).toHaveCount(1);
@@ -63,28 +144,8 @@ test.describe('responsive and theme regression coverage', () => {
     expect(parseFloat(initial.border)).toBeGreaterThan(0);
     expect(initial.height).toBeGreaterThanOrEqual(48);
 
-    const contrast = await page.evaluate(() => {
-      const channels = (color: string) => color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? [];
-      const luminance = (color: string) => channels(color).map((channel) => {
-        const value = channel / 255;
-        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-      }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-      const ratio = (foreground: string, background: string) => {
-        const a = luminance(foreground);
-        const b = luminance(background);
-        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-      };
-      const input = document.querySelector<HTMLInputElement>('.login-screen input[name="username"]')!;
-      const button = document.querySelector<HTMLButtonElement>('.login-screen button')!;
-      const inputStyle = getComputedStyle(input);
-      const buttonStyle = getComputedStyle(button);
-      return {
-        field: ratio(inputStyle.color, inputStyle.backgroundColor),
-        action: ratio(buttonStyle.color, buttonStyle.backgroundColor),
-      };
-    });
-    expect(contrast.field).toBeGreaterThanOrEqual(4.5);
-    expect(contrast.action).toBeGreaterThanOrEqual(4.5);
+    expect(await textContrast(username)).toBeGreaterThanOrEqual(4.5);
+    expect(await textContrast(page.locator('.login-screen button'))).toBeGreaterThanOrEqual(4.5);
 
     await username.focus();
     const focus = await username.evaluate((node) => getComputedStyle(node).outlineStyle);

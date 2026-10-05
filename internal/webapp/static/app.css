@@ -14,7 +14,7 @@
   --mouseion-color-warning: #7a4d00;
   --mouseion-color-danger: #a03631;
   --mouseion-radius: 0.125rem;
-  --mouseion-focus-width: var(--pico-outline-width);
+  --mouseion-focus-width: 0.125rem;
 
   --pico-background-color: var(--mouseion-color-surface);
   --pico-card-background-color: var(--mouseion-color-surface-raised);
@@ -156,25 +156,45 @@ textarea {
 }
 
 .site-header {
+  box-sizing: border-box;
   z-index: 10;
+  width: 100%;
+  max-width: none;
   padding: var(--mouseion-space-4) clamp(var(--mouseion-space-4), 4vw, var(--mouseion-space-6));
   border-bottom: 1px solid var(--mouseion-color-border);
   background: var(--mouseion-color-surface-quiet);
 }
 
 .site-header__nav {
+  display: flex;
   align-items: center;
+  min-width: 0;
   flex-wrap: wrap;
   gap: var(--mouseion-space-3) var(--mouseion-space-6);
+  margin: 0;
+  padding: 0;
 }
 
 .site-header__brand,
 .site-header__navigation {
+  display: flex;
   align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header__nav > .site-header__brand,
+.site-header__nav > .site-header__navigation {
+  margin-inline: 0;
+  padding-inline: 0;
 }
 
 .site-header__brand li,
 .site-header__navigation li {
+  min-width: 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -185,16 +205,123 @@ textarea {
   letter-spacing: -0.045em;
 }
 
+.site-header__brand > li > a {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--mouseion-space-2) var(--mouseion-space-1);
+}
+
+.site-header .site-header__nav a {
+  margin: 0;
+}
+
 .site-header__navigation {
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
 }
 
 .site-nav__link {
-  display: inline-block;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   min-height: 44px;
-  padding: var(--mouseion-space-2) var(--mouseion-space-1);
+  padding: var(--mouseion-space-2) var(--mouseion-space-2);
   white-space: nowrap;
+}
+
+.site-header a:focus-visible,
+.site-header button:focus-visible,
+.site-header select:focus-visible,
+.skip-link:focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
+}
+
+.site-header__language form,
+.site-header__language label {
+  margin: 0;
+}
+
+.site-header__language label {
+  display: flex;
+  align-items: center;
+  gap: var(--mouseion-space-2);
+}
+
+.site-header__language select {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 8rem;
+  min-height: 44px;
+  margin: 0;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+.site-header .inline {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.site-header .inline button {
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  background: transparent;
+  font: inherit;
+}
+
+/* Shared actions own their controls; legacy page content remains Pico-owned. */
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button, [role="button"]) {
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  box-shadow: none;
+  font: inherit;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.outline, .secondary) {
+  border-color: var(--mouseion-color-border);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) button:not(.outline, .secondary):hover:not(:disabled),
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) [role="button"]:not(.outline, .secondary):hover {
+  background: var(--mouseion-color-accent-hover);
+}
+
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.outline, .secondary):hover {
+  background: var(--mouseion-color-surface-quiet);
+}
+
+.page-header__actions :focus-visible,
+.action-group :focus-visible,
+.async-status__actions :focus-visible,
+.confirmation__body :focus-visible,
+.table-region :focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 2px;
 }
 
 .site-nav__link--current {
@@ -507,10 +634,6 @@ article.narrow {
 .inline button {
   width: auto;
   margin: 0;
-}
-
-.site-header .inline button {
-  min-height: 44px;
 }
 
 .right {
@@ -989,12 +1112,26 @@ progress {
 }
 
 .table-region table {
+  width: 100%;
   min-width: 38rem;
   margin-bottom: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.table-region th,
+.table-region td {
+  border-bottom: 1px solid var(--mouseion-color-border);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .table-region thead th {
+  color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-quiet);
+  font-weight: 650;
 }
 
 .table-region tbody tr:nth-child(even) td,
@@ -1002,9 +1139,8 @@ progress {
   background: color-mix(in srgb, var(--mouseion-color-surface-quiet) 45%, transparent);
 }
 
-.table-region td,
-.table-region th {
-  overflow-wrap: anywhere;
+.table-region tbody tr:last-child > * {
+  border-bottom: 0;
 }
 
 .async-status {
@@ -1705,6 +1841,20 @@ progress {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--mouseion-space-1) var(--mouseion-space-2);
     font-size: 0.875rem;
+  }
+
+  .site-header__language {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .site-header__language label {
+    flex-wrap: wrap;
+  }
+
+  .site-header__language select {
+    width: 100%;
+    min-width: 0;
   }
 
   .site-nav__link {
