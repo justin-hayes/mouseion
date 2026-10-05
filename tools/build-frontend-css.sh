@@ -69,3 +69,7 @@ cd "$root/internal/webapp/styles"
   --input login.css \
   --output ../static/login.css \
   --minify
+"$tailwind" \
+  --input my-books.css \
+  --output ../static/my-books.css \
+  --minify

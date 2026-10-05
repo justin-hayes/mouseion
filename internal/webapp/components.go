@@ -22,6 +22,13 @@ func loginStylesheet(enabled []bool) templ.Component {
 	return templ.Raw(`<link rel="stylesheet" href="/static/login.css">`)
 }
 
+func myBooksStylesheet(enabled []bool) templ.Component {
+	if len(enabled) == 0 || !enabled[0] {
+		return templ.NopComponent
+	}
+	return templ.Raw(`<link rel="stylesheet" href="/static/my-books.css">`)
+}
+
 type shellStyle uint8
 
 const (
@@ -43,6 +50,10 @@ func selectedShellStyle(styles []shellStyle) shellStyle {
 
 func loginStylesRequested(styles []shellStyle) []bool {
 	return []bool{selectedShellStyle(styles) == shellStyleLogin}
+}
+
+func myBooksStylesRequested(styles []shellStyle) []bool {
+	return []bool{selectedShellStyle(styles) == shellStyleMyBooks}
 }
 
 func shellBodyClass(styles []shellStyle) string {
@@ -214,9 +225,15 @@ func navigationContextForTitle(title string) NavigationContext {
 
 func destinationAttributes(context, destination NavigationContext) templ.Attributes {
 	attributes := templ.Attributes{"class": "site-nav__link"}
+	if context == NavigationLibrary {
+		attributes["class"] = "site-nav__link btn btn-ghost"
+	}
 	if context == destination {
 		attributes["aria-current"] = "page"
 		attributes["class"] = "site-nav__link site-nav__link--current"
+		if context == NavigationLibrary {
+			attributes["class"] = "site-nav__link site-nav__link--current btn btn-primary"
+		}
 	}
 	return attributes
 }

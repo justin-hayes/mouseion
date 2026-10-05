@@ -1,0 +1,67 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
+  themes: false;
+  include: button, input;
+}
+
+/* Explicitly enumerate the small utility vocabulary used by the Go shell
+ * mapping and shared Templ markup. This avoids scanning unrelated routes in
+ * the monolithic views.templ. */
+@source "../static/my-books.js";
+@source inline("btn btn-primary btn-ghost input");
+
+/* This compiled foundation is deliberately route-scoped. Mouseion continues
+ * to own Book typography and workflow components in app.css. */
+body.my-books-shell .site-header__navigation .btn {
+  min-height: 44px;
+  border-radius: 0.125rem;
+  font: inherit;
+  text-decoration: none;
+}
+
+body.my-books-shell {
+  --color-base-100: var(--mouseion-color-surface-raised);
+  --color-base-200: var(--mouseion-color-surface-quiet);
+  --color-base-content: var(--mouseion-color-text);
+  --color-primary: var(--mouseion-color-accent);
+  --color-primary-content: var(--mouseion-color-surface-raised);
+  --radius-field: 0.125rem;
+  --depth: 0;
+  --noise: 0;
+  --btn-noise: none;
+  --btn-shadow: none;
+}
+
+body.my-books-shell .site-header__navigation .btn-primary {
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+}
+
+body.my-books-shell .site-header__navigation .btn-ghost {
+  color: var(--mouseion-color-text);
+}
+
+body.my-books-shell .site-header__navigation .btn:focus-visible,
+body.my-books-shell .library-search .input:focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 3px;
+}
+
+body.my-books-shell .library-search .input {
+  box-sizing: border-box;
+  min-height: 44px;
+  border-color: var(--mouseion-color-border);
+  border-radius: 0.125rem;
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+body.my-books-shell .library-search .input:focus-visible {
+  border-color: var(--mouseion-color-focus);
+}
+
+body.my-books-shell .my-books-foundation {
+  color: var(--mouseion-color-text);
+}

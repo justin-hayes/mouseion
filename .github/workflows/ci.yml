@@ -70,13 +70,16 @@ jobs:
 
             frontend:
               - 'internal/webapp/views.templ'
+              - 'internal/webapp/components.go'
+              - 'internal/webapp/static/my-books.js'
               - 'internal/webapp/styles/**'
               - 'internal/webapp/static/login.css'
-              - 'tools/build-login-css.sh'
+              - 'internal/webapp/static/my-books.css'
+              - 'tools/build-frontend-css.sh'
               - 'Makefile'
               - '.github/workflows/ci.yml'
 
-      - name: Verify generated sign-in stylesheet
+      - name: Verify generated frontend stylesheets
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.frontend == 'true'
         run: make check-frontend-css
 

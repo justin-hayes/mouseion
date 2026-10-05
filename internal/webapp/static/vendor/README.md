@@ -14,7 +14,7 @@ The corresponding upstream licenses are under [`licenses/`](licenses/).
 
 ## CSS build tools
 
-These exact build-time bundles are downloaded by `tools/build-login-css.sh` into
+These exact build-time bundles are downloaded by `tools/build-frontend-css.sh` into
 ignored `.tmp/` storage and verified before the compiler or plugin is used. They
 are not served to browsers or needed at runtime.
 
@@ -43,4 +43,4 @@ script before either bundle is used.
 7. Run `go test ./internal/webapp` and the complete repository verification.
 
 Do not edit vendored distribution files. Mouseion-specific rules belong in
-`../app.css`.
+`../app.css` or the route-owned source stylesheets under `../styles/`.

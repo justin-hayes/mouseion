@@ -39,6 +39,7 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 		{path: "/static/vendor/htmx-4.0.0.min.js", want: "htmx"},
 		{path: "/static/app.css", want: "--mouseion-color-surface:"},
 		{path: "/static/login.css", want: ".login-screen"},
+		{path: "/static/my-books.css", want: ".my-books-foundation"},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
@@ -59,6 +60,15 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	StaticHandler().ServeHTTP(cssResponse, cssRequest)
 	css := cssResponse.Body.String()
 	assert.Contains(t, css, "*::before", "Mouseion owns a deterministic box-sizing baseline")
+
+	myBooksRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/my-books.css", nil)
+	myBooksResponse := httptest.NewRecorder()
+	StaticHandler().ServeHTTP(myBooksResponse, myBooksRequest)
+	assert.Equal(t, http.StatusOK, myBooksResponse.Code)
+	assert.Contains(t, myBooksResponse.Body.String(), ".btn-primary")
+	assert.Contains(t, myBooksResponse.Body.String(), ".input")
+	assert.NotContains(t, myBooksResponse.Body.String(), ".hidden{", "utility scanning must not pull in unrelated view classes")
+	assert.NotContains(t, myBooksResponse.Body.String(), ".alert{", "utility scanning must not pull in unrelated view classes")
 }
 
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
@@ -79,7 +89,10 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
 
 	assert.Contains(t, myBooks.String(), `href="/static/app.css"`)
+	assert.Contains(t, myBooks.String(), `href="/static/my-books.css"`)
+	assert.Contains(t, myBooks.String(), `btn-primary`)
 	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
+	assert.NotContains(t, reading.String(), `href="/static/my-books.css"`)
 	assert.Contains(t, reading.String(), `class="reading-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
