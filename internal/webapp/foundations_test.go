@@ -38,6 +38,7 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 	}{
 		{path: "/static/vendor/pico-2.1.1.min.css", want: "Pico CSS"},
 		{path: "/static/vendor/htmx-4.0.0.min.js", want: "htmx"},
+		{path: "/static/login.css", want: ".login-screen"},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
@@ -46,6 +47,52 @@ func TestLayoutUsesBundledPinnedFrontendAssets(t *testing.T) {
 
 			assert.Equal(t, http.StatusOK, response.Code)
 			assert.True(t, strings.Contains(response.Body.String(), asset.want), "asset body missing %q", asset.want)
+		})
+	}
+
+	cssRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/login.css", nil)
+	cssResponse := httptest.NewRecorder()
+	StaticHandler().ServeHTTP(cssResponse, cssRequest)
+	css := cssResponse.Body.String()
+	assert.NotContains(t, css, "*,:before,:after,::backdrop{box-sizing:border-box", "Tailwind Preflight must not reset Pico-owned pages")
+	assert.NotContains(t, css, "*,::after,::before,::backdrop{box-sizing:border-box", "Tailwind Preflight must not reset Pico-owned pages")
+}
+
+func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
+	var login, library bytes.Buffer
+	require.NoError(t, LoginPage("csrf", "", "/library", false).Render(context.Background(), &login))
+	require.NoError(t, Layout("My Books", &domain.User{Username: "learner"}, "csrf").Render(context.Background(), &library))
+
+	assert.Contains(t, login.String(), `href="/static/login.css"`)
+	assert.Contains(t, login.String(), `class="login-screen`)
+	assert.NotContains(t, library.String(), `href="/static/login.css"`)
+	assert.Contains(t, library.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
+}
+
+func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		message    string
+		onboarding bool
+		want       []string
+	}{
+		{
+			name:    "invalid credentials",
+			message: "Invalid credentials",
+			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/library"`},
+		},
+		{
+			name:       "first account",
+			onboarding: true,
+			want:       []string{`action="/onboarding"`, `autocomplete="new-password"`, `minlength="8"`, "Use at least 8 characters."},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			require.NoError(t, LoginPage("csrf", test.message, "/library", test.onboarding).Render(context.Background(), &output))
+			for _, want := range test.want {
+				assert.Contains(t, output.String(), want)
+			}
 		})
 	}
 }
