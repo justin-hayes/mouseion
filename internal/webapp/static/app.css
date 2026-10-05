@@ -481,6 +481,113 @@ body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] a[ari
   text-decoration-thickness: 0.15em;
 }
 
+/* Import and saved Custom decks share Vocabulary's native, server-rendered
+   controls; only these explicitly migrated routes opt out of Pico. */
+body.vocabulary-shell #known-vocabulary,
+body.vocabulary-shell #vocabulary-results,
+body.vocabulary-shell .custom-deck-identity-list {
+  max-width: var(--mouseion-width-data);
+  min-width: 0;
+}
+
+body.vocabulary-shell .vocabulary-import-form,
+body.vocabulary-shell .custom-deck-form {
+  display: grid;
+  justify-items: start;
+  gap: var(--mouseion-space-2);
+  max-width: var(--mouseion-width-form);
+  margin-block: var(--mouseion-space-4) var(--mouseion-space-5);
+  border-block: 1px solid var(--mouseion-color-border);
+  padding-block: var(--mouseion-space-4);
+}
+
+body.vocabulary-shell .vocabulary-import-form label,
+body.vocabulary-shell .custom-deck-form label {
+  margin: 0;
+  font-weight: 650;
+}
+
+body.vocabulary-shell .vocabulary-import-form input[type="file"],
+body.vocabulary-shell .custom-deck-form input:not([type="hidden"]),
+body.vocabulary-shell .custom-deck-form select {
+  width: min(100%, var(--mouseion-width-form));
+}
+
+body.vocabulary-shell .vocabulary-import-form small {
+  max-width: 60ch;
+  color: var(--mouseion-color-text-muted);
+}
+
+body.vocabulary-shell .vocabulary-callout {
+  max-width: var(--mouseion-width-data);
+  padding: var(--mouseion-space-3) var(--mouseion-space-4);
+  overflow-wrap: anywhere;
+}
+
+body.vocabulary-shell .known-vocabulary-result {
+  border-inline-start: 3px solid var(--mouseion-color-success);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.vocabulary-shell .known-vocabulary-result > :last-child {
+  margin-bottom: 0;
+}
+
+body.vocabulary-shell .custom-deck-summary {
+  max-width: var(--mouseion-width-data);
+  border-block: 1px solid var(--mouseion-color-border);
+  padding-block: var(--mouseion-space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+body.vocabulary-shell .custom-deck-warning {
+  margin-block: var(--mouseion-space-4);
+  border-inline-start: 3px solid var(--mouseion-color-warning);
+  background: var(--mouseion-color-surface-quiet);
+}
+
+body.vocabulary-shell .custom-deck-warning h2 {
+  font-size: 1.1em;
+}
+
+body.vocabulary-shell .custom-deck-warning > :last-child {
+  margin-bottom: 0;
+}
+
+body.vocabulary-shell .custom-deck-identity-list {
+  padding-inline-start: var(--mouseion-space-5);
+}
+
+body.vocabulary-shell .custom-deck-identity-list > li {
+  padding-block: var(--mouseion-space-3);
+  border-bottom: 1px solid var(--mouseion-color-border);
+  overflow-wrap: anywhere;
+}
+
+body.vocabulary-shell .custom-deck-identity-list ul {
+  margin-block: var(--mouseion-space-2);
+}
+
+body.vocabulary-shell .vocabulary-deck-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-2);
+  margin-block: var(--mouseion-space-3);
+}
+
+body.vocabulary-shell .custom-deck-identity-list form {
+  margin-block: var(--mouseion-space-2);
+}
+
+body.vocabulary-shell .custom-deck-prepare p {
+  max-width: 60ch;
+}
+
+body.vocabulary-shell .custom-deck-summary + p,
+body.vocabulary-shell .custom-deck-warning + h2 {
+  margin-top: var(--mouseion-space-5);
+}
+
 @media (max-width: 40rem) {
   body.vocabulary-shell .vocabulary-filter {
     grid-template-columns: minmax(0, 1fr);
@@ -503,6 +610,20 @@ body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] a[ari
   body.vocabulary-shell .vocabulary-selection-list li form {
     display: block;
     margin: var(--mouseion-space-2) 0 0;
+  }
+
+  body.vocabulary-shell .vocabulary-import-form,
+  body.vocabulary-shell .custom-deck-form {
+    width: 100%;
+  }
+
+  body.vocabulary-shell .vocabulary-import-form button,
+  body.vocabulary-shell .custom-deck-form button {
+    width: 100%;
+  }
+
+  body.vocabulary-shell .custom-deck-warning {
+    padding-inline: var(--mouseion-space-3);
   }
 }
 

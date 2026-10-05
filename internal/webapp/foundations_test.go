@@ -247,6 +247,47 @@ func TestVocabularyPageDoesNotDisplayKnownVocabulary(t *testing.T) {
 	assert.False(t, strings.Contains(html, `enctype="multipart/form-data"`), "historical language exposes an import form: %s", html)
 }
 
+func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
+	var output bytes.Buffer
+	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `<body class="vocabulary-shell">`)
+	assert.NotContains(t, html, "pico-2.1.1.min.css")
+	assert.Contains(t, html, `<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data"`)
+	assert.Contains(t, html, `label>UTF-8 lemma file<input type="file" name="vocabulary_file"`)
+	assert.Contains(t, html, `hx-post="/vocabulary/import"`)
+
+	output.Reset()
+	status := knownvocab.Status{ID: 8, Language: "de", State: rivertype.JobStateCompleted, Rejected: []knownvocab.Rejection{{Row: 2, Original: "bad\tline", Error: "expected exactly one lemma"}}}
+	require.NoError(t, KnownVocabImportStatusPage(domain.User{}, "csrf", status).Render(context.Background(), &output))
+	html = output.String()
+	assert.Contains(t, html, `<body class="vocabulary-shell">`)
+	assert.NotContains(t, html, "pico-2.1.1.min.css")
+	assert.Contains(t, html, `aria-label="Rejected vocabulary rows"`)
+	assert.Contains(t, html, `href="/vocabulary/import"`)
+}
+
+func TestCustomDeckPagesUseOwnedShellAndNativePreparationAction(t *testing.T) {
+	deck := domain.CustomVocabularyDeck{
+		ID: "deck-1", Language: "de", Name: "Reading practice", IdentityCount: 1,
+		Identities: []domain.VocabularyIdentity{{CanonicalLemma: "gehen", UPOS: "VERB"}},
+	}
+	var deckPage bytes.Buffer
+	require.NoError(t, CustomVocabularyDeckPageView(domain.User{}, "csrf", deck, nil, true, 1, 1, deck.Identities, false, nil, nil, nil, "action-key", "evidence", false).Render(context.Background(), &deckPage))
+	deckHTML := deckPage.String()
+	assert.Contains(t, deckHTML, `<body class="vocabulary-shell">`)
+	assert.NotContains(t, deckHTML, "pico-2.1.1.min.css")
+	assert.Contains(t, deckHTML, `<form class="custom-deck-form custom-deck-prepare" method="post" action="/vocabulary/decks/deck-1/preparations"`)
+	assert.Contains(t, deckHTML, `<button type="submit">Prepare deck</button>`)
+	assert.NotContains(t, deckHTML, `hx-post="/vocabulary/decks/deck-1/preparations"`)
+
+	var preparationPage bytes.Buffer
+	preparation := domain.CustomDeckPreparation{ID: "preparation-1", DeckID: deck.ID, Language: deck.Language, State: "ready", LatestReady: true}
+	require.NoError(t, CustomDeckPreparationStatusPage(domain.User{}, "csrf", preparation, deck).Render(context.Background(), &preparationPage))
+	assert.Contains(t, preparationPage.String(), `<body class="vocabulary-shell">`)
+	assert.NotContains(t, preparationPage.String(), "pico-2.1.1.min.css")
+}
+
 func TestKnownVocabResultShowsImportSummaryWithoutKnownList(t *testing.T) {
 	var output bytes.Buffer
 	result := &knownvocab.ImportResult{Imported: 2, AlreadyKnown: 1, Rejected: []knownvocab.Rejection{{Row: 4, Original: "bad line", Error: "invalid lemma"}}}

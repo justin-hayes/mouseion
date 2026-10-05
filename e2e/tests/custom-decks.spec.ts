@@ -53,6 +53,8 @@ test('Custom deck review and editing work without JavaScript at 400% zoom', asyn
     await expect(page).toHaveURL(/\/vocabulary\/decks\/[^/?]+$/);
     const deckURL = new URL(page.url()).pathname;
     await expect(page.getByRole('heading', { name: `Custom deck · ${longName}` })).toBeVisible();
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('status').filter({ hasText: '27 selected identities' })).toContainText('27 missing current evidence');
     await expect(page.getByText('Page 1 of 2.')).toBeVisible();
     const repeatedCreate = await page.request.post('/vocabulary/decks', {
@@ -88,6 +90,7 @@ test('Custom deck review and editing work without JavaScript at 400% zoom', asyn
     await page.goto(deckURL);
     await page.getByRole('button', { name: 'Delete Custom deck' }).click();
     await expect(page.getByRole('heading', { name: 'Delete Custom deck?' })).toBeVisible();
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByText('Mouseion cannot revoke APKG files already downloaded', { exact: false })).toBeVisible();
     await page.getByRole('link', { name: 'Cancel and keep deck' }).click();
     await expect(page.getByRole('heading', { name: 'Custom deck · Renamed practice' })).toBeVisible();
@@ -108,6 +111,57 @@ test('Custom deck review and editing work without JavaScript at 400% zoom', asyn
     await page.getByRole('button', { name: 'Clear selection' }).click();
     await page.getByRole('button', { name: 'Confirm clear selection' }).press('Enter');
     await expect(page.getByText('0 selected identities')).toBeVisible();
+  } finally {
+    await page.close();
+  }
+});
+
+test('Custom deck preparation submits as a native form without JavaScript', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-light', 'The fixture server shares mutable state across browser projects.');
+  const page = await browser.newPage({
+    baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+    javaScriptEnabled: false,
+    viewport: { width: 375, height: 812 },
+  });
+  try {
+    await page.goto('/login');
+    await page.getByLabel('Username').fill('fixture-learner');
+    await page.getByLabel('Password').fill('fixture-password');
+    await page.getByRole('button', { name: 'Sign in' }).press('Enter');
+    await expect(page).toHaveURL(/\/library$/);
+    const language = page.getByLabel('Study language');
+    if (await language.inputValue() !== 'de') {
+      await language.selectOption('de');
+      await page.getByRole('button', { name: 'Switch language' }).click();
+      await expect(page.getByLabel('Study language')).toHaveValue('de');
+    }
+
+    await page.goto('/vocabulary/selection/clear-confirm');
+    const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
+    await page.getByRole('button', { name: 'Confirm clear selection' }).press('Enter');
+    const added = await page.request.post('/vocabulary/selection/add', {
+      form: { csrf_token: csrf, lemma: 'fixture-prepare-ready', upos: 'VERB' },
+    });
+    expect(added.ok()).toBeTruthy();
+
+    await page.goto('/vocabulary/selection');
+    await page.getByLabel('Deck name').fill('Native preparation check');
+    await page.getByRole('button', { name: 'Create Custom deck' }).press('Enter');
+    await expect(page.getByRole('heading', { name: 'Custom deck · Native preparation check' })).toBeVisible();
+    const deckURL = new URL(page.url()).pathname;
+    const prepare = page.locator('form.custom-deck-prepare');
+    await expect(prepare).toHaveAttribute('method', 'post');
+    await expect(prepare).toHaveAttribute('action', /\/vocabulary\/decks\/[^/]+\/preparations$/);
+    await expect(prepare).not.toHaveAttribute('hx-post', /.+/);
+    await prepare.getByRole('button', { name: 'Prepare deck' }).press('Enter');
+    await expect(page).toHaveURL(/\/vocabulary\/deck-preparations\/fixture-custom-deck-preparation-/);
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('status')).toContainText('queued');
+
+    await page.goto(deckURL + '/delete-confirm');
+    await page.getByRole('button', { name: 'Confirm delete Custom deck' }).press('Enter');
+    await expect(page).toHaveURL(/\/vocabulary\/selection$/);
   } finally {
     await page.close();
   }
