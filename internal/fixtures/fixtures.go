@@ -44,6 +44,7 @@ const (
 	OutsidePrepID          = "fixture-outside-journey-preparation"
 	BrowserSyncBookID      = "fixture-browser-sync-book"
 	LegacyGeneratedLemma   = "fixture-legacy-generated"
+	customDeckReadyLemma   = "fixture-prepare-ready"
 	GraduatedKnownLemma    = "fixture-graduated-known"
 	IndependentKnownLemma  = "fixture-independent-known"
 	routeMatchBookID       = "fixture-route-match"
@@ -556,7 +557,12 @@ func (s *Store) SetVocabularyBrowseSelection(_ context.Context, owner, language,
 	}
 	identityKey := lemma + "\x00" + upos
 	if selected {
-		s.vocabularySelections[key][identityKey] = domain.VocabularyIdentity{CanonicalLemma: lemma, UPOS: upos, MissingEvidence: true}
+		identity := domain.VocabularyIdentity{CanonicalLemma: lemma, UPOS: upos, MissingEvidence: true}
+		if lemma == customDeckReadyLemma {
+			identity.OccurrenceCount, identity.BookCount = 1, 1
+			identity.MissingEvidence = false
+		}
+		s.vocabularySelections[key][identityKey] = identity
 	} else {
 		delete(s.vocabularySelections[key], identityKey)
 	}
@@ -2091,10 +2097,19 @@ func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCovera
 
 type KnownVocab struct{}
 
-func (KnownVocab) Submit(context.Context, string, string, string) (knownvocab.Handle, error) {
+func (KnownVocab) Submit(_ context.Context, _, _, input string) (knownvocab.Handle, error) {
+	if strings.Contains(input, "\t") {
+		return knownvocab.Handle{ID: 8}, nil
+	}
 	return knownvocab.Handle{ID: 7}, nil
 }
-func (KnownVocab) Get(context.Context, string, int64) (knownvocab.Status, error) {
+func (KnownVocab) Get(_ context.Context, _ string, id int64) (knownvocab.Status, error) {
+	if id == 8 {
+		return knownvocab.Status{
+			ID: 8, State: rivertype.JobStateCompleted, Language: "de", Imported: 1,
+			Rejected: []knownvocab.Rejection{{Row: 2, Original: "bad\tline", Error: "expected exactly one lemma with no tab-separated columns"}},
+		}, nil
+	}
 	return knownvocab.Status{ID: 7, State: rivertype.JobStateCompleted}, nil
 }
 

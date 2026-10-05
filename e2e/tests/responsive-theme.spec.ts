@@ -43,6 +43,17 @@ async function expectNoPageOverflow(page: Page) {
   }
 }
 
+async function expect44pxTouchTargets(controls: Locator) {
+  const sizes = await controls.evaluateAll((nodes) => nodes.map((node) => {
+    const box = node.getBoundingClientRect();
+    return { width: box.width, height: box.height, label: node.textContent?.trim() };
+  }));
+  for (const size of sizes) {
+    expect(size.width, size.label).toBeGreaterThanOrEqual(44);
+    expect(size.height, size.label).toBeGreaterThanOrEqual(44);
+  }
+}
+
 async function textContrast(element: Locator) {
   return element.evaluate((node) => {
     const channels = (color: string) => color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? [];
@@ -368,8 +379,81 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
     await page.goto('/vocabulary/import');
     await expect(page.getByRole('heading', { name: 'Vocabulary · Import known vocabulary', exact: true })).toBeVisible();
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
+    const importControls = page.locator('nav[aria-label="Vocabulary views"] a, form[action="/vocabulary/import"] input[type="file"], form[action="/vocabulary/import"] button');
+    await expect44pxTouchTargets(importControls);
+    await expectNoPageOverflow(page);
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
+
+    const importForm = page.locator('form[action="/vocabulary/import"]');
+    await importForm.locator('input[type="file"]').setInputFiles({ name: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) });
+    await importForm.getByRole('button', { name: 'Import known vocabulary' }).click();
+    await expect(page.getByRole('alert')).toContainText('Choose a non-empty UTF-8 text file to import.');
+    await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
+
+    await page.getByLabel('UTF-8 lemma file').setInputFiles({ name: 'known.txt', mimeType: 'text/plain', buffer: Buffer.from('selten\n') });
+    await page.getByRole('button', { name: 'Import known vocabulary' }).click();
+    await expect(page.locator('#vocabulary-results').getByRole('status')).toContainText(/continuing in the background|import is complete/i);
+
+    await page.getByLabel('UTF-8 lemma file').setInputFiles({ name: 'mixed.txt', mimeType: 'text/plain', buffer: Buffer.from('Haus\nbad\tline\n') });
+    await page.getByRole('button', { name: 'Import known vocabulary' }).click();
+    const rejectedRows = page.locator('#vocabulary-results').getByRole('region', { name: 'Rejected vocabulary rows' });
+    await expect(rejectedRows).toContainText('bad\tline');
+    await expect(rejectedRows).toContainText('expected exactly one lemma');
+    await expectNoPageOverflow(page);
+  });
+
+  test('saved Custom deck editing and preparation use owned responsive styling', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/vocabulary/selection/clear-confirm');
+    const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
+    const selected = await page.request.post('/vocabulary/selection/add', {
+      form: { csrf_token: csrf, lemma: 'gehen', upos: 'VERB' },
+    });
+    expect(selected.ok()).toBeTruthy();
+    const selectedWithEvidence = await page.request.post('/vocabulary/selection/add', {
+      form: { csrf_token: csrf, lemma: 'fixture-prepare-ready', upos: 'VERB' },
+    });
+    expect(selectedWithEvidence.ok()).toBeTruthy();
+
+    await page.goto('/vocabulary/selection');
+    const name = `Responsive review ${test.info().project.name}`;
+    await page.getByLabel('Deck name').fill(name);
+    await page.getByRole('button', { name: 'Create Custom deck' }).click();
+    await expect(page.getByRole('heading', { name: `Custom deck · ${name}` })).toBeVisible();
+    const deckURL = new URL(page.url()).pathname;
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: '2 selected identities' })).toContainText('1 missing current evidence');
+    const prepareForm = page.locator('form.custom-deck-prepare');
+    await expect(prepareForm).toHaveAttribute('method', 'post');
+    await expect(prepareForm).toHaveAttribute('action', /\/vocabulary\/decks\/[^/]+\/preparations$/);
+    await expect(prepareForm).not.toHaveAttribute('hx-post', /.+/);
+    await expect(prepareForm.getByRole('button', { name: 'Prepare deck' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Anki import and overlap warning' })).toBeVisible();
+
+    const controls = page.locator('nav[aria-label="Vocabulary views"] a, .custom-deck-form :is(input:not([type="hidden"]), select, button), .custom-deck-prepare button, .custom-deck-identity-list :is(a, button)');
+    await expect44pxTouchTargets(controls);
+    await expectNoPageOverflow(page);
+
+    await prepareForm.getByRole('button', { name: 'Prepare deck' }).click();
+    await expect(page).toHaveURL(/\/vocabulary\/deck-preparations\/fixture-custom-deck-preparation-/);
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('status')).toContainText('queued');
+    await expect44pxTouchTargets(page.locator('a.vocabulary-action-link, button:visible'));
+    await expectNoPageOverflow(page);
+
+    await page.goto(deckURL + '/delete-confirm');
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByText('Mouseion cannot revoke APKG files already downloaded', { exact: false })).toBeVisible();
+    await expect44pxTouchTargets(page.getByRole('button', { name: 'Confirm delete Custom deck' }));
+    await expectNoPageOverflow(page);
+    await page.getByRole('button', { name: 'Confirm delete Custom deck' }).click();
+    await expect(page).toHaveURL(/\/vocabulary\/selection$/);
   });
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {

@@ -39,7 +39,7 @@ func main() {
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{Store: store}, Capabilities: fixtures.Capabilities{},
-		CatalogueSync: catalogueSync, LemmaSuggestions: fixtureLemmaSuggestions{},
+		CustomDeckPreparation: fixtures.CustomDeckPreparations{}, CatalogueSync: catalogueSync, LemmaSuggestions: fixtureLemmaSuggestions{},
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 	})
 	if err != nil {

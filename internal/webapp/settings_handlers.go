@@ -827,7 +827,11 @@ func (h *Handler) knownVocabImportStatus(w http.ResponseWriter, r *http.Request)
 		fail(w, err)
 		return
 	}
-	render(w, r, KnownVocabImportStatus(status))
+	if isPartialHTMXRequest(r) {
+		render(w, r, KnownVocabImportStatus(status))
+		return
+	}
+	render(w, r, KnownVocabImportStatusPage(user(r), h.csrf(w, r), status))
 }
 
 func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request, language string, result *knownvocab.ImportResult, message string) {
