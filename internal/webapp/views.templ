@@ -17,8 +17,12 @@ templ Layout(title string, user *domain.User, csrf string) {
 	@ShellLayout(title, user, csrf, navigationContextForTitle(title))
 }
 
-templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, loginStyles ...bool) {
-	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title><link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
+templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, shellStyles ...shellStyle) {
+	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title>
+	if shellIncludesPico(shellStyles) {
+		<link rel="stylesheet" href="/static/vendor/pico-2.1.1.min.css"/>
+	}
+	<link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -207,7 +211,7 @@ document.addEventListener('htmx:after:swap', function (evt) {
     region.removeAttribute('data-focus-id');
   });
 });
-	</script>@loginStylesheet(loginStyles)</head><body><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	</script>@loginStylesheet(loginStylesRequested(shellStyles))</head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
 		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
@@ -327,7 +331,7 @@ templ MyBooksResultsError(message, retryURL string) {
 }
 
 templ MyBooksFailurePage(user domain.User, csrf, message, retryURL string) {
-	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
+	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		@PageHeader("My Books", "Your working collection is temporarily unavailable.", nil)
 		@Feedback(FeedbackError, "My Books needs attention", message)
 		<p><a role="button" class="outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
@@ -422,7 +426,7 @@ templ NeedsLanguageStrip(count int) {
 }
 
 templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
-	@ShellLayout("My Books", &user, csrf, NavigationLibrary) {
+	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		<section class="library-masthead" aria-labelledby="library-page-title">
 			<header class="page-header">
 				<div class="page-header__content">
@@ -817,7 +821,7 @@ func corpusUnitLabel(unit domain.CorpusSelectedUnit) string {
 }
 
 templ LoginPage(csrf, message, next string, onboarding bool) {
-	@ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in"), true) { <article class="narrow login-screen">
+	@ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in"), shellStyleLogin) { <article class="narrow login-screen">
 	if onboarding {
 		<h1>Create your account</h1><p class="login-screen__intro">Set up the first learner account for this Mouseion installation.</p>
 	} else {

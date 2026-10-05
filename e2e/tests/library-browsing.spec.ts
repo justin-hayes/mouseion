@@ -9,6 +9,31 @@ async function signIn(page: Page) {
 }
 
 test.describe('My Books collection browsing', () => {
+  test('uses Mouseion-owned styles without loading Pico', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
+    await expect(page.locator('body')).toHaveClass(/my-books-shell/);
+    const covers = page.locator('.library-grid .book-cover-media img');
+    await expect(covers.first()).toBeVisible();
+    expect(await covers.evaluateAll(images => images.every(image => image.getAttribute('alt') === ''))).toBe(true);
+    expect(await page.locator('.library-grid .book-cover-media__placeholder').evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
+    const search = page.getByLabel('Search My Books');
+    const button = page.getByRole('button', { name: 'Search' });
+    await expect(search).toBeVisible();
+    expect(await search.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+    expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await search.focus();
+    expect(await search.evaluate(node => getComputedStyle(node).outlineStyle)).toBe('solid');
+    const inboxFilter = page.getByRole('navigation', { name: 'My Books filters' }).getByRole('link', { name: /Inbox/ });
+    expect((await inboxFilter.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+    await page.goto('/reading');
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-2.1.1"]')).toHaveCount(1);
+  });
+
   test('browses and searches only the active study language', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
