@@ -710,7 +710,7 @@ func journeyEntryAvailable(item journeyBookView) bool {
 	return item.Book.EvidenceState() == domain.BookAnalyzed && bookHasCompletedAnalysis(item.Book)
 }
 templ DeckPreparationStatusPage(user domain.User, csrf string, preparation domain.DeckPreparation, resultURL string, journeyAction deckJourneyActionView) {
-	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary) {
+	@ShellLayout("Deck preparation", &user, csrf, NavigationLibrary, shellStyleReading) {
 		if resultURL != "" {
 			@Breadcrumb(resultURL, "Reading")
 		}
@@ -872,7 +872,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 	}
 }
 templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, readingBookURLs map[string]string) {
-	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
+	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
@@ -901,7 +901,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 }
 
 templ JobPage(user domain.User, csrf string, status analysis.Status, readingBookURL string) {
-	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary) {
+	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
 		@JobStatus(csrf, status, readingBookURL)
 	}
@@ -1951,7 +1951,7 @@ templ DeckJourneyAction(action deckJourneyActionView) {
 }
 
 templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, readingBookURLs map[string]string) {
-	@ShellLayout("Jobs", &user, csrf, NavigationLibrary) {
+	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
@@ -1970,7 +1970,7 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 		}
 		if len(jobs) > 0 {
 			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Kind</th><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				<thead><tr><th>Kind</th><th>Job</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>Analysis</td><td>
 						if url := readingBookURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
@@ -1978,7 +1978,7 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}
@@ -1987,7 +1987,7 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 }
 
 templ CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.Status) {
-	@ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationLibrary) {
+	@ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Catalog sync", status.ConnectionName, nil)
 		@CatalogueSyncJobStatus(csrf, status)
 	}

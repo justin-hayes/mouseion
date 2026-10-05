@@ -73,6 +73,46 @@ async function textContrast(element: Locator) {
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('Jobs uses owned styling for history, recovery, and asynchronous status', async ({ page }) => {
+    await signIn(page);
+
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/jobs');
+      await expect(page.locator('body')).toHaveClass('jobs-shell');
+      await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+      const analysisHistory = page.getByRole('region', { name: 'Analysis history' });
+      await expect(analysisHistory.getByRole('table')).toBeVisible();
+      await expect(analysisHistory).toContainText('Completed');
+      await expect(analysisHistory).toContainText('Failed');
+      await expect(page.getByRole('region', { name: 'Catalog sync history' })).toContainText('Running');
+      await expectNoPageOverflow(page);
+      await expect(analysisHistory).toHaveCSS('overflow-x', 'auto');
+
+      await page.goto('/jobs/43');
+      await expect(page.locator('body')).toHaveClass('jobs-shell');
+      const retry = page.getByRole('button', { name: 'Retry analysis' });
+      await expect(retry).toBeVisible();
+      await retry.focus();
+      await expect(retry).toBeFocused();
+      expect(await retry.evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+      const retryBox = await retry.boundingBox();
+      expect(retryBox?.width).toBeGreaterThanOrEqual(44);
+      expect(retryBox?.height).toBeGreaterThanOrEqual(44);
+      expect(await textContrast(retry)).toBeGreaterThanOrEqual(4.5);
+      await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+      expect(await textContrast(retry)).toBeGreaterThanOrEqual(4.5);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const motion = await page.evaluate(() => ({
+        requested: matchMedia('(prefers-reduced-motion: reduce)').matches,
+        animations: Array.from(document.querySelectorAll('main h1, main h2, button, a[role="button"]')).map((node) => getComputedStyle(node).animationName),
+      }));
+      expect(motion.requested).toBe(true);
+      expect(motion.animations.every((name) => name === 'none')).toBe(true);
+      await expectNoPageOverflow(page);
+    }
+  });
+
   test('Catalogs owns its styling and preserves legible, recoverable controls', async ({ page, browser }) => {
     await signIn(page);
 
