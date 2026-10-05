@@ -34,6 +34,23 @@ type customDeckFixtureTranslation struct {
 	requests []enrichment.TranslationRequest
 }
 
+// customDeckCommitThenError simulates a lost response after the real
+// PostgreSQL transaction commits. A repeat with the same key must resolve the
+// durable deck rather than create another one.
+type customDeckCommitThenError struct {
+	VocabularySelectionStore
+	failAfterCommit bool
+}
+
+func (s *customDeckCommitThenError) CreateCustomVocabularyDeck(ctx context.Context, owner, language, name, key string) (domain.CustomVocabularyDeck, error) {
+	deck, err := s.VocabularySelectionStore.CreateCustomVocabularyDeck(ctx, owner, language, name, key)
+	if err == nil && s.failAfterCommit {
+		s.failAfterCommit = false
+		return domain.CustomVocabularyDeck{}, errors.New("simulated response loss after commit")
+	}
+	return deck, err
+}
+
 type customDeckFailTranslation struct{}
 
 func (*customDeckFailTranslation) Name() string    { return "custom-deck-fixture" }
@@ -1006,7 +1023,10 @@ func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHT
 	}
 	buildBrowseProjection(t, ctx, store, sourceBook.ID)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	dependencies := storeDependencies(store)
+	selectionStore := &customDeckCommitThenError{VocabularySelectionStore: dependencies.VocabularySelection}
+	dependencies.VocabularySelection = selectionStore
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: dependencies, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "selection-http-alice", "alice-password")
 	page := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
@@ -1125,11 +1145,16 @@ SELECT $1,'de',$2,$3,n,0,'bulkword','bulkword','bulkword','NOUN','root',0,'{}',n
 	assert.NotContains(t, missingOnly.Body.String(), "<strong>haus</strong>")
 	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'it','casa','NOUN')`, alice.ID)
 	require.NoError(t, err)
+	selectionStore.failAfterCommit = true
 	created := perform(t, h, http.MethodPost, "/vocabulary/decks", create, postCookies)
 	require.Equal(t, http.StatusSeeOther, created.Code)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de','neu','ADJ')`, alice.ID)
+	require.NoError(t, err)
 	createdAgain := perform(t, h, http.MethodPost, "/vocabulary/decks", create, postCookies)
 	require.Equal(t, http.StatusSeeOther, createdAgain.Code)
 	assert.Equal(t, created.Header().Get("Location"), createdAgain.Header().Get("Location"), "same action retry must resolve to the same deck")
+	_, err = store.CreateCustomVocabularyDeck(ctx, alice.ID, "it", "Wrong language", create.Get("creation_key"))
+	require.Error(t, err, "an idempotency key cannot resolve a deck from another study language")
 	deckPage := perform(t, h, http.MethodGet, created.Header().Get("Location"), nil, cookies)
 	require.Equal(t, http.StatusOK, deckPage.Code)
 	assert.Contains(t, deckPage.Body.String(), "German shortlist")
@@ -1145,7 +1170,9 @@ SELECT $1,'de',$2,$3,n,0,'bulkword','bulkword','bulkword','NOUN','root',0,'{}',n
 	assert.Equal(t, 2, identityCount)
 	remaining, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Empty(t, remaining, "confirmed creation clears only the active language selection")
+	require.Len(t, remaining, 1, "retrying a committed creation does not clear a new selection")
+	assert.Equal(t, "neu", remaining[0].CanonicalLemma)
+	assert.Equal(t, "ADJ", remaining[0].UPOS)
 	otherOwner, err := store.ListVocabularyBrowseSelection(ctx, bob.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, otherOwner)

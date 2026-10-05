@@ -197,7 +197,7 @@ func (s *PostgresStore) CreateCustomVocabularyDeck(ctx context.Context, owner, l
 		return domain.CustomVocabularyDeck{}, fmt.Errorf("create Custom deck: %w", err)
 	}
 	if !created {
-		if err := tx.QueryRow(ctx, `SELECT id::text,language,name FROM custom_vocabulary_decks WHERE owner_id=$1 AND creation_key=$2`, owner, creationKey).Scan(&deck.ID, &deck.Language, &deck.Name); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT id::text,language,name FROM custom_vocabulary_decks WHERE owner_id=$1 AND language=$2 AND creation_key=$3`, owner, language, creationKey).Scan(&deck.ID, &deck.Language, &deck.Name); err != nil {
 			return domain.CustomVocabularyDeck{}, fmt.Errorf("resolve Custom deck retry: %w", err)
 		}
 	} else {
@@ -219,8 +219,10 @@ func (s *PostgresStore) CreateCustomVocabularyDeck(ctx context.Context, owner, l
 	if err := tx.Commit(ctx); err != nil {
 		return domain.CustomVocabularyDeck{}, err
 	}
-	createdDeck, _, err := s.ListCustomVocabularyDeckIdentityPage(ctx, owner, deck.ID, 1, false)
-	return createdDeck, err
+	// The transaction is the durable outcome. Do not turn a successful commit
+	// into an apparent creation failure by loading the review page afterward;
+	// the handler redirects to that page, which can be retried independently.
+	return deck, nil
 }
 
 func (s *PostgresStore) ListCustomVocabularyDeckIdentities(ctx context.Context, owner, deck string) ([]domain.VocabularyIdentity, error) {
