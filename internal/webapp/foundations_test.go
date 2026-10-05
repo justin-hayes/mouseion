@@ -80,6 +80,24 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
 
+func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {
+	var browse, selection, confirmation bytes.Buffer
+	page := domain.VocabularyBrowsePage{}
+	require.NoError(t, VocabularyBrowsePageView(domain.User{Username: "learner"}, "csrf", "de", page, "").Render(context.Background(), &browse))
+	require.NoError(t, VocabularySelectionPageView(domain.User{Username: "learner"}, "csrf", "de", nil, 0, 0, 0, 1, false, "", "", "", nil, true).Render(context.Background(), &selection))
+	require.NoError(t, VocabularySelectionClearConfirmView(domain.User{Username: "learner"}, "csrf", "de", 0, true).Render(context.Background(), &confirmation))
+
+	for _, html := range []string{browse.String(), selection.String(), confirmation.String()} {
+		assert.Contains(t, html, `href="/static/app.css"`)
+		assert.Contains(t, html, `class="vocabulary-shell"`)
+		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
+	}
+
+	var concordance bytes.Buffer
+	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", nil, domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, "", "").Render(context.Background(), &concordance))
+	assert.Contains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`, "unmigrated Vocabulary views keep Pico")
+}
+
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {
 	for _, test := range []struct {
 		name       string

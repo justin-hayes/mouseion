@@ -940,30 +940,30 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 	}
 }
 templ VocabularyBrowsePageView(user domain.User, csrf string, language string, page domain.VocabularyBrowsePage, query string) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Browse", "Find the most frequent vocabulary in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		<p id="vocabulary-pending" class="htmx-indicator" role="status">Loading Browse. The previous results remain visible until the request completes.</p>
 		<div id="vocabulary-workflow" hx-on:htmx:error="window.showVocabularyNetworkRecovery(ctx)">
 		if language == "" {
 			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before browsing vocabulary.") {
-				<a href="/catalogs">Connect a catalog</a>
+				<a class="vocabulary-action-link" href="/catalogs">Connect a catalog</a>
 			}
 		}
 		if language != "" {
-			<p>Viewing active study language <code>{ language }</code>.</p>
+			<p class="vocabulary-language">Viewing active study language <code>{ language }</code>.</p>
 			if page.CurrentBookID == "" {
 				<p role="status">No Current reading is set for this study language.</p>
-				<p><a href="/reading">Choose a Book in Reading</a></p>
+				<p><a class="vocabulary-action-link" href="/reading">Choose a Book in Reading</a></p>
 			} else if len(page.Books) > 0 && !page.Books[0].HasCurrentAnalysis {
 				<p><strong>Current reading: { page.Books[0].Title }</strong></p>
 				<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
-				<p><a href="/reading">Review this Book in Reading</a></p>
+				<p><a class="vocabulary-action-link" href="/reading">Review this Book in Reading</a></p>
 			} else if len(page.Books) > 0 {
-				<p><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, ranked using current analyzed Books in this language.</p>
+				<p class="vocabulary-scope"><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, ranked using current analyzed Books in this language.</p>
 			}
 			if page.CurrentBookID != "" {
-			<form method="get" action="/vocabulary" class="data-width" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
+			<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
@@ -1000,7 +1000,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
+					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 						if row.InBookDeck {
 							<small>In a Book deck</small>
 						}
@@ -1013,7 +1013,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@VocabularyBrowsePager(page, query)
 			}
 			}
-			<p><a href="/vocabulary/selection">Browse selection ({ fmt.Sprintf("%d", page.SelectionCount) })</a></p>
+			<p><a class="vocabulary-selection-action" href="/vocabulary/selection">Browse selection ({ fmt.Sprintf("%d", page.SelectionCount) })</a></p>
 		<div id="vocabulary-recovery" aria-live="polite"></div>
 		</div>
 		}
@@ -1022,10 +1022,10 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 }
 
 templ VocabularySelectionPageView(user domain.User, csrf, language string, identities []domain.VocabularyIdentity, total, missing, visibleTotal, page int, missingOnly bool, creationKey, retryName, creationError string, decks []domain.CustomVocabularyDeck, editable bool) {
-	@ShellLayout("Review Browse selection", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Review Browse selection", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Review Browse selection", "An unnamed, language-specific shortlist; it is not a deck until you name one.", nil)
 		@VocabularyViewsNav("browse")
-		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities", total) }; { fmt.Sprintf("%d currently lack evidence", missing) }.</p>
+		<p class="vocabulary-selection-summary">Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities", total) }; { fmt.Sprintf("%d currently lack evidence", missing) }.</p>
 		if !editable {
 			<p role="status">This language is not currently in your study-language set. The unnamed selection is retained and read-only.</p>
 		}
@@ -1033,9 +1033,9 @@ templ VocabularySelectionPageView(user domain.User, csrf, language string, ident
 			<p role="alert">{ creationError }</p>
 		}
 		if missingOnly {
-			<p><a href="/vocabulary/selection">Show all selected identities</a></p>
+			<p><a class="vocabulary-selection-filter" href="/vocabulary/selection">Show all selected identities</a></p>
 		} else {
-			<p><a href="/vocabulary/selection?missing=true">Show only identities missing current evidence</a></p>
+			<p><a class="vocabulary-selection-filter" href="/vocabulary/selection?missing=true">Show only identities missing current evidence</a></p>
 		}
 		if len(identities) == 0 {
 			<p>No identities in this selection view.</p>
@@ -1044,12 +1044,12 @@ templ VocabularySelectionPageView(user domain.User, csrf, language string, ident
 		if len(decks) == 0 {
 			<p>No saved Custom decks yet.</p>
 		}
-		<ul>
+		<ul class="vocabulary-deck-list">
 		for _, deck := range decks {
-			<li><a href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>{ deck.Name }</a> — { deck.Language }, { fmt.Sprintf("%d identities", deck.IdentityCount) }, { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }</li>
+			<li><a class="vocabulary-deck-link" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>{ deck.Name }</a> — { deck.Language }, { fmt.Sprintf("%d identities", deck.IdentityCount) }, { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }</li>
 		}
 		</ul>
-		<ul>
+		<ul class="vocabulary-selection-list">
 		for _, identity := range identities {
 			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }
 			if editable {
@@ -1071,15 +1071,15 @@ templ VocabularySelectionPageView(user domain.User, csrf, language string, ident
 
 templ VocabularySelectionPager(page,total int, missingOnly bool) {
 	if page > 1 {
-		<a href={ templ.SafeURL(vocabularySelectionPageURL(page-1,missingOnly)) }>Previous page</a>
+		<a class="vocabulary-selection-page-link" href={ templ.SafeURL(vocabularySelectionPageURL(page-1,missingOnly)) }>Previous page</a>
 	}
 	if page*25 < total {
-		<a href={ templ.SafeURL(vocabularySelectionPageURL(page+1,missingOnly)) }>Next page</a>
+		<a class="vocabulary-selection-page-link" href={ templ.SafeURL(vocabularySelectionPageURL(page+1,missingOnly)) }>Next page</a>
 	}
 }
 
 templ VocabularySelectionClearConfirmView(user domain.User, csrf, language string, count int, editable bool) {
-	@ShellLayout("Confirm clearing selection", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Confirm clearing selection", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Clear Browse selection?", "This removes only the unnamed selection for this study language. Saved Custom decks are not changed.", nil)
 		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities will be removed", count) }.</p>
 		if editable {
@@ -1087,7 +1087,7 @@ templ VocabularySelectionClearConfirmView(user domain.User, csrf, language strin
 		} else {
 			<p role="status">This language is unavailable; clearing is disabled until it returns.</p>
 		}
-		<p><a href="/vocabulary/selection">Cancel and keep selection</a></p>
+		<p><a class="vocabulary-action-link" href="/vocabulary/selection">Cancel and keep selection</a></p>
 	}
 }
 
@@ -1711,7 +1711,7 @@ templ VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary,
 }
 
 templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		<div id="vocabulary-recovery" aria-live="polite">
@@ -1729,41 +1729,41 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		}
 		<button type="submit">Retry Browse</button>
 		</form>
-		<a href="/vocabulary">Clear search</a>
+		<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
 		<p>Browse does not report partial counts as complete.</p>
 		</div>
 	}
 }
 
 templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
 		@VocabularyViewsNav("browse")
 		<div id="vocabulary-recovery" aria-live="polite">
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
 		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll}, query.Prefix)) }>Restart in the Current reading</a>
-		<a href="/vocabulary">Clear search</a>
+		<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
 		</div>
 	}
 }
 
 templ VocabularyBrowseSelectionChangedPageView(user domain.User, csrf string) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Browse", "", nil)
 		<div id="vocabulary-recovery" aria-live="polite">
 			@Feedback(FeedbackWarning, "Selection not changed", "This identity no longer has current evidence. Refresh Browse before selecting it.")
-			<a href="/vocabulary">Refresh Browse</a>
+			<a class="vocabulary-action-link" href="/vocabulary">Refresh Browse</a>
 		</div>
 	}
 }
 
 templ VocabularyBrowseSelectionErrorPageView(user domain.User, csrf string) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary) {
+	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Vocabulary · Browse", "", nil)
 		<div id="vocabulary-recovery" aria-live="polite">
 			@Feedback(FeedbackError, "Selection could not be updated", "Your previous Browse results remain visible. Check the selection before retrying.")
-			<a href="/vocabulary/selection">Review Browse selection</a>
+			<a class="vocabulary-action-link" href="/vocabulary/selection">Review Browse selection</a>
 		</div>
 	}
 }

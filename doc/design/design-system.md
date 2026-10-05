@@ -1,13 +1,15 @@
 # Design system
 
-Status: **Mouseion owns the shared shell, reusable patterns, My Books, and
-Reading; Pico remains for unmigrated content, with sign-in on Tailwind/daisyUI**
+Status: **Mouseion owns the shared shell, reusable patterns, My Books, Reading,
+and Vocabulary Browse/selection; Pico remains for unmigrated content, with
+sign-in on Tailwind/daisyUI**
 
 Mouseion's design system is a semantic layer above native HTML and a staged CSS
 foundation. It supports a server-rendered, HTMX-enhanced product whose visual
 character is a calm digital scholarly reading desk. Mouseion's `app.css` owns the
-shared application shell, reusable interaction patterns, and migrated My Books
-and Reading content. Pico remains the foundation for unmigrated page content;
+shared application shell, reusable interaction patterns, and migrated My Books,
+Reading, and Vocabulary Browse/selection content. Pico remains the foundation
+for unmigrated page content;
 Tailwind CSS with daisyUI is used only by the deliberately redesigned sign-in route.
 Mouseion-owned tokens, typography roles, responsive rules, and interaction
 contracts are the durable system.
@@ -66,6 +68,7 @@ compiler, or network access.
 | Anonymous sign-in and first-account form (`/login`) | `login.css` (Tailwind/daisyUI) plus shared shell and token rules in `app.css` | The route opts into `login.css`; its utility vocabulary is explicitly declared in the stylesheet source. Tailwind Preflight is not imported. |
 | My Books (`/library`) | `app.css` | The route does not load Pico. Its page styles, native-element baseline, shell, controls, and HTMX fragments are owned by Mouseion; preserve native list semantics and the server-rendered fallback. |
 | Reading (`/reading` and focused Reading tasks) | `app.css` | Current reading, the unordered candidate chooser, completion receipt, and deck-preparation task do not load Pico. Mouseion owns the native-element baseline and responsive Reading patterns; preserve native lists, disclosures, and server-rendered actions. |
+| Vocabulary Browse and selection review/confirmation | `app.css` | Browse, the recoverable unnamed selection, and its clear confirmation do not load Pico. Mouseion owns their native-element baseline, responsive results and controls; selection, focus recovery, and ordinary-form behavior remain server-rendered. Other Vocabulary routes remain Pico-backed. |
 | Other authenticated routes and anonymous/shared pages | `app.css` for shell and shared components; Pico 2.1.1 for unmigrated page content | These routes do not load `login.css`. Mouseion styles only its owned shell and component classes; it does not globally reset Pico-backed content. |
 | Shared anonymous/authenticated shell | `app.css` | `ShellLayout` remains the sole shell and navigation system. Navigation landmarks, current state, active-language control, focus, and compact behavior are styled explicitly through Mouseion tokens rather than Pico defaults. |
 | Shared page patterns | `app.css` | Page headings, actions, feedback, status, tables, and confirmations use explicit Mouseion styling on their owned classes; page-specific markup and unconverted content can continue using Pico. |
