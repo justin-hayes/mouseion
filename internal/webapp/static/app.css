@@ -100,33 +100,33 @@ body {
 }
 
 /* Migrated product surfaces own their native-element baseline without Pico. */
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) {
   margin: 0;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell),
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) *,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) *::before,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) *::after {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell),
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) *,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) *::before,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) *::after {
   box-sizing: border-box;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) :is(button, input, select, textarea) {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) :is(button, input, select, textarea) {
   color: inherit;
   font: inherit;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) :focus-visible {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) :focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
   outline-offset: 2px;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a {
   color: var(--mouseion-color-accent);
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a.outline,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a[role="button"] {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a.outline,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a[role="button"] {
   box-sizing: border-box;
   display: inline-flex;
   min-height: 44px;
@@ -143,8 +143,8 @@ body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a[r
   text-decoration: none;
 }
 
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a.outline:hover,
-body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell) a[role="button"]:hover {
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a.outline:hover,
+body:is(.my-books-shell, .reading-shell, .vocabulary-shell, .catalogs-shell, .jobs-shell) a[role="button"]:hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
@@ -152,7 +152,7 @@ body.reading-shell :is(button, input, select, textarea) {
   max-width: 100%;
 }
 
-body:is(.reading-shell, .vocabulary-shell) button {
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button {
   min-height: 44px;
   border: 1px solid var(--mouseion-color-accent);
   border-radius: var(--mouseion-radius);
@@ -167,19 +167,19 @@ body.reading-shell button {
   padding-inline: var(--mouseion-space-4);
 }
 
-body:is(.reading-shell, .vocabulary-shell) button:hover:not(:disabled) {
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button:hover:not(:disabled) {
   background: var(--mouseion-color-accent-hover);
 }
 
-body:is(.reading-shell, .vocabulary-shell) button.outline,
-body:is(.reading-shell, .vocabulary-shell) button.secondary {
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.outline,
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.secondary {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body:is(.reading-shell, .vocabulary-shell) button.outline:hover,
-body:is(.reading-shell, .vocabulary-shell) button.secondary:hover {
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.outline:hover,
+body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.secondary:hover {
   background: var(--mouseion-color-surface-quiet);
 }
 

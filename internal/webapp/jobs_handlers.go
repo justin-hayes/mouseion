@@ -246,6 +246,36 @@ func jobState(status analysis.Status) string {
 		return cases.Title(language.Und).String(string(status.State))
 	}
 }
+
+func analysisJobStatusLabel(state string) string {
+	switch state {
+	case "completed":
+		return "Completed"
+	case "failed", "analysis failed":
+		return "Failed"
+	case "cancelled", "analysis cancelled":
+		return "Cancelled"
+	case "running", "processing":
+		return "Processing"
+	case "queued", "pending", "available", "scheduled", "retryable":
+		return "Queued"
+	default:
+		return cases.Title(language.Und).String(state)
+	}
+}
+
+func analysisJobStatusTone(state string) StatusTone {
+	switch analysisJobStatusLabel(state) {
+	case "Completed":
+		return StatusSuccess
+	case "Failed", "Cancelled":
+		return StatusDanger
+	case "Processing", "Queued":
+		return StatusInfo
+	default:
+		return StatusNeutral
+	}
+}
 func analysisStatusSummary(status analysis.Status) string {
 	switch status.LogicalState {
 	case "completed":
