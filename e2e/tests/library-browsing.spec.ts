@@ -31,7 +31,8 @@ test.describe('My Books collection browsing', () => {
     expect((await inboxFilter.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
     await page.goto('/reading');
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-2.1.1"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
+    await expect(page.locator('body')).toHaveClass(/reading-shell/);
   });
 
   test('browses and searches only the active study language', async ({ page }) => {

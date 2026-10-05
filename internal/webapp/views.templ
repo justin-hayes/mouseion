@@ -492,7 +492,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 }
 
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
-	@ShellLayout("Reading", &user, csrf, NavigationReadingJourney) {
+	@ShellLayout("Reading", &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@PageHeader(journeyPageTitle(journey), "Review your current Book and other books you may want to read.", nil) {
 			<a role="button" class="outline" href="/library">Add books from My Books</a>
 		}
@@ -521,7 +521,7 @@ templ ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLab
 }
 
 templ PrimaryGoalFinishPage(user domain.User, csrf string, outcome primaryGoalFinishView) {
-	@ShellLayout("Reading finished", &user, csrf, NavigationReadingJourney) {
+	@ShellLayout("Reading finished", &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@PrimaryGoalFinish(outcome)
 	}
 }
@@ -2032,7 +2032,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 }
 
 templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckPreparationView, resultURL string) {
-	@ShellLayout("Prepare deck · "+canonicalBookTitle(task.Book), &user, csrf, NavigationReadingJourney) {
+	@ShellLayout("Prepare deck · "+canonicalBookTitle(task.Book), &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@Breadcrumb(resultURL, "Reading")
 		@PageHeader("Prepare a deck", canonicalBookTitle(task.Book), StatusBadge("Exact source", StatusInfo))
 		<section class="narrow" aria-labelledby="journey-deck-task-heading">
@@ -2075,7 +2075,7 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 }
 
 templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView, message string, pageError string) {
-	@ShellLayout(readingChooserPageTitle(chooser), &user, csrf, NavigationReadingJourney) {
+	@ShellLayout(readingChooserPageTitle(chooser), &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@PageHeader(readingChooserPageTitle(chooser), readingChooserPageDescription(chooser), nil) {
 			if chooser.CurrentBookID != "" {
 				<a class="outline" href="/reading">Return to current reading</a>

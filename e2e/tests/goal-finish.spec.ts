@@ -11,13 +11,15 @@ async function signIn(page: Page) {
 // Keep the cross-project browser assertion read-only because the fixture server
 // is shared across projects. One desktop-light journey below exercises the
 // complete finish/history/reread loop; isolated Go tests cover idempotency.
-test('Current reading exposes an accessible reading-finish action', async ({ page }) => {
+test('Current reading exposes a native reading-finish confirmation without JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
   await signIn(page);
   await page.goto('/reading');
 
   const goal = page.locator('#primary-goal-section');
   const finishDisclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
-  if (await finishDisclosure.count() === 0) return;
+  await expect(finishDisclosure).toHaveCount(1);
 
   const finishForm = finishDisclosure.locator('form[action="/reading/finish"]');
   await finishDisclosure.locator('summary').click();
@@ -26,6 +28,22 @@ test('Current reading exposes an accessible reading-finish action', async ({ pag
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);
   await expect(finishForm.locator('input[name="expected_current_book_id"]')).toHaveCount(1);
   await expect(finishForm.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(1);
+
+  for (const [label, button] of [
+    ['Stop reading for now', 'Confirm stop for now'],
+    ['Set aside this Book', 'Confirm set aside'],
+  ]) {
+    const disclosure = goal.locator('details').filter({ hasText: label }).first();
+    await disclosure.locator('summary').click();
+    await expect(disclosure.getByRole('button', { name: button })).toBeVisible();
+  }
+
+  await page.goto('/reading/switch');
+  const switchCandidate = page.locator('.reading-chooser-book').filter({ hasText: 'Switch to this book' }).first();
+  const switchDisclosure = switchCandidate.locator('details').filter({ hasText: 'Switch to this book' }).first();
+  await switchDisclosure.locator('summary').click();
+  await expect(switchDisclosure.getByRole('button', { name: /Confirm switch to this book/ })).toBeVisible();
+  await context.close();
 });
 
 test('finishing current reading records Read history and supports reading again', async ({ page }) => {
@@ -52,6 +70,9 @@ test('finishing current reading records Read history and supports reading again'
   await finishDisclosure.getByRole('button', { name: 'Mark reading finished' }).click();
 
   await expect(page.getByRole('heading', { name: /Reading finished/i })).toBeVisible();
+  await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+  await expect(page.locator('#primary-goal-section')).toHaveClass(/journey-finish-outcome/);
+  await expect(page.locator('#primary-goal-section')).toContainText('Vocabulary transition');
   await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
   await expect(page.getByRole('link', { name: 'Choose what to read next' })).toHaveAttribute('href', '/reading');
   await page.goto('/library?history=read');

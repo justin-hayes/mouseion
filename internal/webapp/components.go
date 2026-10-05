@@ -28,6 +28,7 @@ const (
 	shellStylePico shellStyle = iota
 	shellStyleLogin
 	shellStyleMyBooks
+	shellStyleReading
 )
 
 func selectedShellStyle(styles []shellStyle) shellStyle {
@@ -42,12 +43,18 @@ func loginStylesRequested(styles []shellStyle) []bool {
 }
 
 func shellIncludesPico(styles []shellStyle) bool {
-	return selectedShellStyle(styles) != shellStyleMyBooks
+	style := selectedShellStyle(styles)
+	return style != shellStyleMyBooks && style != shellStyleReading
 }
 
 func shellBodyClass(styles []shellStyle) string {
-	if selectedShellStyle(styles) == shellStyleMyBooks {
+	switch selectedShellStyle(styles) {
+	case shellStyleMyBooks:
 		return "my-books-shell"
+	case shellStyleReading:
+		return "reading-shell"
+	case shellStylePico, shellStyleLogin:
+		return ""
 	}
 	return ""
 }
