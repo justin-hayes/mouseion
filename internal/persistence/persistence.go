@@ -56,6 +56,8 @@ var ErrBookNotFound = ErrNotFound
 var ErrCurrentReadingExists = ErrGoalExists
 var ErrCurrentReadingStale = ErrGoalStale
 var ErrCurrentReadingIneligible = ErrGoalIneligible
+var ErrVocabularyBrowseCountsPending = errors.New("current vocabulary counts are being refreshed")
+var ErrVocabularyBrowseCountsUnavailable = errors.New("current vocabulary counts are unavailable after repeated failures")
 
 type Store interface {
 	Ping(context.Context) error

@@ -3,9 +3,9 @@
 Status: **Accepted specification — partially implemented** · Date: 2026-10-06
 
 Implementation status: issue #1505 binds new Book preparation, retries, and
-re-preparation to the active Current-reading snapshot; starting and finishing
-Reading no longer depend on deck work. The corpus-qualified two-occurrence
-exception and Custom-deck retirement remain pending.
+re-preparation to the active Current-reading snapshot; issue #1506 freezes the
+corpus-qualified two-occurrence exception. Starting and finishing Reading do
+not depend on deck work. Custom-deck retirement remains pending.
 
 This is the target selection, freeze, and retirement contract under [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md). It amends the [Reading workflow](reading-workflow.md) and [frequency-floor decision](../adr/0048-frequency-floor-deck-selection.md); the implementation-status note above distinguishes shipped behavior from the remaining threshold and Custom-deck cutover. The historical [custom-deck feature contract](vocabulary-browse-concordance-and-custom-decks.md) is superseded for selection and custom decks. [Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md) retain their exploration purpose.
 

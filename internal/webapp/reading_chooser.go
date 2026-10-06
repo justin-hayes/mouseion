@@ -188,6 +188,14 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
 		return
 	}
+	if errors.Is(err, persistence.ErrVocabularyBrowseCountsPending) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are updating. No reading was changed; try switching again when the counts are ready."))
+		return
+	}
+	if errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable) {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."))
+		return
+	}
 	if err != nil {
 		fail(w, err)
 		return
@@ -350,6 +358,14 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags) {
 			redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
+			return
+		}
+		if errors.Is(err, persistence.ErrVocabularyBrowseCountsPending) {
+			redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are updating. No reading was changed; try starting again when the counts are ready."))
+			return
+		}
+		if errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable) {
+			redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."))
 			return
 		}
 		if err != nil {

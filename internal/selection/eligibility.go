@@ -3,6 +3,7 @@ package selection
 import "github.com/justin-hayes/mouseion/internal/domain"
 
 const DefaultRecurringMinOccurrences = 3
+const DefaultAcrossBooksMinOccurrences = 10
 
 // Eligibility contains the learner-state exclusions shared by recurring-
 // vocabulary selectors. Generated vocabulary is deliberately absent: it is
@@ -32,6 +33,22 @@ func NewEligibility(known []domain.KnownVocabulary, reserved []domain.DeckPrepar
 func (e Eligibility) Allows(candidate domain.SelectionCandidate, minOccurrences int) bool {
 	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS}
 	return allowsIdentity(candidate.OccurrenceCount, minOccurrences, e.knownContains(identity), e.reservedContains(identity))
+}
+
+// AllowsBookDeckCandidate preserves the in-Book frequency floor and permits
+// exactly-two occurrences only when current same-language evidence reaches
+// the corpus-wide threshold.
+func (e Eligibility) AllowsBookDeckCandidate(candidate domain.SelectionCandidate, acrossBooksOccurrences int64) bool {
+	frequencyEligible := candidate.OccurrenceCount >= DefaultRecurringMinOccurrences ||
+		(candidate.OccurrenceCount == 2 && acrossBooksOccurrences >= DefaultAcrossBooksMinOccurrences)
+	return frequencyEligible && !e.ExcludesLearnerState(candidate)
+}
+
+// ExcludesLearnerState reports whether Known or Reserved state excludes an
+// identity, independently of its occurrence count.
+func (e Eligibility) ExcludesLearnerState(candidate domain.SelectionCandidate) bool {
+	identity := Identity{Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, UPOS: candidate.UPOS}
+	return e.knownContains(identity) || e.reservedContains(identity)
 }
 
 func (e Eligibility) knownContains(identity Identity) bool {

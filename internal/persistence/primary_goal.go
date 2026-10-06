@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -70,6 +71,10 @@ func createPrimaryGoalSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Querie
 	if err != nil {
 		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
 	}
+	candidates, err = eligiblePrimaryGoalCandidates(ctx, tx, q, owner, language, candidates)
+	if err != nil {
+		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+	}
 	for _, candidate := range candidates {
 		if err := q.InsertPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.InsertPrimaryGoalSnapshotVocabularyParams{
 			Owner: owner, Snapshot: snapshot.ID, Corpus: candidate.CorpusID, Language: candidate.Language,
@@ -81,6 +86,137 @@ func createPrimaryGoalSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Querie
 		}
 	}
 	return snapshot, candidates, nil
+}
+
+type primaryGoalVocabularyIdentity struct {
+	lemma string
+	upos  string
+}
+
+// eligiblePrimaryGoalCandidates applies the common learner-state exclusions
+// and uses only ready current per-Book projections for the two-occurrence
+// exception. Readiness and totals share one SQL statement snapshot.
+func eligiblePrimaryGoalCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
+	known, err := listKnownVocabulary(ctx, tx, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	reserved, err := listReservedVocabulary(ctx, tx, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	eligibility := selection.NewEligibility(known, reserved)
+	identities := make([]primaryGoalVocabularyIdentity, 0)
+	seen := make(map[primaryGoalVocabularyIdentity]struct{})
+	for _, candidate := range candidates {
+		if candidate.OccurrenceCount != 2 || eligibility.ExcludesLearnerState(candidate) {
+			continue
+		}
+		identity := primaryGoalVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}
+		if _, ok := seen[identity]; !ok {
+			seen[identity] = struct{}{}
+			identities = append(identities, identity)
+		}
+	}
+
+	acrossBooks := make(map[primaryGoalVocabularyIdentity]int64, len(identities))
+	if len(identities) > 0 {
+		lemmas, upos := make([]string, 0, len(identities)), make([]string, 0, len(identities))
+		for _, identity := range identities {
+			lemmas, upos = append(lemmas, identity.lemma), append(upos, identity.upos)
+		}
+		rows, err := tx.Query(ctx, `
+WITH requested AS (
+ SELECT lemma,upos FROM unnest($3::text[],$4::text[]) AS r(lemma,upos)
+), current_books AS MATERIALIZED (
+ SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id,b.language_tag AS language
+ FROM current_analysis_identity cai
+ JOIN books b ON b.owner_id=cai.owner_id AND b.id=cai.book_id
+ WHERE cai.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
+), projection_status AS (
+ SELECT NOT EXISTS (
+   SELECT 1 FROM current_books cb
+   LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
+     AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
+     AND r.language=cb.language AND r.builder_version=1
+   WHERE r.owner_id IS NULL
+ ) AS ready,
+ EXISTS (
+   SELECT 1 FROM current_books cb
+   LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
+     AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
+     AND r.language=cb.language AND r.builder_version=1
+   JOIN river_job failed ON failed.kind='rebuild_vocabulary_browse_counts' AND failed.state='discarded'
+     AND failed.args->>'owner_id'=cb.owner_id::text AND failed.args->>'book_id'=cb.book_id::text
+     AND failed.args->>'run_id'=cb.analysis_run_id::text
+   WHERE r.owner_id IS NULL
+     AND NOT EXISTS (SELECT 1 FROM river_job active
+       WHERE active.kind='rebuild_vocabulary_browse_counts'
+         AND active.state IN ('available','pending','running','retryable','scheduled')
+         AND active.args->>'owner_id'=cb.owner_id::text AND active.args->>'book_id'=cb.book_id::text
+         AND active.args->>'run_id'=cb.analysis_run_id::text)
+ ) AS unavailable
+), counts AS MATERIALIZED (
+ SELECT c.canonical_lemma,c.upos,sum(c.occurrence_count)::bigint AS occurrences
+ FROM current_books cb
+ JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
+   AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
+   AND r.language=cb.language AND r.builder_version=1
+ JOIN vocabulary_browse_counts c ON c.owner_id=cb.owner_id AND c.book_id=cb.book_id
+   AND c.analysis_run_id=cb.analysis_run_id AND c.corpus_id=cb.corpus_id AND c.language=cb.language
+ JOIN requested i ON i.lemma=c.canonical_lemma AND i.upos=c.upos
+ GROUP BY c.canonical_lemma,c.upos
+)
+SELECT i.lemma,i.upos,COALESCE(c.occurrences,0)::bigint,s.ready,s.unavailable
+FROM requested i CROSS JOIN projection_status s
+LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos`, owner, language, lemmas, upos)
+		if err != nil {
+			return nil, fmt.Errorf("load current across-Book vocabulary counts: %w", err)
+		}
+		ready, unavailable := true, false
+		for rows.Next() {
+			var lemma, pos string
+			var count int64
+			if err := rows.Scan(&lemma, &pos, &count, &ready, &unavailable); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			acrossBooks[primaryGoalVocabularyIdentity{lemma: lemma, upos: pos}] = count
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+		if !ready {
+			if unavailable {
+				return nil, ErrVocabularyBrowseCountsUnavailable
+			}
+			return nil, ErrVocabularyBrowseCountsPending
+		}
+	}
+
+	selected := make([]domain.SelectionCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		frequency := int64(0)
+		if candidate.OccurrenceCount == 2 {
+			frequency = acrossBooks[primaryGoalVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
+		}
+		if !eligibility.AllowsBookDeckCandidate(candidate, frequency) {
+			continue
+		}
+		activeReserved, err := q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
+			Owner: owner, Language: language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if activeReserved {
+			continue
+		}
+		selected = append(selected, candidate)
+	}
+	return selected, nil
 }
 
 // correctedPrimaryGoalCandidates rebuilds the current Book's candidate set
@@ -110,41 +246,9 @@ func correctedPrimaryGoalCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Q
 	if err != nil {
 		return nil, err
 	}
-	reservedVocabulary, err := listReservedVocabulary(ctx, tx, owner, language)
-	if err != nil {
-		return nil, err
-	}
 	candidates := make([]domain.SelectionCandidate, 0, len(projected))
 	for _, candidate := range projected {
-		if candidate.OccurrenceCount < 3 {
-			continue
-		}
-		known, err := q.IsKnownVocabularyIdentity(ctx, sqlcgen.IsKnownVocabularyIdentityParams{
-			OwnerID: owner, Language: language, CanonicalLemma: candidate.Identity.CanonicalLemma, Upos: candidate.Identity.UPOS,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if known {
-			continue
-		}
-		reservedByDeck := false
-		for _, reserved := range reservedVocabulary {
-			if reserved.Language == language && reserved.CanonicalLemma == candidate.Identity.CanonicalLemma && (reserved.UPOS == candidate.Identity.UPOS || reserved.UPOS == "") {
-				reservedByDeck = true
-				break
-			}
-		}
-		if reservedByDeck {
-			continue
-		}
-		reserved, err := q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
-			Owner: owner, Language: language, CanonicalLemma: candidate.Identity.CanonicalLemma, Upos: candidate.Identity.UPOS,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if reserved {
+		if candidate.OccurrenceCount < 2 {
 			continue
 		}
 		forms, err := json.Marshal(candidate.ObservedForms)
