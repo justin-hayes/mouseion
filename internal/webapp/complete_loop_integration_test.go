@@ -221,6 +221,11 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
 	assert.Contains(t, toReadPage.Body.String(), "Complete Loop Book")
 	assert.Contains(t, toReadPage.Body.String(), "Workflow</strong>: Currently reading")
+	beforePreparation, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
+	require.NoError(t, err)
+	require.Empty(t, beforePreparation, "starting Reading does not automatically prepare a deck")
+	submitted := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
 		preparations, listErr := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
