@@ -80,6 +80,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/jobs');
       await expect(page.locator('body')).toHaveClass('jobs-shell');
+      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
       const analysisHistory = page.getByRole('region', { name: 'Analysis history' });
       await expect(analysisHistory.getByRole('table')).toBeVisible();
@@ -120,6 +121,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/catalogs');
       await expect(page.locator('body')).toHaveClass('catalogs-shell');
+      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
       await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible();
       const addConnectionForm = page.locator('#catalog-connection-form');

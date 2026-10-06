@@ -1,0 +1,144 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
+  themes: false;
+  include: button, input;
+}
+
+/* The shell mapping emits these as literal classes. This explicit candidate
+ * list avoids scanning the monolithic template file and unrelated routes. */
+@source inline("btn btn-primary btn-outline input");
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) {
+  --color-base-100: var(--mouseion-color-surface-raised);
+  --color-base-200: var(--mouseion-color-surface-quiet);
+  --color-base-content: var(--mouseion-color-text);
+  --color-primary: var(--mouseion-color-accent);
+  --color-primary-content: var(--mouseion-color-surface-raised);
+  --radius-field: 0.125rem;
+  --depth: 0;
+  --noise: 0;
+  --btn-noise: none;
+  --btn-shadow: none;
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn {
+  min-height: 44px;
+  border-radius: 0.125rem;
+  font: inherit;
+  text-decoration: none;
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-primary {
+  border-color: var(--mouseion-color-accent);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-primary:hover:not(:disabled) {
+  border-color: var(--mouseion-color-accent-hover);
+  background: var(--mouseion-color-accent-hover);
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-outline {
+  border-color: var(--mouseion-color-border);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn:focus-visible,
+body.catalogs-shell .input:focus-visible,
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .site-header__navigation a:focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 3px;
+}
+
+body.catalogs-shell :is(button, input, select, textarea) {
+  max-width: 100%;
+}
+
+body.catalogs-shell .input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  border-color: var(--mouseion-color-border);
+  border-radius: 0.125rem;
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+body.catalogs-shell label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--mouseion-space-1);
+  font-weight: 600;
+}
+
+body.catalogs-shell label small {
+  color: var(--mouseion-color-text-muted);
+  font-weight: 400;
+}
+
+body.catalogs-shell .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--mouseion-space-4);
+  margin-bottom: var(--mouseion-space-4);
+}
+
+body.catalogs-shell form,
+body.catalogs-shell .catalog-list article > :is(div[role="status"], p, details, .action-group) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+body.catalogs-shell details > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+body.catalogs-shell .catalog-list article div[role="status"] {
+  border-inline-start: 3px solid var(--mouseion-color-info);
+  padding-inline-start: var(--mouseion-space-3);
+}
+
+body.catalogs-shell .catalog-list article div[role="status"] p {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+body.catalogs-shell .catalog-list article details form {
+  margin-block: var(--mouseion-space-3);
+}
+
+body.catalogs-shell .confirmation__body {
+  overflow-wrap: anywhere;
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) :is(button, a[role="button"], summary) {
+  min-height: 44px;
+}
+
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .site-header__language select {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: 0.125rem;
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) *,
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) *::before,
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

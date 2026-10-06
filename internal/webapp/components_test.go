@@ -72,7 +72,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		`Italian (it) (new)`,
 		`French (fr) (no books)`,
 		`value="fr"`,
-		`<noscript><button type="submit">Switch language</button></noscript>`,
+		`<noscript><button class="btn btn-primary" type="submit">Switch language</button></noscript>`,
 		`action="/active-study-language"`,
 	)
 	assert.False(t, strings.Contains(html, `value="">Choose a study language`), "active language switcher exposes a selectable empty option")

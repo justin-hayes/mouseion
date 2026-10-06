@@ -1,15 +1,16 @@
 # Design system
 
 Status: **Mouseion owns the complete shipped interface. Its shared application
-styling remains in `app.css`; My Books and sign-in additionally load route-scoped,
-pinned Tailwind/daisyUI output.**
+styling remains in `app.css`; My Books, Catalogs, operational jobs, and sign-in
+additionally load route-scoped, pinned Tailwind/daisyUI output.**
 
 Mouseion's design system is a semantic layer above native HTML and a CSS
 foundation. It supports a server-rendered, HTMX-enhanced product whose visual
 character is a calm digital scholarly reading desk. Mouseion's `app.css` owns the
 shared application baseline, route components, and workflow CSS. The shared shell
-and My Books additionally use a compiled Tailwind/daisyUI foundation; sign-in
-continues to use its separate compiled route stylesheet. Mouseion-owned tokens,
+and My Books, Catalogs, and operational jobs additionally use compiled
+Tailwind/daisyUI foundations; sign-in continues to use its separate compiled
+route stylesheet. Mouseion-owned tokens,
 Book typography, component styling, responsive rules, and interaction contracts
 are the durable system.
 
@@ -30,6 +31,11 @@ workflow-specific.
   utilities used by the shared shell and My Books; its deterministic output is
   `internal/webapp/static/my-books.css`. The asset is linked only on My Books;
   Mouseion-authored component overrides are bounded by `body.my-books-shell`.
+- `internal/webapp/styles/catalog-ops.css` owns compiled Tailwind/daisyUI
+  controls for Catalogs, operational jobs, and asynchronous Reading/Vocabulary
+  task hosts; its deterministic output is `internal/webapp/static/catalog-ops.css`.
+  It is linked on those routes, with component rules bounded by shell classes.
+  Shared components and tables remain in `app.css`.
 - `internal/webapp/styles/login.css` owns the sign-in route's Tailwind utility
   vocabulary and route-local component styling; its deterministic output is
   `internal/webapp/static/login.css`.
@@ -68,11 +74,13 @@ compiler, or network access.
 | --- | --- | --- |
 | My Books (`/library`) and its shared shell | `app.css` plus `my-books.css` | The route-only asset contains Tailwind utilities and selected daisyUI components, compiled without Preflight. Mouseion owns Book typography and workflow CSS. |
 | Sign-in | `app.css` plus `login.css` | Sign-in utility vocabulary and route-local components are isolated from authenticated pages. |
-| Other authenticated pages (`/reading`, `/vocabulary` and its views, `/catalogs`, `/jobs`, and preparation/operations routes) | `app.css` | No My Books or sign-in stylesheet is loaded; page styling and native-element baseline remain available. |
+| Catalogs, operational jobs, and asynchronous task hosts (`/reading` and `/vocabulary`) | `app.css` plus `catalog-ops.css` | Route controls and job/deck task actions use compiled foundation styles; shared components, tables, and status patterns remain Mouseion-owned. |
 | HTMX fragments | Host page stylesheets | My Books enhanced result and recovery fragments use the same `app.css` + `my-books.css` as their host. Other route fragments do not depend on those route-specific assets. |
 
-The My Books migration adds the first authenticated Tailwind/daisyUI foundation
-after final Pico removal. Other routes remain styled by Mouseion's `app.css` and
+The My Books migration added the first authenticated Tailwind/daisyUI foundation
+after final Pico removal. Catalogs, operational jobs, and the Reading/Vocabulary
+hosts of asynchronous tasks use an isolated compiled stylesheet as well. Other
+routes remain styled by Mouseion's `app.css` and
 are not reset by Tailwind Preflight. The standalone #1442 drop-in replacement
 pilot remains historical evidence and is not the implementation.
 

@@ -73,3 +73,7 @@ cd "$root/internal/webapp/styles"
   --input my-books.css \
   --output ../static/my-books.css \
   --minify
+"$tailwind" \
+  --input catalog-ops.css \
+  --output ../static/catalog-ops.css \
+  --minify

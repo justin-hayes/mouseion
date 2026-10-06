@@ -40,6 +40,7 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 		{path: "/static/app.css", want: "--mouseion-color-surface:"},
 		{path: "/static/login.css", want: ".login-screen"},
 		{path: "/static/my-books.css", want: ".my-books-foundation"},
+		{path: "/static/catalog-ops.css", want: ".btn-primary"},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
@@ -95,6 +96,20 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	assert.NotContains(t, reading.String(), `href="/static/my-books.css"`)
 	assert.Contains(t, reading.String(), `class="reading-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
+}
+
+func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T) {
+	var catalogs, jobs, reading bytes.Buffer
+	require.NoError(t, ConnectionsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &catalogs))
+	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &jobs))
+	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
+
+	for _, html := range []string{catalogs.String(), jobs.String()} {
+		assert.Contains(t, html, `href="/static/catalog-ops.css"`)
+		assert.Contains(t, html, `href="/static/app.css"`)
+	}
+	assert.Contains(t, reading.String(), `href="/static/catalog-ops.css"`)
+	assert.NotContains(t, catalogs.String(), `href="/static/my-books.css"`)
 }
 
 func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {

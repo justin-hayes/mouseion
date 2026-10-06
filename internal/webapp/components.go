@@ -29,6 +29,13 @@ func myBooksStylesheet(enabled []bool) templ.Component {
 	return templ.Raw(`<link rel="stylesheet" href="/static/my-books.css">`)
 }
 
+func catalogOpsStylesheet(enabled []bool) templ.Component {
+	if len(enabled) == 0 || !enabled[0] {
+		return templ.NopComponent
+	}
+	return templ.Raw(`<link rel="stylesheet" href="/static/catalog-ops.css">`)
+}
+
 type shellStyle uint8
 
 const (
@@ -54,6 +61,11 @@ func loginStylesRequested(styles []shellStyle) []bool {
 
 func myBooksStylesRequested(styles []shellStyle) []bool {
 	return []bool{selectedShellStyle(styles) == shellStyleMyBooks}
+}
+
+func catalogOpsStylesRequested(styles []shellStyle) []bool {
+	style := selectedShellStyle(styles)
+	return []bool{style == shellStyleCatalogs || style == shellStyleJobs || style == shellStyleReading || style == shellStyleVocabulary}
 }
 
 func shellBodyClass(styles []shellStyle) string {
