@@ -42,6 +42,7 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 		{path: "/static/login.css", want: ".login-screen"},
 		{path: "/static/my-books.css", want: ".my-books-foundation"},
 		{path: "/static/catalog-ops.css", want: ".btn-primary"},
+		{path: "/static/vocabulary.css", want: ".btn-primary"},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
@@ -154,14 +155,18 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 }
 
 func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {
-	var browse, selection, confirmation bytes.Buffer
+	var browse, selection, confirmation, browseError, selectionError bytes.Buffer
 	page := domain.VocabularyBrowsePage{}
 	require.NoError(t, VocabularyBrowsePageView(domain.User{Username: "learner"}, "csrf", "de", page, "").Render(context.Background(), &browse))
 	require.NoError(t, VocabularySelectionPageView(domain.User{Username: "learner"}, "csrf", "de", nil, 0, 0, 0, 1, false, "", "", "", nil, true).Render(context.Background(), &selection))
 	require.NoError(t, VocabularySelectionClearConfirmView(domain.User{Username: "learner"}, "csrf", "de", 0, true).Render(context.Background(), &confirmation))
+	require.NoError(t, VocabularyBrowseErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.VocabularyBrowseQuery{}).Render(context.Background(), &browseError))
+	require.NoError(t, VocabularyBrowseSelectionErrorPageView(domain.User{Username: "learner"}, "csrf").Render(context.Background(), &selectionError))
 
-	for _, html := range []string{browse.String(), selection.String(), confirmation.String()} {
+	for _, html := range []string{browse.String(), selection.String(), confirmation.String(), browseError.String(), selectionError.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
+		assert.Contains(t, html, `href="/static/vocabulary.css"`)
+		assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 		assert.Contains(t, html, `class="vocabulary-shell"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
 	}
@@ -338,6 +343,8 @@ func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `<body class="vocabulary-shell">`)
+	assert.Contains(t, html, `href="/static/vocabulary.css"`)
+	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
 	assert.Contains(t, html, `<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data"`)
 	assert.Contains(t, html, `label>UTF-8 lemma file<input type="file" name="vocabulary_file"`)
@@ -348,6 +355,8 @@ func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
 	require.NoError(t, KnownVocabImportStatusPage(domain.User{}, "csrf", status).Render(context.Background(), &output))
 	html = output.String()
 	assert.Contains(t, html, `<body class="vocabulary-shell">`)
+	assert.Contains(t, html, `href="/static/vocabulary.css"`)
+	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
 	assert.Contains(t, html, `aria-label="Rejected vocabulary rows"`)
 	assert.Contains(t, html, `href="/vocabulary/import"`)
