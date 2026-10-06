@@ -77,6 +77,168 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	assert.Equal(t, 1, released)
 }
 
+func TestPrimaryGoalFreezesCorpusQualifiedTwoOccurrenceCandidates(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-corpus-qualified", false)
+	require.NoError(t, err)
+	target, targetSource, _ := createReadingFixture(t, ctx, store, owner.ID, "corpus-qualified-target")
+	makeAnalyzedToReadBook(t, ctx, store, target, targetSource)
+	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "corpus-qualified-other")
+	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
+	italian, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "corpus-qualified-italian")
+	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
+	otherOwner, err := store.CreateUser(ctx, "goal-corpus-qualified-other-owner", false)
+	require.NoError(t, err)
+	foreign, foreignSource, _ := createReadingFixture(t, ctx, store, otherOwner.ID, "corpus-qualified-foreign")
+	makeAnalyzedToReadBook(t, ctx, store, foreign, foreignSource)
+
+	for _, candidate := range []struct {
+		lemma string
+		upos  string
+		count int64
+	}{
+		{"three-local", "NOUN", 3},
+		{"nine-total", "NOUN", 2},
+		{"ten-total", "NOUN", 2},
+		{"generated-total", "NOUN", 2},
+		{"known-total", "NOUN", 2},
+		{"pos-total", "NOUN", 2},
+		{"singleton", "NOUN", 1},
+	} {
+		_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance)
+VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2),'de',$3,$4,$5,'[]','[]','{}')`, owner.ID, target.ID, candidate.lemma, candidate.upos, candidate.count)
+		require.NoError(t, err)
+	}
+	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known-total", "")
+	require.NoError(t, err)
+	generatedDeck, err := store.PutDeck(ctx, owner.ID, "de", "Generated provenance")
+	require.NoError(t, err)
+	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{
+		OwnerID: owner.ID, Language: "de", CanonicalLemma: "generated-total", UPOS: "NOUN",
+		FirstDeckID: generatedDeck.ID, FirstSourceMaterialID: &targetSource.ID,
+	})
+	require.NoError(t, err)
+
+	type countRow struct {
+		lemma string
+		pos   string
+		count int64
+	}
+	putProjection := func(book domain.Book, rows []countRow) {
+		t.Helper()
+		var run, corpus string
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, book.OwnerID, book.ID).Scan(&run, &corpus))
+		for _, item := range rows {
+			_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count)
+	VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus, item.lemma, item.pos, item.count)
+			require.NoError(t, insertErr)
+		}
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,1)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus)
+		require.NoError(t, insertErr)
+	}
+	putProjection(target, []countRow{
+		{lemma: "three-local", pos: "NOUN", count: 3},
+		{lemma: "nine-total", pos: "NOUN", count: 2},
+		{lemma: "ten-total", pos: "NOUN", count: 2},
+		{lemma: "generated-total", pos: "NOUN", count: 2},
+		{lemma: "known-total", pos: "NOUN", count: 2},
+		{lemma: "pos-total", pos: "NOUN", count: 2},
+	})
+	putProjection(other, []countRow{
+		{lemma: "nine-total", pos: "NOUN", count: 7},
+		{lemma: "ten-total", pos: "NOUN", count: 8},
+		{lemma: "generated-total", pos: "NOUN", count: 8},
+		{lemma: "known-total", pos: "NOUN", count: 8},
+		{lemma: "pos-total", pos: "VERB", count: 8},
+	})
+	putProjection(italian, []countRow{{lemma: "nine-total", pos: "NOUN", count: 100}})
+	putProjection(foreign, []countRow{{lemma: "nine-total", pos: "NOUN", count: 100}})
+
+	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", target.ID)
+	require.NoError(t, err)
+	snapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	require.NoError(t, err)
+	identities := make(map[string]int, len(snapshot))
+	for _, candidate := range snapshot {
+		identities[candidate.CanonicalLemma] = candidate.OccurrenceCount
+	}
+	assert.Equal(t, map[string]int{"three-local": 3, "ten-total": 2, "generated-total": 2}, identities,
+		"nine does not meet the total threshold; language, POS, Known, owner, and Generated-provenance boundaries remain exact")
+}
+
+func TestPrimaryGoalCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandidates(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "goal-count-readiness", false)
+	require.NoError(t, err)
+	current, currentSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-current")
+	makeAnalyzedToReadBook(t, ctx, store, current, currentSource)
+	var currentCorpus string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, current.ID).Scan(&currentCorpus))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','three-local','NOUN',3,'[]','[]','{}')`, owner.ID, currentCorpus)
+	require.NoError(t, err)
+	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-other")
+	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
+	reading, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", current.ID)
+	require.NoError(t, err, "a three-occurrence-only freeze does not wait for another Book's count projection")
+
+	target, targetSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-target")
+	makeAnalyzedToReadBook(t, ctx, store, target, targetSource)
+	var targetCorpus, targetRun string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text,analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, target.ID).Scan(&targetCorpus, &targetRun))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','crossing','NOUN',2,'[]','[]','{}')`, owner.ID, targetCorpus)
+	require.NoError(t, err)
+
+	_, err = store.ChangePrimaryGoal(ctx, owner.ID, "de", target.ID, current.ID)
+	require.ErrorIs(t, err, ErrVocabularyBrowseCountsPending)
+	stillCurrent, getErr := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, getErr)
+	assert.Equal(t, reading, stillCurrent, "an incomplete count projection cannot partially switch Reading")
+
+	_, err = store.Pool().Exec(ctx, `INSERT INTO river_job(kind,args,queue,state,max_attempts,finalized_at)
+VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid,'book_id',$2::uuid,'run_id',$3::uuid),'default','discarded',1,now())`, owner.ID, target.ID, targetRun)
+	require.NoError(t, err)
+	_, err = store.ChangePrimaryGoal(ctx, owner.ID, "de", target.ID, current.ID)
+	require.ErrorIs(t, err, ErrVocabularyBrowseCountsUnavailable)
+	stillCurrent, getErr = store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, getErr)
+	assert.Equal(t, reading, stillCurrent, "an unavailable count projection leaves the former reading intact")
+
+	type countItem struct {
+		lemma string
+		count int64
+	}
+	putReady := func(book domain.Book, items ...countItem) {
+		t.Helper()
+		var run, corpus string
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text,corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&run, &corpus))
+		for _, item := range items {
+			_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count) VALUES($1,$2,'de',$3,$4,$5,'NOUN',$6)`, owner.ID, book.ID, run, corpus, item.lemma, item.count)
+			require.NoError(t, insertErr)
+		}
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,1)`, owner.ID, book.ID, run, corpus)
+		require.NoError(t, insertErr)
+	}
+	putReady(current, countItem{lemma: "three-local", count: 3})
+	putReady(other, countItem{lemma: "crossing", count: 8})
+	putReady(target, countItem{lemma: "crossing", count: 2})
+	// Remove the discarded terminal job to model a successful durable rebuild.
+	_, err = store.Pool().Exec(ctx, `DELETE FROM river_job WHERE kind='rebuild_vocabulary_browse_counts' AND args->>'owner_id'=$1 AND args->>'book_id'=$2 AND args->>'run_id'=$3`, owner.ID, target.ID, targetRun)
+	require.NoError(t, err)
+
+	switched, err := store.ChangePrimaryGoal(ctx, owner.ID, "de", target.ID, current.ID)
+	require.NoError(t, err)
+	assert.Equal(t, target.ID, switched.BookID)
+	snapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, switched.SnapshotID)
+	require.NoError(t, err)
+	require.Len(t, snapshot, 1)
+	assert.Equal(t, "crossing", snapshot[0].CanonicalLemma)
+	assert.Equal(t, 2, snapshot[0].OccurrenceCount)
+}
+
 func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)

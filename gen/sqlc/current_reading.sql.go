@@ -838,23 +838,7 @@ LEFT JOIN LATERAL (
 WHERE sc.owner_id = $1
   AND sc.corpus_id = $2
   AND sc.language = $3
-  AND sc.occurrence_count >= 3
-  AND NOT EXISTS (
-    SELECT 1 FROM known_vocabulary kv
-    WHERE kv.owner_id = sc.owner_id AND kv.language = sc.language
-      AND kv.canonical_lemma = sc.canonical_lemma
-      AND (kv.upos = sc.upos OR kv.upos = '')
-  )
-  AND NOT EXISTS (
-    SELECT 1
-    FROM primary_goal_snapshots ps
-    JOIN primary_goal_snapshot_vocabulary pv
-      ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
-    WHERE ps.owner_id = sc.owner_id AND ps.released_at IS NULL
-      AND pv.language = sc.language
-      AND pv.canonical_lemma = sc.canonical_lemma
-      AND pv.upos = sc.upos
-  )
+  AND sc.occurrence_count >= 2
 ORDER BY sc.language, sc.canonical_lemma, sc.upos
 `
 
