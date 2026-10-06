@@ -129,21 +129,21 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 	assert.NotContains(t, fragment.String(), `<html`)
 }
 
-func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {
-	var browse, selection, confirmation, browseError, selectionError bytes.Buffer
+func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
+	var browse, browseError bytes.Buffer
 	page := domain.VocabularyBrowsePage{}
 	require.NoError(t, VocabularyBrowsePageView(domain.User{Username: "learner"}, "csrf", "de", page, "").Render(context.Background(), &browse))
-	require.NoError(t, VocabularySelectionPageView(domain.User{Username: "learner"}, "csrf", "de", nil, 0, 0, 0, 1, false, "", "", "", nil, true).Render(context.Background(), &selection))
-	require.NoError(t, VocabularySelectionClearConfirmView(domain.User{Username: "learner"}, "csrf", "de", 0, true).Render(context.Background(), &confirmation))
 	require.NoError(t, VocabularyBrowseErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.VocabularyBrowseQuery{}).Render(context.Background(), &browseError))
-	require.NoError(t, VocabularyBrowseSelectionErrorPageView(domain.User{Username: "learner"}, "csrf").Render(context.Background(), &selectionError))
 
-	for _, html := range []string{browse.String(), selection.String(), confirmation.String(), browseError.String(), selectionError.String()} {
+	for _, html := range []string{browse.String(), browseError.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
 		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 		assert.Contains(t, html, `class="vocabulary-shell"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
+	}
+	for _, retired := range []string{"Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
+		assert.NotContains(t, browse.String(), retired)
 	}
 
 	var concordance bytes.Buffer
@@ -339,27 +339,6 @@ func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
 	assert.Contains(t, html, `href="/vocabulary/import"`)
 }
 
-func TestCustomDeckPagesUseOwnedShellAndNativePreparationAction(t *testing.T) {
-	deck := domain.CustomVocabularyDeck{
-		ID: "deck-1", Language: "de", Name: "Reading practice", IdentityCount: 1,
-		Identities: []domain.VocabularyIdentity{{CanonicalLemma: "gehen", UPOS: "VERB"}},
-	}
-	var deckPage bytes.Buffer
-	require.NoError(t, CustomVocabularyDeckPageView(domain.User{}, "csrf", deck, nil, true, 1, 1, deck.Identities, false, nil, nil, nil, "action-key", "evidence", false).Render(context.Background(), &deckPage))
-	deckHTML := deckPage.String()
-	assert.Contains(t, deckHTML, `<body class="vocabulary-shell">`)
-	assert.NotContains(t, deckHTML, "pico-2.1.1.min.css")
-	assert.Contains(t, deckHTML, `<form class="custom-deck-form custom-deck-prepare" method="post" action="/vocabulary/decks/deck-1/preparations"`)
-	assert.Contains(t, deckHTML, `<button type="submit">Prepare deck</button>`)
-	assert.NotContains(t, deckHTML, `hx-post="/vocabulary/decks/deck-1/preparations"`)
-
-	var preparationPage bytes.Buffer
-	preparation := domain.CustomDeckPreparation{ID: "preparation-1", DeckID: deck.ID, Language: deck.Language, State: "ready", LatestReady: true}
-	require.NoError(t, CustomDeckPreparationStatusPage(domain.User{}, "csrf", preparation, deck).Render(context.Background(), &preparationPage))
-	assert.Contains(t, preparationPage.String(), `<body class="vocabulary-shell">`)
-	assert.NotContains(t, preparationPage.String(), "pico-2.1.1.min.css")
-}
-
 func TestKnownVocabResultShowsImportSummaryWithoutKnownList(t *testing.T) {
 	var output bytes.Buffer
 	result := &knownvocab.ImportResult{Imported: 2, AlreadyKnown: 1, Rejected: []knownvocab.Rejection{{Row: 4, Original: "bad line", Error: "invalid lemma"}}}
@@ -490,8 +469,8 @@ func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing
 	assert.Contains(t, output.String(), `hx-push-url="true"`)
 }
 
-func TestVocabularyBrowseSelectionEnhancesNativeFormAndPreservesPage(t *testing.T) {
-	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1", IncludeAll: true, SelectionCount: 3,
+func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1", IncludeAll: true,
 		Books: []domain.VocabularyBrowseBook{{ID: "book-1", Title: "Current Book", HasCurrentAnalysis: true}},
 		Rows:  []domain.VocabularyBrowseRow{{CanonicalLemma: "haus", UPOS: "NOUN"}}}
 	var output bytes.Buffer
@@ -499,11 +478,11 @@ func TestVocabularyBrowseSelectionEnhancesNativeFormAndPreservesPage(t *testing.
 	html := output.String()
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
 	assert.Contains(t, html, `id="vocabulary-browse-results"`)
-	assert.Contains(t, html, `action="/vocabulary/selection/add?all=1&amp;page=2&amp;q=ha&amp;reading=book-1&amp;rev=rev-1"`)
-	assert.Contains(t, html, `hx-post="/vocabulary/selection/add?all=1&amp;page=2&amp;q=ha&amp;reading=book-1&amp;rev=rev-1"`)
+	assert.Contains(t, html, `href="/vocabulary/concordance?`)
 	assert.Contains(t, html, `hx-select="#vocabulary-browse-results"`)
-	assert.Contains(t, html, `hx-status:409="target:#vocabulary-recovery`)
-	assert.Contains(t, html, `Browse selection (3)`)
+	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
+		assert.NotContains(t, html, retired)
+	}
 }
 
 func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *testing.T) {
@@ -521,11 +500,11 @@ func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *test
 	html := output.String()
 	for _, want := range []string{
 		"Occurrence counts", "In this Book: 2; Across analyzed books: 5", "In this Book: 3; Across analyzed books: 3",
-		">Haus</a>", ">gehen</a>", `name="lemma" value="haus"`,
+		">Haus</a>", ">gehen</a>",
 	} {
 		assert.Contains(t, html, want)
 	}
-	assert.NotContains(t, html, `name="lemma" value="Haus"`, "display casing must not alter selection identity")
+	assert.NotContains(t, html, `name="lemma"`, "Browse is read-only and no longer posts selection changes")
 
 	output.Reset()
 	require.NoError(t, VocabularyBrowsePageView(domain.User{}, "csrf", "it", page, "").Render(context.Background(), &output))

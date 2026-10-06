@@ -42,11 +42,5 @@ func storeDependencies(store allStoreCapabilities) StoreDependencies {
 		VocabularyBrowse:      store,
 		VocabularyConcordance: store,
 	}
-	if selectionStore, ok := store.(VocabularySelectionStore); ok {
-		dependencies.VocabularySelection = selectionStore
-	}
-	if selectionStateStore, ok := store.(VocabularyBrowseSelectionStateStore); ok {
-		dependencies.BrowseSelectionState = selectionStateStore
-	}
 	return dependencies
 }
