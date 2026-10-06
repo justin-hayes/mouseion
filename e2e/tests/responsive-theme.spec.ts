@@ -549,6 +549,13 @@ test.describe('responsive and theme regression coverage', () => {
     expect(rendered.colorScheme).toBe('light');
     expect(ratio(rendered.border, rendered.background)).toBeGreaterThanOrEqual(3);
 
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    rendered = await appearance();
+    expect(rendered.colorScheme).toBe('dark');
+    expect(rendered.surface).not.toBe('#f3f6f7');
+    expect(ratio(rendered.border, rendered.background)).toBeGreaterThanOrEqual(3);
+    await page.locator('html').evaluate((node) => node.removeAttribute('data-theme'));
+
     await page.emulateMedia({ colorScheme: 'dark' });
     rendered = await appearance();
     expect(rendered.colorScheme).toBe('dark');
