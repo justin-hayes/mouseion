@@ -600,9 +600,6 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 	</div>
 	<div class="journey-book__evidence">
 	@JourneyEvidence(item, csrf, primary)
-	if !primary && bookHasCompletedAnalysis(item.Book) {
-		@JourneyAnalysisDeck(item, csrf)
-	}
 	if primary {
 		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
 			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Deck preparation</h4>
@@ -736,14 +733,16 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 		if preparation.State == domain.DeckPreparationReady {
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-				if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
+				if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
 					<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Re-prepare deck</button></form>
-				} else {
+				} else if journeyAction.BookID == "" {
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<p>Re-preparation uses the configured translation provider to create contextual Glosses. If the provider is unavailable, the deck will remain failed and can be retried after configuration.</p>
 						<button type="submit">Re-prepare deck</button>
 					</form>
+				} else {
+					<p role="note">This Book is no longer Current reading. The preparation remains historical and cannot be submitted again.</p>
 				}
 			} else if deckPreparationEmpty(preparation) {
 				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
@@ -761,12 +760,20 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				}
 				@ActionGroup() {
 					<a role="button" class="btn btn-primary" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button>
-					</form>
+					if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
+						<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button>
+						</form>
+					}
 				}
-				<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
+				if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
+					<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
+				} else if journeyAction.BookID == "" {
+					<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
+				} else {
+					<p role="note">This Book is no longer Current reading. Its ready artifact remains available for download, but no new preparation can be submitted.</p>
+				}
 				@DeckJourneyAction(journeyAction)
 			}
 		} else if deckPreparationActive(preparation) {
@@ -775,14 +782,16 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			if preparation.State == domain.DeckPreparationFailed {
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessageFor(preparation))
 			}
-			if preparation.GoalSnapshotID != "" && journeyAction.BookID != "" {
+			if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
 				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit">Retry deck preparation</button></form>
-			} else {
+			} else if journeyAction.BookID == "" {
 				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>
 					<p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p>
 					<button class="btn btn-primary" type="submit">Retry preparation</button>
 				</form>
+			} else {
+				<p role="note">This Book is no longer Current reading. The submitted job may finish, but no retry can be submitted.</p>
 			}
 		}
 	}
@@ -2007,41 +2016,6 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 	}
 }
 
-templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
-	<section class="journey-book__deck" aria-labelledby={ "journey-deck-heading-" + journeyBookID(item) }>
-		<h4 id={ "journey-deck-heading-" + journeyBookID(item) }>Deck</h4>
-		if item.AnalysisDeckUnavailable {
-			<p role="note"><strong>Deck state: Unavailable.</strong> Deck preparation status could not be read. The analysis and To Read status are unchanged.</p>
-			<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Try the focused deck task</a>
-		} else if item.AnalysisPreparation == nil {
-			<p><strong>Deck state:</strong> Not prepared from this analysis.</p>
-			<a role="button" class="button button--outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Prepare deck</a>
-		} else {
-			<p><strong>Deck state:</strong> { deckPreparationTitle(*item.AnalysisPreparation) }.</p>
-			if item.AnalysisPreparation.Error == domain.DeckPreparationRequiresRepreparationError {
-				<p role="note">The previous deck is retained, but it cannot be updated in place.</p>
-				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Re-prepare deck</a>
-			} else {
-				<a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>View deck preparation</a>
-			}
-			if deckPreparationActive(*item.AnalysisPreparation) {
-				<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline button--quiet">Cancel preparation</button></form>
-			} else if item.AnalysisPreparation.State == domain.DeckPreparationReady {
-				if item.AnalysisPreparation.Error != domain.DeckPreparationRequiresRepreparationError {
-					if deckPreparationEmpty(*item.AnalysisPreparation) {
-						<p role="note">No recurring vocabulary was found, so no cards were created.</p>
-					} else {
-						<a role="button" class="btn btn-primary" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
-						<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
-					}
-				}
-			} else if item.AnalysisPreparation.State == domain.DeckPreparationFailed || item.AnalysisPreparation.State == domain.DeckPreparationCancelled {
-				<a role="button" class="button button--outline" href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Review and retry</a>
-			}
-		}
-	</section>
-}
-
 templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckPreparationView, resultURL string) {
 	@ShellLayout("Prepare deck · "+canonicalBookTitle(task.Book), &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@Breadcrumb(resultURL, "Reading")
@@ -2065,7 +2039,11 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 				@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckIsCurrentReading})
 			} else {
 				<p role="note"><strong>Deck state: Missing.</strong> This exact reading snapshot remains unchanged. Prepare it when ready.</p>
-				<form method="post" action={ templ.SafeURL("/reading/books/"+task.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ task.GoalSnapshotID }/><button type="submit">Prepare deck</button></form>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+url.PathEscape(task.BookID)+"/deck/preparations") } data-prepare-deck>
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					<button type="submit">Prepare deck</button>
+				</form>
+				<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
 			}
 		} else if task.Preparation != nil {
 			@DeckPreparationStatus(csrf, *task.Preparation, resultURL, deckJourneyActionView{BookID: task.BookID, State: deckIsToRead})

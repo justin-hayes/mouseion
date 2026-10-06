@@ -99,7 +99,8 @@ func (q *Queries) CancelDeckPreparation(ctx context.Context, arg CancelDeckPrepa
 const claimDeckPreparation = `-- name: ClaimDeckPreparation :one
 UPDATE deck_preparations
 SET state = 'preparing', started_at = now(), updated_at = now(), error = ''
-WHERE owner_id = $1 AND id = $2 AND state = 'queued' AND retired_at IS NULL
+WHERE owner_id = $1 AND id = $2 AND state = 'queued'
+  AND (retired_at IS NULL OR book_id IS NOT NULL)
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -114,6 +115,9 @@ type ClaimDeckPreparationParams struct {
 	ID    string
 }
 
+// Previously submitted Book jobs remain runnable after their preparation row
+// becomes historical; retry and re-preparation entry points enforce the active
+// Current-reading gate separately.
 func (q *Queries) ClaimDeckPreparation(ctx context.Context, arg ClaimDeckPreparationParams) (DeckPreparation, error) {
 	row := q.db.QueryRow(ctx, claimDeckPreparation, arg.Owner, arg.ID)
 	var i DeckPreparation

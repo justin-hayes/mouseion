@@ -11,6 +11,55 @@ async function signIn(page: Page, disableEnhancement = false) {
   await expect(page).toHaveURL(/\/library/);
 }
 
+async function switchCurrentReadingTo(page: Page, title: string) {
+  await page.goto('/reading/switch');
+  const candidate = page.locator('li.reading-chooser-book').filter({ hasText: title });
+  await candidate.locator('details').filter({ hasText: 'Switch to this book' }).locator('summary').click();
+  await candidate.getByRole('button', { name: 'Confirm switch to this book' }).click();
+  await expect(page).toHaveURL(/\/reading\?message=/);
+}
+
+async function openGermanReading(page: Page) {
+  await page.goto('/library');
+  const language = page.getByLabel('Study language');
+  if (await language.inputValue() !== 'de') await language.selectOption('de');
+  await page.goto('/reading');
+}
+
+async function switchToRouteMatch(page: Page) {
+  await openGermanReading(page);
+  const current = page.locator('.journey-book--goal');
+  const currentID = await current.count() ? await current.getAttribute('id') : null;
+  if (!currentID) {
+    const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
+    const start = candidate.locator('details').filter({ hasText: 'Start reading' });
+    await start.locator('summary').click();
+    await start.getByRole('button', { name: 'Confirm start reading' }).click();
+    await expect(page).toHaveURL(/\/reading\?message=/);
+    return;
+  }
+  if (currentID === 'journey-book-fixture-route-match') {
+    await switchCurrentReadingTo(page, 'Der lange Weg nach Hause');
+  }
+  await switchCurrentReadingTo(page, 'Route match: familiar German');
+}
+
+async function restoreFixtureBookCurrent(page: Page) {
+  await openGermanReading(page);
+  const current = page.locator('.journey-book--goal');
+  const currentID = await current.count() ? await current.getAttribute('id') : null;
+  if (currentID === 'journey-book-fixture-book') return;
+  if (currentID) {
+    await switchCurrentReadingTo(page, 'Der lange Weg nach Hause');
+    return;
+  }
+  const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Der lange Weg nach Hause' });
+  const start = candidate.locator('details').filter({ hasText: 'Start reading' });
+  await start.locator('summary').click();
+  await start.getByRole('button', { name: 'Confirm start reading' }).click();
+  await expect(page).toHaveURL(/\/reading\?message=/);
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
@@ -96,19 +145,35 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
   });
 
-  test('book page leads to preparation and terminal polling stops', async ({ page }) => {
+  test('focused Book preparation opens only while its snapshot is Current reading', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
+    await restoreFixtureBookCurrent(page);
+    const beforeReading = await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
+    expect(beforeReading?.status()).toBe(404);
+
+    await switchToRouteMatch(page);
+    const whileReading = await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
+    expect(whileReading?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
+    await restoreFixtureBookCurrent(page);
+  });
+
+  test('book page leads to preparation and terminal polling stops', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
+    await signIn(page);
+    await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
     await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
     await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
-    await expect(page.getByText(/uses the configured translation provider/i)).toBeVisible();
+    await expect(page.getByText(/this exact reading snapshot remains unchanged/i)).toBeVisible();
     const preparation = page.locator('[data-deck-preparation]');
     await expect(preparation).toHaveAttribute('role', 'status');
     await expect(preparation).toHaveAttribute('aria-live', 'polite');
     await expect(preparation).toHaveAttribute('aria-atomic', 'true');
 
     let polls = 0;
-    await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
+    await page.route('**/deck-preparations/*/status', (route) => {
       polls += 1;
       if (route.request().headers()['accept'] === 'text/html') {
         return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
@@ -129,10 +194,13 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect.poll(() => polls).toBe(2);
     await page.waitForTimeout(1600);
     expect(polls).toBe(2);
+    await restoreFixtureBookCurrent(page);
   });
 
   test('provider outage leaves an actionable failure without blocking Reading', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
+    await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
     await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
     await page.route('**/reading/books/fixture-route-match/deck/preparations', async (route) => {
@@ -154,20 +222,23 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(status.getByRole('button', { name: 'Retry preparation' })).toBeVisible();
     await expect(status.getByRole('link', { name: /download/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Back to this Book in Reading' })).toBeVisible();
+    await restoreFixtureBookCurrent(page);
   });
 
   test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
+    await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
     let state = 'queued';
-    await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/status', (route) => {
+    await page.route('**/deck-preparations/*/status', (route) => {
       if (route.request().headers()['accept'] === 'text/html') {
         return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
       }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) });
     });
-    await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/cancel', (route) => { state = 'cancelled'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
-    await page.route('**/deck-preparations/fixture-submitted-fixture-route-match-run/retry', (route) => { state = 'ready'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
+    await page.route('**/deck-preparations/*/cancel', (route) => { state = 'cancelled'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
+    await page.route('**/deck-preparations/*/retry', (route) => { state = 'ready'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
     const status = page.locator('[data-deck-preparation]');
     await page.getByRole('button', { name: 'Prepare deck' }).press('Enter');
     const cancel = status.getByRole('button', { name: 'Cancel preparation' });
@@ -178,6 +249,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await retry.press('Enter');
     await expect(status).toContainText('Deck ready');
     await expect(status.getByRole('button', { name: /cancel|retry/i })).toHaveCount(0);
+    await restoreFixtureBookCurrent(page);
   });
 
   test('My Books and table region are keyboard-scrollable', async ({ page }) => {

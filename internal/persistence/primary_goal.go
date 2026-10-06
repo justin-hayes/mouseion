@@ -186,9 +186,6 @@ func releasePrimaryGoalSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, 
 	if _, err := q.LockPrimaryGoalSnapshot(ctx, sqlcgen.LockPrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID}); err != nil {
 		return err
 	}
-	if err := q.RetireDeckPreparationForGoalSnapshot(ctx, sqlcgen.RetireDeckPreparationForGoalSnapshotParams{Owner: owner, GoalSnapshot: uuidArg(snapshotID)}); err != nil {
-		return err
-	}
 	return q.ReleasePrimaryGoalSnapshot(ctx, sqlcgen.ReleasePrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID})
 }
 

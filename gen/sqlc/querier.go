@@ -31,6 +31,9 @@ type Querier interface {
 	CancelPreparedDeckOutcomes(ctx context.Context, arg CancelPreparedDeckOutcomesParams) error
 	CancelPreparedDeckRun(ctx context.Context, arg CancelPreparedDeckRunParams) error
 	ChangePrimaryGoalBook(ctx context.Context, arg ChangePrimaryGoalBookParams) (ChangePrimaryGoalBookRow, error)
+	// Previously submitted Book jobs remain runnable after their preparation row
+	// becomes historical; retry and re-preparation entry points enforce the active
+	// Current-reading gate separately.
 	ClaimDeckPreparation(ctx context.Context, arg ClaimDeckPreparationParams) (DeckPreparation, error)
 	ClaimPreparedDeckBatchCleanup(ctx context.Context, arg ClaimPreparedDeckBatchCleanupParams) (DeckPreparationBatchChunk, error)
 	ClaimPreparedDeckBatchReconciliation(ctx context.Context, arg ClaimPreparedDeckBatchReconciliationParams) (DeckPreparationBatchChunk, error)

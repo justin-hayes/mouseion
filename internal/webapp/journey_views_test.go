@@ -353,30 +353,19 @@ func analyzedJourneyBookView(id string) journeyBookView {
 	return item
 }
 
-func TestJourneyProvisionalBookExposesAnalysisBoundDeckActions(t *testing.T) {
-	missing := analyzedJourneyBookView("missing-deck")
-	ready := analyzedJourneyBookView("ready-deck")
-	ready.AnalysisPreparation = &domain.DeckPreparation{ID: "ready-prep", State: domain.DeckPreparationReady, TotalCards: 2}
-	active := analyzedJourneyBookView("active-deck")
-	active.AnalysisPreparation = &domain.DeckPreparation{ID: "active-prep", State: domain.DeckPreparationPreparing}
-	failed := analyzedJourneyBookView("failed-deck")
-	failed.AnalysisPreparation = &domain.DeckPreparation{ID: "failed-prep", State: domain.DeckPreparationFailed}
-	empty := analyzedJourneyBookView("empty-deck")
-	empty.AnalysisPreparation = &domain.DeckPreparation{ID: "empty-prep", State: domain.DeckPreparationReady}
-	reprepare := analyzedJourneyBookView("reprepare-deck")
-	reprepare.AnalysisPreparation = &domain.DeckPreparation{ID: "reprepare-prep", State: domain.DeckPreparationReady, TotalCards: 2, Error: domain.DeckPreparationRequiresRepreparationError}
-
-	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{missing, ready, active, failed, empty, reprepare}}, "", "")
-	for _, want := range []string{
-		`href="/reading/books/missing-deck/deck/preparations/new"`,
-		`href="/deck-preparations/ready-prep/download"`,
-		`action="/deck-preparations/active-prep/cancel"`,
-		`href="/reading/books/failed-deck/deck/preparations/new"`,
-		"No recurring vocabulary",
-		"Re-preparation required",
-		"Re-prepare deck",
-		`href="/reading/books/reprepare-deck/deck/preparations/new"`,
-	} {
-		assert.Contains(t, html, want)
+func TestJourneyProvisionalBooksDoNotExposeDeckPreparationActions(t *testing.T) {
+	books := []journeyBookView{
+		analyzedJourneyBookView("missing-deck"), analyzedJourneyBookView("ready-deck"),
+		analyzedJourneyBookView("active-deck"), analyzedJourneyBookView("failed-deck"),
 	}
+	html := renderJourney(t, journeyPageView{Provisional: books}, "", "")
+	start := strings.Index(html, `<div id="provisional-journey-content"`)
+	require.GreaterOrEqual(t, start, 0)
+	end := strings.Index(html[start:], `</div></div></section>`)
+	require.Greater(t, end, 0)
+	provisional := html[start : start+end]
+	assert.Contains(t, provisional, "Analyzed missing-deck")
+	assert.NotContains(t, provisional, "/deck/preparations")
+	assert.NotContains(t, provisional, "/deck-preparations/")
+	assert.NotContains(t, provisional, "Prepare deck")
 }

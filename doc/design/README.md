@@ -55,7 +55,7 @@ and surface a material conflict rather than silently choosing one.
 - [`../features/vocabulary-browse-and-concordance.md`](../features/vocabulary-browse-and-concordance.md)
   — accepted, partially shipped Browse and Concordance contract.
 - [`../features/reading-owned-book-vocabulary.md`](../features/reading-owned-book-vocabulary.md)
-  — accepted, not yet implemented Reading-owned freeze and Book-deck rule;
+  — accepted, partially implemented Reading-owned freeze and Book-deck rule;
   [the former combined spec](../features/vocabulary-browse-concordance-and-custom-decks.md)
   is historical.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — historical

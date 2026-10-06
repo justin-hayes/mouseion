@@ -114,6 +114,7 @@ type Store struct {
 	dispositions           map[string]domain.BookDisposition
 	dispositionRevisions   map[string]int64
 	primaryGoals           map[string]domain.PrimaryGoal
+	goalSnapshotSequence   map[string]int
 	readingHistory         map[string]domain.ReadingCompletion
 	importedHistory        map[string]domain.ReadingCompletion
 	syncStatuses           []domain.CatalogueSyncStatus
@@ -203,6 +204,7 @@ func NewStore() *Store {
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
+		goalSnapshotSequence: make(map[string]int),
 		goalSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{
 			"fixture-de-goal-snapshot": {
 				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
@@ -1788,9 +1790,25 @@ func (s *Store) SwitchCurrentReading(_ context.Context, owner, language, bookID,
 }
 
 func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt time.Time) domain.PrimaryGoal {
-	snapshotID := "fixture-goal-" + language + "-" + bookID
-	for suffix := 2; s.readingHistory[fixtureReadingHistoryKey(owner, language, snapshotID)].BookID != ""; suffix++ {
-		snapshotID = fmt.Sprintf("fixture-goal-%s-%s-%d", language, bookID, suffix)
+	sequenceKey := fixtureGoalKey(owner, language) + "\x00" + bookID
+	if s.goalSnapshotSequence == nil {
+		s.goalSnapshotSequence = make(map[string]int)
+	}
+	s.goalSnapshotSequence[sequenceKey]++
+	snapshotID := fmt.Sprintf("fixture-goal-%s-%s-%d", language, bookID, s.goalSnapshotSequence[sequenceKey])
+	if _, exists := s.goalSnapshotVocabulary[snapshotID]; !exists {
+		baseSnapshotID := ""
+		if language == "de" && bookID == routeMatchBookID {
+			baseSnapshotID = "fixture-de-goal-snapshot"
+		}
+		if baseSnapshotID != "" {
+			vocabulary := append([]domain.DeckPreparationVocabulary(nil), s.goalSnapshotVocabulary[baseSnapshotID]...)
+			for i := range vocabulary {
+				vocabulary[i].OwnerID = owner
+				vocabulary[i].Language = language
+			}
+			s.goalSnapshotVocabulary[snapshotID] = vocabulary
+		}
 	}
 	goal := domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID, SnapshotID: snapshotID, CreatedAt: createdAt}
 	goal.SnapshotSize = len(s.goalSnapshotVocabulary[goal.SnapshotID])

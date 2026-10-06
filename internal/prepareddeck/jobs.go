@@ -169,6 +169,15 @@ func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, go
 		return Handle{}, err
 	}
 	source := analysis.Source
+	if goalSnapshotID == "" {
+		var bookID *string
+		if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, source.ID).Scan(&bookID); err != nil {
+			return Handle{}, err
+		}
+		if bookID != nil {
+			return Handle{}, persistence.ErrInvalidTransition
+		}
+	}
 	deckName := cardexport.DeckName(source.Language, source.Title)
 	filename := cardexport.DownloadFilename(source.Title)
 	var p domain.DeckPreparation
@@ -221,11 +230,13 @@ func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, go
 
 func validateGoalSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID, sourceMaterialID, analysisRunID string) error {
 	var lockedSnapshotID string
-	err := tx.QueryRow(ctx, `SELECT id::text FROM primary_goal_snapshots
-		WHERE owner_id=$1 AND id=$2::uuid
-		  AND source_material_id=$3::uuid AND analysis_run_id=$4::uuid
-		  AND released_at IS NULL
-		FOR UPDATE`, owner, snapshotID, sourceMaterialID, analysisRunID).Scan(&lockedSnapshotID)
+	err := tx.QueryRow(ctx, `SELECT s.id::text FROM primary_goal_snapshots s
+		JOIN primary_goals pg ON pg.owner_id=s.owner_id AND pg.snapshot_id=s.id
+		  AND pg.book_id=s.book_id AND pg.language=s.language
+		WHERE s.owner_id=$1 AND s.id=$2::uuid
+		  AND s.source_material_id=$3::uuid AND s.analysis_run_id=$4::uuid
+		  AND s.released_at IS NULL
+		FOR UPDATE OF pg, s`, owner, snapshotID, sourceMaterialID, analysisRunID).Scan(&lockedSnapshotID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w: Goal snapshot does not match the completed analysis", ErrAnalysisUnavailable)
 	}
@@ -264,7 +275,31 @@ func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DeckPreparation{}, persistence.ErrNotFound
 	}
+	if err == nil {
+		preparation.BookID = bookID
+	}
 	return preparation, err
+}
+
+func lockCurrentGoalSnapshotForPreparation(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) error {
+	if preparation.GoalSnapshotID == "" {
+		if preparation.BookID != "" {
+			return persistence.ErrInvalidTransition
+		}
+		return nil
+	}
+	var snapshotID string
+	err := tx.QueryRow(ctx, `SELECT s.id::text FROM primary_goal_snapshots s
+		JOIN primary_goals pg ON pg.owner_id=s.owner_id AND pg.snapshot_id=s.id
+		  AND pg.book_id=s.book_id AND pg.language=s.language
+		WHERE s.owner_id=$1 AND s.id=$2::uuid AND s.book_id=$3::uuid
+		  AND s.source_material_id=$4::uuid AND s.analysis_run_id=$5::uuid
+		  AND s.released_at IS NULL
+		FOR UPDATE OF pg, s`, preparation.OwnerID, preparation.GoalSnapshotID, preparation.BookID, preparation.SourceMaterialID, preparation.AnalysisRunID).Scan(&snapshotID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && snapshotID != preparation.GoalSnapshotID) {
+		return persistence.ErrInvalidTransition
+	}
+	return err
 }
 
 func sqlcRetireDeckPreparationsForBook(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
@@ -432,6 +467,9 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (result Handle
 	if err != nil {
 		return Handle{}, err
 	}
+	if err = lockCurrentGoalSnapshotForPreparation(ctx, tx, p); err != nil {
+		return Handle{}, err
+	}
 	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil || p.CurrentRunID == "" {
 		return Handle{}, persistence.ErrInvalidTransition
 	}
@@ -535,6 +573,9 @@ func (s *Service) retry(ctx context.Context, owner, id string, forceReprepare bo
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	p, err := lockPreparationForUpdate(ctx, tx, owner, id)
 	if err != nil {
+		return Handle{}, err
+	}
+	if err = lockCurrentGoalSnapshotForPreparation(ctx, tx, p); err != nil {
 		return Handle{}, err
 	}
 	if p.RetiredAt != nil {

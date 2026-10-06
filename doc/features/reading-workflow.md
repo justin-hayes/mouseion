@@ -2,10 +2,12 @@
 
 Status: **Implemented** · Date: 2026-09-26
 
-The accepted but not yet implemented [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
-contract adds corpus-qualified two-occurrence candidates at the starting freeze
-and limits new Book-deck submission to the Current reading. The shipped workflow
-below remains accurate until that cutover.
+The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
+contract is being implemented in slices. New Book-deck preparation is now
+available only for the Current reading and uses its frozen snapshot; starting,
+switching, and finishing do not enqueue or depend on deck work. The existing
+three-occurrence selection floor remains in effect until the corpus-qualified
+two-occurrence slice ships. Custom-deck retirement is also pending.
 
 ## Goal
 

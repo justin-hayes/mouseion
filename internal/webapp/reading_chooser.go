@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -176,7 +175,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
 		return
 	}
-	selected, err := h.services.Store.CurrentReading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
+	_, err = h.services.Store.CurrentReading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrCurrentReadingStale) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
 		return
@@ -192,11 +191,6 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, err)
 		return
-	}
-	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 && h.services.PreparedDeck != nil {
-		if _, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID); prepareErr != nil {
-			log.Printf("current reading switch deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
-		}
 	}
 	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 }
@@ -340,9 +334,8 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
 		return
 	}
-	selected := current
 	if !current.IsActive() {
-		selected, err = h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner, language, bookID)
+		_, err = h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner, language, bookID)
 		if errors.Is(err, persistence.ErrCurrentReadingExists) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("Another book became current while you were choosing. Review Reading before trying again."))
 			return
@@ -361,22 +354,6 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		}
 		if err != nil {
 			fail(w, err)
-			return
-		}
-	}
-	if selected.AnalysisRunID != "" && selected.SnapshotSize > 0 {
-		if h.services.PreparedDeck == nil {
-			redirect(w, r, "/reading?error="+url.QueryEscape("The book is current, but local deck preparation is unavailable. Its snapshot is preserved; retry preparation when the service is available."))
-			return
-		}
-		handle, prepareErr := h.services.PreparedDeck.SubmitForGoal(r.Context(), owner, selected.AnalysisRunID, selected.SnapshotID)
-		if prepareErr != nil || handle.Preparation.State == domain.DeckPreparationFailed {
-			if prepareErr != nil {
-				log.Printf("current reading deck preparation owner=%s language=%s book=%s: %v", owner, language, selected.BookID, prepareErr)
-			} else {
-				log.Printf("current reading deck preparation owner=%s language=%s book=%s: %s", owner, language, selected.BookID, handle.Preparation.Error)
-			}
-			redirect(w, r, "/reading?error="+url.QueryEscape("The book is current and its snapshot is frozen, but local deck preparation could not be queued. The reading is unchanged; open its deck task to retry."))
 			return
 		}
 	}
