@@ -4,6 +4,7 @@ package webapp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,14 +12,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,6 +37,7 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	owner := createAccount(t, ctx, store, "retired-vocabulary-owner", "owner-password", false)
+	createAccount(t, ctx, store, "retired-vocabulary-other", "other-password", false)
 	var deckID, preparationID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_decks(owner_id,language,name,creation_key) VALUES($1,'de','Archived custom deck','a2284277-041c-463c-a47b-6aa2060ec8fa') RETURNING id::text`, owner.ID).Scan(&deckID))
 	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_deck_preparations(owner_id,custom_deck_id,submission_key,language,deck_name,filename,state,artifact,total_cards,selected_identities,completed_at) VALUES($1,$2,'05e62174-9e03-48a9-8fb6-b787a7e8209d','de','Archived custom deck','archived.apkg','ready','retained-apkg-bytes',1,1,now()) RETURNING id::text`, owner.ID, deckID).Scan(&preparationID))
@@ -40,6 +47,7 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "retired-vocabulary-owner", "owner-password")
+	otherCookies, _ := loginCookies(t, h, "retired-vocabulary-other", "other-password")
 	paths := []struct{ method, path string }{
 		{http.MethodGet, "/vocabulary/selection"},
 		{http.MethodGet, "/vocabulary/selection/clear-confirm"},
@@ -64,6 +72,8 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 			assert.Equal(t, http.StatusNotFound, unauthenticated.Code, "retired URLs disclose nothing before authentication")
 			authenticated := perform(t, h, route.method, route.path, nil, cookies)
 			assert.Equal(t, http.StatusNotFound, authenticated.Code, "retired URLs cannot read or mutate retained data")
+			otherAuthenticated := perform(t, h, route.method, route.path, nil, otherCookies)
+			assert.Equal(t, http.StatusNotFound, otherAuthenticated.Code, "another authenticated owner cannot discover retained data")
 		})
 	}
 	var selectionCount, deckCount, preparationCount int
@@ -76,6 +86,96 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 	var artifact []byte
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT artifact FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2`, owner.ID, preparationID).Scan(&artifact))
 	assert.Equal(t, []byte("retained-apkg-bytes"), artifact, "archived APKG bytes remain stored")
+}
+
+type retainedCustomDeckTranslation struct{}
+
+func (retainedCustomDeckTranslation) Name() string    { return "retained-custom-job-test" }
+func (retainedCustomDeckTranslation) Version() string { return "1" }
+func (retainedCustomDeckTranslation) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	if request.CanonicalLemma == "missingwort" {
+		return enrichment.TranslationResponse{UnresolvedReason: "No distinguishable contextual meaning."}, nil
+	}
+	return enrichment.TranslationResponse{
+		Translation: "house", Gloss: "a building", ContextOnly: true,
+		SentenceTranslation: "The children visit the old house.", SentenceTranslationTargets: []string{"house"},
+	}, nil
+}
+
+func TestPreviouslySubmittedCustomPreparationCanFinishAfterRouteRetirement(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "retained-custom-job-owner", false)
+	require.NoError(t, err)
+	_, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "retained-custom-job", "House source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, source, corpus)
+	_, omittedSource, omittedCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "retained-custom-job-omission", "Omitted source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "missingwort", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, omittedSource, omittedCorpus)
+	var omittedRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, omittedCorpus.ID).Scan(&omittedRunID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='Ein missingwort bleibt.',end_offset=23 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, owner.ID, omittedCorpus.ID, omittedRunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='missingwort',raw_lemma='missingwort',canonical_lemma='missingwort',start_offset=4,end_offset=15 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, owner.ID, omittedCorpus.ID, omittedRunID)
+	require.NoError(t, err)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&runID))
+	sentence := "Die Kinder besuchen heute das alte Haus."
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, owner.ID, corpus.ID, runID, sentence, len(sentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, owner.ID, corpus.ID, runID)
+	require.NoError(t, err)
+	tokens := []struct {
+		surface, lemma, upos, dependency string
+		head                             int
+		morphology                       map[string]string
+	}{
+		{"Die", "die", "DET", "det", 1, nil}, {"Kinder", "Kind", "NOUN", "nsubj", 2, nil},
+		{"besuchen", "besuchen", "VERB", "root", 2, map[string]string{"VerbForm": "Fin"}},
+		{"heute", "heute", "ADV", "advmod", 2, nil}, {"das", "das", "DET", "det", 5, nil},
+		{"alte", "alt", "ADJ", "amod", 5, nil}, {"Haus", "haus", "NOUN", "obj", 2, nil},
+	}
+	for ordinal, token := range tokens {
+		features := token.morphology
+		if features == nil {
+			features = map[string]string{}
+		}
+		morphology, marshalErr := json.Marshal(features)
+		require.NoError(t, marshalErr)
+		start := strings.Index(sentence, token.surface)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, owner.ID, runID, corpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, morphology, start, start+len(token.surface))
+		require.NoError(t, err)
+	}
+	require.NoError(t, store.SetVocabularyBrowseSelection(ctx, owner.ID, "de", "haus", "NOUN", true))
+	deck, err := store.CreateCustomVocabularyDeck(ctx, owner.ID, "de", "Archived deck", "727f0e52-28ee-4cb2-b11e-3fe0a4b4eb02")
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','missingwort','NOUN')`, owner.ID, deck.ID)
+	require.NoError(t, err)
+
+	provider := retainedCustomDeckTranslation{}
+	presentation := cardexport.NewPresentation(nil)
+	workers := river.NewWorkers()
+	prepareddeck.AddCustomDeckPreparationWorker(workers, store, presentation, provider, true)
+	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: workers})
+	require.NoError(t, err)
+	service := prepareddeck.NewCustomDeckPreparationService(store, client, presentation, provider)
+	fingerprint, err := service.EvidenceFingerprint(ctx, owner.ID, deck.ID)
+	require.NoError(t, err)
+	preparation, err := service.Submit(ctx, owner.ID, deck.ID, "ae910e1d-28f0-495d-967e-206cf4ae9df9", fingerprint)
+	require.NoError(t, err)
+	require.Equal(t, "queued", preparation.State)
+
+	worker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: provider, Configured: true}
+	require.NoError(t, worker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: owner.ID, PreparationID: preparation.ID},
+	}))
+	completed, err := store.GetCustomDeckPreparation(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "complete_with_omissions", completed.State)
+	assert.NotEmpty(t, completed.Artifact)
 }
 
 func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.T) {

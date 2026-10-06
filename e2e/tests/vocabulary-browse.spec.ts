@@ -24,6 +24,10 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await signIn(noScriptPage);
     await noScriptPage.goto('/vocabulary');
     await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary · Browse' })).toBeVisible();
+    await expect(noScriptPage.locator('body')).not.toContainText('Browse selection');
+    await expect(noScriptPage.locator('body')).not.toContainText('Custom deck');
+    await expect(noScriptPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
+    await expect(noScriptPage.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
     const browseForm = noScriptPage.locator('form[action="/vocabulary"]');
     await expect(browseForm.locator('input[name="reading"]')).toHaveValue('fixture-book');
     const includeAll = noScriptPage.getByRole('checkbox', { name: 'Show already accounted-for words' });
