@@ -64,6 +64,11 @@ download_verified \
   "$daisyui" "$daisyui_sha256"
 chmod +x "$tailwind"
 
+if [[ "${1:-}" == "--print-tailwind-path" ]]; then
+  printf '%s\n' "$tailwind"
+  exit 0
+fi
+
 cd "$root/internal/webapp/styles"
 "$tailwind" \
   --input app.css \
