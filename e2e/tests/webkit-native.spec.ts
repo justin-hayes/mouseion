@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { renderedTextContrast } from '../support/contrast';
 
 async function signIn(page: Page, username = 'fixture-learner', password = 'fixture-password') {
   await page.goto('/login');
@@ -27,22 +28,6 @@ async function expectMainWithinViewport(page: Page) {
   expect(bounds.width).toBeGreaterThan(0);
   expect(bounds.left).toBeGreaterThanOrEqual(0);
   expect(bounds.right).toBeLessThanOrEqual(bounds.viewport);
-}
-
-function contrastRatio(foreground: string, background: string) {
-  const luminance = (value: string) => {
-    const hex = value.match(/^#([\da-f]{6})$/i)?.[1];
-    const channels = hex
-      ? [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].map(channel => parseInt(channel, 16))
-      : value.match(/[\d.]+/g)!.slice(0, 3).map(Number);
-    const rgb = channels.map(channel => {
-      const linear = channel / 255;
-      return linear <= 0.03928 ? linear / 12.92 : ((linear + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-  };
-  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
-  return (lighter + 0.05) / (darker + 0.05);
 }
 
 test.describe('native WebKit smoke journey', () => {
@@ -111,17 +96,22 @@ test.describe('native WebKit smoke journey', () => {
     });
     expect(targetSize.width).toBeGreaterThanOrEqual(44);
     expect(targetSize.height).toBeGreaterThanOrEqual(44);
-    const buttonColors = await addCatalog.evaluate(element => {
-      const style = getComputedStyle(element);
-      return { foreground: style.color, background: style.backgroundColor };
-    });
-    expect(contrastRatio(buttonColors.foreground, buttonColors.background)).toBeGreaterThanOrEqual(4.5);
-    const themeTextColors = await page.evaluate(() => {
-      const root = getComputedStyle(document.documentElement);
-      return ['--mouseion-color-text', '--mouseion-color-text-muted'].map(token => root.getPropertyValue(token).trim());
-    });
-    const themeSurface = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--mouseion-color-surface').trim());
-    for (const foreground of themeTextColors) expect(contrastRatio(foreground, themeSurface)).toBeGreaterThanOrEqual(4.5);
+    expect(await addCatalog.evaluate(renderedTextContrast)).toBeGreaterThanOrEqual(4.5);
+    const themeTokens = ['--mouseion-color-text', '--mouseion-color-text-muted'];
+    await page.evaluate(tokens => {
+      for (const token of tokens) {
+        const probe = document.createElement('span');
+        probe.dataset.contrastToken = token;
+        probe.style.color = `var(${token})`;
+        probe.style.backgroundColor = 'var(--mouseion-color-surface)';
+        probe.textContent = token;
+        document.body.append(probe);
+      }
+    }, themeTokens);
+    for (const token of themeTokens) {
+      expect(await page.locator(`[data-contrast-token="${token}"]`).evaluate(renderedTextContrast), token).toBeGreaterThanOrEqual(4.5);
+    }
+    await page.locator('[data-contrast-token]').evaluateAll(nodes => nodes.forEach(node => node.remove()));
 
     const confirmation = page.locator('#connection-fixture-connection details').last();
     const summary = confirmation.locator('summary');

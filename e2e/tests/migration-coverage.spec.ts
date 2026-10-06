@@ -39,7 +39,6 @@ test.describe('migration and epistemic regression coverage', () => {
         await expect(page.locator(`link[rel="stylesheet"][href="/static/${retired}"]`)).toHaveCount(0);
       }
       await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
-      await expect(page.locator('[class~="outline"], [class~="secondary"], [class~="container"], [class~="grid"]')).toHaveCount(0);
     }
 
     const stylesheet = await page.request.get('/static/app.css');

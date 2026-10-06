@@ -45,6 +45,26 @@ reread loop runs in `desktop-light` only because all projects share one fixture
 server. Migration tests separately assert retained active snapshot contents,
 completion provenance, and prepared-deck provenance.
 
+## Browser rendering and contrast checks
+
+`tests/migration-coverage.spec.ts` verifies the one embedded application
+stylesheet, absence of retired Pico/split stylesheets, and removal of Pico CSS
+tokens. It intentionally does not ban generic utility class names: those are
+implementation details, while the responsive/theme suite checks representative
+pages for their semantic content, usable controls, and layout behavior.
+
+Rendered text contrast assertions use `support/contrast.ts`. It measures the
+browser-computed foreground and composites translucent foreground/background
+colors through transparent element ancestors before calculating WCAG sRGB
+contrast; a fully transparent document canvas uses the browser's white default.
+CSS colors accepted by the browser (including RGB and modern color syntax such
+as OKLCH) are converted through a 1×1 canvas to sRGB. A non-solid background
+image or unresolvable color fails with a diagnostic instead of producing a
+ratio. This deliberately does not attempt to sample images/gradients, account
+for ancestor `opacity`, blend modes, pseudo-elements, or prove text is actually
+visible; those require different rendering evidence. Automated DOM and contrast
+checks do not establish real VoiceOver behavior.
+
 ## Responsive/theme snapshots and failure artifacts
 
 The responsive/theme suite primarily uses geometry, ARIA, and computed-style
