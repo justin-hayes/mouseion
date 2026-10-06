@@ -29,6 +29,14 @@ body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn {
   text-decoration: none;
 }
 
+body.reading-shell .btn {
+  height: auto;
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 1;
+  white-space: normal;
+}
+
 body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-primary {
   border-color: var(--mouseion-color-accent);
   color: var(--mouseion-color-surface-raised);
