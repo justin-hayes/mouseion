@@ -77,3 +77,7 @@ cd "$root/internal/webapp/styles"
   --input catalog-ops.css \
   --output ../static/catalog-ops.css \
   --minify
+"$tailwind" \
+  --input vocabulary.css \
+  --output ../static/vocabulary.css \
+  --minify

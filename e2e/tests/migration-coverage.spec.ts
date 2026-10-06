@@ -36,7 +36,9 @@ test.describe('migration and epistemic regression coverage', () => {
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(path === '/library' ? 1 : 0);
-      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(path === '/library' ? 0 : 1);
+      const isVocabulary = path.startsWith('/vocabulary');
+      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(path !== '/library' && !isVocabulary ? 1 : 0);
+      await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(isVocabulary ? 1 : 0);
       await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
       await expect(page.locator('[class~="outline"], [class~="secondary"], [class~="container"], [class~="grid"]')).toHaveCount(0);
     }

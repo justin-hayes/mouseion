@@ -1,16 +1,17 @@
 # Design system
 
 Status: **Mouseion owns the complete shipped interface. Its shared application
-styling remains in `app.css`; My Books, Reading, Catalogs, operational jobs, and
-sign-in additionally load route-scoped, pinned Tailwind/daisyUI output.**
+styling remains in `app.css`; My Books, Reading, Catalogs, operational jobs,
+Vocabulary, and sign-in additionally load route-scoped, pinned Tailwind/daisyUI
+output.**
 
 Mouseion's design system is a semantic layer above native HTML and a CSS
 foundation. It supports a server-rendered, HTMX-enhanced product whose visual
 character is a calm digital scholarly reading desk. Mouseion's `app.css` owns the
 shared application baseline, route components, and workflow CSS. The shared shell
-and My Books, Catalogs, and operational jobs additionally use compiled
-Tailwind/daisyUI foundations; sign-in continues to use its separate compiled
-route stylesheet. Mouseion-owned tokens,
+and My Books, Catalogs, operational jobs, and Vocabulary additionally use
+compiled Tailwind/daisyUI foundations; sign-in continues to use its separate
+compiled route stylesheet. Mouseion-owned tokens,
 Book typography, component styling, responsive rules, and interaction contracts
 are the durable system.
 
@@ -33,10 +34,17 @@ workflow-specific.
   Mouseion-authored component overrides are bounded by `body.my-books-shell`.
 - `internal/webapp/styles/catalog-ops.css` owns compiled Tailwind/daisyUI
   controls for Reading, Catalogs, operational jobs, and asynchronous
-  Reading/Vocabulary task hosts; its deterministic output is
+  Reading task hosts; its deterministic output is
   `internal/webapp/static/catalog-ops.css`. It is linked on those routes, with
   component rules bounded by shell classes. Reading's Book, evidence, workflow,
   and responsive component styling remains in `app.css`.
+- `internal/webapp/styles/vocabulary.css` owns compiled Tailwind/daisyUI
+  controls and the shared Vocabulary-shell interaction foundation for Browse,
+  selection, known-vocabulary import, Concordance, and their task hosts; its
+  deterministic output is `internal/webapp/static/vocabulary.css`. It is linked
+  only on Vocabulary pages, including full-page validation and recovery views.
+  Vocabulary tables, workflow components, status patterns, and responsive
+  layouts remain Mouseion-owned in `app.css`.
 - `internal/webapp/styles/login.css` owns the sign-in route's Tailwind utility
   vocabulary and route-local component styling; its deterministic output is
   `internal/webapp/static/login.css`.
@@ -76,15 +84,17 @@ compiler, or network access.
 | My Books (`/library`) and its shared shell | `app.css` plus `my-books.css` | The route-only asset contains Tailwind utilities and selected daisyUI components, compiled without Preflight. Mouseion owns Book typography and workflow CSS. |
 | Reading (`/reading`, `/reading/switch`) and its completion receipt | `app.css` plus `catalog-ops.css` | The compiled foundation styles workflow actions and native controls. Reading cards, frozen evidence, confirmations, and receipt content remain Mouseion-owned. HTMX completion fragments use the host page's stylesheets. |
 | Sign-in | `app.css` plus `login.css` | Sign-in utility vocabulary and route-local components are isolated from authenticated pages. |
-| Catalogs, operational jobs, and focused task hosts (`/reading` and `/vocabulary`) | `app.css` plus `catalog-ops.css` | Route controls and job/deck task actions use compiled foundation styles; shared components, tables, and status patterns remain Mouseion-owned. |
-| HTMX fragments | Host page stylesheets | My Books enhanced results and recovery fragments use `app.css` + `my-books.css`; Reading's completion receipt fragment uses `app.css` + `catalog-ops.css`. Fragments do not load a second stylesheet. |
+| Catalogs and operational jobs | `app.css` plus `catalog-ops.css` | Route controls and job task actions use compiled foundation styles; shared components, tables, and status patterns remain Mouseion-owned. |
+| Vocabulary (`/vocabulary`, `/vocabulary/selection`, `/vocabulary/import`, and focused task hosts) | `app.css` plus `vocabulary.css` | Compiled controls and focus/target foundation are Vocabulary-scoped. Browse, selection, import, Concordance, table, feedback, and responsive component rules remain Mouseion-owned. |
+| HTMX fragments | Host page stylesheets | My Books enhanced results and recovery fragments use `app.css` + `my-books.css`; Reading's completion receipt fragment uses `app.css` + `catalog-ops.css`; Vocabulary Browse/selection/import results and recovery fragments use `app.css` + `vocabulary.css`. Fragments do not load a second stylesheet. |
 
 The My Books migration added the first authenticated Tailwind/daisyUI foundation
 after final Pico removal. Reading uses the compiled foundation for its shared
 shell controls, current-Book actions, chooser confirmations, and completion
 receipt while retaining Mouseion's route-specific Reading components in
-`app.css`. Catalogs, operational jobs, and focused Reading/Vocabulary task hosts
-also use the isolated compiled stylesheet. Other routes remain styled by
+`app.css`. Catalogs and operational jobs use the isolated compiled stylesheet;
+Vocabulary has its own isolated compiled foundation for the learner workflow.
+Other routes remain styled by
 Mouseion's `app.css` and are not reset by Tailwind Preflight. The standalone
 #1442 drop-in replacement pilot remains historical evidence and is not the
 implementation.

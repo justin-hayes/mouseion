@@ -1,0 +1,81 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
+  themes: false;
+  include: button, input;
+}
+
+/* The Vocabulary shell is a host for Browse, saved selection, known-word import,
+ * Concordance, and their HTMX fragments. Keep its foundation route-scoped. */
+@source inline("btn btn-primary btn-outline input");
+
+body.vocabulary-shell {
+  --color-base-100: var(--mouseion-color-surface-raised);
+  --color-base-200: var(--mouseion-color-surface-quiet);
+  --color-base-content: var(--mouseion-color-text);
+  --color-primary: var(--mouseion-color-accent);
+  --color-primary-content: var(--mouseion-color-surface-raised);
+  --radius-field: 0.125rem;
+  --depth: 0;
+  --noise: 0;
+  --btn-noise: none;
+  --btn-shadow: none;
+}
+
+body.vocabulary-shell :is(button, a[role="button"], summary) {
+  min-height: 44px;
+}
+
+body.vocabulary-shell button {
+  max-width: 100%;
+  border-radius: 0.125rem;
+  font: inherit;
+}
+
+body.vocabulary-shell button:hover:not(:disabled) {
+  cursor: pointer;
+}
+
+body.vocabulary-shell :is(button, a[role="button"], summary, input, select, textarea):focus-visible,
+body.vocabulary-shell .site-header__navigation a:focus-visible {
+  outline: 3px solid var(--mouseion-color-focus);
+  outline-offset: 3px;
+}
+
+body.vocabulary-shell :is(input:not([type="hidden"]), select, textarea) {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 44px;
+  border-color: var(--mouseion-color-border);
+  border-radius: 0.125rem;
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+body.vocabulary-shell input[type="checkbox"] {
+  width: 1.25rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--mouseion-color-accent);
+}
+
+body.vocabulary-shell .site-header__language select {
+  min-height: 44px;
+  border: 1px solid var(--mouseion-color-border);
+  border-radius: 0.125rem;
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.vocabulary-shell *,
+  body.vocabulary-shell *::before,
+  body.vocabulary-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
