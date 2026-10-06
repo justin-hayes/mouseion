@@ -16,7 +16,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['html', { outputFolder: 'playwright-report', open: 'never' }], ['line']] : 'list',
   use: {
     baseURL: fixtureURL,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     headless: true,
@@ -26,6 +26,10 @@ export default defineConfig({
     { name: 'desktop-dark', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, colorScheme: 'dark' } },
     { name: 'compact-light', use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 667 }, colorScheme: 'light' } },
     { name: 'compact-dark', use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 667 }, colorScheme: 'dark' } },
+    { name: 'webkit-desktop-light', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 1280, height: 800 }, colorScheme: 'light' } },
+    { name: 'webkit-desktop-dark', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 1280, height: 800 }, colorScheme: 'dark' } },
+    { name: 'webkit-compact-light', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 375, height: 667 }, colorScheme: 'light' } },
+    { name: 'webkit-compact-dark', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 375, height: 667 }, colorScheme: 'dark' } },
   ],
   webServer: {
     command: process.env.MOUSEION_FIXTURE_BIN ?? 'go run ../cmd/fixtureserver',
