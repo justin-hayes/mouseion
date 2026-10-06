@@ -47,4 +47,31 @@
     color: var(--mouseion-color-text);
     background-color: var(--mouseion-color-surface-raised);
   }
+
+  .input:user-invalid {
+    border-color: var(--mouseion-color-danger);
+  }
+
+  :where(button, input, select, textarea):disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  :where(input:read-only, textarea:read-only) {
+    background-color: var(--mouseion-color-surface-quiet);
+  }
+
+  [aria-busy="true"] {
+    cursor: progress;
+  }
+
+  button.button--danger {
+    border-color: var(--mouseion-color-danger);
+    color: var(--mouseion-color-surface-raised);
+    background: var(--mouseion-color-danger);
+  }
+
+  button.button--danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--mouseion-color-danger) 85%, black);
+  }
 }

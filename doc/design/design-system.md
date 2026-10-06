@@ -97,6 +97,16 @@ inputs and do not construct utility names at runtime. CSS sources are assembled
 by the one build entry point and are available before any no-JavaScript or
 enhanced interaction is used.
 
+This expand slice keeps the existing Mouseion native baseline as a temporary
+compatibility boundary for workflows not yet migrated. The remaining migration
+batches are shared shell/My Books (#1488), Reading/deck preparation (#1489),
+Concordance/occurrence review (#1490), Vocabulary/import (#1491), and
+Catalogs/jobs (#1492). Keep their route-owned layout in the existing component
+stylesheets; do not let those rules override sign-in's shared controls. After
+each batch lands green, the final cutover (#1493) can enable Preflight and retire
+the compatibility baseline. The sign-in foundation itself does not depend on
+that cutover.
+
 The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 ships one Templ-owned result list with native disclosures and HTMX 4.0.0 for
 enhanced requests. HTMX enhances requests, not rendering. Keep the no-JavaScript
@@ -146,6 +156,13 @@ surface token in both themes (4.5:1 for normal text) and meaningful input
 boundaries against their rendered adjacent surfaces (3:1). Contrast must be
 rechecked when an explicit Mouseion color changes.
 Color never carries state alone; pair it with visible text or an accessible name.
+
+Shared buttons use the default primary treatment, `.button--outline` or
+`.button--quiet` for secondary actions, and `.button--danger` for destructive
+actions. Native disabled state remains authoritative and is visually distinct;
+busy controls expose `aria-busy` and retain visible status text. Invalid inputs
+use the danger boundary, while read-only fields use the quiet surface without
+losing their meaningful control boundary.
 
 ## Typography roles
 
