@@ -39,6 +39,33 @@ func TestVocabularyBrowseSelectionCutoverOnlyRemovesSavedSelections(t *testing.T
 	require.NoError(t, err)
 	_, err = store.FinishCurrentReading(ctx, ownerA.ID, "it", historicalBook.ID, historicalReading.SnapshotID)
 	require.NoError(t, err)
+	seedSnapshotVocabulary := func(snapshotID, language, lemma string) {
+		t.Helper()
+		var corpusID string
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2`, ownerA.ID, snapshotID).Scan(&corpusID))
+		_, seedErr := store.Pool().Exec(ctx, `INSERT INTO primary_goal_snapshot_vocabulary(owner_id,snapshot_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance)
+			VALUES($1,$2,$3,$4,$5,'NOUN',1,'["Haus"]','[]','{}')`, ownerA.ID, snapshotID, corpusID, language, lemma)
+		require.NoError(t, seedErr)
+	}
+	seedSnapshotVocabulary(activeReading.SnapshotID, "de", "active-snapshot-vocab")
+	seedSnapshotVocabulary(historicalReading.SnapshotID, "it", "historical-snapshot-vocab")
+	activeReading, err = store.GetCurrentReading(ctx, ownerA.ID, "de")
+	require.NoError(t, err)
+	type snapshotState struct {
+		Released   bool
+		Vocabulary string
+	}
+	readSnapshotState := func(snapshotID string) snapshotState {
+		t.Helper()
+		var state snapshotState
+		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT s.released_at IS NOT NULL,
+			COALESCE((SELECT string_agg(v.language||':'||v.canonical_lemma||':'||v.upos, ',' ORDER BY v.language,v.canonical_lemma,v.upos)
+				FROM primary_goal_snapshot_vocabulary v WHERE v.owner_id=s.owner_id AND v.snapshot_id=s.id),'')
+			FROM primary_goal_snapshots s WHERE s.owner_id=$1 AND s.id=$2`, ownerA.ID, snapshotID).Scan(&state.Released, &state.Vocabulary))
+		return state
+	}
+	activeSnapshotBefore := readSnapshotState(activeReading.SnapshotID)
+	historicalSnapshotBefore := readSnapshotState(historicalReading.SnapshotID)
 
 	var customDeckID, customPreparationID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_decks(owner_id,language,name,creation_key)
@@ -64,6 +91,8 @@ func TestVocabularyBrowseSelectionCutoverOnlyRemovesSavedSelections(t *testing.T
 	currentReading, err := store.GetCurrentReading(ctx, ownerA.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, activeReading, currentReading, "current-reading reservation and snapshot remain unchanged")
+	assert.Equal(t, activeSnapshotBefore, readSnapshotState(activeReading.SnapshotID), "active snapshot and its reservations remain unchanged")
+	assert.Equal(t, historicalSnapshotBefore, readSnapshotState(historicalReading.SnapshotID), "historical snapshot contents and release state remain unchanged")
 	var historyRows int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='it' AND book_id=$2 AND goal_snapshot_id=$3`, ownerA.ID, historicalBook.ID, historicalReading.SnapshotID).Scan(&historyRows))
 	assert.Equal(t, 1, historyRows, "historical Reading snapshot remains unchanged")
