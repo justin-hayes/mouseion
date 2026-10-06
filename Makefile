@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke sqlc dictionary-index frontend-css check-frontend-css
+.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -96,7 +96,11 @@ templ:
 frontend-css:
 	tools/build-frontend-css.sh
 
+check-frontend-css-sources:
+	tools/verify-frontend-css-sources.py
+
 check-frontend-css:
+	$(MAKE) check-frontend-css-sources
 	tools/build-frontend-css.sh
 	git diff --exit-code -- internal/webapp/static/app.css
 

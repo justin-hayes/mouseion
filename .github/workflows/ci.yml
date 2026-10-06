@@ -69,13 +69,13 @@ jobs:
               - '.github/workflows/ci.yml'
 
             frontend:
-              - 'internal/webapp/views.templ'
-              - 'internal/webapp/components.templ'
+              - 'internal/webapp/*.templ'
               - 'internal/webapp/components.go'
               - 'internal/webapp/static/app.css'
               - 'internal/webapp/static/my-books.js'
               - 'internal/webapp/styles/**'
               - 'tools/build-frontend-css.sh'
+              - 'tools/verify-frontend-css-sources.py'
               - 'Makefile'
               - '.github/workflows/ci.yml'
 

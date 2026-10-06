@@ -55,7 +55,18 @@ styles. HTMX enhances real server-rendered links and forms. Neither dependency
 defines Mouseion product semantics, terminology, or component APIs.
 
 The stylesheet is built with `make frontend-css`; `make check-frontend-css`
-rebuilds it and fails if the committed output is stale. The build downloads
+first verifies the authored-source boundary through isolated compiler output,
+then rebuilds the stylesheet and fails if the committed output is stale. The
+source-boundary check uses disposable copies of the real stylesheet inputs to
+prove that authored Templ files (including a newly added view and
+occurrence-level lemma review), Go class mappings, and the owned enhancement
+script contribute utilities; generated templates, tests, vendor files, and
+temporary files do not. It checks a pristine build against the committed output,
+shows a temporary authored utility makes that output stale, and verifies identical
+output on repeated builds after the change.
+Tailwind automatic source discovery is disabled; the bounded top-level
+`internal/webapp/*.templ` inventory and the explicit Go/JavaScript inputs are
+the only class sources. The build downloads
 exact release assets into ignored `.tmp/` storage
 and verifies their SHA-256 digests before use. It requires Bash, `curl`, and
 `sha256sum` (or `shasum -a 256`) on Linux x64/arm64 or macOS x64/arm64. Normal
@@ -72,12 +83,12 @@ compiler, or network access.
 The one application foundation follows the completed route migrations and final
 Pico removal. It includes Tailwind utilities and selected daisyUI controls but
 does not enable Tailwind Preflight: Mouseion's explicit native baseline remains
-the authority. The compiler scans only the authored Templ views/components, Go
-class mappings, and owned enhancement script; generated output, tests, and vendor
-code are excluded. Keep class candidates literal in these inputs and do not
-construct utility names at runtime. CSS source files are assembled by the one
-build entry point, and all route styles are available before any no-JavaScript or
-enhanced interaction is used.
+the authority. The compiler scans only top-level authored Templ views, Go class
+mappings, and the owned enhancement script; generated output, tests, vendor code,
+and temporary files are excluded. Keep class candidates literal in these inputs
+and do not construct utility names at runtime. CSS source files are assembled by
+the one build entry point, and all route styles are available before any
+no-JavaScript or enhanced interaction is used.
 
 The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 ships one Templ-owned result list with native disclosures and HTMX 4.0.0 for

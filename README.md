@@ -39,11 +39,14 @@ make lint
 make check-frontend-css
 ```
 
-All pages load one committed, compiled stylesheet at `/static/app.css`. When
-changing Templ markup, Go class mappings, the owned enhancement script, or CSS
-sources under `internal/webapp/styles/`, regenerate it with `make frontend-css`
-and verify freshness with `make check-frontend-css`. Go builds and fixture-server
-startup use the committed output and do not require Node.js or a CSS compiler.
+All pages load one committed, compiled stylesheet at `/static/app.css`. Tailwind
+scans only authored `internal/webapp/*.templ` files, the explicit Go class
+mappings, and the owned enhancement script; generated templates, tests, vendor
+assets, and temporary files are excluded. When changing these inputs or CSS
+sources under `internal/webapp/styles/`, regenerate with `make frontend-css` and
+verify the bounded source set and freshness with `make check-frontend-css`. Go
+builds and fixture-server startup use the committed output and do not require
+Node.js or a CSS compiler.
 
 Concordance occurrences are rendered once by the server as native disclosures
 and ordinary paging and study links. The existing lookup request/history
