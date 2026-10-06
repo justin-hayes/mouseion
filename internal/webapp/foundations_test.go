@@ -183,10 +183,12 @@ func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {
 	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", nil, domain.ConcordanceLookup{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), lemmaReview.String(), concordanceError.String(), concordanceChanged.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
+		assert.Contains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
 	}
 	assert.Contains(t, sentenceStudy.String(), `class="vocabulary-shell"`)
 	assert.Contains(t, lemmaReview.String(), `class="reading-shell"`)
+	assert.Contains(t, lemmaReview.String(), `href="/static/catalog-ops.css"`)
 }
 
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {

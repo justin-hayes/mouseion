@@ -3,6 +3,7 @@ package webapp
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -76,7 +77,7 @@ func catalogOpsStylesRequested(styles []shellStyle) []bool {
 }
 
 func vocabularyStylesRequested(styles []shellStyle) []bool {
-	return []bool{selectedShellStyle(styles) == shellStyleVocabulary}
+	return []bool{slices.Contains(styles, shellStyleVocabulary)}
 }
 
 func shellBodyClass(styles []shellStyle) string {

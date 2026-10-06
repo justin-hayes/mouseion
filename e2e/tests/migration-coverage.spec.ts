@@ -31,14 +31,15 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads compiled foundations only on owning routes and keeps styles isolated', async ({ page }) => {
-    for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/import', '/vocabulary/concordance', '/jobs']) {
+    for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/import', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(path === '/library' ? 1 : 0);
       const isVocabulary = path.startsWith('/vocabulary');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(path !== '/library' && !isVocabulary ? 1 : 0);
-      await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(isVocabulary ? 1 : 0);
+      const isLemmaReview = path.startsWith('/reading/books/');
+      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount((path !== '/library' && !isVocabulary) || isLemmaReview ? 1 : 0);
+      await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(isVocabulary || isLemmaReview ? 1 : 0);
       await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
       await expect(page.locator('[class~="outline"], [class~="secondary"], [class~="container"], [class~="grid"]')).toHaveCount(0);
     }

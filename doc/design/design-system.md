@@ -40,11 +40,14 @@ workflow-specific.
   and responsive component styling remains in `app.css`.
 - `internal/webapp/styles/vocabulary.css` owns compiled Tailwind/daisyUI
   controls and the shared Vocabulary-shell interaction foundation for Browse,
-  selection, known-vocabulary import, Concordance, and their task hosts; its
+  selection, known-vocabulary import, Custom decks, Concordance, sentence study,
+  occurrence-level lemma review, and their task hosts; its
   deterministic output is `internal/webapp/static/vocabulary.css`. It is linked
-  only on Vocabulary pages, including full-page validation and recovery views.
-  Vocabulary tables, workflow components, status patterns, and responsive
-  layouts remain Mouseion-owned in `app.css`.
+  on Vocabulary pages, including full-page validation and recovery views, and on
+  focused lemma-review pages hosted under Reading. Browse filters/tables,
+  selection lists, and import-specific components remain Mouseion-owned in
+  `app.css`; shared Vocabulary actions, Custom deck, Concordance, sentence-study,
+  and lemma-review component styling is compiled with the Vocabulary foundation.
 - `internal/webapp/styles/login.css` owns the sign-in route's Tailwind utility
   vocabulary and route-local component styling; its deterministic output is
   `internal/webapp/static/login.css`.
@@ -85,15 +88,18 @@ compiler, or network access.
 | Reading (`/reading`, `/reading/switch`) and its completion receipt | `app.css` plus `catalog-ops.css` | The compiled foundation styles workflow actions and native controls. Reading cards, frozen evidence, confirmations, and receipt content remain Mouseion-owned. HTMX completion fragments use the host page's stylesheets. |
 | Sign-in | `app.css` plus `login.css` | Sign-in utility vocabulary and route-local components are isolated from authenticated pages. |
 | Catalogs and operational jobs | `app.css` plus `catalog-ops.css` | Route controls and job task actions use compiled foundation styles; shared components, tables, and status patterns remain Mouseion-owned. |
-| Vocabulary (`/vocabulary`, `/vocabulary/selection`, `/vocabulary/import`, and focused task hosts) | `app.css` plus `vocabulary.css` | Compiled controls and focus/target foundation are Vocabulary-scoped. Browse, selection, import, Concordance, table, feedback, and responsive component rules remain Mouseion-owned. |
-| HTMX fragments | Host page stylesheets | My Books enhanced results and recovery fragments use `app.css` + `my-books.css`; Reading's completion receipt fragment uses `app.css` + `catalog-ops.css`; Vocabulary Browse/selection/import results and recovery fragments use `app.css` + `vocabulary.css`. Fragments do not load a second stylesheet. |
+| Vocabulary (`/vocabulary`, `/vocabulary/selection`, `/vocabulary/import`, Custom decks, Concordance, and focused task hosts) | `app.css` plus `vocabulary.css` | Compiled controls, shared actions, Custom deck, Concordance, sentence-study, and focus/target styling use the Vocabulary foundation. Browse filters/tables, selection lists, and import-specific component rules remain Mouseion-owned in `app.css`. |
+| Occurrence lemma review (`/reading/books/{id}/lemma-review`) | `app.css`, `catalog-ops.css`, and `vocabulary.css` | Retains the Reading shell and compiled Reading controls while the Vocabulary foundation owns occurrence-review component styling. |
+| HTMX fragments | Host page stylesheets | My Books enhanced results and recovery fragments use `app.css` + `my-books.css`; Reading's completion receipt fragment uses `app.css` + `catalog-ops.css`; Vocabulary Browse/selection/import results and recovery fragments use `app.css` + `vocabulary.css`. Concordance fragments use their host page's compiled Vocabulary styles. Fragments do not load a second stylesheet. |
 
 The My Books migration added the first authenticated Tailwind/daisyUI foundation
 after final Pico removal. Reading uses the compiled foundation for its shared
 shell controls, current-Book actions, chooser confirmations, and completion
 receipt while retaining Mouseion's route-specific Reading components in
 `app.css`. Catalogs and operational jobs use the isolated compiled stylesheet;
-Vocabulary has its own isolated compiled foundation for the learner workflow.
+Vocabulary has its own isolated compiled foundation for Custom decks, Concordance,
+sentence study, and occurrence-level lemma review, alongside the shared learner
+controls.
 Other routes remain styled by
 Mouseion's `app.css` and are not reset by Tailwind Preflight. The standalone
 #1442 drop-in replacement pilot remains historical evidence and is not the

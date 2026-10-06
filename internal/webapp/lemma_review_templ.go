@@ -1089,7 +1089,7 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Review a word", &user, csrf, NavigationReadingJourney, shellStyleReading).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Review a word", &user, csrf, NavigationReadingJourney, shellStyleReading, shellStyleVocabulary).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
