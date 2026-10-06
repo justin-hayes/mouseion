@@ -1,8 +1,9 @@
 # Frontend vendor assets
 
-Mouseion serves HTMX from the embedded static filesystem; its shared application
-CSS is maintained in `../app.css`. The application does not require a
-browser-time connection to a CDN.
+Mouseion serves HTMX and one compiled application stylesheet from the embedded
+static filesystem. CSS source lives under [`../../styles/`](../../styles/), with
+`../../styles/app.css` as the build entry point and `../app.css` as its committed
+output. The application does not require a browser-time connection to a CDN.
 
 ## Pinned assets
 
@@ -37,10 +38,12 @@ script before either bundle is used.
 3. Copy only the minified distribution asset and license into this directory.
 4. Include the version in the filename; do not overwrite an old version under an
    ambiguous name.
-5. Update the URL in `internal/webapp/views.templ` and regenerate with
-   `templ generate`.
+5. Update the build entry point or owned stylesheet source, then run
+   `make frontend-css`.
 6. Update the version, origin, and SHA-256 in this file.
-7. Run `go test ./internal/webapp` and the complete repository verification.
+7. Run `make check-frontend-css`, `go test ./internal/webapp`, and the complete
+   repository verification.
 
-Do not edit vendored distribution files. Mouseion-specific rules belong in
-`../app.css` or the route-owned source stylesheets under `../styles/`.
+Do not edit vendored distribution files. Mouseion-specific rules belong in the
+owned source stylesheets under [`../../styles/`](../../styles/). Never edit the
+generated `../app.css` directly.

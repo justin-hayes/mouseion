@@ -1,14 +1,4 @@
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities) source(none);
-@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
-  themes: false;
-  include: button, input;
-}
-
-/* The shell mapping emits these as literal classes. This explicit candidate
- * list avoids scanning the monolithic template file and unrelated routes. */
-@source inline("btn btn-primary btn-outline input");
-
+/* Catalogs, Reading, and operational-job controls. */
 body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) {
   --color-base-100: var(--mouseion-color-surface-raised);
   --color-base-200: var(--mouseion-color-surface-quiet);

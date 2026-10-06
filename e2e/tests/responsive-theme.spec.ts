@@ -80,7 +80,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/jobs');
       await expect(page.locator('body')).toHaveClass('jobs-shell');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
+      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
       const analysisHistory = page.getByRole('region', { name: 'Analysis history' });
       await expect(analysisHistory.getByRole('table')).toBeVisible();
@@ -121,7 +121,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/catalogs');
       await expect(page.locator('body')).toHaveClass('catalogs-shell');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
+      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
       await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible();
       const addConnectionForm = page.locator('#catalog-connection-form');
@@ -245,8 +245,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/vocabulary');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
     await expect(page.getByRole('table', { name: 'Current effective vocabulary' })).toBeVisible();
@@ -295,8 +294,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     await page.goto('/vocabulary/selection');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Review Browse selection' })).toBeVisible();
     const selectionControls = page.locator('.vocabulary-selection-filter, .vocabulary-selection-page-link, .vocabulary-deck-link, .vocabulary-selection-list button, form[action="/vocabulary/decks"] :is(input:not([type="hidden"]), button), a[role="button"]:visible');
@@ -315,14 +313,14 @@ test.describe('responsive and theme regression coverage', () => {
 
     await page.goto('/vocabulary/selection/clear-confirm');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Confirm clear selection' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Cancel and keep selection' })).toHaveCSS('min-height', '44px');
 
     await page.goto('/vocabulary/concordance');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
   });
 
@@ -332,7 +330,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
       await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
+      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
       const row = page.locator('#concordance-native-results .concordance-result').first();
       await row.locator('summary').focus();
@@ -356,7 +354,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
     await expect(page.locator('body')).toHaveClass('reading-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     const sentence = page.locator('.lemma-review .reading-text').first();
     await expect(sentence).toBeVisible();
@@ -443,7 +441,7 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('sign-in controls are styled, focused, and reachable at 200 percent text size', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/login.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     const shell = await page.locator('body > header.site-header').evaluate((node) => {
       const style = getComputedStyle(node);
       return style.maxWidth;
@@ -549,8 +547,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/vocabulary/import');
     await expect(page.getByRole('heading', { name: 'Vocabulary · Import known vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByLabel('UTF-8 lemma file')).toBeVisible();
     const importControls = page.locator('nav[aria-label="Vocabulary views"] a, form[action="/vocabulary/import"] input[type="file"], form[action="/vocabulary/import"] button');
@@ -780,7 +777,7 @@ test.describe('sign-in server-rendered recovery without JavaScript', () => {
 
     await expect(page).toHaveURL(/\/login\?error=/);
     await expect(page.getByRole('alert')).toHaveText('Invalid credentials');
-    await expect(page.locator('link[href="/static/login.css"]')).toHaveCount(1);
+    await expect(page.locator('link[href="/static/app.css"]')).toHaveCount(1);
     await expect(page.getByLabel('Username')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
   });

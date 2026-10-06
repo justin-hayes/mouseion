@@ -98,7 +98,7 @@ frontend-css:
 
 check-frontend-css:
 	tools/build-frontend-css.sh
-	git diff --exit-code -- internal/webapp/static/login.css internal/webapp/static/my-books.css internal/webapp/static/catalog-ops.css internal/webapp/static/vocabulary.css
+	git diff --exit-code -- internal/webapp/static/app.css
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs

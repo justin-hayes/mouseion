@@ -1,15 +1,3 @@
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
-@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
-  themes: false;
-  include: button, input, alert;
-}
-
-/* Keep this route's generated utilities deliberately separate from the legacy
- * Pico routes. Login's complete utility vocabulary is declared here so scans
- * cannot pull unrelated views or enhancement-generated markup into this asset. */
-@source inline("input input-bordered btn btn-primary alert alert-error");
-
 #main-content:has(.login-screen) {
   display: grid;
   align-content: start;

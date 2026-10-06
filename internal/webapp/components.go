@@ -3,7 +3,6 @@ package webapp
 import (
 	"fmt"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -14,35 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
-
-// loginStylesheet keeps Tailwind/daisyUI scoped to the sign-in route.
-func loginStylesheet(enabled []bool) templ.Component {
-	if len(enabled) == 0 || !enabled[0] {
-		return templ.NopComponent
-	}
-	return templ.Raw(`<link rel="stylesheet" href="/static/login.css">`)
-}
-
-func myBooksStylesheet(enabled []bool) templ.Component {
-	if len(enabled) == 0 || !enabled[0] {
-		return templ.NopComponent
-	}
-	return templ.Raw(`<link rel="stylesheet" href="/static/my-books.css">`)
-}
-
-func catalogOpsStylesheet(enabled []bool) templ.Component {
-	if len(enabled) == 0 || !enabled[0] {
-		return templ.NopComponent
-	}
-	return templ.Raw(`<link rel="stylesheet" href="/static/catalog-ops.css">`)
-}
-
-func vocabularyStylesheet(enabled []bool) templ.Component {
-	if len(enabled) == 0 || !enabled[0] {
-		return templ.NopComponent
-	}
-	return templ.Raw(`<link rel="stylesheet" href="/static/vocabulary.css">`)
-}
 
 type shellStyle uint8
 
@@ -61,23 +31,6 @@ func selectedShellStyle(styles []shellStyle) shellStyle {
 		return shellStyleDefault
 	}
 	return styles[0]
-}
-
-func loginStylesRequested(styles []shellStyle) []bool {
-	return []bool{selectedShellStyle(styles) == shellStyleLogin}
-}
-
-func myBooksStylesRequested(styles []shellStyle) []bool {
-	return []bool{selectedShellStyle(styles) == shellStyleMyBooks}
-}
-
-func catalogOpsStylesRequested(styles []shellStyle) []bool {
-	style := selectedShellStyle(styles)
-	return []bool{style == shellStyleCatalogs || style == shellStyleJobs || style == shellStyleReading}
-}
-
-func vocabularyStylesRequested(styles []shellStyle) []bool {
-	return []bool{slices.Contains(styles, shellStyleVocabulary)}
 }
 
 func shellBodyClass(styles []shellStyle) string {

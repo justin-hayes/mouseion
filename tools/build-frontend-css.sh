@@ -66,18 +66,5 @@ chmod +x "$tailwind"
 
 cd "$root/internal/webapp/styles"
 "$tailwind" \
-  --input login.css \
-  --output ../static/login.css \
-  --minify
-"$tailwind" \
-  --input my-books.css \
-  --output ../static/my-books.css \
-  --minify
-"$tailwind" \
-  --input catalog-ops.css \
-  --output ../static/catalog-ops.css \
-  --minify
-"$tailwind" \
-  --input vocabulary.css \
-  --output ../static/vocabulary.css \
-  --minify
+  --input app.css \
+  --output ../static/app.css

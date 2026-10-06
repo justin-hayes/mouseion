@@ -33,45 +33,24 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	}
 	assert.False(t, strings.Contains(html, "cdn.jsdelivr.net"), "layout must not depend on the jsDelivr CDN")
 
-	for _, asset := range []struct {
-		path string
-		want string
-	}{
-		{path: "/static/vendor/htmx-4.0.0.min.js", want: "htmx"},
-		{path: "/static/app.css", want: "--mouseion-color-surface:"},
-		{path: "/static/login.css", want: ".login-screen"},
-		{path: "/static/my-books.css", want: ".my-books-foundation"},
-		{path: "/static/catalog-ops.css", want: ".btn-primary"},
-		{path: "/static/vocabulary.css", want: ".btn-primary"},
-	} {
-		t.Run(asset.path, func(t *testing.T) {
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, asset.path, nil)
-			response := httptest.NewRecorder()
-			StaticHandler().ServeHTTP(response, request)
-
-			assert.Equal(t, http.StatusOK, response.Code)
-			assert.True(t, strings.Contains(response.Body.String(), asset.want), "asset body missing %q", asset.want)
-		})
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
+	response := httptest.NewRecorder()
+	StaticHandler().ServeHTTP(response, request)
+	assert.Equal(t, http.StatusOK, response.Code)
+	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".my-books-foundation", ".btn-primary", ".vocabulary-shell", "*::before"} {
+		assert.Contains(t, response.Body.String(), want, "unified asset is missing %q", want)
 	}
 	picoRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/vendor/pico-2.1.1.min.css", nil)
 	picoResponse := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(picoResponse, picoRequest)
 	assert.Equal(t, http.StatusNotFound, picoResponse.Code, "retired Pico asset must not be served")
 
-	cssRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
-	cssResponse := httptest.NewRecorder()
-	StaticHandler().ServeHTTP(cssResponse, cssRequest)
-	css := cssResponse.Body.String()
-	assert.Contains(t, css, "*::before", "Mouseion owns a deterministic box-sizing baseline")
-
-	myBooksRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/my-books.css", nil)
-	myBooksResponse := httptest.NewRecorder()
-	StaticHandler().ServeHTTP(myBooksResponse, myBooksRequest)
-	assert.Equal(t, http.StatusOK, myBooksResponse.Code)
-	assert.Contains(t, myBooksResponse.Body.String(), ".btn-primary")
-	assert.Contains(t, myBooksResponse.Body.String(), ".input")
-	assert.NotContains(t, myBooksResponse.Body.String(), ".hidden{", "utility scanning must not pull in unrelated view classes")
-	assert.NotContains(t, myBooksResponse.Body.String(), ".alert{", "utility scanning must not pull in unrelated view classes")
+	for _, path := range []string{"/static/login.css", "/static/my-books.css", "/static/catalog-ops.css", "/static/vocabulary.css"} {
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+		response := httptest.NewRecorder()
+		StaticHandler().ServeHTTP(response, request)
+		assert.Equal(t, http.StatusNotFound, response.Code, "retired split stylesheet %s must not be served", path)
+	}
 }
 
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
@@ -79,9 +58,9 @@ func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	require.NoError(t, LoginPage("csrf", "", "/library", false).Render(context.Background(), &login))
 	require.NoError(t, Layout("My Books", &domain.User{Username: "learner"}, "csrf").Render(context.Background(), &library))
 
-	assert.Contains(t, login.String(), `href="/static/login.css"`)
+	assert.Contains(t, login.String(), `href="/static/app.css"`)
 	assert.Contains(t, login.String(), `class="login-screen`)
-	assert.NotContains(t, library.String(), `href="/static/login.css"`)
+	assert.Contains(t, library.String(), `href="/static/app.css"`)
 	assert.Contains(t, library.String(), `href="/static/app.css"`)
 	assert.NotContains(t, library.String(), `pico-2.1.1.min.css`)
 }
@@ -92,10 +71,8 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
 
 	assert.Contains(t, myBooks.String(), `href="/static/app.css"`)
-	assert.Contains(t, myBooks.String(), `href="/static/my-books.css"`)
 	assert.Contains(t, myBooks.String(), `btn-primary`)
 	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
-	assert.NotContains(t, reading.String(), `href="/static/my-books.css"`)
 	assert.Contains(t, reading.String(), `class="reading-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
@@ -106,12 +83,10 @@ func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T)
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &jobs))
 	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
 
-	for _, html := range []string{catalogs.String(), jobs.String()} {
-		assert.Contains(t, html, `href="/static/catalog-ops.css"`)
+	for _, html := range []string{catalogs.String(), jobs.String(), reading.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
+		assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	}
-	assert.Contains(t, reading.String(), `href="/static/catalog-ops.css"`)
-	assert.NotContains(t, catalogs.String(), `href="/static/my-books.css"`)
 }
 
 func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) {
@@ -129,7 +104,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 			require.NoError(t, page.component.Render(context.Background(), &output))
 			html := output.String()
 			assert.Contains(t, html, `href="/static/app.css"`)
-			assert.Contains(t, html, `href="/static/catalog-ops.css"`)
+			assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 			assert.Contains(t, html, `class="reading-shell"`)
 			assert.NotContains(t, html, `href="/static/vendor/pico-`)
 		})
@@ -165,7 +140,7 @@ func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {
 
 	for _, html := range []string{browse.String(), selection.String(), confirmation.String(), browseError.String(), selectionError.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
-		assert.Contains(t, html, `href="/static/vocabulary.css"`)
+		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 		assert.Contains(t, html, `class="vocabulary-shell"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
@@ -183,12 +158,12 @@ func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {
 	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", nil, domain.ConcordanceLookup{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), lemmaReview.String(), concordanceError.String(), concordanceChanged.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
-		assert.Contains(t, html, `href="/static/vocabulary.css"`)
+		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
 	}
 	assert.Contains(t, sentenceStudy.String(), `class="vocabulary-shell"`)
 	assert.Contains(t, lemmaReview.String(), `class="reading-shell"`)
-	assert.Contains(t, lemmaReview.String(), `href="/static/catalog-ops.css"`)
+	assert.NotContains(t, lemmaReview.String(), `href="/static/catalog-ops.css"`)
 }
 
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {
@@ -345,7 +320,7 @@ func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil, "de", nil, "").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `<body class="vocabulary-shell">`)
-	assert.Contains(t, html, `href="/static/vocabulary.css"`)
+	assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
 	assert.Contains(t, html, `<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data"`)
@@ -357,7 +332,7 @@ func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
 	require.NoError(t, KnownVocabImportStatusPage(domain.User{}, "csrf", status).Render(context.Background(), &output))
 	html = output.String()
 	assert.Contains(t, html, `<body class="vocabulary-shell">`)
-	assert.Contains(t, html, `href="/static/vocabulary.css"`)
+	assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
 	assert.Contains(t, html, `aria-label="Rejected vocabulary rows"`)
