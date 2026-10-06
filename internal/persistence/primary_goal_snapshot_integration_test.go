@@ -102,6 +102,7 @@ func TestPrimaryGoalFreezesCorpusQualifiedTwoOccurrenceCandidates(t *testing.T) 
 		{"three-local", "NOUN", 3},
 		{"nine-total", "NOUN", 2},
 		{"ten-total", "NOUN", 2},
+		{"generated-total", "NOUN", 2},
 		{"known-total", "NOUN", 2},
 		{"pos-total", "NOUN", 2},
 		{"singleton", "NOUN", 1},
@@ -111,6 +112,13 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 		require.NoError(t, err)
 	}
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known-total", "")
+	require.NoError(t, err)
+	generatedDeck, err := store.PutDeck(ctx, owner.ID, "de", "Generated provenance")
+	require.NoError(t, err)
+	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{
+		OwnerID: owner.ID, Language: "de", CanonicalLemma: "generated-total", UPOS: "NOUN",
+		FirstDeckID: generatedDeck.ID, FirstSourceMaterialID: &targetSource.ID,
+	})
 	require.NoError(t, err)
 
 	type countRow struct {
@@ -134,12 +142,14 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 		{lemma: "three-local", pos: "NOUN", count: 3},
 		{lemma: "nine-total", pos: "NOUN", count: 2},
 		{lemma: "ten-total", pos: "NOUN", count: 2},
+		{lemma: "generated-total", pos: "NOUN", count: 2},
 		{lemma: "known-total", pos: "NOUN", count: 2},
 		{lemma: "pos-total", pos: "NOUN", count: 2},
 	})
 	putProjection(other, []countRow{
 		{lemma: "nine-total", pos: "NOUN", count: 7},
 		{lemma: "ten-total", pos: "NOUN", count: 8},
+		{lemma: "generated-total", pos: "NOUN", count: 8},
 		{lemma: "known-total", pos: "NOUN", count: 8},
 		{lemma: "pos-total", pos: "VERB", count: 8},
 	})
@@ -154,8 +164,8 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 	for _, candidate := range snapshot {
 		identities[candidate.CanonicalLemma] = candidate.OccurrenceCount
 	}
-	assert.Equal(t, map[string]int{"three-local": 3, "ten-total": 2}, identities,
-		"nine does not meet the total threshold; language, POS, Known, and owner boundaries remain exact")
+	assert.Equal(t, map[string]int{"three-local": 3, "ten-total": 2, "generated-total": 2}, identities,
+		"nine does not meet the total threshold; language, POS, Known, owner, and Generated-provenance boundaries remain exact")
 }
 
 func TestPrimaryGoalCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandidates(t *testing.T) {
