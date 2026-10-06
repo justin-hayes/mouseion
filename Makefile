@@ -91,14 +91,14 @@ lint: lint-go
 templ:
 	templ generate
 
-# Build the isolated sign-in stylesheet with checksummed standalone tools; the
-# committed CSS is served at runtime and is not rebuilt by Go.
+# Build committed frontend stylesheets with checksummed standalone tools; Go
+# serves the generated assets and never invokes the compiler at runtime.
 frontend-css:
-	tools/build-login-css.sh
+	tools/build-frontend-css.sh
 
 check-frontend-css:
-	tools/build-login-css.sh
-	git diff --exit-code -- internal/webapp/static/login.css
+	tools/build-frontend-css.sh
+	git diff --exit-code -- internal/webapp/static/login.css internal/webapp/static/my-books.css
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs
