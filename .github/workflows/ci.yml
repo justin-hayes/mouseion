@@ -325,10 +325,10 @@ jobs:
       - name: Install Playwright dependency
         working-directory: e2e
         run: npm ci --ignore-scripts
-      - name: Install Chromium
-        # Chromium system dependencies are provisioned on ci01; runner jobs
+      - name: Install Chromium and WebKit
+        # Browser system dependencies are provisioned on ci01; runner jobs
         # intentionally do not have sudo access.
-        run: npx --prefix e2e playwright install chromium
+        run: npx --prefix e2e playwright install chromium webkit
       - name: Build fixture server
         run: mkdir -p .tmp && go build -o .tmp/fixtureserver ./cmd/fixtureserver
       - name: Run browser smoke

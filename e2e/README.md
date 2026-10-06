@@ -6,10 +6,32 @@ The fixture credentials are `fixture-learner` / `fixture-password` and are
 testing data only.
 
 From the repository root, run `make browser-smoke`. The command installs the
-pinned Node dependency from `package-lock.json` when needed and starts the
-fixture server through Playwright. Playwright runs the small smoke suite on
-desktop and compact viewports in light and dark colour schemes; traces,
-screenshots, video, and the HTML report are retained for failures only.
+pinned Node dependency from `package-lock.json` when needed, installs Chromium
+and WebKit, and starts the fixture server through Playwright. Chromium continues
+to run the complete existing suite on desktop and compact viewports in light
+and dark colour schemes. WebKit runs only `tests/webkit-native.spec.ts` in the
+same four viewport/appearance combinations, so the complete workflow suite is
+not multiplied by a second engine. Run only that focused matrix with
+`make browser-smoke-webkit` (or `cd e2e && npm run smoke:webkit`).
+
+WebKit requires its browser binary and Linux runtime libraries. On a supported
+Linux runner image, provision the system libraries as an image/setup step with
+`cd e2e && npx playwright install-deps webkit` (this system-package command
+requires administrator privileges); then `npx playwright install webkit` can
+download the browser as the unprivileged test user. The repository CI runner is
+intentionally not granted `sudo`: its host image must have the WebKit
+dependencies installed in advance. CI installs the pinned browser binaries and
+executes the same bounded smoke command; missing libraries fail the job rather
+than silently skipping WebKit.
+
+The WebKit journey covers server-rendered sign-in and invalid-credential
+recovery, the authenticated shell and native language/navigation forms,
+keyboard-operable confirmation disclosure, compact/desktop overflow and target
+geometry, focus, and a JavaScript-disabled sign-in/navigation/form/disclosure
+path. Fixture state is shared, so browser projects and workers remain serialized
+and the journey restores the active study language before finishing.
+
+Screenshots, video, traces, and the HTML report are retained for failures only.
 
 `@playwright/test` is updated through ordinary dependency changes with the
 lockfile committed. This suite complements, and does not replace, Go tests.

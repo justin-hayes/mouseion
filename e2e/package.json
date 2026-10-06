@@ -2,7 +2,8 @@
   "name": "mouseion-browser-acceptance",
   "private": true,
   "scripts": {
-    "smoke": "playwright test"
+    "smoke": "playwright test",
+    "smoke:webkit": "playwright test --project=webkit-*"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"

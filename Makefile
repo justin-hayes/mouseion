@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
+.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -129,8 +129,11 @@ gen:
 	touch gen/python/mouseion/__init__.py gen/python/mouseion/v1/__init__.py
 
 browser-smoke:
-	cd e2e && npm ci --ignore-scripts && npx playwright install chromium && npx playwright test
+	cd e2e && npm ci --ignore-scripts && npx playwright install chromium webkit && npx playwright test
 	cd e2e && MOUSEION_CORRECTED_START_SMOKE=1 npx playwright test tests/corrected-reading-start.spec.ts --project=desktop-light
+
+browser-smoke-webkit:
+	cd e2e && npm ci --ignore-scripts && npx playwright install webkit && npx playwright test --project='webkit-*'
 
 dev: go-tmp
 	go run ./cmd/server
