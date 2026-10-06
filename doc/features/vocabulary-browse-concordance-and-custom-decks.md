@@ -1,6 +1,13 @@
-# Vocabulary Browse, Concordance, and Custom decks
+# Vocabulary Browse, Concordance, and Custom decks (historical specification)
 
-Status: **Accepted specification — partially shipped** · Updated: 2026-10-03
+Status: **Historical; superseded by [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md)** · Originally updated: 2026-10-03
+
+This document records the earlier combined design, including selection and
+independent Custom decks. It is **not** a current implementation target. Follow
+[Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md) for
+the current investigation contract and [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
+for selection and preparation. Do not reinstate the saved-selection or
+custom-deck features from the historical requirements below.
 
 This is the cohesive product and acceptance contract for Vocabulary Browse,
 Concordance, and Custom decks. Browse now uses Current-reading Book scope,

@@ -10,7 +10,7 @@ request-time evidence query times out on a local corpus of roughly 3.2 million
 tokens. Restricting cross-Book aggregation to identities in the Current Book
 still exceeded a nine-second query deadline: a long Book shares enough
 identities with other Books that it still reads substantial token evidence.
-The accepted [Browse contract](../features/vocabulary-browse-concordance-and-custom-decks.md)
+The accepted [Browse contract](../features/vocabulary-browse-and-concordance.md)
 requires exact, current counts and a warm reference-corpus p95 of at most two
 seconds; a timeout cannot become a partial or zero result.
 The prohibition on persisting the retired advisory Journey-order projection
@@ -90,7 +90,7 @@ second set of mutable counts without evidence.
 
 ## Related
 
-- [Vocabulary Browse, Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md)
+- [Vocabulary Browse and Concordance](../features/vocabulary-browse-and-concordance.md)
 - [ADR 0038: Schema-change governance](0038-schema-change-governance.md)
 - [ADR 0078: Book dispositions and current reading](0078-book-dispositions-and-current-reading.md)
 - [ADR 0081: Learner-owned occurrence lemma corrections](0081-learner-owned-occurrence-lemma-corrections.md)

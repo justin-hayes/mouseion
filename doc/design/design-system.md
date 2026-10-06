@@ -269,11 +269,11 @@ scrollable data table must label and contain its own overflow.
   remains governed by the applicable ADRs.
 - Vocabulary is canonical for importing known vocabulary; study languages are
   derived from chosen-language Books rather than maintained on a Settings route.
-- The [accepted Vocabulary target](../features/vocabulary-browse-concordance-and-custom-decks.md)
+- The [accepted Vocabulary target](../features/vocabulary-browse-and-concordance.md)
   adds a vocabulary-identity Browse and learner-facing Concordance beneath the
   existing destination. Browse now scopes current evidence to the active study
-  language's Current reading Book; its selection and saved Custom decks remain
-  language-wide. Browse's default accounted-for exclusions and include-all
+  language's Current reading Book; the accepted [Reading-owned contract](../features/reading-owned-book-vocabulary.md)
+  retires selection and saved Custom deck UI. Browse's default accounted-for exclusions and include-all
   control are shipped; other remaining accepted Browse behavior remains target
   behavior. Exact-lookup Concordance, applied Book/grammar filters, KWIC
   disclosures, and focused textual sentence study are shipped. These views do

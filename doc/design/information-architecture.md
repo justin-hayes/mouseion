@@ -38,10 +38,10 @@ The product supports these top-level goals:
 
 **Accepted target (partially shipped):** in Vocabulary, Browse effective
 identities in the active language's Current reading Book, ranked by occurrence
-count after excluding already accounted-for vocabulary by default. The shipped
-Browse still spans analyzed Books; the Book-scoped replacement is not yet
-implemented. Concordance and saved Custom decks remain cross-Book. See the
-[Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
+count after excluding already accounted-for vocabulary by default. Concordance
+remains cross-Book; saved selections and Custom decks are retired. See the
+[Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
+and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md).
 
 The recurring experience rhythm is:
 
@@ -121,10 +121,11 @@ These objects remain important, but they do not define principal navigation:
 - **Current analysis** — the one completed analysis whose evidence supports the
   Book anchor in Reading. Its immutable corpus and provenance remain
   backend facts.
-- **Prepared deck** — immutable APKG artifact from the exact analysis that
-  supplied its corpus, prepared through the focused deck task.
-- **Reading vocabulary snapshot** — the immutable recurring-vocabulary identity
-  set frozen when current reading starts, with its selection and analysis provenance.
+- **Prepared deck** — APKG artifact from the Current reading's frozen Book
+  vocabulary snapshot and exact analysis, prepared through the focused deck task
+  (accepted target; historical pre-reading artifacts remain).
+- **Reading vocabulary snapshot** — the immutable Book vocabulary candidate set
+  frozen when current reading starts, with its selection and analysis provenance.
 - **Reserved vocabulary** — the current-reading snapshot projected into selection
   state for that study language; it is not a separate study workflow.
 - **Known vocabulary** — owner-scoped vocabulary explicitly imported or
@@ -160,9 +161,8 @@ The authenticated shell exposes four principal destinations:
   surface for synced catalog metadata;
 - **Reading** — the current Book and the To Read candidate chooser. Older
   Reading Journey and Primary Goal terms are not used on active screens;
-- **Vocabulary** — currently the known-vocabulary import workflow and its
-  durable status; the accepted target adds Browse, Concordance, and Custom
-  decks beneath this same destination.
+- **Vocabulary** — Browse, Concordance, and known-vocabulary import; the accepted
+  target removes saved selection and Custom deck UI beneath this destination.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
 Catalogs is a configuration and sync destination, not a book-browse surface.
@@ -220,9 +220,6 @@ Vocabulary (partially shipped)
     Concordance exact lookup and KWIC context (shipped slice)
     focused sentence study and grammar exploration (target)
     Import known vocabulary (shipped peer view)
-    saved Custom decks (target)
-        prepare, inspect status/history, download
-    review an unnamed selection -> name/edit a Custom deck (target)
 
 Secondary history
     operational analysis history
@@ -397,29 +394,27 @@ deck behavior remains independent of Browse.
 
 ### Accepted Vocabulary target (partially shipped)
 
-The [Vocabulary feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md)
-and [ADR 0082](../adr/0082-independent-custom-vocabulary-decks.md) define the
-implementation target. Keep exactly the existing four primary destinations;
+The [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
+and [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md) define the
+accepted target. Keep exactly the existing four primary destinations;
 within Vocabulary, **Browse** (landing), **Concordance**, and **Import known
 vocabulary** are separate, connected peer views. Browse is shipped at
 `/vocabulary`; import is shipped at `/vocabulary/import`. Browse covers effective
-vocabulary identities from current analyzed Books in the active study language,
-not the Book catalog or its recurring-deck candidate list. Browse identity links
+vocabulary identities in the active study language's Current reading Book,
+not the Book catalog or only its prepared-deck candidates. Browse identity links
 and exact surface/effective/analyzer lookup with paged KWIC context are shipped.
 Applied multi-Book and grammar filters plus focused textual sentence study are
-also shipped. Saved Browse selection and Custom decks remain unshipped.
-Concordance exposes sentence context without altering analyzer evidence. A
-learner's Browse selection opens review before they name a Custom deck; the
-saved deck prepares its own cross-Book artifact independently of Reading and
-Book Prepared decks. Return paths among the Vocabulary views and from focused
-sentence study preserve context. Reading gains no permanent Vocabulary
+also shipped. Saved Browse selection and Custom decks are shipped but are
+retired by the accepted Reading-centered target. Concordance exposes sentence
+context without altering analyzer evidence. Return paths among the Vocabulary
+views and from focused sentence study preserve context. Reading gains no permanent Vocabulary
 navigation or new study-state transition. Known import retains its existing
 contract rather than merging with Browse inventory or presenting a Known-only
 vocabulary list.
 
 The hierarchy above describes both shipped and target behavior; present the
 implemented Concordance lookup/KWIC, grammar exploration, and sentence-study
-interactions as available, not the remaining Custom-deck workflows. My Books
+interactions as available, not the retired Custom-deck workflows. My Books
 remains the only bibliographic browse surface.
 
 <a id="contract-changes-requiring-planneradr-work"></a>

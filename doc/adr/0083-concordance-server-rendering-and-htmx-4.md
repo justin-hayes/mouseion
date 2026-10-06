@@ -50,6 +50,6 @@ The implementation removes the Lit island, duplicate JSON payload, bundle/build
 pipeline, and custom row-key controller; it also completes the app-wide HTMX 4
 migration in the same PR, with separable commits. Concordance's handwritten
 request/history implementation remains temporarily for the intermediate slice.
-The [Vocabulary feature contract](../features/vocabulary-browse-concordance-and-custom-decks.md)
+The [Vocabulary feature contract](../features/vocabulary-browse-and-concordance.md)
 defines the learner-facing behavior. PR #1404 is subject to required human
 review before merge.

@@ -1,6 +1,12 @@
 # ADR 0082: Independent saved Custom decks and frozen preparations
 
-Status: **Accepted (not yet implemented)** · Date: 2026-10-01 · Author: Justin + OpenCode
+Status: **Superseded by [ADR 0085](0085-reading-owned-book-vocabulary.md)** · Date: 2026-10-01 · Author: Justin + OpenCode
+
+Historical decision: substantial portions were implemented before the
+Reading-centered cutover was accepted. Do not treat the independent selection,
+preparation, or learner-facing Custom deck requirements below as a current
+implementation target. Existing stored artifacts are retained pending a
+separate, audited cleanup under ADR 0085.
 
 Records the durable boundary agreed in [Specify Vocabulary browse, custom
 decks, and Concordance](https://github.com/justin-hayes/mouseion/issues/1330),

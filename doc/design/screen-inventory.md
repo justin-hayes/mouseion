@@ -81,7 +81,7 @@ or rank the next Book.
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining Book context. | Reading when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Reading | Empty history, mixed states, historical/legacy records |
 | Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the canonical Book anchor. | Reading anchor for current To Read Books; 404 otherwise | Valid owned current result redirect, non-member or incomplete result, missing or unauthorized reference |
-| Deck preparation | Focused `GET /reading/books/{bookID}/deck/preparations/new`; current preparation mutation/status/download routes remain | Consent to optional translation, prepare an APKG from the current analysis, recover failure, and download the ready artifact. | Download deck or return to the Reading anchor | Consent absent/present, queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, cleanup warning, completeness summary, and item-level contextual-meaning omissions with reasons |
+| Deck preparation | Focused `GET /reading/books/{bookID}/deck/preparations/new`; current preparation mutation/status/download routes remain | Prepare an APKG from the Current reading's frozen snapshot (accepted target; shipped pre-reading path still exists), recover failure, and download the ready artifact. | Download deck or return to the Reading anchor | Queued, preparing by phase, long-running Batch, ready, failed/actionable, cancelled, retrying, completeness summary, and item-level contextual-meaning omissions with reasons |
 
 My Books is the canonical home and a moderately dense bibliographic catalog.
 The shipped [Book Covers](../features/book-covers.md) surface uses a responsive
@@ -109,8 +109,9 @@ actions without opening a detail page.
 | Deck preparation | Provide a coherent focused task and server-rendered status baseline before enhancement. | Download deck or return to the Reading anchor |
 
 Legacy/full-text jobs remain readable on `/jobs/{id}` but do not unlock current
-deck preparation. The older `POST /jobs/{id}/deck/preparations` path is retained
-for compatibility and is not a competing destination. Historical classifier and
+deck preparation. The older `POST /jobs/{id}/deck/preparations` path is shipped
+for compatibility but will cease new submissions under [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md).
+Historical classifier and
 recommendation metadata is not a current learner-facing surface.
 
 ## Book acquisition
@@ -148,8 +149,8 @@ status, and actions; mutation feedback is announced. On narrow screens, identity
 and primary actions remain visible without horizontal page scrolling.
 Occurrence review is a focused Reading task rather than a competing Book detail
 surface. Corrected identities participate in Book vocabulary insights and are
-frozen into a new current-reading snapshot; direct deck preparation uses the same
-effective identities. Changes remain unavailable once a reading snapshot is
+frozen into a new current-reading snapshot; the accepted deck path uses that
+snapshot rather than independently reselecting. Changes remain unavailable once a reading snapshot is
 active, preserving its historical vocabulary.
 
 ### Reading completion semantics
@@ -188,31 +189,23 @@ learner-facing screen.
 
 ### Accepted Vocabulary target — partially shipped
 
-Browse now scopes evidence to the Current reading Book, ranks by descending
-effective occurrences with lemma/POS tie breaks, and retains only canonical
-lemma-prefix search. Its table shows lemma, POS, current-Book occurrence
-count, truthful learner state, and Select/Remove. The next accepted change adds
-the single include-all control and hides Known, Reserved, and this Book's
-prepared identities by default. No Current reading or stale analysis leads to a
-Reading recovery state with access to the language-wide selection and saved
-decks; opening an identity starts Concordance in that Book. Import is its
-deployed peer at `/vocabulary/import`. Concordance at
-`/vocabulary/concordance` includes applied multi-Book and grammar filters, KWIC,
-and a focused textual sentence-study view. The broader Concordance contract
-remains target work. Named Custom decks support identity-list editing,
-deletion, and durable preparation generations with item-level omissions and
-prior-Ready retention. Their product and
-acceptance contract is [Vocabulary Browse,
-Concordance, and Custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md).
+Browse scopes evidence to the Current reading Book and ranks by descending
+effective occurrences in that Book, then across the learner's current analyses.
+It retains canonical-lemma prefix search and a single include-all control for
+Known, Reserved, and already-in-this-Book-deck identities. No Current reading
+or stale analysis leads to a Reading recovery state; opening an identity starts
+Concordance in that Book. Import remains its peer at `/vocabulary/import`.
+Concordance supports cross-Book lookup, grammar exploration, KWIC, and focused
+sentence study. The accepted, not-yet-implemented retirement removes Browse
+selection and all saved Custom deck UI and HTTP access. See the [current Browse
+and Concordance contract](../features/vocabulary-browse-and-concordance.md) and
+[Reading-owned deck contract](../features/reading-owned-book-vocabulary.md).
 
 | Screen | Learner goal and primary exit | Required states |
 |---|---|---|
-| Browse extensions | Open an identity in Concordance or select it for later deck review. | Identity handoff, recoverable language-scoped selection, review, clear confirmation, and explicit naming are shipped |
-| Selection review | Review all selected identities, including missing evidence; explicitly name a Custom deck. | Long paged review, missing filter, clear confirmation, and explicit naming are shipped; unavailable-language selection remains read-only |
+| Browse extensions | Open an identity in Concordance and inspect accounted-for words. | Identity handoff and include-all are shipped; Select/Remove and review are shipped but slated for removal |
 | Concordance | Search exact surface, effective lemma + POS, or analyzer lemma + POS evidence; scan Books and open a focused study page for occurrence evidence. | Exact modes, applied multi-Book/grammar summary, 25-result KWIC paging, Book-first truncated rows with an always-visible study link, native click/Enter/Space sentence disclosure, exclusive named disclosures where supported, no custom row-key shortcuts, and narrow reflow are shipped |
 | Focused sentence study | Study a complete sentence with Book/location and analyzer syntax; return to the originating applied result. | Textual token/head/dependent evidence, identified target, explained missing parse, and return to the originating result are shipped; optional diagram remains unnecessary |
-| Saved Custom deck | Edit an identity shortlist independently of Reading; review current evidence and submit preparation. | Named deck list, rename, paged identity review, missing filter, add/remove, current Book/analysis/correction links, unavailable-language read-only state, native deletion confirmation, evidence-change reconfirmation, all-zero disabled preparation, idempotent submission, read-only generation history, stable Anki deck identity with learner title in package description, and overlap/cleanup warning before preparation are shipped |
-| Custom deck preparation | Inspect durable status and item-level outcomes, compare current evidence with frozen generation provenance, cancel or prepare again, or download the latest Ready APKG. | Queued/running, failed/cancelled, zero-card withheld, complete with evidence/quality/meaning omissions, prior Ready during replacement, historical generation detail, newest-only download, safe retry, uncertain submission, and Anki overlap/cleanup warning before download |
 
 The accepted [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 ships one Templ-rendered result list, native grouped disclosures, no custom

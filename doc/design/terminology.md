@@ -107,11 +107,12 @@ Never use coverage as a warning, readiness judgment, or literary evaluation.
 | **Vocabulary work complete** | Eligible identities from the current-reading snapshot have entered modeled Known vocabulary. This does not claim verified mastery. | Mastered, deck reviewed |
 | **Known vocabulary** | Modeled learner knowledge: lemmas explicitly imported or accepted when current reading is finished. It does not claim verified mastery. | Generated vocabulary, mastered vocabulary |
 | **Reserved vocabulary** | Lemmas in the current Book's frozen snapshot, excluded from selection in that study language but not counted as Known. | Known, learned, studied vocabulary |
-| **Reading vocabulary snapshot** | The exact recurring-vocabulary identity set frozen from the current Book's analysis, with analysis, source, and selection provenance. | Deck contents, generated vocabulary |
+| **Reading vocabulary snapshot** | The exact Book vocabulary candidate set frozen when Current reading starts, with analysis, source, cross-Book selection, and learner-state provenance. | Deck contents, generated vocabulary |
 | **Generated vocabulary** | Immutable provenance that an identity was assigned to a prepared deck; it is neither Known nor Reserved and is not a later selection exclusion. | Known vocabulary, reserved vocabulary |
 | **Graduated vocabulary** | Historical provenance label for vocabulary accepted into modeled Known vocabulary when current reading is finished. | Automatically mastered |
 | **Unknown vocabulary** | Eligible analyzed lemmas not currently Known or Reserved by current reading in that study language. | Difficult words |
-| **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed book; the pool a prepared deck selects, labeled **Deck vocabulary** in preparation. | Rare words, difficult words |
+| **Recurring vocabulary** | Unknown lemmas appearing at least N times in the analyzed Book (default three); one route into Book vocabulary candidates. | Rare words, difficult words |
+| **Book vocabulary candidates** | Unknown identities selected for a Current reading's frozen snapshot and any Book deck prepared from it: recurring in this Book, or appearing twice here and frequently across the learner's currently analyzed same-language Books. | Recurring vocabulary for the entire pool, corpus words |
 
 Do not use **mastered** as a synonym for generated, assigned, exported, merely
 reviewed, or encountered while reading. Reading history, preparation state,
@@ -122,17 +123,14 @@ and vocabulary knowledge remain independent facts.
 | Term | Meaning | Avoid |
 |---|---|---|
 | **Browse** | Vocabulary view of owner-specific effective lemma + POS identities with current analyzed evidence in the active language's Current reading Book, including singletons; frequency-ranked and excluding Known, Reserved, and already prepared-for-this-Book identities by default. | Book prepared-deck candidates, Known-vocabulary list, cross-Book inventory |
-| **Browse selection** | Recoverable unnamed set of effective identities awaiting review and explicit naming; scoped to one learner and study language. | Custom deck before creation, filtered results |
 | **Concordance** | Occurrence exploration with both sentence/KWIC context and analyzer-attributed syntax; effective lookup remains distinct from observed surface and analyzer-evidence lookup. | KWIC as the whole feature, global correction |
-| **Custom deck** | Learner-named editable cross-Book identity selection with independent frozen preparations, not a Reading snapshot or Book Prepared deck. | Reading deck, Custom Prepared deck |
 
-These are accepted terms from the [Vocabulary feature
-specification](../features/vocabulary-browse-concordance-and-custom-decks.md).
-The Book-scoped Browse contract is an accepted change to the shipped cross-Book
-Browse, not yet implemented. Exact surface/effective/analyzer lookup, scoped
-grammar exploration, KWIC context, and focused sentence study are available in
-Concordance. Browse selection and Custom decks are shipped; their language-wide
-scope remains independent of the Current reading Book. The simplified Browse
+These terms follow the [current Vocabulary specification](../features/vocabulary-browse-and-concordance.md)
+and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md).
+Browse selection and Custom decks exist in the shipped implementation but are
+retired in the accepted target; do not use them for new learner-facing copy.
+Exact surface/effective/analyzer lookup, scoped grammar exploration, KWIC
+context, and focused sentence study are available in Concordance. Browse's
 table labels each identity Unknown, Known, or Reserved (both if applicable);
 when include-all reveals an identity prepared for this Book, **In a Book deck**
 appears as a separate note, not a learner-knowledge state. Generation never
