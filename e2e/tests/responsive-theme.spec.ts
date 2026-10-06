@@ -332,6 +332,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
       await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+      await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
       const row = page.locator('#concordance-native-results .concordance-result').first();
       await row.locator('summary').focus();
@@ -355,6 +356,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
     await expect(page.locator('body')).toHaveClass('reading-shell');
+    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     const sentence = page.locator('.lemma-review .reading-text').first();
     await expect(sentence).toBeVisible();
