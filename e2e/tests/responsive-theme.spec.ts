@@ -1,4 +1,5 @@
 import { expect, Locator, Page, test } from '@playwright/test';
+import { renderedTextContrast } from '../support/contrast';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -59,20 +60,81 @@ async function expect44pxTouchTargets(controls: Locator) {
 }
 
 async function textContrast(element: Locator) {
-  return element.evaluate((node) => {
-    const channels = (color: string) => color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? [];
-    const luminance = (color: string) => channels(color).map((channel) => {
-      const value = channel / 255;
-      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-    }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-    const style = getComputedStyle(node);
-    const foreground = luminance(style.color);
-    const background = luminance(style.backgroundColor);
-    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
-  });
+  return element.evaluate(renderedTextContrast);
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('measures rendered RGB and modern colors over the actual translucent backdrop', async ({ page }) => {
+    await page.goto('/login');
+    await page.evaluate(() => {
+      const canvas = document.createElement('div');
+      canvas.style.backgroundColor = 'white';
+      const transparentAncestor = document.createElement('div');
+      transparentAncestor.style.backgroundColor = 'transparent';
+      canvas.append(transparentAncestor);
+      const rgb = document.createElement('span');
+      rgb.id = 'contrast-rgb';
+      rgb.style.color = 'rgb(0 0 0)';
+      rgb.textContent = 'rgb';
+      const modern = document.createElement('span');
+      modern.id = 'contrast-modern';
+      modern.style.color = 'oklch(0% 0 0)';
+      modern.textContent = 'modern';
+      const translucent = document.createElement('span');
+      translucent.id = 'contrast-translucent-foreground';
+      translucent.style.color = 'rgb(0 0 0 / 50%)';
+      translucent.textContent = 'translucent';
+      const knownSurface = document.createElement('div');
+      knownSurface.style.backgroundColor = 'rgb(128 128 128)';
+      const translucentBackground = document.createElement('span');
+      translucentBackground.id = 'contrast-translucent-background';
+      translucentBackground.style.color = 'black';
+      translucentBackground.style.backgroundColor = 'rgb(255 255 255 / 50%)';
+      translucentBackground.textContent = 'translucent background';
+      knownSurface.append(translucentBackground);
+      transparentAncestor.append(rgb, modern, translucent, knownSurface);
+      document.body.append(canvas);
+    });
+    const rgbRatio = await page.locator('#contrast-rgb').evaluate(renderedTextContrast);
+    const modernRatio = await page.locator('#contrast-modern').evaluate(renderedTextContrast);
+    const translucentRatio = await page.locator('#contrast-translucent-foreground').evaluate(renderedTextContrast);
+    const translucentBackgroundRatio = await page.locator('#contrast-translucent-background').evaluate(renderedTextContrast);
+    expect(rgbRatio).toBeCloseTo(21, 1);
+    expect(modernRatio).toBeCloseTo(rgbRatio, 2);
+    // Half-transparent black over white renders as mid-gray text (~3.98:1),
+    // not the 21:1 ratio produced by incorrectly treating it as opaque.
+    expect(translucentRatio).toBeGreaterThan(3.9);
+    expect(translucentRatio).toBeLessThan(4.1);
+    // Half-transparent white over known #808080 renders as #c0c0c0 (11.48:1).
+    expect(translucentBackgroundRatio).toBeGreaterThan(11.3);
+    expect(translucentBackgroundRatio).toBeLessThan(11.7);
+
+    const unsupported = page.locator('#contrast-modern');
+    await unsupported.evaluate((node) => { (node as HTMLElement).style.backgroundImage = 'none, none'; });
+    expect(await unsupported.evaluate(renderedTextContrast)).toBeCloseTo(21, 1);
+    await unsupported.evaluate((node) => { (node as HTMLElement).style.backgroundImage = 'linear-gradient(white, black)'; });
+    await expect(unsupported.evaluate(renderedTextContrast)).rejects.toThrow(/background image/i);
+    await unsupported.evaluate((node) => { (node as HTMLElement).style.backgroundImage = 'none'; });
+    await page.evaluate(() => {
+      const targetColor = getComputedStyle(document.querySelector('#contrast-modern')!).color;
+      const supports = CSS.supports.bind(CSS);
+      (window as Window & { originalContrastCSSSupports?: typeof CSS.supports }).originalContrastCSSSupports = CSS.supports;
+      Object.defineProperty(CSS, 'supports', {
+        configurable: true,
+        value: (property: string, value: string) => property === 'color' && value === targetColor ? false : supports(property, value),
+      });
+    });
+    await expect(unsupported.evaluate(renderedTextContrast)).rejects.toThrow(/Unsupported foreground color/i);
+    await page.evaluate(() => {
+      const testWindow = window as Window & { originalContrastCSSSupports?: typeof CSS.supports };
+      if (testWindow.originalContrastCSSSupports) {
+        Object.defineProperty(CSS, 'supports', { configurable: true, value: testWindow.originalContrastCSSSupports });
+        delete testWindow.originalContrastCSSSupports;
+      }
+    });
+    await page.evaluate(() => document.body.lastElementChild?.remove());
+  });
+
   test('Jobs uses owned styling for history, recovery, and asynchronous status', async ({ page }) => {
     await signIn(page);
 
@@ -673,17 +735,22 @@ test.describe('responsive and theme regression coverage', () => {
     expect(measure.token).toBe('42rem');
     if (measure.width !== null) expect(measure.width).toBeLessThanOrEqual(42 * measure.rootFontSize + 1);
 
-    const contrast = await page.evaluate(() => {
-      const parse = (value: string) => value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)?.slice(1).map(Number) ?? [];
-      const luminance = (value: string) => {
-        const rgb = parse(value).map((channel) => { const s = channel / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
-        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-      };
-      const ratio = (foreground: string, background: string) => { const a = luminance(foreground); const b = luminance(background); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); };
-      const probe = (foreground: string, background: string) => { const node = document.createElement('span'); node.style.color = 'var(' + foreground + ')'; node.style.backgroundColor = 'var(' + background + ')'; node.textContent = 'probe'; document.body.append(node); const style = getComputedStyle(node); const value = ratio(style.color, style.backgroundColor); node.remove(); return value; };
-      return Object.fromEntries(['--mouseion-color-text', '--mouseion-color-text-muted', '--mouseion-color-info', '--mouseion-color-success', '--mouseion-color-warning', '--mouseion-color-danger', '--mouseion-color-focus'].map((token) => [token, probe(token, '--mouseion-color-surface')]));
-    });
-    for (const [token, value] of Object.entries(contrast)) expect(value, token).toBeGreaterThanOrEqual(token === '--mouseion-color-focus' ? 3 : 4.5);
+    const contrastTokens = ['--mouseion-color-text', '--mouseion-color-text-muted', '--mouseion-color-info', '--mouseion-color-success', '--mouseion-color-warning', '--mouseion-color-danger', '--mouseion-color-focus'];
+    await page.evaluate((tokens) => {
+      for (const token of tokens) {
+        const probe = document.createElement('span');
+        probe.dataset.contrastToken = token;
+        probe.style.color = `var(${token})`;
+        probe.style.backgroundColor = 'var(--mouseion-color-surface)';
+        probe.textContent = token;
+        document.body.append(probe);
+      }
+    }, contrastTokens);
+    for (const token of contrastTokens) {
+      const value = await page.locator(`[data-contrast-token="${token}"]`).evaluate(renderedTextContrast);
+      expect(value, token).toBeGreaterThanOrEqual(token === '--mouseion-color-focus' ? 3 : 4.5);
+    }
+    await page.locator('[data-contrast-token]').evaluateAll(nodes => nodes.forEach(node => node.remove()));
   });
 });
 
