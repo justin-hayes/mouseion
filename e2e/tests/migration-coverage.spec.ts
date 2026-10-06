@@ -30,16 +30,14 @@ test.describe('migration and epistemic regression coverage', () => {
     await expectPostFormsCarryCSRF(page);
   });
 
-  test('loads compiled foundations only on owning routes and keeps styles isolated', async ({ page }) => {
+  test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
     for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/import', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-      await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(path === '/library' ? 1 : 0);
-      const isVocabulary = path.startsWith('/vocabulary');
-      const isLemmaReview = path.startsWith('/reading/books/');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount((path !== '/library' && !isVocabulary) || isLemmaReview ? 1 : 0);
-      await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(isVocabulary || isLemmaReview ? 1 : 0);
+      for (const retired of ['login.css', 'my-books.css', 'catalog-ops.css', 'vocabulary.css']) {
+        await expect(page.locator(`link[rel="stylesheet"][href="/static/${retired}"]`)).toHaveCount(0);
+      }
       await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
       await expect(page.locator('[class~="outline"], [class~="secondary"], [class~="container"], [class~="grid"]')).toHaveCount(0);
     }
@@ -48,6 +46,8 @@ test.describe('migration and epistemic regression coverage', () => {
     expect(stylesheet.ok()).toBeTruthy();
     const css = await stylesheet.text();
     expect(css).not.toContain('--pico-');
+    expect(css).toContain('.login-screen');
+    expect(css).toContain('.vocabulary-shell');
     expect(css).toContain('prefers-reduced-motion');
   });
 

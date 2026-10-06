@@ -1,0 +1,19 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
+  themes: false;
+  include: button, input, alert;
+}
+
+/* Scan only authored class sources. Generated templates, tests, and dependencies
+ * are intentionally excluded from this deterministic build. */
+@source "../views.templ";
+@source "../components.templ";
+@source "../components.go";
+@source "../static/my-books.js";
+
+@import "./mouseion.css";
+@import "./login.css";
+@import "./my-books.css";
+@import "./catalog-ops.css";
+@import "./vocabulary.css";

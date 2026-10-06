@@ -208,7 +208,7 @@ document.addEventListener('htmx:after:swap', function (evt) {
     region.removeAttribute('data-focus-id');
   });
 });
-	</script>@loginStylesheet(loginStylesRequested(shellStyles))@myBooksStylesheet(myBooksStylesRequested(shellStyles))@catalogOpsStylesheet(catalogOpsStylesRequested(shellStyles))@vocabularyStylesheet(vocabularyStylesRequested(shellStyles))</head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	</script></head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
 		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)

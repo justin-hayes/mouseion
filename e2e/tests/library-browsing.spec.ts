@@ -14,7 +14,6 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
 
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/my-books-shell/);
     const covers = page.locator('.library-grid .book-cover-media img');
@@ -32,7 +31,7 @@ test.describe('My Books collection browsing', () => {
     expect((await inboxFilter.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
     await page.goto('/reading');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(0);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
   });
@@ -173,7 +172,7 @@ test.describe('My Books collection browsing', () => {
     const response = await failure;
     expect(response.status()).toBe(500);
     expect(await response.text()).toContain('My Books could not be loaded');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     const alert = page.locator('#library-results [role="alert"]');
     await expect(alert).toContainText('My Books could not be loaded');
     expect(await alert.evaluate(node => getComputedStyle(node).color)).not.toBe(await alert.evaluate(node => getComputedStyle(node.parentElement!).color));
@@ -191,7 +190,7 @@ test.describe('My Books collection browsing', () => {
     await page.getByRole('button', { name: 'Search' }).click();
     await failedRequest;
     await expect(currentResults.getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     const alert = page.locator('#library-recovery [role="alert"]');
     await expect(alert).toContainText('connection failed');
     expect(await alert.evaluate(node => getComputedStyle(node).color)).not.toBe(await alert.evaluate(node => getComputedStyle(node.parentElement!).color));

@@ -1,18 +1,4 @@
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities) source(none);
-@plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
-  themes: false;
-  include: button, input;
-}
-
-/* Explicitly enumerate the small utility vocabulary used by the Go shell
- * mapping and shared Templ markup. This avoids scanning unrelated routes in
- * the monolithic views.templ. */
-@source "../static/my-books.js";
-@source inline("btn btn-primary btn-ghost input");
-
-/* This compiled foundation is deliberately route-scoped. Mouseion continues
- * to own Book typography and workflow components in app.css. */
+/* My Books and shared shell component styling. */
 body.my-books-shell .site-header__navigation .btn {
   min-height: 44px;
   border-radius: 0.125rem;

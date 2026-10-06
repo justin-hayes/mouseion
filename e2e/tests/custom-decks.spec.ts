@@ -54,7 +54,7 @@ test('Custom deck review and editing work without JavaScript at 400% zoom', asyn
     const deckURL = new URL(page.url()).pathname;
     await expect(page.getByRole('heading', { name: `Custom deck · ${longName}` })).toBeVisible();
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('status').filter({ hasText: '27 selected identities' })).toContainText('27 missing current evidence');
     await expect(page.getByText('Page 1 of 2.')).toBeVisible();
@@ -157,7 +157,7 @@ test('Custom deck preparation submits as a native form without JavaScript', asyn
     await prepare.getByRole('button', { name: 'Prepare deck' }).press('Enter');
     await expect(page).toHaveURL(/\/vocabulary\/deck-preparations\/fixture-custom-deck-preparation-/);
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/vocabulary.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('status')).toContainText('queued');
 
