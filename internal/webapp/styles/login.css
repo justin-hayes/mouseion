@@ -1,11 +1,18 @@
 #main-content:has(.login-screen) {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   padding-block: clamp(3rem, 12vh, 8rem);
 }
 
 .narrow.login-screen {
   width: min(100%, 32rem);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0 auto;
   border: 0;
   border-inline-start: 4px solid var(--mouseion-color-accent);
@@ -13,6 +20,12 @@
   padding: clamp(1.5rem, 6vw, 3rem);
   background: transparent;
   box-shadow: none;
+}
+
+.login-screen input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 .login-screen h1 {
@@ -52,62 +65,4 @@
 .login-field small {
   color: var(--mouseion-color-text-muted);
   font-weight: 400;
-}
-
-.login-screen .input {
-  box-sizing: border-box;
-  appearance: none;
-  width: 100%;
-  min-height: 48px;
-  border: 1px solid var(--mouseion-color-border);
-  border-radius: 0.125rem;
-  padding: 0.65rem 0.75rem;
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
-  box-shadow: none;
-  font: inherit;
-}
-
-.login-screen .input:user-invalid {
-  border-color: var(--mouseion-color-danger);
-}
-
-.login-screen .input:focus-visible {
-  border-color: var(--mouseion-color-focus);
-  outline: 3px solid var(--mouseion-color-focus);
-  outline-offset: 2px;
-}
-
-.login-screen .btn {
-  box-sizing: border-box;
-  appearance: none;
-  min-height: 48px;
-  border: 1px solid var(--mouseion-color-accent);
-  border-radius: 0.125rem;
-  padding: 0.65rem 1rem;
-  color: var(--mouseion-color-surface-raised);
-  background: var(--mouseion-color-accent);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.login-screen .btn:hover {
-  background: var(--mouseion-color-accent-hover);
-}
-
-.login-screen .btn:focus-visible {
-  outline: 3px solid var(--mouseion-color-focus);
-  outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-screen *,
-  .login-screen *::before,
-  .login-screen *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }

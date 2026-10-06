@@ -80,15 +80,32 @@ compiler, or network access.
 | Every full page, including sign-in and recovery pages | `app.css` | One embedded, compiled stylesheet contains the Mouseion foundation and all workflow rules. Route body classes bound route-specific behavior without conditional asset loading. |
 | HTMX fragments | Host page's `app.css` | Fragments do not load a second stylesheet; error and recovery content uses the same rules as the full page. |
 
-The one application foundation follows the completed route migrations and final
-Pico removal. It includes Tailwind utilities and selected daisyUI controls but
-does not enable Tailwind Preflight: Mouseion's explicit native baseline remains
-the authority. The compiler scans only top-level authored Templ views, Go class
-mappings, and the owned enhancement script; generated output, tests, vendor code,
-and temporary files are excluded. Keep class candidates literal in these inputs
-and do not construct utility names at runtime. CSS source files are assembled by
-the one build entry point, and all route styles are available before any
-no-JavaScript or enhanced interaction is used.
+The one application foundation includes Tailwind utilities and selected
+daisyUI controls, but does not enable Tailwind Preflight: the explicit Mouseion
+native baseline remains the authority until the final cutover after workflow
+migrations. Cascade ownership is explicit: theme, base, Mouseion components,
+then utilities (including daisyUI component utilities). System appearance
+selects the light or dark semantic palette until an explicit
+`data-theme="light"` or `data-theme="dark"` override is present. Native
+`color-scheme` follows that effective appearance on anonymous and authenticated
+pages. The pinned daisyUI public theme variables and Tailwind CSS-first semantic
+color/font aliases map to the same Mouseion tokens; route styles must not define
+parallel palettes. The compiler scans only top-level authored Templ views, Go
+class mappings, and the owned enhancement script; generated output, tests, vendor
+code, and temporary files are excluded. Keep class candidates literal in these
+inputs and do not construct utility names at runtime. CSS sources are assembled
+by the one build entry point and are available before any no-JavaScript or
+enhanced interaction is used.
+
+This expand slice keeps the existing Mouseion native baseline as a temporary
+compatibility boundary for workflows not yet migrated. The remaining migration
+batches are shared shell/My Books (#1488), Reading/deck preparation (#1489),
+Concordance/occurrence review (#1490), Vocabulary/import (#1491), and
+Catalogs/jobs (#1492). Keep their route-owned layout in the existing component
+stylesheets; do not let those rules override sign-in's shared controls. After
+each batch lands green, the final cutover (#1493) can enable Preflight and retire
+the compatibility baseline. The sign-in foundation itself does not depend on
+that cutover.
 
 The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 ships one Templ-owned result list with native disclosures and HTMX 4.0.0 for
@@ -108,6 +125,7 @@ Application CSS and components use Mouseion semantic tokens directly.
 | `--mouseion-color-text`           | Primary text                                            |
 | `--mouseion-color-text-muted`     | Supporting metadata                                     |
 | `--mouseion-color-border`         | Neutral separation and status background                |
+| `--mouseion-color-control-border` | Meaningful enabled-control boundaries (minimum 3:1)     |
 | `--mouseion-color-accent`         | Primary action, link, and current-context emphasis      |
 | `--mouseion-color-accent-hover`   | Hover state for accent actions                          |
 | `--mouseion-color-focus`          | Keyboard focus indication                               |
@@ -125,15 +143,26 @@ share one theme:
 - dark surfaces use blue-black `#111a22`, raised slate `#192630`, and quiet
   slate `#233441`, with `#edf3f5` text and pale-blue `#8fb4ff` emphasis;
 - danger uses proof red `#a03631` in light mode and `#ffaaa4` in dark mode;
+- meaningful control boundaries use a separate, higher-contrast token from
+  subtle dividers, and input boundaries are measured against their actual
+  adjacent surface in both appearances;
 - warning has an explicit semantic role:
 
 - light: `#7a4d00` against porcelain;
 - dark: `#f0c26b` against blue-black.
 
-The browser regression suite measures every semantic foreground against the live
-surface token in both themes and requires WCAG 2.2 AA for normal text. Contrast
-must be rechecked when an explicit Mouseion color changes.
+The browser regression suite measures semantic foregrounds against the live
+surface token in both themes (4.5:1 for normal text) and meaningful input
+boundaries against their rendered adjacent surfaces (3:1). Contrast must be
+rechecked when an explicit Mouseion color changes.
 Color never carries state alone; pair it with visible text or an accessible name.
+
+Shared buttons use the default primary treatment, `.button--outline` or
+`.button--quiet` for secondary actions, and `.button--danger` for destructive
+actions. Native disabled state remains authoritative and is visually distinct;
+busy controls expose `aria-busy` and retain visible status text. Invalid inputs
+use the danger boundary, while read-only fields use the quiet surface without
+losing their meaningful control boundary.
 
 ## Typography roles
 

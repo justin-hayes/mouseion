@@ -1,8 +1,28 @@
+@layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 @plugin "../../../.tmp/frontend-css/daisyui-5.0.50.mjs" {
   themes: false;
   include: button, input, alert;
+}
+
+@theme inline {
+  --color-surface: var(--mouseion-color-surface);
+  --color-surface-raised: var(--mouseion-color-surface-raised);
+  --color-surface-quiet: var(--mouseion-color-surface-quiet);
+  --color-text: var(--mouseion-color-text);
+  --color-text-muted: var(--mouseion-color-text-muted);
+  --color-divider: var(--mouseion-color-border);
+  --color-control-border: var(--mouseion-color-control-border);
+  --color-accent: var(--mouseion-color-accent);
+  --color-accent-hover: var(--mouseion-color-accent-hover);
+  --color-focus: var(--mouseion-color-focus);
+  --color-info: var(--mouseion-color-info);
+  --color-success: var(--mouseion-color-success);
+  --color-warning: var(--mouseion-color-warning);
+  --color-danger: var(--mouseion-color-danger);
+  --font-application: var(--mouseion-font-application);
+  --font-reading: var(--mouseion-font-reading);
 }
 
 /* Scan only authored class sources. Generated templates, tests, and dependencies
@@ -11,8 +31,47 @@
 @source "../components.go";
 @source "../static/my-books.js";
 
-@import "./mouseion.css";
-@import "./login.css";
-@import "./my-books.css";
-@import "./catalog-ops.css";
-@import "./vocabulary.css";
+@import "./mouseion.css" layer(components);
+@import "./login.css" layer(components);
+@import "./my-books.css" layer(components);
+@import "./catalog-ops.css" layer(components);
+@import "./vocabulary.css" layer(components);
+
+/* daisyUI's input component uses a translucent text-derived border by default.
+ * Give the shared public component class Mouseion's meaningful boundary token. */
+@layer utilities {
+  .input {
+    min-height: 48px;
+    border-color: var(--mouseion-color-control-border);
+    border-radius: var(--mouseion-radius);
+    color: var(--mouseion-color-text);
+    background-color: var(--mouseion-color-surface-raised);
+  }
+
+  .input:user-invalid {
+    border-color: var(--mouseion-color-danger);
+  }
+
+  :where(button, input, select, textarea):disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  :where(input:read-only, textarea:read-only) {
+    background-color: var(--mouseion-color-surface-quiet);
+  }
+
+  [aria-busy="true"] {
+    cursor: progress;
+  }
+
+  button.button--danger {
+    border-color: var(--mouseion-color-danger);
+    color: var(--mouseion-color-surface-raised);
+    background: var(--mouseion-color-danger);
+  }
+
+  button.button--danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--mouseion-color-danger) 85%, black);
+  }
+}
