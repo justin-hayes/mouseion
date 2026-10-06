@@ -60,15 +60,18 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisHandle.RunID)
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	firstGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
 	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
-	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
+	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, GoalSnapshotID: firstGoal.SnapshotID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
 	require.NoError(t, err)
 	unconfiguredWorker := &Worker{Store: store, Coordinator: NewDurableCoordinator(store, client, NewPreparedDeckPlanner(NewInputAssembler(store), cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{}))}
-	unconfiguredArgs := JobArgs{PreparationID: unconfiguredPreparation.ID, OwnerID: owner.ID, SourceMaterialID: source.ID, ContentHash: source.ContentHash}
+	unconfiguredArgs := JobArgs{PreparationID: unconfiguredPreparation.ID, OwnerID: owner.ID, SourceMaterialID: source.ID, ContentHash: source.ContentHash, AnalysisRunID: analysisHandle.RunID}
 	require.NoError(t, unconfiguredWorker.Work(ctx, &river.Job[JobArgs]{Args: unconfiguredArgs}))
 	unconfiguredStatus, err := service.Get(ctx, owner.ID, unconfiguredPreparation.ID)
 	require.NoError(t, err)
@@ -82,7 +85,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.NotContains(t, string(retryJob.EncodedArgs), "external_translation_consent", "new retry jobs carry no per-submission consent choice")
 	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
-	handle, err := service.Submit(ctx, owner.ID, analysisID)
+	handle, err := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationQueued, handle.Preparation.State)
 	assert.Equal(t, source.ContentHash, handle.Preparation.ContentHash)
@@ -96,7 +99,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	assert.Equal(t, source.ContentHash, args.ContentHash)
 	assert.Equal(t, analysisHandle.RunID, args.AnalysisRunID)
 	assert.NotContains(t, string(job.EncodedArgs), "external_translation_consent", "new submission jobs carry no per-submission consent choice")
-	repeated, err := service.Submit(ctx, owner.ID, analysisID)
+	repeated, err := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, handle.Preparation.ID, repeated.Preparation.ID)
 	assert.Equal(t, handle.JobID, repeated.JobID)
@@ -115,7 +118,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 		submissions.Add(1)
 		go func() {
 			defer submissions.Done()
-			result, submitErr := service.Submit(ctx, owner.ID, analysisID)
+			result, submitErr := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
 			if submitErr != nil {
 				errorsCh <- submitErr
 				return
@@ -220,9 +223,16 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	_, err = service.Get(ctx, other.ID, reprepared.Preparation.ID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "retired artifact remains owner-scoped")
 
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	oldGoal := firstGoal
+	require.NoError(t, store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID))
+	oldGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, refreshed.Preparation.ID)
+	require.NoError(t, err)
+	assert.Nil(t, oldGoalPreparation.RetiredAt, "releasing Reading leaves submitted work available to finish")
+	_, err = service.Submit(ctx, owner.ID, analysisID)
+	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "the former generic Book submission remains unavailable after Reading ends")
+
 	var firstGoalPreparation Handle
-	firstGoal, err := store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.PrimaryGoal) error {
+	firstGoal, err = store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.PrimaryGoal) error {
 		var queueErr error
 		firstGoalPreparation, queueErr = service.SubmitForGoalTx(ctx, tx, owner.ID, analysisID, reading.SnapshotID)
 		return queueErr
@@ -275,13 +285,11 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	_, err = service.Submit(ctx, owner.ID, analysisID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "generic submission must not reuse an active Goal preparation")
 	require.NoError(t, store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID))
-	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
+	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, goalRefresh.Preparation.ID)
 	require.NoError(t, err)
-	require.NotNil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot retires its preparation")
-	genericPreparation, err := service.Submit(ctx, owner.ID, analysisID)
-	require.NoError(t, err)
-	assert.Empty(t, genericPreparation.Preparation.GoalSnapshotID, "generic submission reused a released Goal preparation")
-	assert.NotEqual(t, firstGoalPreparation.Preparation.ID, genericPreparation.Preparation.ID)
+	assert.Nil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot leaves its preparation available to finish")
+	_, err = service.Submit(ctx, owner.ID, analysisID)
+	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "the former generic Book submission remains unavailable after Reading ends")
 	secondGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	blockingClient := &blockingRiverClient{client: service.client, inserted: make(chan struct{}), release: make(chan struct{})}
@@ -313,10 +321,19 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, <-cleared)
 	retiredSecondGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
 	require.NoError(t, err)
-	require.NotNil(t, retiredSecondGoalPreparation.RetiredAt, "Goal clear left a concurrent snapshot-bound preparation current")
+	assert.Nil(t, retiredSecondGoalPreparation.RetiredAt, "Goal clear preserves the submitted preparation so its job can complete")
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
+	require.NoError(t, err, "a job submitted before Goal clear remains claimable afterwards")
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID, domain.DeckPreparation{Artifact: []byte("after-goal-clear"), Filename: "after-clear.apkg", DeckName: "After clear", TotalCards: 1})
+	require.NoError(t, err)
 
 	_, err = service.Retry(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
-	assert.ErrorIs(t, err, persistence.ErrInvalidTransition, "a retired preparation must not resolve across Goal snapshots")
+	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a released snapshot cannot be retried into a new generation")
+	_, err = service.Retry(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
+	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a submitted job cannot be retried after Goal clear")
+	_, err = store.GetPrimaryGoal(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.NotEmpty(t, oldGoal.SnapshotID, "the first Reading snapshot remains historical")
 }
 
 func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {

@@ -37,25 +37,30 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 		fail(w, err)
 		return
 	}
-	if goal.IsActive() && goal.BookID == detail.Book.ID {
-		if goal.SnapshotSize == 0 || goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID {
-			http.NotFound(w, r)
-			return
-		}
-		handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, goal)
-		if submitErr != nil {
-			handlePreparationError(w, r, submitErr)
-			return
-		}
-		http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
+	if !goal.IsActive() || goal.BookID != detail.Book.ID || goal.SnapshotSize == 0 || goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID {
+		http.NotFound(w, r)
 		return
 	}
-	h.submitDeckPreparation(w, r, result.RunID, result.SourceMaterialID)
+	handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, goal)
+	if submitErr != nil {
+		handlePreparationError(w, r, submitErr)
+		return
+	}
+	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 }
 
 func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, owner, bookID string) (domain.MyBook, analysis.CompletedAnalysis, bool) {
 	detail, ok := h.bookDetail(w, r, owner, bookID)
 	if !ok || detail.Acquired == nil {
+		http.NotFound(w, r)
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
+	}
+	goal, err := h.currentReading(r.Context(), owner, bookStudyLanguage(detail))
+	if err != nil {
+		fail(w, err)
+		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
+	}
+	if !goal.IsActive() || goal.BookID != detail.Book.ID {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -124,37 +129,19 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 		fail(w, err)
 		return
 	}
-	if goal.IsActive() && goal.BookID == detail.Book.ID {
-		if goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID || goal.ContentRevisionID != book.Source.ContentRevisionID || goal.ContentSnapshotID != book.Source.ContentSnapshotID {
-			http.NotFound(w, r)
-			return
-		}
-		task.Goal = true
-		task.GoalSnapshotID = goal.SnapshotID
-		task.GoalSnapshotSize = goal.SnapshotSize
-		if goal.SnapshotSize > 0 {
-			reader, readerOK := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
-			if !readerOK {
-				task.Unavailable = true
-			} else if preparation, preparationErr := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
-				if !currentReadingPreparationMatches(preparation, owner, goal) {
-					http.NotFound(w, r)
-					return
-				}
-				task.Preparation = &preparation
-			} else if errors.Is(preparationErr, persistence.ErrNotFound) {
-				task.Missing = true
-			} else {
-				fail(w, preparationErr)
-				return
-			}
-		}
-	} else {
-		reader, readerOK := h.services.PreparedDeck.(PreparedDeckForAnalysis)
+	if !goal.IsActive() || goal.BookID != detail.Book.ID || goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID || goal.ContentRevisionID != book.Source.ContentRevisionID || goal.ContentSnapshotID != book.Source.ContentSnapshotID {
+		http.NotFound(w, r)
+		return
+	}
+	task.Goal = true
+	task.GoalSnapshotID = goal.SnapshotID
+	task.GoalSnapshotSize = goal.SnapshotSize
+	if goal.SnapshotSize > 0 {
+		reader, readerOK := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
 		if !readerOK {
 			task.Unavailable = true
-		} else if preparation, preparationErr := reader.GetForAnalysis(r.Context(), owner, result.SourceMaterialID, result.RunID); preparationErr == nil {
-			if (preparation.OwnerID != "" && preparation.OwnerID != owner) || preparation.SourceMaterialID != result.SourceMaterialID || preparation.AnalysisRunID != result.RunID || preparation.GoalSnapshotID != "" {
+		} else if preparation, preparationErr := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
+			if !currentReadingPreparationMatches(preparation, owner, goal) {
 				http.NotFound(w, r)
 				return
 			}
@@ -173,10 +160,73 @@ func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *htt
 	if !h.checkCSRF(w, r) {
 		return
 	}
+	if h.submitCurrentBookDeckPreparation(w, r, analysisID) {
+		return
+	}
 	if handled := h.preflightDirectDeckLemmaReview(w, r, analysisID); handled {
 		return
 	}
 	h.submitDeckPreparation(w, r, analysisID, sourceMaterialID)
+}
+
+// submitCurrentBookDeckPreparation keeps the former analysis-job route from
+// becoming an independent selection path. A Book can use it only while it is
+// Current reading, and the submitted preparation is bound to that exact frozen
+// snapshot. Non-Book analysis results retain the generic preparation path.
+func (h *Handler) submitCurrentBookDeckPreparation(w http.ResponseWriter, r *http.Request, analysisID string) bool {
+	jobID, err := strconv.ParseInt(analysisID, 10, 64)
+	if err != nil || jobID <= 0 {
+		return false
+	}
+	if h.services.Analysis == nil {
+		return false
+	}
+	status, err := h.services.Analysis.Get(r.Context(), user(r).ID, jobID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) || errors.Is(err, analysis.ErrNotFound) {
+			http.NotFound(w, r)
+		} else {
+			fail(w, err)
+		}
+		return true
+	}
+	bookID, isBook, err := h.resolveBookID(r.Context(), user(r).ID, status.SourceMaterialID)
+	if err != nil {
+		fail(w, err)
+		return true
+	}
+	if !isBook {
+		return false
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), user(r).ID, bookID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+		} else {
+			fail(w, err)
+		}
+		return true
+	}
+	goal, err := h.currentReading(r.Context(), user(r).ID, bookStudyLanguage(detail))
+	if err != nil {
+		fail(w, err)
+		return true
+	}
+	if !goal.IsActive() || goal.BookID != bookID || goal.SourceMaterialID != status.SourceMaterialID || goal.AnalysisRunID != status.RunID {
+		http.NotFound(w, r)
+		return true
+	}
+	if h.services.PreparedDeck == nil || goal.SnapshotSize == 0 {
+		http.NotFound(w, r)
+		return true
+	}
+	handle, err := h.services.PreparedDeck.SubmitForGoal(r.Context(), user(r).ID, goal.AnalysisRunID, goal.SnapshotID)
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return true
+	}
+	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
+	return true
 }
 
 func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.Request, analysisID string) bool {
@@ -446,48 +496,28 @@ func (h *Handler) cancelDeckPreparation(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) retryDeckPreparation(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	if h.services.PreparedDeck == nil {
-		http.NotFound(w, r)
-		return
-	}
-	handle, err := h.services.PreparedDeck.Retry(r.Context(), user(r).ID, r.PathValue("id"))
-	if err != nil {
-		handlePreparationError(w, r, err)
-		return
-	}
-	if wantsPreparationJSON(r) {
-		writePreparationStatus(w, handle.Preparation)
-		return
-	}
-	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
+	h.runPreparationGeneration(w, r, preparationRetry)
 }
 
 func (h *Handler) reprepareDeckPreparation(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	if h.services.PreparedDeck == nil {
-		http.NotFound(w, r)
-		return
-	}
-	handle, err := h.services.PreparedDeck.Reprepare(r.Context(), user(r).ID, r.PathValue("id"))
-	if err != nil {
-		handlePreparationError(w, r, err)
-		return
-	}
-	if wantsPreparationJSON(r) {
-		writePreparationStatus(w, handle.Preparation)
-		return
-	}
-	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
+	h.runPreparationGeneration(w, r, preparationReprepare)
 }
 
 // rerenderDeckPreparation is an operational trigger for verification and
 // maintenance.
 func (h *Handler) rerenderDeckPreparation(w http.ResponseWriter, r *http.Request) {
+	h.runPreparationGeneration(w, r, preparationRerender)
+}
+
+type preparationGenerationAction uint8
+
+const (
+	preparationRetry preparationGenerationAction = iota
+	preparationReprepare
+	preparationRerender
+)
+
+func (h *Handler) runPreparationGeneration(w http.ResponseWriter, r *http.Request, action preparationGenerationAction) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
@@ -495,7 +525,27 @@ func (h *Handler) rerenderDeckPreparation(w http.ResponseWriter, r *http.Request
 		http.NotFound(w, r)
 		return
 	}
-	handle, err := h.services.PreparedDeck.Rerender(r.Context(), user(r).ID, r.PathValue("id"))
+	owner, id := user(r).ID, r.PathValue("id")
+	preparation, err := h.services.PreparedDeck.Get(r.Context(), owner, id)
+	if err != nil {
+		handlePreparationError(w, r, err)
+		return
+	}
+	if !h.allowPreparationGeneration(w, r, owner, preparation) {
+		return
+	}
+	var handle prepareddeck.Handle
+	switch action {
+	case preparationRetry:
+		handle, err = h.services.PreparedDeck.Retry(r.Context(), owner, id)
+	case preparationReprepare:
+		handle, err = h.services.PreparedDeck.Reprepare(r.Context(), owner, id)
+	case preparationRerender:
+		handle, err = h.services.PreparedDeck.Rerender(r.Context(), owner, id)
+	default:
+		fail(w, errors.New("unknown deck preparation generation action"))
+		return
+	}
 	if err != nil {
 		handlePreparationError(w, r, err)
 		return
@@ -504,7 +554,42 @@ func (h *Handler) rerenderDeckPreparation(w http.ResponseWriter, r *http.Request
 		writePreparationStatus(w, handle.Preparation)
 		return
 	}
-	h.redirectToPreparationStatus(w, r)
+	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
+}
+
+// allowPreparationGeneration prevents historical Book preparations (including
+// ones made by the retired analysis-job path) from being retried, re-prepared,
+// or presentation-rerendered. Only the exact active Reading snapshot can
+// create another generation. Non-Book preparations retain their existing
+// lifecycle.
+func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Request, owner string, preparation domain.DeckPreparation) bool {
+	bookID := preparation.BookID
+	if bookID == "" {
+		return true
+	}
+	if preparation.GoalSnapshotID == "" {
+		http.NotFound(w, r)
+		return false
+	}
+	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	if err != nil {
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+		} else {
+			fail(w, err)
+		}
+		return false
+	}
+	goal, err := h.currentReading(r.Context(), owner, bookStudyLanguage(detail))
+	if err != nil {
+		fail(w, err)
+		return false
+	}
+	if !goal.IsActive() || goal.BookID != bookID || goal.SnapshotID != preparation.GoalSnapshotID || goal.SourceMaterialID != preparation.SourceMaterialID || goal.AnalysisRunID != preparation.AnalysisRunID {
+		http.NotFound(w, r)
+		return false
+	}
+	return true
 }
 
 func wantsPreparationJSON(r *http.Request) bool {

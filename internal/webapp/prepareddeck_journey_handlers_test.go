@@ -18,6 +18,14 @@ func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t 
 		Analysis: fixtures.Analysis{},
 	}}
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/reading/books/fixture-route-match/deck/preparations/new", nil)
+	beforeStart := httptest.NewRecorder()
+	_, _, ok := h.validJourneyDeckBook(beforeStart, r, fixtures.OwnerID, "fixture-route-match")
+	assert.False(t, ok)
+	assert.Equal(t, http.StatusNotFound, beforeStart.Code, "To Read Books cannot open a preparation task")
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	_, err = store.SwitchCurrentReading(context.Background(), fixtures.OwnerID, "de", "fixture-route-match", current.BookID, current.SnapshotID)
+	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	detail, result, ok := h.validJourneyDeckBook(recorder, r, fixtures.OwnerID, "fixture-route-match")
 	require.True(t, ok)

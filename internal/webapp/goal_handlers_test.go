@@ -223,7 +223,7 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 	assert.NotContains(t, clearedAgain.Header().Get("Location"), "error=")
 }
 
-func TestReadingStartBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
+func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	store.SetGoalSnapshotVocabulary("fixture-goal-de-fixture-route-match", []domain.DeckPreparationVocabulary{{OwnerID: fixtures.OwnerID, Language: "de", CanonicalLemma: "snapshot-word", UPOS: "NOUN"}})
 
@@ -238,10 +238,11 @@ func TestReadingStartBindsAutomaticPreparationToFrozenSnapshot(t *testing.T) {
 
 	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	preparation, err := store.GetDeckPreparationForGoalSnapshot(context.Background(), fixtures.OwnerID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
-	assert.Equal(t, goal.AnalysisRunID, preparation.AnalysisRunID)
+	_, err = store.GetDeckPreparationForGoalSnapshot(context.Background(), fixtures.OwnerID, goal.SnapshotID)
+	require.ErrorIs(t, err, persistence.ErrNotFound, "starting Reading does not auto-submit optional deck preparation")
+	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
+	assert.Equal(t, http.StatusOK, page.Code)
+	assert.Contains(t, page.Body.String(), `action="/reading/books/fixture-route-match/deck/retry"`, "the current reading offers explicit preparation from its frozen snapshot")
 }
 
 func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {

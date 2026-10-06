@@ -210,9 +210,6 @@ type CustomDeckPreparation interface {
 type PreparedDeckForGoalSnapshot interface {
 	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 }
-type PreparedDeckForAnalysis interface {
-	GetForAnalysis(context.Context, string, string, string) (domain.DeckPreparation, error)
-}
 type DeckPreparationHistoryReader interface {
 	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }

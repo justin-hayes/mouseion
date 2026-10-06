@@ -88,6 +88,7 @@ test.describe('Current reading selection', () => {
     });
 
     test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
+      test.skip(test.info().project.name !== 'desktop-light', 'Depends on the fixture book\'s pristine pre-seeded snapshot, which other specs in this shared-state suite mutate.');
       await signIn(page);
       const switcher = page.getByLabel('Study language');
       if (await switcher.inputValue() !== 'de') {

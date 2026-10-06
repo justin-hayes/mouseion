@@ -20,6 +20,14 @@ type repreparingPreparedDeck struct {
 	fixtures.PreparedDeck
 }
 
+func (repreparingPreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
+	return domain.DeckPreparation{
+		ID: id, OwnerID: owner, SourceMaterialID: fixtures.SourceID,
+		AnalysisRunID: fixtures.ResultRunID, BookID: fixtures.BookID,
+		GoalSnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady,
+	}, nil
+}
+
 func (repreparingPreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }

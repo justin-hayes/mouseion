@@ -159,9 +159,13 @@ WHERE owner_id = sqlc.arg('owner')
   AND retired_at IS NULL;
 
 -- name: ClaimDeckPreparation :one
+-- Previously submitted Book jobs remain runnable after their preparation row
+-- becomes historical; retry and re-preparation entry points enforce the active
+-- Current-reading gate separately.
 UPDATE deck_preparations
 SET state = 'preparing', started_at = now(), updated_at = now(), error = ''
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'queued' AND retired_at IS NULL
+WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'queued'
+  AND (retired_at IS NULL OR book_id IS NOT NULL)
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,

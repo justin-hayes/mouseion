@@ -1,18 +1,20 @@
 # Book analysis and deck workflow
 
-Status: **Canonical shipped supporting workflow.** Analysis and deck preparation
-serve a Book while current reading and Read history remain independent. The
+Status: **Canonical support workflow, partially superseded.** Analysis and deck
+preparation serve a Book while current reading and Read history remain independent. The
 Reading workflow at [`../../features/reading-workflow.md`](../../features/reading-workflow.md)
 defines current learner-facing terminology. Reading Journey and Primary Goal
 phrasing below is historical. Moving a Book to To Read automatically ensures
 current analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
 with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
-The accepted, not-yet-shipped [Reading-owned Book vocabulary contract](../../features/reading-owned-book-vocabulary.md)
+The accepted, partially shipped [Reading-owned Book vocabulary contract](../../features/reading-owned-book-vocabulary.md)
 supersedes the pre-reading/direct deck submission and independent-selection
-portions of the shipped workflow below. Starting Current reading freezes the
-candidate set; new Book preparations then use that snapshot. Older direct
-artifacts remain downloadable but cannot start new preparations after cutover.
+portions of the shipped workflow below. New Book preparations are currently
+gated on Current reading and use its exact snapshot; starting, switching, and
+finishing do not depend on preparation. The two-occurrence corpus exception and
+Custom-deck retirement remain pending. Older direct artifacts remain
+downloadable but cannot start new Book preparations.
 
 ## Goal
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -36,9 +37,8 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	owner := createAccount(t, ctx, store, "reading-enqueue-failure", "learner-password", false)
-	otherOwner, err := store.CreateUser(ctx, "reading-provider-other", false)
-	require.NoError(t, err)
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "start-enqueue-failure", "Start enqueue failure", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
+	otherOwner := createAccount(t, ctx, store, "reading-provider-other", "other-learner-password", false)
+	book, source, corpus, historicalDeck := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "start-enqueue-failure", "Start enqueue failure", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
 	var analysisRunID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&analysisRunID))
 	var analysisJobID int64
@@ -83,9 +83,22 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 			t.Errorf("drop prepared deck enqueue failure trigger: %v", cleanupErr)
 		}
 	})
+	oldJobSubmission := perform(t, h, http.MethodPost, "/jobs/"+strconv.FormatInt(analysisJobID, 10)+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, oldJobSubmission.Code, "the old analysis-job route cannot prepare a non-current Book")
+	for _, request := range []struct {
+		method string
+		path   string
+		form   url.Values
+	}{
+		{method: http.MethodGet, path: "/reading/books/" + book.ID + "/deck/preparations/new"},
+		{method: http.MethodPost, path: "/reading/books/" + book.ID + "/deck/preparations", form: url.Values{"csrf_token": {csrf}}},
+	} {
+		response := perform(t, h, request.method, request.path, request.form, cookies)
+		assert.Equalf(t, http.StatusNotFound, response.Code, "pre-reading route %s %s", request.method, request.path)
+	}
 	start := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, start.Code)
-	assert.Contains(t, start.Header().Get("Location"), "deck+preparation+could+not+be+queued")
+	assert.Contains(t, start.Header().Get("Location"), "is+now+your+current+reading")
 
 	reading, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -94,6 +107,9 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.NotEmpty(t, reading.AnalysisRunID)
 	assert.NotEmpty(t, reading.SnapshotID)
 	assert.Positive(t, reading.SnapshotSize)
+	var preparationCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2 AND goal_snapshot_id=$3`, owner.ID, book.ID, reading.SnapshotID).Scan(&preparationCount))
+	assert.Zero(t, preparationCount, "starting Reading must not submit optional deck work")
 	for _, path := range []string{
 		"/reading/books/" + book.ID + "/to-read",
 		"/reading/books/" + book.ID + "/set-aside",
@@ -147,14 +163,12 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Contains(t, readingPage.Body.String(), "Confirm set aside", "current-reading Set Aside remains explicit and confirmed")
 	assert.Contains(t, readingPage.Body.String(), `href="/library"`, "Reading directs disposition decisions to My Books")
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
-	assert.Contains(t, readingPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)
+	assert.Contains(t, readingPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`, "the current reading offers explicit optional preparation")
 
 	setEnqueueFailure(false)
-	retry := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/retry", url.Values{
-		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, retry.Code)
-	assert.Contains(t, retry.Header().Get("Location"), "Deck+preparation+retry+queued")
+	prepare := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, prepare.Code)
+	assert.Contains(t, prepare.Header().Get("Location"), "/deck-preparations/")
 
 	preparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
@@ -162,6 +176,9 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
 	assert.Equal(t, reading.SnapshotID, preparation.GoalSnapshotID)
 	assert.Equal(t, domain.DeckPreparationQueued, preparation.State)
+	preparedSnapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, preparation.GoalSnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, frozenVocabulary, preparedSnapshot, "preparation keeps frozen identities after live corpus and Known state change")
 	var jobArgs []byte
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT args FROM river_job WHERE args->>'preparation_id'=$1`, preparation.ID).Scan(&jobArgs))
 	assert.NotContains(t, string(jobArgs), "external_translation_consent", "retry jobs have no per-submission choice")
@@ -213,7 +230,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	setEnqueueFailure(true)
 	duplicateStart := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, duplicateStart.Code)
-	assert.Contains(t, duplicateStart.Header().Get("Location"), "deck+preparation+could+not+be+queued")
+	assert.Contains(t, duplicateStart.Header().Get("Location"), "is+now+your+current+reading")
 	queuedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code)
 	assert.Contains(t, queuedPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)
@@ -246,4 +263,57 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.NotEmpty(t, currentAfterSwitch.SnapshotID)
 	assert.Positive(t, currentAfterSwitch.SnapshotSize)
 	assert.Equal(t, switchSource.ID, currentAfterSwitch.SourceMaterialID)
+	var switchedPreparationCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2 AND goal_snapshot_id=$3`, owner.ID, switchBook.ID, currentAfterSwitch.SnapshotID).Scan(&switchedPreparationCount))
+	assert.Zero(t, switchedPreparationCount, "switching Reading must not submit optional deck work")
+	oldJobAfterSwitch := perform(t, h, http.MethodPost, "/jobs/"+strconv.FormatInt(analysisJobID, 10)+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, oldJobAfterSwitch.Code, "the former analysis-job route cannot prepare a Book after switching away")
+	stillCurrent := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	require.Equal(t, http.StatusOK, stillCurrent.Code)
+	assert.Contains(t, stillCurrent.Body.String(), currentAfterSwitch.BookID, "a denied historical submission must not change Reading")
+	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{
+		"csrf_token": {csrf}, "expected_current_book_id": {switchBook.ID},
+		"expected_current_snapshot_id": {currentAfterSwitch.SnapshotID},
+	}, cookies)
+	assert.Equal(t, http.StatusOK, finished.Code)
+	assert.Contains(t, finished.Body.String(), "Reading finished")
+	continued, err := store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err, "a preparation submitted during Reading remains claimable after Reading ends")
+	assert.Equal(t, preparation.GoalSnapshotID, continued.GoalSnapshotID)
+	completedAfterFinish, err := store.CompleteDeckPreparation(ctx, owner.ID, preparation.ID, domain.DeckPreparation{
+		Artifact: []byte("completed-after-reading"), Filename: "completed-after-reading.apkg", DeckName: "Completed after reading", TotalCards: 1,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, preparation.GoalSnapshotID, completedAfterFinish.GoalSnapshotID)
+	completedDownload, err := store.DownloadDeckPreparation(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("completed-after-reading"), completedDownload.Artifact)
+	var knownGarden int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='garten' AND upos='NOUN'`, owner.ID).Scan(&knownGarden))
+	assert.Equal(t, 1, knownGarden, "finishing without preparing a deck accepts the frozen identity into Known")
+	for _, request := range []struct {
+		method string
+		path   string
+		form   url.Values
+	}{
+		{method: http.MethodGet, path: "/reading/books/" + switchBook.ID + "/deck/preparations/new"},
+		{method: http.MethodPost, path: "/reading/books/" + switchBook.ID + "/deck/preparations", form: url.Values{"csrf_token": {csrf}}},
+	} {
+		response := perform(t, h, request.method, request.path, request.form, cookies)
+		assert.Equalf(t, http.StatusNotFound, response.Code, "post-reading route %s %s", request.method, request.path)
+	}
+	var generationsBefore, generationsAfter int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&generationsBefore))
+	for _, action := range []string{"retry", "reprepare", "rerender"} {
+		response := perform(t, h, http.MethodPost, "/deck-preparations/"+preparation.ID+"/"+action, url.Values{"csrf_token": {csrf}}, cookies)
+		assert.Equalf(t, http.StatusNotFound, response.Code, "historical preparation %s is unavailable after Reading ends", action)
+	}
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&generationsAfter))
+	assert.Equal(t, generationsBefore, generationsAfter, "denied actions do not create another Book generation")
+	ownerDownload := perform(t, h, http.MethodGet, "/deck-preparations/"+historicalDeck.ID+"/download", nil, cookies)
+	assert.Equal(t, http.StatusOK, ownerDownload.Code, "the historical pre-reading artifact remains owner-downloadable")
+	assert.Equal(t, []byte("migration-start-enqueue-failure"), ownerDownload.Body.Bytes())
+	otherCookies, _ := loginCookies(t, h, otherOwner.Username, "other-learner-password")
+	otherDownload := perform(t, h, http.MethodGet, "/deck-preparations/"+historicalDeck.ID+"/download", nil, otherCookies)
+	assert.Equal(t, http.StatusNotFound, otherDownload.Code, "historical artifact downloads remain owner-scoped")
 }

@@ -120,11 +120,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, book.ID, goal.BookID)
 	queuedDecks, ok := h.services.PreparedDeck.(*recordingPreparedDeck)
 	require.True(t, ok)
-	require.Len(t, queuedDecks.preparations, 1)
-	for _, preparation := range queuedDecks.preparations {
-		assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
-		assert.Equal(t, goal.AnalysisRunID, preparation.AnalysisRunID)
-	}
+	require.Empty(t, queuedDecks.preparations, "starting a Reading must not auto-submit deck preparation")
 	currentPage := perform(t, h, http.MethodGet, "/reading", nil, aliceCookies)
 	require.Equal(t, http.StatusOK, currentPage.Code)
 	assert.Contains(t, currentPage.Body.String(), "Migrated primary goal")
