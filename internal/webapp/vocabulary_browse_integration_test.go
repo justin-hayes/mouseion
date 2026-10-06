@@ -5,7 +5,6 @@ package webapp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,505 +29,153 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type customDeckFixtureTranslation struct {
-	requests []enrichment.TranslationRequest
-}
-
-// customDeckCommitThenError simulates a lost response after the real
-// PostgreSQL transaction commits. A repeat with the same key must resolve the
-// durable deck rather than create another one.
-type customDeckCommitThenError struct {
-	VocabularySelectionStore
-	failAfterCommit bool
-}
-
-func (s *customDeckCommitThenError) CreateCustomVocabularyDeck(ctx context.Context, owner, language, name, key string) (domain.CustomVocabularyDeck, error) {
-	deck, err := s.VocabularySelectionStore.CreateCustomVocabularyDeck(ctx, owner, language, name, key)
-	if err == nil && s.failAfterCommit {
-		s.failAfterCommit = false
-		return domain.CustomVocabularyDeck{}, errors.New("simulated response loss after commit")
-	}
-	return deck, err
-}
-
-type customDeckFailTranslation struct{}
-
-func (*customDeckFailTranslation) Name() string    { return "custom-deck-fixture" }
-func (*customDeckFailTranslation) Version() string { return "1" }
-func (*customDeckFailTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	return enrichment.TranslationResponse{}, errors.New("temporary translation transport failure")
-}
-
-type customDeckCancelTranslation struct {
-	cancel func() error
-	calls  int
-}
-
-type customDeckMalformedTranslation struct{}
-
-func (*customDeckMalformedTranslation) Name() string    { return "custom-deck-fixture" }
-func (*customDeckMalformedTranslation) Version() string { return "1" }
-func (*customDeckMalformedTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	return enrichment.TranslationResponse{}, nil
-}
-
-func (*customDeckCancelTranslation) Name() string    { return "custom-deck-fixture" }
-func (*customDeckCancelTranslation) Version() string { return "1" }
-func (p *customDeckCancelTranslation) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	p.calls++
-	if err := p.cancel(); err != nil {
-		return enrichment.TranslationResponse{}, err
-	}
-	return enrichment.TranslationResponse{Translation: "tree", Gloss: "a plant", ContextOnly: true, SentenceTranslation: "The children see the tree in the garden.", SentenceTranslationTargets: []string{"tree"}}, nil
-}
-
-func (*customDeckFixtureTranslation) Name() string    { return "custom-deck-fixture" }
-func (*customDeckFixtureTranslation) Version() string { return "1" }
-func (p *customDeckFixtureTranslation) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	p.requests = append(p.requests, request)
-	if request.CanonicalLemma == "baum" {
-		return enrichment.TranslationResponse{UnresolvedReason: "The context does not distinguish this meaning."}, nil
-	}
-	return enrichment.TranslationResponse{Translation: "house", Gloss: "a building", ContextOnly: true, SentenceTranslation: "In the morning, the children visit the house and speak with their neighbors.", SentenceTranslationTargets: []string{"house"}}, nil
-}
-
-func TestCustomDeckPreparationDownloadsOwnerScopedAPKGOverHTTP(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "custom-deck-preparation-http-secret-0123456789")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "retired-vocabulary-http-secret-0123456789")
+	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
+	owner := createAccount(t, ctx, store, "retired-vocabulary-owner", "owner-password", false)
+	createAccount(t, ctx, store, "retired-vocabulary-other", "other-password", false)
+	var deckID, preparationID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_decks(owner_id,language,name,creation_key) VALUES($1,'de','Archived custom deck','a2284277-041c-463c-a47b-6aa2060ec8fa') RETURNING id::text`, owner.ID).Scan(&deckID))
+	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_deck_preparations(owner_id,custom_deck_id,submission_key,language,deck_name,filename,state,artifact,total_cards,selected_identities,completed_at) VALUES($1,$2,'05e62174-9e03-48a9-8fb6-b787a7e8209d','de','Archived custom deck','archived.apkg','ready','retained-apkg-bytes',1,1,now()) RETURNING id::text`, owner.ID, deckID).Scan(&preparationID))
+	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de','archived','NOUN')`, owner.ID)
+	require.NoError(t, err)
 
-	alice := createAccount(t, ctx, store, "custom-prep-alice", "alice-password", false)
-	createAccount(t, ctx, store, "custom-prep-bob", "bob-password", false)
-	book, source, corpus, bookDeck := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep", "Private source title", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	missingBook, missingSource, missingCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-missing", "Missing German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "missingwort", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, missingSource, missingCorpus)
-	var missingRunID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, missingCorpus.ID).Scan(&missingRunID))
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='Ein missingwort bleibt.',end_offset=23 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, missingCorpus.ID, missingRunID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='missingwort',raw_lemma='missingwort',canonical_lemma='missingwort',start_offset=4,end_offset=15 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, missingCorpus.ID, missingRunID)
-	require.NoError(t, err)
-	otherBook, otherSource, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-other", "Other German source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, otherSource, otherCorpus)
-	var otherRunID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, otherCorpus.ID).Scan(&otherRunID))
-	baumSentence := "Kinder sehen heute einen Baum im Garten."
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, otherCorpus.ID, otherRunID, baumSentence, len(baumSentence))
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, otherCorpus.ID, otherRunID)
-	require.NoError(t, err)
-	baumTokens := []struct {
-		surface, lemma, upos, dependency string
-		head                             int
-		morphology                       map[string]string
-	}{
-		{"Kinder", "Kind", "NOUN", "nsubj", 1, nil}, {"sehen", "sehen", "VERB", "root", 1, map[string]string{"VerbForm": "Fin"}},
-		{"heute", "heute", "ADV", "advmod", 1, nil}, {"einen", "ein", "DET", "det", 4, nil},
-		{"Baum", "baum", "NOUN", "obj", 1, nil}, {"im", "in", "ADP", "case", 6, nil}, {"Garten", "Garten", "NOUN", "obl", 1, nil},
+	authService := auth.New(store, time.Hour)
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, h, "retired-vocabulary-owner", "owner-password")
+	otherCookies, _ := loginCookies(t, h, "retired-vocabulary-other", "other-password")
+	paths := []struct{ method, path string }{
+		{http.MethodGet, "/vocabulary/selection"},
+		{http.MethodGet, "/vocabulary/selection/clear-confirm"},
+		{http.MethodPost, "/vocabulary/selection/add"},
+		{http.MethodPost, "/vocabulary/selection/remove"},
+		{http.MethodPost, "/vocabulary/selection/clear"},
+		{http.MethodPost, "/vocabulary/decks"},
+		{http.MethodGet, "/vocabulary/decks/" + deckID},
+		{http.MethodPost, "/vocabulary/decks/" + deckID + "/rename"},
+		{http.MethodPost, "/vocabulary/decks/" + deckID + "/identities/add"},
+		{http.MethodPost, "/vocabulary/decks/" + deckID + "/identities/remove"},
+		{http.MethodPost, "/vocabulary/decks/" + deckID + "/preparations"},
+		{http.MethodGet, "/vocabulary/decks/" + deckID + "/delete-confirm"},
+		{http.MethodPost, "/vocabulary/decks/" + deckID + "/delete"},
+		{http.MethodGet, "/vocabulary/deck-preparations/" + preparationID},
+		{http.MethodGet, "/vocabulary/deck-preparations/" + preparationID + "/download"},
+		{http.MethodPost, "/vocabulary/deck-preparations/" + preparationID + "/cancel"},
 	}
-	for ordinal, token := range baumTokens {
-		features := token.morphology
-		if features == nil {
-			features = map[string]string{}
-		}
-		morphology, marshalErr := json.Marshal(features)
-		require.NoError(t, marshalErr)
-		start := strings.Index(baumSentence, token.surface)
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, alice.ID, otherRunID, otherCorpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, morphology, start, start+len(token.surface))
-		require.NoError(t, err)
+	for _, route := range paths {
+		t.Run(route.method+" "+route.path, func(t *testing.T) {
+			unauthenticated := perform(t, h, route.method, route.path, nil, nil)
+			assert.Equal(t, http.StatusNotFound, unauthenticated.Code, "retired URLs disclose nothing before authentication")
+			authenticated := perform(t, h, route.method, route.path, nil, cookies)
+			assert.Equal(t, http.StatusNotFound, authenticated.Code, "retired URLs cannot read or mutate retained data")
+			otherAuthenticated := perform(t, h, route.method, route.path, nil, otherCookies)
+			assert.Equal(t, http.StatusNotFound, otherAuthenticated.Code, "another authenticated owner cannot discover retained data")
+		})
 	}
-	qualityBook, qualitySource, qualityCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-prep-quality", "Low quality source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "badwort", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, qualitySource, qualityCorpus)
-	var qualityRunID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, qualityCorpus.ID).Scan(&qualityRunID))
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='badwort',end_offset=7 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, alice.ID, qualityCorpus.ID, qualityRunID)
+	var selectionCount, deckCount, preparationCount int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_browse_selections WHERE owner_id=$1`, owner.ID).Scan(&selectionCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_decks WHERE owner_id=$1`, owner.ID).Scan(&deckCount))
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&preparationCount))
+	assert.Equal(t, 1, selectionCount, "retirement does not run the separately scoped selection cleanup")
+	assert.Equal(t, 1, deckCount, "custom-deck records are retained")
+	assert.Equal(t, 1, preparationCount, "durable custom preparation records are retained")
+	var artifact []byte
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT artifact FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2`, owner.ID, preparationID).Scan(&artifact))
+	assert.Equal(t, []byte("retained-apkg-bytes"), artifact, "archived APKG bytes remain stored")
+}
+
+type retainedCustomDeckTranslation struct{}
+
+func (retainedCustomDeckTranslation) Name() string    { return "retained-custom-job-test" }
+func (retainedCustomDeckTranslation) Version() string { return "1" }
+func (retainedCustomDeckTranslation) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+	if request.CanonicalLemma == "missingwort" {
+		return enrichment.TranslationResponse{UnresolvedReason: "No distinguishable contextual meaning."}, nil
+	}
+	return enrichment.TranslationResponse{
+		Translation: "house", Gloss: "a building", ContextOnly: true,
+		SentenceTranslation: "The children visit the old house.", SentenceTranslationTargets: []string{"house"},
+	}, nil
+}
+
+func TestPreviouslySubmittedCustomPreparationCanFinishAfterRouteRetirement(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='badwort',raw_lemma='badwort',canonical_lemma='badwort',start_offset=0,end_offset=7 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, qualityCorpus.ID, qualityRunID)
+	testutil.Cleanup(t, "store", store.Close)
+	owner, err := store.CreateUser(ctx, "retained-custom-job-owner", false)
 	require.NoError(t, err)
+	_, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "retained-custom-job", "House source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
-	var runID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
-	sentence := "Die Kinder besuchen heute das alte Haus."
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID, sentence, len(sentence))
+	_, omittedSource, omittedCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "retained-custom-job-omission", "Omitted source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "missingwort", UPOS: "NOUN", OccurrenceCount: 1}})
+	seedBrowseHTTPToken(t, ctx, store, omittedSource, omittedCorpus)
+	var omittedRunID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, omittedCorpus.ID).Scan(&omittedRunID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text='Ein missingwort bleibt.',end_offset=23 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, owner.ID, omittedCorpus.ID, omittedRunID)
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET surface='missingwort',raw_lemma='missingwort',canonical_lemma='missingwort',start_offset=4,end_offset=15 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, owner.ID, omittedCorpus.ID, omittedRunID)
+	require.NoError(t, err)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&runID))
+	sentence := "Die Kinder besuchen heute das alte Haus."
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, owner.ID, corpus.ID, runID, sentence, len(sentence))
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3`, owner.ID, corpus.ID, runID)
 	require.NoError(t, err)
 	tokens := []struct {
 		surface, lemma, upos, dependency string
 		head                             int
 		morphology                       map[string]string
 	}{
-		{"Die", "die", "DET", "det", 1, nil},
-		{"Kinder", "Kind", "NOUN", "nsubj", 2, nil},
+		{"Die", "die", "DET", "det", 1, nil}, {"Kinder", "Kind", "NOUN", "nsubj", 2, nil},
 		{"besuchen", "besuchen", "VERB", "root", 2, map[string]string{"VerbForm": "Fin"}},
-		{"heute", "heute", "ADV", "advmod", 2, nil},
-		{"das", "das", "DET", "det", 5, nil},
-		{"alte", "alt", "ADJ", "amod", 5, nil},
-		{"Haus", "haus", "NOUN", "obj", 2, nil},
+		{"heute", "heute", "ADV", "advmod", 2, nil}, {"das", "das", "DET", "det", 5, nil},
+		{"alte", "alt", "ADJ", "amod", 5, nil}, {"Haus", "haus", "NOUN", "obj", 2, nil},
 	}
 	for ordinal, token := range tokens {
-		start := strings.Index(sentence, token.surface)
-		morphology := token.morphology
-		if morphology == nil {
-			morphology = map[string]string{}
+		features := token.morphology
+		if features == nil {
+			features = map[string]string{}
 		}
-		encodedMorphology, marshalErr := json.Marshal(morphology)
+		morphology, marshalErr := json.Marshal(features)
 		require.NoError(t, marshalErr)
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, alice.ID, runID, corpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, encodedMorphology, start, start+len(token.surface))
+		start := strings.Index(sentence, token.surface)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,0,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`, owner.ID, runID, corpus.ID, ordinal, token.surface, token.lemma, token.upos, token.dependency, token.head, morphology, start, start+len(token.surface))
 		require.NoError(t, err)
 	}
-	require.NoError(t, store.SetVocabularyBrowseSelection(ctx, alice.ID, "de", "haus", "NOUN", true))
-	customDeck, err := store.CreateCustomVocabularyDeck(ctx, alice.ID, "de", "German practice", "d7c38a7e-777d-4fbd-a234-67115c7f92ab")
+	require.NoError(t, store.SetVocabularyBrowseSelection(ctx, owner.ID, "de", "haus", "NOUN", true))
+	deck, err := store.CreateCustomVocabularyDeck(ctx, owner.ID, "de", "Archived deck", "727f0e52-28ee-4cb2-b11e-3fe0a4b4eb02")
 	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','missingwort','NOUN')`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','baum','NOUN')`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','badwort','NOUN')`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	bookDeckBefore, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','missingwort','NOUN')`, owner.ID, deck.ID)
 	require.NoError(t, err)
 
-	workers := river.NewWorkers()
-	provider := &customDeckFixtureTranslation{}
+	provider := retainedCustomDeckTranslation{}
 	presentation := cardexport.NewPresentation(nil)
+	workers := river.NewWorkers()
 	prepareddeck.AddCustomDeckPreparationWorker(workers, store, presentation, provider, true)
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
-	preparationService := prepareddeck.NewCustomDeckPreparationService(store, client, presentation, provider)
+	service := prepareddeck.NewCustomDeckPreparationService(store, client, presentation, provider)
+	fingerprint, err := service.EvidenceFingerprint(ctx, owner.ID, deck.ID)
+	require.NoError(t, err)
+	preparation, err := service.Submit(ctx, owner.ID, deck.ID, "ae910e1d-28f0-495d-967e-206cf4ae9df9", fingerprint)
+	require.NoError(t, err)
+	require.Equal(t, "queued", preparation.State)
 
-	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CustomDeckPreparation: preparationService, SessionLifetime: time.Hour})
-	cookies, _ := loginCookies(t, h, "custom-prep-alice", "alice-password")
-	deckPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
-	require.Equal(t, http.StatusOK, deckPage.Code)
-	assert.Contains(t, deckPage.Body.String(), "Prepare deck")
-	csrf := hiddenToken(t, deckPage.Body.String())
-	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
-	hausUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
-	evidenceFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	selectionEdit, err := store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if rollbackErr := selectionEdit.Rollback(context.Background()); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			t.Errorf("rollback concurrent deck edit: %v", rollbackErr)
-		}
-	})
-	_, err = selectionEdit.Exec(ctx, `SELECT id FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2 FOR UPDATE`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	type submissionResult struct {
-		preparation domain.CustomDeckPreparation
-		err         error
-	}
-	submittedDuringEdit := make(chan submissionResult, 1)
-	go func() {
-		p, submitErr := preparationService.Submit(ctx, alice.ID, customDeck.ID, "c365b0d3-1f35-4360-94bd-9b2e4e501294", evidenceFingerprint)
-		submittedDuringEdit <- submissionResult{preparation: p, err: submitErr}
-	}()
-	deadline := time.Now().Add(3 * time.Second)
-	waitingForDeckLock := false
-	for time.Now().Before(deadline) {
-		err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity
-		 WHERE wait_event_type='Lock' AND query LIKE 'SELECT id::text FROM custom_vocabulary_decks WHERE owner_id=$1 AND id=$2 FOR UPDATE%')`).Scan(&waitingForDeckLock)
-		require.NoError(t, err)
-		if waitingForDeckLock {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	require.True(t, waitingForDeckLock, "preparation should wait for an in-flight deck edit")
-	_, err = selectionEdit.Exec(ctx, `DELETE FROM custom_vocabulary_deck_identities WHERE owner_id=$1 AND deck_id=$2 AND canonical_lemma='haus' AND upos='NOUN'`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	_, err = selectionEdit.Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','neuwort','NOUN')`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	require.NoError(t, selectionEdit.Commit(ctx))
-	concurrentSubmission := <-submittedDuringEdit
-	require.ErrorIs(t, concurrentSubmission.err, persistence.ErrCustomDeckPreparationEvidenceChanged)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM custom_vocabulary_deck_identities WHERE owner_id=$1 AND deck_id=$2 AND canonical_lemma='neuwort' AND upos='NOUN'`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','haus','NOUN')`, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	countOnlySentence := "Am Morgen sehen die Kinder heute ein Haus im Garten."
-	countOnlyTargetOffset := strings.Index(countOnlySentence, "Haus")
-	countOnlyStart := 100
-	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,1,$5,$6,$7)`, alice.ID, runID, corpus.ID, hausUnitID, countOnlySentence, countOnlyStart, countOnlyStart+len(countOnlySentence))
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,1,0,'Haus','haus','haus','NOUN','root',0,'{}',$4,$5)`, alice.ID, runID, corpus.ID, countOnlyStart+countOnlyTargetOffset, countOnlyStart+countOnlyTargetOffset+len("Haus"))
-	require.NoError(t, err)
-	countChangedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	assert.Equal(t, evidenceFingerprint, countChangedFingerprint, "adding another occurrence without losing identity evidence does not require reconfirmation")
-	missingUnitID := domain.EPUBUnitID(0, strings.TrimPrefix(missingSource.SourceIdentifier, "migration-"))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,4,15,NULL,NULL,NULL,true)`, alice.ID, missingBook.ID, missingCorpus.ID, missingRunID, missingUnitID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, missingBook.ID)
-	require.NoError(t, err, "direct SQL fixture edits must invalidate the derived count projection like the application write path")
-	changedFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	require.NotEqual(t, evidenceFingerprint, changedFingerprint, "the review token tracks all-evidence loss per identity")
-	changedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {"814900c1-0130-4e43-ade3-4c0d97bbf30e"}, "expected_evidence": {evidenceFingerprint},
-	}, postCookies)
-	require.Equal(t, http.StatusSeeOther, changedPost.Code)
-	assert.Contains(t, changedPost.Header().Get("Location"), "evidence_changed=true")
-	var preparationCount int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
-	assert.Zero(t, preparationCount, "a changed all-evidence state must return to review before freezing")
-	refreshedReview := perform(t, h, http.MethodGet, changedPost.Header().Get("Location"), nil, cookies)
-	require.Equal(t, http.StatusOK, refreshedReview.Code)
-	assert.Contains(t, refreshedReview.Body.String(), "Current evidence availability changed since your review")
-	assert.Contains(t, refreshedReview.Body.String(), "Custom decks can overlap")
-	assert.Contains(t, refreshedReview.Body.String(), "Custom packages use a stable Anki deck name")
-	evidenceFingerprint, err = preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	post := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
-	}, postCookies)
-	require.Equal(t, http.StatusSeeOther, post.Code, post.Body.String())
-	statusURL := post.Header().Get("Location")
-	preparationID := strings.TrimPrefix(statusURL, "/vocabulary/deck-preparations/")
-	submitted, err := store.GetCustomDeckPreparation(ctx, alice.ID, preparationID)
-	require.NoError(t, err)
-	require.NotEmpty(t, submitted.FrozenSpec)
-	var frozen struct {
-		Evidence  []domain.CustomDeckPreparationEvidence `json:"evidence"`
-		Omissions []domain.CustomDeckPreparationOmission `json:"omissions"`
-	}
-	require.NoError(t, json.Unmarshal(submitted.FrozenSpec, &frozen))
-	require.Len(t, frozen.Evidence, 2)
-	var hausEvidence *domain.CustomDeckPreparationEvidence
-	for i := range frozen.Evidence {
-		if frozen.Evidence[i].Lemma == "haus" {
-			hausEvidence = &frozen.Evidence[i]
-		}
-	}
-	require.NotNil(t, hausEvidence)
-	assert.Equal(t, book.ID, hausEvidence.BookID)
-	assert.Equal(t, source.ID, hausEvidence.SourceMaterialID)
-	assert.Equal(t, runID, hausEvidence.AnalysisRunID)
-	assert.Equal(t, corpus.ID, hausEvidence.CorpusID)
-	assert.Equal(t, "NOUN", hausEvidence.UPOS)
-	assert.Equal(t, "Haus", hausEvidence.Target)
-	assert.Equal(t, sentence, hausEvidence.Sentence)
-	require.Len(t, frozen.Omissions, 2)
-	frozenOmissionKinds := map[string]string{}
-	for _, omission := range frozen.Omissions {
-		frozenOmissionKinds[omission.Lemma] = omission.Kind
-	}
-	assert.Equal(t, "evidence", frozenOmissionKinds["missingwort"])
-	assert.Equal(t, "quality", frozenOmissionKinds["badwort"])
-	repeatedPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {"7c99d59c-28a3-45a7-8b53-66054b780044"}, "expected_evidence": {evidenceFingerprint},
-	}, postCookies)
-	require.Equal(t, http.StatusSeeOther, repeatedPost.Code)
-	assert.Equal(t, statusURL, repeatedPost.Header().Get("Location"), "uncertain repeat resolves to the same durable generation")
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
-	assert.Equal(t, 1, preparationCount)
-	changedSentence := "The source changed after this Custom deck was submitted."
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$3 WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID, changedSentence)
-	require.NoError(t, err)
-	hausStart := strings.Index(sentence, "Haus")
-	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL,true)`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID)
-	require.NoError(t, err, "direct SQL fixture edits must invalidate the derived count projection like the application write path")
-	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "river client", func() error { return client.Stop(context.Background()) })
-	var ready domain.CustomDeckPreparation
-	for {
-		status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
-		require.Equal(t, http.StatusOK, status.Code)
-		ready, err = preparationService.Get(ctx, alice.ID, preparationID)
-		require.NoError(t, err)
-		if ready.State == "complete_with_omissions" || ready.State == "failed" {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "custom deck preparation did not finish")
-		case <-time.After(20 * time.Millisecond):
-		}
-	}
-	require.Equal(t, "complete_with_omissions", ready.State, ready.Error)
-	require.Greater(t, ready.TotalCards, 0)
-	require.Len(t, ready.Omissions, 3)
-	completedOmissionKinds := map[string]string{}
-	for _, omission := range ready.Omissions {
-		completedOmissionKinds[omission.Lemma] = omission.Kind
-	}
-	assert.Equal(t, "evidence", completedOmissionKinds["missingwort"])
-	assert.Equal(t, "quality", completedOmissionKinds["badwort"])
-	assert.Equal(t, "meaning", completedOmissionKinds["baum"])
-	translationRequestsBeforeRedelivery := len(provider.requests)
-	redeliveryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: provider, Configured: true}
-	require.NoError(t, redeliveryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
-		JobRow: &rivertype.JobRow{Attempt: 2, MaxAttempts: 3},
-		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: preparationID},
-	}))
-	assert.Len(t, provider.requests, translationRequestsBeforeRedelivery, "redelivery of a complete-with-omissions generation is terminal")
-	status := perform(t, h, http.MethodGet, statusURL, nil, cookies)
-	assert.Contains(t, status.Body.String(), "ready")
-	assert.Contains(t, status.Body.String(), "missingwort")
-	assert.Contains(t, status.Body.String(), "baum")
-	assert.Contains(t, status.Body.String(), "badwort")
-	assert.Contains(t, status.Body.String(), "Private source title")
-	assert.Contains(t, status.Body.String(), "Die Kinder besuchen heute das alte Haus.")
-	assert.Contains(t, status.Body.String(), "does not remove notes or packages already imported or downloaded")
-	assert.NotContains(t, status.Body.String(), changedSentence)
-	download := perform(t, h, http.MethodGet, statusURL+"/download", nil, cookies)
-	require.Equal(t, http.StatusOK, download.Code)
-	assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"))
-	assert.True(t, strings.HasPrefix(download.Body.String(), "PK"), "download must be a real APKG ZIP")
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=$2`, alice.ID, qualityBook.ID)
-	require.NoError(t, err)
-	allMissingPage := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
-	require.Equal(t, http.StatusOK, allMissingPage.Code)
-	assert.Contains(t, allMissingPage.Body.String(), "no selected identity has current eligible evidence")
-	assert.Contains(t, allMissingPage.Body.String(), "Preparation history", "generation history remains available without current evidence")
-	assert.Contains(t, allMissingPage.Body.String(), preparationID)
-	assert.Contains(t, allMissingPage.Body.String(), "Evidence changes on this page since the previous Ready generation")
-	assert.Contains(t, allMissingPage.Body.String(), "current eligible evidence is absent")
-	assert.NotContains(t, allMissingPage.Body.String(), ">Prepare deck</button>")
-	allMissingFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	allMissingPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {"59feee1c-6859-44f5-8dc7-2fdf298d7482"}, "expected_evidence": {allMissingFingerprint},
-	}, postCookies)
-	require.Equal(t, http.StatusConflict, allMissingPost.Code)
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
-	assert.Equal(t, 1, preparationCount, "all-zero current evidence must not create another generation")
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, book.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, otherBook.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=$2`, alice.ID, qualityBook.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND corpus_id=$3 AND analysis_run_id=$4 AND source_document_id=$5 AND start_offset=$6 AND end_offset=$7`, alice.ID, book.ID, corpus.ID, runID, hausUnitID, hausStart, hausStart+len("Haus"))
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET sentence_text=$4,end_offset=$5 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=0`, alice.ID, corpus.ID, runID, sentence, len(sentence))
-	require.NoError(t, err)
-	retryFingerprint, err := preparationService.EvidenceFingerprint(ctx, alice.ID, customDeck.ID)
-	require.NoError(t, err)
-	require.NoError(t, client.Stop(ctx))
-	failingProvider := &customDeckFailTranslation{}
-	failureWorkers := river.NewWorkers()
-	prepareddeck.AddCustomDeckPreparationWorker(failureWorkers, store, presentation, failingProvider, true)
-	failureClient, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: failureWorkers})
-	require.NoError(t, err)
-	recoveryService := prepareddeck.NewCustomDeckPreparationService(store, failureClient, presentation, failingProvider)
-	h.services.CustomDeckPreparation = recoveryService
-	cancelledPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "550a15b8-2068-43bd-86ad-2e1f09f460de", retryFingerprint)
-	require.NoError(t, err)
-	cancelPost := perform(t, h, http.MethodPost, "/vocabulary/deck-preparations/"+cancelledPreparation.ID+"/cancel", url.Values{"csrf_token": {csrf}}, postCookies)
-	require.Equal(t, http.StatusSeeOther, cancelPost.Code)
-	cancelledStatus := perform(t, h, http.MethodGet, cancelPost.Header().Get("Location"), nil, cookies)
-	require.Equal(t, http.StatusOK, cancelledStatus.Code)
-	assert.Contains(t, cancelledStatus.Body.String(), "Preparation cancelled")
-	cancelledPreparation, err = recoveryService.Get(ctx, alice.ID, cancelledPreparation.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "cancelled", cancelledPreparation.State)
-	inFlightPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "bc4e1589-68a8-42b1-92e4-727132766de2", retryFingerprint)
-	require.NoError(t, err)
-	cancelProvider := &customDeckCancelTranslation{cancel: func() error {
-		return store.CancelCustomDeckPreparation(ctx, alice.ID, inFlightPreparation.ID)
-	}}
-	cancelWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: cancelProvider, Configured: true}
-	require.NoError(t, cancelWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
-		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3},
-		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: inFlightPreparation.ID},
-	}))
-	inFlightPreparation, err = recoveryService.Get(ctx, alice.ID, inFlightPreparation.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "cancelled", inFlightPreparation.State)
-	assert.Equal(t, 1, cancelProvider.calls, "an in-flight cancellation stops further provider requests")
-	failedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "1eb7d21b-a6e9-42c4-9339-6feeb8dd29e8", retryFingerprint)
-	require.NoError(t, err)
-	failureWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: failingProvider, Configured: true}
-	require.NoError(t, failureWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
+	worker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: provider, Configured: true}
+	require.NoError(t, worker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
 		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
-		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: failedPreparation.ID},
+		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: owner.ID, PreparationID: preparation.ID},
 	}))
-	failedPreparation, err = recoveryService.Get(ctx, alice.ID, failedPreparation.ID)
+	completed, err := store.GetCustomDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "failed", failedPreparation.State)
-	malformedPreparation, err := recoveryService.Submit(ctx, alice.ID, customDeck.ID, "a7e59d94-a40f-42c1-ae54-a9673fbda021", retryFingerprint)
-	require.NoError(t, err)
-	malformedWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: &customDeckMalformedTranslation{}, Configured: true}
-	require.NoError(t, malformedWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
-		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3},
-		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: malformedPreparation.ID},
-	}))
-	malformedPreparation, err = recoveryService.Get(ctx, alice.ID, malformedPreparation.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "failed", malformedPreparation.State, "malformed enrichment outcomes fail closed")
-	failedStatusURL := "/vocabulary/deck-preparations/" + failedPreparation.ID
-	failedStatus := perform(t, h, http.MethodGet, failedStatusURL, nil, cookies)
-	require.Equal(t, http.StatusOK, failedStatus.Code)
-	assert.Contains(t, failedStatus.Body.String(), "failed")
-	assert.Contains(t, failedStatus.Body.String(), "Previous Ready preparation")
-	assert.Contains(t, failedStatus.Body.String(), preparationID+"/download")
-	previousDownload := perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+preparationID+"/download", nil, cookies)
-	assert.Equal(t, http.StatusOK, previousDownload.Code, "a failed replacement must keep the old Ready result downloadable")
-	retryKey := "12894429-9e3b-4a97-9f98-507ad734359b"
-	retryPost := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {retryKey}, "expected_evidence": {retryFingerprint},
-	}, postCookies)
-	require.Equal(t, http.StatusSeeOther, retryPost.Code, retryPost.Body.String())
-	repeatedRetry := perform(t, h, http.MethodPost, "/vocabulary/decks/"+customDeck.ID+"/preparations", url.Values{
-		"csrf_token": {csrf}, "action_key": {retryKey}, "expected_evidence": {retryFingerprint},
-	}, postCookies)
-	require.Equal(t, http.StatusSeeOther, repeatedRetry.Code)
-	assert.Equal(t, retryPost.Header().Get("Location"), repeatedRetry.Header().Get("Location"))
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND custom_deck_id=$2`, alice.ID, customDeck.ID).Scan(&preparationCount))
-	assert.Equal(t, 6, preparationCount, "retry creates one new durable generation despite repeated submission")
-	retryPreparationID := strings.TrimPrefix(retryPost.Header().Get("Location"), "/vocabulary/deck-preparations/")
-	retryProvider := &customDeckFixtureTranslation{}
-	retryWorker := &prepareddeck.CustomDeckPreparationWorker{Store: store, Presentation: presentation, Provider: retryProvider, Configured: true}
-	require.NoError(t, retryWorker.Work(ctx, &river.Job[prepareddeck.CustomDeckPreparationJobArgs]{
-		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 1},
-		Args:   prepareddeck.CustomDeckPreparationJobArgs{OwnerID: alice.ID, PreparationID: retryPreparationID},
-	}))
-	retried, err := recoveryService.Get(ctx, alice.ID, retryPreparationID)
-	require.NoError(t, err)
-	require.Equal(t, "complete_with_omissions", retried.State, retried.Error)
-	newestDownload := perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+retryPreparationID+"/download", nil, cookies)
-	assert.Equal(t, http.StatusOK, newestDownload.Code)
-	previousDownload = perform(t, h, http.MethodGet, "/vocabulary/deck-preparations/"+preparationID+"/download", nil, cookies)
-	assert.Equal(t, http.StatusNotFound, previousDownload.Code, "only the newest successful generation remains downloadable through Mouseion")
-	deckAfterReplacement := perform(t, h, http.MethodGet, "/vocabulary/decks/"+customDeck.ID, nil, cookies)
-	assert.Contains(t, deckAfterReplacement.Body.String(), "Prepare again")
-	assert.Contains(t, deckAfterReplacement.Body.String(), "Preparation history")
-	assert.Contains(t, deckAfterReplacement.Body.String(), retryPreparationID)
-	historicalStatus := perform(t, h, http.MethodGet, statusURL, nil, cookies)
-	assert.Contains(t, historicalStatus.Body.String(), "This generation is historical")
-	require.Len(t, provider.requests, 2)
-	require.Len(t, retryProvider.requests, 2)
-	providerRequests := fmt.Sprint(append(provider.requests, retryProvider.requests...))
-	assert.NotContains(t, providerRequests, "Private source title", "provider requests must not include Book title")
-	assert.Contains(t, providerRequests, sentence, "provider request must use the submission-time sentence")
-	assert.NotContains(t, providerRequests, changedSentence, "queued evidence changes must not alter provider inputs")
-	bobCookies, _ := loginCookies(t, h, "custom-prep-bob", "bob-password")
-	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, statusURL, nil, bobCookies).Code)
-
-	stillOwnerDeck, err := store.GetDeckPreparation(ctx, alice.ID, bookDeck.ID)
-	require.NoError(t, err)
-	assert.Equal(t, bookDeckBefore.State, stillOwnerDeck.State)
-	assert.Equal(t, bookDeckBefore.Artifact, stillOwnerDeck.Artifact)
-	var generated, goals int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM generated_vocabulary WHERE owner_id=$1 AND language='de' AND canonical_lemma='haus'`, alice.ID).Scan(&generated))
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1`, alice.ID).Scan(&goals))
-	assert.Zero(t, generated, "Custom deck export must not mark Generated vocabulary")
-	assert.Zero(t, goals, "Custom deck export must not change Reading")
-	_ = book
+	assert.Equal(t, "complete_with_omissions", completed.State)
+	assert.NotEmpty(t, completed.Artifact)
 }
 
 func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.T) {
@@ -682,12 +329,9 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, handoff.Body.String(), "Applied effective lemma + NOUN lookup for “haus”")
 	assert.Contains(t, handoff.Body.String(), "Alice German · no grammar filter")
 	assert.Contains(t, handoff.Body.String(), "Results 1–1")
-	browseToken := hiddenToken(t, response.Body.String())
-	postCookies := append(append([]*http.Cookie{}, cookies...), cookieNamed(t, cookies, csrfCookie))
-	selected := perform(t, h, http.MethodPost, "/vocabulary/selection/add", url.Values{
-		"csrf_token": {browseToken}, "lemma": {"haus"}, "upos": {"NOUN"},
-	}, postCookies)
-	require.Equal(t, http.StatusSeeOther, selected.Code)
+	assert.NotContains(t, response.Body.String(), "Browse selection")
+	assert.NotContains(t, response.Body.String(), "Custom deck")
+	assert.NotContains(t, response.Body.String(), `name="lemma"`)
 
 	afterDeck, err := store.GetDeckPreparation(ctx, alice.ID, aliceDeck.ID)
 	require.NoError(t, err)
@@ -872,8 +516,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.Equal(t, http.StatusOK, otherBookParameter.Code)
 	assert.NotContains(t, otherBookParameter.Body.String(), "Alice German Other")
 
-	// Switching the Current reading changes only Browse evidence scope. The
-	// language-wide selection remains intact even when its identity is off-scope.
+	// Switching the Current reading changes Browse evidence scope.
 	beforeSwitch, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1})
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceOtherBook.ID, domain.BookDispositionToRead))
@@ -885,10 +528,9 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	switched := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
 	require.Equal(t, http.StatusOK, switched.Code)
 	assert.Contains(t, switched.Body.String(), "Current reading: Alice German Other")
-	assert.Contains(t, switched.Body.String(), "Browse selection (1)")
+	assert.NotContains(t, switched.Body.String(), "Browse selection")
 
-	// Stopping Reading leaves language-wide selection/deck navigation available,
-	// but Browse must not silently fall back to the former cross-Book inventory.
+	// Browse must not silently fall back to the former cross-Book inventory.
 	current, err = store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID, current.SnapshotID))
@@ -896,9 +538,8 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.Equal(t, http.StatusOK, noReading.Code)
 	assert.Contains(t, noReading.Body.String(), "No Current reading")
 	assert.Contains(t, noReading.Body.String(), `href="/reading"`)
-	assert.Contains(t, noReading.Body.String(), `href="/vocabulary/selection"`)
 	assert.NotContains(t, noReading.Body.String(), "Alice German Other")
-	assert.Contains(t, noReading.Body.String(), "Browse selection (1)")
+	assert.NotContains(t, noReading.Body.String(), "Browse selection")
 
 	// A Book with no current completed analysis gets Book-specific recovery and
 	// never falls back to stale analysis or another Book's evidence.
@@ -911,7 +552,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, stale.Body.String(), "Current reading: Alice German Other")
 	assert.Contains(t, stale.Body.String(), "no current completed analysis")
 	assert.NotContains(t, stale.Body.String(), "haus")
-	assert.Contains(t, stale.Body.String(), "Browse selection (1)")
+	assert.NotContains(t, stale.Body.String(), "Browse selection")
 	current, err = store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	require.NoError(t, store.StopCurrentReading(ctx, alice.ID, "de", aliceOtherBook.ID, current.SnapshotID))
@@ -937,11 +578,11 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, italianBrowse.Body.String(), "haus")
 	assert.Contains(t, italianBrowse.Body.String(), "In this Book: 1; Across analyzed books: 1", "same-lemma German Books do not contribute to the Italian total")
 	assert.NotContains(t, italianBrowse.Body.String(), "Alice German")
-	assert.Contains(t, italianBrowse.Body.String(), "Browse selection (0)", "selection is separate by study language")
+	assert.NotContains(t, italianBrowse.Body.String(), "Browse selection")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 	germanBrowse := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
 	require.Equal(t, http.StatusOK, germanBrowse.Code)
-	assert.Contains(t, germanBrowse.Body.String(), "Browse selection (1)", "switching languages retains the German selection")
+	assert.NotContains(t, germanBrowse.Body.String(), "Browse selection")
 }
 
 func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
@@ -976,7 +617,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	updating := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
 	require.Equal(t, http.StatusOK, updating.Code)
 	assert.Contains(t, updating.Body.String(), "Updating Browse counts")
-	assert.Contains(t, updating.Body.String(), `href="/vocabulary/selection"`, "saved selection stays reachable while projections are incomplete")
+	assert.NotContains(t, updating.Body.String(), `href="/vocabulary/selection"`)
 	assert.NotContains(t, updating.Body.String(), "no eligible vocabulary identities")
 	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
 	riverClient, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
@@ -989,403 +630,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	require.Equal(t, http.StatusOK, unavailable.Code)
 	assert.Contains(t, unavailable.Body.String(), "Browse counts unavailable")
 	assert.Contains(t, unavailable.Body.String(), "restart Mouseion")
-	assert.Contains(t, unavailable.Body.String(), `href="/vocabulary/selection"`, "saved selection remains reachable after exhausted rebuild retries")
-}
-
-func TestBrowseSelectionReviewAndCustomDeckCreationAreDurableAndIdempotentOverHTTP(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "vocabulary-selection-http-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	alice := createAccount(t, ctx, store, "selection-http-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "selection-http-bob", "bob-password", false)
-	sourceBook, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "selection-http-alice", "Selection German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2}})
-	_, otherSource, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "selection-http-other", "Selection German 2", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	_, bobSource, bobCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, bob.ID, "selection-http-bob", "Private German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, source, corpus)
-	seedBrowseHTTPToken(t, ctx, store, otherSource, otherCorpus)
-	seedBrowseHTTPToken(t, ctx, store, bobSource, bobCorpus)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, sourceBook.ID, domain.BookDispositionToRead))
-	_, err = store.StartCurrentReading(ctx, alice.ID, "de", sourceBook.ID)
-	require.NoError(t, err)
-	var runID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, source.OwnerID, corpus.ID).Scan(&runID))
-	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
-	for ordinal := int64(1); ordinal <= 26; ordinal++ {
-		lemma := fmt.Sprintf("wort%02d", ordinal-1)
-		start := ordinal * 10
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, alice.ID, runID, corpus.ID, unitID, ordinal, lemma, start, start+int64(len(lemma)))
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,$5,$5,$5,'NOUN','root',0,'{}',$6,$7)`, alice.ID, runID, corpus.ID, ordinal, lemma, start, start+int64(len(lemma)))
-		require.NoError(t, err)
-	}
-	buildBrowseProjection(t, ctx, store, sourceBook.ID)
-	authService := auth.New(store, time.Hour)
-	dependencies := storeDependencies(store)
-	selectionStore := &customDeckCommitThenError{VocabularySelectionStore: dependencies.VocabularySelection}
-	dependencies.VocabularySelection = selectionStore
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: dependencies, SessionLifetime: time.Hour})
-	cookies, _ := loginCookies(t, h, "selection-http-alice", "alice-password")
-	page := perform(t, h, http.MethodGet, "/vocabulary", nil, cookies)
-	require.Equal(t, http.StatusOK, page.Code)
-	assert.Contains(t, page.Body.String(), "Browse selection (0)", "the active selection count is visible from Browse")
-	token := hiddenToken(t, page.Body.String())
-	csrf := cookieNamed(t, cookies, csrfCookie)
-	postCookies := append(append([]*http.Cookie{}, cookies...), csrf)
-	create := url.Values{"csrf_token": {token}, "creation_key": {"d7c38a7e-777d-4fbd-a234-67115c7f92ab"}, "name": {"German shortlist"}}
-	failedAttempt := perform(t, h, http.MethodPost, "/vocabulary/decks", create, postCookies)
-	assert.Equal(t, http.StatusInternalServerError, failedAttempt.Code, "an empty selection must not create a deck")
-	assert.Contains(t, failedAttempt.Body.String(), `name="creation_key" value="d7c38a7e-777d-4fbd-a234-67115c7f92ab"`, "retry form retains the same idempotency key")
-	add := url.Values{"csrf_token": {token}, "lemma": {"haus"}, "upos": {"NOUN"}}
-	added := perform(t, h, http.MethodPost, "/vocabulary/selection/add", add, postCookies)
-	require.Equal(t, http.StatusSeeOther, added.Code)
-	// Repeating a set operation is safe, and the review sees evidence across both Books.
-	added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", add, postCookies)
-	require.Equal(t, http.StatusSeeOther, added.Code)
-	pageTwo := perform(t, h, http.MethodGet, "/vocabulary?page=2", nil, cookies)
-	require.Equal(t, http.StatusOK, pageTwo.Code)
-	assert.Contains(t, pageTwo.Body.String(), "wort25", "selection can be added from a later Browse page")
-	secondPageAdd := url.Values{"csrf_token": {token}, "lemma": {"wort25"}, "upos": {"NOUN"}}
-	partialAdd := performWithHeader(t, h, http.MethodPost, "/vocabulary/selection/add?page=2&reading="+url.QueryEscape(sourceBook.ID), secondPageAdd, postCookies, "HX-Request", "true")
-	require.Equal(t, http.StatusOK, partialAdd.Code)
-	assert.Contains(t, partialAdd.Body.String(), `id="vocabulary-browse-results"`)
-	assert.Contains(t, partialAdd.Body.String(), "Page 2 of 2")
-	assert.Contains(t, partialAdd.Body.String(), "Browse selection (2)")
-	assert.Contains(t, partialAdd.Body.String(), "Remove from selection")
-	partialRemove := performWithHeader(t, h, http.MethodPost, "/vocabulary/selection/remove?page=2&reading="+url.QueryEscape(sourceBook.ID), secondPageAdd, postCookies, "HX-Request", "true")
-	require.Equal(t, http.StatusOK, partialRemove.Code)
-	assert.Contains(t, partialRemove.Body.String(), "Page 2 of 2")
-	assert.Contains(t, partialRemove.Body.String(), "Browse selection (1)")
-	added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", secondPageAdd, postCookies)
-	require.Equal(t, http.StatusSeeOther, added.Code)
-	// Reproduce the saved-selection timeout with a few hundred analyzed tokens
-	// and 100 selected identities. The selection read for Browse must only
-	// inspect the saved set and this visible page, not recompute review evidence.
-	_, err = store.Pool().Exec(ctx, `
-INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
-SELECT $1,$2,$3,$4,n,'bulkword',n*10,n*10+8 FROM generate_series(100,374) n`, alice.ID, runID, corpus.ID, unitID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `
-INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
-SELECT $1,'de',$2,$3,n,0,'bulkword','bulkword','bulkword','NOUN','root',0,'{}',n*10,n*10+8 FROM generate_series(100,374) n`, alice.ID, runID, corpus.ID)
-	require.NoError(t, err)
-	buildBrowseProjection(t, ctx, store, sourceBook.ID)
-	for i := range 98 {
-		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de',$2,'NOUN')`, alice.ID, fmt.Sprintf("saved%03d", i))
-		require.NoError(t, err)
-	}
-	started := time.Now()
-	selectedPage := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
-	assert.Less(t, time.Since(started), 8*time.Second, "a large current corpus and saved selection must stay within Browse's request deadline")
-	require.Equal(t, http.StatusOK, selectedPage.Code)
-	assert.Contains(t, selectedPage.Body.String(), "Browse selection (100)")
-	assert.Contains(t, selectedPage.Body.String(), "Remove from selection", "a visible saved identity is marked selected")
-	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_selections WHERE owner_id=$1 AND language='de' AND canonical_lemma LIKE 'saved%'`, alice.ID)
-	require.NoError(t, err)
-	review := perform(t, h, http.MethodGet, "/vocabulary/selection", nil, cookies)
-	require.Equal(t, http.StatusOK, review.Code)
-	assert.Contains(t, review.Body.String(), "2 selected identities")
-	assert.Contains(t, review.Body.String(), "2 occurrences · 2 Books")
-	assert.NotContains(t, review.Body.String(), "Private German")
-	// An analysis awaiting its Browse-count rebuild still contributes current
-	// evidence rather than making a selected identity appear missing.
-	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, sourceBook.ID)
-	require.NoError(t, err)
-	withoutProjection, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	require.Len(t, withoutProjection, 2)
-	assert.EqualValues(t, 2, withoutProjection[0].OccurrenceCount)
-	assert.EqualValues(t, 2, withoutProjection[0].BookCount)
-	assert.False(t, withoutProjection[1].MissingEvidence)
-	buildBrowseProjection(t, ctx, store, sourceBook.ID)
-	removed := perform(t, h, http.MethodPost, "/vocabulary/selection/remove", url.Values{"csrf_token": {token}, "lemma": {"wort25"}, "upos": {"NOUN"}}, postCookies)
-	require.Equal(t, http.StatusSeeOther, removed.Code)
-	removedBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
-	require.Equal(t, http.StatusOK, removedBrowse.Code)
-	assert.Contains(t, removedBrowse.Body.String(), "Browse selection (1)")
-	assert.Contains(t, removedBrowse.Body.String(), ">Select</button>", "removing an identity updates its visible Browse action")
-	remainingSelection, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	require.Len(t, remainingSelection, 1)
-	assert.Equal(t, "haus", remainingSelection[0].CanonicalLemma, "removal persists the updated selection")
-	added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", secondPageAdd, postCookies)
-	require.Equal(t, http.StatusSeeOther, added.Code)
-	oversizedPage := perform(t, h, http.MethodGet, "/vocabulary/selection?page=9223372036854775807", nil, cookies)
-	assert.Equal(t, http.StatusOK, oversizedPage.Code, "out-of-range page numbers should clamp safely")
-	confirmClear := perform(t, h, http.MethodGet, "/vocabulary/selection/clear-confirm", nil, cookies)
-	require.Equal(t, http.StatusOK, confirmClear.Code)
-	assert.Contains(t, confirmClear.Body.String(), "Confirm clear selection")
-	stillSelected, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Len(t, stillSelected, 2, "opening the confirmation page does not clear selection")
-	cleared := perform(t, h, http.MethodPost, "/vocabulary/selection/clear", url.Values{"csrf_token": {token}}, postCookies)
-	require.Equal(t, http.StatusSeeOther, cleared.Code)
-	stillSelected, err = store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, stillSelected, "only the explicit confirmation POST clears the selection")
-	clearedBrowse := perform(t, h, http.MethodGet, "/vocabulary?q=wort25", nil, cookies)
-	require.Equal(t, http.StatusOK, clearedBrowse.Code)
-	assert.Contains(t, clearedBrowse.Body.String(), "Browse selection (0)")
-	assert.Contains(t, clearedBrowse.Body.String(), ">Select</button>", "clearing the selection updates its visible Browse action")
-	for _, identity := range []domain.VocabularyIdentity{{CanonicalLemma: "haus", UPOS: "NOUN"}, {CanonicalLemma: "wort25", UPOS: "NOUN"}} {
-		form := url.Values{"csrf_token": {token}, "lemma": {identity.CanonicalLemma}, "upos": {identity.UPOS}}
-		added = perform(t, h, http.MethodPost, "/vocabulary/selection/add", form, postCookies)
-		require.Equal(t, http.StatusSeeOther, added.Code)
-	}
-	_, err = store.Pool().Exec(ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, sourceBook.ID)
-	require.NoError(t, err)
-	review = perform(t, h, http.MethodGet, "/vocabulary/selection", nil, cookies)
-	require.Equal(t, http.StatusOK, review.Code)
-	assert.Contains(t, review.Body.String(), "1 currently lack evidence")
-	assert.Contains(t, review.Body.String(), "No current evidence")
-	missingOnly := perform(t, h, http.MethodGet, "/vocabulary/selection?missing=true", nil, cookies)
-	assert.Contains(t, missingOnly.Body.String(), "wort25")
-	assert.NotContains(t, missingOnly.Body.String(), "<strong>haus</strong>")
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'it','casa','NOUN')`, alice.ID)
-	require.NoError(t, err)
-	selectionStore.failAfterCommit = true
-	created := perform(t, h, http.MethodPost, "/vocabulary/decks", create, postCookies)
-	require.Equal(t, http.StatusSeeOther, created.Code)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de','neu','ADJ')`, alice.ID)
-	require.NoError(t, err)
-	createdAgain := perform(t, h, http.MethodPost, "/vocabulary/decks", create, postCookies)
-	require.Equal(t, http.StatusSeeOther, createdAgain.Code)
-	assert.Equal(t, created.Header().Get("Location"), createdAgain.Header().Get("Location"), "same action retry must resolve to the same deck")
-	_, err = store.CreateCustomVocabularyDeck(ctx, alice.ID, "it", "Wrong language", create.Get("creation_key"))
-	require.Error(t, err, "an idempotency key cannot resolve a deck from another study language")
-	deckPage := perform(t, h, http.MethodGet, created.Header().Get("Location"), nil, cookies)
-	require.Equal(t, http.StatusOK, deckPage.Code)
-	assert.Contains(t, deckPage.Body.String(), "German shortlist")
-	assert.Contains(t, deckPage.Body.String(), "haus")
-	assert.Contains(t, deckPage.Body.String(), "No current evidence", "naming a deck retains missing identities")
-	bobCookies, _ := loginCookies(t, h, "selection-http-bob", "bob-password")
-	otherOwnerDeck := perform(t, h, http.MethodGet, created.Header().Get("Location"), nil, bobCookies)
-	assert.Equal(t, http.StatusNotFound, otherOwnerDeck.Code, "Custom deck ids must remain owner-scoped")
-	var deckCount, identityCount int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_decks WHERE owner_id=$1`, alice.ID).Scan(&deckCount))
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_identities WHERE owner_id=$1`, alice.ID).Scan(&identityCount))
-	assert.Equal(t, 1, deckCount)
-	assert.Equal(t, 2, identityCount)
-	remaining, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	require.Len(t, remaining, 1, "retrying a committed creation does not clear a new selection")
-	assert.Equal(t, "neu", remaining[0].CanonicalLemma)
-	assert.Equal(t, "ADJ", remaining[0].UPOS)
-	otherOwner, err := store.ListVocabularyBrowseSelection(ctx, bob.ID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, otherOwner)
-	otherLanguage, err := store.ListVocabularyBrowseSelection(ctx, alice.ID, "it")
-	require.NoError(t, err)
-	require.Len(t, otherLanguage, 1)
-	assert.Equal(t, "casa", otherLanguage[0].CanonicalLemma, "creating a German deck must preserve the Italian selection")
-}
-
-func TestBrowseSelectionReviewWith217IdentitiesAndLargeCorpus(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "vocabulary-selection-scale-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	owner := createAccount(t, ctx, store, "selection-scale-owner", "owner-password", false)
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "selection-scale", "Large German Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, source, corpus)
-	var runID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&runID))
-	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
-	_, err = store.Pool().Exec(ctx, `
-INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
-SELECT $1,$2,$3,$4,n,'anders',n*10,n*10+6 FROM generate_series(1,10000) n`, owner.ID, runID, corpus.ID, unitID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `
-INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
-SELECT $1,'de',$2,$3,n,0,'anders','anders','anders','NOUN','root',0,'{}',n*10,n*10+6 FROM generate_series(1,10000) n`, owner.ID, runID, corpus.ID)
-	require.NoError(t, err)
-	buildBrowseProjection(t, ctx, store, book.ID)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos)
-SELECT $1::uuid,'de','saved'||lpad(n::text,3,'0'),'NOUN' FROM generate_series(1,216) n
-UNION ALL SELECT $1::uuid,'de','haus','NOUN'`, owner.ID)
-	require.NoError(t, err)
-
-	// Review must not traverse the full normalized corpus merely to mark the
-	// selected identities with their existing per-Book Browse counts.
-	reviewCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	selected, err := store.ListVocabularyBrowseSelection(reviewCtx, owner.ID, "de")
-	require.NoError(t, err, "review must finish before the interactive request deadline")
-	require.Len(t, selected, 217)
-	assert.Equal(t, "haus", selected[0].CanonicalLemma)
-	assert.EqualValues(t, 1, selected[0].OccurrenceCount)
-	assert.False(t, selected[0].MissingEvidence)
-	assert.True(t, selected[1].MissingEvidence)
-
-	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
-	cookies, _ := loginCookies(t, h, "selection-scale-owner", "owner-password")
-	review := perform(t, h, http.MethodGet, "/vocabulary/selection", nil, cookies)
-	require.Equal(t, http.StatusOK, review.Code)
-	assert.Contains(t, review.Body.String(), "217 selected identities")
-	assert.Contains(t, review.Body.String(), "216 currently lack evidence")
-}
-
-func TestCustomDeckEditingIsOwnerScopedAndReadOnlyWhenLanguageDisappears(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "custom-deck-edit-http-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	alice := createAccount(t, ctx, store, "custom-edit-alice", "alice-password", false)
-	bob := createAccount(t, ctx, store, "custom-edit-bob", "bob-password", false)
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-edit", "Custom deck evidence", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, source, corpus)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de','haus','NOUN')`, alice.ID)
-	require.NoError(t, err)
-	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
-	cookies, _ := loginCookies(t, h, "custom-edit-alice", "alice-password")
-	csrf := cookieNamed(t, cookies, csrfCookie)
-	postCookies := append(append([]*http.Cookie{}, cookies...), csrf)
-	created := perform(t, h, http.MethodPost, "/vocabulary/decks", url.Values{"csrf_token": {hiddenToken(t, perform(t, h, http.MethodGet, "/vocabulary/selection", nil, cookies).Body.String())}, "creation_key": {"98e01219-011f-482b-b3cd-26093d45fd81"}, "name": {"First deck"}}, postCookies)
-	require.Equal(t, http.StatusSeeOther, created.Code)
-	deckURL := created.Header().Get("Location")
-	deckID := strings.TrimPrefix(deckURL, "/vocabulary/decks/")
-	deckPage := perform(t, h, http.MethodGet, deckURL, nil, cookies)
-	require.Equal(t, http.StatusOK, deckPage.Code)
-	assert.Contains(t, deckPage.Body.String(), "Save name")
-	assert.Contains(t, deckPage.Body.String(), "1 occurrences · 1 Books")
-
-	rename := url.Values{"csrf_token": {hiddenToken(t, deckPage.Body.String())}, "name": {"Renamed deck"}}
-	for range 2 {
-		response := perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/rename", rename, postCookies)
-		require.Equal(t, http.StatusSeeOther, response.Code, "retrying the same rename is safe")
-	}
-	add := url.Values{"csrf_token": {rename.Get("csrf_token")}, "lemma": {"unseen"}, "upos": {"VERB"}}
-	for range 2 {
-		response := perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/identities/add", add, postCookies)
-		require.Equal(t, http.StatusSeeOther, response.Code, "retrying add does not duplicate an identity")
-	}
-	page := perform(t, h, http.MethodGet, deckURL, nil, cookies)
-	assert.Contains(t, page.Body.String(), "Renamed deck")
-	assert.Contains(t, page.Body.String(), "unseen")
-	assert.Contains(t, page.Body.String(), "No current evidence", "an explicitly added missing identity remains reviewable")
-	missingPage := perform(t, h, http.MethodGet, deckURL+"?missing=true", nil, cookies)
-	assert.Contains(t, missingPage.Body.String(), "unseen")
-	assert.NotContains(t, missingPage.Body.String(), "<strong>haus</strong>")
-	remove := url.Values{"csrf_token": {rename.Get("csrf_token")}, "lemma": {"unseen"}, "upos": {"VERB"}}
-	removed := perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/identities/remove", remove, postCookies)
-	require.Equal(t, http.StatusSeeOther, removed.Code)
-	var runID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
-	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos) VALUES($1,$2,'de','heim','NOUN')`, alice.ID, deckID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,0,4,'heim','de','1',false)`, alice.ID, book.ID, corpus.ID, runID, unitID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID)
-	require.NoError(t, err, "direct SQL fixture edits must invalidate the derived count projection like the application write path")
-	corrected := perform(t, h, http.MethodGet, deckURL, nil, cookies)
-	require.Equal(t, http.StatusOK, corrected.Code)
-	assert.Contains(t, corrected.Body.String(), "<strong>heim</strong>")
-	assert.Contains(t, corrected.Body.String(), "1 occurrences · 1 Books", "corrected identities retain current occurrence totals")
-	_, err = store.Pool().Exec(ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID)
-	require.NoError(t, err)
-	stale := perform(t, h, http.MethodGet, deckURL, nil, cookies)
-	assert.Contains(t, stale.Body.String(), "2 missing current evidence", "both saved identities remain selected when their evidence disappears")
-	replacementBook, replacementSource, replacementCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-edit-replacement", "Replacement analysis", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, replacementSource, replacementCorpus)
-	recovered := perform(t, h, http.MethodGet, deckURL, nil, cookies)
-	assert.Contains(t, recovered.Body.String(), "haus")
-	assert.Contains(t, recovered.Body.String(), "heim</strong> <code>NOUN</code></a> — No current evidence")
-	assert.NotContains(t, recovered.Body.String(), `aria-label="Current evidence for heim"`, "the prior run's correction does not transfer to replacement evidence")
-	assert.Contains(t, recovered.Body.String(), "current analysis of ", "current evidence links to its Book analysis")
-	assert.Contains(t, recovered.Body.String(), ">Replacement analysis</a>", "analysis link names its Book")
-	assert.Contains(t, recovered.Body.String(), "Review occurrences", "current evidence links to occurrence correction review")
-
-	bobCookies, _ := loginCookies(t, h, "custom-edit-bob", "bob-password")
-	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, deckURL, nil, bobCookies).Code)
-	_, err = store.GetCustomVocabularyDeck(ctx, bob.ID, deckID)
-	require.ErrorIs(t, err, persistence.ErrCustomVocabularyDeckNotFound)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='unknown',language_tag=NULL WHERE owner_id=$1 AND id=ANY($2::uuid[])`, alice.ID, []string{book.ID, replacementBook.ID})
-	require.NoError(t, err)
-	readOnly := perform(t, h, http.MethodGet, deckURL, nil, cookies)
-	require.Equal(t, http.StatusOK, readOnly.Code)
-	assert.Contains(t, readOnly.Body.String(), "currently unavailable")
-	assert.NotContains(t, readOnly.Body.String(), "Save name")
-	assert.Equal(t, http.StatusConflict, perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/rename", rename, postCookies).Code)
-	assert.Equal(t, http.StatusConflict, perform(t, h, http.MethodPost, "/vocabulary/selection/add", url.Values{"csrf_token": {rename.Get("csrf_token")}, "lemma": {"heim"}, "upos": {"NOUN"}}, postCookies).Code)
-	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_state='chosen',language_tag='de' WHERE owner_id=$1 AND id=ANY($2::uuid[])`, alice.ID, []string{book.ID, replacementBook.ID})
-	require.NoError(t, err)
-	confirm := perform(t, h, http.MethodGet, "/vocabulary/decks/"+deckID+"/delete-confirm", nil, cookies)
-	require.Equal(t, http.StatusOK, confirm.Code)
-	assert.Contains(t, confirm.Body.String(), "cannot revoke APKG files already downloaded")
-	assert.Contains(t, confirm.Body.String(), `method="post"`)
-	deleted := perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/delete", url.Values{"csrf_token": {rename.Get("csrf_token")}}, postCookies)
-	require.Equal(t, http.StatusSeeOther, deleted.Code)
-	assert.Equal(t, http.StatusNotFound, perform(t, h, http.MethodGet, deckURL, nil, cookies).Code)
-}
-
-func TestCustomDeckReviewPagesThousandMissingIdentitiesOverHTTP(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "custom-deck-scale-http-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	alice := createAccount(t, ctx, store, "custom-scale-alice", "alice-password", false)
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "custom-scale-source", "Scale source", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	seedBrowseHTTPToken(t, ctx, store, source, corpus)
-	var runID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, corpus.ID).Scan(&runID))
-	unitID := domain.EPUBUnitID(0, strings.TrimPrefix(source.SourceIdentifier, "migration-"))
-	_, err = store.Pool().Exec(ctx, `
-INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
-SELECT $1,$2,$3,$4,n,'Haus',n*10,n*10+4 FROM generate_series(1,20000) n`, alice.ID, runID, corpus.ID, unitID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `
-INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
-SELECT $1,'de',$2,$3,n,0,'Haus','haus','haus','NOUN','root',0,'{}',n*10,n*10+4 FROM generate_series(1,20000) n`, alice.ID, runID, corpus.ID)
-	require.NoError(t, err)
-	projectionTx, err := store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(ctx, projectionTx, alice.ID, book.ID, source.ID, runID, corpus.ID, "de"))
-	require.NoError(t, projectionTx.Commit(ctx))
-	var deckID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_decks(owner_id,language,name,creation_key) VALUES($1,'de','Large review','d7c38a7e-777d-4fbd-a234-67115c7f92ab') RETURNING id::text`, alice.ID).Scan(&deckID))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO custom_vocabulary_deck_identities(owner_id,deck_id,language,canonical_lemma,upos)
-SELECT $1::uuid,$2::uuid,'de','lemma-'||lpad(n::text,4,'0'),'NOUN' FROM generate_series(0,998) n
-UNION ALL SELECT $1::uuid,$2::uuid,'de','haus','NOUN'`, alice.ID, deckID)
-	require.NoError(t, err)
-	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
-	cookies, _ := loginCookies(t, h, "custom-scale-alice", "alice-password")
-	pageOne := perform(t, h, http.MethodGet, "/vocabulary/decks/"+deckID, nil, cookies)
-	require.Equal(t, http.StatusOK, pageOne.Code)
-	assert.Contains(t, pageOne.Body.String(), "1000 selected identities")
-	assert.Contains(t, pageOne.Body.String(), "999 missing current evidence")
-	assert.Contains(t, pageOne.Body.String(), "Page 1 of 40")
-	assert.Contains(t, pageOne.Body.String(), "20001 occurrences in the current analysis of ")
-	assert.Contains(t, pageOne.Body.String(), ">Scale source</a>")
-	assert.Contains(t, pageOne.Body.String(), "lemma-0000")
-	assert.NotContains(t, pageOne.Body.String(), "lemma-0025")
-	pageForty := perform(t, h, http.MethodGet, "/vocabulary/decks/"+deckID+"?missing=true&page=40", nil, cookies)
-	require.Equal(t, http.StatusOK, pageForty.Code)
-	assert.Contains(t, pageForty.Body.String(), "1000 selected identities")
-	assert.Contains(t, pageForty.Body.String(), "999 missing current evidence")
-	assert.Contains(t, pageForty.Body.String(), "Page 40 of 40")
-	assert.Contains(t, pageForty.Body.String(), "lemma-0998")
-	assert.NotContains(t, pageForty.Body.String(), "lemma-0974")
-	token := hiddenToken(t, pageForty.Body.String())
-	csrf := cookieNamed(t, cookies, csrfCookie)
-	postCookies := append(append([]*http.Cookie{}, cookies...), csrf)
-	removed := perform(t, h, http.MethodPost, "/vocabulary/decks/"+deckID+"/identities/remove", url.Values{"csrf_token": {token}, "lemma": {"lemma-0998"}, "upos": {"NOUN"}}, postCookies)
-	require.Equal(t, http.StatusSeeOther, removed.Code)
-	var remaining int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_identities WHERE owner_id=$1 AND deck_id=$2`, alice.ID, deckID).Scan(&remaining)
-	require.NoError(t, err)
-	assert.Equal(t, 999, remaining, "editing a late-page identity updates the durable selection")
+	assert.NotContains(t, unavailable.Body.String(), `href="/vocabulary/selection"`)
 }
 
 func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *testing.T) {

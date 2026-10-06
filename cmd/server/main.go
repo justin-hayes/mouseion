@@ -180,14 +180,13 @@ func run() (err error) {
 	} else {
 		preparedDeckService = prepareddeck.NewService(store, riverClient)
 	}
-	customDeckPreparationService := prepareddeck.NewCustomDeckPreparationService(store, riverClient, presentation, translationProvider)
 	catalogueSyncService := cataloguesync.NewService(catalogueSyncDeps, riverClient, opdsService, capabilities)
 	if err = catalogueSyncService.RegisterAll(ctx); err != nil {
 		return err
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
-	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularySelection: store, BrowseSelectionState: store, VocabularyConcordance: store}
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, CustomDeckPreparation: customDeckPreparationService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, LemmaSuggestions: lemmaSuggestions, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularyConcordance: store}
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, LemmaSuggestions: lemmaSuggestions, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
 		return fmt.Errorf("initialize web application: %w", err)
 	}

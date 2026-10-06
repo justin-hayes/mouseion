@@ -2448,13 +2448,13 @@ body.vocabulary-shell .site-header__language select {
   background: var(--mouseion-color-surface-raised);
   font: inherit;
 }
-body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-selection-filter, .vocabulary-selection-page-link, .vocabulary-selection-action, .vocabulary-deck-link, .vocabulary-lemma-link) {
+body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-lemma-link) {
   display: inline-flex;
   min-width: 44px;
   min-height: 44px;
   align-items: center;
 }
-body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-selection-filter, .vocabulary-selection-page-link, .vocabulary-selection-action) {
+body.vocabulary-shell .vocabulary-action-link {
   border: 1px solid var(--mouseion-color-border);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-2) var(--mouseion-space-3);
@@ -2463,10 +2463,10 @@ body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-selection-filter,
   font-weight: 600;
   text-decoration: none;
 }
-body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-selection-filter, .vocabulary-selection-page-link, .vocabulary-selection-action):hover {
+body.vocabulary-shell .vocabulary-action-link:hover {
   background: var(--mouseion-color-surface-quiet);
 }
-body.vocabulary-shell :is(.vocabulary-deck-link, .vocabulary-lemma-link) {
+body.vocabulary-shell .vocabulary-lemma-link {
   min-width: 44px;
   padding-inline: var(--mouseion-space-2);
   overflow-wrap: anywhere;
@@ -2493,78 +2493,6 @@ body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] a[ari
   color: var(--mouseion-color-text);
   font-weight: 650;
   text-decoration-thickness: 0.15em;
-}
-body.vocabulary-shell .custom-deck-form {
-  display: grid;
-  justify-items: start;
-  gap: var(--mouseion-space-2);
-  max-width: var(--mouseion-width-form);
-  margin-block: var(--mouseion-space-4) var(--mouseion-space-5);
-  border-block: 1px solid var(--mouseion-color-border);
-  padding-block: var(--mouseion-space-4);
-}
-body.vocabulary-shell .custom-deck-form label {
-  margin: 0;
-  font-weight: 650;
-}
-body.vocabulary-shell .custom-deck-form input:not([type="hidden"]), body.vocabulary-shell .custom-deck-form select {
-  width: min(100%, var(--mouseion-width-form));
-}
-body.vocabulary-shell .custom-deck-summary {
-  max-width: var(--mouseion-width-data);
-  border-block: 1px solid var(--mouseion-color-border);
-  padding-block: var(--mouseion-space-3);
-  font-variant-numeric: tabular-nums;
-}
-body.vocabulary-shell .custom-deck-warning {
-  margin-block: var(--mouseion-space-4);
-  border-inline-start: 3px solid var(--mouseion-color-warning);
-  background: var(--mouseion-color-surface-quiet);
-}
-body.vocabulary-shell .custom-deck-warning h2 {
-  font-size: 1.1em;
-}
-body.vocabulary-shell .custom-deck-warning > :last-child {
-  margin-bottom: 0;
-}
-body.vocabulary-shell .custom-deck-identity-list {
-  max-width: var(--mouseion-width-data);
-  min-width: 0;
-  padding-inline-start: var(--mouseion-space-5);
-}
-body.vocabulary-shell .custom-deck-identity-list > li {
-  padding-block: var(--mouseion-space-3);
-  border-bottom: 1px solid var(--mouseion-color-border);
-  overflow-wrap: anywhere;
-}
-body.vocabulary-shell .custom-deck-identity-list ul {
-  margin-block: var(--mouseion-space-2);
-}
-body.vocabulary-shell .vocabulary-deck-pages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mouseion-space-2);
-  margin-block: var(--mouseion-space-3);
-}
-body.vocabulary-shell .custom-deck-identity-list form {
-  margin-block: var(--mouseion-space-2);
-}
-body.vocabulary-shell .custom-deck-prepare p {
-  max-width: 60ch;
-}
-body.vocabulary-shell .custom-deck-summary + p, body.vocabulary-shell .custom-deck-warning + h2 {
-  margin-top: var(--mouseion-space-5);
-}
-@media (max-width: 40rem) {
-  body.vocabulary-shell .custom-deck-form {
-    width: 100%;
-  }
-  body.vocabulary-shell .custom-deck-form button {
-    width: 100%;
-  }
-  body.vocabulary-shell .custom-deck-warning {
-    padding-inline: var(--mouseion-space-3);
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   body.vocabulary-shell *, body.vocabulary-shell *::before, body.vocabulary-shell *::after {

@@ -240,7 +240,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
   });
 
-  test('Vocabulary Browse and selection own their responsive styling', async ({ page }) => {
+  test('Vocabulary Browse owns responsive styling without retired workflow controls', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/vocabulary');
@@ -292,31 +292,10 @@ test.describe('responsive and theme regression coverage', () => {
     expect(await textContrast(page.locator('#vocabulary-prefix'))).toBeGreaterThanOrEqual(4.5);
     await expectNoPageOverflow(page);
 
-    await page.goto('/vocabulary/selection');
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Review Browse selection' })).toBeVisible();
-    const selectionControls = page.locator('.vocabulary-selection-filter, .vocabulary-selection-page-link, .vocabulary-deck-link, .vocabulary-selection-list button, form[action="/vocabulary/decks"] :is(input:not([type="hidden"]), button), a[role="button"]:visible');
-    const selectionBoxes = await selectionControls.evaluateAll((nodes) => nodes.map((node) => {
-      const box = node.getBoundingClientRect();
-      return { width: box.width, height: box.height, text: node.textContent?.trim() };
-    }));
-    for (const box of selectionBoxes) {
-      expect(box.width, box.text).toBeGreaterThanOrEqual(44);
-      expect(box.height, box.text).toBeGreaterThanOrEqual(44);
-    }
-    await expect(page.getByLabel('Deck name')).toBeVisible();
-    expect(await textContrast(page.getByLabel('Deck name'))).toBeGreaterThanOrEqual(4.5);
-    expect(await textContrast(page.getByRole('button', { name: 'Create Custom deck' }))).toBeGreaterThanOrEqual(4.5);
-    await expectNoPageOverflow(page);
-
-    await page.goto('/vocabulary/selection/clear-confirm');
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Confirm clear selection' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Cancel and keep selection' })).toHaveCSS('min-height', '44px');
+    await expect(page.locator('body')).not.toContainText('Browse selection');
+    await expect(page.locator('body')).not.toContainText('Custom deck');
+    await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
 
     await page.goto('/vocabulary/concordance');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
@@ -571,59 +550,6 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(rejectedRows).toContainText('bad\tline');
     await expect(rejectedRows).toContainText('expected exactly one lemma');
     await expectNoPageOverflow(page);
-  });
-
-  test('saved Custom deck editing and preparation use owned responsive styling', async ({ page }) => {
-    await signIn(page);
-    await page.goto('/vocabulary/selection/clear-confirm');
-    const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
-    const cleared = await page.request.post('/vocabulary/selection/clear', { form: { csrf_token: csrf } });
-    expect(cleared.ok()).toBeTruthy();
-    const selected = await page.request.post('/vocabulary/selection/add', {
-      form: { csrf_token: csrf, lemma: 'gehen', upos: 'VERB' },
-    });
-    expect(selected.ok()).toBeTruthy();
-    const selectedWithEvidence = await page.request.post('/vocabulary/selection/add', {
-      form: { csrf_token: csrf, lemma: 'fixture-prepare-ready', upos: 'VERB' },
-    });
-    expect(selectedWithEvidence.ok()).toBeTruthy();
-
-    await page.goto('/vocabulary/selection');
-    const name = `Responsive review ${test.info().project.name}`;
-    await page.getByLabel('Deck name').fill(name);
-    await page.getByRole('button', { name: 'Create Custom deck' }).click();
-    await expect(page.getByRole('heading', { name: `Custom deck · ${name}` })).toBeVisible();
-    const deckURL = new URL(page.url()).pathname;
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByRole('status').filter({ hasText: '2 selected identities' })).toContainText('1 missing current evidence');
-    const prepareForm = page.locator('form.custom-deck-prepare');
-    await expect(prepareForm).toHaveAttribute('method', 'post');
-    await expect(prepareForm).toHaveAttribute('action', /\/vocabulary\/decks\/[^/]+\/preparations$/);
-    await expect(prepareForm).not.toHaveAttribute('hx-post', /.+/);
-    await expect(prepareForm.getByRole('button', { name: 'Prepare deck' })).toBeVisible();
-    await expect(page.getByRole('complementary', { name: 'Anki import and overlap warning' })).toBeVisible();
-
-    const controls = page.locator('nav[aria-label="Vocabulary views"] a, .custom-deck-form :is(input:not([type="hidden"]), select, button), .custom-deck-prepare button, .custom-deck-identity-list :is(a, button)');
-    await expect44pxTouchTargets(controls);
-    await expectNoPageOverflow(page);
-
-    await prepareForm.getByRole('button', { name: 'Prepare deck' }).click();
-    await expect(page).toHaveURL(/\/vocabulary\/deck-preparations\/fixture-custom-deck-preparation-/);
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByRole('status')).toContainText('queued');
-    await expect44pxTouchTargets(page.locator('a.vocabulary-action-link, button:visible'));
-    await expectNoPageOverflow(page);
-
-    await page.goto(deckURL + '/delete-confirm');
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.getByText('Mouseion cannot revoke APKG files already downloaded', { exact: false })).toBeVisible();
-    await expect44pxTouchTargets(page.getByRole('button', { name: 'Confirm delete Custom deck' }));
-    await expectNoPageOverflow(page);
-    await page.getByRole('button', { name: 'Confirm delete Custom deck' }).click();
-    await expect(page).toHaveURL(/\/vocabulary\/selection$/);
   });
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {

@@ -110,23 +110,6 @@ type VocabularyBrowseStore interface {
 	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
 }
 
-type VocabularySelectionStore interface {
-	SetVocabularyBrowseSelection(context.Context, string, string, string, string, bool) error
-	ListVocabularyBrowseSelection(context.Context, string, string) ([]domain.VocabularyIdentity, error)
-	ClearVocabularyBrowseSelection(context.Context, string, string) error
-	CreateCustomVocabularyDeck(context.Context, string, string, string, string) (domain.CustomVocabularyDeck, error)
-	GetCustomVocabularyDeck(context.Context, string, string) (domain.CustomVocabularyDeck, error)
-	ListCustomVocabularyDeckIdentityPage(context.Context, string, string, int, bool) (domain.CustomVocabularyDeck, int64, error)
-	ListCustomVocabularyDecks(context.Context, string) ([]domain.CustomVocabularyDeck, error)
-	RenameCustomVocabularyDeck(context.Context, string, string, string) error
-	SetCustomVocabularyDeckIdentity(context.Context, string, string, string, string, bool) error
-	DeleteCustomVocabularyDeck(context.Context, string, string) error
-}
-
-type VocabularyBrowseSelectionStateStore interface {
-	VocabularyBrowseSelectionState(context.Context, string, string, []domain.VocabularyBrowseRow) (int, []bool, error)
-}
-
 type VocabularyConcordanceStore interface {
 	ListVocabularyConcordance(context.Context, string, string, domain.ConcordanceLookup) (domain.ConcordanceResult, error)
 	GetVocabularySentenceStudy(context.Context, string, string, string, string, string, int64, int64, string) (domain.SentenceStudy, error)
@@ -144,8 +127,6 @@ type StoreDependencies struct {
 	Covers                BookCoverStore
 	LemmaReview           LemmaReviewStore
 	VocabularyBrowse      VocabularyBrowseStore
-	VocabularySelection   VocabularySelectionStore
-	BrowseSelectionState  VocabularyBrowseSelectionStateStore
 	VocabularyConcordance VocabularyConcordanceStore
 }
 
@@ -197,16 +178,6 @@ type PreparedDeck interface {
 	Rerender(context.Context, string, string) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
 }
-type CustomDeckPreparation interface {
-	Submit(context.Context, string, string, string, string) (domain.CustomDeckPreparation, error)
-	EvidenceFingerprint(context.Context, string, string) (string, error)
-	Get(context.Context, string, string) (domain.CustomDeckPreparation, error)
-	Latest(context.Context, string, string) (domain.CustomDeckPreparation, error)
-	List(context.Context, string, string) ([]domain.CustomDeckPreparation, error)
-	LatestReady(context.Context, string, string) (domain.CustomDeckPreparation, error)
-	Download(context.Context, string, string) (domain.CustomDeckPreparation, error)
-	Cancel(context.Context, string, string) error
-}
 type PreparedDeckForGoalSnapshot interface {
 	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 }
@@ -216,22 +187,21 @@ type DeckPreparationHistoryReader interface {
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
-	Auth                  *auth.Service
-	WebAuth               *webauth.Handler
-	Store                 StoreDependencies
-	OPDS                  OPDS
-	Analysis              Analysis
-	AnalysisInsights      AnalysisInsights
-	KnownVocab            KnownVocabulary
-	Enrichment            ExternalEnrichment
-	PreparedDeck          PreparedDeck
-	CustomDeckPreparation CustomDeckPreparation
-	Capabilities          analyzer.CapabilityProvider
-	LemmaRiskIndex        lemmarisk.AlternativeIndex
-	LemmaSuggestions      enrichment.LemmaSuggestionProvider
-	CatalogueSync         CatalogueSyncScheduler
-	SecureCookies         bool
-	SessionLifetime       time.Duration
+	Auth             *auth.Service
+	WebAuth          *webauth.Handler
+	Store            StoreDependencies
+	OPDS             OPDS
+	Analysis         Analysis
+	AnalysisInsights AnalysisInsights
+	KnownVocab       KnownVocabulary
+	Enrichment       ExternalEnrichment
+	PreparedDeck     PreparedDeck
+	Capabilities     analyzer.CapabilityProvider
+	LemmaRiskIndex   lemmarisk.AlternativeIndex
+	LemmaSuggestions enrichment.LemmaSuggestionProvider
+	CatalogueSync    CatalogueSyncScheduler
+	SecureCookies    bool
+	SessionLifetime  time.Duration
 }
 
 type Handler struct {
@@ -309,21 +279,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
 	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyPage)))
-	h.mux.Handle("POST /vocabulary/selection/{action}", h.user(http.HandlerFunc(h.setVocabularySelection)))
-	h.mux.Handle("GET /vocabulary/selection", h.user(http.HandlerFunc(h.vocabularySelectionPage)))
-	h.mux.Handle("POST /vocabulary/selection/remove", h.user(http.HandlerFunc(h.removeVocabularySelection)))
-	h.mux.Handle("POST /vocabulary/selection/clear", h.user(http.HandlerFunc(h.clearVocabularySelection)))
-	h.mux.Handle("GET /vocabulary/selection/clear-confirm", h.user(http.HandlerFunc(h.confirmClearVocabularySelection)))
-	h.mux.Handle("POST /vocabulary/decks", h.user(http.HandlerFunc(h.createCustomVocabularyDeck)))
-	h.mux.Handle("GET /vocabulary/decks/{id}", h.user(http.HandlerFunc(h.customVocabularyDeckPage)))
-	h.mux.Handle("POST /vocabulary/decks/{id}/preparations", h.user(http.HandlerFunc(h.prepareCustomVocabularyDeck)))
-	h.mux.Handle("GET /vocabulary/deck-preparations/{id}", h.user(http.HandlerFunc(h.customDeckPreparationStatus)))
-	h.mux.Handle("GET /vocabulary/deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadCustomDeckPreparation)))
-	h.mux.Handle("POST /vocabulary/deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelCustomDeckPreparation)))
-	h.mux.Handle("POST /vocabulary/decks/{id}/rename", h.user(http.HandlerFunc(h.renameCustomVocabularyDeck)))
-	h.mux.Handle("POST /vocabulary/decks/{id}/identities/{action}", h.user(http.HandlerFunc(h.setCustomVocabularyDeckIdentity)))
-	h.mux.Handle("GET /vocabulary/decks/{id}/delete-confirm", h.user(http.HandlerFunc(h.confirmDeleteCustomVocabularyDeck)))
-	h.mux.Handle("POST /vocabulary/decks/{id}/delete", h.user(http.HandlerFunc(h.deleteCustomVocabularyDeck)))
 	h.mux.Handle("GET /vocabulary/concordance", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
 	h.mux.Handle("GET /vocabulary/concordance/sentence", h.user(http.HandlerFunc(h.vocabularySentenceStudyPage)))
 	h.mux.Handle("GET /vocabulary/import", h.user(http.HandlerFunc(h.vocabularyImportPage)))

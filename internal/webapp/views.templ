@@ -123,35 +123,15 @@ window.showVocabularyNetworkRecovery = function (ctx) {
   recovery.replaceChildren();
   var message = document.createElement('p');
   message.setAttribute('role', 'alert');
-  message.textContent = ctx.request.method === 'POST'
-    ? 'The selection request received no response. It may have succeeded; check the selection before trying again.'
-    : 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';
+  message.textContent = 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';
   var retry = document.createElement('a');
-  retry.href = ctx.request.method === 'POST' ? '/vocabulary/selection' : ctx.request.action;
-  retry.textContent = ctx.request.method === 'POST' ? 'Review Browse selection' : 'Retry Browse';
+  retry.href = ctx.request.action;
+  retry.textContent = 'Retry Browse';
   recovery.append(message, retry);
 };
-document.addEventListener('htmx:before:swap', function (evt) {
-  var ctx = evt.detail && evt.detail.ctx;
-  var source = ctx && ctx.sourceElement;
-  if (!source || !source.matches('form[data-vocabulary-selection]')) return;
-  ctx.vocabularySelection = {
-    lemma: source.querySelector('[name="lemma"]').value,
-    upos: source.querySelector('[name="upos"]').value
-  };
-});
 document.addEventListener('htmx:after:swap', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
   if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;
-  if (ctx.vocabularySelection) {
-    var forms = document.querySelectorAll('#vocabulary-workflow form[data-vocabulary-selection]');
-    for (var i = 0; i < forms.length; i++) {
-      if (forms[i].querySelector('[name="lemma"]').value === ctx.vocabularySelection.lemma && forms[i].querySelector('[name="upos"]').value === ctx.vocabularySelection.upos) {
-        forms[i].querySelector('button').focus();
-        return;
-      }
-    }
-  }
   var summary = document.getElementById('vocabulary-results-heading');
   if (summary) {
     summary.focus();
@@ -966,23 +946,23 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
 				<p><a class="vocabulary-action-link" href="/reading">Review this Book in Reading</a></p>
 			} else if len(page.Books) > 0 {
-				<p class="vocabulary-scope"><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, ranked using current analyzed Books in this language.</p>
+				<p class="vocabulary-scope"><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>
 			}
 			if page.CurrentBookID != "" {
 			<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
-				<p>By default, words already Known, Reserved, or included in a successfully prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
+				<p>By default, words already Known, Reserved, or included in a prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
 				<label><input type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
 			<button type="submit">Search</button>
 			</form>
 			}
 			<div id="vocabulary-browse-results">
 			if page.BrowseCountsUnavailable {
-				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work; your Browse selection and saved decks remain available.</p>
+				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
 			} else if page.BrowseCountsUpdating {
-				<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Your Browse selection and saved decks remain available.</p>
+				<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>
 			} else if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
 			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h2>
 			if page.Total == 0 && page.InventoryTotal == 0 {
@@ -1004,14 +984,12 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			if page.Total > 0 {
 				<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Counts use current completed analyses and effective occurrence decisions, including singletons.</p>
 				@ResponsiveTable("Current effective vocabulary") {
-					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th><th scope="col">Browse selection</th></tr></thead><tbody>
+					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
 				for _, row := range page.Rows {
 					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 						if row.InBookDeck {
 							<small>In a Book deck</small>
 						}
-					</td><td>
-						<form method="post" action={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-post={ templ.SafeURL(vocabularyBrowseSelectionURL(row.Selected, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-sync="#vocabulary-workflow:queue all" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" data-vocabulary-selection><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ row.CanonicalLemma }/><input type="hidden" name="upos" value={ row.UPOS }/><button class="button button--outline">{ vocabularySelectionButton(row.Selected) }</button></form>
 					</td></tr>
 				}
 				</tbody>
@@ -1019,247 +997,10 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@VocabularyBrowsePager(page, query)
 			}
 			}
-			<p><a class="vocabulary-selection-action" href="/vocabulary/selection">Browse selection ({ fmt.Sprintf("%d", page.SelectionCount) })</a></p>
 		<div id="vocabulary-recovery" aria-live="polite"></div>
 		</div>
 		}
 		</div>
-	}
-}
-
-templ VocabularySelectionPageView(user domain.User, csrf, language string, identities []domain.VocabularyIdentity, total, missing, visibleTotal, page int, missingOnly bool, creationKey, retryName, creationError string, decks []domain.CustomVocabularyDeck, editable bool) {
-	@ShellLayout("Review Browse selection", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Review Browse selection", "An unnamed, language-specific shortlist; it is not a deck until you name one.", nil)
-		@VocabularyViewsNav("browse")
-		<p class="vocabulary-selection-summary">Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities", total) }; { fmt.Sprintf("%d currently lack evidence", missing) }.</p>
-		if !editable {
-			<p role="status">This language is not currently in your study-language set. The unnamed selection is retained and read-only.</p>
-		}
-		if creationError != "" {
-			<p role="alert">{ creationError }</p>
-		}
-		if missingOnly {
-			<p><a class="vocabulary-selection-filter" href="/vocabulary/selection">Show all selected identities</a></p>
-		} else {
-			<p><a class="vocabulary-selection-filter" href="/vocabulary/selection?missing=true">Show only identities missing current evidence</a></p>
-		}
-		if len(identities) == 0 {
-			<p>No identities in this selection view.</p>
-		}
-		<h2>Saved Custom decks</h2>
-		if len(decks) == 0 {
-			<p>No saved Custom decks yet.</p>
-		}
-		<ul class="vocabulary-deck-list">
-		for _, deck := range decks {
-			<li><a class="vocabulary-deck-link" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>{ deck.Name }</a> — { deck.Language }, { fmt.Sprintf("%d identities", deck.IdentityCount) }, { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }</li>
-		}
-		</ul>
-		<ul class="vocabulary-selection-list">
-		for _, identity := range identities {
-			<li><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code> — { selectionEvidenceLabel(identity) }
-			if editable {
-				<form method="post" action="/vocabulary/selection/remove"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="button button--outline">Remove</button></form>
-			}
-			</li>
-		}
-		</ul>
-		@VocabularySelectionPager(page,visibleTotal,missingOnly)
-		if editable {
-			<a role="button" class="button button--outline button--quiet" href="/vocabulary/selection/clear-confirm">Clear selection</a>
-		}
-		if editable && (total > 0 || creationError != "") {
-			<h2>Name a Custom deck</h2><p>Creating a deck saves these identities only; it does not prepare or download a card package.</p>
-			<form method="post" action="/vocabulary/decks"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="creation_key" value={ creationKey }/><label for="custom-deck-name">Deck name</label><input id="custom-deck-name" name="name" value={ retryName } required maxlength="120"/><button type="submit">Create Custom deck</button></form>
-		}
-	}
-}
-
-templ VocabularySelectionPager(page,total int, missingOnly bool) {
-	if page > 1 {
-		<a class="vocabulary-selection-page-link" href={ templ.SafeURL(vocabularySelectionPageURL(page-1,missingOnly)) }>Previous page</a>
-	}
-	if page*25 < total {
-		<a class="vocabulary-selection-page-link" href={ templ.SafeURL(vocabularySelectionPageURL(page+1,missingOnly)) }>Next page</a>
-	}
-}
-
-templ VocabularySelectionClearConfirmView(user domain.User, csrf, language string, count int, editable bool) {
-	@ShellLayout("Confirm clearing selection", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Clear Browse selection?", "This removes only the unnamed selection for this study language. Saved Custom decks are not changed.", nil)
-		<p>Study language <code>{ language }</code>. { fmt.Sprintf("%d selected identities will be removed", count) }.</p>
-		if editable {
-			<form method="post" action="/vocabulary/selection/clear"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--quiet" type="submit">Confirm clear selection</button></form>
-		} else {
-			<p role="status">This language is unavailable; clearing is disabled until it returns.</p>
-		}
-		<p><a class="vocabulary-action-link" href="/vocabulary/selection">Cancel and keep selection</a></p>
-	}
-}
-
-templ CustomVocabularyDeckPageView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, decks []domain.CustomVocabularyDeck, editable bool, page, lastPage int, identities []domain.VocabularyIdentity, missingOnly bool, preparation *domain.CustomDeckPreparation, preparationHistory []domain.CustomDeckPreparation, evidenceDifferences []customDeckEvidenceDifference, actionKey, evidenceFingerprint string, evidenceChanged bool) {
-	@ShellLayout("Custom deck", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Custom deck · "+deck.Name, "Saved vocabulary identities and their current evidence.", nil)
-		@VocabularyViewsNav("browse")
-		<p class="custom-deck-summary" role="status">Study language <code>{ deck.Language }</code>. { fmt.Sprintf("%d selected identities", deck.IdentityCount) }; { fmt.Sprintf("%d missing current evidence", deck.MissingCount) }.</p>
-		<p>Page { fmt.Sprintf("%d of %d", page, lastPage) }.</p>
-		@CustomDeckAnkiImportWarning("Before preparing or downloading")
-		if !editable {
-			<p role="status">This study language is currently unavailable. This deck is read-only; its saved identities and history are retained.</p>
-		}
-		<h2>Saved Custom decks</h2><ul class="vocabulary-deck-list">
-		for _, other := range decks {
-			<li><a class="vocabulary-deck-link" href={ templ.SafeURL("/vocabulary/decks/"+other.ID) }>{ other.Name }</a> ({ other.Language })</li>
-		}
-		</ul>
-		if editable {
-			if evidenceChanged {
-				<p role="status">Current evidence availability changed since your review. The refreshed evidence is shown below; confirm again to prepare.</p>
-			}
-			if preparation != nil {
-				<p>Review the current page's per-identity evidence against the frozen sentence and Book provenance in preparation history before preparing again.</p>
-			}
-			<form class="custom-deck-form custom-deck-rename" method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/rename") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="custom-deck-name">Rename deck</label><input id="custom-deck-name" name="name" value={ deck.Name } required maxlength="120"/><button type="submit">Save name</button></form>
-			if deck.MissingCount < deck.IdentityCount {
-				if preparation == nil || (preparation.State != "queued" && preparation.State != "preparing") {
-					<form class="custom-deck-form custom-deck-prepare" method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/preparations") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="action_key" value={ actionKey }/><input type="hidden" name="expected_evidence" value={ evidenceFingerprint }/><p>Prepare freezes the current saved selection and eligible cross-Book evidence; later deck or Book changes will not change this generation.</p>
-					if preparation != nil {
-						<button type="submit">Prepare again</button>
-					} else {
-						<button type="submit">Prepare deck</button>
-					}
-					</form>
-				} else {
-					<p role="status">A preparation is already in progress; wait for it to finish before preparing again.</p>
-				}
-			} else {
-				<p role="status">Preparation is unavailable because no selected identity has current eligible evidence.</p>
-			}
-			if preparation != nil {
-				<p>Latest preparation: <a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID) }>{ preparation.State }</a>.</p>
-				if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
-					<p><a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download prepared APKG</a></p>
-				}
-			}
-		}
-		if len(preparationHistory) > 0 {
-			<h2>Preparation history</h2>
-			<ul>
-			for _, item := range preparationHistory {
-				<li><a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/deck-preparations/"+item.ID) }>{ item.State }</a> — { fmt.Sprintf("%d cards", item.TotalCards) }
-				if preparation != nil && item.ID == preparation.ID {
-					<strong>Latest generation</strong>
-				}
-				</li>
-			}
-			</ul>
-		}
-		if evidenceDifferences != nil {
-			<h2>Evidence changes on this page since the previous Ready generation</h2>
-			if len(evidenceDifferences) == 0 {
-				<p>No saved-identity additions, removals, or stale representative sources were detected.</p>
-			} else {
-				<ul>
-				for _, difference := range evidenceDifferences {
-					<li><strong>{ difference.Identity }</strong> — { difference.Description }</li>
-				}
-				</ul>
-			}
-		}
-		if missingOnly {
-			<p><a class="vocabulary-selection-filter" href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,false)) }>Show all deck identities</a></p>
-		} else {
-			<p><a class="vocabulary-selection-filter" href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,1,true)) }>Show only identities missing current evidence</a></p>
-		}
-		<ul class="custom-deck-identity-list">
-		for _, identity := range identities {
-			<li><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(identity.CanonicalLemma, identity.UPOS, "")) }><strong>{ identity.CanonicalLemma }</strong> <code>{ identity.UPOS }</code></a> — { selectionEvidenceLabel(identity) }
-				if len(identity.EvidenceBooks) > 0 {
-					<ul aria-label={ "Current evidence for "+identity.CanonicalLemma }>
-					for _, book := range identity.EvidenceBooks {
-						<li>{ fmt.Sprintf("%d occurrences in the current analysis of ", book.OccurrenceCount) }<a class="vocabulary-lemma-link" href={ templ.SafeURL("/books/"+book.ID+"/analyses/"+book.AnalysisRunID) }>{ book.Title }</a> · <a class="vocabulary-lemma-link" href={ templ.SafeURL("/reading/books/"+book.ID+"/lemma-review") }>Review occurrences</a></li>
-					}
-					</ul>
-				}
-			if editable {
-				<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/remove") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="lemma" value={ identity.CanonicalLemma }/><input type="hidden" name="upos" value={ identity.UPOS }/><button class="button button--outline" type="submit">Remove</button></form>
-			}
-			</li>
-		}
-		</ul>
-		if lastPage > 1 {
-			<nav class="vocabulary-deck-pages" aria-label="Custom deck pages">
-			if page > 1 {
-				<a class="vocabulary-selection-page-link" href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,page-1,missingOnly)) }>Previous page</a>
-			}
-			if page < lastPage {
-				<a class="vocabulary-selection-page-link" href={ templ.SafeURL(customVocabularyDeckPageURL(deck.ID,page+1,missingOnly)) }>Next page</a>
-			}
-			</nav>
-		}
-		if editable {
-			<form class="custom-deck-form custom-deck-add-identity" method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/identities/add") }><input type="hidden" name="csrf_token" value={ csrf }/><label for="identity-lemma">Add an identity</label><input id="identity-lemma" name="lemma" required/><label for="identity-upos">Part of speech</label><select id="identity-upos" name="upos"><option>NOUN</option><option>VERB</option><option>ADJ</option><option>ADV</option></select><button type="submit">Add identity</button></form>
-			<a role="button" class="button button--outline button--quiet" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete-confirm") }>Delete Custom deck</a>
-		}
-		<p><a class="vocabulary-action-link" href="/vocabulary/selection">Browse selection and saved decks</a></p>
-		<p><a class="vocabulary-action-link" href="/vocabulary">Return to Browse</a></p>
-	}
-}
-
-templ CustomDeckPreparationStatusPage(user domain.User, csrf string, preparation domain.CustomDeckPreparation, deck domain.CustomVocabularyDeck) {
-	@ShellLayout("Custom deck preparation", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Custom deck · "+deck.Name, "Preparation status and the frozen sentence evidence for this generation.", nil)
-		@VocabularyViewsNav("browse")
-		<p>Study language <code>{ preparation.Language }</code> · { fmt.Sprintf("%d selected identities", preparation.SelectedIdentities) }.</p>
-		@CustomDeckAnkiImportWarning("Before downloading")
-		<p role="status"><strong>{ preparation.State }</strong></p>
-		if preparation.State == "queued" || preparation.State == "preparing" {
-			<p>This durable preparation can continue while you leave this page. Return here to check its status.</p>
-			<form method="post" action={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--quiet" type="submit">Cancel preparation</button></form>
-		} else if preparation.State == "ready" || preparation.State == "complete_with_omissions" {
-			<p>{ fmt.Sprintf("%d cards are ready", preparation.TotalCards) }.</p>
-			<h2>Frozen representative sentences</h2>
-			<ul>
-			for _, evidence := range preparation.Evidence {
-				<li><strong>{ evidence.Lemma }</strong> <code>{ evidence.UPOS }</code> — <span class="reading-text">{ evidence.Sentence }</span> <small>({ evidence.BookTitle})</small></li>
-			}
-			</ul>
-			if preparation.LatestReady {
-				<p><a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.ID+"/download") }>Download APKG</a></p>
-			} else {
-				<p>This generation is historical; only the newest Ready preparation is downloadable through Mouseion.</p>
-			}
-			if len(preparation.Omissions) > 0 {
-				<h2>Omitted identities</h2><ul>
-				for _, omission := range preparation.Omissions {
-					<li><strong>{ omission.Lemma }</strong> <code>{ omission.UPOS }</code> — { omission.Kind }: { omission.Reason }</li>
-				}
-				</ul>
-			}
-		} else if preparation.State == "failed" {
-			<p role="alert">Preparation did not complete. Review the saved deck and prepare again to retry. Your earlier Ready preparation remains available.</p>
-		} else if preparation.State == "cancelled" {
-			<p role="status">Preparation cancelled. You can return to the saved deck and prepare again when ready.</p>
-		}
-		if preparation.PreviousReadyID != "" {
-			<p role="status">Previous Ready preparation ({ fmt.Sprintf("%d cards", preparation.PreviousReadyCards) }): <a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/deck-preparations/"+preparation.PreviousReadyID+"/download") }>Download previous Ready APKG</a>.</p>
-		}
-		<p><a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>Return to Custom deck</a></p>
-	}
-}
-
-
-templ CustomVocabularyDeckDeleteConfirmView(user domain.User, csrf string, deck domain.CustomVocabularyDeck, editable bool) {
-	@ShellLayout("Delete Custom deck", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Delete Custom deck?", "This removes the saved deck and its identities from Mouseion.", nil)
-		<p><strong>{ deck.Name }</strong> ({ deck.Language })</p>
-		<p>Mouseion cannot revoke APKG files already downloaded or remove notes already imported into Anki. Deletion withdraws any associated artifact from future Mouseion downloads.</p>
-		if editable {
-			<form method="post" action={ templ.SafeURL("/vocabulary/decks/"+deck.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--quiet" type="submit">Confirm delete Custom deck</button></form>
-		} else {
-			<p role="status">This language is unavailable; deletion is disabled until it returns.</p>
-		}
-		<p><a class="vocabulary-action-link" href={ templ.SafeURL("/vocabulary/decks/"+deck.ID) }>Cancel and keep deck</a></p>
 	}
 }
 
@@ -1756,26 +1497,6 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 	}
 }
 
-templ VocabularyBrowseSelectionChangedPageView(user domain.User, csrf string) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Browse", "", nil)
-		<div id="vocabulary-recovery" aria-live="polite">
-			@Feedback(FeedbackWarning, "Selection not changed", "This identity no longer has current evidence. Refresh Browse before selecting it.")
-			<a class="vocabulary-action-link" href="/vocabulary">Refresh Browse</a>
-		</div>
-	}
-}
-
-templ VocabularyBrowseSelectionErrorPageView(user domain.User, csrf string) {
-	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Browse", "", nil)
-		<div id="vocabulary-recovery" aria-live="polite">
-			@Feedback(FeedbackError, "Selection could not be updated", "Your previous Browse results remain visible. Check the selection before retrying.")
-			<a class="vocabulary-action-link" href="/vocabulary/selection">Review Browse selection</a>
-		</div>
-	}
-}
-
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
 		if page.Page > 1 {
@@ -2207,5 +1928,3 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 		</article>
 	</li>
 }
-
-templ CustomDeckAnkiImportWarning(heading string) { <aside class="vocabulary-callout custom-deck-warning" aria-label="Anki import and overlap warning"><h2>{ heading }</h2><p>Custom decks can overlap with one another and with Book decks. Notes for the same owner, study language, lemma, and part of speech keep Mouseion's existing Anki note identity across these packages. Custom packages use a stable Anki deck name; your saved deck name appears in Mouseion, the download filename, and the Anki deck description.</p><p>Anki import choices affect whether overlapping notes update or move. In the tested default import, Anki kept the original note fields and Book deck placement; the source-occurrence Identity field differed. Review the import result in Anki rather than assuming a separate note, an in-place update, or a particular card location.</p><p>Renaming or deleting a saved Custom deck does not remove notes or packages already imported or downloaded. Deleting the deck in Mouseion does not delete its Anki deck or notes; review and clean up in Anki yourself if needed.</p></aside> }

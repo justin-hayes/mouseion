@@ -34,12 +34,12 @@ func main() {
 	store := fixtures.NewStore()
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: books, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularySelection: store, BrowseSelectionState: store, VocabularyConcordance: store}
+	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: books, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularyConcordance: store}
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
 		Enrichment: fixtures.Enrichment{}, PreparedDeck: fixtures.PreparedDeck{Store: store}, Capabilities: fixtures.Capabilities{},
-		CustomDeckPreparation: fixtures.CustomDeckPreparations{}, CatalogueSync: catalogueSync, LemmaSuggestions: fixtureLemmaSuggestions{},
+		CatalogueSync: catalogueSync, LemmaSuggestions: fixtureLemmaSuggestions{},
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,
 	})
 	if err != nil {
