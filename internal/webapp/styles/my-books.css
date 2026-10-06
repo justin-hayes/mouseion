@@ -6,21 +6,8 @@ body.my-books-shell .site-header__navigation .btn {
   text-decoration: none;
 }
 
-body.my-books-shell {
-  --color-base-100: var(--mouseion-color-surface-raised);
-  --color-base-200: var(--mouseion-color-surface-quiet);
-  --color-base-content: var(--mouseion-color-text);
-  --color-primary: var(--mouseion-color-accent);
-  --color-primary-content: var(--mouseion-color-surface-raised);
-  --radius-field: 0.125rem;
-  --depth: 0;
-  --noise: 0;
-  --btn-noise: none;
-  --btn-shadow: none;
-}
-
 body.my-books-shell .site-header__navigation .btn-primary {
-  color: var(--mouseion-color-surface-raised);
+  color: var(--color-primary-content);
   background: var(--mouseion-color-accent);
 }
 

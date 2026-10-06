@@ -817,9 +817,9 @@ templ LoginPage(csrf, message, next string, onboarding bool) {
 		<p class="alert alert-error login-screen__error" role="alert">{ message }</p>
 	}
 	if onboarding {
-		<form class="login-form" method="post" action="/onboarding"><input type="hidden" name="csrf_token" value={ csrf }/><label class="login-field">Username<input class="input input-bordered" name="username" required autocomplete="username"/></label><label class="login-field">Password<input class="input input-bordered" type="password" name="password" minlength="8" required autocomplete="new-password"/><small>Use at least 8 characters.</small></label><button class="btn btn-primary" type="submit">Create account</button></form>
+		<form class="login-form" method="post" action="/onboarding"><input type="hidden" name="csrf_token" value={ csrf }/><label class="login-field">Username<input name="username" required autocomplete="username"/></label><label class="login-field">Password<input type="password" name="password" minlength="8" required autocomplete="new-password"/><small>Use at least 8 characters.</small></label><button class="btn btn-primary" type="submit">Create account</button></form>
 	} else {
-		<form class="login-form" method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="next" value={ next }/><label class="login-field">Username<input class="input input-bordered" name="username" required autocomplete="username"/></label><label class="login-field">Password<input class="input input-bordered" type="password" name="password" required autocomplete="current-password"/></label><button class="btn btn-primary" type="submit">Sign in</button></form>
+		<form class="login-form" method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="next" value={ next }/><label class="login-field">Username<input name="username" required autocomplete="username"/></label><label class="login-field">Password<input type="password" name="password" required autocomplete="current-password"/></label><button class="btn btn-primary" type="submit">Sign in</button></form>
 	}
 	</article> }
 }

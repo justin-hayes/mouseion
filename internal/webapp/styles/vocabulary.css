@@ -1,18 +1,4 @@
-/* The Vocabulary shell hosts Browse, known-word import, Concordance, and their
- * HTMX fragments. Keep its foundation route-scoped. */
-
-body.vocabulary-shell {
-  --color-base-100: var(--mouseion-color-surface-raised);
-  --color-base-200: var(--mouseion-color-surface-quiet);
-  --color-base-content: var(--mouseion-color-text);
-  --color-primary: var(--mouseion-color-accent);
-  --color-primary-content: var(--mouseion-color-surface-raised);
-  --radius-field: 0.125rem;
-  --depth: 0;
-  --noise: 0;
-  --btn-noise: none;
-  --btn-shadow: none;
-}
+/* Vocabulary workflow forms and controls. */
 
 body.vocabulary-shell :is(button, a[role="button"], summary) {
   min-height: 44px;

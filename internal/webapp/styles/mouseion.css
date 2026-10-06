@@ -6,6 +6,7 @@
   --mouseion-color-text: #17232d;
   --mouseion-color-text-muted: #586873;
   --mouseion-color-border: #b8c5cc;
+  --mouseion-color-control-border: #71838d;
   --mouseion-color-accent: #2457b2;
   --mouseion-color-accent-hover: #173f87;
   --mouseion-color-focus: #2457b2;
@@ -13,6 +14,35 @@
   --mouseion-color-success: #286342;
   --mouseion-color-warning: #7a4d00;
   --mouseion-color-danger: #a03631;
+  color-scheme: light;
+
+  /* Public daisyUI theme contract for the components enabled in app.css. */
+  --color-base-100: var(--mouseion-color-surface-raised);
+  --color-base-200: var(--mouseion-color-surface-quiet);
+  --color-base-300: var(--mouseion-color-border);
+  --color-base-content: var(--mouseion-color-text);
+  --color-primary: var(--mouseion-color-accent);
+  --color-primary-content: var(--mouseion-color-surface);
+  --color-secondary: var(--mouseion-color-surface-quiet);
+  --color-secondary-content: var(--mouseion-color-text);
+  --color-neutral: var(--mouseion-color-text-muted);
+  --color-neutral-content: var(--mouseion-color-surface);
+  --color-info: var(--mouseion-color-info);
+  --color-info-content: var(--mouseion-color-surface);
+  --color-success: var(--mouseion-color-success);
+  --color-success-content: var(--mouseion-color-surface);
+  --color-warning: var(--mouseion-color-warning);
+  --color-warning-content: var(--mouseion-color-surface);
+  --color-error: var(--mouseion-color-danger);
+  --color-error-content: var(--mouseion-color-surface);
+  --radius-selector: var(--mouseion-radius);
+  --radius-field: var(--mouseion-radius);
+  --radius-box: var(--mouseion-radius);
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
   --mouseion-radius: 0.125rem;
   --mouseion-focus-width: 0.125rem;
 
@@ -46,6 +76,7 @@
   --mouseion-color-text: #edf3f5;
   --mouseion-color-text-muted: #aebdc5;
   --mouseion-color-border: #536571;
+  --mouseion-color-control-border: #718692;
   --mouseion-color-accent: #8fb4ff;
   --mouseion-color-accent-hover: #b6cdff;
   --mouseion-color-focus: #8fb4ff;
@@ -53,6 +84,11 @@
   --mouseion-color-success: #8ed0a6;
   --mouseion-color-warning: #f0c26b;
   --mouseion-color-danger: #ffaaa4;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 @media only screen and (prefers-color-scheme: dark) {
@@ -63,6 +99,7 @@
     --mouseion-color-text: #edf3f5;
     --mouseion-color-text-muted: #aebdc5;
     --mouseion-color-border: #536571;
+    --mouseion-color-control-border: #718692;
     --mouseion-color-accent: #8fb4ff;
     --mouseion-color-accent-hover: #b6cdff;
     --mouseion-color-focus: #8fb4ff;
@@ -70,6 +107,7 @@
     --mouseion-color-success: #8ed0a6;
     --mouseion-color-warning: #f0c26b;
     --mouseion-color-danger: #ffaaa4;
+    color-scheme: dark;
   }
 }
 
@@ -145,13 +183,17 @@ button.button--quiet:hover:not(:disabled) {
 }
 
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
-  min-height: 44px;
+  min-height: 48px;
   max-width: 100%;
-  border: 1px solid var(--mouseion-color-border);
+  border: 1px solid var(--mouseion-color-control-border);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-2) var(--mouseion-space-3);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea):user-invalid {
+  border-color: var(--mouseion-color-danger);
 }
 
 input[type="checkbox"],

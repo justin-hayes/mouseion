@@ -517,6 +517,63 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
+  test('anonymous sign-in follows system and explicit theme with usable native controls', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/login');
+    const username = page.getByLabel('Username');
+
+    const appearance = async () => username.evaluate((input) => {
+      const style = getComputedStyle(input);
+      const root = getComputedStyle(document.documentElement);
+      return {
+        colorScheme: root.colorScheme,
+        surface: root.getPropertyValue('--mouseion-color-surface').trim(),
+        border: style.borderTopColor,
+        background: style.backgroundColor,
+      };
+    });
+    const ratio = (first: string, second: string) => {
+      const luminance = (color: string) => {
+        const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+        if (!channels || channels.length !== 3) throw new Error(`Unexpected computed color: ${color}`);
+        return channels.map(channel => {
+          const value = channel / 255;
+          return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        }).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+      };
+      const values = [luminance(first), luminance(second)];
+      return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
+    };
+
+    let rendered = await appearance();
+    expect(rendered.colorScheme).toBe('light');
+    expect(ratio(rendered.border, rendered.background)).toBeGreaterThanOrEqual(3);
+
+    await page.emulateMedia({ colorScheme: 'dark' });
+    rendered = await appearance();
+    expect(rendered.colorScheme).toBe('dark');
+    expect(rendered.surface).not.toBe('#f3f6f7');
+    expect(ratio(rendered.border, rendered.background)).toBeGreaterThanOrEqual(3);
+
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'light'));
+    rendered = await appearance();
+    expect(rendered.colorScheme).toBe('light');
+    expect(rendered.surface).toBe('#f3f6f7');
+
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    rendered = await appearance();
+    expect(rendered.colorScheme).toBe('dark');
+    expect(ratio(rendered.border, rendered.background)).toBeGreaterThanOrEqual(3);
+
+    await username.fill('fixture-learner');
+    await page.getByLabel('Password').fill('fixture-password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/\/library/);
+    expect(await page.locator('html').evaluate((node) => getComputedStyle(node).colorScheme)).toBe('dark');
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'light'));
+    expect(await page.locator('html').evaluate((node) => getComputedStyle(node).colorScheme)).toBe('light');
+  });
+
   test('Reading respects the reduced-motion preference', async ({ page }) => {
     await signIn(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
