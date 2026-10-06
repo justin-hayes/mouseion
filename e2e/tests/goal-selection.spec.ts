@@ -33,7 +33,7 @@ test.describe('Current reading selection', () => {
     await currentCard.getByRole('link', { name: 'Open focused deck task' }).click();
     await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
     await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
-    await expect(page.getByText('Frozen reading snapshot')).toBeVisible();
+    await expect(page.getByText('Frozen reading snapshot', { exact: true })).toBeVisible();
     await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
   });
 
