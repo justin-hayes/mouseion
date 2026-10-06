@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
@@ -110,6 +111,46 @@ func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T)
 	}
 	assert.Contains(t, reading.String(), `href="/static/catalog-ops.css"`)
 	assert.NotContains(t, catalogs.String(), `href="/static/my-books.css"`)
+}
+
+func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) {
+	pages := []struct {
+		name      string
+		component templ.Component
+	}{
+		{name: "current reading", component: JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "")},
+		{name: "chooser", component: ReadingChooserPage(domain.User{Username: "learner"}, "csrf", readingChooserPageView{}, "", "")},
+		{name: "completion receipt", component: PrimaryGoalFinishPage(domain.User{Username: "learner"}, "csrf", primaryGoalFinishView{BookTitle: "A finished Book"})},
+	}
+	for _, page := range pages {
+		t.Run(page.name, func(t *testing.T) {
+			var output bytes.Buffer
+			require.NoError(t, page.component.Render(context.Background(), &output))
+			html := output.String()
+			assert.Contains(t, html, `href="/static/app.css"`)
+			assert.Contains(t, html, `href="/static/catalog-ops.css"`)
+			assert.Contains(t, html, `class="reading-shell"`)
+			assert.NotContains(t, html, `href="/static/vendor/pico-`)
+		})
+	}
+
+	var current, chooser bytes.Buffer
+	goal := testJourneyBook("book-1", "Current book", "ready")
+	require.NoError(t, JourneyPage(domain.User{}, "csrf", journeyPageView{Goal: &goal}, "", "").Render(context.Background(), &current))
+	candidate := readingChooserBookView{
+		Book:     domain.MyBook{Book: domain.Book{ID: "candidate-1", Title: "Candidate book"}},
+		Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 1},
+	}
+	require.NoError(t, ReadingChooserBook(candidate, "csrf", "", "").Render(context.Background(), &chooser))
+	assert.Contains(t, current.String(), `<button class="btn btn-primary" type="submit">Mark reading finished</button>`)
+	assert.Contains(t, current.String(), `class="btn btn-outline"`)
+	assert.Contains(t, chooser.String(), `<button class="btn btn-primary" type="submit">Confirm start reading</button>`)
+	assert.Contains(t, chooser.String(), `class="confirmation"`)
+
+	var fragment bytes.Buffer
+	require.NoError(t, PrimaryGoalFinish(primaryGoalFinishView{BookTitle: "A finished Book"}).Render(context.Background(), &fragment))
+	assert.Contains(t, fragment.String(), `class="journey-goal journey-finish-outcome"`)
+	assert.NotContains(t, fragment.String(), `<html`)
 }
 
 func TestVocabularyBrowseAndSelectionUseOwnedStylesWithoutPico(t *testing.T) {

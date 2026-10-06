@@ -16,6 +16,9 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
   const page = await context.newPage();
   await signIn(page);
   await page.goto('/reading');
+  await expect(page.locator('body')).toHaveClass('reading-shell');
+  await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+  await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
 
   const goal = page.locator('#primary-goal-section');
   const finishDisclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
@@ -24,6 +27,7 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
   const finishForm = finishDisclosure.locator('form[action="/reading/finish"]');
   await finishDisclosure.locator('summary').click();
   await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
+  await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toHaveClass(/btn-primary/);
   await expect(goal).toContainText('Record the reading achievement');
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);
   await expect(finishForm.locator('input[name="expected_current_book_id"]')).toHaveCount(1);
@@ -52,6 +56,9 @@ test('finishing current reading records Read history and supports reading again'
   await page.getByLabel('Study language').selectOption('it');
   await expect(page).toHaveURL(/\/library$/);
   await page.goto('/reading');
+  await expect(page.locator('body')).toHaveClass('reading-shell');
+  await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+  await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
 
   const currentReading = page.locator('#primary-goal-section');
   if (await currentReading.count() === 0) {
@@ -70,6 +77,11 @@ test('finishing current reading records Read history and supports reading again'
   await finishDisclosure.getByRole('button', { name: 'Mark reading finished' }).click();
 
   await expect(page.getByRole('heading', { name: /Reading finished/i })).toBeVisible();
+  // HTMX swaps only the receipt fragment; the host page keeps the route-owned
+  // stylesheets that style both Mouseion content and the compiled controls.
+  await expect(page.locator('body')).toHaveClass('reading-shell');
+  await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+  await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(1);
   await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
   await expect(page.locator('#primary-goal-section')).toHaveClass(/journey-finish-outcome/);
   await expect(page.locator('#primary-goal-section')).toContainText('Vocabulary transition');
