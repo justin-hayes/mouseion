@@ -11,8 +11,9 @@ The current disposition and current-reading contract is recorded in
 records the historical Goal and ordered-Journey model.
 [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
 implemented contextual Gloss vocabulary below.
-The Book-scoped Vocabulary Browse inventory below is an accepted target;
-the shipped Browse still spans analyzed Books in the active study language.
+The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
+definitions below are accepted targets under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md);
+the shipped application has not completed the Reading-owned selection cutover.
 
 ## Language
 
@@ -50,16 +51,23 @@ verified mastery; card generation never marks vocabulary as known.
 _Avoid_: known words, learned vocabulary.
 
 **Recurring vocabulary**:
-Unknown lemmas appearing at least N times in an analyzed book; the pool a
-prepared deck or current-reading snapshot selects. N is a selection parameter
-with a default of three, and selection makes no coverage claim. Current Known
-vocabulary and Reserved vocabulary in the same study language are excluded;
-generated provenance is not an exclusion state.
+Unknown lemmas appearing at least N times in an analyzed Book; one source of
+Book vocabulary candidates. N is a selection parameter with a default of
+three, and selection makes no coverage claim. Current Known vocabulary and
+Reserved vocabulary in the same study language are excluded; generated
+provenance is not an exclusion state.
 _Avoid_: frequent words, deck coverage.
 
+**Book vocabulary candidates**:
+Unknown vocabulary eligible for a Book's prepared deck and current-reading
+vocabulary snapshot: either recurring in that Book or appearing twice there
+and frequently across the learner's currently analyzed Books in the same
+study language, including that Book. Generated provenance does not exclude it.
+_Avoid_: recurring vocabulary (only one route into this pool), corpus words.
+
 **Reserved vocabulary**:
-The frozen recurring-vocabulary snapshot held by a current reading in its study
-language, neither counted as Known nor available for selection while active.
+The frozen Book-vocabulary-candidate snapshot held by a current reading in its
+study language, neither counted as Known nor available for selection while active.
 Stopping, switching, setting aside, or finishing releases the reservation.
 _Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
 
@@ -70,7 +78,7 @@ Book deck; generation does not establish learner knowledge.
 _Avoid_: difficult words, never generated vocabulary.
 
 **Current-reading vocabulary snapshot**:
-The immutable recurring-vocabulary identity set frozen from the Book's exact
+The immutable Book-vocabulary-candidate identity set frozen from the Book's exact
 source and current analysis when reading starts. Later evidence and deck changes
 cannot mutate it; rereading freezes a new snapshot.
 _Avoid_: deck contents, generated vocabulary, study snapshot.
@@ -95,20 +103,12 @@ Its vocabulary identity is the full lemma, not the analyzer's base lemma.
 _Avoid_: particle verb, prefix verb.
 
 **Prepared deck**:
-An Anki recognition deck built asynchronously from the recurring vocabulary of
-one exact completed analysis of a Book and that analysis's EPUB snapshot. The
-ready deck is downloaded and studied in the learner's own Anki; preparation
-does not mark vocabulary Known. Reading completion owns the vocabulary
-transition; a current reading with an empty snapshot requires no deck.
+An Anki recognition deck built asynchronously from a current reading's frozen
+Book vocabulary candidates and exact completed analysis of that Book. The ready
+deck is downloaded and studied in the learner's own Anki; preparation does not
+mark vocabulary Known. Reading completion owns the vocabulary transition; a
+current reading with an empty snapshot requires no deck.
 _Avoid_: study plan, in-app review deck.
-
-**Custom deck**:
-An owner- and study-language-scoped saved, editable shortlist of effective
-vocabulary identities evidenced across Books, with independently prepared study
-artifacts. It is independent of any one Book's Prepared deck and of Reading's
-frozen vocabulary snapshot, and its creation or use does not change Known or
-Reserved vocabulary.
-_Avoid_: custom Prepared deck, Reading deck.
 
 **Deck specification**:
 The frozen, presentation-independent data of a prepared deck: the selected

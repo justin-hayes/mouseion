@@ -52,8 +52,12 @@ and surface a material conflict rather than silently choosing one.
   To Read's ensure-once analysis trigger.
 - [`../features/reading-workflow.md`](../features/reading-workflow.md) — shipped
   Inbox, To Read, current-reading, completion-history, and rereading workflow.
-- [`../features/vocabulary-browse-concordance-and-custom-decks.md`](../features/vocabulary-browse-concordance-and-custom-decks.md)
-  — accepted, partially shipped Browse, Concordance, and Custom deck contract.
+- [`../features/vocabulary-browse-and-concordance.md`](../features/vocabulary-browse-and-concordance.md)
+  — accepted, partially shipped Browse and Concordance contract.
+- [`../features/reading-owned-book-vocabulary.md`](../features/reading-owned-book-vocabulary.md)
+  — accepted, not yet implemented Reading-owned freeze and Book-deck rule;
+  [the former combined spec](../features/vocabulary-browse-concordance-and-custom-decks.md)
+  is historical.
 - [`workflows/learning-campaign.md`](workflows/learning-campaign.md) — historical
   record of the retired Reading Journey / Primary Goal model; not current product
   behavior.

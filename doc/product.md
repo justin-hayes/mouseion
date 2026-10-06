@@ -66,7 +66,8 @@ language for import.
 - [Sentence-quality scoring](features/sentence-quality-scoring.md) — a deterministic GDEX-informed rubric computed at export time over the persisted corpus: a finite-verb-and-subject knock-out plus gradual ranking (subordinate-clause placement, deixis, entity density, length).
 - [Dictionary gloss and morphology enrichment](features/dictionary-gloss-enrichment.md) — a built-in dictionary provider over a build-time-derived SQLite index (Wiktextract/Kaikki) supplying consent-free, deterministic English glosses and morphology (article, gender, plural) for German, Italian, and Modern Greek.
 - [Learner review of analyzer lemmas](features/lemma-review-and-correction.md) — implemented Book- and analysis-scoped review of suspicious occurrence lemmas before reading/deck vocabulary freezes; the analyzer evidence remains immutable.
-- [Vocabulary Browse, Concordance, and Custom decks](features/vocabulary-browse-concordance-and-custom-decks.md) — **accepted specification, partially shipped**: the shipped cross-Book Browse will narrow to the Current reading's Book, show not-yet-accounted-for identities by descending frequency, and leave Concordance, saved selections, and independent Custom decks cross-Book.
+- [Vocabulary Browse and Concordance](features/vocabulary-browse-and-concordance.md) — **accepted, partially shipped**: Current-reading Book Browse with effective local and cross-Book counts and cross-Book evidence investigation; retire Browse selection and Custom deck UI.
+- [Reading-owned Book vocabulary](features/reading-owned-book-vocabulary.md) — **accepted, implementation pending**: freeze once on starting Current reading, include corpus-qualified two-occurrence candidates, and prepare new Book decks only from that snapshot. [ADR 0085](adr/0085-reading-owned-book-vocabulary.md) owns the boundary.
 
 Retired feature records are preserved under [`doc/archive/features/`](archive/features/).
 
@@ -76,11 +77,17 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
 2. **Reading intent** — move a Book from Inbox to To Read when it is a candidate to read. This is the learner-initiated exception to metadata-only sync: it records the disposition, acquires the current EPUB when needed, and ensures one analysis for the current content revision, selecting declared main text when safe and otherwise using the complete snapshot.
 3. **Analysis and evidence** — observe asynchronous analysis producing an immutable completed corpus, then inspect current evidence from the Reading surface. Start, stop, set aside, switch, and finish actions change current-reading state explicitly. Open the focused preparation task separately when deck work is wanted. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-5. **Vocabulary selection** — classify imported and completed-reading vocabulary as modeled Known, exclude the current reading's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. Select every eligible unknown lemma appearing at least three times in the analyzed EPUB; the minimum occurrence count is a selection parameter, not yet customizable.
+5. **Vocabulary selection** — classify imported and completed-reading vocabulary as modeled Known, exclude the current reading's language-scoped Reserved snapshot without counting it as Known, and treat generated deck history as provenance rather than learner state. The shipped rule selects every eligible unknown lemma appearing at least three times in the analyzed EPUB. The [accepted next rule](features/reading-owned-book-vocabulary.md) also includes twice-occurring identities with at least ten owner-local, same-language cross-Book occurrences at the time Reading starts (provisional threshold, unvalidated on production data).
 6. **Sentence selection** — use an example from the completed analysis for each selected lemma.
 7. **Prepared deck** — from a completed analysis, asynchronously build an owner-scoped `.apkg`
    named `Mouseion::<language>::<book title>`. Each Book has one current deck; the ready deck is available from the book and operational history. Cards remain ordered by each lemma's first
    encounter in the book.
+
+The accepted [Reading-owned preparation](features/reading-owned-book-vocabulary.md)
+will remove pre-reading Book-deck submissions and independent custom-deck UI;
+the shipped direct and custom-deck paths remain until implementation. Historical
+Book artifacts will remain downloadable; custom-deck rows/artifacts will be
+retained temporarily without learner-facing access.
 
 Generated-deck history and modeled Known vocabulary are deliberately separate. Generating a card records that the owner was assigned the lemma, with its Book/deck provenance, but never by itself adds it to Known vocabulary. A current Book's frozen snapshot is Reserved in its study language but is not Known. Finishing current reading adds the eligible snapshot identities to modeled Known vocabulary using set semantics and records reading completion independently; the transition is idempotent and does not claim verified mastery. See the [Reading workflow specification](features/reading-workflow.md) and [ADR 0078](adr/0078-book-dispositions-and-current-reading.md). ADR 0072 is retained as a historical record of the retired Goal/ordered-Journey model.
 
@@ -169,9 +176,9 @@ amendments.
 79. [ADR 0079: Contextual glosses require LLM-assisted deck preparation](adr/0079-contextual-glosses-require-llm.md) — replaces the consented, dictionary-default gloss path with mandatory contextual LLM glosses informed by Wiktionary evidence and sentence context; preserves existing decks and Reading independence. The proposed FreeDict/PanLex expansion was canceled.
 80. [ADR 0080: LLM-proposed English target alignment on recognition cards](adr/0080-llm-proposed-english-target-alignment.md) — accepts validated multi-span English alignments from new provider responses while leaving existing cached translations and ready decks unchanged until explicit re-preparation.
 81. [ADR 0081: Learner-owned occurrence lemma corrections before vocabulary freeze](adr/0081-learner-owned-occurrence-lemma-corrections.md) — derives owner-scoped effective vocabulary from immutable analysis plus learner-confirmed occurrence decisions; gates only high-risk unresolved review before Reading or deck freeze.
-82. [ADR 0082: Independent saved Custom decks and frozen preparations](adr/0082-independent-custom-vocabulary-decks.md) — **accepted, not yet implemented**: separates editable cross-Book selections and their frozen generations from Reading and Book Prepared decks without changing learner knowledge state.
 83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted; implementation complete in PR #1404, awaiting human review and merge**: removes duplicate Lit results and migrates the app to HTMX 4 without Alpine.
 84. [ADR 0084: Project effective vocabulary counts for Browse](adr/0084-browse-effective-count-projection.md) — **accepted; partially implemented**: Browse gates on exact per-Book projections and durable rebuilds; the 500-Book/50-million-token acceptance measurement remains pending.
+85. [ADR 0085: Reading owns Book vocabulary and deck preparation](adr/0085-reading-owned-book-vocabulary.md) — **accepted; implementation pending**: adds corpus-qualified two-occurrence candidates, freezes Reading once before Book-deck preparation, and retires independent custom-deck selection and UI without prematurely deleting stored artifacts.
 
 ### Superseded or historical decisions
 
@@ -188,6 +195,7 @@ amendments.
 - [ADR 0037: Cross-book vocabulary projection and advisory Journey ordering](adr/0037-cross-book-projection-advisory-ordering.md) — superseded by ADR 0072's learner-order forecast and subsequently retired by ADR 0078.
 - [ADR 0053: Book-anchored vocabulary consolidation](adr/0053-book-anchored-vocabulary-consolidation.md) — superseded by ADR 0072 for reservation, study, and graduation semantics; historical artifacts remain preserved.
 - [ADR 0019: Explicit generated-vocabulary exclusion policy](adr/0019-generated-vocabulary-exclusion.md) — its generated-vocabulary exclusion semantics are superseded by ADR 0072; provenance distinction remains historical context.
+- [ADR 0082: Independent saved Custom decks and frozen preparations](adr/0082-independent-custom-vocabulary-decks.md) — superseded by ADR 0085; records the previously implemented custom-deck lifecycle and its trade-offs as historical context, not a current target.
 
 ## Deployment and operations
 

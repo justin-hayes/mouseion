@@ -10,8 +10,8 @@ is historical. Learner-facing copy uses reading and preparation facts as defined
 [`terminology.md`](../terminology.md).
 
 This document describes the **shipped import workflow**. The accepted,
-partially shipped [Vocabulary Browse, Concordance, and Custom deck
-specification](../../features/vocabulary-browse-concordance-and-custom-decks.md)
+partially shipped [Vocabulary Browse and Concordance
+specification](../../features/vocabulary-browse-and-concordance.md)
 adds peer views beneath the same destination; it does not replace the import
 contract or turn import into a Known-vocabulary list.
 

@@ -2,6 +2,11 @@
 
 Status: **Implemented** · Date: 2026-09-26
 
+The accepted but not yet implemented [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
+contract adds corpus-qualified two-occurrence candidates at the starting freeze
+and limits new Book-deck submission to the Current reading. The shipped workflow
+below remains accurate until that cutover.
+
 ## Goal
 
 Support an explicit, reversible path from catalog discovery to reading without
