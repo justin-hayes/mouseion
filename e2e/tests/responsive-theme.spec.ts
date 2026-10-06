@@ -217,7 +217,7 @@ test.describe('responsive and theme regression coverage', () => {
       expect(await addConnectionForm.getByLabel('Name', { exact: true }).evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
       expect(await textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
       await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
-      expect(await textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
+      await expect.poll(() => textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
       await expectNoPageOverflow(page);
     }
 
