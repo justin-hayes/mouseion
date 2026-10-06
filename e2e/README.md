@@ -31,6 +31,13 @@ geometry, focus, and a JavaScript-disabled sign-in/navigation/form/disclosure
 path. Fixture state is shared, so browser projects and workers remain serialized
 and the journey restores the active study language before finishing.
 
+The focused Concordance journey also runs in all four WebKit projects. It checks
+the applied lookup and Book scope, occurrence-list semantics in Playwright's
+browser accessibility snapshot, native context disclosures, sentence-study
+navigation/return, and the JavaScript-disabled server-rendered path. An
+accessibility snapshot is browser automation evidence, not a real VoiceOver
+validation; assistive-technology verification must be reported separately.
+
 Screenshots, video, traces, and the HTML report are retained for failures only.
 
 `@playwright/test` is updated through ordinary dependency changes with the
