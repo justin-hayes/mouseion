@@ -30,12 +30,13 @@ test.describe('migration and epistemic regression coverage', () => {
     await expectPostFormsCarryCSRF(page);
   });
 
-  test('loads the compiled foundation only on My Books and keeps route styles isolated', async ({ page }) => {
+  test('loads compiled foundations only on owning routes and keeps styles isolated', async ({ page }) => {
     for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/import', '/vocabulary/concordance', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href="/static/my-books.css"]')).toHaveCount(path === '/library' ? 1 : 0);
+      await expect(page.locator('link[rel="stylesheet"][href="/static/catalog-ops.css"]')).toHaveCount(path === '/library' ? 0 : 1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
       await expect(page.locator('[class~="outline"], [class~="secondary"], [class~="container"], [class~="grid"]')).toHaveCount(0);
     }

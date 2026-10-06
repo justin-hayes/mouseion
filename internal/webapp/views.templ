@@ -76,10 +76,10 @@ window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
       if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));
       target.outerHTML = await readyResponse.text(); return;
     } else if (active) {
-      html += '<button type="button" class="button button--outline button--quiet" data-cancel-preparation>Cancel preparation</button>';
+      html += '<button type="button" class="btn btn-outline" data-cancel-preparation>Cancel preparation</button>';
     } else {
       if (preparation.error) html += '<p role="alert">' + window.escapeHtml(preparation.error) + '</p>';
-      html += '<button type="button" data-retry-preparation>Retry preparation</button>';
+      html += '<button type="button" class="btn btn-primary" data-retry-preparation>Retry preparation</button>';
     }
     target.innerHTML = html;
     var cancel = target.querySelector('[data-cancel-preparation]');
@@ -208,7 +208,7 @@ document.addEventListener('htmx:after:swap', function (evt) {
     region.removeAttribute('data-focus-id');
   });
 });
-	</script>@loginStylesheet(loginStylesRequested(shellStyles))@myBooksStylesheet(myBooksStylesRequested(shellStyles))</head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
+	</script>@loginStylesheet(loginStylesRequested(shellStyles))@myBooksStylesheet(myBooksStylesRequested(shellStyles))@catalogOpsStylesheet(catalogOpsStylesRequested(shellStyles))</head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><ul class="site-header__brand"><li><a href="/"><strong>Mouseion</strong></a></li></ul>
 	if user != nil {
 		<ul class="site-header__navigation">
 		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li>@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
@@ -671,7 +671,7 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 			} else if deckPreparationEmpty(preparation) {
 				<p>No cards were created from this snapshot.</p>
 			} else {
-			<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+			<a role="button" class="btn btn-primary" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
 		}
 	} else if deckPreparationActive(preparation) {
@@ -760,7 +760,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 					}
 				}
 				@ActionGroup() {
-					<a role="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+					<a role="button" class="btn btn-primary" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button>
@@ -770,7 +770,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				@DeckJourneyAction(journeyAction)
 			}
 		} else if deckPreparationActive(preparation) {
-			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel preparation</button></form>
+					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel preparation</button></form>
 		} else {
 			if preparation.State == domain.DeckPreparationFailed {
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessageFor(preparation))
@@ -781,7 +781,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>
 					<p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p>
-					<button type="submit">Retry preparation</button>
+					<button class="btn btn-primary" type="submit">Retry preparation</button>
 				</form>
 			}
 		}
@@ -856,14 +856,14 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 			if bookID != "" {
 				<input type="hidden" name="book_id" value={ bookID }/>
 			}
-			<div class="form-grid"><label>Name<input name="name" required/></label><label>Catalog URL<input type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button>Add catalog</button></form></article>
+		<div class="form-grid"><label>Name<input class="input" name="name" required/></label><label>Catalog URL<input class="input" type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input class="input" name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="btn btn-primary">Add catalog</button></form></article>
 		if len(connections) > 0 {
 			<h2>Catalog maintenance</h2>
 			<p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="btn btn-outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
@@ -910,10 +910,10 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 		}
 		@ActionGroup() {
 			if jobRetryable(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry analysis</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-primary">Retry analysis</button></form>
 			}
 			if jobRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel analysis</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel analysis</button></form>
 			}
 		}
 		if status.CorpusID != "" {
@@ -1870,7 +1870,7 @@ templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
 			@Feedback(FeedbackError, "Translation needs attention", status.Error+" Review the affected book and try again when the provider is available.")
 		}
 		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel translations</button></form>
+			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel translations</button></form>
 		}
 	}
 }
@@ -1997,10 +1997,10 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 		}
 		@ActionGroup() {
 			if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button>Retry catalog sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-primary">Retry catalog sync</button></form>
 			}
 			if catalogueSyncStatusRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet">Cancel catalog sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel catalog sync</button></form>
 			}
 		}
 		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>
@@ -2031,7 +2031,7 @@ templ JourneyAnalysisDeck(item journeyBookView, csrf string) {
 					if deckPreparationEmpty(*item.AnalysisPreparation) {
 						<p role="note">No recurring vocabulary was found, so no cards were created.</p>
 					} else {
-						<a role="button" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
+						<a role="button" class="btn btn-primary" download href={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/download") }>Download deck</a>
 						<form class="inline-action" method="post" action={ templ.SafeURL("/deck-preparations/"+item.AnalysisPreparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
 					}
 				}

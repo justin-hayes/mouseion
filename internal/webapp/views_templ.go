@@ -84,7 +84,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · Mouseion</title><link rel=\"stylesheet\" href=\"/static/app.css\"><script src=\"/static/vendor/htmx-4.0.0.min.js\" defer></script><script src=\"/static/my-books.js\" defer></script><script>\nwindow.escapeHtml = function (s) {\n  return String(s).replace(/[&<>\"']/g, function (c) {\n    return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];\n  });\n};\ndocument.addEventListener('submit', function (evt) {\n  var form = evt.target.closest && evt.target.closest('form[data-acquire]');\n  if (!form) return;\n  var button = form.querySelector('button[type=\"submit\"]');\n  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }\n});\ndocument.addEventListener('submit', async function (evt) {\n  var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');\n  if (!form) return;\n  evt.preventDefault();\n  var button = form.querySelector('button[type=\"submit\"]');\n  var status = form.parentElement.querySelector('[data-deck-preparation]');\n  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Preparing deck…'; }\n  try {\n    var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {'Accept': 'application/json'}});\n    if (!response.ok) {\n      var detail = (await response.text()).trim();\n      throw new Error(detail || ('Request failed with status ' + response.status));\n    }\n    form.hidden = true;\n    status.hidden = false;\n    await window.pollDeckPreparation(response.url, status, form);\n  } catch (error) {\n    status.hidden = false;\n    status.innerHTML = '<p role=\"alert\">Deck preparation could not start: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>';\n    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = 'Prepare deck'; }\n  }\n});\nwindow.pollDeckPreparation = async function (statusURL, target, sourceForm) {\n  try {\n    var response = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'application/json'}});\n    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));\n    var preparation = await response.json();\n    var stateLabels = {queued: 'Deck queued', preparing: 'Preparing deck', ready: 'Deck ready', failed: 'Deck preparation failed', cancelled: 'Deck preparation cancelled'};\n    var phaseLabels = {queued: 'Waiting to start', freezing: 'Freezing the selected vocabulary', submitting: 'Submitting translation requests', waiting: 'Waiting for Batch translation; it can take hours (up to 24h)', reconciling: 'Reconciling translation results', retrying: 'Retrying temporary translation failures', translating: 'Translating selected vocabulary', assembling: 'Assembling the Anki package', finalizing: 'Finalizing the Anki package', completed: 'Preparation complete', failed: 'Preparation failed', cancelled: 'Preparation cancelled'};\n    var active = preparation.state === 'queued' || preparation.state === 'preparing';\n    var html = '<h3>' + window.escapeHtml(stateLabels[preparation.state] || 'Deck preparation') + '</h3>';\n    if (active) {\n      html += '<p aria-busy=\"true\">' + window.escapeHtml(phaseLabels[preparation.phase] || (preparation.state === 'queued' ? 'Waiting for preparation to begin' : 'Preparing the deck')) + '…</p>';\n      var t = preparation.translation || {};\n      if (Number(t.eligible || 0) > 0) html += 'Translations: ' + Number(t.completed || 0) + ' complete · ' + Number(t.failed || 0) + ' unavailable · ' + Number(t.retrying || 0) + ' retrying · ' + Number(t.pending || 0) + ' waiting.';\n      var b = preparation.batch || {};\n      if (Number(b.requests || 0) > 0) html += 'Batch requests: ' + Number(b.completed || 0) + ' complete · ' + Number(b.failed || 0) + ' failed · ' + Number(b.expired || 0) + ' expired' + (Number(b.age_seconds || 0) > 0 ? ' · running for ' + Math.floor(Number(b.age_seconds || 0) / 3600) + 'h' : '') + '.';\n    }\n    html += '<progress aria-label=\"Deck preparation progress\" value=\"' + Number(preparation.progress || 0) + '\" max=\"100\">' + Number(preparation.progress || 0) + '%</progress>';\n    if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';\n    if (preparation.ready) {\n      var readyResponse = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'text/html', 'HX-Request-Type': 'partial'}});\n      if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));\n      target.outerHTML = await readyResponse.text(); return;\n    } else if (active) {\n      html += '<button type=\"button\" class=\"button button--outline button--quiet\" data-cancel-preparation>Cancel preparation</button>';\n    } else {\n      if (preparation.error) html += '<p role=\"alert\">' + window.escapeHtml(preparation.error) + '</p>';\n      html += '<button type=\"button\" data-retry-preparation>Retry preparation</button>';\n    }\n    target.innerHTML = html;\n    var cancel = target.querySelector('[data-cancel-preparation]');\n    if (cancel) cancel.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\\/status$/, '/cancel'), target, sourceForm); });\n    var retry = target.querySelector('[data-retry-preparation]');\n    if (retry) retry.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\\/status$/, '/retry'), target, sourceForm); });\n    if (active) setTimeout(function () { window.pollDeckPreparation(statusURL, target, sourceForm); }, 1500);\n  } catch (error) {\n    target.innerHTML = '<p role=\"alert\">Could not check deck preparation: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p><button type=\"button\" data-check-preparation>Try again</button>';\n    target.querySelector('[data-check-preparation]').addEventListener('click', function () { window.pollDeckPreparation(statusURL, target, sourceForm); });\n  }\n};\nwindow.updateDeckPreparation = async function (action, target, sourceForm) {\n  var data = new FormData();\n  data.set('csrf_token', sourceForm.querySelector('[name=\"csrf_token\"]').value);\n  try {\n    var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin', headers: {'Accept': 'application/json'}});\n    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));\n    await window.pollDeckPreparation(action.replace(/\\/(cancel|retry)$/, '/status'), target, sourceForm);\n  } catch (error) {\n    target.insertAdjacentHTML('beforeend', '<p role=\"alert\">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');\n  }\n};\nwindow.showConcordanceNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;\n  var recovery = document.getElementById('concordance-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.action;\n  retry.textContent = 'Retry Concordance lookup';\n  recovery.append(message, retry);\n};\nwindow.showVocabularyNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#vocabulary-workflow') || ctx.response) return;\n  var recovery = document.getElementById('vocabulary-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = ctx.request.method === 'POST'\n    ? 'The selection request received no response. It may have succeeded; check the selection before trying again.'\n    : 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.method === 'POST' ? '/vocabulary/selection' : ctx.request.action;\n  retry.textContent = ctx.request.method === 'POST' ? 'Review Browse selection' : 'Retry Browse';\n  recovery.append(message, retry);\n};\ndocument.addEventListener('htmx:before:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  var source = ctx && ctx.sourceElement;\n  if (!source || !source.matches('form[data-vocabulary-selection]')) return;\n  ctx.vocabularySelection = {\n    lemma: source.querySelector('[name=\"lemma\"]').value,\n    upos: source.querySelector('[name=\"upos\"]').value\n  };\n});\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;\n  if (ctx.vocabularySelection) {\n    var forms = document.querySelectorAll('#vocabulary-workflow form[data-vocabulary-selection]');\n    for (var i = 0; i < forms.length; i++) {\n      if (forms[i].querySelector('[name=\"lemma\"]').value === ctx.vocabularySelection.lemma && forms[i].querySelector('[name=\"upos\"]').value === ctx.vocabularySelection.upos) {\n        forms[i].querySelector('button').focus();\n        return;\n      }\n    }\n  }\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) {\n    summary.focus();\n    var clicked = ctx.sourceEvent && ctx.sourceEvent.target;\n    if (clicked && clicked.closest && clicked.closest('nav[aria-label=\"Browse pages\"]')) {\n      summary.scrollIntoView({block: 'start'});\n    }\n  }\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (window.location.pathname !== '/vocabulary') return;\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || (ctx.target.id !== 'concordance-workflow' && ctx.target.id !== 'concordance-results')) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\nfunction focusConcordanceSummaryForMissingReturnTarget() {\n  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;\n  var target = new URLSearchParams(window.location.search).get('focus');\n  if (!target || document.getElementById(target)) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n}\ndocument.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);\nwindow.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);\ndocument.addEventListener('htmx:after:swap', function (evt) {\n\t\t\t['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {\n\t\t\tvar region = document.getElementById(id);\n\t\t\tif (!region) return;\n\t\t\tvar focusID = region.getAttribute('data-focus-id');\n\t\t\tif (!focusID) return;\n\t\t\tvar ctx = evt.detail && evt.detail.ctx;\n\t\t\tvar swappedTarget = ctx && ctx.target;\n\t\t\tif (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;\n\t\t\tvar source = ctx && ctx.sourceElement;\n\t\t\tvar targetSelector = source && source.getAttribute('hx-target');\n\t\t\tvar target = targetSelector ? document.querySelector(targetSelector) : null;\n\t\t\tvar targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));\n\t\t\tif (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {\n\t\t\t  region.removeAttribute('data-focus-id');\n\t\t\t  return;\n    }\n    var focusTarget = document.getElementById(focusID);\n    if (focusTarget) focusTarget.focus();\n    region.removeAttribute('data-focus-id');\n  });\n});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · Mouseion</title><link rel=\"stylesheet\" href=\"/static/app.css\"><script src=\"/static/vendor/htmx-4.0.0.min.js\" defer></script><script src=\"/static/my-books.js\" defer></script><script>\nwindow.escapeHtml = function (s) {\n  return String(s).replace(/[&<>\"']/g, function (c) {\n    return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];\n  });\n};\ndocument.addEventListener('submit', function (evt) {\n  var form = evt.target.closest && evt.target.closest('form[data-acquire]');\n  if (!form) return;\n  var button = form.querySelector('button[type=\"submit\"]');\n  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }\n});\ndocument.addEventListener('submit', async function (evt) {\n  var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');\n  if (!form) return;\n  evt.preventDefault();\n  var button = form.querySelector('button[type=\"submit\"]');\n  var status = form.parentElement.querySelector('[data-deck-preparation]');\n  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Preparing deck…'; }\n  try {\n    var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {'Accept': 'application/json'}});\n    if (!response.ok) {\n      var detail = (await response.text()).trim();\n      throw new Error(detail || ('Request failed with status ' + response.status));\n    }\n    form.hidden = true;\n    status.hidden = false;\n    await window.pollDeckPreparation(response.url, status, form);\n  } catch (error) {\n    status.hidden = false;\n    status.innerHTML = '<p role=\"alert\">Deck preparation could not start: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>';\n    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = 'Prepare deck'; }\n  }\n});\nwindow.pollDeckPreparation = async function (statusURL, target, sourceForm) {\n  try {\n    var response = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'application/json'}});\n    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));\n    var preparation = await response.json();\n    var stateLabels = {queued: 'Deck queued', preparing: 'Preparing deck', ready: 'Deck ready', failed: 'Deck preparation failed', cancelled: 'Deck preparation cancelled'};\n    var phaseLabels = {queued: 'Waiting to start', freezing: 'Freezing the selected vocabulary', submitting: 'Submitting translation requests', waiting: 'Waiting for Batch translation; it can take hours (up to 24h)', reconciling: 'Reconciling translation results', retrying: 'Retrying temporary translation failures', translating: 'Translating selected vocabulary', assembling: 'Assembling the Anki package', finalizing: 'Finalizing the Anki package', completed: 'Preparation complete', failed: 'Preparation failed', cancelled: 'Preparation cancelled'};\n    var active = preparation.state === 'queued' || preparation.state === 'preparing';\n    var html = '<h3>' + window.escapeHtml(stateLabels[preparation.state] || 'Deck preparation') + '</h3>';\n    if (active) {\n      html += '<p aria-busy=\"true\">' + window.escapeHtml(phaseLabels[preparation.phase] || (preparation.state === 'queued' ? 'Waiting for preparation to begin' : 'Preparing the deck')) + '…</p>';\n      var t = preparation.translation || {};\n      if (Number(t.eligible || 0) > 0) html += 'Translations: ' + Number(t.completed || 0) + ' complete · ' + Number(t.failed || 0) + ' unavailable · ' + Number(t.retrying || 0) + ' retrying · ' + Number(t.pending || 0) + ' waiting.';\n      var b = preparation.batch || {};\n      if (Number(b.requests || 0) > 0) html += 'Batch requests: ' + Number(b.completed || 0) + ' complete · ' + Number(b.failed || 0) + ' failed · ' + Number(b.expired || 0) + ' expired' + (Number(b.age_seconds || 0) > 0 ? ' · running for ' + Math.floor(Number(b.age_seconds || 0) / 3600) + 'h' : '') + '.';\n    }\n    html += '<progress aria-label=\"Deck preparation progress\" value=\"' + Number(preparation.progress || 0) + '\" max=\"100\">' + Number(preparation.progress || 0) + '%</progress>';\n    if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';\n    if (preparation.ready) {\n      var readyResponse = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'text/html', 'HX-Request-Type': 'partial'}});\n      if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));\n      target.outerHTML = await readyResponse.text(); return;\n    } else if (active) {\n      html += '<button type=\"button\" class=\"btn btn-outline\" data-cancel-preparation>Cancel preparation</button>';\n    } else {\n      if (preparation.error) html += '<p role=\"alert\">' + window.escapeHtml(preparation.error) + '</p>';\n      html += '<button type=\"button\" class=\"btn btn-primary\" data-retry-preparation>Retry preparation</button>';\n    }\n    target.innerHTML = html;\n    var cancel = target.querySelector('[data-cancel-preparation]');\n    if (cancel) cancel.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\\/status$/, '/cancel'), target, sourceForm); });\n    var retry = target.querySelector('[data-retry-preparation]');\n    if (retry) retry.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\\/status$/, '/retry'), target, sourceForm); });\n    if (active) setTimeout(function () { window.pollDeckPreparation(statusURL, target, sourceForm); }, 1500);\n  } catch (error) {\n    target.innerHTML = '<p role=\"alert\">Could not check deck preparation: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p><button type=\"button\" data-check-preparation>Try again</button>';\n    target.querySelector('[data-check-preparation]').addEventListener('click', function () { window.pollDeckPreparation(statusURL, target, sourceForm); });\n  }\n};\nwindow.updateDeckPreparation = async function (action, target, sourceForm) {\n  var data = new FormData();\n  data.set('csrf_token', sourceForm.querySelector('[name=\"csrf_token\"]').value);\n  try {\n    var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin', headers: {'Accept': 'application/json'}});\n    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));\n    await window.pollDeckPreparation(action.replace(/\\/(cancel|retry)$/, '/status'), target, sourceForm);\n  } catch (error) {\n    target.insertAdjacentHTML('beforeend', '<p role=\"alert\">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');\n  }\n};\nwindow.showConcordanceNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;\n  var recovery = document.getElementById('concordance-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.action;\n  retry.textContent = 'Retry Concordance lookup';\n  recovery.append(message, retry);\n};\nwindow.showVocabularyNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#vocabulary-workflow') || ctx.response) return;\n  var recovery = document.getElementById('vocabulary-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = ctx.request.method === 'POST'\n    ? 'The selection request received no response. It may have succeeded; check the selection before trying again.'\n    : 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.method === 'POST' ? '/vocabulary/selection' : ctx.request.action;\n  retry.textContent = ctx.request.method === 'POST' ? 'Review Browse selection' : 'Retry Browse';\n  recovery.append(message, retry);\n};\ndocument.addEventListener('htmx:before:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  var source = ctx && ctx.sourceElement;\n  if (!source || !source.matches('form[data-vocabulary-selection]')) return;\n  ctx.vocabularySelection = {\n    lemma: source.querySelector('[name=\"lemma\"]').value,\n    upos: source.querySelector('[name=\"upos\"]').value\n  };\n});\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;\n  if (ctx.vocabularySelection) {\n    var forms = document.querySelectorAll('#vocabulary-workflow form[data-vocabulary-selection]');\n    for (var i = 0; i < forms.length; i++) {\n      if (forms[i].querySelector('[name=\"lemma\"]').value === ctx.vocabularySelection.lemma && forms[i].querySelector('[name=\"upos\"]').value === ctx.vocabularySelection.upos) {\n        forms[i].querySelector('button').focus();\n        return;\n      }\n    }\n  }\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) {\n    summary.focus();\n    var clicked = ctx.sourceEvent && ctx.sourceEvent.target;\n    if (clicked && clicked.closest && clicked.closest('nav[aria-label=\"Browse pages\"]')) {\n      summary.scrollIntoView({block: 'start'});\n    }\n  }\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (window.location.pathname !== '/vocabulary') return;\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || (ctx.target.id !== 'concordance-workflow' && ctx.target.id !== 'concordance-results')) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\nfunction focusConcordanceSummaryForMissingReturnTarget() {\n  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;\n  var target = new URLSearchParams(window.location.search).get('focus');\n  if (!target || document.getElementById(target)) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n}\ndocument.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);\nwindow.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);\ndocument.addEventListener('htmx:after:swap', function (evt) {\n\t\t\t['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {\n\t\t\tvar region = document.getElementById(id);\n\t\t\tif (!region) return;\n\t\t\tvar focusID = region.getAttribute('data-focus-id');\n\t\t\tif (!focusID) return;\n\t\t\tvar ctx = evt.detail && evt.detail.ctx;\n\t\t\tvar swappedTarget = ctx && ctx.target;\n\t\t\tif (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;\n\t\t\tvar source = ctx && ctx.sourceElement;\n\t\t\tvar targetSelector = source && source.getAttribute('hx-target');\n\t\t\tvar target = targetSelector ? document.querySelector(targetSelector) : null;\n\t\t\tvar targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));\n\t\t\tif (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {\n\t\t\t  region.removeAttribute('data-focus-id');\n\t\t\t  return;\n    }\n    var focusTarget = document.getElementById(focusID);\n    if (focusTarget) focusTarget.focus();\n    region.removeAttribute('data-focus-id');\n  });\n});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -93,6 +93,10 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = myBooksStylesheet(myBooksStylesRequested(shellStyles)).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = catalogOpsStylesheet(catalogOpsStylesRequested(shellStyles)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -125,7 +129,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(string(context))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 211, Col: 379}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 211, Col: 440}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -3332,14 +3336,14 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 264, "<a role=\"button\" download href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 264, "<a role=\"button\" class=\"btn btn-primary\" download href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var161 templ.SafeURL
 				templ_7745c5c3_Var161, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + preparation.ID + "/download"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 674, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 674, Col: 123}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var161))
 				if templ_7745c5c3_Err != nil {
@@ -4070,14 +4074,14 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 323, "<a role=\"button\" download href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 323, "<a role=\"button\" class=\"btn btn-primary\" download href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var201 templ.SafeURL
 						templ_7745c5c3_Var201, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + preparation.ID + "/download"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 763, Col: 101}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 763, Col: 125}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var201))
 						if templ_7745c5c3_Err != nil {
@@ -4136,7 +4140,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var204 templ.SafeURL
 				templ_7745c5c3_Var204, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + preparation.ID + "/cancel"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 773, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 773, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var204))
 				if templ_7745c5c3_Err != nil {
@@ -4149,13 +4153,13 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				var templ_7745c5c3_Var205 string
 				templ_7745c5c3_Var205, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 773, Col: 147}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 773, Col: 149}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var205))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 330, "\"><button class=\"button button--outline button--quiet\">Cancel preparation</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 330, "\"><button class=\"btn btn-outline\">Cancel preparation</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4241,7 +4245,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 338, "\"><p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p><button type=\"submit\">Retry preparation</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 338, "\"><p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p><button class=\"btn btn-primary\" type=\"submit\">Retry preparation</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4576,7 +4580,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 358, "<div class=\"form-grid\"><label>Name<input name=\"name\" required></label><label>Catalog URL<input type=\"url\" name=\"url\" required placeholder=\"https://example.com/opds\"></label></div><div class=\"form-grid\"><label>Username <small>(optional)</small><input name=\"username\" autocomplete=\"username\"></label><label>Password <small>(optional, encrypted at rest)</small><input type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button>Add catalog</button></form></article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 358, "<div class=\"form-grid\"><label>Name<input class=\"input\" name=\"name\" required></label><label>Catalog URL<input class=\"input\" type=\"url\" name=\"url\" required placeholder=\"https://example.com/opds\"></label></div><div class=\"form-grid\"><label>Username <small>(optional)</small><input class=\"input\" name=\"username\" autocomplete=\"username\"></label><label>Password <small>(optional, encrypted at rest)</small><input class=\"input\" type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"btn btn-primary\">Add catalog</button></form></article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4737,46 +4741,46 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 373, "\"><div class=\"form-grid\"><label>Name<input name=\"name\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 373, "\"><div class=\"form-grid\"><label>Name<input class=\"input\" name=\"name\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var233 string
 				templ_7745c5c3_Var233, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 759}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 773}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var233))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 374, "\" required></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input type=\"url\" name=\"url\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 374, "\" required></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class=\"input\" type=\"url\" name=\"url\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var234 string
 				templ_7745c5c3_Var234, templ_7745c5c3_Err = templ.JoinStringErrs(connectionURLForEdit(c))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 907}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 935}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var234))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 375, "\" placeholder=\"Leave blank to keep current URL\"></label></div><div class=\"form-grid\"><label>Username<input name=\"username\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 375, "\" placeholder=\"Leave blank to keep current URL\"></label></div><div class=\"form-grid\"><label>Username<input class=\"input\" name=\"username\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var235 string
 				templ_7745c5c3_Var235, templ_7745c5c3_Err = templ.JoinStringErrs(c.Username)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 1050}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 1092}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var235))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 376, "\" autocomplete=\"username\"></label><label>New password <small>(leave blank to keep current)</small><input type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"button button--outline\">Save changes</button></form></details>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 376, "\" autocomplete=\"username\"></label><label>New password <small>(leave blank to keep current)</small><input class=\"input\" type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"btn btn-outline\">Save changes</button></form></details>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4799,7 +4803,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					var templ_7745c5c3_Var237 templ.SafeURL
 					templ_7745c5c3_Var237, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/connections/" + c.ID + "/delete"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 1580}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 1629}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var237))
 					if templ_7745c5c3_Err != nil {
@@ -4812,13 +4816,13 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					var templ_7745c5c3_Var238 string
 					templ_7745c5c3_Var238, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 1634}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 866, Col: 1683}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var238))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 379, "\"><button class=\"button button--outline button--quiet\">Confirm deletion</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 379, "\"><button class=\"btn btn-outline\">Confirm deletion</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5239,7 +5243,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL string) templ
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 405, "\"><button>Retry analysis</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 405, "\"><button class=\"btn btn-primary\">Retry analysis</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5275,7 +5279,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL string) templ
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 409, "\"><button class=\"button button--outline button--quiet\">Cancel analysis</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 409, "\"><button class=\"btn btn-outline\">Cancel analysis</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10873,7 +10877,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 895, "\"><button class=\"button button--outline button--quiet\">Cancel translations</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 895, "\"><button class=\"btn btn-outline\">Cancel translations</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -11861,7 +11865,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 975, "\"><button>Retry catalog sync</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 975, "\"><button class=\"btn btn-primary\">Retry catalog sync</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -11897,7 +11901,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 979, "\"><button class=\"button button--outline button--quiet\">Cancel catalog sync</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 979, "\"><button class=\"btn btn-outline\">Cancel catalog sync</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -12107,14 +12111,14 @@ func JourneyAnalysisDeck(item journeyBookView, csrf string) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 999, "<a role=\"button\" download href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 999, "<a role=\"button\" class=\"btn btn-primary\" download href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var584 templ.SafeURL
 						templ_7745c5c3_Var584, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/deck-preparations/" + item.AnalysisPreparation.ID + "/download"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 2034, Col: 115}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 2034, Col: 139}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var584))
 						if templ_7745c5c3_Err != nil {
