@@ -21,6 +21,9 @@ test('Preflight is bounded by Mouseion document and shared-control contracts', a
         <ul><li>Native list item</li></ul>
         <fieldset><legend>Native group</legend><input aria-label="Contract field"></fieldset>
       </section>`);
+    const tokenProbe = document.createElement('div');
+    tokenProbe.style.borderColor = 'var(--mouseion-color-control-border)';
+    root.append(tokenProbe);
     const style = (selector: string) => getComputedStyle(root.querySelector(selector)!);
     return {
       heading: { size: style('#preflight-contract h3').fontSize, weight: style('#preflight-contract h3').fontWeight, lineHeight: style('#preflight-contract h3').lineHeight },
@@ -28,7 +31,7 @@ test('Preflight is bounded by Mouseion document and shared-control contracts', a
       inlineLinkDecoration: style('#preflight-inline-link').textDecorationLine,
       list: { marker: style('#preflight-contract ul').listStyleType, indent: style('#preflight-contract ul').paddingInlineStart },
       legendWeight: style('#preflight-contract legend').fontWeight,
-      input: { minHeight: style('#preflight-contract input').minHeight, borderColor: style('#preflight-contract input').borderTopColor },
+      input: { minHeight: style('#preflight-contract input').minHeight, borderColor: style('#preflight-contract input').borderTopColor, expectedBorderColor: getComputedStyle(tokenProbe).borderTopColor },
       headingMargins: style('#preflight-contract h3').marginBottom,
       bodyMargin: getComputedStyle(document.body).margin,
     };
@@ -41,7 +44,7 @@ test('Preflight is bounded by Mouseion document and shared-control contracts', a
   expect(foundation.list.indent).not.toBe('0px');
   expect(foundation.legendWeight).toBe('650');
   expect(foundation.input.minHeight).toBe('48px');
-  expect(foundation.input.borderColor).toBe('rgb(113, 131, 141)');
+  expect(foundation.input.borderColor).toBe(foundation.input.expectedBorderColor);
   expect(foundation.headingMargins).toBe('12px');
   expect(foundation.bodyMargin).toBe('0px');
 
@@ -51,7 +54,7 @@ test('Preflight is bounded by Mouseion document and shared-control contracts', a
     return { minHeight: style.minHeight, borderColor: style.borderTopColor, width: style.width };
   });
   expect(inputStyle.minHeight).toBe('48px');
-  expect(inputStyle.borderColor).toBe('rgb(113, 131, 141)');
+  expect(inputStyle.borderColor).toBe(foundation.input.expectedBorderColor);
   expect(Number.parseFloat(inputStyle.width)).toBeGreaterThan(0);
 
   const books = page.locator('.library-grid');
