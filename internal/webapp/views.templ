@@ -863,18 +863,18 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 				<a href="#catalog-connection-form">Add catalog connection</a>
 			}
 		}
-		<article id="catalog-connection-form"><h2>Add catalog connection</h2><form method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/>
+		<article id="catalog-connection-form"><h2>Add catalog connection</h2><form class="catalog-connection-form" method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/>
 			if bookID != "" {
 				<input type="hidden" name="book_id" value={ bookID }/>
 			}
-		<div class="form-grid"><label>Name<input class="input" name="name" required/></label><label>Catalog URL<input class="input" type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input class="input" name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="btn btn-primary">Add catalog</button></form></article>
+		<div class="form-grid"><label>Name<input class="input" name="name" required/></label><label>Catalog URL<input class="input" type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input class="input" name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button" type="submit">Add catalog</button></form></article>
 		if len(connections) > 0 {
 			<h2>Catalog maintenance</h2>
 			<p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>
 		}
 		<div class="catalog-list">
 		for _, c := range connections {
-				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="btn btn-outline">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Confirm deletion</button></form>}</article>
+				<article id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form class="catalog-connection-form" method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline" type="submit">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Confirm deletion</button></form>}</article>
 		}
 		</div>
 	}
@@ -921,10 +921,10 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 		}
 		@ActionGroup() {
 			if jobRetryable(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-primary">Retry analysis</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit">Retry analysis</button></form>
 			}
 			if jobRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel analysis</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Cancel analysis</button></form>
 			}
 		}
 		if status.CorpusID != "" {
@@ -1622,7 +1622,7 @@ templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
 			@Feedback(FeedbackError, "Translation needs attention", status.Error+" Review the affected book and try again when the provider is available.")
 		}
 		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel translations</button></form>
+			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Cancel translations</button></form>
 		}
 	}
 }
@@ -1749,10 +1749,10 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 		}
 		@ActionGroup() {
 			if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-primary">Retry catalog sync</button></form>
+					<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit">Retry catalog sync</button></form>
 			}
 			if catalogueSyncStatusRunning(status) {
-				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-outline">Cancel catalog sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Cancel catalog sync</button></form>
 			}
 		}
 		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>

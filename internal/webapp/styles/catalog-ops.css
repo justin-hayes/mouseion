@@ -1,51 +1,42 @@
-/* Catalogs, Reading, and operational-job controls. */
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn {
-  border-radius: 0.125rem;
-  font: inherit;
-  text-decoration: none;
+/* Catalog connection and operational-history composition. Shared controls own
+   field, action, focus, disabled, theme, and reduced-motion presentation. */
+.catalog-list,
+.catalog-list article {
+  min-width: 0;
 }
 
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn-primary {
-  border-color: var(--mouseion-color-accent);
-  color: var(--color-primary-content);
-  background: var(--mouseion-color-accent);
+.catalog-list {
+  border-top: 2px solid var(--mouseion-color-text);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn-primary:hover:not(:disabled) {
-  border-color: var(--mouseion-color-accent-hover);
-  background: var(--mouseion-color-accent-hover);
+.catalog-list > article {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--mouseion-color-border);
+  border-radius: 0;
+  padding: var(--mouseion-space-6) 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn-outline {
-  border-color: var(--mouseion-color-border);
-  color: var(--mouseion-color-text);
+.catalog-list h3,
+.catalog-list p {
+  overflow-wrap: anywhere;
+}
+
+#catalog-connection-form {
+  max-width: var(--mouseion-width-data);
+  border: 1px solid var(--mouseion-color-border);
+  border-top: var(--mouseion-space-1) solid var(--mouseion-color-accent);
   background: var(--mouseion-color-surface-raised);
+  box-shadow: none;
 }
 
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn:focus-visible,
-body.catalogs-shell .input:focus-visible,
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) .site-header__navigation a:focus-visible {
-  outline: 3px solid var(--mouseion-color-focus);
-  outline-offset: 3px;
-}
-
-body.catalogs-shell :is(button, input, select, textarea) {
+.catalog-connection-form :is(button, input, select, textarea) {
   max-width: 100%;
 }
 
-body.catalogs-shell .input {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 44px;
-  border-color: var(--mouseion-color-border);
-  border-radius: 0.125rem;
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
-  font: inherit;
-}
-
-body.catalogs-shell #catalog-connection-form label,
-body.catalogs-shell .catalog-list label {
+.catalog-connection-form label {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -53,25 +44,34 @@ body.catalogs-shell .catalog-list label {
   font-weight: 600;
 }
 
-body.catalogs-shell label small {
+.catalog-connection-form label small {
   color: var(--mouseion-color-text-muted);
   font-weight: 400;
 }
 
-body.catalogs-shell .form-grid {
+.catalog-connection-form .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: var(--mouseion-space-4);
   margin-bottom: var(--mouseion-space-4);
 }
 
-body.catalogs-shell main form,
-body.catalogs-shell .catalog-list article > :is(div[role="status"], p, details, .action-group) {
+.catalog-connection-form,
+.catalog-list article > :is(div[role="status"], p, details, .action-group) {
   max-width: 100%;
   overflow-wrap: anywhere;
 }
 
-body.catalogs-shell details > summary {
+.catalog-list article div[role="status"] {
+  border-inline-start: 3px solid var(--mouseion-color-info);
+  padding-inline-start: var(--mouseion-space-3);
+}
+
+.catalog-list article div[role="status"] p {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+.catalog-list article details > summary {
   display: flex;
   min-height: 44px;
   align-items: center;
@@ -79,33 +79,47 @@ body.catalogs-shell details > summary {
   font-weight: 650;
 }
 
-body.catalogs-shell .catalog-list article div[role="status"] {
-  border-inline-start: 3px solid var(--mouseion-color-info);
-  padding-inline-start: var(--mouseion-space-3);
-}
-
-body.catalogs-shell .catalog-list article div[role="status"] p {
-  margin-bottom: var(--mouseion-space-2);
-}
-
-body.catalogs-shell .catalog-list article details form {
+.catalog-list article details form {
   margin-block: var(--mouseion-space-3);
 }
 
-body.catalogs-shell .confirmation__body {
+.catalog-list .confirmation__body {
   overflow-wrap: anywhere;
 }
 
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) :is(button, a[role="button"], summary) {
-  min-height: 44px;
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--mouseion-space-4);
 }
 
-@media (prefers-reduced-motion: reduce) {
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) *,
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) *::before,
-body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+.catalog-grid article {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mouseion-space-3);
+  border: 1px solid var(--mouseion-color-border);
+  border-top: var(--mouseion-space-1) solid var(--mouseion-color-accent);
+  background: var(--mouseion-color-surface-raised);
+  box-shadow: none;
+}
+
+.catalog-grid form,
+.catalog-grid button {
+  margin-top: auto;
+}
+
+.catalog-loading {
+  display: none;
+  color: var(--mouseion-color-info);
+}
+
+.catalog-loading.htmx-request {
+  display: block;
+}
+
+.catalog-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-3);
+  margin-top: var(--mouseion-space-4);
 }

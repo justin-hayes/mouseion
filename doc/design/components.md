@@ -152,6 +152,28 @@ consequential copy without requiring JavaScript. Scope checkboxes and radios
 remain native small controls inside generously clickable labels rather than
 being enlarged into distorted glyphs.
 
+### Catalog connections and operational jobs
+
+Catalog connection create/edit forms use explicitly associated labels, shared
+`.input` fields, and native POST submission. Their workflow stylesheet owns only
+the two-column field composition and connection/status layout; it does not
+restate control color, boundary, focus, validation, theme, disabled, or motion
+rules. These form selectors are scoped to the connection forms and cannot alter
+the shell's study-language switcher.
+
+Catalog sync, job retry/cancellation, and recovery use the shared `.button`,
+`.button--outline`, and native `disabled` contracts. A running sync leaves
+**Sync now** disabled and keeps the visible **Sync already in progress**
+explanation and job-status link. Disabled appearance must remain distinct from
+an enabled primary action in both themes; its contrast is not measured as an
+enabled-control requirement. Sync status remains a text-backed live region.
+
+Job history remains semantic table markup inside a labeled, keyboard-focusable
+overflow region. Job detail and recovery keep `AsyncStatus`, its native progress
+element, polite live updates, and ordinary retry/cancellation forms. Native
+`details`/`summary` confirmations retain their visible disclosure affordance,
+consequences, and submission behavior without JavaScript.
+
 ## Shared rules
 
 ### Server-rendered baseline
