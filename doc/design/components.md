@@ -133,6 +133,14 @@ form or result states. My Books actions use shared button/input states while
 keeping navigation as links, mutations as submit buttons, and native
 confirmation disclosures for consequential actions.
 
+Reading and focused deck-preparation actions follow the same shared control
+contract: routes and downloads remain links; state changes remain submit buttons;
+secondary and destructive consequences use the shared outline and danger
+variants. Native confirmations retain a visible disclosure marker and their
+consequential copy without requiring JavaScript. Scope checkboxes and radios
+remain native small controls inside generously clickable labels rather than
+being enlarged into distorted glyphs.
+
 ## Shared rules
 
 ### Server-rendered baseline

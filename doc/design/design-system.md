@@ -27,8 +27,8 @@ workflow-specific.
   sources, and assembles the Mouseion and workflow styles below.
 - `internal/webapp/styles/mouseion.css` owns Mouseion tokens, typography roles,
   native-element baseline, reusable component styling, and general workflow CSS.
-- `internal/webapp/styles/login.css`, `my-books.css`, `catalog-ops.css`, and
-  `vocabulary.css` contain route/workflow-specific Mouseion rules. Their source
+- `internal/webapp/styles/login.css`, `my-books.css`, `reading.css`,
+  `catalog-ops.css`, and `vocabulary.css` contain route/workflow-specific Mouseion rules. Their source
   organization is for maintainability only; they are compiled together and are
   never separate browser assets.
 - Shared button and input classes own control appearance and state; workflow
@@ -102,10 +102,10 @@ by the one build entry point and are available before any no-JavaScript or
 enhanced interaction is used.
 
 This expand slice keeps the existing Mouseion native baseline as a temporary
-compatibility boundary for workflows not yet migrated. The remaining migration
-batches are shared shell/My Books (#1488), Reading/deck preparation (#1489),
-Concordance/occurrence review (#1490), Vocabulary/import (#1491), and
-Catalogs/jobs (#1492). Keep their route-owned layout in the existing component
+compatibility boundary for workflows not yet migrated. Shared shell/My Books
+(#1488) and Reading/deck preparation (#1489) use the shared controls; remaining
+migration batches are Concordance/occurrence review (#1490), Vocabulary/import
+(#1491), and Catalogs/jobs (#1492). Keep their route-owned layout in the existing component
 stylesheets; do not let those rules override sign-in's shared controls. After
 each batch lands green, the final cutover (#1493) can enable Preflight and retire
 the compatibility baseline. The sign-in foundation itself does not depend on

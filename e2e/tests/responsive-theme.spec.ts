@@ -683,10 +683,10 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/reading');
     const current = page.locator('#primary-goal-section');
     if (await current.locator('.journey-book--goal').count()) {
-      await expect(current.getByRole('button', { name: 'Switch current reading' })).toBeVisible();
+      await expect(current.getByRole('link', { name: 'Switch current reading' })).toBeVisible();
       const finishSummary = current.locator('details').filter({ hasText: 'Mark reading finished' }).locator('summary');
       await expect(finishSummary).toBeVisible();
-      const primaryActions = await current.locator('.goal-card__actions > a[role="button"], .goal-card__actions > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
+      const primaryActions = await current.locator('.goal-card__actions > a.button, .goal-card__actions > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
         const box = node.getBoundingClientRect();
         return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
       }));
@@ -711,11 +711,11 @@ test.describe('responsive and theme regression coverage', () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
     const order = await page.locator('.action-group').evaluateAll((groups) => groups.map((group) => {
-      const controls = Array.from(group.querySelectorAll('button, a[role="button"]'));
+      const controls = Array.from(group.querySelectorAll('button, a.button'));
       return controls.map((control) => control.classList.contains('secondary'));
     }));
     for (const controls of order) if (controls.length) expect(controls[0]).toBe(false);
-    const controls = await page.locator('button:visible, a[role="button"]:visible').evaluateAll((nodes) => nodes.map((node) => {
+    const controls = await page.locator('button:visible, a.button:visible').evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
     }));

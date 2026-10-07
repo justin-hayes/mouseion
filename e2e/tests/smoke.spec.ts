@@ -165,6 +165,51 @@ test.describe('authenticated learner smoke', () => {
     expect(route?.status()).toBe(404);
   });
 
+  test('Reading confirmations and chooser actions retain native semantics without JavaScript', async ({ browser }) => {
+    const noScript = await browser.newPage({
+      baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+      javaScriptEnabled: false,
+      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
+      reducedMotion: 'reduce',
+      viewport: { width: 320, height: 812 },
+    });
+    try {
+      await signIn(noScript);
+      await noScript.goto('/reading');
+      const current = noScript.locator('#primary-goal-section');
+      const switchLink = current.locator('a[href="/reading/switch"]');
+      await expect(switchLink).toBeVisible();
+      await expect(switchLink).toHaveAttribute('class', /button--outline/);
+      await expect(switchLink).not.toHaveAttribute('role', 'button');
+
+      const finish = current.locator('details.confirmation').filter({ hasText: 'Mark reading finished' });
+      const finishSummary = finish.locator('summary');
+      await finishSummary.focus();
+      await noScript.keyboard.press('Enter');
+      await expect(finish).toHaveAttribute('open', '');
+      await expect(finish.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
+      await expect(finishSummary).toBeFocused();
+      await noScript.keyboard.press('Space');
+      await expect(finish).not.toHaveAttribute('open', '');
+
+      const compactOverflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(compactOverflow).toBe(false);
+      await noScript.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+      const enlargedTextOverflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(enlargedTextOverflow).toBe(false);
+
+      await switchLink.click();
+      const candidateConfirmation = noScript.locator('details.confirmation').filter({ hasText: 'Switch to this book' }).first();
+      const candidateSummary = candidateConfirmation.locator('summary');
+      await candidateSummary.focus();
+      await noScript.keyboard.press('Space');
+      await expect(candidateConfirmation).toHaveAttribute('open', '');
+      await expect(candidateConfirmation.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+    } finally {
+      await noScript.close();
+    }
+  });
+
   test('Concordance lookup is server-rendered and submits without JavaScript', async ({ browser }) => {
     const noScript = await browser.newPage({
       baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',

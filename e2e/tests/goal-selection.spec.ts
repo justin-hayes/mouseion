@@ -115,7 +115,7 @@ test.describe('Current reading selection', () => {
      await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
       await expect(goal).toContainText('Deck preparation');
       await expect(goal).toContainText('Deck ready');
-      await expect(goal.getByRole('button', { name: 'Download deck' })).toHaveAttribute('download', '');
+      await expect(goal.getByRole('link', { name: 'Download deck' })).toHaveAttribute('download', '');
       await expect(goal).toContainText('Reserved vocabulary: 2 frozen identities.');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
@@ -149,7 +149,7 @@ test.describe('Current reading selection', () => {
 
       await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
 
-      await expect(page.getByRole('button', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
+      await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
 
       const retryAcquisition = ineligible.getByRole('button', { name: 'Retry acquisition' });
       const retryForm = retryAcquisition.locator('xpath=ancestor::form');
