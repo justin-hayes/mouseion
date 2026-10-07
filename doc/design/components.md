@@ -41,7 +41,7 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Reading Journey, Jobs, Vocabulary |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Reading, Catalogs, Jobs, Vocabulary |
 | `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Reading Journey |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the focused-task/Job workflow | Focused deck preparation and analysis status |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, Goal and artifact surfaces            |
@@ -172,8 +172,11 @@ being enlarged into distorted glyphs.
 ### Catalog connections and operational jobs
 
 Catalog connection create/edit forms use explicitly associated labels, shared
-`.input` fields, and native POST submission. Their workflow stylesheet owns only
-the two-column field composition and connection/status layout; it does not
+`.input` fields, and native POST submission. Bounded create forms have deliberate
+interior spacing; connection identity and actions lead, while sync state and its
+explanation sit as a quiet margin note beside the connection. Their workflow
+stylesheet owns only the two-column field composition and connection/status
+layout; it does not
 restate control color, boundary, focus, validation, theme, disabled, or motion
 rules. These form selectors are scoped to the connection forms and cannot alter
 the shell's study-language switcher.
@@ -190,6 +193,14 @@ overflow region. Job detail and recovery keep `AsyncStatus`, its native progress
 element, polite live updates, and ordinary retry/cancellation forms. Native
 `details`/`summary` confirmations retain their visible disclosure affordance,
 consequences, and submission behavior without JavaScript.
+
+Job detail keeps task state, progress, and recovery together, with
+creation/finish timestamps, attempt, and operational provenance in an adjacent
+definition-list margin note. Catalog-sync detail names its connection and
+retains the metadata-only explanation. Focused Book deck preparation uses the
+same compact page heading and an intentionally spaced bounded form; Book and
+analysis identity, eligibility, external-translation consent, artifact state,
+download, cancellation/retry, and re-prepare consequences remain explicit.
 
 ## Shared rules
 

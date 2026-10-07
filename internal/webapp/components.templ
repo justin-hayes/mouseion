@@ -122,7 +122,7 @@ templ ResponsiveTable(label string) {
 	</div>
 }
 
-templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value, max int, busy bool) {
+templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value, max int, busy bool, metadata templ.Component) {
 	<section { attributes... } id={ id } class="async-status" role="status" aria-live="polite" aria-atomic="true" aria-busy={ boolString(busy) }>
 		<p class="async-status__title"><strong>{ title }</strong></p>
 		if summary != "" {
@@ -130,6 +130,9 @@ templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value,
 		}
 		if max > 0 {
 			<progress aria-label={ title + " progress" } value={ fmt.Sprintf("%d", value) } max={ fmt.Sprintf("%d", max) }>{ fmt.Sprintf("%d of %d", value, max) }</progress>
+		}
+		if metadata != nil {
+			@metadata
 		}
 		<div class="async-status__actions">
 			{ children... }
