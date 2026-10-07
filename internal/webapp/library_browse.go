@@ -199,6 +199,13 @@ func myBookWorkflowLabel(book domain.MyBook) string {
 	}
 }
 
+func myBookWorkflowTone(book domain.MyBook) StatusTone {
+	if book.WorkflowBucket() == domain.MyBookBucketCurrentReading {
+		return StatusInfo
+	}
+	return StatusNeutral
+}
+
 func myBookSetAsideConfirmationText(book domain.MyBook) string {
 	retained := " Acquired content, analysis, provenance, and reading history remain."
 	if myBookDisposition(book) == domain.BookDispositionToRead {
@@ -230,35 +237,17 @@ func myBooksSelectedAttributes(selected bool) templ.Attributes {
 
 func myBooksResultCount(total int) string {
 	if total == 1 {
-		return "1 book in this result"
+		return "1 book found"
 	}
-	return fmt.Sprintf("%d books in this result", total)
+	return fmt.Sprintf("%d books found", total)
+}
+
+func myBooksHasActiveResultFilter(browse MyBooksBrowseState) bool {
+	return browse.Query != "" || browse.Disposition != "" || browse.History || browse.NeedsLanguage
 }
 
 func myBooksResultAnnouncementAttributes() templ.Attributes {
 	return templ.Attributes{"role": "status", "aria-live": "polite", "aria-atomic": "true"}
-}
-
-func myBooksResultsHeading(browse MyBooksBrowseState) string {
-	if browse.NeedsLanguage {
-		return "Books awaiting a language"
-	}
-	if browse.History {
-		if browse.Query != "" {
-			return fmt.Sprintf("Read history matching “%s”", browse.Query)
-		}
-		return "Read history"
-	}
-	if browse.Disposition != "" {
-		if browse.Query != "" {
-			return fmt.Sprintf("%s books matching “%s”", myBooksDispositionLabel(browse.Disposition), browse.Query)
-		}
-		return myBooksDispositionLabel(browse.Disposition) + " books"
-	}
-	if browse.Query != "" {
-		return fmt.Sprintf("Books matching “%s”", browse.Query)
-	}
-	return "Books"
 }
 
 func myBooksLanguageName(browse MyBooksBrowseState) string {

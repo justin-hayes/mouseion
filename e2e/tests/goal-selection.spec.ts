@@ -247,7 +247,7 @@ test.describe('Current reading selection', () => {
 
      await page.goto('/library');
      const setAsideBook = page.locator('.library-books .library-book').filter({ hasText: title });
-     await expect(setAsideBook.locator('.metadata').filter({ hasText: 'Disposition' })).toContainText('Set Aside');
+     await expect(setAsideBook.locator('.library-book__membership .status-badge')).toHaveText('Set Aside');
      await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
      await startBook(title);
    });

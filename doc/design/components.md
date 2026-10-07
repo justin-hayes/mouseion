@@ -102,7 +102,7 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `BibliographicBookItem` | Keep title, author, and edition identity primary while pairing intent, evidence state, and one contextual action. | Primary Goal, in Journey, outside Journey, reading finished, unassessed, stale/questionable, cannot assess, long/missing metadata | My Books, Reading Journey, Read history |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Set Aside, Read; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present other To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading |
 | `ReadingChooser` | Group neutral To Read candidates by current Known-vocabulary coverage band; require explicit confirmation to start or switch. | Empty chooser, no comparison, in-progress analysis, attention required, start/switch confirmation | Between-Books Reading chooser |
@@ -144,21 +144,26 @@ anchor exists, cover media does not become an implicit control. Reserve intrinsi
 space, lazy-load below-viewport images, preserve visible focus on the containing
 link, and never make cover content or actions hover-only.
 
-### `MyBooksCoverItem`
+### `AnnotatedBookRow`
 
-**Answers:** Which Book is this, is it in my Reading Journey, and what can I do
-with it?
+**Answers:** Which Book is this, where does it sit in my reading life, and what
+can I do with it?
 
-Use `BookCoverMedia` in a compact one-column list row, then full title and
-available author, a restrained workflow placement and **In Reading** marker when
-applicable, one labeled contextual action, and a labeled native **More actions**
-disclosure. Keep the cover small and the title authoritative. Disposition and
-evidence sit in the right margin on wider screens and below the identity on
-compact screens. The primary action is
-**Move to To Read** for Inbox or Set Aside Books, and **View in Reading Journey**
-for a Journey member. The disclosure owns **Set aside**, eligible metadata
-refresh, and confirmed My Books removal. Do not add analysis, acquired-content,
-evidence, Primary Goal, or next-action status to this pattern.
+Use a semantic list item with a reserved cover column on the left, full title
+and author directly beneath it in the text column, and contextual actions under
+that identity in the same column. Keep the right-hand margin visibly edged with
+a light rule or quiet surface; it carries one `StatusBadge` for the canonical
+visible bucket (**Currently reading**, **To Read**, **Inbox**, **Set Aside**, or
+**Read**) and any concise reading-history note. Do not use a “Disposition:”
+label. Rows separate through whitespace and the margin edge, not an outer box
+or heavy list rule. On compact screens, keep the cover beside title and author,
+then place the margin note and actions below the text column.
+
+Use one labeled contextual action and a native **More actions** disclosure.
+**Move to To Read** is primary for Inbox or Set Aside Books; **View in Reading**
+is primary for the current Book and To Read Books. The disclosure owns **Set
+aside**, eligible metadata refresh, and confirmed My Books removal. Do not add
+analysis, acquired-content, or next-action status to this pattern.
 
 Repeated items form one native unordered list at every width, not an ARIA grid.
 Keep cover, title, author, action, and note content in document and keyboard
@@ -441,7 +446,7 @@ state, and action. Cards in a list must use the same internal order. Avoid
 nested cards and avoid using a card solely to add decoration around prose.
 
 The shipped repeated My Books and Reading items normally use a bibliographic
-row/list-item treatment with fine rules, not `ResourceCard`. `MyBooksCoverItem`
+row/list-item treatment with fine rules, not `ResourceCard`. `AnnotatedBookRow`
 is a compact text-led list item with a small cover, not a cover-grid item or a
 generic card license. Reserve a stronger contained surface for a genuinely
 distinct region such as a consequential outcome; even there, typography should
@@ -503,16 +508,17 @@ that deck readiness is required.
 
 ## Shipped pattern contracts
 
-### `BibliographicBookItem`
+### `BibliographicBookItem` (generic identity contract)
 
 **Answers:** Which book is this, why is it here, what evidence is trustworthy,
 and what can I do with it?
 
-Use a semantic list item or article with title as the primary link, author
-immediately adjacent, and edition/year/language where evidence identity needs
-it. Relationship text such as **Primary Goal** or **In Reading Journey** precedes
-concise evidence state. Keep at most one primary contextual action visible; put
-provenance and secondary actions behind ordinary links or disclosure.
+This is the generic bibliographic-identity guidance for surfaces that do not
+use the canonical [`AnnotatedBookRow`](#annotatedbookrow) list composition. On
+My Books, and when Reading/chooser rows adopt the shared margin composition, use
+`AnnotatedBookRow` instead. Keep title/author identity primary, make any
+relationship explicit, and put provenance and secondary actions behind normal
+links or disclosures.
 
 ### `PrimaryGoalSummary`
 

@@ -181,7 +181,8 @@ func TestMyBooksListUsesNativeListAndStablePresentationStates(t *testing.T) {
 	html := output.String()
 
 	assert.Contains(t, html, `<ul class="library-books" role="list">`)
-	assert.Equal(t, 4, strings.Count(html, `class="resource-card library-book"`))
+	assert.NotContains(t, html, `class="resource-card library-book"`)
+	assert.Equal(t, 4, strings.Count(html, `class="library-book"`))
 	assert.NotContains(t, html, `role="grid"`)
 	assert.NotContains(t, html, `aria-rowindex`)
 	for _, label := range []string{"Cover pending", "Cover unavailable", "No cover available"} {
@@ -208,6 +209,50 @@ func TestMyBooksListUsesNativeListAndStablePresentationStates(t *testing.T) {
 	assert.Less(t, strings.Index(item, "By An author"), strings.Index(item, "To Read"))
 	assert.Less(t, strings.Index(item, "To Read"), strings.Index(item, "View in Reading"))
 	assert.Less(t, strings.Index(item, "View in Reading"), strings.Index(item, "More actions"))
+}
+
+func TestMyBooksBrowseResultsOmitUnfilteredCountAndRedundantHeading(t *testing.T) {
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 2, ScopeTotal: 2, Total: 2}
+	books := []domain.MyBook{
+		{Book: domain.Book{ID: "book-one", OwnerID: "owner", Title: "One", LanguageTag: "de", LanguageState: domain.LanguageChosen}},
+		{Book: domain.Book{ID: "book-two", OwnerID: "owner", Title: "Two", LanguageTag: "de", LanguageState: domain.LanguageChosen}},
+	}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
+	html := output.String()
+	resultsStart := strings.Index(html, `<section id="library-results"`)
+	require.GreaterOrEqual(t, resultsStart, 0)
+	results := html[resultsStart:]
+	assert.NotContains(t, results, "books found", "unfiltered browsing does not need a redundant result count")
+	assert.NotContains(t, results, `<h2 id="library-books-heading"`)
+	assert.Contains(t, results, `aria-label="My Books results"`)
+
+	state.Query = "missing"
+	state.Total = 0
+	state.TextNoMatch = true
+	output.Reset()
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
+	assert.Contains(t, output.String(), "0 books found. No books in your local collection in German match")
+}
+
+func TestMyBooksRowsShowCanonicalBucketStatusInSharedBadgeFormat(t *testing.T) {
+	books := []domain.MyBook{
+		{Book: domain.Book{ID: "current", OwnerID: "owner", Title: "Current"}, IsCurrentReading: true},
+		{Book: domain.Book{ID: "to-read", OwnerID: "owner", Title: "To Read"}, Disposition: domain.BookDispositionToRead},
+		{Book: domain.Book{ID: "inbox", OwnerID: "owner", Title: "Inbox"}, Disposition: domain.BookDispositionInbox},
+		{Book: domain.Book{ID: "set-aside", OwnerID: "owner", Title: "Set Aside"}, Disposition: domain.BookDispositionSetAside},
+		{Book: domain.Book{ID: "read", OwnerID: "owner", Title: "Read"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1},
+	}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
+	html := output.String()
+	for _, label := range []string{"Currently reading", "To Read", "Inbox", "Set Aside", "Read"} {
+		assert.Contains(t, html, ">"+label+"</span>")
+	}
+	assert.Contains(t, html, `status-badge__shape--dot`)
+	assert.Contains(t, html, `status-badge__shape--ring`)
+	assert.NotContains(t, html, "Disposition:")
+	assert.NotContains(t, html, `<span aria-hidden="true">●</span>`)
 }
 
 func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {

@@ -224,34 +224,30 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 }
 
 templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) {
-	<li id={ myBookRowID(book.Book.ID) } class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
-		<div class="library-book__identity">
+	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 			if myBookInJourney(book) {
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
 					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
-					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+					<div class="library-book__text">
+						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+						if author := strings.TrimSpace(book.Book.Author); author != "" {
+							<span class="library-book__author">By { author }</span>
+						}
+					</div>
 				</a>
 			} else {
 				<div class="library-book__identity-link">
 					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
-					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+					<div class="library-book__text">
+						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+						if author := strings.TrimSpace(book.Book.Author); author != "" {
+							<span class="library-book__author">By { author }</span>
+						}
+					</div>
 				</div>
 			}
-			if author := strings.TrimSpace(book.Book.Author); author != "" {
-				<p class="library-book__author">By { author }</p>
-			}
-		</div>
 		<div class="library-book__notes">
-			if myBookInJourney(book) {
-				if book.WorkflowBucket() == domain.MyBookBucketCurrentReading {
-					<p class="library-book__membership">@StatusBadge("Currently reading", StatusInfo)</p>
-				} else {
-					<p class="library-book__membership">@StatusBadge("To Read", StatusNeutral)</p>
-				}
-			}
-			if book.Disposition != "" && !myBookInJourney(book) {
-				<p class="metadata"><strong>Disposition</strong>: { myBookWorkflowLabel(book) }</p>
-			}
+			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))</p>
 			if book.CompletionCount > 0 {
 				<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
 				<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>
@@ -359,10 +355,12 @@ templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disp
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
-	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
-		<h2 id="library-books-heading" tabindex="-1">{ myBooksResultsHeading(browse) }</h2>
+	<section id="library-results" tabindex="-1" aria-label="My Books results" data-focus-id="library-results">
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
+				if myBooksHasActiveResultFilter(browse) {
+					{ myBooksResultCount(browse.Total) }.
+				}
 				if browse.TextNoMatch && browse.NeedsLanguage {
 					No books awaiting a language match “{ browse.Query }”. <a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, true, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, true, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
 				} else if browse.TextNoMatch {
@@ -384,7 +382,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 					}
 				}
 			</p>
-		} else {
+		} else if myBooksHasActiveResultFilter(browse) {
 			<p { myBooksResultAnnouncementAttributes()... }>{ myBooksResultCount(browse.Total) }</p>
 		}
 		if len(books) > 0 {

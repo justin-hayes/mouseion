@@ -700,6 +700,9 @@
     details > summary::before {
       border-color: CanvasText;
     }
+    .library-book__notes {
+      border-left-color: CanvasText;
+    }
     .status-badge__shape, .status::before {
       forced-color-adjust: none;
       color: CanvasText;
@@ -1631,36 +1634,52 @@
     margin-bottom: var(--mouseion-space-3);
   }
   .library-books {
-    display: block;
+    display: grid;
+    gap: var(--mouseion-space-4);
     min-width: 0;
     margin: 0;
-    border-top: 2px solid var(--mouseion-color-text);
     padding: 0;
     list-style: none;
   }
   .library-books > .library-book {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem);
-    grid-template-areas: "identity notes" "actions notes" "message message";
+    grid-template-columns: 4rem minmax(0, 1fr) minmax(10rem, 16rem);
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "identity identity notes" ". actions notes" "message message message";
     align-items: start;
-    gap: var(--mouseion-space-2) var(--mouseion-space-5);
+    gap: var(--mouseion-space-2) var(--mouseion-space-3);
     min-width: 0;
     min-height: 0;
     margin: 0;
-    border-bottom: 1px solid var(--mouseion-color-border);
     border-radius: 0;
-    padding: var(--mouseion-space-3) 0;
+    padding: 0 0 var(--mouseion-space-2);
     background: transparent;
     box-shadow: none;
   }
-  .library-book__identity {
+  .library-book__identity-link {
     grid-area: identity;
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    width: 100%;
     min-width: 0;
+    align-items: start;
+    gap: var(--mouseion-space-1) var(--mouseion-space-3);
+    color: var(--mouseion-color-text);
+    text-decoration: none;
+  }
+  .library-book__text {
+    display: block;
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
   }
   .library-book__notes {
     grid-area: notes;
     min-width: 0;
-    padding-top: var(--mouseion-space-1);
+    min-height: 100%;
+    border-left: 2px solid var(--mouseion-color-border);
+    padding: var(--mouseion-space-1) 0 var(--mouseion-space-1) var(--mouseion-space-3);
+    background: var(--mouseion-color-surface-quiet);
   }
   .library-book__notes p {
     margin: 0 0 var(--mouseion-space-1);
@@ -1683,7 +1702,7 @@
   }
   .library-book__identity-link .book-cover-media {
     grid-column: 1;
-    grid-row: 1 / span 2;
+    grid-row: 1;
     width: 4rem;
     max-width: 4rem;
     aspect-ratio: 2 / 3;
@@ -1719,20 +1738,7 @@
   .library-book .book-cover-media__label {
     display: none;
   }
-  .library-book__identity-link {
-    display: grid;
-    grid-template-columns: 4rem minmax(0, 1fr);
-    grid-template-rows: auto;
-    width: 100%;
-    min-width: 0;
-    align-items: start;
-    gap: var(--mouseion-space-1) var(--mouseion-space-3);
-    color: var(--mouseion-color-text);
-    text-decoration: none;
-  }
   .library-book__identity-link .bibliographic-title {
-    grid-column: 2;
-    grid-row: 1;
     overflow-wrap: anywhere;
     margin: 0;
     font-size: 1.2rem;
@@ -1746,7 +1752,8 @@
     text-underline-offset: 0.16em;
   }
   .library-book__author {
-    margin: var(--mouseion-space-1) 0 0 calc(4rem + var(--mouseion-space-3));
+    display: block;
+    margin: var(--mouseion-space-1) 0 0;
     color: var(--mouseion-color-text-muted);
     overflow-wrap: anywhere;
   }
@@ -1774,14 +1781,28 @@
   }
   .library-book__actions form {
     width: auto;
+    max-width: 100%;
     margin: 0;
+  }
+  .library-book__actions form > button {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
   .library-book__journey-action {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
     justify-content: center;
     width: auto;
+    overflow-wrap: anywhere;
+    white-space: normal;
     text-decoration: none;
+  }
+  .library-book__actions summary {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
   .library-book__message {
     margin: var(--mouseion-space-2) 0 0;
@@ -1995,12 +2016,13 @@
       flex-wrap: wrap;
     }
     .library-books > .library-book {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-areas: "identity" "notes" "actions" "message";
-      gap: var(--mouseion-space-1);
+      grid-template-columns: 4rem minmax(0, 1fr);
+      grid-template-areas: "identity identity" ". notes" ". actions" "message message";
+      row-gap: var(--mouseion-space-1);
+      column-gap: var(--mouseion-space-3);
     }
     .library-book__notes {
-      padding-left: calc(4rem + var(--mouseion-space-3));
+      min-height: 0;
     }
     .library-book__journey-action, .library-book__actions summary {
       min-height: 44px;
