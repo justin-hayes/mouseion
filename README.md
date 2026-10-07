@@ -59,6 +59,17 @@ result cache. Use either `make test-integration` for the full internal package
 scope or `make test-integration-shared` for the shared-database runner. Ordinary
 unit-test commands such as `go test ./...` retain Go's normal caching behavior.
 
+For targeted Go runs, use `make test-go PACKAGES='./internal/webapp ./internal/foo'`
+or `make test-go-integration PACKAGES='./internal/persistence ./internal/webapp'`.
+Both commands put Go build temporary files in a per-run directory under
+`.tmp/go-test`; unit runs keep normal test caching, while integration runs keep
+`-count=1 -tags=integration`. If a process is forcibly terminated and leaves a
+directory behind, inspect `.tmp/go-test` and run `make go-test-clean`. Cleanup is
+limited to this user's `run.*` directories with a valid owner marker and removes
+one only when its recorded process is no longer running; unrecognized, other-user,
+and active directories are left untouched. A reused PID is treated
+conservatively as active, so its directory may need manual inspection later.
+
 ## CI dependency caching
 
 CI runs on a persistent self-hosted runner. Runtime setup actions still select
