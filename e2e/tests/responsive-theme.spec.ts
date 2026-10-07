@@ -22,7 +22,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalogs/],
-  ['/reading', /Reading/],
+  ['/reading', /Der lange Weg nach Hause/],
   ['/vocabulary', /Vocabulary/],
 ];
 
