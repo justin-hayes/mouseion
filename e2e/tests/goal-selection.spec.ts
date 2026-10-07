@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../support/test';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -8,11 +8,10 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
-// The fixture server is shared by every project/worker. Keep read-only checks
-// stable across other specs' state changes; stateful workflows run in desktop-light.
+// Stateful flows remain ordered within this file and get a fresh fixture store
+// for each project/worker assignment.
 test.describe('Current reading selection', () => {
   test('current reading opens its focused prepared-deck task', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
     const language = page.getByLabel('Study language');
     if (await language.inputValue() !== 'de') {
@@ -88,7 +87,6 @@ test.describe('Current reading selection', () => {
     });
 
     test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
-      test.skip(test.info().project.name !== 'desktop-light', 'Depends on the fixture book\'s pristine pre-seeded snapshot, which other specs in this shared-state suite mutate.');
       await page.setViewportSize({ width: 1280, height: 800 });
       await signIn(page);
       const switcher = page.getByLabel('Study language');
@@ -149,8 +147,8 @@ test.describe('Current reading selection', () => {
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     const provisional = page.locator('#provisional-journey-list .journey-list > li');
-    // Membership can grow across the shared fixture suite (e.g. a deck-flow test
-    // adds a book), so assert structurally instead of by exact count.
+    // Membership can grow within the stateful sequence in this file, so assert
+    // structurally instead of by exact count.
     await expect(provisional.first()).toBeVisible();
      await expect(provisional.filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
      await expect(provisional.filter({ hasText: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
@@ -200,7 +198,6 @@ test.describe('Current reading selection', () => {
    });
 
    test('stop and set-aside mutations return to truthful Reading state', async ({ page }) => {
-     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture workflow runs once per browser suite.');
      await signIn(page);
      await page.getByLabel('Study language').selectOption('it');
      await expect(page).toHaveURL(/\/library$/);

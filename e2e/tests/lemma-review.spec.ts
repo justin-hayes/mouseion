@@ -1,8 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 
-test('exact-form occurrence review is usable without JavaScript', async ({ browser }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
-  const context = await browser.newContext({ javaScriptEnabled: false });
+test('exact-form occurrence review is usable without JavaScript', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
   const page = await context.newPage();
   try {
     await page.setViewportSize({ width: 375, height: 812 });

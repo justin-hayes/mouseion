@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../support/test';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -8,11 +8,10 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
-// Keep the cross-project browser assertion read-only because the fixture server
-// is shared across projects. One desktop-light journey below exercises the
-// complete finish/history/reread loop; isolated Go tests cover idempotency.
-test('Current reading exposes a native reading-finish confirmation without JavaScript', async ({ browser }) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
+// Each project gets a fresh file-scoped fixture; keep the confirmation and
+// stateful history journey ordered within this file.
+test('Current reading exposes a native reading-finish confirmation without JavaScript', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
   const page = await context.newPage();
   await signIn(page);
   await page.goto('/reading');
@@ -50,7 +49,6 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
 });
 
 test('finishing current reading records Read history and supports reading again', async ({ page }) => {
-  test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
   await signIn(page);
   await page.getByLabel('Study language').selectOption('it');
   await expect(page).toHaveURL(/\/library$/);
