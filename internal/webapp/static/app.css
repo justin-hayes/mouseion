@@ -3355,6 +3355,8 @@
   }
   .btn-primary {
     color: var(--mouseion-color-surface);
+    border-color: var(--mouseion-color-accent);
+    background-color: var(--mouseion-color-accent);
   }
   .library-search__controls input {
     width: 100%;
