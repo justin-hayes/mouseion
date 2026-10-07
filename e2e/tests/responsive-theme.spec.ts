@@ -356,6 +356,8 @@ test.describe('responsive and theme regression coverage', () => {
     await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
     expect(await textContrast(page.locator('.vocabulary-filter button'))).toBeGreaterThanOrEqual(4.5);
     expect(await textContrast(page.locator('#vocabulary-prefix'))).toBeGreaterThanOrEqual(4.5);
+    expect(await page.locator('#vocabulary-prefix').evaluate(renderedTextContrast, true)).toBeGreaterThanOrEqual(3);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
 
     await expect(page.locator('body')).not.toContainText('Browse selection');

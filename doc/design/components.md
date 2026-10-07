@@ -53,6 +53,17 @@ markup.
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Goal completion and catalog connections                  |
 | Active language switcher | Change the learner's stored active study language from the authenticated shell | Active, no active language, newly arrived, no books/read-only | Every authenticated screen |
 
+### Vocabulary Browse and import controls
+
+Vocabulary Browse uses the shared `.input` search field and `.btn` actions for
+search and paging. The include-all checkbox remains native; its glyph stays
+compact while its associated label provides a 44px-or-larger click target. The
+known-vocabulary upload also remains a native file control and multipart POST,
+with an explicit label, platform picker, visible in-flight status when enhanced,
+and server-rendered validation/recovery when enhancement is unavailable. Do not
+add select, radio, or textarea component styles to these workflows: they are not
+used here.
+
 The application shell is visually an index margin on wide viewports and a top
 index on compact viewports. It remains one navigation landmark with the same
 document and keyboard order in both forms. Current context uses a textual link

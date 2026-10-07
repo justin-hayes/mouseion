@@ -1,6 +1,10 @@
 import { expect, Page, test } from '@playwright/test';
 import { renderedTextContrast } from '../support/contrast';
 
+function fixtureBaseURL() {
+  return process.env.MOUSEION_FIXTURE_URL ?? `http://${process.env.MOUSEION_FIXTURE_ADDR ?? '127.0.0.1:8099'}`;
+}
+
 async function signIn(page: Page, username = 'fixture-learner', password = 'fixture-password') {
   await page.goto('/login');
   await expect(page.getByLabel('Username')).toBeVisible();
@@ -52,6 +56,39 @@ async function expectConcordanceListSemantics(page: Page) {
 }
 
 test.describe('native WebKit smoke journey', () => {
+  test('Vocabulary Browse and import retain native controls and recovery without JavaScript', async ({ browser }) => {
+    const context = await browser.newContext({
+      baseURL: fixtureBaseURL(),
+      javaScriptEnabled: false,
+      viewport: { width: 375, height: 812 },
+    });
+    const page = await context.newPage();
+    try {
+      await signIn(page);
+      await page.goto('/library');
+      await chooseStudyLanguage(page, 'de', true);
+      await page.goto('/vocabulary');
+      const prefix = page.getByRole('searchbox', { name: 'Canonical lemma prefix' });
+      await expect(prefix).toHaveClass(/\binput\b/);
+      await page.getByRole('checkbox', { name: 'Show already accounted-for words' }).check();
+      await prefix.fill('haus');
+      await prefix.press('Enter');
+      await expect(page).toHaveURL(/\/vocabulary\?.*all=1.*q=haus|\/vocabulary\?.*q=haus.*all=1/);
+      await expect(page.locator('#vocabulary-results-heading')).toBeFocused();
+
+      await page.goto('/vocabulary/import');
+      const file = page.getByLabel('UTF-8 lemma file');
+      await expect(file).toHaveAttribute('id', 'known-vocabulary-file');
+      await file.setInputFiles({ name: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) });
+      await page.getByRole('button', { name: 'Import known vocabulary' }).click();
+      await expect(page.getByRole('alert')).toContainText('Choose a non-empty UTF-8 text file to import.');
+      await expect(file).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('sign-in renders associated native controls and recovers from invalid credentials', async ({ page }) => {
     await page.goto('/login');
     const username = page.getByLabel('Username');
@@ -151,7 +188,7 @@ test.describe('native WebKit smoke journey', () => {
 
   test('Reading confirmations remain native, visible, and reachable without JavaScript', async ({ browser }) => {
     const page = await browser.newPage({
-      baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+      baseURL: fixtureBaseURL(),
       javaScriptEnabled: false,
       colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
       viewport: { width: 320, height: 812 },

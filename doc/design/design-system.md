@@ -104,14 +104,17 @@ inputs and do not construct utility names at runtime. CSS sources are assembled
 by the one build entry point and are available before any no-JavaScript or
 enhanced interaction is used.
 
-This expand slice keeps the existing Mouseion native baseline as a temporary
-compatibility boundary for workflows not yet migrated. Shared shell/My Books
-(#1488) and Reading/deck preparation (#1489) use the shared controls; remaining
-migration batches are Concordance/occurrence review (#1490), Vocabulary/import
-(#1491), and Catalogs/jobs (#1492). Keep their route-owned layout in the existing component
-stylesheets; do not let those rules override sign-in's shared controls. After
-each batch lands green, the final cutover (#1493) can enable Preflight and retire
-the compatibility baseline. The sign-in foundation itself does not depend on
+The shared-controls rollout keeps the existing Mouseion native baseline as a
+temporary compatibility boundary for workflows not yet migrated. Shared
+shell/My Books (#1488), Reading/deck preparation (#1489), Concordance/occurrence
+review (#1490), and Vocabulary/import (#1491) use the shared controls. Catalogs/jobs
+(#1492) remain to migrate before the final cutover (#1493) enables Preflight and
+retires the compatibility baseline. Keep route-owned layout in the existing
+component stylesheets; do not let those rules override sign-in's shared controls.
+Vocabulary Browse uses the shared input/button contracts and a native checkbox
+whose label provides the 44px target. Known-vocabulary import deliberately keeps
+the native file input and multipart form so the platform picker and ordinary
+submission behavior remain intact. The sign-in foundation does not depend on
 that cutover.
 
 The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)

@@ -7,6 +7,206 @@ body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-lemma-link) {
   align-items: center;
 }
 
+/* Browse and import layout belongs to Vocabulary; controls themselves use the
+ * shared daisyUI button/input classes or documented native controls. */
+body.vocabulary-shell .vocabulary-language {
+  margin-block: var(--mouseion-space-2);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+}
+
+body.vocabulary-shell .vocabulary-scope {
+  max-width: var(--mouseion-width-data);
+  margin-block: var(--mouseion-space-3);
+  border-inline-start: 3px solid var(--mouseion-color-accent);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  background: var(--mouseion-color-surface-raised);
+  overflow-wrap: anywhere;
+}
+
+body.vocabulary-shell .vocabulary-filter {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+  align-items: end;
+  gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  margin-block: var(--mouseion-space-4);
+  border-block: 1px solid var(--mouseion-color-border);
+  padding-block: var(--mouseion-space-3);
+}
+
+body.vocabulary-shell .vocabulary-filter > label:first-of-type,
+body.vocabulary-shell .vocabulary-filter > .input {
+  grid-column: 1;
+}
+
+body.vocabulary-shell .vocabulary-filter > label:first-of-type {
+  margin: 0;
+  font-weight: 600;
+}
+
+body.vocabulary-shell .vocabulary-filter > .input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+body.vocabulary-shell .vocabulary-filter > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+}
+
+body.vocabulary-shell .vocabulary-filter > label:has(input[type="checkbox"]) {
+  grid-column: 1;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--mouseion-space-2);
+  margin: 0;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+/* Keep the native checkbox glyph compact; the associated label is the target. */
+body.vocabulary-shell .vocabulary-filter input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--mouseion-color-accent);
+}
+
+body.vocabulary-shell .vocabulary-filter > .btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 6rem;
+}
+
+body.vocabulary-shell #vocabulary-browse-results > p {
+  max-width: var(--mouseion-width-data);
+}
+
+body.vocabulary-shell #vocabulary-browse-results .table-region table {
+  min-width: 46rem;
+}
+
+body.vocabulary-shell #vocabulary-browse-results td:nth-child(2),
+body.vocabulary-shell #vocabulary-browse-results td:nth-child(3) {
+  white-space: nowrap;
+}
+
+body.vocabulary-shell #vocabulary-browse-results td:nth-child(3) {
+  font-variant-numeric: tabular-nums;
+}
+
+body.vocabulary-shell #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mouseion-space-3);
+  max-width: var(--mouseion-width-data);
+}
+
+body.vocabulary-shell #vocabulary-browse-results > section[aria-label="Vocabulary pages"] p {
+  margin-block: var(--mouseion-space-2);
+}
+
+body.vocabulary-shell nav[aria-label="Browse pages"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mouseion-space-2);
+}
+
+body.vocabulary-shell #known-vocabulary,
+body.vocabulary-shell #vocabulary-results {
+  max-width: var(--mouseion-width-data);
+  min-width: 0;
+}
+
+body.vocabulary-shell .vocabulary-import-form {
+  display: grid;
+  justify-items: start;
+  gap: var(--mouseion-space-2);
+  max-width: var(--mouseion-width-form);
+  margin-block: var(--mouseion-space-4) var(--mouseion-space-5);
+  border-block: 1px solid var(--mouseion-color-border);
+  padding-block: var(--mouseion-space-4);
+}
+
+body.vocabulary-shell .vocabulary-import-form > label {
+  margin: 0;
+  font-weight: 650;
+}
+
+/* Deliberate native file input: preserve the platform picker and native
+ * multipart behavior rather than restyling its browser-owned selector button. */
+body.vocabulary-shell .vocabulary-import-form input[type="file"] {
+  width: min(100%, var(--mouseion-width-form));
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid var(--mouseion-color-control-border);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.vocabulary-shell .vocabulary-import-form input[type="file"]:user-invalid {
+  border-color: var(--mouseion-color-danger);
+}
+
+body.vocabulary-shell .vocabulary-import-form small {
+  max-width: 60ch;
+  color: var(--mouseion-color-text-muted);
+}
+
+body.vocabulary-shell #vocabulary-import-pending {
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+}
+
+body.vocabulary-shell .vocabulary-callout {
+  max-width: var(--mouseion-width-data);
+  padding: var(--mouseion-space-3) var(--mouseion-space-4);
+  overflow-wrap: anywhere;
+}
+
+body.vocabulary-shell .known-vocabulary-result {
+  border-inline-start: 3px solid var(--mouseion-color-success);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.vocabulary-shell .known-vocabulary-result > :last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 40rem) {
+  body.vocabulary-shell .vocabulary-filter {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.vocabulary-shell .vocabulary-filter > :is(label, .input, p, .btn) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  body.vocabulary-shell .vocabulary-filter > .btn,
+  body.vocabulary-shell .vocabulary-import-form > .btn {
+    width: 100%;
+  }
+
+  body.vocabulary-shell #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.vocabulary-shell .vocabulary-import-form {
+    width: 100%;
+  }
+}
+
 body.vocabulary-shell .vocabulary-action-link {
   border: 1px solid var(--mouseion-color-border);
   border-radius: var(--mouseion-radius);

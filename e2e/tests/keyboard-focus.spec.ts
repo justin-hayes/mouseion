@@ -283,6 +283,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       const switcher = page.getByLabel('Study language');
       if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
       const form = page.locator('form[hx-post*="/vocabulary/import"]');
+      await expect(form.locator('input[type="file"]')).toHaveAttribute('id', 'known-vocabulary-file');
+      await expect(form.getByRole('button', { name: /import known vocabulary/i })).toHaveClass(/\bbtn\b/);
       await form.locator('input[type="file"]').setInputFiles({ name: 'known.txt', mimeType: 'text/plain', buffer: Buffer.from('Haus\nÜberraschung\nbad\tline\n') });
       await form.getByRole('button', { name: /import known vocabulary/i }).press('Enter');
       if (disabled) {

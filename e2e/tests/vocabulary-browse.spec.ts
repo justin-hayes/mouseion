@@ -30,8 +30,17 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await expect(noScriptPage.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
     const browseForm = noScriptPage.locator('form[action="/vocabulary"]');
     await expect(browseForm.locator('input[name="reading"]')).toHaveValue('fixture-book');
+    await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveClass(/\binput\b/);
     const includeAll = noScriptPage.getByRole('checkbox', { name: 'Show already accounted-for words' });
     await expect(includeAll).not.toBeChecked();
+    const checkboxSize = await includeAll.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, labelHeight: element.closest('label')!.getBoundingClientRect().height };
+    });
+    expect(checkboxSize.width).toBeLessThan(44);
+    expect(checkboxSize.height).toBeLessThan(44);
+    expect(checkboxSize.labelHeight).toBeGreaterThanOrEqual(44);
+    await expect(browseForm.getByRole('button', { name: 'Search' })).toHaveClass(/\bbtn\b/);
     await includeAll.check();
     const search = noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' });
     await search.focus();

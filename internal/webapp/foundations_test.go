@@ -327,7 +327,9 @@ func TestVocabularyImportUsesOwnedShellAndKeepsNativeForm(t *testing.T) {
 	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.NotContains(t, html, "pico-2.1.1.min.css")
 	assert.Contains(t, html, `<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data"`)
-	assert.Contains(t, html, `label>UTF-8 lemma file<input type="file" name="vocabulary_file"`)
+	assert.Contains(t, html, `<label for="known-vocabulary-file">UTF-8 lemma file</label><input id="known-vocabulary-file" type="file" name="vocabulary_file"`)
+	assert.Contains(t, html, `<button class="btn btn-primary" type="submit">Import known vocabulary</button>`)
+	assert.Contains(t, html, `id="vocabulary-import-pending" class="htmx-indicator" role="status"`)
 	assert.Contains(t, html, `hx-post="/vocabulary/import"`)
 
 	output.Reset()
