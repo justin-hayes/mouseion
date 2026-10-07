@@ -973,11 +973,11 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			if page.CurrentBookID != "" {
 			<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
-				<label for="vocabulary-prefix">Canonical lemma prefix</label><input id="vocabulary-prefix" type="search" name="q" value={ query }/>
+				<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
 				<p>By default, words already Known, Reserved, or included in a prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
-				<label><input type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
-			<button type="submit">Search</button>
+				<label for="vocabulary-include-all"><input id="vocabulary-include-all" type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
+			<button class="btn btn-primary" type="submit">Search</button>
 			</form>
 			}
 			<div id="vocabulary-browse-results">
@@ -1522,10 +1522,10 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
 		if page.Page > 1 {
-			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
+			<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
 		}
 		if page.Page*25 < int(page.Total) {
-			<a href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
+			<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
 		}
 	</nav></section>
 }
@@ -1573,7 +1573,7 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLa
 			}
 			<p>Viewing <strong>{ vocabularyLanguageName(languages, knownLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
 			if studyLanguagePresent(languages, language) {
-				<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post={ knownVocabImportAction() } hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><label>UTF-8 lemma file<input type="file" name="vocabulary_file" accept="text/plain,.txt" required/></label><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button>Import known vocabulary</button></form>
+				<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post={ knownVocabImportAction() } hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML" hx-indicator="#vocabulary-import-pending"><input type="hidden" name="csrf_token" value={ csrf }/><label for="known-vocabulary-file">UTF-8 lemma file</label><input id="known-vocabulary-file" type="file" name="vocabulary_file" accept="text/plain,.txt" required/><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button class="btn btn-primary" type="submit">Import known vocabulary</button><p id="vocabulary-import-pending" class="htmx-indicator" role="status">Importing known vocabulary. Keep this page open while the request completes.</p></form>
 			} else {
 				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
 			}
