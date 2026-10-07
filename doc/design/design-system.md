@@ -179,17 +179,52 @@ losing their meaningful control boundary.
 | `--mouseion-font-reading`     | Book titles, quotations, and sustained source-text samples                     |
 | `--mouseion-font-size-stat`   | Comparable coverage and threshold values; supporting evidence, not page heroes |
 | `.bibliographic-title`        | Bibliographic titles; serif, restrained, and visually textual                  |
-| `.reading-text`               | Source passages or reading samples with a readable measure and 1.7 line height |
+| `.reading-text`               | Source passages or reading samples with a 60–75-character measure and 1.65 line height |
 | `.metadata`                   | Dates, language, media type, provenance summary, and secondary labels          |
 | `.numeric`                    | Values that need stable comparison through tabular numerals                    |
 
-Application controls use an Avenir Next / Gill Sans system stack. Bibliographic
-content uses a Palatino / Book Antiqua system stack whose open forms support long
-German and Italian titles. Serif is a content role, not a generic “scholarly”
-decoration: do not apply it to navigation, buttons, forms, or all headings. The
-My Books page title may use the reading face because it names the collection
-itself. Coverage summaries use tabular numerals even when the `.numeric` class
-is not required on each generated value.
+### Approved Margin notes direction
+
+The approved shared visual direction is **Margin notes**, based on variant A in
+the #1480 design prototype at commit
+`3fd446144af25013a19ab99d0a83e4e778fe7737`. The prototype is design evidence,
+not production code. Its full rationale and screen-level target are recorded in
+#1480; this section records reusable rules. Book and passage identity lead,
+while status and evidence sit beside the item they describe as quiet pencil-tone
+margin notes. Sign-in and other task forms use the same compact, left-aligned
+hierarchy rather than display-sized application titles.
+
+The palette remains the cool-paper identity above: porcelain `#f3f6f7`, raised
+leaf `#fcfdfb`, quiet blue-grey `#e3ebf0`, carbon `#17232d`, pencil `#586873`,
+and annotation blue `#2457b2`; dark pencil metadata is `#a9b8c2` beside
+blue-black `#111a22`, raised slate `#192630`, quiet slate `#233441`, text
+`#edf3f5`, and pale annotation blue `#8fb4ff`.
+Semantic status and control-boundary tokens remain authoritative; pencil color
+is not a status cue by itself.
+
+Commissioner (Kostas Bartsokas, OFL) is the application face. Literata
+(Google Fonts/TypeTogether, OFL) is reserved for Book identity and source text.
+Both are self-hosted variable WOFF2 fonts with Latin, Latin-ext, and Greek
+subsets; Commissioner exposes only weights 400–700, Literata 400–600, and
+Literata uses its optical-size axis. The scale is a major third from
+16px: 13 / 16 / 20 / 25 / 31 / 39 / 49px. Page headings orient at 25px;
+ordinary section headings use 20px; only a current Book title may reach
+39–49px. Reading passages use 17–19px Literata at approximately 1.65 line
+height and a 60–75-character measure. Metadata remains at least 13px, and
+normal controls and help remain comfortably readable. Do not truncate
+authoritative titles or require hover to reveal them.
+
+Font faces use `font-display: swap`, generic sans-serif/serif fallback stacks, and
+local URLs through the embedded static handler. Preload only the Commissioner
+Latin subset used immediately by the interface; Greek, extended-Latin, and
+Literata subsets load when their glyphs are needed. The six font subsets and
+their OFL texts, pinned source paths, and SHA-256 checksums are listed in the
+[vendor inventory](../../internal/webapp/static/vendor/README.md).
+
+Disclosures retain native `<details>/<summary>` behavior and show a visible
+open/closed cue; status uses a shape together with words (filled dot for
+current/ready, ring for neutral, diamond for failure). Never make disclosure
+state or status depend on color alone.
 
 ## Spacing scale
 

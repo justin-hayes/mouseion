@@ -32,6 +32,7 @@
 @source "../components.go";
 @source "../static/my-books.js";
 
+@import "./fonts.css" layer(components);
 @import "./mouseion.css" layer(components);
 @import "./login.css" layer(components);
 @import "./my-books.css" layer(components);

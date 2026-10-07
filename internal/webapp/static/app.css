@@ -485,6 +485,56 @@
   }
 }
 @layer components {
+  @font-face {
+    font-family: "Commissioner Variable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400 700;
+    src: url("/static/vendor/fonts/commissioner-greek-wght-normal.woff2") format("woff2");
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: "Commissioner Variable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400 700;
+    src: url("/static/vendor/fonts/commissioner-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Commissioner Variable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400 700;
+    src: url("/static/vendor/fonts/commissioner-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Literata Variable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400 600;
+    src: url("/static/vendor/fonts/literata-greek-opsz-normal.woff2") format("woff2-variations");
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: "Literata Variable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400 600;
+    src: url("/static/vendor/fonts/literata-latin-ext-opsz-normal.woff2") format("woff2-variations");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Literata Variable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400 600;
+    src: url("/static/vendor/fonts/literata-latin-opsz-normal.woff2") format("woff2-variations");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+}
+@layer components {
   :root {
     --mouseion-color-surface: #f3f6f7;
     --mouseion-color-surface-raised: #fcfdfb;
@@ -529,11 +579,14 @@
     --noise: 0;
     --mouseion-radius: 0.125rem;
     --mouseion-focus-width: 0.125rem;
-    --mouseion-font-application: "Avenir Next", Avenir, "Gill Sans", "Segoe UI", sans-serif;
-    --mouseion-font-reading: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-    --mouseion-line-height-reading: 1.7;
+    --mouseion-font-application: "Commissioner Variable", sans-serif;
+    --mouseion-font-reading: "Literata Variable", serif;
+    --mouseion-line-height-reading: 1.65;
     --mouseion-font-size-metadata: 0.875rem;
     --mouseion-font-size-stat: 1.75rem;
+    --mouseion-font-size-page-title: 1.5625rem;
+    --mouseion-font-size-section-title: 1.25rem;
+    --mouseion-font-size-reading: 1.0625rem;
     --mouseion-space-1: 0.25rem;
     --mouseion-space-2: 0.5rem;
     --mouseion-space-3: 0.75rem;
@@ -551,7 +604,7 @@
     --mouseion-color-surface-raised: #192630;
     --mouseion-color-surface-quiet: #233441;
     --mouseion-color-text: #edf3f5;
-    --mouseion-color-text-muted: #aebdc5;
+    --mouseion-color-text-muted: #a9b8c2;
     --mouseion-color-border: #536571;
     --mouseion-color-control-border: #718692;
     --mouseion-color-accent: #8fb4ff;
@@ -572,7 +625,7 @@
       --mouseion-color-surface-raised: #192630;
       --mouseion-color-surface-quiet: #233441;
       --mouseion-color-text: #edf3f5;
-      --mouseion-color-text-muted: #aebdc5;
+      --mouseion-color-text-muted: #a9b8c2;
       --mouseion-color-border: #536571;
       --mouseion-color-control-border: #718692;
       --mouseion-color-accent: #8fb4ff;
@@ -685,11 +738,11 @@
     line-height: 1.2;
   }
   h1 {
-    font-size: clamp(2.35rem, 5vw, 3.8rem);
-    line-height: 1;
+    font-size: var(--mouseion-font-size-page-title);
+    line-height: 1.25;
   }
   h2 {
-    font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+    font-size: var(--mouseion-font-size-section-title);
   }
   h3 {
     font-size: 1.25rem;
@@ -949,12 +1002,16 @@
   .bibliographic-title {
     font-family: var(--mouseion-font-reading);
     font-weight: 600;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
+    font-optical-sizing: auto;
   }
   .reading-text {
-    max-width: var(--mouseion-width-reading);
+    max-width: 68ch;
     font-family: var(--mouseion-font-reading);
+    font-size: var(--mouseion-font-size-reading);
     line-height: var(--mouseion-line-height-reading);
+    font-optical-sizing: auto;
+    overflow-wrap: anywhere;
   }
   .metadata {
     color: var(--mouseion-color-text-muted);
@@ -1337,11 +1394,9 @@
   }
   .library-masthead h1 {
     margin-bottom: var(--mouseion-space-2);
-    font-family: var(--mouseion-font-reading);
-    font-size: clamp(3.25rem, 8vw, 6.5rem);
-    font-weight: 500;
-    letter-spacing: -0.07em;
-    line-height: 0.88;
+    font-size: var(--mouseion-font-size-page-title);
+    font-weight: 600;
+    letter-spacing: 0;
   }
   .library-masthead .page-header__content p {
     max-width: 42rem;
@@ -1725,9 +1780,6 @@
     .library-masthead {
       margin-bottom: var(--mouseion-space-5);
     }
-    .library-masthead h1 {
-      font-size: clamp(3rem, 18vw, 4.5rem);
-    }
     .library-add-book > summary {
       justify-content: center;
     }
@@ -1767,7 +1819,7 @@
     min-width: 0;
     width: 100%;
     max-width: 100%;
-    padding-block: clamp(3rem, 12vh, 8rem);
+    padding-block: clamp(1.5rem, 8vh, 3rem);
   }
   .narrow.login-screen {
     width: min(100%, 32rem);
@@ -1788,15 +1840,15 @@
     min-width: 0;
   }
   .login-screen h1 {
-    margin-block: 0 0.65rem;
-    font-family: var(--mouseion-font-reading);
-    font-size: clamp(2.25rem, 6vw, 3.2rem);
-    font-weight: 500;
-    letter-spacing: -0.04em;
-    line-height: 1.1;
+    margin-block: 0 var(--mouseion-space-2);
+    font-family: var(--mouseion-font-application);
+    font-size: var(--mouseion-font-size-page-title);
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1.25;
   }
   .login-screen__intro {
-    margin-block: 0 2rem;
+    margin-block: 0 var(--mouseion-space-5);
     color: var(--mouseion-color-text-muted);
   }
   .login-screen__error {
@@ -1809,12 +1861,12 @@
   }
   .login-form {
     display: grid;
-    gap: 1.25rem;
+    gap: var(--mouseion-space-4);
   }
   .login-field {
     display: grid;
-    gap: 0.4rem;
-    font-weight: 650;
+    gap: var(--mouseion-space-2);
+    font-weight: 550;
   }
   .login-field small {
     color: var(--mouseion-color-text-muted);

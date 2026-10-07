@@ -47,11 +47,14 @@
   --mouseion-focus-width: 0.125rem;
 
   /* Typography roles. */
-  --mouseion-font-application: "Avenir Next", Avenir, "Gill Sans", "Segoe UI", sans-serif;
-  --mouseion-font-reading: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --mouseion-line-height-reading: 1.7;
+  --mouseion-font-application: "Commissioner Variable", sans-serif;
+  --mouseion-font-reading: "Literata Variable", serif;
+  --mouseion-line-height-reading: 1.65;
   --mouseion-font-size-metadata: 0.875rem;
   --mouseion-font-size-stat: 1.75rem;
+  --mouseion-font-size-page-title: 1.5625rem;
+  --mouseion-font-size-section-title: 1.25rem;
+  --mouseion-font-size-reading: 1.0625rem;
 
   /* A 4px-based spacing scale expressed relative to the root font size. */
   --mouseion-space-1: 0.25rem;
@@ -74,7 +77,7 @@
   --mouseion-color-surface-raised: #192630;
   --mouseion-color-surface-quiet: #233441;
   --mouseion-color-text: #edf3f5;
-  --mouseion-color-text-muted: #aebdc5;
+  --mouseion-color-text-muted: #a9b8c2;
   --mouseion-color-border: #536571;
   --mouseion-color-control-border: #718692;
   --mouseion-color-accent: #8fb4ff;
@@ -97,7 +100,7 @@
     --mouseion-color-surface-raised: #192630;
     --mouseion-color-surface-quiet: #233441;
     --mouseion-color-text: #edf3f5;
-    --mouseion-color-text-muted: #aebdc5;
+    --mouseion-color-text-muted: #a9b8c2;
     --mouseion-color-border: #536571;
     --mouseion-color-control-border: #718692;
     --mouseion-color-accent: #8fb4ff;
@@ -244,12 +247,12 @@ h6 {
 }
 
 h1 {
-  font-size: clamp(2.35rem, 5vw, 3.8rem);
-  line-height: 1;
+  font-size: var(--mouseion-font-size-page-title);
+  line-height: 1.25;
 }
 
 h2 {
-  font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+  font-size: var(--mouseion-font-size-section-title);
 }
 
 h3 {
@@ -577,13 +580,17 @@ article.narrow {
 .bibliographic-title {
   font-family: var(--mouseion-font-reading);
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
+  font-optical-sizing: auto;
 }
 
 .reading-text {
-  max-width: var(--mouseion-width-reading);
+  max-width: 68ch;
   font-family: var(--mouseion-font-reading);
+  font-size: var(--mouseion-font-size-reading);
   line-height: var(--mouseion-line-height-reading);
+  font-optical-sizing: auto;
+  overflow-wrap: anywhere;
 }
 
 
@@ -1061,11 +1068,9 @@ progress {
 
 .library-masthead h1 {
   margin-bottom: var(--mouseion-space-2);
-  font-family: var(--mouseion-font-reading);
-  font-size: clamp(3.25rem, 8vw, 6.5rem);
-  font-weight: 500;
-  letter-spacing: -0.07em;
-  line-height: 0.88;
+  font-size: var(--mouseion-font-size-page-title);
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .library-masthead .page-header__content p {
@@ -1539,10 +1544,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 
   .library-masthead {
     margin-bottom: var(--mouseion-space-5);
-  }
-
-  .library-masthead h1 {
-    font-size: clamp(3rem, 18vw, 4.5rem);
   }
 
   .library-add-book > summary {
