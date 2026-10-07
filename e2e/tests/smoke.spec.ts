@@ -438,6 +438,9 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('Concordance browser-side timeout keeps old results and exposes recovery', async ({ page }) => {
+    // htmx schedules its request timeout with setTimeout; fast-forward past it
+    // instead of waiting out the real 9s.
+    await page.clock.install();
     await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
     const oldResults = page.locator('#concordance-results');
     let releaseRequest!: () => void;
@@ -453,7 +456,8 @@ test.describe('authenticated learner smoke', () => {
       await page.getByLabel('Exact term').fill('Slow');
       await page.getByRole('button', { name: 'Find', exact: true }).click();
       await started;
-      await expect(page.locator('#concordance-recovery')).toContainText('browser-side request timed out', { timeout: 11_000 });
+      await page.clock.fastForward(10_000);
+      await expect(page.locator('#concordance-recovery')).toContainText('browser-side request timed out');
       await expect(oldResults).toContainText('lookup for “Haus”');
       await expect(page).toHaveURL(/term=Haus/);
     } finally {

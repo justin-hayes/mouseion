@@ -122,9 +122,9 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 	goal.GoalVocabularyEligible = 1
 	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", GoalSnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
+	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
-	assert.Contains(t, html, "Deck preparation")
+	assert.Contains(t, html, "Book deck")
 	assert.Contains(t, html, "Retry deck preparation")
 	assert.Contains(t, html, `action="/reading/books/goal/deck/retry"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot"`)
@@ -139,7 +139,7 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
 	goal := testJourneyBook("empty-goal", "Empty Goal book", "analyzed")
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.")
+	assert.Contains(t, html, "0 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.NotContains(t, html, "Deck preparation unavailable")
 	assert.NotContains(t, html, "Retry deck preparation")
 }
@@ -149,8 +149,8 @@ func TestIsCurrentReadingShowsReservedVocabularyWhenDeckIsUnavailable(t *testing
 	goal.GoalSnapshotSize = 2
 	goal.GoalDeckUnavailable = true
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	assert.Contains(t, html, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
-	assert.Contains(t, html, "Deck state: Unavailable")
+	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
+	assert.Contains(t, html, "Deck unavailable.")
 	assert.Contains(t, html, "Retry deck preparation")
 }
 
@@ -160,17 +160,23 @@ func TestIsCurrentReadingShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) 
 	goal.GoalSnapshotID = "missing-snapshot"
 	goal.GoalDeckMissing = true
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	assert.Contains(t, html, "Deck state: Missing")
-	assert.Contains(t, html, "The current reading and snapshot remain unchanged")
+	assert.Contains(t, html, "Deck missing.")
+	assert.Contains(t, html, "Prepare a deck for the vocabulary reserved for this reading.")
 	assert.Contains(t, html, "Prepare deck")
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="missing-snapshot"`)
+}
+
+func TestReservedVocabularySummaryPluralizesLearnerCopy(t *testing.T) {
+	assert.Equal(t, "1 lemma is set aside from vocabulary selection while you read this Book.", reservedVocabularySummary(1))
+	assert.Equal(t, "2 lemmas are set aside from vocabulary selection while you read this Book.", reservedVocabularySummary(2))
 }
 
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	goal := testJourneyBook("goal-state", "Goal state book", "analyzed")
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
-	assert.Contains(t, html, "Reading state")
-	assert.Contains(t, html, "Not yet marked finished")
+	assert.Contains(t, html, "Reserved vocabulary</h2>")
+	assert.Contains(t, html, "Analysis</h2>")
+	assert.Contains(t, html, "Book deck</h2>")
 	assert.Contains(t, html, `href="/library">Add books from My Books</a>`)
 }
 

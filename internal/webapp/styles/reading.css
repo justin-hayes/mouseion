@@ -232,6 +232,11 @@ body.reading-shell .scope-unit label > :not(input) {
 	width: 4.5rem;
 }
 
+.journey-book--goal .journey-book__cover,
+.journey-book--goal .journey-book__cover .book-cover-media {
+  width: min(13rem, 100%);
+}
+
 .journey-book__author {
   margin: calc(var(--mouseion-space-2) * -1) 0 var(--mouseion-space-3);
   color: var(--mouseion-color-text-muted);
@@ -316,17 +321,18 @@ body.reading-shell .scope-unit label > :not(input) {
   word-break: break-word;
 }
 
-.journey-book--goal {
+.journey-book.journey-book--goal {
 	border: 0;
 	padding: 0;
   background: transparent;
   box-shadow: none;
+  grid-template-columns: 13rem minmax(0, 1fr) minmax(0, 18rem);
 }
 
 .journey-book--goal .goal-card__deck {
-	margin-top: var(--mouseion-space-5);
-	border-top: 1px solid var(--mouseion-color-border);
-	padding-top: var(--mouseion-space-4);
+	margin-top: 0;
+	border-top: 0;
+	padding-top: 0;
 }
 
 /* Book identity leads; evidence annotates it in a narrow reading margin. */
@@ -351,6 +357,18 @@ body.reading-shell .scope-unit label > :not(input) {
   overflow-wrap: anywhere;
 }
 
+.journey-book--goal .journey-book__title a {
+  color: var(--mouseion-color-text);
+  text-decoration: none;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+.journey-book--goal .journey-book__title a:hover,
+.journey-book--goal .journey-book__title a:focus-visible {
+  text-decoration: underline;
+}
+
 .journey-book__since {
   display: flex;
   flex-wrap: wrap;
@@ -372,11 +390,15 @@ body.reading-shell .scope-unit label > :not(input) {
   margin-top: var(--mouseion-space-4);
 }
 
-.journey-book__lifecycle > p {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--mouseion-color-text-muted);
-  font-size: 0.875rem;
+.journey-book__lifecycle .confirmation {
+  width: auto;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.journey-book__lifecycle .confirmation summary {
+  padding-inline: var(--mouseion-space-2);
+  text-align: left;
 }
 
 .journey-book__lifecycle .confirmation,
@@ -390,6 +412,26 @@ body.reading-shell .scope-unit label > :not(input) {
   max-width: 18rem;
   color: var(--mouseion-color-text-muted);
   font-size: 0.9375rem;
+}
+
+.journey-book--goal .reading-note + .reading-note {
+  margin-top: var(--mouseion-space-5);
+}
+
+.journey-book--goal .reading-note h2 {
+  margin-bottom: var(--mouseion-space-2);
+  color: var(--mouseion-color-text);
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.journey-book--goal .reading-note > :last-child {
+  margin-bottom: 0;
+}
+
+.journey-book--goal .reading-note :is(a, button) {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .reading-add-books {
@@ -471,6 +513,15 @@ body.reading-shell .scope-unit label > :not(input) {
     width: 4.5rem;
   }
 
+  .journey-book--goal {
+    display: flex;
+  }
+
+  .journey-book--goal .journey-book__cover,
+  .journey-book--goal .journey-book__cover .book-cover-media {
+    width: min(13rem, 100%);
+  }
+
   .journey-book__title {
     font-size: 1.9375rem;
   }
@@ -481,15 +532,13 @@ body.reading-shell .scope-unit label > :not(input) {
   }
 
   .journey-book__lifecycle {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: flex-start;
   }
 
   .journey-book__lifecycle > *,
   .journey-book__lifecycle .confirmation,
-  .journey-book__lifecycle > a,
-  .journey-book__lifecycle .more-actions {
-    width: 100%;
+  .journey-book__lifecycle > a {
+    width: auto;
   }
 
 	.journey-book__controls {

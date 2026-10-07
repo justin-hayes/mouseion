@@ -145,7 +145,27 @@ test.describe('native WebKit smoke journey', () => {
 
   test('authenticated shell navigation, language return, and Catalogs controls are usable', async ({ page }) => {
     await signIn(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+    const wideShell = await navigation.evaluate(nav => {
+      const brand = nav.querySelector('.site-header__brand')!.getBoundingClientRect();
+      const destinations = nav.querySelector('.site-header__navigation')!.getBoundingClientRect();
+      const tools = nav.querySelector('.site-header__tools')!.getBoundingClientRect();
+      return { brand, destinations, tools };
+    });
+    expect(wideShell.brand.right).toBeLessThanOrEqual(wideShell.destinations.left + 1);
+    expect(wideShell.destinations.right).toBeLessThanOrEqual(wideShell.tools.left + 1);
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    const compactShell = await navigation.evaluate(nav => {
+      const brand = nav.querySelector('.site-header__brand')!.getBoundingClientRect();
+      const destinations = nav.querySelector('.site-header__navigation')!.getBoundingClientRect();
+      const tools = nav.querySelector('.site-header__tools')!.getBoundingClientRect();
+      return { brand, destinations, tools };
+    });
+    expect(Math.abs(compactShell.brand.top - compactShell.tools.top)).toBeLessThan(2);
+    expect(compactShell.destinations.top).toBeGreaterThanOrEqual(Math.max(compactShell.brand.bottom, compactShell.tools.bottom));
+
     const destinations = [
       { name: 'My Books', href: '/library', active: '/library' },
       { name: 'Reading', href: '/reading', active: '/reading' },
@@ -163,7 +183,7 @@ test.describe('native WebKit smoke journey', () => {
     await page.goto('/reading');
     await chooseStudyLanguage(page, 'it');
     await expect(page).toHaveURL(/\/reading$/);
-    await expect(page.locator('main h1')).toContainText(/Italian/);
+    await expect(page.locator('main h1')).toContainText(/italian/i);
     await expect(page.getByLabel('Study language')).toHaveValue('it');
 
     await page.goto('/catalogs');
@@ -540,7 +560,7 @@ test.describe('native WebKit smoke journey', () => {
       await page.goto('/reading');
       await chooseStudyLanguage(page, 'it', true);
       await expect(page).toHaveURL(/\/reading$/);
-      await expect(page.locator('main h1')).toContainText(/Italian/);
+      await expect(page.locator('main h1')).toContainText(/italian/i);
 
       await page.goto('/catalogs');
       const confirmation = page.locator('#connection-fixture-connection details').last();

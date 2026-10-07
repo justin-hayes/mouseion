@@ -263,7 +263,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	for _, want := range []string{
 		"Italiano",
 		`id="journey-book-fixture-empty"`,
-		"Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.",
+		"0 lemmas are set aside from vocabulary selection while you read this Book.",
 	} {
 		assert.True(t, strings.Contains(body, want), "Italian Journey page missing %q: %s", want, body)
 	}
@@ -278,7 +278,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.Code)
 	body = response.Body.String()
 	assert.True(t, strings.Contains(body, "Deutsch") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Reading did not remain isolated after Italian move: %s", body)
-	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
+	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 }
 
 func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T) {
@@ -289,8 +289,8 @@ func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T
 	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
-	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
-	assert.Contains(t, body, "Deck state: Missing")
+	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
+	assert.Contains(t, body, "Deck missing.")
 	assert.Contains(t, body, "Prepare deck")
 }
 

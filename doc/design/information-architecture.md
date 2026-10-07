@@ -177,12 +177,14 @@ supporting surfaces.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
-The shell also carries a native **active study language** control alongside the
-four destinations. Changing it navigates to the same screen in the new language
-on language-scoped screens and updates the stored mode elsewhere; it lists the
-derived study languages plus any known-vocabulary-only language marked "no
-books", marks a newly arrived study language "new", and never auto-switches on
-navigation or sync.
+The shell also carries a native **active study language** control after the four
+destinations in document and keyboard order. Wide screens place it at the
+trailing end; compact screens show it beside the wordmark above the destinations.
+Changing it navigates to the same screen in the new language on language-scoped
+screens and updates the stored mode elsewhere; it lists the derived study
+languages plus any known-vocabulary-only language marked "no books", marks a
+newly arrived study language "new", and never auto-switches on navigation or
+sync.
 
 There is no separate **Catalogues / Browse** sub-navigation. `/catalogs` is for
 connection and sync maintenance; `/library` is the canonical local browse

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -19,8 +18,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/riverqueue/river/rivertype"
 )
-
-const vocabularyBrowseRequestTimeout = 8 * time.Second
 
 func vocabularyBrowseDisplayLemma(language, lemma, upos string) string {
 	return lemmadisplay.Format(language, lemma, upos)
@@ -70,7 +67,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	// complete read (including the optional selection lookup) so an unusually
 	// broad corpus can never leave the learner waiting indefinitely or turn a
 	// partially-read result into a successful page.
-	browseCtx, cancel := context.WithTimeout(r.Context(), vocabularyBrowseRequestTimeout)
+	browseCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
 	defer cancel()
 	current := domain.CurrentReading{}
 	if h.services.Store.CurrentReading != nil {

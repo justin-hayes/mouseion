@@ -485,22 +485,22 @@ func deckPreparationStatusTone(preparation domain.DeckPreparation) StatusTone {
 
 func deckPreparationSummary(preparation domain.DeckPreparation) string {
 	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
-		return "The previous artifact is retained, but a new preparation is needed from the current analysis."
+		return "The previous deck remains available, but a new deck is needed from current analysis."
 	}
 	if preparation.State == domain.DeckPreparationFailed {
 		return "Preparation stopped and can be retried after reviewing the recovery message below."
 	}
 	if preparation.State == domain.DeckPreparationCancelled {
-		return "Preparation was cancelled before the deck was ready. You can retry this exact analysis when you want to continue."
+		return "Preparation was cancelled before the deck was ready. You can try again when you want to continue."
 	}
 	if deckPreparationEmpty(preparation) {
 		return "This book has no recurring vocabulary to study, so there is no deck to download."
 	}
 	if preparation.State == domain.DeckPreparationReady {
-		return "The immutable Anki artifact is ready to download."
+		return "The Book deck is ready to download."
 	}
 	if preparation.State == domain.DeckPreparationQueued {
-		return "The exact analysis is queued for deck preparation."
+		return "Analysis is queued for Book deck preparation."
 	}
 	phase := map[string]string{
 		"freezing":    "Freezing the selected vocabulary.",
@@ -509,13 +509,13 @@ func deckPreparationSummary(preparation domain.DeckPreparation) string {
 		"reconciling": "Reconciling translation results.",
 		"retrying":    "Retrying temporary translation failures.",
 		"translating": "Translating selected vocabulary.",
-		"finalizing":  "Finalizing the immutable Anki artifact.",
-		"assembling":  "Assembling the immutable Anki artifact.",
+		"finalizing":  "Finishing the Book deck.",
+		"assembling":  "Assembling the Book deck.",
 	}
 	if summary, ok := phase[preparation.Phase]; ok {
 		return summary
 	}
-	return "Preparing the immutable Anki artifact. You can leave this page and return later."
+	return "Preparing the Book deck. You can leave and return later."
 }
 
 func deckPreparationEmpty(preparation domain.DeckPreparation) bool {

@@ -21,7 +21,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "queued",
 			prep: domain.DeckPreparation{ID: "prep-queued", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationQueued, Phase: "queued"},
-			want: []string{"Deck preparation queued", "The exact analysis is queued", `action="/deck-preparations/prep-queued/cancel"`},
+			want: []string{"Deck preparation queued", "Analysis is queued for Book deck preparation", `action="/deck-preparations/prep-queued/cancel"`},
 			omit: []string{"Retry preparation", "Download deck"},
 		},
 		{

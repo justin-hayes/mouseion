@@ -618,7 +618,7 @@ func (timedOutVocabularyBrowseStore) ListVocabularyBrowsePage(ctx context.Contex
 
 func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 	store := timedOutVocabularyBrowseStore{}
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}}}
+	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: store, CurrentReading: store, VocabularyBrowse: store}, InteractiveReadTimeout: 100 * time.Millisecond}}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary?q=Haus&book=book-1&page=3", nil)
 	request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 		ActiveLanguage: "de",
@@ -629,7 +629,7 @@ func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 	h.vocabularyPage(response, request)
 
 	assert.Equal(t, http.StatusGatewayTimeout, response.Code)
-	assert.Less(t, time.Since(started), 10*time.Second)
+	assert.Less(t, time.Since(started), 5*time.Second)
 	for _, want := range []string{"Retry Browse", "shorter one", "name=\"q\" value=\"Haus\"", "name=\"reading\" value=\"book-1\"", "name=\"page\" value=\"3\""} {
 		assert.Contains(t, response.Body.String(), want)
 	}
