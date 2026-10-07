@@ -2061,6 +2061,15 @@
     gap: var(--mouseion-space-3);
     margin-top: var(--mouseion-space-4);
   }
+  .table-region[aria-label="Analysis history"] table {
+    min-width: 64rem;
+  }
+  .table-region[aria-label="Analysis history"]:has(th:nth-child(7)) :is(th:nth-child(1), td:nth-child(1), th:nth-child(2), td:nth-child(2), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6)) {
+    white-space: nowrap;
+  }
+  .table-region[aria-label="Analysis history"]:not(:has(th:nth-child(7))) :is(th:nth-child(1), td:nth-child(1), th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5)) {
+    white-space: nowrap;
+  }
   .async-status:has(> .operational-metadata) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);

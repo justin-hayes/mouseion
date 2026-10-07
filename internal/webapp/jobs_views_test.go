@@ -36,6 +36,12 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, html, "Cancelled")
 	assert.Contains(t, html, `aria-label="Analysis job 1 progress"`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
+	var analysisHistory bytes.Buffer
+	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", bookContexts).Render(context.Background(), &analysisHistory))
+	assert.Contains(t, analysisHistory.String(), "Status")
+	assert.Contains(t, analysisHistory.String(), "Failed")
+	assert.Contains(t, analysisHistory.String(), "Unavailable")
+	assert.NotContains(t, analysisHistory.String(), "0001-01-01")
 
 	var detail bytes.Buffer
 	status := analysis.Status{ID: 2, DisplayNumber: 2, LogicalState: "failed", State: "failed", SourceMaterialID: "book-1", Error: "Analyzer stopped."}
@@ -46,6 +52,8 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, detailHTML, "Retry analysis")
 	assert.Contains(t, detailHTML, "Failed")
 	assert.Contains(t, detailHTML, "Der lange Weg nach Hause")
+	assert.Contains(t, detailHTML, "Unavailable")
+	assert.NotContains(t, detailHTML, "0001-01-01")
 	assert.True(t, strings.Contains(detailHTML, `role="status"`))
 }
 

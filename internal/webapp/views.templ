@@ -893,7 +893,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 		}
 		if len(jobs) > 0 {
 			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Job</th><th>Book</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				<thead><tr><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>
 						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
@@ -901,7 +901,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}
@@ -1701,7 +1701,7 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}

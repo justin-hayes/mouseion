@@ -146,9 +146,15 @@ templ OperationalJobMetadata(identityLabel, identity string, createdAt time.Time
 		if identity != "" {
 			<div><dt>{ identityLabel }</dt><dd>{ identity }</dd></div>
 		}
-		<div><dt>Created</dt><dd><time datetime={ createdAt.UTC().Format(time.RFC3339) }>{ createdAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div>
+		<div><dt>Created</dt><dd>
+			if createdAt.IsZero() {
+				Unavailable
+			} else {
+				<time datetime={ createdAt.UTC().Format(time.RFC3339) }>{ createdAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time>
+			}
+		</dd></div>
 		<div><dt>Attempt</dt><dd>{ fmt.Sprintf("%d of %d", maxOne(attempt), maxOne(attemptCount)) }</dd></div>
-		if finishedAt != nil {
+		if finishedAt != nil && !finishedAt.IsZero() {
 			<div><dt>Finished</dt><dd><time datetime={ finishedAt.UTC().Format(time.RFC3339) }>{ finishedAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div>
 		}
 	</dl>
