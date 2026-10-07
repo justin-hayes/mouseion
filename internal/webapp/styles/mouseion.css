@@ -518,6 +518,7 @@ textarea {
   display: flex;
   align-items: center;
   min-width: 0;
+  margin-left: auto;
   gap: var(--mouseion-space-3);
 }
 
@@ -1675,6 +1676,7 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   .site-header__tools {
     grid-column: 2;
     grid-row: 1;
+    margin-left: 0;
     flex-wrap: nowrap;
     justify-content: flex-end;
     gap: var(--mouseion-space-2);

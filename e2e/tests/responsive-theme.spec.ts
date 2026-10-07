@@ -557,6 +557,18 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('shared top bar stays compact and consistent across learner destinations', async ({ page }) => {
     await signIn(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const wideOrder = await page.locator('.site-header__nav').evaluate(nav => {
+      const brand = nav.querySelector('.site-header__brand')!.getBoundingClientRect();
+      const destinations = nav.querySelector('.site-header__navigation')!.getBoundingClientRect();
+      const tools = nav.querySelector('.site-header__tools')!.getBoundingClientRect();
+      return { brand, destinations, tools };
+    });
+    expect(wideOrder.brand.right).toBeLessThanOrEqual(wideOrder.destinations.left + 1);
+    expect(wideOrder.destinations.right).toBeLessThanOrEqual(wideOrder.tools.left + 1);
+    expect(Math.abs(wideOrder.brand.top - wideOrder.destinations.top)).toBeLessThan(2);
+    expect(Math.abs(wideOrder.destinations.top - wideOrder.tools.top)).toBeLessThan(2);
+
     await page.setViewportSize({ width: 375, height: 812 });
 
     for (const [path, current] of [
@@ -581,9 +593,10 @@ test.describe('responsive and theme regression coverage', () => {
         const language = header.querySelector('.site-header__language')!.getBoundingClientRect();
         const account = header.querySelector('.site-header__account summary')!.getBoundingClientRect();
         const links = header.querySelector('.site-header__navigation')!.getBoundingClientRect();
-        return { height: header.getBoundingClientRect().height, brandBottom: brand.bottom, toolsBottom: tools.bottom, languageTop: language.top, languageBottom: language.bottom, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
+        return { height: header.getBoundingClientRect().height, brandTop: brand.top, brandBottom: brand.bottom, toolsTop: tools.top, toolsBottom: tools.bottom, languageTop: language.top, languageBottom: language.bottom, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
       });
       expect(geometry.height).toBeLessThan(302);
+      expect(Math.abs(geometry.brandTop - geometry.toolsTop)).toBeLessThan(2);
       expect(geometry.linksTop).toBeGreaterThanOrEqual(Math.max(geometry.brandBottom, geometry.toolsBottom));
       expect(geometry.accountTop).toBeLessThan(geometry.languageBottom);
       expect(geometry.accountBottom).toBeGreaterThan(geometry.languageTop);

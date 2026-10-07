@@ -56,12 +56,13 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 	navigation := renderedPrimaryNavigation(t, html)
 	ordered := []string{
 		`<a class="site-header__brand" href="/">`,
-		`<details class="site-header__account">`,
 		`<ul class="site-header__navigation">`,
 		`href="/library"`,
 		`href="/reading"`,
 		`href="/vocabulary"`,
 		`href="/catalogs"`,
+		`</ul><div class="site-header__tools">`,
+		`<details class="site-header__account">`,
 	}
 	previous := -1
 	for _, fragment := range ordered {
@@ -71,6 +72,7 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 		previous = position
 	}
 	assert.True(t, strings.Contains(html, `aria-label="Primary navigation"`), "primary navigation name changed")
+	assert.Equal(t, 1, strings.Count(html, `<nav `), "shell keeps one navigation landmark")
 	assert.False(t, strings.Index(html, `class="skip-link"`) > strings.Index(html, `<nav class="site-header__nav"`) || strings.Index(html, `</nav>`) > strings.Index(html, `id="main-content"`), "skip link or main content moved out of keyboard/document order")
 }
 
