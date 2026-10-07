@@ -259,7 +259,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		</div>
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
-				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
+				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>View in Reading</a>
 			}
 			if book.Disposition != "" {
 				if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
@@ -590,10 +590,10 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 			<div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover)</div>
 			<div class="journey-book__identity">
 				if primary {
+					if !item.ReadingSince.IsZero() {
+						<p class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>
+					}
 					<h1 class="journey-book__title">
-						if !item.ReadingSince.IsZero() {
-							<span class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></span>
-						}
 						if journeyEntryAvailable(item) {
 							<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 						} else {

@@ -235,8 +235,10 @@ alone.
 A missing, pending, or unavailable Book cover uses a tinted placeholder with the
 first title initial; a leading article is ignored according to the Book language
 (German, Italian, or Modern Greek). If the title is only an article, its own
-initial is retained. Existing visible cover-state text remains, and the complete
-placeholder is `aria-hidden` because the adjacent title is authoritative.
+initial is retained. At My Books list size, show only the initial rather than a
+clipped cover-state caption; larger cover presentations may retain their state
+label. The complete placeholder is `aria-hidden` because the adjacent title is
+authoritative.
 
 ## Spacing scale
 

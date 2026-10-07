@@ -44,7 +44,11 @@ test.describe('My Books collection browsing', () => {
     const covers = page.locator('.library-books .book-cover-media img');
     await expect(covers.first()).toBeVisible();
     expect(await covers.evaluateAll(images => images.every(image => image.getAttribute('alt') === ''))).toBe(true);
-    expect(await page.locator('.library-books .book-cover-media__placeholder').evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
+    const placeholders = page.locator('.library-books .book-cover-media__placeholder');
+    expect(await placeholders.count()).toBeGreaterThan(0);
+    expect(await placeholders.evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
+    expect(await placeholders.locator('.book-cover-media__initial').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display !== 'none'))).toBe(true);
+    expect(await placeholders.locator('.book-cover-media__label').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display === 'none'))).toBe(true);
     const search = page.getByLabel('Search My Books');
     const button = page.getByRole('button', { name: 'Search' });
     await expect(search).toBeVisible();
@@ -71,6 +75,13 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
+    await expect(page.locator('.journey-book__since')).toContainText('Reading since');
+    const moreActions = page.locator('.journey-book .more-actions').first();
+    expect(await moreActions.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('0px');
+    await page.goto('/vocabulary/concordance');
+    const concordanceSelects = page.locator('#concordance-workflow select');
+    expect(await concordanceSelects.evaluateAll(nodes => nodes.every(node => getComputedStyle(node).appearance === 'auto'))).toBe(true);
   });
 
   test('shows the first Book identity in the initial desktop and compact viewport', async ({ page }) => {
@@ -143,6 +154,9 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('.library-books').getByText('Empty chapter')).toHaveCount(0);
     await expect(page.locator('.library-books')).not.toContainText('language:');
     await expect(page.locator('.library-books .library-book__membership').first()).toBeVisible();
+    const readingLink = page.locator('.library-books a.library-book__journey-action').first();
+    await expect(readingLink).toHaveText('View in Reading');
+    await expect(readingLink).toHaveAccessibleName('View in Reading');
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
