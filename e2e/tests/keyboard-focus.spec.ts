@@ -97,6 +97,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
     await page.keyboard.press('Tab');
+    await expect(page.getByLabel('Study language')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.site-header__account summary')).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'My Books' })).toBeFocused();
     const focusStyle = await page.evaluate(() => {
       const element = document.activeElement;

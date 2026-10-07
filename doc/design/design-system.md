@@ -285,10 +285,13 @@ reserves a modest aligned thumbnail column.
 This is the default content-led layout. Auto-fit grids use available space while
 preserving minimum readable item widths. Do not add tablet-specific variants.
 
-From `64rem`, the shared shell moves its one primary navigation into a narrow
-scholarly margin beside the working leaf. This is a visual transformation only:
-navigation, main content, and keyboard order remain unchanged. The margin has no
-icons, counters, or secondary destinations and must not read as dashboard chrome.
+The shared shell remains one compact top bar at every width. On compact screens,
+its first row holds the wordmark, active study language, and account disclosure;
+the second row holds the four primary destinations. Wider screens keep those
+same controls in one horizontal bar when space permits; long labels and enlarged
+text may make it taller. The one navigation landmark and document order remain
+identical at every width; destinations never become icon-only or move into a
+separate navigation system.
 
 ### Wide data — from `72rem`
 
@@ -326,7 +329,8 @@ scrollable data table must label and contain its own overflow.
 ## Established and canonical interaction contracts
 
 - Canonical authenticated destinations are exactly My Books, Reading,
-  Vocabulary, and Catalogs. Catalogs owns catalogue setup and sync maintenance on
+  Vocabulary, and Catalogs. The shared top bar owns these destinations, the
+  active study-language switcher, and the account disclosure. Catalogs owns catalogue setup and sync maintenance on
   `/catalogs`. My Books is the sole bibliographic Book browse surface, and its
   items own per-book disposition and acquisition intent. Reading owns the
   current Book or the between-Books candidate chooser.

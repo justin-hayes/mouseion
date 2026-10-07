@@ -66,16 +66,22 @@ and server-rendered validation/recovery when enhancement is unavailable. Do not
 add select, radio, or textarea component styles to these workflows: they are not
 used here.
 
-The application shell is visually an index margin on wide viewports and a top
-index on compact viewports. It remains one navigation landmark with the same
-document and keyboard order in both forms. Current context uses a textual link
-and annotation rule; do not add icon-only destinations, counters, or a second
-navigation system. All four authenticated destinations share the same
-left-aligned native-link treatment. The current destination is identified by
-`aria-current="page"` and restrained annotation-blue underline emphasis, never a
-filled button treatment or button role. The active study-language switcher keeps
-the same label, control geometry, and typography on every destination; route form
-rules must not restyle it.
+The application shell is one compact top bar at every width. Compact screens use
+two rows: wordmark, active study language, and account disclosure first; the four
+destinations second. Wider screens arrange those same elements in one horizontal
+bar when space permits, with readable reflow for long labels or enlarged text.
+It remains one navigation landmark with the same document and keyboard order in
+both forms. Current context uses a textual link and annotation rule; do
+not add icon-only destinations, counters, or a second navigation system. All
+four authenticated destinations share the same native-link treatment. The
+current destination is identified by `aria-current="page"` and restrained
+annotation-blue underline emphasis, never a filled button treatment or button
+role. The active study-language switcher keeps its label, native POST behavior,
+return destination, and no-JavaScript submit button. The account disclosure is a
+native `details` element: its summary identifies the learner on wide screens
+and says “Account” on compact screens; its panel always names the learner and
+contains the native logout form. Keep its open state visible and all shell
+controls keyboard-operable without JavaScript.
 
 ## Canonical shipped patterns
 
