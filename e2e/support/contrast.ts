@@ -1,5 +1,5 @@
-/** Measure WCAG text contrast from the colors actually rendered by the browser. */
-export function renderedTextContrast(element: Element): number {
+/** Measure rendered text or an enabled control boundary against its neighbor. */
+export function renderedTextContrast(element: Element, boundary = false): number {
   const canvas = document.createElement('canvas');
   canvas.width = 1;
   canvas.height = 1;
@@ -32,10 +32,10 @@ export function renderedTextContrast(element: Element): number {
   };
 
   // The initial document canvas is white when neither html nor body paints it.
-  // Walk the rendered ancestry so local surfaces and transparent wrappers are
-  // resolved instead of assuming every component sits on the page surface.
+  // Walk rendered ancestry to resolve local/transparent surfaces. For a
+  // boundary, compare against the adjacent outside surface, not the control fill.
   const ancestry: Element[] = [];
-  for (let node: Element | null = element; node; node = node.parentElement) ancestry.push(node);
+  for (let node: Element | null = boundary ? element.parentElement : element; node; node = node.parentElement) ancestry.push(node);
   let background: [number, number, number, number] = [255, 255, 255, 1];
   for (const node of ancestry.reverse()) {
     const style = getComputedStyle(node);
@@ -45,7 +45,8 @@ export function renderedTextContrast(element: Element): number {
     background = over(parseColor(style.backgroundColor, 'background'), background);
   }
 
-  const foreground = over(parseColor(getComputedStyle(element).color, 'foreground'), background);
+  const style = getComputedStyle(element);
+  const foreground = over(parseColor(boundary ? style.borderTopColor : style.color, boundary ? 'border' : 'foreground'), background);
   const luminance = (color: [number, number, number, number]): number => {
     const linear = color.slice(0, 3).map(channel => {
       const value = channel / 255;
@@ -53,7 +54,6 @@ export function renderedTextContrast(element: Element): number {
     });
     return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
   };
-
   const foregroundLuminance = luminance(foreground);
   const backgroundLuminance = luminance(background);
   const ratio = (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)

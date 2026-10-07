@@ -329,6 +329,7 @@ test.describe('authenticated learner smoke', () => {
     const rows = page.locator('#concordance-native-results');
     await expect(rows).toBeVisible();
     await expect(rows.locator('.concordance-result')).toHaveCount(25);
+    await expect(rows).toHaveAttribute('role', 'list');
     await expect(page.locator('#concordance-summary')).toBeFocused();
     await expect(page.locator('.concordance-results')).toHaveCount(1);
     await expect(page.locator('[data-concordance-data], mouseion-concordance')).toHaveCount(0);
@@ -350,8 +351,17 @@ test.describe('authenticated learner smoke', () => {
       return getComputedStyle(element).color === tokenColor;
     });
     expect(accentUsesMouseionToken).toBe(true);
+    const bookFilter = page.locator('.concordance-scopes details').first();
+    const bookFilterSummary = bookFilter.locator('summary');
+    expect(await bookFilterSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▸');
+    await bookFilterSummary.click();
+    await expect(bookFilter).toHaveAttribute('open', '');
+    expect(await bookFilterSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▾');
+    await bookFilterSummary.click();
     await expect(firstRow.locator('details')).not.toHaveAttribute('open', '');
+    expect(await firstRow.locator('summary').evaluate(element => getComputedStyle(element, '::before').content)).toContain('▸');
     await firstRow.locator('summary').click();
+    expect(await firstRow.locator('summary').evaluate(element => getComputedStyle(element, '::before').content)).toContain('▾');
     await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
@@ -618,7 +628,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await nextPage.click();
     expect((await conflictResponse).status()).toBe(409);
     await expect(page.locator('#concordance-recovery')).toContainText('Current evidence changed');
-    const restart = page.locator('#concordance-recovery').getByRole('button', { name: 'Restart from results' });
+    const restart = page.locator('#concordance-recovery').getByRole('link', { name: 'Restart from results' });
     await expect(restart).toHaveAttribute('href', /page=1/);
     await expect(restart).not.toHaveAttribute('href', /rev=/);
     await expect(restart).toHaveAttribute('href', /book=fixture-book/);

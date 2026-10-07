@@ -1,42 +1,4 @@
-/* Vocabulary workflow forms and controls. */
-
-body.vocabulary-shell :is(button, a[role="button"], summary) {
-  min-height: 44px;
-}
-
-body.vocabulary-shell button {
-  max-width: 100%;
-  border-radius: 0.125rem;
-  font: inherit;
-}
-
-body.vocabulary-shell button:hover:not(:disabled) {
-  cursor: pointer;
-}
-
-body.vocabulary-shell :is(button, a[role="button"], summary, input, select, textarea):focus-visible,
-body.vocabulary-shell .site-header__navigation a:focus-visible {
-  outline: 3px solid var(--mouseion-color-focus);
-  outline-offset: 3px;
-}
-
-body.vocabulary-shell :is(input:not([type="hidden"]), select, textarea) {
-  box-sizing: border-box;
-  max-width: 100%;
-  min-height: 44px;
-  border-color: var(--mouseion-color-border);
-  border-radius: 0.125rem;
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
-  font: inherit;
-}
-
-body.vocabulary-shell input[type="checkbox"] {
-  width: 1.25rem;
-  min-width: 1.25rem;
-  height: 1.25rem;
-  accent-color: var(--mouseion-color-accent);
-}
+/* Vocabulary view-specific composition; controls use the shared foundation. */
 
 body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-lemma-link) {
   display: inline-flex;
@@ -89,16 +51,6 @@ body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] a[ari
   color: var(--mouseion-color-text);
   font-weight: 650;
   text-decoration-thickness: 0.15em;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body.vocabulary-shell *,
-  body.vocabulary-shell *::before,
-  body.vocabulary-shell *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
 }
 
 /* Vocabulary sentence study and occurrence review are hosted by the compiled
@@ -155,7 +107,7 @@ body.reading-shell .lemma-review label {
 body.reading-shell .lemma-review fieldset {
   min-width: 0;
   margin: 0;
-  border: 1px solid var(--mouseion-color-border);
+  border: 1px solid var(--mouseion-color-control-border);
   padding: var(--mouseion-space-3);
 }
 
@@ -164,12 +116,17 @@ body.reading-shell .lemma-review fieldset label {
   padding-block: var(--mouseion-space-2);
 }
 
-body.reading-shell .lemma-review input[type="checkbox"] {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-inline-end: var(--mouseion-space-2);
-  accent-color: var(--mouseion-color-accent);
-  vertical-align: middle;
+body.reading-shell .lemma-review label:has(input[type="checkbox"]) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--mouseion-space-2);
+  cursor: pointer;
+}
+
+body.reading-shell .lemma-review label:has(input[type="checkbox"]) > input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 body.reading-shell .lemma-review details {
@@ -178,8 +135,20 @@ body.reading-shell .lemma-review details {
 
 body.reading-shell .lemma-review summary {
   display: flex;
+  min-height: 44px;
   align-items: center;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+body.reading-shell .lemma-review details > summary::before {
+  content: "▸";
+  flex: 0 0 1.25rem;
+  color: var(--mouseion-color-accent);
+}
+
+body.reading-shell .lemma-review details[open] > summary::before {
+  content: "▾";
 }
 
 #main-content:has(form.concordance-query) > .page-header {
@@ -221,12 +190,6 @@ body.vocabulary-shell #main-content > .page-header h1 {
 
 body.vocabulary-shell .concordance-query :is(input, select) {
   width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-border);
-  border-radius: var(--mouseion-radius);
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
 }
 
 body.vocabulary-shell .concordance-query label {
@@ -238,10 +201,15 @@ body.vocabulary-shell .concordance-scopes form {
   margin-block: var(--mouseion-space-3);
 }
 
+body.vocabulary-shell .concordance-scopes .input {
+  width: 100%;
+}
+
 body.vocabulary-shell .concordance-scopes fieldset,
 body.vocabulary-shell #concordance-recovery fieldset {
   min-width: 0;
-  border: 1px solid var(--mouseion-color-border);
+  margin: 0;
+  border: 1px solid var(--mouseion-color-control-border);
   padding: var(--mouseion-space-3);
 }
 
@@ -257,9 +225,6 @@ body.vocabulary-shell #concordance-recovery fieldset label {
 body.vocabulary-shell .concordance-scopes input[type="checkbox"],
 body.vocabulary-shell #concordance-recovery input[type="checkbox"] {
   flex: 0 0 auto;
-  width: 1.25rem;
-  height: 1.25rem;
-  accent-color: var(--mouseion-color-accent);
 }
 
 body.vocabulary-shell .concordance-row summary {
@@ -369,8 +334,28 @@ body.vocabulary-shell #concordance-results nav a {
 }
 
 .concordance-scopes summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  list-style: none;
   overflow-wrap: anywhere;
   margin: 0;
+  cursor: pointer;
+}
+
+.concordance-scopes summary::-webkit-details-marker,
+.concordance-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.concordance-scopes summary::before {
+  content: "▸";
+  flex: 0 0 1.25rem;
+  color: var(--mouseion-color-accent);
+}
+
+.concordance-scopes details[open] > summary::before {
+  content: "▾";
 }
 
 .concordance-results {
@@ -405,13 +390,30 @@ body.vocabulary-shell #concordance-results nav a {
 }
 
 .concordance-row summary {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 1fr) max-content minmax(0, 1fr);
   align-items: baseline;
   gap: var(--mouseion-space-2);
   line-height: 1.5;
   max-width: 100%;
+  padding-inline-start: 1.25rem;
+  list-style: none;
   cursor: pointer;
+}
+
+.concordance-row summary::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  display: flex;
+  align-items: center;
+  content: "▸";
+  color: var(--mouseion-color-accent);
+}
+
+.concordance-row[open] > summary::before {
+  content: "▾";
 }
 
 .concordance-book-title {

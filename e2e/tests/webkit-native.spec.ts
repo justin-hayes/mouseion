@@ -255,10 +255,26 @@ test.describe('native WebKit smoke journey', () => {
     await signIn(page);
     await lookupScopedConcordance(page);
 
+    await expect(page.locator('#concordance-mode')).toHaveClass(/\binput\b/);
+    await expect(page.locator('#concordance-term')).toHaveClass(/\binput\b/);
+    await expect(page.getByRole('button', { name: 'Find' })).toHaveClass(/\bbutton\b/);
+    await expect(page.locator('.concordance-scopes fieldset')).toHaveCount(1);
+    await expect(page.locator('.concordance-scopes button[type="submit"]').first()).toHaveClass(/\bbutton--outline\b/);
+    const bookDisclosure = page.locator('.concordance-scopes details').first();
+    const bookSummary = bookDisclosure.locator('summary');
+    const closedBookCue = await bookSummary.evaluate(element => getComputedStyle(element, '::before').content);
+    expect(closedBookCue).toContain('▸');
+    await bookSummary.click();
+    await expect(bookDisclosure).toHaveAttribute('open', '');
+    const openBookCue = await bookSummary.evaluate(element => getComputedStyle(element, '::before').content);
+    expect(openBookCue).toContain('▾');
+    await bookSummary.click();
+
     const results = page.locator('#concordance-results');
     await expect(results).toContainText('Applied exact observed surface lookup for “Haus” · Der lange Weg nach Hause · no grammar filter');
     await expect(results).toContainText('Results 1–25 · page 1');
     await expect(page.locator('#concordance-native-results li')).toHaveCount(25);
+    await expect(page.locator('#concordance-native-results')).toHaveAttribute('role', 'list');
     await expectConcordanceListSemantics(page);
     await expect(page.locator('.concordance-results')).toHaveCount(1);
     await expect(page.locator('#concordance-results [data-concordance-data], #concordance-results mouseion-concordance')).toHaveCount(0);
@@ -268,12 +284,14 @@ test.describe('native WebKit smoke journey', () => {
     const firstRow = page.locator('#concordance-native-results details').first();
     const secondRow = page.locator('#concordance-native-results details').nth(1);
     const firstSummary = firstRow.locator('summary');
+    expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▸');
     await expect(firstSummary).toContainText('Der lange Weg nach Hause');
     await expect(firstSummary).toContainText('Haus');
 
     // Pointer activation opens native context; keyboard focus remains visible.
     await firstSummary.click();
     await expect(firstRow).toHaveAttribute('open', '');
+    expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▾');
     await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
     await firstSummary.focus();
@@ -324,9 +342,12 @@ test.describe('native WebKit smoke journey', () => {
       await signIn(page);
       await lookupScopedConcordance(page);
       const results = page.locator('#concordance-results');
+      await expect(page.locator('#concordance-mode')).toHaveClass(/\binput\b/);
+      await expect(page.getByRole('button', { name: 'Find' })).toHaveClass(/\bbutton\b/);
       await expect(results).toContainText('Applied exact observed surface lookup for “Haus” · Der lange Weg nach Hause · no grammar filter');
       await expect(results).toContainText('Results 1–25 · page 1');
       await expect(page.locator('#concordance-native-results li')).toHaveCount(25);
+      await expect(page.locator('#concordance-native-results')).toHaveAttribute('role', 'list');
       await expectConcordanceListSemantics(page);
       await expect(page.locator('.concordance-results')).toHaveCount(1);
       await expectNoHorizontalOverflow(page);
@@ -350,6 +371,30 @@ test.describe('native WebKit smoke journey', () => {
     } finally {
       await context.close();
     }
+  });
+
+  test('occurrence review uses shared controls and native disclosure with long selectable labels', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
+    await expect(page.getByLabel('Exact observed form')).toHaveClass(/\binput\b/);
+    await expect(page.getByLabel('Corrected canonical lemma').first()).toHaveClass(/\binput\b/);
+    await expect(page.getByRole('button', { name: 'Preview correction' }).first()).toHaveClass(/\bbutton\b/);
+
+    const additionalOccurrence = page.locator('.lemma-review fieldset label').first();
+    const target = await additionalOccurrence.boundingBox();
+    expect(target?.height).toBeGreaterThanOrEqual(44);
+    await additionalOccurrence.locator('input[type="checkbox"]').check();
+    await expect(additionalOccurrence.locator('input[type="checkbox"]')).toBeChecked();
+
+    const exclusion = page.locator('.lemma-review details').first();
+    const summary = exclusion.locator('summary');
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(exclusion).toHaveAttribute('open', '');
+    await expect(exclusion.getByRole('button', { name: 'Preview exclusion' })).toHaveClass(/\bbutton--danger\b/);
+    await page.keyboard.press('Space');
+    await expect(exclusion).not.toHaveAttribute('open', '');
+    await expectNoHorizontalOverflow(page);
   });
 
   test('server-rendered sign-in and authenticated native forms work without JavaScript', async ({ browser, baseURL }) => {
