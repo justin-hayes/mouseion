@@ -56,6 +56,25 @@ async function expectConcordanceListSemantics(page: Page) {
 }
 
 test.describe('native WebKit smoke journey', () => {
+  test('markerless Book collections retain native list semantics after Preflight', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    const books = page.locator('.library-grid');
+    await expect(books).toHaveAttribute('role', 'list');
+    await expect(books.getByRole('listitem').first()).toBeVisible();
+    expect(await books.evaluate((list) => getComputedStyle(list).listStyleType)).toBe('none');
+
+    const prose = await page.evaluate(() => {
+      const list = document.createElement('ul');
+      list.innerHTML = '<li>Prose list semantics</li>';
+      document.querySelector('main')!.append(list);
+      const style = getComputedStyle(list);
+      return { marker: style.listStyleType, indent: style.paddingInlineStart };
+    });
+    expect(prose.marker).toBe('disc');
+    expect(prose.indent).not.toBe('0px');
+  });
+
   test('Vocabulary Browse and import retain native controls and recovery without JavaScript', async ({ browser }) => {
     const context = await browser.newContext({
       baseURL: fixtureBaseURL(),

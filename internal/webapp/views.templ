@@ -382,13 +382,13 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 		}
 		if len(books) > 0 {
 			if browse.NeedsLanguage {
-				<ul class="library-diagnostic-list">
+				<ul class="library-diagnostic-list" role="list">
 					for _, book := range books {
 						@NeedsLanguageBookRow(book)
 					}
 				</ul>
 			} else {
-				<ul class="library-grid">
+				<ul class="library-grid" role="list">
 					for _, book := range books {
 						if myBooksBookInLanguage(browse, book) {
 							@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
@@ -480,7 +480,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		} else if len(books) > 0 {
 			<section class="library-list" aria-labelledby="acquired-books-heading">
 				<h2 id="acquired-books-heading">Books in My Books</h2>
-				<ul class="library-grid">
+				<ul class="library-grid" role="list">
 					for _, book := range books {
 						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
 					}
@@ -1857,7 +1857,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 				<section aria-labelledby="reading-chooser-in-progress-heading">
 					<h2 id="reading-chooser-in-progress-heading">Analysis in progress</h2>
 					<p>Accepted analysis work remains visible here while it runs.</p>
-					<ul class="reading-chooser-list">
+					<ul class="reading-chooser-list" role="list">
 						for _, item := range chooser.InProgress {
 							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 						}
@@ -1868,7 +1868,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 				<section aria-labelledby="reading-chooser-attention-heading">
 					<h2 id="reading-chooser-attention-heading">Needs attention</h2>
 					<p>These candidates need current content or usable analysis before their coverage can be compared.</p>
-					<ul class="reading-chooser-list">
+					<ul class="reading-chooser-list" role="list">
 						for _, item := range chooser.Attention {
 							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 						}
@@ -1884,7 +1884,7 @@ templ ReadingChooserBand(title, description string, books []readingChooserBookVi
 		<section aria-label={ title }>
 			<h2>{ title }</h2>
 			<p>{ description }</p>
-			<ul class="reading-chooser-list">
+			<ul class="reading-chooser-list" role="list">
 				for _, item := range books {
 					@ReadingChooserBook(item, csrf, currentBookID, currentSnapshotID)
 				}
