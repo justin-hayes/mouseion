@@ -59,7 +59,7 @@ test.describe('native WebKit smoke journey', () => {
   test('markerless Book collections retain native list semantics after Preflight', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
-    const books = page.locator('.library-grid');
+    const books = page.locator('.library-books');
     await expect(books).toHaveAttribute('role', 'list');
     await expect(books.getByRole('listitem').first()).toBeVisible();
     expect(await books.evaluate((list) => getComputedStyle(list).listStyleType)).toBe('none');

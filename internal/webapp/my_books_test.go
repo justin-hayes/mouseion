@@ -166,7 +166,7 @@ func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
 	assert.False(t, strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`), "My Books rows exposed an explicit analysis action: %s", html)
 }
 
-func TestMyBooksCoverGridUsesNativeListAndStablePresentationStates(t *testing.T) {
+func TestMyBooksListUsesNativeListAndStablePresentationStates(t *testing.T) {
 	books := []domain.MyBook{
 		{Book: domain.Book{ID: "available", OwnerID: "owner", Title: "A very long title that remains fully visible", Author: "An author with a name long enough to wrap in a narrow grid item"}, Cover: domain.BookCover{State: domain.BookCoverAvailable, Width: 600, Height: 900}, IsToRead: true},
 		{Book: domain.Book{ID: "pending", OwnerID: "owner", Title: "Pending cover"}, Cover: domain.BookCover{State: domain.BookCoverPending}},
@@ -177,7 +177,7 @@ func TestMyBooksCoverGridUsesNativeListAndStablePresentationStates(t *testing.T)
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 
-	assert.Contains(t, html, `<ul class="library-grid" role="list">`)
+	assert.Contains(t, html, `<ul class="library-books" role="list">`)
 	assert.Equal(t, 4, strings.Count(html, `class="resource-card library-book"`))
 	assert.NotContains(t, html, `role="grid"`)
 	assert.NotContains(t, html, `aria-rowindex`)

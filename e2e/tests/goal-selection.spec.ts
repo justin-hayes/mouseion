@@ -160,14 +160,14 @@ test.describe('Current reading selection', () => {
       expect(retryResponse.status()).toBe(303);
 
       await page.goto('/library');
-      const goalBook = page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
+      const goalBook = page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
       await expect(goalBook.locator('.library-book__membership')).toHaveText('Currently reading');
       await expect(goalBook.getByRole('link', { name: 'View in Reading' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
       await expect(goalBook.getByText('To Read', { exact: true })).toHaveCount(0);
       await page.goto('/library?disposition=to_read');
        await expect(page.getByRole('link', { name: 'To Read (7)' })).toBeVisible();
-       await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Der lange Weg nach Hause' }).locator('.library-book__membership')).toHaveText('Currently reading');
-      await expect(page.locator('.library-grid .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+       await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' }).locator('.library-book__membership')).toHaveText('Currently reading');
+      await expect(page.locator('.library-books .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
    });
 
    test('stop and set-aside mutations return to truthful Reading state', async ({ page }) => {
@@ -217,8 +217,8 @@ test.describe('Current reading selection', () => {
      await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 
      await page.goto('/library');
-     const setAsideBook = page.locator('.library-grid .library-book').filter({ hasText: title });
-     await expect(setAsideBook.locator('.metadata').filter({ hasText: 'Workflow' })).toContainText('Set Aside');
+     const setAsideBook = page.locator('.library-books .library-book').filter({ hasText: title });
+     await expect(setAsideBook.locator('.metadata').filter({ hasText: 'Disposition' })).toContainText('Set Aside');
      await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
      await startBook(title);
    });

@@ -1,7 +1,7 @@
 # Interface components
 
 Status: **Established implementation components plus shipped learner-facing
-patterns.** My Books cover-grid and Reading title-page/chooser patterns are shipped. The
+patterns.** My Books compact-list and Reading title-page/chooser patterns are shipped. The
 JourneyOrder, JourneyForecast, and PrimaryGoalSummary sections below are
 historical contracts, not current Reading UI. Current behavior is defined by the
 [Reading workflow](../features/reading-workflow.md).
@@ -116,7 +116,7 @@ to wrap every region in a card.
 ## Book cover patterns
 
 [Book Covers](../features/book-covers.md) owns the complete cover experience. The
-My Books cover-grid pattern below and its Reading Journey thumbnail variant are
+My Books one-column list pattern below and its Reading thumbnail variant are
 shipped.
 
 ### `BookCoverMedia`
@@ -142,19 +142,22 @@ link, and never make cover content or actions hover-only.
 **Answers:** Which Book is this, is it in my Reading Journey, and what can I do
 with it?
 
-Use `BookCoverMedia`, then full title and available author, a restrained workflow
-placement and **In Reading Journey** marker when applicable, one labeled primary
-action, and a labeled native **More actions** disclosure. The primary action is
+Use `BookCoverMedia` in a compact one-column list row, then full title and
+available author, a restrained workflow placement and **In Reading** marker when
+applicable, one labeled contextual action, and a labeled native **More actions**
+disclosure. Keep the cover small and the title authoritative. Disposition and
+evidence sit in the right margin on wider screens and below the identity on
+compact screens. The primary action is
 **Move to To Read** for Inbox or Set Aside Books, and **View in Reading Journey**
 for a Journey member. The disclosure owns **Set aside**, eligible metadata
 refresh, and confirmed My Books removal. Do not add analysis, acquired-content,
 evidence, Primary Goal, or next-action status to this pattern.
 
-Repeated items form a native unordered list laid out with CSS Grid, not an ARIA
-grid. Compact layouts retain two ordinary columns where the viewport permits,
-reduce columns without horizontal overflow, and keep title, author, membership,
-and controls in document and keyboard order. Search-result replacement uses one
-scoped live region and does not announce every cover or item.
+Repeated items form one native unordered list at every width, not an ARIA grid.
+Keep cover, title, author, action, and note content in document and keyboard
+order, with long bibliographic text wrapping without truncation. Search-result
+replacement uses one scoped live region and does not announce every cover or
+item.
 
 My Books search remains a native GET search form. Its shared input contract fills
 and can shrink within the available search track; the submit button stays
@@ -404,13 +407,12 @@ Lead with resource identity, then supporting metadata or relationship, evidence
 state, and action. Cards in a list must use the same internal order. Avoid
 nested cards and avoid using a card solely to add decoration around prose.
 
-The shipped repeated My Books and Journey items normally use a bibliographic
-row/list-item treatment with fine rules, not `ResourceCard`. The accepted
-`MyBooksCoverItem` deliberately replaces only the My Books row with a cover-grid
-item; it is not a generic card license. Reserve a stronger contained surface for
-a genuinely distinct region such as the one Primary Goal or a consequential
-outcome; even there, typography should carry more hierarchy than border, shadow,
-or background.
+The shipped repeated My Books and Reading items normally use a bibliographic
+row/list-item treatment with fine rules, not `ResourceCard`. `MyBooksCoverItem`
+is a compact text-led list item with a small cover, not a cover-grid item or a
+generic card license. Reserve a stronger contained surface for a genuinely
+distinct region such as a consequential outcome; even there, typography should
+carry more hierarchy than border, shadow, or background.
 
 ### `ActionGroup`
 

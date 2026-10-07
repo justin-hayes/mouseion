@@ -16,10 +16,10 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/my-books-shell/);
-    const covers = page.locator('.library-grid .book-cover-media img');
+    const covers = page.locator('.library-books .book-cover-media img');
     await expect(covers.first()).toBeVisible();
     expect(await covers.evaluateAll(images => images.every(image => image.getAttribute('alt') === ''))).toBe(true);
-    expect(await page.locator('.library-grid .book-cover-media__placeholder').evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
+    expect(await page.locator('.library-books .book-cover-media__placeholder').evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
     const search = page.getByLabel('Search My Books');
     const button = page.getByRole('button', { name: 'Search' });
     await expect(search).toBeVisible();
@@ -48,6 +48,32 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
   });
 
+  test('shows the first Book identity in the initial desktop and compact viewport', async ({ page }) => {
+    await signIn(page);
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/library');
+      const firstBook = page.locator('.library-books .library-book').first();
+      await expect(firstBook).toBeVisible();
+      const visibleIdentity = await firstBook.evaluate((item, height) => {
+        const title = item.querySelector('.bibliographic-title')!.getBoundingClientRect();
+        const cover = item.querySelector('.book-cover-media')!.getBoundingClientRect();
+        const intersects = (rect: DOMRect) => rect.top < height && rect.bottom > 0;
+        return { title: intersects(title), cover: intersects(cover) };
+      }, viewport.height);
+      expect(visibleIdentity.title, `Book title should intersect ${viewport.width}x${viewport.height}`).toBe(true);
+      expect(visibleIdentity.cover, `Book cover/placeholder should intersect ${viewport.width}x${viewport.height}`).toBe(true);
+      const notice = page.locator('aside.library-needs-language');
+      if (await notice.count()) {
+        await expect(notice.getByRole('link', { name: 'Review' })).toBeVisible();
+        expect(await notice.evaluate((node, height) => {
+          const rect = node.getBoundingClientRect();
+          return rect.top < height && rect.bottom > 0;
+        }, viewport.height)).toBe(true);
+      }
+    }
+  });
+
   test('browses and searches only the active study language', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
@@ -58,24 +84,24 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
     await expect(page.getByRole('navigation', { name: 'Languages' })).toHaveCount(0);
     await expect(page.getByText('All languages')).toHaveCount(0);
-    await expect(page.locator('ul.library-grid')).toHaveCount(1);
+    await expect(page.locator('ul.library-books')).toHaveCount(1);
     await expect(page.locator('ul[role="grid"]')).toHaveCount(0);
-    await expect(page.locator('.library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.locator('.library-grid').getByText('Empty chapter')).toHaveCount(0);
-    await expect(page.locator('.library-grid')).not.toContainText('language:');
-    await expect(page.locator('.library-grid .library-book__membership').first()).toBeVisible();
+    await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
+    await expect(page.locator('.library-books').getByText('Empty chapter')).toHaveCount(0);
+    await expect(page.locator('.library-books')).not.toContainText('language:');
+    await expect(page.locator('.library-books .library-book__membership').first()).toBeVisible();
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
     await expect(page.locator('#library-books-heading')).toBeFocused();
     await page.goto('/library');
-    const firstBook = page.locator('.library-grid .library-book').first();
+    const firstBook = page.locator('.library-books .library-book').first();
     await firstBook.getByText('More actions', { exact: true }).click();
     await expect(firstBook.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
 
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+    await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
     await expect(page.locator('#library-results a[href^="/reading#"]').first()).toBeVisible();
 
     await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
@@ -87,8 +113,8 @@ test.describe('My Books collection browsing', () => {
     await switcher.selectOption('it');
     await expect(page).toHaveURL('/library');
     await expect(page.locator('#library-page-title')).toHaveText('My Books in Italian');
-    await expect(page.locator('.library-grid').getByText('Empty chapter')).toBeVisible();
-    await expect(page.locator('.library-grid').getByText('Der lange Weg nach Hause')).toHaveCount(0);
+    await expect(page.locator('.library-books').getByText('Empty chapter')).toBeVisible();
+    await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toHaveCount(0);
     await switcher.selectOption('de');
   });
 
@@ -102,30 +128,30 @@ test.describe('My Books collection browsing', () => {
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
-    await expect(page.locator('#library-results .library-grid')).toContainText('Der lange Weg nach Hause');
+    await expect(page.locator('#library-results .library-books')).toContainText('Der lange Weg nach Hause');
   });
 
-  test('keeps the server-rendered grid usable without JavaScript', async ({ browser }) => {
+  test('keeps the server-rendered list usable without JavaScript', async ({ browser }) => {
     const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, javaScriptEnabled: false });
     try {
       const page = await context.newPage();
       await signIn(page);
       await page.goto('/library?q=Der%20lange');
-      await expect(page.locator('ul.library-grid')).toBeVisible();
-      await expect(page.locator('.library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+      await expect(page.locator('ul.library-books')).toBeVisible();
+      await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
       await page.goto('/library?q=Fehlgeschlagene');
-      const book = page.locator('.library-grid .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
+      const book = page.locator('.library-books .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
       await expect(book).toBeVisible();
       await book.getByText('More actions', { exact: true }).click();
       await expect(book.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
       await book.getByText('Set aside', { exact: true }).click();
       await book.getByRole('button', { name: 'Confirm set aside' }).click();
       await expect(page).toHaveURL(/disposition=set_aside/);
-      const setAsideBook = page.locator('.library-grid .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
+      const setAsideBook = page.locator('.library-books .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
       await expect(setAsideBook).toBeVisible();
       await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
       await expect(page).toHaveURL(/disposition=to_read/);
-      await expect(page.locator('.library-grid').getByText('Fehlgeschlagene Analyse')).toBeVisible();
+      await expect(page.locator('.library-books').getByText('Fehlgeschlagene Analyse')).toBeVisible();
     } finally {
       await context.close();
     }
@@ -145,7 +171,7 @@ test.describe('My Books collection browsing', () => {
     await page.goBack();
     const response = await historyResponse;
     expect(await response.text()).toContain('<!doctype html>');
-    await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+    await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
   });
 
   test('navigates to a complete corrected page after enhanced browse redirects', async ({ page }) => {
@@ -177,13 +203,13 @@ test.describe('My Books collection browsing', () => {
       expect(await destination?.text()).toContain('<!doctype html>');
       await expect(page).toHaveURL(correctedPath);
       await expect(page.locator('#library-results')).toBeVisible();
-      await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+      await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
       if (correctedPath === '/library?q=Der') {
         await page.goBack();
         await expect(page).toHaveURL('/library');
         await page.goForward();
         await expect(page).toHaveURL(correctedPath);
-        await expect(page.locator('#library-results .library-grid').getByText('Der lange Weg nach Hause')).toBeVisible();
+        await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
       }
     }
   });
@@ -226,9 +252,9 @@ test.describe('My Books collection browsing', () => {
     test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture sync runs once per browser suite.');
     await signIn(page);
     await page.goto('/library');
-    const strip = page.locator('section.library-needs-language');
-    await expect(strip).toContainText(/book[s]? .*outside the active language collections/);
-    await strip.getByRole('link', { name: 'Review books awaiting a language' }).click();
+    const strip = page.locator('aside.library-needs-language');
+    await expect(strip).toContainText(/book[s]? awaiting a language/);
+    await strip.getByRole('link', { name: 'Review' }).click();
     await expect(page).toHaveURL(/\/library\?needs-language/);
     const needsRow = page.locator('.library-diagnostic-list li').filter({ hasText: 'Browser sync metadata book' });
     if (await needsRow.count()) {
@@ -245,9 +271,9 @@ test.describe('My Books collection browsing', () => {
       await page.goto('/library?needs-language');
       await expect(page.locator('.library-diagnostic-list').getByText('Browser sync metadata book')).toHaveCount(0);
       await page.goto('/library');
-      const syncedBook = page.locator('.library-grid .library-book').filter({ hasText: 'Browser sync metadata book' });
+      const syncedBook = page.locator('.library-books .library-book').filter({ hasText: 'Browser sync metadata book' });
       await expect(syncedBook).toBeVisible();
-      await expect(syncedBook.locator('.metadata').filter({ hasText: 'Workflow' })).toContainText('Inbox');
+      await expect(syncedBook.locator('.metadata').filter({ hasText: 'Disposition' })).toContainText('Inbox');
     }
   });
 });

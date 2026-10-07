@@ -24,7 +24,7 @@ test.describe('migration and epistemic regression coverage', () => {
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
-    await expect(page.locator('.library-grid').getByText('Metadata-only migration book')).toHaveCount(0);
+    await expect(page.locator('.library-books').getByText('Metadata-only migration book')).toHaveCount(0);
     await expect(page.getByText('Analysis result ready')).toHaveCount(0);
     await expect(page.getByText('language not chosen')).toHaveCount(0);
     await expectPostFormsCarryCSRF(page);

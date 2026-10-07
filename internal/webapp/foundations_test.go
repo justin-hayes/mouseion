@@ -277,7 +277,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 	require.NoError(t, LibraryPage(domain.User{Username: "learner"}, "csrf", []domain.SourceMaterialSummary{book}, "", "", false).Render(context.Background(), &output))
 
 	html := output.String()
-	for _, pattern := range []string{`class="page-header"`, `class="library-grid"`, `class="library-book__identity-link"`} {
+	for _, pattern := range []string{`class="library-masthead"`, `class="library-books"`, `class="library-book__identity-link"`} {
 		assert.True(t, strings.Contains(html, pattern), "library missing shared pattern %q", pattern)
 	}
 	assert.True(t, strings.Contains(html, `class="bibliographic-title">`), "book title must use the bibliographic typography role")
