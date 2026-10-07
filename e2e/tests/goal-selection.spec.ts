@@ -101,7 +101,7 @@ test.describe('Current reading selection', () => {
       await expect(goal).toContainText('Der lange Weg nach Hause');
       await expect(goal).toContainText('By Mara Weiss');
       expect(await goal.locator('.journey-book__identity').evaluate((identity) => {
-        const title = identity.querySelector('h3');
+        const title = identity.querySelector('h1');
         const author = identity.querySelector('.journey-book__author');
         return title !== null && author !== null && Boolean(title.compareDocumentPosition(author) & Node.DOCUMENT_POSITION_FOLLOWING);
       })).toBe(true);
@@ -186,7 +186,7 @@ test.describe('Current reading selection', () => {
        await expect(page).toHaveURL(/\/reading\?message=/);
       }
       await expect(currentCard).toBeVisible();
-      const title = (await currentCard.getByRole('heading', { level: 3 }).textContent())?.trim() ?? '';
+      const title = (await currentCard.getByRole('heading', { level: 1 }).locator('a').textContent())?.trim() ?? '';
       expect(title).toBeTruthy();
 
       await expect(currentCard.getByRole('link', { name: 'Open focused deck task' }))

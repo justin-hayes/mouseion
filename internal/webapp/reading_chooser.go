@@ -498,9 +498,9 @@ func readingChooserStateLabel(state readingChooserState) string {
 
 func readingChooserTitle(view readingChooserPageView) string {
 	if strings.TrimSpace(view.LanguageLabel) == "" {
-		return "Choose your next book"
+		return "Choose a To Read book"
 	}
-	return "Choose your next book in " + view.LanguageLabel
+	return "Choose a To Read book in " + view.LanguageLabel
 }
 
 func readingChooserPageTitle(view readingChooserPageView) string {
@@ -514,7 +514,7 @@ func readingChooserPageDescription(view readingChooserPageView) string {
 	if view.CurrentBookID != "" {
 		return "Choose another eligible To Read book in this study language. The switch replaces the current book and its active reservation atomically."
 	}
-	return "Choose a To Read book when you are ready. Coverage groups describe vocabulary evidence; they are not difficulty ratings or recommendations."
+	return "Choose a To Read book when you are ready. Coverage groups describe current vocabulary evidence, not difficulty or reading recommendations."
 }
 
 func readingChooserCandidateCount(view readingChooserPageView) int {

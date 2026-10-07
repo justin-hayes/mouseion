@@ -151,7 +151,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {goal.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
-	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/reading">Choose what to read next</a>`} {
+	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/reading">Choose a To Read book</a>`} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")

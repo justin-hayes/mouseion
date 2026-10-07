@@ -147,16 +147,16 @@ test.describe('authenticated learner smoke', () => {
     await expect(page).toHaveURL(/\/library$/);
     await page.goto('/reading');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
-    await expect(page.locator('main h1')).toContainText(/Reading in Italian|Choose your next book in Italian/);
+    await expect(page.locator('main h1')).toHaveCount(1);
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
     await expect(page).toHaveURL(/\/reading$/);
-    await expect(page.getByRole('heading', { name: 'Choose your next book in fr', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose a To Read book in fr', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse My Books', exact: true })).toBeVisible();
     await page.getByLabel('Study language').selectOption('de');
     await expect(page).toHaveURL(/\/reading$/);
-    await expect(page.locator('main h1')).toContainText(/Reading in German|Choose your next book in German/);
+    await expect(page.locator('main h1')).toHaveCount(1);
 
   });
 
@@ -732,13 +732,13 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');
     expect(retiredCampaignResponse?.status()).toBe(404);
     await page.goto('/reading');
-    await expect(page.getByRole('heading', { name: /reading in german/i })).toBeVisible();
-    await expect(page.locator('#primary-goal-heading')).toHaveText('Current reading');
-    await expect(page.locator('#provisional-journey-heading')).toHaveText('To Read books');
+    await expect(page.locator('.journey-book__title')).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
+    await expect(page.locator('#provisional-journey-heading')).toHaveText('Other To Read books');
     await expect(page.locator('#campaign-operations-heading')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start learning' })).toHaveCount(0);
     await expect(page.getByText(/Der lange Weg nach Hause/).first()).toBeVisible();
-    await expect(page.getByText('To Read books', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Other To Read books', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);

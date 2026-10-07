@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
@@ -24,6 +25,7 @@ type journeyBookView struct {
 	Book                   domain.SourceMaterialSummary
 	BookID                 string
 	Cover                  domain.BookCover
+	ReadingSince           time.Time
 	Position               int
 	PrimaryGoal            bool
 	GoalReadingOnly        bool
@@ -47,6 +49,13 @@ func journeyBookClass(primary bool) string {
 		return "resource-card journey-book journey-book--goal"
 	}
 	return "resource-card journey-book"
+}
+
+func journeyBookTitlePageClass(primary bool) string {
+	if primary {
+		return "journey-book__title-page journey-book__title-page--current"
+	}
+	return "journey-book__title-page"
 }
 
 func journeyBookAnchorID(bookID string) string {
@@ -239,17 +248,6 @@ func journeyLanguageHandoffURL(bookID, language string) string {
 	query.Set("language_handoff_book", bookID)
 	query.Set("language_handoff_language", language)
 	return "/reading?" + query.Encode()
-}
-
-func journeyPageTitle(journey journeyPageView) string {
-	label := strings.TrimSpace(journey.LanguageLabel)
-	if label == "" {
-		label = strings.TrimSpace(journey.Language)
-	}
-	if label == "" {
-		return "Reading"
-	}
-	return "Reading in " + label
 }
 
 type deckJourneyState string
@@ -495,6 +493,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		}
 		book.PrimaryGoal = true
 		book.Cover = coverByBookID[goal.BookID]
+		book.ReadingSince = goal.CreatedAt
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
 			return journeyPageView{}, err
 		}

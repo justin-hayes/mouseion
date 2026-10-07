@@ -391,9 +391,13 @@ Catalogs (`/catalogs`), analysis/catalog-sync jobs, enrichment progress, focused
 deck preparation,
 known-vocabulary import, Vocabulary Browse/selection/Concordance/sentence study,
 occurrence-level lemma review, and Custom decks. `/journey` is
-only a compatibility redirect and is not an adopted screen. Reading presents the
-current Book, its frozen evidence, and an explicit completion receipt that returns
-to the candidate chooser.
+only a compatibility redirect and is not an adopted screen. Reading presents
+the current Book as a title-page identity with its “Reading since” date and
+lifecycle actions; preparation and vocabulary evidence annotate it in a narrow
+margin. The between-Books chooser groups unordered candidates by current
+vocabulary-coverage bands and asks for explicit start/switch confirmation. The
+completion receipt reports exact modeled vocabulary changes and returns to that
+neutral chooser.
 
 The shipped Book Covers slice changes My Books from repeated rows to
 `MyBooksCoverItem` grid items and adds `BookCoverMedia` thumbnails to Reading
