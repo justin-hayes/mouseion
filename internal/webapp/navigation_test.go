@@ -74,6 +74,17 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 	assert.False(t, strings.Index(html, `class="skip-link"`) > strings.Index(html, `<nav class="site-header__nav"`) || strings.Index(html, `</nav>`) > strings.Index(html, `id="main-content"`), "skip link or main content moved out of keyboard/document order")
 }
 
+func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
+	for _, context := range []NavigationContext{NavigationLibrary, NavigationLearning, NavigationVocabulary, NavigationCatalogs} {
+		t.Run(string(context), func(t *testing.T) {
+			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
+			assert.NotContains(t, navigation, `class="site-nav__link btn`)
+			assert.NotContains(t, navigation, `role="button"`)
+			assert.Equal(t, 5, strings.Count(navigation, `<a href="/`), "brand and four destinations remain native links")
+		})
+	}
+}
+
 func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 	html := renderShell(t, NavigationLibrary)
 	assert.True(t, strings.Contains(html, `class="site-header__nav"`) && strings.Contains(html, `class="site-header__navigation"`), "shell compact layout hooks missing: %s", html)

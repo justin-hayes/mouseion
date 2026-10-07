@@ -38,16 +38,6 @@ body.vocabulary-shell input[type="checkbox"] {
   accent-color: var(--mouseion-color-accent);
 }
 
-body.vocabulary-shell .site-header__language select {
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-border);
-  border-radius: 0.125rem;
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
-  font: inherit;
-}
-
 body.vocabulary-shell :is(.vocabulary-action-link, .vocabulary-lemma-link) {
   display: inline-flex;
   min-width: 44px;

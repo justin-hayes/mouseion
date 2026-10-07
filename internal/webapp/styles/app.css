@@ -48,6 +48,16 @@
     background-color: var(--mouseion-color-surface-raised);
   }
 
+  .btn {
+    min-height: 44px;
+  }
+
+  /* daisyUI caps .input at 20rem; the My Books grid needs its field to fill its track. */
+  .library-search__controls input {
+    width: 100%;
+    min-width: 0;
+  }
+
   .input:user-invalid {
     border-color: var(--mouseion-color-danger);
   }

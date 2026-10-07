@@ -149,6 +149,51 @@ test.describe('native WebKit smoke journey', () => {
     await chooseStudyLanguage(page, 'de');
   });
 
+  test('shared navigation and study-language control stay visually consistent across destinations', async ({ page }) => {
+    await signIn(page);
+    const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentDecoration: string }>;
+    for (const destination of [
+      { name: 'My Books', path: '/library' },
+      { name: 'Reading', path: '/reading' },
+      { name: 'Vocabulary', path: '/vocabulary' },
+      { name: 'Catalogs', path: '/catalogs' },
+    ]) {
+      await page.goto(destination.path);
+      const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+      const current = navigation.getByRole('link', { name: destination.name, exact: true });
+      await expect(current).toHaveAttribute('aria-current', 'page');
+      await expect(current).not.toHaveClass(/\bbtn\b/);
+      const style = await page.getByLabel('Study language').evaluate(select => {
+        const label = select.closest('label')!;
+        const labelStyle = getComputedStyle(label);
+        const selectStyle = getComputedStyle(select);
+        const rect = select.getBoundingClientRect();
+        return {
+          labelDirection: labelStyle.flexDirection,
+          selectFont: `${selectStyle.fontFamily}|${selectStyle.fontSize}|${selectStyle.lineHeight}`,
+          selectHeight: rect.height,
+          selectRadius: selectStyle.borderRadius,
+        };
+      });
+      const currentStyle = await current.evaluate(link => {
+        const style = getComputedStyle(link);
+        return { background: style.backgroundColor, decoration: style.textDecorationLine };
+      });
+      measurements.push({ destination: destination.name, ...style, currentBackground: currentStyle.background, currentDecoration: currentStyle.decoration });
+    }
+
+    expect(new Set(measurements.map(item => item.labelDirection)).size).toBe(1);
+    expect(new Set(measurements.map(item => item.selectFont)).size).toBe(1);
+    expect(new Set(measurements.map(item => item.selectHeight)).size).toBe(1);
+    expect(new Set(measurements.map(item => item.selectRadius)).size).toBe(1);
+    expect(measurements.every(item => item.labelDirection === 'row')).toBe(true);
+    expect(measurements.every(item => item.selectHeight >= 44)).toBe(true);
+    expect(measurements.every(item => item.currentDecoration.includes('underline'))).toBe(true);
+    expect(new Set(measurements.map(item => item.currentBackground)).size, JSON.stringify(measurements)).toBe(1);
+    expect(measurements.every(item => item.currentBackground !== 'rgb(36, 87, 178)')).toBe(true);
+    await expectNoHorizontalOverflow(page);
+  });
+
   test('skip link and keyboard focus remain available at compact and desktop widths', async ({ page }) => {
     await signIn(page);
     await page.goto('/catalogs');

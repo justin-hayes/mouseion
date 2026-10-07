@@ -31,6 +31,10 @@ workflow-specific.
   `vocabulary.css` contain route/workflow-specific Mouseion rules. Their source
   organization is for maintainability only; they are compiled together and are
   never separate browser assets.
+- Shared button and input classes own control appearance and state; workflow
+  styles may own composition and layout. My Books search uses one bounded utility
+  override because daisyUI's `.input` has a 20rem maximum width, while the
+  collection track must be allowed to fill and shrink.
 - `internal/webapp/static/app.css` is the deterministic, committed output linked
   on every full page. HTMX fragments inherit the host page's stylesheet.
 - `internal/webapp/static/vendor/` contains immutable pinned third-party

@@ -37,7 +37,7 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
-	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".my-books-foundation", ".btn-primary", ".vocabulary-shell", "*::before"} {
+	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".library-search__controls", ".btn-primary", ".vocabulary-shell", "*::before"} {
 		assert.Contains(t, response.Body.String(), want, "unified asset is missing %q", want)
 	}
 	picoRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/vendor/pico-2.1.1.min.css", nil)
@@ -71,7 +71,8 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
 
 	assert.Contains(t, myBooks.String(), `href="/static/app.css"`)
-	assert.Contains(t, myBooks.String(), `btn-primary`)
+	assert.Contains(t, myBooks.String(), `class="site-nav__link site-nav__link--current"`)
+	assert.NotContains(t, myBooks.String(), `site-nav__link site-nav__link--current btn-primary`)
 	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 	assert.Contains(t, reading.String(), `class="reading-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)

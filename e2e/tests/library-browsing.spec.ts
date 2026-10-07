@@ -25,6 +25,18 @@ test.describe('My Books collection browsing', () => {
     await expect(search).toBeVisible();
     expect(await search.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
     expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    const searchLayout = await page.locator('.library-search__controls').evaluate(node => {
+      const input = node.querySelector('input')!.getBoundingClientRect();
+      const submit = node.querySelector('button')!.getBoundingClientRect();
+      const controls = node.getBoundingClientRect();
+      return { inputWidth: input.width, inputRight: input.right, inputBottom: input.bottom, inputTop: input.top, submitLeft: submit.left, submitTop: submit.top, controlsWidth: controls.width };
+    });
+    expect(searchLayout.inputWidth).toBeGreaterThan(searchLayout.controlsWidth * 0.55);
+    if (Math.abs(searchLayout.submitTop - searchLayout.inputTop) < 1) {
+      expect(Math.abs(searchLayout.submitLeft - searchLayout.inputRight)).toBeLessThanOrEqual(1);
+    } else {
+      expect(searchLayout.submitTop).toBeGreaterThanOrEqual(searchLayout.inputBottom);
+    }
     await search.focus();
     expect(await search.evaluate(node => getComputedStyle(node).outlineStyle)).toBe('solid');
     const inboxFilter = page.getByRole('navigation', { name: 'My Books filters' }).getByRole('link', { name: /Inbox/ });
@@ -78,6 +90,19 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('.library-grid').getByText('Empty chapter')).toBeVisible();
     await expect(page.locator('.library-grid').getByText('Der lange Weg nach Hause')).toHaveCount(0);
     await switcher.selectOption('de');
+  });
+
+  test('My Books search keeps its native GET fallback and submits enhanced updates', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    const form = page.getByRole('search');
+    await expect(form).toHaveAttribute('method', 'get');
+    await expect(form).toHaveAttribute('action', /\/library/);
+    await expect(form.locator('input[name="q"]')).toHaveAttribute('type', 'search');
+    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
+    await expect(page.locator('#library-results .library-grid')).toContainText('Der lange Weg nach Hause');
   });
 
   test('keeps the server-rendered grid usable without JavaScript', async ({ browser }) => {
