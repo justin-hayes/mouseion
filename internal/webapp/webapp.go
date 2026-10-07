@@ -202,6 +202,20 @@ type Services struct {
 	CatalogueSync    CatalogueSyncScheduler
 	SecureCookies    bool
 	SessionLifetime  time.Duration
+	// InteractiveReadTimeout bounds Browse and Concordance reads; zero uses
+	// defaultInteractiveReadTimeout.
+	InteractiveReadTimeout time.Duration
+}
+
+// defaultInteractiveReadTimeout stays below the 9s htmx request timeout so the
+// server's recoverable timeout page wins over the browser-side one.
+const defaultInteractiveReadTimeout = 8 * time.Second
+
+func (h *Handler) interactiveReadTimeout() time.Duration {
+	if h.services.InteractiveReadTimeout > 0 {
+		return h.services.InteractiveReadTimeout
+	}
+	return defaultInteractiveReadTimeout
 }
 
 type Handler struct {

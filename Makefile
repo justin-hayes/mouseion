@@ -48,7 +48,7 @@ test-integration: go-tmp
 test-integration-shared: go-tmp
 	@set -eu; \
 	if test -n "$${MOUSEION_TEST_DATABASE_URL:-}"; then \
-		go test -count=1 -tags=integration -p 1 $(MOUSEION_TEST_PACKAGES); \
+		go test -count=1 -tags=integration $(MOUSEION_TEST_PACKAGES); \
 		exit; \
 	fi; \
 	container="mouseion-test-postgres-$$$$"; \
@@ -67,7 +67,7 @@ test-integration-shared: go-tmp
 		sleep 1; \
 	done; \
 	if test "$$ready" -ne 1; then docker logs "$$container"; exit 1; fi; \
-	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -count=1 -tags=integration -p 1 $(MOUSEION_TEST_PACKAGES)
+	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -count=1 -tags=integration $(MOUSEION_TEST_PACKAGES)
 
 lint-go: go-tmp
 	@version="$$( "$(GOLANGCI_LINT)" version 2>&1 )" || { \

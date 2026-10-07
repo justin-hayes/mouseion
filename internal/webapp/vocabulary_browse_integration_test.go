@@ -816,7 +816,7 @@ func TestVocabularyConcordanceTimesOutWithRetryInsteadOfReportingNoMatches(t *te
 	seedMigrationAnalyzedBook(t, ctx, store, account.ID, "concordance-timeout", "Timeout Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour, InteractiveReadTimeout: 500 * time.Millisecond})
 	cookies, _ := loginCookies(t, h, "concordance-timeout", "timeout-password")
 	lockConn, err := store.Pool().Acquire(ctx)
 	require.NoError(t, err)
