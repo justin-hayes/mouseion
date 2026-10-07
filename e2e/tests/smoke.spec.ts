@@ -221,7 +221,7 @@ test.describe('authenticated learner smoke', () => {
     try {
       await signIn(noScript);
       await noScript.goto('/vocabulary/concordance');
-      await expect(noScript.getByRole('heading', { name: 'Vocabulary · Concordance', exact: true })).toBeVisible();
+      await expect(noScript.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
       await expect(noScript.getByLabel('Lookup evidence')).toHaveValue('surface');
       await expect(noScript.getByLabel('Part of speech')).toBeHidden();
       for (const disclosure of ['Books (applied: all current Books)', 'Grammar (applied: no grammar filter)']) {
@@ -748,7 +748,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/vocabulary');
-    await expect(page.getByRole('heading', { name: 'Vocabulary · Browse', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);

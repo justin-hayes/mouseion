@@ -2367,6 +2367,37 @@
     color: var(--mouseion-color-text-muted);
     font-size: var(--mouseion-font-size-metadata);
   }
+  body.vocabulary-shell > #main-content > .vocabulary-page-header {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--mouseion-space-2) var(--mouseion-space-5);
+    margin-block: 0 var(--mouseion-space-4);
+    border-bottom: 1px solid var(--mouseion-color-border);
+    padding-block: 0 var(--mouseion-space-2);
+  }
+  body.vocabulary-shell .vocabulary-page-header h1 {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.25;
+  }
+  body.vocabulary-shell .vocabulary-page-header > nav[aria-label="Vocabulary views"] {
+    display: flex;
+    min-width: 0;
+    min-height: 40px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0 var(--mouseion-space-2);
+    margin: 0;
+    color: var(--mouseion-color-text-muted);
+  }
+  body.vocabulary-shell .vocabulary-page-header > nav[aria-label="Vocabulary views"] a {
+    min-width: 44px;
+    min-height: 40px;
+    padding-inline: var(--mouseion-space-2);
+  }
   body.vocabulary-shell .vocabulary-scope {
     max-width: var(--mouseion-width-data);
     margin-block: var(--mouseion-space-3);
@@ -2399,6 +2430,15 @@
   body.vocabulary-shell .vocabulary-filter > p {
     grid-column: 1 / -1;
     margin: 0;
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+  }
+  body.vocabulary-shell .vocabulary-filter > .vocabulary-exclusions {
+    max-width: 72ch;
+    color: var(--mouseion-color-text);
+  }
+  body.vocabulary-shell .vocabulary-applied-query {
+    margin-block: var(--mouseion-space-2);
     color: var(--mouseion-color-text-muted);
     font-size: var(--mouseion-font-size-metadata);
   }
@@ -2503,6 +2543,13 @@
     margin-bottom: 0;
   }
   @media (max-width: 40rem) {
+    body.vocabulary-shell > #main-content > .vocabulary-page-header {
+      align-items: flex-start;
+      gap: var(--mouseion-space-1) var(--mouseion-space-3);
+    }
+    body.vocabulary-shell .vocabulary-page-header > nav[aria-label="Vocabulary views"] {
+      flex-basis: 100%;
+    }
     body.vocabulary-shell .vocabulary-filter {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -2538,16 +2585,7 @@
     padding-inline: var(--mouseion-space-2);
     overflow-wrap: anywhere;
   }
-  body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--mouseion-space-2);
-    margin-block: var(--mouseion-space-3) var(--mouseion-space-4);
-    color: var(--mouseion-color-text-muted);
-  }
-  body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] a {
+  body.vocabulary-shell .vocabulary-page-header nav[aria-label="Vocabulary views"] a {
     display: inline-flex;
     min-width: 44px;
     min-height: 44px;
@@ -2556,7 +2594,7 @@
     color: var(--mouseion-color-accent);
     text-underline-offset: 0.2em;
   }
-  body.vocabulary-shell > #main-content > nav[aria-label="Vocabulary views"] a[aria-current="page"] {
+  body.vocabulary-shell .vocabulary-page-header nav[aria-label="Vocabulary views"] a[aria-current="page"] {
     color: var(--mouseion-color-text);
     font-weight: 650;
     text-decoration-thickness: 0.15em;
@@ -2636,15 +2674,10 @@
   body.reading-shell .lemma-review details[open] > summary::before {
     content: "▾";
   }
-  #main-content:has(form.concordance-query) > .page-header {
+  #main-content:has(form.concordance-query) > .vocabulary-page-header {
     margin-bottom: var(--mouseion-space-2);
-    padding-bottom: var(--mouseion-space-2);
   }
-  #main-content:has(form.concordance-query) > .page-header .page-header__content h1 {
-    margin-bottom: 0;
-  }
-  #main-content:has(form.concordance-query) > nav[aria-label="Vocabulary views"] {
-    margin-block: 0 var(--mouseion-space-2);
+  #main-content:has(form.concordance-query) > .vocabulary-page-header nav[aria-label="Vocabulary views"] {
     font-size: var(--mouseion-font-size-metadata);
   }
   .concordance-language {

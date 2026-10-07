@@ -950,8 +950,7 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 }
 templ VocabularyBrowsePageView(user domain.User, csrf string, language string, page domain.VocabularyBrowsePage, query string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Browse", "Find the most frequent vocabulary in your Current reading.", nil)
-		@VocabularyViewsNav("browse")
+		@VocabularyPageHeader("browse")
 		<p id="vocabulary-pending" class="htmx-indicator" role="status">Loading Browse. The previous results remain visible until the request completes.</p>
 		<div id="vocabulary-workflow" hx-on:htmx:error="window.showVocabularyNetworkRecovery(ctx)">
 		if language == "" {
@@ -975,13 +974,15 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
-				<p>Results stay scoped to this Book and are ordered by its occurrence count, then the total across analyzed books, lemma, and part of speech.</p>
-				<p>By default, words already Known, Reserved, or included in a prepared deck for this Book are hidden. These exclusions do not change occurrence counts or order.</p>
+				<p class="vocabulary-exclusions">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p>
 				<label for="vocabulary-include-all"><input id="vocabulary-include-all" type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
 			<button class="btn btn-primary" type="submit">Search</button>
 			</form>
 			}
 			<div id="vocabulary-browse-results">
+			if query != "" {
+				<p class="vocabulary-applied-query">Applied prefix: <code>{ query }</code></p>
+			}
 			if page.BrowseCountsUnavailable {
 				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
 			} else if page.BrowseCountsUpdating {
@@ -1027,32 +1028,9 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 	}
 }
 
-templ VocabularyViewsNav(active string) {
-	<nav aria-label="Vocabulary views">
-		if active == "browse" {
-			<a href="/vocabulary" aria-current="page">Browse</a>
-		} else {
-			<a href="/vocabulary">Browse</a>
-		}
-		 ·
-		if active == "concordance" {
-			<a href="/vocabulary/concordance" aria-current="page">Concordance</a>
-		} else {
-			<a href="/vocabulary/concordance">Concordance</a>
-		}
-		 ·
-		if active == "import" {
-			<a href="/vocabulary/import" aria-current="page">Import known vocabulary</a>
-		} else {
-			<a href="/vocabulary/import">Import known vocabulary</a>
-		}
-	</nav>
-}
-
 templ VocabularyConcordancePageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message, focusTarget string) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Concordance", "", nil)
-		@VocabularyViewsNav("concordance")
+		@VocabularyPageHeader("concordance")
 		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied query and scope.</p>
 		<div id="concordance-workflow" hx-on:htmx:error="window.showConcordanceNetworkRecovery(ctx)">
 		if language == "" {
@@ -1425,8 +1403,7 @@ func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (st
 
 templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
-		@VocabularyViewsNav("concordance")
+		@VocabularyPageHeader("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
 		@VocabularyConcordanceErrorRecovery(books, lookup, timeout)
 	}
@@ -1458,8 +1435,7 @@ templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, l
 
 templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Concordance", "Exact current-analysis occurrences across your selected Books.", nil)
-		@VocabularyViewsNav("concordance")
+		@VocabularyPageHeader("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
 		@VocabularyConcordanceChangedRecovery(books, lookup)
 	}
@@ -1484,8 +1460,7 @@ templ VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary,
 
 templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
-		@VocabularyViewsNav("browse")
+		@VocabularyPageHeader("browse")
 		<div id="vocabulary-recovery" aria-live="polite">
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
@@ -1509,8 +1484,7 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 
 templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, query domain.VocabularyBrowseQuery) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Browse", "Current effective vocabulary evidence in your Current reading.", nil)
-		@VocabularyViewsNav("browse")
+		@VocabularyPageHeader("browse")
 		<div id="vocabulary-recovery" aria-live="polite">
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
@@ -1557,8 +1531,7 @@ func vocabularyBookEvidenceState(book domain.VocabularyBrowseBook) string {
 
 templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLanguages []domain.StudyLanguage, language string, result *knownvocab.ImportResult, message string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Import known vocabulary", "Add words you already know without changing current corpus evidence.", nil)
-		@VocabularyViewsNav("import")
+		@VocabularyPageHeader("import")
 		<section id="known-vocabulary" class="known-vocabulary">
 		if language == "" {
 			if len(languages) == 0 {
@@ -1609,8 +1582,7 @@ templ KnownVocabImportStatus(status knownvocab.Status) {
 }
 templ KnownVocabImportStatusPage(user domain.User, csrf string, status knownvocab.Status) {
 	@ShellLayout("Known vocabulary import", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
-		@PageHeader("Vocabulary · Import known vocabulary", "Review this import and return to Known vocabulary when it finishes.", nil)
-		@VocabularyViewsNav("import")
+		@VocabularyPageHeader("import")
 		@KnownVocabImportStatus(status)
 		if knownVocabJobBusy(string(status.State)) {
 			<p><a class="vocabulary-action-link" href="/vocabulary/import">Return to Vocabulary</a></p>
@@ -1950,4 +1922,31 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 			}
 		</article>
 	</li>
+}
+
+templ VocabularyViewsNav(active string) {
+	<nav aria-label="Vocabulary views">
+		if active == "browse" {
+			<a href="/vocabulary" aria-current="page">Browse</a>
+		} else {
+			<a href="/vocabulary">Browse</a>
+		}
+		if active == "concordance" {
+			<a href="/vocabulary/concordance" aria-current="page">Concordance</a>
+		} else {
+			<a href="/vocabulary/concordance">Concordance</a>
+		}
+		if active == "import" {
+			<a href="/vocabulary/import" aria-current="page">Import Known words</a>
+		} else {
+			<a href="/vocabulary/import">Import Known words</a>
+		}
+	</nav>
+}
+
+templ VocabularyPageHeader(active string) {
+	<header class="vocabulary-page-header">
+		<h1>Vocabulary</h1>
+		@VocabularyViewsNav(active)
+	</header>
 }
