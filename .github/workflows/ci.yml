@@ -300,38 +300,68 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      # Every package with integration tests runs; each test gets its own
+      # database cloned from a migrated template, so packages run in parallel.
       - name: Go integration test
         if: |
           github.event_name == 'workflow_dispatch' ||
           steps.changes.outputs.go == 'true'
-        run: go test -count=1 -tags=integration ./internal/cataloguesync ./internal/persistence ./internal/prepareddeck ./internal/webapp
+        run: make test-integration
 
   browser-smoke:
     name: Browser smoke
+    # The suite is the most expensive job on the single runner; spend it only
+    # after the cheap build, test, and lint checks pass.
+    needs: [ci, golangci]
     runs-on: [self-hosted, linux, x64, docker]
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Detect changed files
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3; latest release uses Node 20, no Node 24 release available
+        with:
+          # Everything the fixture server binary is built or embeds from, plus
+          # the suite itself; docs- and NLP-only changes skip the browsers.
+          filters: |
+            browser:
+              - '**/*.go'
+              - 'internal/**'
+              - 'cmd/**'
+              - 'e2e/**'
+              - 'migrations/**'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/ci.yml'
+
       - name: Set up Go
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
       - name: Set up Node
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
       - name: Install Playwright dependency
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         working-directory: e2e
         run: npm ci --ignore-scripts
       - name: Install Chromium and WebKit
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         # Browser system dependencies are provisioned on ci01; runner jobs
         # intentionally do not have sudo access.
         run: npx --prefix e2e playwright install chromium webkit
       - name: Build fixture server
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         run: mkdir -p .tmp && go build -o .tmp/fixtureserver ./cmd/fixtureserver
       - name: Run browser smoke
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         working-directory: e2e
         env:
           CI: true

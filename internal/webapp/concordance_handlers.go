@@ -8,16 +8,13 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const vocabularyConcordanceRequestTimeout = 8 * time.Second
-
 func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	queryCtx, cancel := context.WithTimeout(r.Context(), vocabularyConcordanceRequestTimeout)
+	queryCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
 	defer cancel()
 	lookup := domain.ConcordanceLookup{
 		Mode: r.URL.Query().Get("mode"), Term: strings.TrimSpace(r.URL.Query().Get("term")),
