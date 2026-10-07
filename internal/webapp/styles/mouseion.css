@@ -265,7 +265,7 @@ samp {
   }
 }
 
-body:is(.vocabulary-shell, .jobs-shell) button {
+body:is(.jobs-shell, .vocabulary-shell:not(:has(.lemma-review, form.concordance-query))) button {
   min-height: 44px;
   border: 1px solid var(--mouseion-color-accent);
   border-radius: var(--mouseion-radius);
@@ -276,28 +276,28 @@ body:is(.vocabulary-shell, .jobs-shell) button {
   font-weight: 650;
 }
 
-body:is(.vocabulary-shell, .jobs-shell) button:hover:not(:disabled) {
+body:is(.jobs-shell, .vocabulary-shell:not(:has(.lemma-review, form.concordance-query))) button:hover:not(:disabled) {
   background: var(--mouseion-color-accent-hover);
 }
 
-body:is(.vocabulary-shell, .jobs-shell) button.button--outline,
-body:is(.vocabulary-shell, .jobs-shell) button.button--quiet {
+body:is(.jobs-shell, .vocabulary-shell:not(:has(.lemma-review, form.concordance-query))) button.button--outline,
+body:is(.jobs-shell, .vocabulary-shell:not(:has(.lemma-review, form.concordance-query))) button.button--quiet {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body:is(.vocabulary-shell, .jobs-shell) button.button--outline:hover,
-body:is(.vocabulary-shell, .jobs-shell) button.button--quiet:hover {
+body:is(.jobs-shell, .vocabulary-shell:not(:has(.lemma-review, form.concordance-query))) button.button--outline:hover,
+body:is(.jobs-shell, .vocabulary-shell:not(:has(.lemma-review, form.concordance-query))) button.button--quiet:hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
 /* Vocabulary workflow controls and selection styles. */
-body.vocabulary-shell :is(button, input, select, textarea) {
+body.vocabulary-shell:not(:has(.lemma-review, form.concordance-query)) :is(button, input, select, textarea) {
   max-width: 100%;
 }
 
-body.vocabulary-shell :is(input:not([type="hidden"]), select, textarea) {
+body.vocabulary-shell:not(:has(.lemma-review, form.concordance-query)) :is(input:not([type="hidden"]), select, textarea) {
   min-height: 44px;
   border: 1px solid var(--mouseion-color-border);
   border-radius: var(--mouseion-radius);
@@ -306,7 +306,7 @@ body.vocabulary-shell :is(input:not([type="hidden"]), select, textarea) {
   background: var(--mouseion-color-surface-raised);
 }
 
-body.vocabulary-shell input[type="checkbox"] {
+body.vocabulary-shell:not(:has(.lemma-review, form.concordance-query)) input[type="checkbox"] {
   width: 1.25rem;
   height: 1.25rem;
   accent-color: var(--mouseion-color-accent);

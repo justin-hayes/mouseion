@@ -26,7 +26,7 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	}
 	body := rendered.String()
 	for _, want := range []string{
-		`<ol id="concordance-native-results" class="concordance-results">`,
+		`<ol id="concordance-native-results" class="concordance-results" role="list">`,
 		`<details class="concordance-row" name="concordance-occurrences"`,
 		`<a class="concordance-study-link"`,
 	} {

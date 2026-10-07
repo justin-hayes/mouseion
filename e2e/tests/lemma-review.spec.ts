@@ -49,6 +49,11 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await expect(page.getByRole('button', { name: 'Preview keeping analyzer lemma' })).toHaveCount(2);
 
     await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
+    await expect(page.getByLabel('Exact observed form')).toHaveClass(/\binput\b/);
+    await expect(page.getByLabel('Corrected canonical lemma').first()).toHaveClass(/\binput\b/);
+    const additionalOccurrence = page.locator('.lemma-review fieldset label').first();
+    const additionalOccurrenceBounds = await additionalOccurrence.boundingBox();
+    expect(additionalOccurrenceBounds?.height).toBeGreaterThanOrEqual(44);
     await page.getByRole('checkbox').first().check();
     await page.getByLabel('Corrected canonical lemma').first().fill('Pfad');
     await page.getByRole('button', { name: 'Preview correction' }).first().focus();

@@ -63,6 +63,10 @@ async function textContrast(element: Locator) {
   return element.evaluate(renderedTextContrast);
 }
 
+async function boundaryContrast(element: Locator) {
+  return element.evaluate(renderedTextContrast, true);
+}
+
 test.describe('responsive and theme regression coverage', () => {
   test('measures rendered RGB and modern colors over the actual translucent backdrop', async ({ page }) => {
     await page.goto('/login');
@@ -385,8 +389,16 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(source).toBeVisible();
       await expectNoPageOverflow(page);
       expect(await textContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(4.5);
+      expect(await boundaryContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(3);
+      expect(await boundaryContrast(page.locator('#concordance-mode'))).toBeGreaterThanOrEqual(3);
+      expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
+      expect(await boundaryContrast(page.locator('.concordance-scopes input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
       await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
       expect(await textContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(4.5);
+      expect(await boundaryContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(3);
+      expect(await boundaryContrast(page.locator('#concordance-mode'))).toBeGreaterThanOrEqual(3);
+      expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
+      expect(await boundaryContrast(page.locator('.concordance-scopes input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
       await page.locator('html').evaluate((node) => node.removeAttribute('data-theme'));
       await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
       await expectNoPageOverflow(page);
@@ -402,15 +414,36 @@ test.describe('responsive and theme regression coverage', () => {
     await sentence.evaluate((node) => {
       node.textContent = 'Der Weg führt durch die historische Altstadt, vorbei an schmalen Häusern und einem alten Brunnen, bis hin zum Marktplatz, auf dem sich die Bewohner am frühen Morgen treffen.';
     });
+    const additionalOccurrence = page.locator('.lemma-review fieldset label').first();
+    await additionalOccurrence.locator('span').first().evaluate((node) => {
+      node.textContent = 'Include “Weg” in: Straße · strada · δρόμος · улица · 街道 — a deliberately long multilingual occurrence label that must wrap without clipping.';
+    });
     const exactForm = page.getByLabel('Exact observed form');
     await exactForm.focus();
     expect(await exactForm.evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+    expect(await textContrast(exactForm)).toBeGreaterThanOrEqual(4.5);
+    expect(await boundaryContrast(exactForm)).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.locator('.lemma-review fieldset').first())).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.getByRole('button', { name: 'Preview correction' }).first())).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.locator('.lemma-review fieldset input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
     await expectNoPageOverflow(page);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
+    await expect44pxTouchTargets(additionalOccurrence);
     await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
     expect(await textContrast(exactForm)).toBeGreaterThanOrEqual(4.5);
+    expect(await boundaryContrast(exactForm)).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.locator('.lemma-review fieldset').first())).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.getByRole('button', { name: 'Preview correction' }).first())).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.locator('.lemma-review fieldset input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
     await expectNoPageOverflow(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const motion = await page.locator('.lemma-review details summary').first().evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { animationDuration: style.animationDuration, transitionDuration: style.transitionDuration };
+    });
+    expect(motion.animationDuration.split(',').every((duration) => Number.parseFloat(duration) <= 0.01)).toBe(true);
+    expect(motion.transitionDuration.split(',').every((duration) => Number.parseFloat(duration) <= 0.01)).toBe(true);
   });
 
   test('shared shell keeps native navigation, language context, focus, and touch targets', async ({ page }) => {

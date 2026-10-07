@@ -134,7 +134,7 @@ window.showConcordanceNetworkRecovery = function (ctx) {
   message.setAttribute('role', 'alert');
   message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';
   var retry = document.createElement('a');
-  retry.href = ctx.request.action;
+  retry.href = ctx.request.action; retry.className = 'button button--outline';
   retry.textContent = 'Retry Concordance lookup';
   recovery.append(message, retry);
 };
@@ -1070,24 +1070,24 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 				}
 				<div class="concordance-query-field">
 					<label for="concordance-mode">Lookup evidence</label>
-					<select id="concordance-mode" name="mode">
+				<select class="input" id="concordance-mode" name="mode">
 						<option value="surface" selected?={ lookup.Mode == "surface" }>Observed surface</option>
 						<option value="effective" selected?={ lookup.Mode == "effective" }>Effective lemma</option>
 						<option value="analyzer" selected?={ lookup.Mode == "analyzer" }>Analyzer lemma (evidence)</option>
 					</select>
 				</div>
 				<div class="concordance-query-field">
-					<label for="concordance-term">Exact term</label><input id="concordance-term" type="search" name="term" value={ lookup.Term } required/>
+					<label for="concordance-term">Exact term</label><input class="input" id="concordance-term" type="search" name="term" value={ lookup.Term } required/>
 				</div>
 				<div class="concordance-pos-field">
 					<label for="concordance-upos">Part of speech</label>
-					<select id="concordance-upos" name="upos"><option value="">Choose for a lemma lookup</option>
+					<select class="input" id="concordance-upos" name="upos"><option value="">Choose for a lemma lookup</option>
 						for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV", "PROPN", "PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "NUM", "PART", "INTJ", "PUNCT", "SYM", "X"} {
 							<option value={ pos } selected?={ lookup.UPOS == pos }>{ pos }</option>
 						}
 					</select>
 				</div>
-				<button type="submit">Find</button>
+				<button class="button" type="submit">Find</button>
 			</form>
 			<div class="concordance-scopes">
 			<details>
@@ -1102,7 +1102,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 							<label><input type="checkbox" name="book" value={ book.BookID } checked?={ concordanceBookSelected(lookup.BookIDs, book.BookID) }/>{ concordanceBookTitle(book) }</label>
 						}
 					</fieldset>
-					<button type="submit">Apply Books</button>
+					<button class="button button--outline" type="submit">Apply Books</button>
 				</form>
 			</details>
 			<details>
@@ -1113,16 +1113,16 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						<input type="hidden" name="book" value={ bookID }/>
 					}
 					<label for="concordance-grammar">Grammar direction</label>
-					<select id="concordance-grammar" name="grammar"><option value="">No grammar filter</option><option value="own" selected?={ lookup.GrammarDirection == "own" }>Queried occurrence's own relation</option><option value="governor" selected?={ lookup.GrammarDirection == "governor" }>Dependents of queried governor</option></select>
-					<label for="concordance-relation">Dependency relation</label><input id="concordance-relation" name="relation" value={ lookup.Relation } placeholder="e.g. nsubj"/>
-					<button type="submit">Apply grammar</button>
+					<select class="input" id="concordance-grammar" name="grammar"><option value="">No grammar filter</option><option value="own" selected?={ lookup.GrammarDirection == "own" }>Queried occurrence's own relation</option><option value="governor" selected?={ lookup.GrammarDirection == "governor" }>Dependents of queried governor</option></select>
+					<label for="concordance-relation">Dependency relation</label><input class="input" id="concordance-relation" name="relation" value={ lookup.Relation } placeholder="e.g. nsubj"/>
+					<button class="button button--outline" type="submit">Apply grammar</button>
 				</form>
 			</details>
 			</div>
 			if message != "" {
 				<div id="concordance-recovery" aria-live="polite">
 					<p role="alert">{ message }</p>
-					<a href={ templ.SafeURL(vocabularyConcordancePageURL(1, lookup)) }>Retry Concordance lookup</a>
+					<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordancePageURL(1, lookup)) }>Retry Concordance lookup</a>
 				</div>
 			} else {
 				<div id="concordance-recovery" aria-live="polite"></div>
@@ -1139,7 +1139,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						<p>No results are available on this page. The search scope may have changed; use Previous or restart the lookup rather than treating this page as a zero-match search.</p>
 					}
 					if len(result.Occurrences) > 0 {
-						<ol id="concordance-native-results" class="concordance-results">
+						<ol id="concordance-native-results" class="concordance-results" role="list">
 						for _, occurrence := range result.Occurrences {
 							<li class="concordance-result">
 								<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
@@ -1168,10 +1168,10 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					if result.HasPrevious || result.HasNext {
 						<nav aria-label="Concordance pages">
 							if result.HasPrevious {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
+							<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, lookup)) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
 							}
 							if result.HasNext {
-								<a href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
+							<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, lookup)) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
 							}
 						</nav>
 					}
@@ -1449,7 +1449,7 @@ templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, l
 					<label><input type="checkbox" name="book" value={ book.BookID } checked?={ concordanceBookSelected(lookup.BookIDs, book.BookID) }/>{ concordanceBookTitle(book) }</label>
 				}
 			</fieldset>
-			<button type="submit">Retry Concordance lookup from page 1</button>
+			<button class="button" type="submit">Retry Concordance lookup from page 1</button>
 		</form>
 		<p>For an unusually broad query, select one or a few Books above. Retry begins at page 1 so it cannot silently skip matches after a scope change.</p>
 	</div>
@@ -1467,7 +1467,7 @@ templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language stri
 templ VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup) {
 	<div id="concordance-recovery" aria-live="polite">
 		@Feedback(FeedbackWarning, "Current evidence changed", "This page was not applied because analyses or occurrence corrections changed after the previous result page. Restart to avoid silently skipping or repeating matches.")
-		<a role="button" href={ templ.SafeURL(vocabularyConcordanceRestartURL(lookup)) }>Restart from results</a>
+		<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordanceRestartURL(lookup)) }>Restart from results</a>
 		<form method="get" action="/vocabulary/concordance">
 			<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 			if lookup.GrammarDirection != "" {
@@ -1476,7 +1476,7 @@ templ VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary,
 			for _, book := range books {
 				<label><input type="checkbox" name="book" value={ book.BookID } checked?={ concordanceBookSelected(lookup.BookIDs, book.BookID) }/>{ concordanceBookTitle(book) }</label>
 			}
-			<button type="submit">Retry with current evidence</button>
+			<button class="button" type="submit">Retry with current evidence</button>
 		</form>
 	</div>
 }

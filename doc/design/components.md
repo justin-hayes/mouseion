@@ -155,6 +155,20 @@ coherent destination, error state, and recovery action. An HTMX fragment must
 preserve the same component root and live-region semantics when it replaces
 itself.
 
+Concordance lookup, applied-scope filters, paging, and occurrence review use the
+shared control and feedback states from the application foundation. Workflow
+styles own only query/result composition and review layout; they must not replace
+shared field, action, focus, or disabled-state treatment. Book and grammar filters
+and occurrence decisions remain labeled native forms inside native disclosures.
+Disclosure state is visible without color alone, checkable labels retain a
+generous target around the native-size checkbox, and the result list remains one
+server-rendered ordered list (with an explicit list role when CSS removes native
+markers). Sentence study is a separate named link, and return navigation keeps
+its occurrence/results-summary focus contract. Playwright role/name assertions
+are automated browser accessibility-tree evidence only; they are not real
+VoiceOver verification. No manual VoiceOver verification is claimed by this
+slice.
+
 ### Content hierarchy
 
 - A full page has one `h1`, normally supplied by `PageHeader`.

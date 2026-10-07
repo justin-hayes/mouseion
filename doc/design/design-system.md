@@ -35,6 +35,9 @@ workflow-specific.
   styles may own composition and layout. My Books search uses one bounded utility
   override because daisyUI's `.input` has a 20rem maximum width, while the
   collection track must be allowed to fill and shrink.
+  Concordance and occurrence-level lemma review follow the same ownership: their
+  route styles own query/result and review composition, while shared controls own
+  inputs, selects, action variants, validation, focus, and disabled/busy states.
 - `internal/webapp/static/app.css` is the deterministic, committed output linked
   on every full page. HTMX fragments inherit the host page's stylesheet.
 - `internal/webapp/static/vendor/` contains immutable pinned third-party
