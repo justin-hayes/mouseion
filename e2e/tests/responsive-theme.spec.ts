@@ -798,7 +798,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
     await page.goto('/vocabulary/import');
-    await expect(page.getByRole('heading', { name: 'Vocabulary · Import known vocabulary', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);

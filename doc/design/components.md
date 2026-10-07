@@ -57,10 +57,19 @@ markup.
 
 ### Vocabulary Browse and import controls
 
+Vocabulary's peer views share one compact destination header: a 25px
+“Vocabulary” heading followed by native links to Browse, Concordance, and
+Import Known words. The links sit beside the heading when space permits and
+wrap below it on compact screens. Mark the actual destination with
+`aria-current="page"`; do not repeat a larger view title above its primary
+task.
+
 Vocabulary Browse uses the shared `.input` search field and `.btn` actions for
 search and paging. The include-all checkbox remains native; its glyph stays
 compact while its associated label provides a 44px-or-larger click target. The
-known-vocabulary upload also remains a native file control and multipart POST,
+default Known, Reserved, and prepared-Book-deck exclusions remain visible next
+to the include-all control, and applied search context stays with the results.
+The known-vocabulary upload also remains a native file control and multipart POST,
 with an explicit label, platform picker, visible in-flight status when enhanced,
 and server-rendered validation/recovery when enhancement is unavailable. Do not
 add select, radio, or textarea component styles to these workflows: they are not

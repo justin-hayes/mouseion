@@ -338,6 +338,16 @@ func TestVocabularyPageUsesActiveLanguageWithoutPicker(t *testing.T) {
 	assert.False(t, strings.Contains(html, "return_to"), "Vocabulary page exposes a per-page language control: %s", html)
 }
 
+func TestVocabularyHeaderKeepsPeerViewsUnderOneDestinationHeading(t *testing.T) {
+	var output bytes.Buffer
+	require.NoError(t, VocabularyPageHeader("import").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, `<header class="vocabulary-page-header"><h1>Vocabulary</h1><nav aria-label="Vocabulary views">`)
+	assert.Contains(t, html, `<a href="/vocabulary/import" aria-current="page">Import Known words</a>`)
+	assert.NotContains(t, html, `Vocabulary ·`)
+	assert.Less(t, strings.Index(html, `<h1>Vocabulary</h1>`), strings.Index(html, `aria-label="Vocabulary views"`))
+}
+
 func TestVocabularyPageDoesNotDisplayKnownVocabulary(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyPageWithResult(domain.User{}, "csrf", []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, []domain.StudyLanguage{{Language: "it", DisplayName: "Italian"}}, "it", nil, "").Render(context.Background(), &output))

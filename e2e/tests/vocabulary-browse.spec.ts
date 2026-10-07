@@ -23,7 +23,9 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   try {
     await signIn(noScriptPage);
     await noScriptPage.goto('/vocabulary');
-    await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary · Browse' })).toBeVisible();
+    await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await expect(noScriptPage.getByRole('navigation', { name: 'Vocabulary views' }).getByRole('link', { name: 'Browse' })).toHaveAttribute('aria-current', 'page');
+    await expect(noScriptPage.getByRole('navigation', { name: 'Vocabulary views' }).getByRole('link', { name: 'Import Known words' })).toBeVisible();
     await expect(noScriptPage.locator('body')).not.toContainText('Browse selection');
     await expect(noScriptPage.locator('body')).not.toContainText('Custom deck');
     await expect(noScriptPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
@@ -48,6 +50,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await search.fill('haus');
     await search.press('Enter');
     await expect(noScriptPage).toHaveURL(/\/vocabulary\?.*all=1.*q=haus|\/vocabulary\?.*q=haus.*all=1/);
+    await expect(noScriptPage.locator('.vocabulary-applied-query')).toContainText('Applied prefix: haus');
     await expect(noScriptPage.locator('#vocabulary-results-heading')).toBeFocused();
     await expect(browseForm.locator('input[name="book"], input[name="pos"], select[name="known"], select[name="reserved"], select[name="sort"]')).toHaveCount(0);
     const hausRow = noScriptPage.getByRole('row').filter({ hasText: 'haus' });
@@ -55,6 +58,10 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await expect(hausRow).toContainText('In a Book deck');
     const noOverflow = await noScriptPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(noOverflow).toBe(true);
+
+    await noScriptPage.goto('/vocabulary?q=zznotfound');
+    await expect(noScriptPage.getByText('No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.')).toBeVisible();
+    await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('zznotfound');
   } finally {
     await noScriptContext.close();
   }
@@ -63,6 +70,34 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto('/vocabulary');
   await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('Vocabulary heading and peer navigation keep the compact hierarchy', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/vocabulary');
+  const header = page.locator('.vocabulary-page-header');
+  const heading = header.getByRole('heading', { name: 'Vocabulary', exact: true });
+  const navigation = header.getByRole('navigation', { name: 'Vocabulary views' });
+  await expect(heading).toBeVisible();
+  await expect(navigation.getByRole('link')).toHaveCount(3);
+  await expect(navigation.getByRole('link', { name: 'Browse' })).toHaveAttribute('aria-current', 'page');
+  const desktopLayout = await header.evaluate(element => {
+    const title = element.querySelector('h1')!.getBoundingClientRect();
+    const tabs = element.querySelector('nav')!.getBoundingClientRect();
+    return { titleTop: title.top, tabsTop: tabs.top, titleSize: getComputedStyle(element.querySelector('h1')!).fontSize };
+  });
+  expect(desktopLayout.titleSize).toBe('25px');
+  expect(Math.abs(desktopLayout.tabsTop - desktopLayout.titleTop)).toBeLessThan(10);
+
+  await page.setViewportSize({ width: 375, height: 667 });
+  const compactLayout = await header.evaluate(element => {
+    const title = element.querySelector('h1')!.getBoundingClientRect();
+    const tabs = element.querySelector('nav')!.getBoundingClientRect();
+    return { titleTop: title.top, tabsTop: tabs.top };
+  });
+  expect(compactLayout.tabsTop).toBeGreaterThan(compactLayout.titleTop);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

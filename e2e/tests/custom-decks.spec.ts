@@ -12,7 +12,7 @@ test('retired Browse selection and Custom-deck routes are unavailable', async ({
   await expect(page).toHaveURL(/\/library/);
 
   await page.goto('/vocabulary');
-  await expect(page.getByRole('heading', { name: 'Vocabulary · Browse' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
   for (const retired of ['Browse selection', 'Custom deck', 'Saved Custom decks']) {
     await expect(page.locator('body')).not.toContainText(retired);
   }
