@@ -1150,11 +1150,18 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					}
 					if len(result.Occurrences) > 0 {
 						<ol id="concordance-native-results" class="concordance-results" role="list">
-						for _, occurrence := range result.Occurrences {
+						for index, occurrence := range result.Occurrences {
 							<li class="concordance-result">
+								if concordanceStartsBookGroup(result.Occurrences, index) {
+									<div class="concordance-book-label">
+										<span class="concordance-book-title">{ occurrence.BookTitle }</span>
+										<span class="concordance-book-count">{ concordanceBookGroupCountText(result.Occurrences, index) }</span>
+									</div>
+								} else {
+									<div class="concordance-book-label" aria-hidden="true"></div>
+								}
 								<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
 									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
-										<span class="concordance-book-title">{ occurrence.BookTitle }</span>
 										<span class="concordance-before">{ concordanceBefore(occurrence) }</span>
 										<strong class="concordance-surface">{ occurrence.Surface }</strong>
 										<span class="concordance-after">{ concordanceAfter(occurrence) }</span>
@@ -1287,6 +1294,21 @@ func concordanceBookSelected(ids []string, candidate string) bool {
 func concordanceBookTitle(book domain.SourceMaterialSummary) string {
 	if book.BookTitle != "" { return book.BookTitle }
 	return book.Source.Title
+}
+
+func concordanceStartsBookGroup(occurrences []domain.ConcordanceResultOccurrence, index int) bool {
+	return index == 0 || occurrences[index-1].BookID != occurrences[index].BookID
+}
+
+func concordanceBookGroupCountText(occurrences []domain.ConcordanceResultOccurrence, index int) string {
+	count := 1
+	for next := index + 1; next < len(occurrences) && occurrences[next].BookID == occurrences[index].BookID; next++ {
+		count++
+	}
+	if count == 1 {
+		return "1 occurrence on this page"
+	}
+	return fmt.Sprintf("%d occurrences on this page", count)
 }
 
 func concordanceOccurrenceID(occurrence domain.ConcordanceResultOccurrence) string {

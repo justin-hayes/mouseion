@@ -101,6 +101,62 @@ test('Vocabulary heading and peer navigation keep the compact hierarchy', async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('Concordance query and applied results summary fit the first desktop and compact viewport', async ({ page }) => {
+  await signIn(page);
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    await expect(page.locator('#concordance-mode')).toBeVisible();
+    await expect(page.locator('#concordance-term')).toHaveValue('Haus');
+    await expect(page.locator('#concordance-summary')).toBeVisible();
+    const initiallyVisible = await page.evaluate(() => {
+      const selectors = [
+        '#concordance-mode',
+        '#concordance-term',
+        '#concordance-summary',
+        '#concordance-results > p:nth-of-type(1)',
+        '#concordance-results > p:nth-of-type(2)',
+      ];
+      return Object.fromEntries(selectors.map(selector => {
+        const bounds = document.querySelector(selector)!.getBoundingClientRect();
+        return [selector, bounds.bottom > 0 && bounds.top < window.innerHeight];
+      }));
+    });
+    expect(initiallyVisible, `query and result summary intersect ${viewport.width}x${viewport.height}`).toEqual({
+      '#concordance-mode': true,
+      '#concordance-term': true,
+      '#concordance-summary': true,
+      '#concordance-results > p:nth-of-type(1)': true,
+      '#concordance-results > p:nth-of-type(2)': true,
+    });
+    const bookLabel = page.locator('.concordance-book-label').first();
+    await expect(bookLabel).toContainText('occurrences on this page');
+    await expect(bookLabel.locator('.concordance-book-title')).toBeVisible();
+    const rowPresentation = await page.locator('.concordance-row summary').first().evaluate(summary => {
+      const before = summary.querySelector('.concordance-before')!;
+      const target = summary.querySelector('.concordance-surface')!;
+      const after = summary.querySelector('.concordance-after')!;
+      const bounds = (element: Element) => element.getBoundingClientRect();
+      return {
+        beforeRight: bounds(before).right,
+        targetLeft: bounds(target).left,
+        targetRight: bounds(target).right,
+        afterLeft: bounds(after).left,
+        beforeDisplay: getComputedStyle(before).display,
+        sourceFont: getComputedStyle(summary).fontFamily,
+      };
+    });
+    expect(rowPresentation.sourceFont).toContain('Literata');
+    if (viewport.width > 600) {
+      expect(rowPresentation.beforeRight).toBeLessThanOrEqual(rowPresentation.targetLeft);
+      expect(rowPresentation.afterLeft).toBeGreaterThanOrEqual(rowPresentation.targetRight);
+    } else {
+      expect(rowPresentation.beforeDisplay).toBe('inline');
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
 test('Browse keeps the current page and controls while exploring a word on page two', async ({ page }) => {
   await signIn(page);
   await page.goto('/vocabulary?q=paging');

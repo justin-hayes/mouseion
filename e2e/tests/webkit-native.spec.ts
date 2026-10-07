@@ -396,7 +396,7 @@ test.describe('native WebKit smoke journey', () => {
     const secondRow = page.locator('#concordance-native-results details').nth(1);
     const firstSummary = firstRow.locator('summary');
     expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▸');
-    await expect(firstSummary).toContainText('Der lange Weg nach Hause');
+    await expect(page.locator('.concordance-book-label').first()).toContainText('Der lange Weg nach Hause');
     await expect(firstSummary).toContainText('Haus');
 
     // Pointer activation opens native context; keyboard focus remains visible.
