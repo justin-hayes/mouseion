@@ -629,30 +629,43 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 		</div>
 	<div class="journey-book__evidence">
 	if primary {
-		<p>@StatusBadge("Current reading", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
-		<p class="metadata"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p>
-		<p class="metadata"><strong>Reserved vocabulary</strong>: <span class="numeric">{ fmt.Sprintf("%d", item.GoalSnapshotSize) }</span> frozen identities.</p>
+		<section class="reading-note" aria-labelledby={ "reading-note-reserved-" + journeyBookID(item) }>
+			<h2 id={ "reading-note-reserved-" + journeyBookID(item) }>Reserved vocabulary</h2>
+			<p>{ reservedVocabularySummary(item.GoalSnapshotSize) }</p>
+		</section>
+		<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + journeyBookID(item) }>
+			<h2 id={ "reading-note-analysis-" + journeyBookID(item) }>Analysis</h2>
+			if journeyEvidenceState(item) == "current" {
+				<p>Current analysis evidence is available for this Book.</p>
+			} else {
+				@JourneyEvidence(item, csrf, true)
+			}
+			if bookHasCompletedAnalysis(item.Book) {
+				<p><a href={ templ.SafeURL("/reading/books/" + journeyBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
+			}
+		</section>
 	}
-	@JourneyEvidence(item, csrf, primary)
 	if primary {
-		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
-			<h4 id={ "goal-deck-heading-" + journeyBookID(item) }>Deck preparation</h4>
+		<section class="goal-card__deck reading-note" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
+			<h2 id={ "goal-deck-heading-" + journeyBookID(item) }>Book deck</h2>
 			if bookHasCompletedAnalysis(item.Book) {
 				<p><a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Open focused deck task</a></p>
 			}
 			if item.GoalSnapshotSize == 0 {
-				<p><strong>Deck state</strong>: No deck needed. This Book has no frozen vocabulary identities to prepare.</p>
+				<p>No Book deck is needed because no vocabulary was reserved for this reading.</p>
 			} else if item.GoalPreparation != nil {
-				<p class="metadata"><strong>Deck state</strong>: { deckPreparationTitle(*item.GoalPreparation) }.</p>
+				<p class="metadata"><strong>Deck status</strong>: { deckPreparationTitle(*item.GoalPreparation) }.</p>
 				@GoalDeckPreparationStatus(csrf, journeyBookID(item), item.GoalSnapshotID, *item.GoalPreparation)
 			} else if item.GoalDeckMissing {
-				<p role="note" aria-live="polite"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The current reading and snapshot remain unchanged.</p>
+				<p role="note" aria-live="polite"><strong>Deck missing.</strong> Prepare a deck for the vocabulary reserved for this reading.</p>
 				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Prepare deck</button></form>
 			} else if item.GoalDeckUnavailable {
-				<p role="note" aria-live="polite"><strong>Deck state: Unavailable.</strong> The current reading and snapshot remain unchanged.</p>
+				<p role="note" aria-live="polite"><strong>Deck unavailable.</strong> Retry preparation when it is available.</p>
 				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
 			}
 		</section>
+	} else {
+		@JourneyEvidence(item, csrf, false)
 	}
 	</div>
 	if !primary {
@@ -682,11 +695,9 @@ templ GoalLifecycleActions(item journeyBookView, csrf string) {
 		@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
 			<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline">Confirm stop for now</button></form>
 		}
-		@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain. You can move it back to To Read from My Books.", StatusDanger) {
-			<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--danger">Confirm set aside</button></form>
+		@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain. You can move it back to To Read from My Books.", StatusNeutral) {
+			<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline">Confirm set aside</button></form>
 		}
-		<details class="more-actions"><summary>More actions</summary><div class="more-actions__body"><p>Book disposition is managed in <a href="/library">My Books</a>.</p></div></details>
-		<p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p>
 	</div>
 }
 

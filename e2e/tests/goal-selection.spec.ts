@@ -89,6 +89,7 @@ test.describe('Current reading selection', () => {
 
     test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
       test.skip(test.info().project.name !== 'desktop-light', 'Depends on the fixture book\'s pristine pre-seeded snapshot, which other specs in this shared-state suite mutate.');
+      await page.setViewportSize({ width: 1280, height: 800 });
       await signIn(page);
       const switcher = page.getByLabel('Study language');
       if (await switcher.inputValue() !== 'de') {
@@ -100,23 +101,51 @@ test.describe('Current reading selection', () => {
     const goal = page.locator('#primary-goal-section');
       await expect(goal).toContainText('Der lange Weg nach Hause');
       await expect(goal).toContainText('By Mara Weiss');
+      await expect(goal.getByRole('heading', { name: 'Der lange Weg nach Hause', level: 1 })).toBeVisible();
+      const titleLink = goal.getByRole('heading', { level: 1 }).getByRole('link', { name: 'Der lange Weg nach Hause' });
+      await expect(titleLink).toHaveCSS('text-decoration-line', 'none');
+      await titleLink.hover();
+      await expect(titleLink).toHaveCSS('text-decoration-line', 'underline');
+      await page.mouse.move(0, 0);
+      await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+      let titleReceivedKeyboardFocus = false;
+      for (let tab = 0; tab < 30; tab++) {
+        await page.keyboard.press('Tab');
+        if (await titleLink.evaluate((link) => link === document.activeElement)) {
+          titleReceivedKeyboardFocus = true;
+          break;
+        }
+      }
+      expect(titleReceivedKeyboardFocus).toBe(true);
+      await expect(titleLink).toHaveCSS('text-decoration-line', 'underline');
+      await expect(goal.getByRole('heading', { name: 'Reserved vocabulary' })).toBeVisible();
+      await expect(goal.getByRole('heading', { name: 'Analysis' })).toBeVisible();
+      await expect(goal.getByRole('heading', { name: 'Book deck' })).toBeVisible();
+      await expect(goal.getByRole('link', { name: 'Review flagged dictionary forms' })).toHaveAttribute('href', /\/reading\/books\/[^/]+\/lemma-review$/);
+      await expect(goal.locator('.journey-book__evidence')).not.toContainText(/immutable artifact|frozen identities|remain independent facts/i);
+      const titlePageItems = await goal.locator('.journey-book__cover, .journey-book__title, .journey-book__author, .journey-book__lifecycle').evaluateAll((nodes) => nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { bottom: rect.bottom, width: rect.width };
+      }));
+      for (const item of titlePageItems) {
+        expect(item.bottom).toBeLessThanOrEqual(800);
+      }
+      expect(titlePageItems[0].width).toBeGreaterThanOrEqual(160);
       expect(await goal.locator('.journey-book__identity').evaluate((identity) => {
         const title = identity.querySelector('h1');
         const author = identity.querySelector('.journey-book__author');
         return title !== null && author !== null && Boolean(title.compareDocumentPosition(author) & Node.DOCUMENT_POSITION_FOLLOWING);
       })).toBe(true);
-      await expect(goal).toContainText('Current commitment');
-      await expect(goal).toContainText('Reading state');
-      await expect(goal).toContainText('Not yet marked finished');
+      await expect(goal.locator('.journey-book__lifecycle')).toBeVisible();
     // Lifecycle controls are canonical Reading mutations; retired Goal forms
     // are not present on the page.
      await expect(goal.locator('form[action="/goal/clear"], form[action="/goal/finish"]')).toHaveCount(0);
      await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
      await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-      await expect(goal).toContainText('Deck preparation');
+      await expect(goal).toContainText('Book deck');
       await expect(goal).toContainText('Deck ready');
       await expect(goal.getByRole('link', { name: 'Download deck' })).toHaveAttribute('download', '');
-      await expect(goal).toContainText('Reserved vocabulary: 2 frozen identities.');
+      await expect(goal.locator('.reading-note').filter({ hasText: '2 lemmas' })).toContainText('2 lemmas');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     const provisional = page.locator('#provisional-journey-list .journey-list > li');

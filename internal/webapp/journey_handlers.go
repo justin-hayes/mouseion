@@ -162,6 +162,13 @@ func journeyEvidenceDescription(item journeyBookView) string {
 	}
 }
 
+func reservedVocabularySummary(count int) string {
+	if count == 1 {
+		return "1 lemma is set aside from vocabulary selection while you read this Book."
+	}
+	return fmt.Sprintf("%d lemmas are set aside from vocabulary selection while you read this Book.", count)
+}
+
 func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	bookID := journeyBookID(item)
 	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" || strings.TrimSpace(item.Book.Source.ContentSnapshotID) == "" {
