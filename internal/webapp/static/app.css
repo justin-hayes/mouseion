@@ -1396,6 +1396,11 @@
     font-size: var(--mouseion-font-size-page-title);
     font-weight: 600;
   }
+  .library-language-context {
+    margin: 0;
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+  }
   .library-add-book {
     position: relative;
     margin: 0;
@@ -1503,6 +1508,24 @@
   }
   .library-needs-language details p {
     margin: var(--mouseion-space-1) 0 0;
+  }
+  .library-needs-language details > summary {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+  }
+  .library-needs-language details > summary::-webkit-details-marker {
+    display: none;
+  }
+  .library-needs-language details > summary::before {
+    content: "▸";
+    flex: 0 0 1.25rem;
+    color: var(--mouseion-color-accent);
+  }
+  .library-needs-language details[open] > summary::before {
+    content: "▾";
   }
   .library-language-pills {
     gap: var(--mouseion-space-4);

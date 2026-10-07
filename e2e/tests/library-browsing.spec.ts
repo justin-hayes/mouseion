@@ -70,8 +70,35 @@ test.describe('My Books collection browsing', () => {
           const rect = node.getBoundingClientRect();
           return rect.top < height && rect.bottom > 0;
         }, viewport.height)).toBe(true);
+        await notice.getByText('Why?', { exact: true }).click();
+        await expect(notice.getByRole('link', { name: 'Catalogs' })).toBeVisible();
       }
     }
+  });
+
+  test('wraps long multilingual Book identity at compact width and 200% text size', async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/library');
+    const book = page.locator('.library-books .library-book').filter({ has: page.locator('.library-book__author') }).first();
+    const title = book.locator('.bibliographic-title');
+    const author = book.locator('.library-book__author');
+    const longGreekTitle = 'Una storia straordinariamente lunga: Donaudampfschifffahrtselektrizitätenhauptbetriebswerkbauunterbeamtengesellschaft; Μια εξαιρετικά μακριά ελληνική βιβλιογραφική περιγραφή';
+    const longGermanAuthor = 'Autorin mit einem außergewöhnlich langen deutschen Familiennamen';
+    await title.evaluate((element, text) => { element.textContent = text; }, longGreekTitle);
+    await author.evaluate((element, text) => { element.textContent = text; }, longGermanAuthor);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
+    await expect(title).toHaveText(longGreekTitle);
+    await expect(author).toHaveText(longGermanAuthor);
+    expect(await title.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(await title.evaluate(element => element.clientWidth));
+    expect(await author.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(await author.evaluate(element => element.clientWidth));
+    await expect(book.getByText('More actions', { exact: true })).toBeVisible();
   });
 
   test('browses and searches only the active study language', async ({ page }) => {
@@ -81,7 +108,8 @@ test.describe('My Books collection browsing', () => {
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
 
     await expect(page.getByLabel('Search My Books')).toBeVisible();
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page.locator('.library-language-context')).toHaveText('German collection');
     await expect(page.getByRole('navigation', { name: 'Languages' })).toHaveCount(0);
     await expect(page.getByText('All languages')).toHaveCount(0);
     await expect(page.locator('ul.library-books')).toHaveCount(1);
@@ -112,7 +140,8 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
     await switcher.selectOption('it');
     await expect(page).toHaveURL('/library');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in Italian');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page.locator('.library-language-context')).toHaveText('Italian collection');
     await expect(page.locator('.library-books').getByText('Empty chapter')).toBeVisible();
     await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toHaveCount(0);
     await switcher.selectOption('de');

@@ -116,7 +116,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
     const title = page.locator('.library-books a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
@@ -275,7 +275,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await page.goto('/jobs');
     const region = page.getByRole('region', { name: 'Analysis history' });
     await expect(region).toHaveAttribute('tabindex', '0');

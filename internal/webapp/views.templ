@@ -249,7 +249,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					<p class="library-book__membership"><span aria-hidden="true">●</span> To Read</p>
 				}
 			}
-			if book.Disposition != "" {
+			if book.Disposition != "" && !myBookInJourney(book) {
 				<p class="metadata"><strong>Disposition</strong>: { myBookWorkflowLabel(book) }</p>
 			}
 			if book.CompletionCount > 0 {
@@ -435,7 +435,10 @@ templ NeedsLanguageStrip(count int) {
 templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		<section class="library-masthead" aria-labelledby="library-page-title">
-			<h1 id="library-page-title">{ myBooksPageHeading(browse) }</h1>
+			<h1 id="library-page-title">My Books</h1>
+			if browse.Language != "" {
+				<p class="library-language-context">{ myBooksLanguageName(browse) } collection</p>
+			}
 		</section>
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -482,7 +485,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@MyBooksResults(csrf, books, browse)
 		} else if len(books) > 0 {
 			<section class="library-list" aria-labelledby="acquired-books-heading">
-				<h2 id="acquired-books-heading">Books in My Books</h2>
+				<h2 id="acquired-books-heading">Books</h2>
 				<ul class="library-books" role="list">
 					for _, book := range books {
 						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
