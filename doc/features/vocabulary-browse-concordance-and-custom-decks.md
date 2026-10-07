@@ -9,6 +9,11 @@ the current investigation contract and [Reading-owned Book vocabulary](reading-o
 for selection and preparation. Do not reinstate the saved-selection or
 custom-deck features from the historical requirements below.
 
+The historical icon-only Concordance study-link presentation documented below
+is superseded by the visible **Study** link and grouped KWIC layout in the
+[current feature contract](vocabulary-browse-and-concordance.md) and
+[component guidance](../design/components.md) (#1544).
+
 This is the cohesive product and acceptance contract for Vocabulary Browse,
 Concordance, and Custom decks. Browse now uses Current-reading Book scope,
 displays Book-local and across-analyzed-Books occurrence counts, and orders by

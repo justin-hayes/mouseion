@@ -113,12 +113,12 @@ test('Concordance query and applied results summary fit the first desktop and co
       const selectors = [
         '#concordance-mode',
         '#concordance-term',
-        '.concordance-query > button',
+        '.concordance-query-term-controls > button',
         '.concordance-scopes details:nth-child(1) > summary',
         '.concordance-scopes details:nth-child(2) > summary',
         '#concordance-summary',
-        '#concordance-results > p:nth-of-type(1)',
-        '#concordance-results > p:nth-of-type(2)',
+        '#concordance-results > .concordance-results-summary',
+        '#concordance-native-results li:first-child .concordance-row > summary',
       ];
       return Object.fromEntries(selectors.map(selector => {
         const bounds = document.querySelector(selector)!.getBoundingClientRect();
@@ -128,12 +128,12 @@ test('Concordance query and applied results summary fit the first desktop and co
     expect(initiallyVisible, `query and result summary intersect ${viewport.width}x${viewport.height}`).toEqual({
       '#concordance-mode': true,
       '#concordance-term': true,
-      '.concordance-query > button': true,
+      '.concordance-query-term-controls > button': true,
       '.concordance-scopes details:nth-child(1) > summary': true,
       '.concordance-scopes details:nth-child(2) > summary': true,
       '#concordance-summary': true,
-      '#concordance-results > p:nth-of-type(1)': true,
-      '#concordance-results > p:nth-of-type(2)': true,
+      '#concordance-results > .concordance-results-summary': true,
+      '#concordance-native-results li:first-child .concordance-row > summary': true,
     });
     const bookLabel = page.locator('.concordance-book-label').first();
     await expect(bookLabel).toContainText('occurrences on this page');

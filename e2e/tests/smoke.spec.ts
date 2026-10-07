@@ -241,8 +241,7 @@ test.describe('authenticated learner smoke', () => {
       const studyLinks = noScript.getByRole('link', { name: 'Study this sentence and its syntax' });
       await expect(studyLinks).toHaveCount(25);
       await expect(studyLinks.nth(0)).toBeVisible();
-      await expect(studyLinks.nth(0)).toHaveAttribute('title', 'Study this sentence and its syntax');
-      await expect(studyLinks.nth(0)).toHaveText('↗');
+      await expect(studyLinks.nth(0)).toHaveText('Study');
       await expect(rows.nth(0)).not.toHaveAttribute('open', '');
       await expect(studyLinks.nth(0).locator('xpath=ancestor::details')).toHaveCount(0);
       await rows.nth(0).locator('summary').focus();

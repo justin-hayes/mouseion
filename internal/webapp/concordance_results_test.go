@@ -34,9 +34,11 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 		`<ol id="concordance-native-results" class="concordance-results" role="list">`,
 		`<details class="concordance-row" name="concordance-occurrences"`,
 		`<a class="concordance-study-link"`,
+		`>Study</a>`,
 		`class="concordance-book-label"`,
 		`2 occurrences on this page`,
 		`1 occurrence on this page`,
+		`class="concordance-result concordance-result--book-start"`,
 		`Zweiter Titel`,
 	} {
 		if !strings.Contains(body, want) {
@@ -54,6 +56,19 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	}
 	if got := strings.Count(body, `class="concordance-book-title"`); got != 2 {
 		t.Fatalf("rendered %d Book titles, want one at each Book group start", got)
+	}
+	if got := strings.Count(body, `class="concordance-results-summary"`); got != 1 {
+		t.Fatalf("rendered %d results summaries, want exactly one", got)
+	}
+	summaryStart := strings.Index(body, `<p class="concordance-results-summary">`)
+	summaryEnd := strings.Index(body[summaryStart:], `</p>`)
+	summary := body[summaryStart : summaryStart+summaryEnd]
+	if strings.Contains(summary, ` · `) || !strings.Contains(summary, `Applied exact observed surface lookup for “Haus” in all current Books with no grammar filter; showing Results 1–3 on page 1.`) {
+		t.Fatal("single-sentence results summary omitted lookup mode, scope, grammar, or result range")
+	}
+	emptySummary := concordanceResultsSummary(domain.ConcordanceLookup{Mode: "surface", Term: "missing", Page: 1}, nil, domain.ConcordanceResult{Page: 1})
+	if !strings.Contains(emptySummary, `; no results on page 1.`) || strings.Contains(emptySummary, `showing No results`) {
+		t.Fatalf("empty results summary is not concise and grammatical: %q", emptySummary)
 	}
 	for _, forbidden := range []string{`data-concordance-data=`, `<mouseion-concordance`, `concordance-keyboard.js`, `concordance.js`} {
 		if strings.Contains(body, forbidden) {

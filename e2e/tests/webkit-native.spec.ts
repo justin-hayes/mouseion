@@ -402,8 +402,9 @@ test.describe('native WebKit smoke journey', () => {
     await bookSummary.click();
 
     const results = page.locator('#concordance-results');
-    await expect(results).toContainText('Applied exact observed surface lookup for “Haus” · Der lange Weg nach Hause · no grammar filter');
-    await expect(results).toContainText('Results 1–25 · page 1');
+    await expect(results.locator('.concordance-results-summary')).toHaveCount(1);
+    await expect(results.locator('.concordance-results-summary')).toContainText('Applied exact observed surface lookup for “Haus” in Der lange Weg nach Hause with no grammar filter; showing Results 1–25 on page 1; more results are available.');
+    await expect(results.locator('.concordance-results-summary')).not.toContainText(' · ');
     await expect(page.locator('#concordance-native-results li')).toHaveCount(25);
     await expect(page.locator('#concordance-native-results')).toHaveAttribute('role', 'list');
     await expectConcordanceListSemantics(page);
@@ -411,12 +412,18 @@ test.describe('native WebKit smoke journey', () => {
     await expect(page.locator('#concordance-results [data-concordance-data], #concordance-results mouseion-concordance')).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
     await expectMainWithinViewport(page);
+    await expect(page.locator('#concordance-mode')).toBeInViewport({ ratio: 0.01 });
+    await expect(page.locator('#concordance-term')).toBeInViewport({ ratio: 0.01 });
+    await expect(page.getByRole('button', { name: 'Find' })).toBeInViewport({ ratio: 0.01 });
+    await expect(results.locator('.concordance-results-summary')).toBeInViewport({ ratio: 0.01 });
+    await expect(page.locator('#concordance-native-results li').first().locator('summary')).toBeInViewport({ ratio: 0.01 });
 
     const firstRow = page.locator('#concordance-native-results details').first();
     const secondRow = page.locator('#concordance-native-results details').nth(1);
     const firstSummary = firstRow.locator('summary');
     const closedOccurrenceCue = await firstSummary.evaluate(element => getComputedStyle(element, '::before').transform);
     await expect(page.locator('.concordance-book-label').first()).toContainText('Der lange Weg nach Hause');
+    await expect(page.locator('.concordance-book-count').first()).toContainText('25 occurrences on this page');
     await expect(firstSummary).toContainText('Haus');
 
     // Pointer activation opens native context; keyboard focus remains visible.
@@ -457,7 +464,7 @@ test.describe('native WebKit smoke journey', () => {
     await expect(page.getByText('Identified target: Haus', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
     await expect(page).toHaveURL(/\/vocabulary\/concordance\?.*book=fixture-book.*#occurrence-fixture-book-0-1$/);
-    await expect(page.locator('#concordance-results')).toContainText('Results 1–25 · page 1');
+    await expect(page.locator('.concordance-results-summary')).toContainText('showing Results 1–25 on page 1; more results are available');
     await expect(page.locator('#occurrence-fixture-book-0-1')).toBeFocused();
   });
 
@@ -475,14 +482,20 @@ test.describe('native WebKit smoke journey', () => {
       const results = page.locator('#concordance-results');
       await expect(page.locator('#concordance-mode')).toHaveClass(/\binput\b/);
       await expect(page.getByRole('button', { name: 'Find' })).toHaveClass(/\bbutton\b/);
-      await expect(results).toContainText('Applied exact observed surface lookup for “Haus” · Der lange Weg nach Hause · no grammar filter');
-      await expect(results).toContainText('Results 1–25 · page 1');
+      await expect(results.locator('.concordance-results-summary')).toHaveCount(1);
+      await expect(results.locator('.concordance-results-summary')).toContainText('Applied exact observed surface lookup for “Haus” in Der lange Weg nach Hause with no grammar filter; showing Results 1–25 on page 1; more results are available.');
+      await expect(results.locator('.concordance-results-summary')).not.toContainText(' · ');
       await expect(page.locator('#concordance-native-results li')).toHaveCount(25);
       await expect(page.locator('#concordance-native-results')).toHaveAttribute('role', 'list');
       await expectConcordanceListSemantics(page);
       await expect(page.locator('.concordance-results')).toHaveCount(1);
       await expectNoHorizontalOverflow(page);
       await expectMainWithinViewport(page);
+      await expect(page.locator('#concordance-mode')).toBeInViewport({ ratio: 0.01 });
+      await expect(page.locator('#concordance-term')).toBeInViewport({ ratio: 0.01 });
+      await expect(page.getByRole('button', { name: 'Find' })).toBeInViewport({ ratio: 0.01 });
+      await expect(results.locator('.concordance-results-summary')).toBeInViewport({ ratio: 0.01 });
+      await expect(page.locator('#concordance-native-results li').first().locator('summary')).toBeInViewport({ ratio: 0.01 });
 
       const firstRow = page.locator('#concordance-native-results details').first();
       await firstRow.locator('summary').click();
@@ -497,7 +510,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(page.getByText('Identified target: Haus', { exact: true })).toBeVisible();
       await page.getByRole('link', { name: 'Return to Concordance results' }).click();
       await expect(page).toHaveURL(/\/vocabulary\/concordance\?.*book=fixture-book.*#occurrence-fixture-book-0-1$/);
-      await expect(page.locator('#concordance-results')).toContainText('Results 1–25 · page 1');
+      await expect(page.locator('.concordance-results-summary')).toContainText('showing Results 1–25 on page 1; more results are available');
       await expect(page.locator('#occurrence-fixture-book-0-1')).toBeFocused();
     } finally {
       await context.close();
