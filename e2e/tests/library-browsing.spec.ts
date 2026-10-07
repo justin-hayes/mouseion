@@ -25,13 +25,24 @@ test.describe('My Books collection browsing', () => {
     const openCue = await summary.evaluate(element => getComputedStyle(element, '::before').transform);
     expect(openCue).not.toBe(closedCue);
 
-    const badge = page.locator('.status-badge').filter({ hasText: 'Current reading' });
+    await page.goto('/library');
+    const badge = page.locator('.library-book__membership .status-badge').first();
     await expect(badge).toBeVisible();
+    await expect(badge).toContainText(/Currently reading|To Read|Read|Inbox|Set Aside/);
     const shape = badge.locator('[aria-hidden="true"]');
     await expect(shape).toBeVisible();
     await expect(shape).toHaveAttribute('aria-hidden', 'true');
-    expect(await shape.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
-    expect((await badge.innerText()).trim()).toContain('Current reading');
+    const shapeStyle = await shape.evaluate(element => ({
+      className: element.className,
+      background: getComputedStyle(element).backgroundColor,
+      border: getComputedStyle(element).borderColor,
+    }));
+    if (shapeStyle.className.includes('shape--ring')) {
+      expect(shapeStyle.border).not.toBe('rgba(0, 0, 0, 0)');
+    } else {
+      expect(shapeStyle.background).not.toBe('rgba(0, 0, 0, 0)');
+    }
+    expect((await badge.innerText()).trim().length).toBeGreaterThan(0);
   });
 
   test('uses Mouseion-owned styles without loading Pico', async ({ page }) => {

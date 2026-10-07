@@ -296,8 +296,10 @@ test.describe('responsive and theme regression coverage', () => {
     expect(await currentBook.evaluate((node) => getComputedStyle(node).display)).toBe(
       test.info().project.name.startsWith('compact') ? 'flex' : 'grid',
     );
-    await expect(currentBook).toContainText('Current reading');
+    await expect(currentBook.getByRole('heading', { name: 'Reserved vocabulary' })).toBeVisible();
     await expect(currentBook).toContainText('Reserved vocabulary');
+    await expect(currentBook.getByRole('heading', { name: 'Analysis' })).toBeVisible();
+    await expect(currentBook.getByRole('heading', { name: 'Book deck' })).toBeVisible();
     await expect(currentBook.getByRole('link', { name: 'Open focused deck task' })).toHaveAttribute(
       'href',
       /\/reading\/books\/[^/]+\/deck\/preparations\/new$/,

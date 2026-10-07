@@ -89,7 +89,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		{
 			name:     "queued",
 			state:    domain.DeckPreparationQueued,
-			want:     []string{"Deck preparation queued", "exact analysis", "Cancel preparation"},
+			want:     []string{"Deck preparation queued", "Analysis is queued for Book deck preparation", "Cancel preparation"},
 			unwanted: []string{"Retry preparation", `download=""`},
 			progress: 0,
 		},
@@ -117,7 +117,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		{
 			name:     "cancelled",
 			state:    domain.DeckPreparationCancelled,
-			want:     []string{"Deck preparation cancelled", "You can retry this exact analysis"},
+			want:     []string{"Deck preparation cancelled", "You can try again when you want to continue"},
 			unwanted: []string{"Cancel preparation", `hx-trigger="every 3s"`},
 			progress: 100,
 		},
@@ -138,6 +138,11 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 			assert.True(t, strings.Contains(html, `value="`+strconv.Itoa(test.progress)+`"`), "status progress does not include %d: %s", test.progress, html)
 		})
 	}
+}
+
+func TestDeckPreparationFallbackUsesLearnerFacingCopy(t *testing.T) {
+	preparation := domain.DeckPreparation{State: domain.DeckPreparationPreparing, Phase: "unrecognized"}
+	assert.Equal(t, "Preparing the Book deck. You can leave and return later.", deckPreparationSummary(preparation))
 }
 
 func TestDeckPreparationStatusIndicatesUpdatedRevision(t *testing.T) {
