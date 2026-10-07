@@ -421,19 +421,35 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 		}
 		if myBookInJourney(book) {
 			if book.WorkflowBucket() == domain.MyBookBucketCurrentReading {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<p class=\"library-book__membership\">Currently reading</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<p class=\"library-book__membership\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = StatusBadge("Currently reading", StatusInfo).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<p class=\"library-book__membership\"><span aria-hidden=\"true\">●</span> To Read</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<p class=\"library-book__membership\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = StatusBadge("To Read", StatusNeutral).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
 		if book.Disposition != "" && !myBookInJourney(book) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<p class=\"metadata\"><strong>Disposition</strong>: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<p class=\"metadata\"><strong>Disposition</strong>: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -446,13 +462,13 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if book.CompletionCount > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<p class=\"metadata\"><strong>Reading history</strong>: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<p class=\"metadata\"><strong>Reading history</strong>: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -465,7 +481,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</p><p class=\"metadata\"><strong>Latest completion</strong>: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</p><p class=\"metadata\"><strong>Latest completion</strong>: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -478,7 +494,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, " · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, " · ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -491,17 +507,17 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</div><div class=\"library-book__actions\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div><div class=\"library-book__actions\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if myBookInJourney(book) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<a class=\"btn btn-outline library-book__journey-action\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<a class=\"btn btn-outline library-book__journey-action\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -514,7 +530,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"><span aria-hidden=\"true\">-&gt;</span> View in Reading</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"><span aria-hidden=\"true\">-&gt;</span> View in Reading</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -522,7 +538,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 		if book.Disposition != "" {
 			if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
 				if book.Book.LanguageState == domain.LanguageChosen {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -535,7 +551,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -548,7 +564,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -561,19 +577,19 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\"> <button type=\"submit\" class=\"btn btn-outline library-book__journey-action\">Move to To Read</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"> <button type=\"submit\" class=\"btn btn-outline library-book__journey-action\">Move to To Read</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<p class=\"metadata\">Choose a language in the catalog before moving this Book to To Read.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<p class=\"metadata\">Choose a language in the catalog before moving this Book to To Read.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
 		} else if !myBookInJourney(book) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<form method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -586,7 +602,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -599,7 +615,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -612,12 +628,12 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\"> <button type=\"submit\" class=\"btn btn-outline library-book__journey-action\"><span aria-hidden=\"true\">+</span> Move to To Read</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\"> <button type=\"submit\" class=\"btn btn-outline library-book__journey-action\"><span aria-hidden=\"true\">+</span> Move to To Read</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<details class=\"more-actions\"><summary>More actions</summary><div class=\"more-actions__body\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<details class=\"more-actions\"><summary>More actions</summary><div class=\"more-actions__body\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -634,7 +650,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -647,7 +663,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -660,7 +676,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\"><button type=\"submit\" class=\"btn btn-outline\">Confirm previously read</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\"><button type=\"submit\" class=\"btn btn-outline\">Confirm previously read</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -672,7 +688,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			}
 		}
 		if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<form method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -685,7 +701,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -698,7 +714,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -711,13 +727,13 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\"><button type=\"submit\" class=\"btn btn-outline\">Read again</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\"><button type=\"submit\" class=\"btn btn-outline\">Read again</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if refreshEligible {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<form method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -730,7 +746,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -743,7 +759,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\" hx-target=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\" hx-target=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -756,7 +772,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\" hx-swap=\"outerHTML\" data-focus-results=\"true\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\" hx-swap=\"outerHTML\" data-focus-results=\"true\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -769,7 +785,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"> <button type=\"submit\" class=\"btn btn-outline\">Refresh metadata</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\"> <button type=\"submit\" class=\"btn btn-outline\">Refresh metadata</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -787,7 +803,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -800,7 +816,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -813,7 +829,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "\"><input type=\"hidden\" name=\"expected_revision\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -826,7 +842,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\"> <button type=\"submit\" class=\"btn btn-outline\">Confirm set aside</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "\"> <button type=\"submit\" class=\"btn btn-outline\">Confirm set aside</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -837,12 +853,12 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</div></details></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "</div></details></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if message != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<p class=\"library-book__message\" role=\"status\" aria-live=\"polite\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<p class=\"library-book__message\" role=\"status\" aria-live=\"polite\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -855,12 +871,12 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "</li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -889,7 +905,7 @@ func NeedsLanguageBookRow(book domain.MyBook) templ.Component {
 			templ_7745c5c3_Var46 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<li class=\"library-diagnostic-item\" aria-labelledby=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<li class=\"library-diagnostic-item\" aria-labelledby=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -902,7 +918,7 @@ func NeedsLanguageBookRow(book domain.MyBook) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\"><div><h3 id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\"><div><h3 id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -915,7 +931,7 @@ func NeedsLanguageBookRow(book domain.MyBook) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "\" class=\"bibliographic-title\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "\" class=\"bibliographic-title\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -928,12 +944,12 @@ func NeedsLanguageBookRow(book domain.MyBook) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if author := strings.TrimSpace(book.Book.Author); author != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<p class=\"library-book__author\">By ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<p class=\"library-book__author\">By ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -946,12 +962,12 @@ func NeedsLanguageBookRow(book domain.MyBook) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<p class=\"metadata\">Language not assigned in the catalog</p></div></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<p class=\"metadata\">Language not assigned in the catalog</p></div></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -980,7 +996,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 			templ_7745c5c3_Var51 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<a class=\"btn btn-outline\" data-my-books-enhanced data-focus-results=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<a class=\"btn btn-outline\" data-my-books-enhanced data-focus-results=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -993,7 +1009,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1001,7 +1017,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, " href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, " href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1014,7 +1030,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "\" hx-get=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "\" hx-get=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1027,7 +1043,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1040,7 +1056,7 @@ func MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, select
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1069,7 +1085,7 @@ func MyBooksResultsError(message, retryURL string) templ.Component {
 			templ_7745c5c3_Var56 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<section id=\"library-results\" aria-labelledby=\"library-books-heading\" data-focus-id=\"library-books-heading\"><h2 id=\"library-books-heading\" tabindex=\"-1\">My Books could not be loaded</h2><p role=\"alert\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<section id=\"library-results\" aria-labelledby=\"library-books-heading\" data-focus-id=\"library-books-heading\"><h2 id=\"library-books-heading\" tabindex=\"-1\">My Books could not be loaded</h2><p role=\"alert\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1082,7 +1098,7 @@ func MyBooksResultsError(message, retryURL string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</p><p><a class=\"btn btn-outline\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</p><p><a class=\"btn btn-outline\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1095,7 +1111,7 @@ func MyBooksResultsError(message, retryURL string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "\">Try again</a></p></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "\">Try again</a></p></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1140,7 +1156,7 @@ func MyBooksFailurePage(user domain.User, csrf, message, retryURL string) templ.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1148,7 +1164,7 @@ func MyBooksFailurePage(user domain.User, csrf, message, retryURL string) templ.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, " <p><a class=\"btn btn-outline\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " <p><a class=\"btn btn-outline\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1161,7 +1177,7 @@ func MyBooksFailurePage(user domain.User, csrf, message, retryURL string) templ.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "\">Try again</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "\">Try again</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1196,7 +1212,7 @@ func MyBooksDispositionFilters(browse MyBooksBrowseState) templ.Component {
 			templ_7745c5c3_Var62 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<nav class=\"library-filters\" aria-label=\"My Books filters\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<nav class=\"library-filters\" aria-label=\"My Books filters\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1216,7 +1232,7 @@ func MyBooksDispositionFilters(browse MyBooksBrowseState) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<a")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<a")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1224,7 +1240,7 @@ func MyBooksDispositionFilters(browse MyBooksBrowseState) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, " href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, " href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1237,7 +1253,7 @@ func MyBooksDispositionFilters(browse MyBooksBrowseState) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1250,7 +1266,7 @@ func MyBooksDispositionFilters(browse MyBooksBrowseState) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</a></nav>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "</a></nav>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1279,7 +1295,7 @@ func MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, dispo
 			templ_7745c5c3_Var65 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<a")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<a")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1287,7 +1303,7 @@ func MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, dispo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, " href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, " href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1300,7 +1316,7 @@ func MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, dispo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1313,7 +1329,7 @@ func MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, dispo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1342,7 +1358,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 			templ_7745c5c3_Var68 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "<section id=\"library-results\" aria-labelledby=\"library-books-heading\" data-focus-id=\"library-books-heading\"><h2 id=\"library-books-heading\" tabindex=\"-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "<section id=\"library-results\" aria-labelledby=\"library-books-heading\" data-focus-id=\"library-books-heading\"><h2 id=\"library-books-heading\" tabindex=\"-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1355,12 +1371,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if browse.Total == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "<p")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<p")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1368,12 +1384,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if browse.TextNoMatch && browse.NeedsLanguage {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "No books awaiting a language match “")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "No books awaiting a language match “")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1386,7 +1402,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "”. <a data-my-books-enhanced data-focus-results=\"true\" href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "”. <a data-my-books-enhanced data-focus-results=\"true\" href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1399,7 +1415,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\" hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "\" hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1412,13 +1428,13 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\">Clear search</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\">Clear search</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if browse.TextNoMatch {
 				if browse.History {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "No books with reading history in ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "No books with reading history in ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1431,7 +1447,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, " match “")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, " match “")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1444,12 +1460,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "”.")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "”.")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "No books in your local collection in ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "No books in your local collection in ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1462,7 +1478,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, " match “")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, " match “")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1475,12 +1491,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "”.")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "”.")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, " <a data-my-books-enhanced data-focus-results=\"true\" href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, " <a data-my-books-enhanced data-focus-results=\"true\" href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1493,7 +1509,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "\" hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "\" hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1506,23 +1522,23 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\">Clear search</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\">Clear search</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if browse.NeedsLanguage {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "No books are awaiting a language in the local collection.")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "No books are awaiting a language in the local collection.")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if browse.History {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "No books with reading history are in this local collection.")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "No books with reading history are in this local collection.")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if browse.Language != "" {
 				if browse.Disposition != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "No ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "No ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1535,7 +1551,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, " books in your local collection are in ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, " books in your local collection are in ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1548,12 +1564,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, ".")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, ".")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "No books in your local collection are in ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "No books in your local collection are in ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1566,18 +1582,18 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, ".")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, ".")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "<p")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<p")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1585,7 +1601,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1598,14 +1614,14 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if len(books) > 0 {
 			if browse.NeedsLanguage {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<ul class=\"library-diagnostic-list\" role=\"list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<ul class=\"library-diagnostic-list\" role=\"list\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1615,12 +1631,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</ul>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "</ul>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<ul class=\"library-books\" role=\"list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<ul class=\"library-books\" role=\"list\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1632,14 +1648,14 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 						}
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "</ul>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</ul>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
 		if browse.PageCount > 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<nav class=\"library-paging\" aria-label=\"Paging\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "<nav class=\"library-paging\" aria-label=\"Paging\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1659,12 +1675,12 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</nav>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "</nav>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1693,17 +1709,17 @@ func NeedsLanguageStrip(count int) templ.Component {
 			templ_7745c5c3_Var83 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "<aside class=\"library-needs-language\" aria-label=\"Books awaiting a language\"><div class=\"library-needs-language__summary\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<aside class=\"library-needs-language\" aria-label=\"Books awaiting a language\"><div class=\"library-needs-language__summary\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if count == 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<strong>1 book awaiting a language</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "<strong>1 book awaiting a language</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1716,12 +1732,12 @@ func NeedsLanguageStrip(count int) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<a href=\"/library?needs-language\">Review</a> <details><summary>Why?</summary><p>The catalog has not assigned a language. Set it in the catalog, then re-sync from <a href=\"/catalogs\">Catalogs</a>.</p></details></div></aside>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "<a href=\"/library?needs-language\">Review</a> <details><summary>Why?</summary><p>The catalog has not assigned a language. Set it in the catalog, then re-sync from <a href=\"/catalogs\">Catalogs</a>.</p></details></div></aside>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1762,12 +1778,12 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "<section class=\"library-masthead\" aria-labelledby=\"library-page-title\"><h1 id=\"library-page-title\">My Books</h1>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "<section class=\"library-masthead\" aria-labelledby=\"library-page-title\"><h1 id=\"library-page-title\">My Books</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if browse.Language != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "<p class=\"library-language-context\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "<p class=\"library-language-context\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1780,12 +1796,12 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, " collection</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, " collection</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "</section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1795,7 +1811,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1805,7 +1821,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1822,12 +1838,12 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "<a role=\"button\" href=\"/catalogs\">Set up a catalog</a> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "<a role=\"button\" href=\"/catalogs\">Set up a catalog</a> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if hasCatalogueConnections {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "<a class=\"btn btn-outline\" href=\"/catalogs\">Sync catalog</a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<a class=\"btn btn-outline\" href=\"/catalogs\">Sync catalog</a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1839,7 +1855,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1862,12 +1878,12 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<a role=\"button\" href=\"/catalogs\">Set up a catalog</a> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "<a role=\"button\" href=\"/catalogs\">Set up a catalog</a> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						if hasCatalogueConnections {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "<a class=\"btn btn-outline\" href=\"/catalogs\">Sync catalog</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "<a class=\"btn btn-outline\" href=\"/catalogs\">Sync catalog</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1885,7 +1901,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					}
 				}
 			} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "<section class=\"library-finder\" aria-label=\"Find books\"><form class=\"library-search\" role=\"search\" method=\"get\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "<section class=\"library-finder\" aria-label=\"Find books\"><form class=\"library-search\" role=\"search\" method=\"get\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1898,7 +1914,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "\" hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "\" hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1911,7 +1927,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\" data-my-books-enhanced><label for=\"library-search-query\">Search My Books</label><div class=\"library-search__controls\"><input class=\"input\" id=\"library-search-query\" type=\"search\" name=\"q\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "\" hx-target=\"#library-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-status:5xx=\"target:#library-results select:#library-results swap:outerHTML push:false\" data-my-books-enhanced><label for=\"library-search-query\">Search My Books</label><div class=\"library-search__controls\"><input class=\"input\" id=\"library-search-query\" type=\"search\" name=\"q\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1924,7 +1940,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "\" placeholder=\"Title, author, or edition\"> <button class=\"btn btn-primary\" type=\"submit\">Search</button></div></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "\" placeholder=\"Title, author, or edition\"> <button class=\"btn btn-primary\" type=\"submit\">Search</button></div></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1932,7 +1948,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "</section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "</section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1942,7 +1958,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, " <div id=\"library-recovery\" aria-live=\"polite\"></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, " <div id=\"library-recovery\" aria-live=\"polite\"></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1951,7 +1967,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 					return templ_7745c5c3_Err
 				}
 			} else if len(books) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "<section class=\"library-list\" aria-labelledby=\"acquired-books-heading\"><h2 id=\"acquired-books-heading\">Books</h2><ul class=\"library-books\" role=\"list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "<section class=\"library-list\" aria-labelledby=\"acquired-books-heading\"><h2 id=\"acquired-books-heading\">Books</h2><ul class=\"library-books\" role=\"list\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1961,7 +1977,7 @@ func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, 
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</ul></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "</ul></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2022,7 +2038,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "<a class=\"button button--outline\" href=\"/library\">Add books from My Books</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "<a class=\"button button--outline\" href=\"/library\">Add books from My Books</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2033,7 +2049,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2043,7 +2059,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2053,7 +2069,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2063,7 +2079,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2071,17 +2087,17 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if journey.Goal != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "<p class=\"reading-add-books\"><a href=\"/library\">Add books from My Books</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<p class=\"reading-add-books\"><a href=\"/library\">Add books from My Books</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, " <section aria-labelledby=\"provisional-journey-heading\"><h2 id=\"provisional-journey-heading\">Other To Read books</h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, " <section aria-labelledby=\"provisional-journey-heading\"><h2 id=\"provisional-journey-heading\">Other To Read books</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2089,7 +2105,7 @@ func JourneyPage(user domain.User, csrf string, journey journeyPageView, message
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "</section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2124,7 +2140,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 			templ_7745c5c3_Var96 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "<section class=\"language-handoff\" aria-labelledby=\"language-handoff-heading\"><h2 id=\"language-handoff-heading\">This Book is in ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "<section class=\"language-handoff\" aria-labelledby=\"language-handoff-heading\"><h2 id=\"language-handoff-heading\">This Book is in ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2137,7 +2153,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "</h2><p><strong>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, "</h2><p><strong>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2150,7 +2166,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "</strong> is in ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, "</strong> is in ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2163,7 +2179,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 172, ". This Reading page is showing ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, ". This Reading page is showing ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2176,7 +2192,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 173, ", while your saved study language is ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, ", while your saved study language is ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2189,7 +2205,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 174, ". This request does not change the saved language; switch it if you want ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, ". This request does not change the saved language; switch it if you want ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2202,7 +2218,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 175, " to become active.</p><form method=\"post\" action=\"/active-study-language\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, " to become active.</p><form method=\"post\" action=\"/active-study-language\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2215,7 +2231,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 176, "\"><input type=\"hidden\" name=\"language\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "\"><input type=\"hidden\" name=\"language\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2228,7 +2244,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 177, "\"><input type=\"hidden\" name=\"return_to\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, "\"><input type=\"hidden\" name=\"return_to\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2241,7 +2257,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 178, "\"><button class=\"button\" type=\"submit\">Switch to ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "\"><button class=\"button\" type=\"submit\">Switch to ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2254,7 +2270,7 @@ func ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 179, " and open this Book</button></form></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, " and open this Book</button></form></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2330,7 +2346,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView) templ.Component {
 			templ_7745c5c3_Var109 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 180, "<section id=\"primary-goal-section\" tabindex=\"-1\" aria-labelledby=\"primary-goal-finish-heading\" class=\"journey-goal journey-finish-outcome\" data-focus-id=\"primary-goal-finish-heading\"><h1 id=\"primary-goal-finish-heading\" tabindex=\"-1\">Reading finished</h1><p role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">Reading finished for <strong>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "<section id=\"primary-goal-section\" tabindex=\"-1\" aria-labelledby=\"primary-goal-finish-heading\" class=\"journey-goal journey-finish-outcome\" data-focus-id=\"primary-goal-finish-heading\"><h1 id=\"primary-goal-finish-heading\" tabindex=\"-1\">Reading finished</h1><p role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">Reading finished for <strong>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2343,7 +2359,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "</strong>.</p><h2>Vocabulary transition</h2><p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "</strong>.</p><h2>Vocabulary transition</h2><p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2356,7 +2372,7 @@ func PrimaryGoalFinish(outcome primaryGoalFinishView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 182, "</p><p><a class=\"button button--outline\" href=\"/reading\">Choose a To Read book</a></p></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "</p><p><a class=\"button button--outline\" href=\"/reading\">Choose a To Read book</a></p></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2385,7 +2401,7 @@ func JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMe
 			templ_7745c5c3_Var112 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 183, "<div id=\"provisional-journey-list\" data-focus-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "<div id=\"provisional-journey-list\" data-focus-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2398,7 +2414,7 @@ func JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 184, "\"><p id=\"provisional-journey-status\" class=\"journey-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, "\"><p id=\"provisional-journey-status\" class=\"journey-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2411,7 +2427,7 @@ func JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 185, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2419,7 +2435,7 @@ func JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMe
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 186, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2448,7 +2464,7 @@ func JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statu
 			templ_7745c5c3_Var115 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 187, "<div id=\"provisional-journey-content\" data-focus-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, "<div id=\"provisional-journey-content\" data-focus-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2461,12 +2477,12 @@ func JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statu
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 188, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if announce && statusMessage != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 189, "<div hx-swap-oob=\"innerHTML:#provisional-journey-status\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, "<div hx-swap-oob=\"innerHTML:#provisional-journey-status\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2479,7 +2495,7 @@ func JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 190, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2497,7 +2513,7 @@ func JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statu
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 191, "<a class=\"button button--outline\" href=\"/library\">Browse My Books</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 193, "<a class=\"button button--outline\" href=\"/library\">Browse My Books</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2508,12 +2524,12 @@ func JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statu
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 192, "<ul class=\"journey-list\" aria-label=\"To Read books\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, "<ul class=\"journey-list\" aria-label=\"To Read books\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, item := range journey.Provisional {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 193, "<li>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "<li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2521,12 +2537,12 @@ func JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, statu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 194, "</li>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "</li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "</ul></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, "</ul></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2555,7 +2571,7 @@ func GoalSection(goal *journeyBookView, csrf string, message, sectionError, focu
 			templ_7745c5c3_Var119 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 196, "<section id=\"primary-goal-section\" tabindex=\"-1\" aria-label=\"Current reading\" class=\"journey-goal\" data-focus-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, "<section id=\"primary-goal-section\" tabindex=\"-1\" aria-label=\"Current reading\" class=\"journey-goal\" data-focus-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2568,12 +2584,12 @@ func GoalSection(goal *journeyBookView, csrf string, message, sectionError, focu
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 197, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if message != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 198, "<p id=\"goal-section-status\" class=\"journey-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "<p id=\"goal-section-status\" class=\"journey-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2586,13 +2602,13 @@ func GoalSection(goal *journeyBookView, csrf string, message, sectionError, focu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 199, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if sectionError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 200, "<article role=\"alert\" class=\"feedback feedback--error\"><strong>Action needed</strong><p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "<article role=\"alert\" class=\"feedback feedback--error\"><strong>Action needed</strong><p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2605,7 +2621,7 @@ func GoalSection(goal *journeyBookView, csrf string, message, sectionError, focu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 201, "</p></article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "</p></article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2621,7 +2637,7 @@ func GoalSection(goal *journeyBookView, csrf string, message, sectionError, focu
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 202, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 204, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2655,7 +2671,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 203, "<article id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 205, "<article id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2668,7 +2684,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 204, "\" tabindex=\"-1\" data-focus-anchor class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "\" tabindex=\"-1\" data-focus-anchor class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2681,7 +2697,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 205, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 207, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2690,7 +2706,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "<div class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 208, "<div class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2703,7 +2719,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 207, "\"><div class=\"journey-book__cover\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 209, "\"><div class=\"journey-book__cover\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2711,17 +2727,17 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 208, "</div><div class=\"journey-book__identity\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "</div><div class=\"journey-book__identity\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if primary {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 209, "<h1 class=\"journey-book__title\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "<h1 class=\"journey-book__title\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if !item.ReadingSince.IsZero() {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 210, "<span class=\"journey-book__since\"><span>Reading since</span> <time datetime=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "<span class=\"journey-book__since\"><span>Reading since</span> <time datetime=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2734,7 +2750,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2747,13 +2763,13 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "</time></span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, "</time></span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if journeyEntryAvailable(item) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "<a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 215, "<a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2766,7 +2782,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 216, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2779,7 +2795,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 215, "</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 217, "</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2794,17 +2810,17 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 216, "</h1>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 218, "</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 217, "<h3>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 219, "<h3>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if journeyEntryAvailable(item) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 218, "<a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 220, "<a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2817,7 +2833,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 219, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 221, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2830,7 +2846,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 220, "</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 222, "</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2845,13 +2861,13 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 221, "</h3>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 223, "</h3>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if author := canonicalBookAuthor(item.Book); author != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 222, "<p class=\"journey-book__author\">By ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 224, "<p class=\"journey-book__author\">By ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2864,7 +2880,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 223, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 225, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2874,7 +2890,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 224, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 226, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2883,24 +2899,24 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 225, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 227, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if item.GoalUnassessed {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 226, "<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Book. Reading directly is the current path.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 228, "<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Book. Reading directly is the current path.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 227, "<p>Analysis evidence exists, but this Book has no deck-eligible vocabulary. Reading directly is the current path.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 229, "<p>Analysis evidence exists, but this Book has no deck-eligible vocabulary. Reading directly is the current path.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 228, "<p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 230, "<p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2908,17 +2924,17 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 229, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 231, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 230, "</div></div><div class=\"journey-book__evidence\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 232, "</div></div><div class=\"journey-book__evidence\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if primary {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 231, "<p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 233, "<p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2926,7 +2942,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 232, "<span aria-hidden=\"true\">·</span> Current commitment</p><p class=\"metadata\"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p><p class=\"metadata\"><strong>Reserved vocabulary</strong>: <span class=\"numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 234, "<span aria-hidden=\"true\">·</span> Current commitment</p><p class=\"metadata\"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p><p class=\"metadata\"><strong>Reserved vocabulary</strong>: <span class=\"numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2939,7 +2955,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 233, "</span> frozen identities.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 235, "</span> frozen identities.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2949,7 +2965,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			return templ_7745c5c3_Err
 		}
 		if primary {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 234, "<section class=\"goal-card__deck\" aria-labelledby=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 236, "<section class=\"goal-card__deck\" aria-labelledby=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2962,7 +2978,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 235, "\"><h4 id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 237, "\"><h4 id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2975,12 +2991,12 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 236, "\">Deck preparation</h4>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 238, "\">Deck preparation</h4>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if bookHasCompletedAnalysis(item.Book) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 237, "<p><a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 239, "<p><a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2993,18 +3009,18 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 238, "\">Open focused deck task</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 240, "\">Open focused deck task</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if item.GoalSnapshotSize == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 239, "<p><strong>Deck state</strong>: No deck needed. This Book has no frozen vocabulary identities to prepare.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 241, "<p><strong>Deck state</strong>: No deck needed. This Book has no frozen vocabulary identities to prepare.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if item.GoalPreparation != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 240, "<p class=\"metadata\"><strong>Deck state</strong>: ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 242, "<p class=\"metadata\"><strong>Deck state</strong>: ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3017,7 +3033,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 241, ".</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 243, ".</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3026,7 +3042,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 					return templ_7745c5c3_Err
 				}
 			} else if item.GoalDeckMissing {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 242, "<p role=\"note\" aria-live=\"polite\"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The current reading and snapshot remain unchanged.</p><form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 244, "<p role=\"note\" aria-live=\"polite\"><strong>Deck state: Missing.</strong> No artifact exists for this frozen snapshot. The current reading and snapshot remain unchanged.</p><form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3039,7 +3055,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 243, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 245, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3052,7 +3068,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 244, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 246, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3065,12 +3081,12 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 245, "\"><button class=\"button\" type=\"submit\">Prepare deck</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 247, "\"><button class=\"button\" type=\"submit\">Prepare deck</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if item.GoalDeckUnavailable {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 246, "<p role=\"note\" aria-live=\"polite\"><strong>Deck state: Unavailable.</strong> The current reading and snapshot remain unchanged.</p><form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 248, "<p role=\"note\" aria-live=\"polite\"><strong>Deck state: Unavailable.</strong> The current reading and snapshot remain unchanged.</p><form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3083,7 +3099,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 247, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 249, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3096,7 +3112,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 248, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 250, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3109,22 +3125,22 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 249, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 251, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 250, "</section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 252, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 251, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 253, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !primary {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 252, "<div class=\"journey-book__controls\" role=\"group\" aria-label=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 254, "<div class=\"journey-book__controls\" role=\"group\" aria-label=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3137,17 +3153,17 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 253, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 255, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if item.CanChooseGoal {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 254, "<a class=\"button button--outline\" href=\"/reading/switch\">Switch current reading</a> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 256, "<a class=\"button button--outline\" href=\"/reading/switch\">Switch current reading</a> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if item.GoalEligibilityReason != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 255, "<p class=\"journey-book__goal-reason metadata\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 257, "<p class=\"journey-book__goal-reason metadata\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3160,17 +3176,17 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 256, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 258, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 257, "<details class=\"more-actions\"><summary>More actions</summary><div class=\"more-actions__body\"><p>Book disposition is managed in <a href=\"/library\">My Books</a>.</p></div></details></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 259, "<details class=\"more-actions\"><summary>More actions</summary><div class=\"more-actions__body\"><p>Book disposition is managed in <a href=\"/library\">My Books</a>.</p></div></details></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 258, "</article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 260, "</article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3199,7 +3215,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			templ_7745c5c3_Var151 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 259, "<div class=\"journey-book__lifecycle\" role=\"group\" aria-label=\"Reading actions\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 261, "<div class=\"journey-book__lifecycle\" role=\"group\" aria-label=\"Reading actions\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3215,7 +3231,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 260, "<form method=\"post\" action=\"/reading/finish\" hx-post=\"/reading/finish\" hx-target=\"#primary-goal-section\" hx-swap=\"outerHTML\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 262, "<form method=\"post\" action=\"/reading/finish\" hx-post=\"/reading/finish\" hx-target=\"#primary-goal-section\" hx-swap=\"outerHTML\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3228,7 +3244,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 261, "\"><input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 263, "\"><input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3241,7 +3257,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 262, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 264, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3254,7 +3270,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 263, "\"><button class=\"button\" type=\"submit\">Mark reading finished</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 265, "\"><button class=\"button\" type=\"submit\">Mark reading finished</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3264,7 +3280,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 264, "<a class=\"button button--outline\" href=\"/reading/switch\">Switch current reading</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 266, "<a class=\"button button--outline\" href=\"/reading/switch\">Switch current reading</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3280,7 +3296,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 265, "<form method=\"post\" action=\"/reading/stop\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 267, "<form method=\"post\" action=\"/reading/stop\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3293,7 +3309,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 266, "\"><input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 268, "\"><input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3306,7 +3322,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 267, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 269, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3319,7 +3335,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 268, "\"><button type=\"submit\" class=\"button button--outline\">Confirm stop for now</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 270, "\"><button type=\"submit\" class=\"button button--outline\">Confirm stop for now</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3341,7 +3357,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 269, "<form method=\"post\" action=\"/reading/set-aside\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 271, "<form method=\"post\" action=\"/reading/set-aside\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3354,7 +3370,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 270, "\"><input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 272, "\"><input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3367,7 +3383,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 271, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 273, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3380,7 +3396,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 272, "\"><button type=\"submit\" class=\"button button--danger\">Confirm set aside</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 274, "\"><button type=\"submit\" class=\"button button--danger\">Confirm set aside</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3390,7 +3406,7 @@ func GoalLifecycleActions(item journeyBookView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 273, "<details class=\"more-actions\"><summary>More actions</summary><div class=\"more-actions__body\"><p>Book disposition is managed in <a href=\"/library\">My Books</a>.</p></div></details><p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 275, "<details class=\"more-actions\"><summary>More actions</summary><div class=\"more-actions__body\"><p>Book disposition is managed in <a href=\"/library\">My Books</a>.</p></div></details><p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3419,7 +3435,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			templ_7745c5c3_Var164 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 274, "<p><strong>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 276, "<p><strong>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3432,7 +3448,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 275, ".</strong> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 277, ".</strong> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3445,7 +3461,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 276, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 278, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3455,7 +3471,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 277, " <form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 279, " <form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3468,7 +3484,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 278, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 280, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3481,7 +3497,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 279, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 281, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3494,17 +3510,17 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 280, "\"><button class=\"button\" type=\"submit\">Re-prepare deck</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 282, "\"><button class=\"button\" type=\"submit\">Re-prepare deck</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if deckPreparationEmpty(preparation) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 281, "<p>No cards were created from this snapshot.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 283, "<p>No cards were created from this snapshot.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 282, "<a class=\"button\" download href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 284, "<a class=\"button\" download href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3517,7 +3533,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 283, "\">Download deck</a><form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 285, "\">Download deck</a><form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3530,7 +3546,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 284, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 286, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3543,13 +3559,13 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 285, "\"><button type=\"submit\" class=\"button button--outline\">Re-prepare with current Meaning evidence</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 287, "\"><button type=\"submit\" class=\"button button--outline\">Re-prepare with current Meaning evidence</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		} else if deckPreparationActive(preparation) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 286, "<form method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 288, "<form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3562,7 +3578,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 287, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 289, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3575,7 +3591,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 288, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 290, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3588,12 +3604,12 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 289, "\"><button class=\"button button--outline\">Cancel preparation</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 291, "\"><button class=\"button button--outline\">Cancel preparation</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if preparation.State == domain.DeckPreparationQueued {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 290, "<form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 292, "<form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3606,7 +3622,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 291, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 293, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3619,7 +3635,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 292, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 294, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3632,7 +3648,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 293, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 295, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3649,7 +3665,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 294, " <form method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 296, " <form method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3662,7 +3678,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 295, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 297, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3675,7 +3691,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 296, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 298, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3688,7 +3704,7 @@ func GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation doma
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 297, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 299, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3719,7 +3735,7 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 		}
 		ctx = templ.ClearChildren(ctx)
 		if !primary && journeyEvidenceState(item) == "current" && item.Coverage != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 298, "<p class=\"metadata\"><strong>Known vocabulary coverage:</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 300, "<p class=\"metadata\"><strong>Known vocabulary coverage:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3732,12 +3748,12 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 299, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 301, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if journeyEvidenceState(item) != "current" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 300, "<p><strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 302, "<p><strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3750,7 +3766,7 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 301, ":</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 303, ":</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3763,14 +3779,14 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 302, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 304, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			action := journeyAnalysisAction(item)
 			if action.Status != "" {
 				if action.Label != "" && action.Submit {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 303, "<form class=\"inline-action\" method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 305, "<form class=\"inline-action\" method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3783,7 +3799,7 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 304, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 306, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3796,7 +3812,7 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 305, "\"><button type=\"submit\" class=\"button button--outline\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 307, "\"><button type=\"submit\" class=\"button button--outline\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3809,12 +3825,12 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 306, "</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 308, "</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else if action.Label != "" && action.URL != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 307, "<p><a href=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 309, "<p><a href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3827,7 +3843,7 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 308, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 310, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3840,7 +3856,7 @@ func JourneyEvidence(item journeyBookView, csrf string, primary bool) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 309, "</a></p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 311, "</a></p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -3894,7 +3910,7 @@ func DeckPreparationStatusPage(user domain.User, csrf string, preparation domain
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 310, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 312, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3902,7 +3918,7 @@ func DeckPreparationStatusPage(user domain.User, csrf string, preparation domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 311, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 313, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3954,7 +3970,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 			}
 			ctx = templ.InitializeContext(ctx)
 			if resultURL != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 312, "<p><a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 314, "<p><a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3967,17 +3983,17 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 313, "\">Return to book</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 315, "\">Return to book</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 314, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 316, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if preparation.TranslationEligible > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 315, "<p><strong>Translations:</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 317, "<p><strong>Translations:</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -3990,17 +4006,17 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 316, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 318, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 317, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 319, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if preparation.BatchRequestCount > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 318, "<p><strong>Batch translation:</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 320, "<p><strong>Batch translation:</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4013,13 +4029,13 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 319, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 321, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			for _, omission := range preparation.MeaningOmissions {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 320, "<p><strong>Omitted ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 322, "<p><strong>Omitted ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4032,7 +4048,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 321, ":</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 323, ":</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4045,17 +4061,17 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 322, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 324, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 323, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 325, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if preparation.DeckName != "" && !deckPreparationEmpty(preparation) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 324, "<p><strong>Deck:</strong> <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 326, "<p><strong>Deck:</strong> <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4068,7 +4084,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 325, "</code> · <strong>Filename:</strong> <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 327, "</code> · <strong>Filename:</strong> <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4081,12 +4097,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 326, "</code></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 328, "</code></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 327, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 329, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4096,12 +4112,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 328, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 330, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 329, "<form method=\"post\" action=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 331, "<form method=\"post\" action=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4114,7 +4130,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 330, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 332, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4127,7 +4143,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 331, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 333, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4140,12 +4156,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 332, "\"><button class=\"button\" type=\"submit\">Re-prepare deck</button></form>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 334, "\"><button class=\"button\" type=\"submit\">Re-prepare deck</button></form>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else if journeyAction.BookID == "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 333, "<form method=\"post\" action=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 335, "<form method=\"post\" action=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4158,7 +4174,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 334, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 336, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4171,12 +4187,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 335, "\"><p>Re-preparation uses the configured translation provider to create contextual Glosses. If the provider is unavailable, the deck will remain failed and can be retried after configuration.</p><button class=\"button\" type=\"submit\">Re-prepare deck</button></form>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 337, "\"><p>Re-preparation uses the configured translation provider to create contextual Glosses. If the provider is unavailable, the deck will remain failed and can be retried after configuration.</p><button class=\"button\" type=\"submit\">Re-prepare deck</button></form>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 336, "<p role=\"note\">This Book is no longer Current reading. The preparation remains historical and cannot be submitted again.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 338, "<p role=\"note\">This Book is no longer Current reading. The preparation remains historical and cannot be submitted again.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4193,7 +4209,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 337, " <p><strong>Completeness:</strong> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 339, " <p><strong>Completeness:</strong> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4206,13 +4222,13 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 338, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 340, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, evidence := range preparation.EvidenceCoverage {
 						if evidence.Configured {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 339, "<p><strong>Meaning evidence:</strong> ")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 341, "<p><strong>Meaning evidence:</strong> ")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -4225,12 +4241,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 340, "</p>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 342, "</p>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						} else {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 341, "<p><strong>Meaning evidence:</strong> ")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 343, "<p><strong>Meaning evidence:</strong> ")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -4243,13 +4259,13 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 342, "</p>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 344, "</p>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 343, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 345, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4265,7 +4281,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 344, "<a class=\"button\" download href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 346, "<a class=\"button\" download href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -4278,12 +4294,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 345, "\">Download deck</a> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 347, "\">Download deck</a> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 346, "<form method=\"post\" action=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 348, "<form method=\"post\" action=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -4296,7 +4312,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 347, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 349, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -4309,7 +4325,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 348, "\"> <button type=\"submit\" class=\"button button--outline\">Re-prepare with current Meaning evidence</button></form>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 350, "\"> <button type=\"submit\" class=\"button button--outline\">Re-prepare with current Meaning evidence</button></form>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -4320,27 +4336,27 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 349, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 351, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 350, "<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 352, "<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else if journeyAction.BookID == "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 351, "<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 353, "<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 352, "<p role=\"note\">This Book is no longer Current reading. Its ready artifact remains available for download, but no new preparation can be submitted.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 354, "<p role=\"note\">This Book is no longer Current reading. Its ready artifact remains available for download, but no new preparation can be submitted.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 353, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 355, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4350,7 +4366,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					}
 				}
 			} else if deckPreparationActive(preparation) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 354, "<form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 356, "<form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4363,7 +4379,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 355, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 357, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4376,7 +4392,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 356, "\"><button class=\"button button--outline\">Cancel preparation</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 358, "\"><button class=\"button button--outline\">Cancel preparation</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4387,12 +4403,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 357, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 359, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 358, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 360, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4405,7 +4421,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 359, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 361, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4418,7 +4434,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 360, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 362, "\"><input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4431,12 +4447,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 361, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 363, "\"><button class=\"button\" type=\"submit\">Retry deck preparation</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else if journeyAction.BookID == "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 362, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 364, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4449,7 +4465,7 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 363, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 365, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4462,12 +4478,12 @@ func DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, resu
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 364, "\"><p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p><button class=\"button\" type=\"submit\">Retry preparation</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 366, "\"><p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p><button class=\"button\" type=\"submit\">Retry preparation</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 365, "<p role=\"note\">This Book is no longer Current reading. The submitted job may finish, but no retry can be submitted.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 367, "<p role=\"note\">This Book is no longer Current reading. The submitted job may finish, but no retry can be submitted.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4554,23 +4570,23 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 366, "<article class=\"narrow login-screen\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 368, "<article class=\"narrow login-screen\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if onboarding {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 367, "<h1>Create your account</h1><p class=\"login-screen__intro\">Set up the first learner account for this Mouseion installation.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 369, "<h1>Create your account</h1><p class=\"login-screen__intro\">Set up the first learner account for this Mouseion installation.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 368, "<h1>Sign in</h1><p class=\"login-screen__intro\">Return to your reading desk.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 370, "<h1>Sign in</h1><p class=\"login-screen__intro\">Return to your reading desk.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if message != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 369, "<p class=\"alert alert-error login-screen__error\" role=\"alert\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 371, "<p class=\"alert alert-error login-screen__error\" role=\"alert\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4583,13 +4599,13 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 370, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 372, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if onboarding {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 371, "<form class=\"login-form\" method=\"post\" action=\"/onboarding\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 373, "<form class=\"login-form\" method=\"post\" action=\"/onboarding\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4602,12 +4618,12 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 372, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" minlength=\"8\" required autocomplete=\"new-password\"><small>Use at least 8 characters.</small></label><button class=\"btn btn-primary\" type=\"submit\">Create account</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 374, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" minlength=\"8\" required autocomplete=\"new-password\"><small>Use at least 8 characters.</small></label><button class=\"btn btn-primary\" type=\"submit\">Create account</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 373, "<form class=\"login-form\" method=\"post\" action=\"/login\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 375, "<form class=\"login-form\" method=\"post\" action=\"/login\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4620,7 +4636,7 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 374, "\"><input type=\"hidden\" name=\"next\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 376, "\"><input type=\"hidden\" name=\"next\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4633,12 +4649,12 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 375, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" required autocomplete=\"current-password\"></label><button class=\"btn btn-primary\" type=\"submit\">Sign in</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 377, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" required autocomplete=\"current-password\"></label><button class=\"btn btn-primary\" type=\"submit\">Sign in</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 376, "</article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 378, "</article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4718,7 +4734,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 377, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 379, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4728,7 +4744,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 378, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 380, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4738,7 +4754,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 379, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 381, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4755,7 +4771,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 380, "<a href=\"#catalog-connection-form\">Add catalog connection</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 382, "<a href=\"#catalog-connection-form\">Add catalog connection</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -4766,7 +4782,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 381, " <article id=\"catalog-connection-form\"><h2>Add catalog connection</h2><form class=\"catalog-connection-form\" method=\"post\" action=\"/connections\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 383, " <article id=\"catalog-connection-form\"><h2>Add catalog connection</h2><form class=\"catalog-connection-form\" method=\"post\" action=\"/connections\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -4779,12 +4795,12 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 382, "\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 384, "\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if bookID != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 383, "<input type=\"hidden\" name=\"book_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 385, "<input type=\"hidden\" name=\"book_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4797,27 +4813,27 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 384, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 386, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 385, "<div class=\"form-grid\"><label>Name<input class=\"input\" name=\"name\" required></label><label>Catalog URL<input class=\"input\" type=\"url\" name=\"url\" required placeholder=\"https://example.com/opds\"></label></div><div class=\"form-grid\"><label>Username <small>(optional)</small><input class=\"input\" name=\"username\" autocomplete=\"username\"></label><label>Password <small>(optional, encrypted at rest)</small><input class=\"input\" type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"button\" type=\"submit\">Add catalog</button></form></article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 387, "<div class=\"form-grid\"><label>Name<input class=\"input\" name=\"name\" required></label><label>Catalog URL<input class=\"input\" type=\"url\" name=\"url\" required placeholder=\"https://example.com/opds\"></label></div><div class=\"form-grid\"><label>Username <small>(optional)</small><input class=\"input\" name=\"username\" autocomplete=\"username\"></label><label>Password <small>(optional, encrypted at rest)</small><input class=\"input\" type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"button\" type=\"submit\">Add catalog</button></form></article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(connections) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 386, "<h2>Catalog maintenance</h2><p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 388, "<h2>Catalog maintenance</h2><p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 387, " <div class=\"catalog-list\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 389, " <div class=\"catalog-list\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, c := range connections {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 388, "<article class=\"catalog-record\" id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 390, "<article class=\"catalog-record\" id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4830,7 +4846,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 389, "\" aria-labelledby=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 391, "\" aria-labelledby=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4843,7 +4859,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 390, "\"><header><h3 id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 392, "\"><header><h3 id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4856,7 +4872,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 391, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 393, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4869,7 +4885,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 392, "</h3></header><div class=\"catalog-record__status\" id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 394, "</h3></header><div class=\"catalog-record__status\" id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4882,7 +4898,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 393, "\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 395, "\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4890,7 +4906,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 394, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 396, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4898,7 +4914,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 395, "<div class=\"catalog-record__details\"><p class=\"break\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 397, "<div class=\"catalog-record__details\"><p class=\"break\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4911,7 +4927,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 396, "</p><p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 398, "</p><p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4924,7 +4940,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 397, "</p><details id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 399, "</p><details id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4937,7 +4953,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 398, "\"><summary>Edit connection</summary><form class=\"catalog-connection-form\" method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 400, "\"><summary>Edit connection</summary><form class=\"catalog-connection-form\" method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4950,7 +4966,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 399, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 401, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4963,7 +4979,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 400, "\"><div class=\"form-grid\"><label>Name<input class=\"input\" name=\"name\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 402, "\"><div class=\"form-grid\"><label>Name<input class=\"input\" name=\"name\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4976,7 +4992,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 401, "\" required></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class=\"input\" type=\"url\" name=\"url\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 403, "\" required></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class=\"input\" type=\"url\" name=\"url\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -4989,7 +5005,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 402, "\" placeholder=\"Leave blank to keep current URL\"></label></div><div class=\"form-grid\"><label>Username<input class=\"input\" name=\"username\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 404, "\" placeholder=\"Leave blank to keep current URL\"></label></div><div class=\"form-grid\"><label>Username<input class=\"input\" name=\"username\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -5002,7 +5018,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 403, "\" autocomplete=\"username\"></label><label>New password <small>(leave blank to keep current)</small><input class=\"input\" type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"button button--outline\" type=\"submit\">Save changes</button></form></details>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 405, "\" autocomplete=\"username\"></label><label>New password <small>(leave blank to keep current)</small><input class=\"input\" type=\"password\" name=\"password\" autocomplete=\"new-password\"></label></div><button class=\"button button--outline\" type=\"submit\">Save changes</button></form></details>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -5018,7 +5034,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 404, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 406, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5031,7 +5047,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 405, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 407, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5044,7 +5060,7 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 406, "\"><button class=\"button button--outline\" type=\"submit\">Confirm deletion</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 408, "\"><button class=\"button button--outline\" type=\"submit\">Confirm deletion</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5054,12 +5070,12 @@ func ConnectionsPageForBook(user domain.User, csrf string, connections []domain.
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 407, "</div></article>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 409, "</div></article>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 408, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 410, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5110,7 +5126,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 409, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 411, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5120,7 +5136,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 410, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 412, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5137,7 +5153,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 411, "<a href=\"/library\">Go to My Books</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 413, "<a href=\"/library\">Go to My Books</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5148,7 +5164,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 412, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 414, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5165,17 +5181,17 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 413, "<thead><tr><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 415, "<thead><tr><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, job := range jobs {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 414, "<tr><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 416, "<tr><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 415, "<a href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 417, "<a href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5188,7 +5204,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 416, "\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 418, "\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5201,12 +5217,12 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 417, "</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 419, "</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						} else {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 418, "<a href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 420, "<a href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5219,7 +5235,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 419, "\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 421, "\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5232,12 +5248,12 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 420, "</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 422, "</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 421, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 423, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5250,7 +5266,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 422, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 424, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5258,7 +5274,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 423, "</td><td><progress aria-label=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 425, "</td><td><progress aria-label=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5271,7 +5287,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 424, "\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 426, "\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5284,7 +5300,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 425, "\" max=\"100\"></progress> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 427, "\" max=\"100\"></progress> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5297,7 +5313,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 426, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 428, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5310,7 +5326,7 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 427, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 429, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5323,12 +5339,12 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 428, "</td></tr>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 430, "</td></tr>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 429, "</tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 431, "</tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5386,7 +5402,7 @@ func JobPage(user domain.User, csrf string, status analysis.Status, readingBookU
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 430, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 432, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5443,7 +5459,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 431, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 433, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5460,7 +5476,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 				}
 				ctx = templ.InitializeContext(ctx)
 				if jobRetryable(status) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 432, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 434, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5473,7 +5489,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 433, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 435, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5486,17 +5502,17 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 434, "\"><button class=\"button\" type=\"submit\">Retry analysis</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 436, "\"><button class=\"button\" type=\"submit\">Retry analysis</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 435, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 437, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if jobRunning(status) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 436, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 438, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5509,7 +5525,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 437, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 439, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5522,7 +5538,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 438, "\"><button class=\"button button--outline\" type=\"submit\">Cancel analysis</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 440, "\"><button class=\"button button--outline\" type=\"submit\">Cancel analysis</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5533,14 +5549,14 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 439, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 441, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if status.CorpusID != "" {
 				if status.LogicalState == "completed" {
 					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 440, "<p>Analysis complete. Continue with this book in Reading.</p><a role=\"button\" class=\"button button--outline\" href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 442, "<p>Analysis complete. Continue with this book in Reading.</p><a role=\"button\" class=\"button button--outline\" href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5553,18 +5569,18 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 441, "\">View in Reading</a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 443, "\">View in Reading</a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 442, "<p>Analysis complete, but this book is no longer available in Reading.</p>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 444, "<p>Analysis complete, but this book is no longer available in Reading.</p>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						} else {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 443, "<p>Analysis complete. Prepare a deck from this immutable analysis result.</p><p>Deck preparation requires the configured translation provider to produce contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent.</p><form method=\"post\" action=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 445, "<p>Analysis complete. Prepare a deck from this immutable analysis result.</p><p>Deck preparation requires the configured translation provider to produce contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent.</p><form method=\"post\" action=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5577,7 +5593,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 444, "\" data-prepare-deck><input type=\"hidden\" name=\"csrf_token\" value=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 446, "\" data-prepare-deck><input type=\"hidden\" name=\"csrf_token\" value=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -5590,14 +5606,14 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 445, "\"><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type=\"submit\">Prepare deck</button></form><section data-deck-preparation role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" hidden></section>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 447, "\"><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type=\"submit\">Prepare deck</button></form><section data-deck-preparation role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" hidden></section>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 446, "<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 448, "<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5650,7 +5666,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 447, " <p id=\"vocabulary-pending\" class=\"htmx-indicator\" role=\"status\">Loading Browse. The previous results remain visible until the request completes.</p><div id=\"vocabulary-workflow\" hx-on:htmx:error=\"window.showVocabularyNetworkRecovery(ctx)\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 449, " <p id=\"vocabulary-pending\" class=\"htmx-indicator\" role=\"status\">Loading Browse. The previous results remain visible until the request completes.</p><div id=\"vocabulary-workflow\" hx-on:htmx:error=\"window.showVocabularyNetworkRecovery(ctx)\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -5667,7 +5683,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 448, "<a class=\"vocabulary-action-link\" href=\"/catalogs\">Connect a catalog</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 450, "<a class=\"vocabulary-action-link\" href=\"/catalogs\">Connect a catalog</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5679,7 +5695,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 				}
 			}
 			if language != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 449, "<p class=\"vocabulary-language\">Viewing active study language <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 451, "<p class=\"vocabulary-language\">Viewing active study language <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -5692,17 +5708,17 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 450, "</code>.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 452, "</code>.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if page.CurrentBookID == "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 451, "<p role=\"status\">No Current reading is set for this study language.</p><p><a class=\"vocabulary-action-link\" href=\"/reading\">Choose a Book in Reading</a></p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 453, "<p role=\"status\">No Current reading is set for this study language.</p><p><a class=\"vocabulary-action-link\" href=\"/reading\">Choose a Book in Reading</a></p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else if len(page.Books) > 0 && !page.Books[0].HasCurrentAnalysis {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 452, "<p><strong>Current reading: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 454, "<p><strong>Current reading: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5715,12 +5731,12 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 453, "</strong></p><p role=\"status\">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p><p><a class=\"vocabulary-action-link\" href=\"/reading\">Review this Book in Reading</a></p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 455, "</strong></p><p role=\"status\">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p><p><a class=\"vocabulary-action-link\" href=\"/reading\">Review this Book in Reading</a></p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else if len(page.Books) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 454, "<p class=\"vocabulary-scope\"><strong>Current reading: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 456, "<p class=\"vocabulary-scope\"><strong>Current reading: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5733,17 +5749,17 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 455, "</strong> — this Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 457, "</strong> — this Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 456, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 458, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if page.CurrentBookID != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 457, "<form method=\"get\" action=\"/vocabulary\" class=\"data-width vocabulary-filter\" hx-get=\"/vocabulary\" hx-target=\"#vocabulary-browse-results\" hx-select=\"#vocabulary-browse-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#vocabulary-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#vocabulary-pending\" hx-status:409=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\"><input type=\"hidden\" name=\"reading\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 459, "<form method=\"get\" action=\"/vocabulary\" class=\"data-width vocabulary-filter\" hx-get=\"/vocabulary\" hx-target=\"#vocabulary-browse-results\" hx-select=\"#vocabulary-browse-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#vocabulary-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#vocabulary-pending\" hx-status:409=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\"><input type=\"hidden\" name=\"reading\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5756,7 +5772,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 458, "\"> <label for=\"vocabulary-prefix\">Canonical lemma prefix</label><input class=\"input\" id=\"vocabulary-prefix\" type=\"search\" name=\"q\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 460, "\"> <label for=\"vocabulary-prefix\">Canonical lemma prefix</label><input class=\"input\" id=\"vocabulary-prefix\" type=\"search\" name=\"q\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5769,27 +5785,27 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 459, "\"><p class=\"vocabulary-exclusions\">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p><label for=\"vocabulary-include-all\"><input id=\"vocabulary-include-all\" type=\"checkbox\" name=\"all\" value=\"1\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 461, "\"><p class=\"vocabulary-exclusions\">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p><label for=\"vocabulary-include-all\"><input id=\"vocabulary-include-all\" type=\"checkbox\" name=\"all\" value=\"1\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if page.IncludeAll {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 460, " checked")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 462, " checked")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 461, "> Show already accounted-for words</label> <button class=\"btn btn-primary\" type=\"submit\">Search</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 463, "> Show already accounted-for words</label> <button class=\"btn btn-primary\" type=\"submit\">Search</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 462, " <div id=\"vocabulary-browse-results\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 464, " <div id=\"vocabulary-browse-results\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if query != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 463, "<p class=\"vocabulary-applied-query\">Applied prefix: <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 465, "<p class=\"vocabulary-applied-query\">Applied prefix: <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -5802,48 +5818,38 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 464, "</code></p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 466, "</code></p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 				if page.BrowseCountsUnavailable {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 465, "<p role=\"alert\"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 467, "<p role=\"alert\"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else if page.BrowseCountsUpdating {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 466, "<p role=\"status\" aria-live=\"polite\"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 468, "<p role=\"status\" aria-live=\"polite\"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 467, "<h2 id=\"vocabulary-results-heading\" tabindex=\"-1\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 469, "<h2 id=\"vocabulary-results-heading\" tabindex=\"-1\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if query != "" || page.Page > 1 || page.IncludeAll {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 468, " autofocus")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 470, " autofocus")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 469, ">Browse results</h2>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 471, ">Browse results</h2>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if page.Total == 0 && page.InventoryTotal == 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 470, "<p>The current analysis has no eligible vocabulary identities.</p>")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 471, " ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 472, "<p>No eligible identities are in this Book.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 472, "<p>The current analysis has no eligible vocabulary identities.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5852,8 +5858,8 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 474, "<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>")
+					if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 474, "<p>No eligible identities are in this Book.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5862,25 +5868,35 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
+					if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 476, "<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 477, " ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 					if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
 						if query != "" && !page.IncludeAll {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 476, "<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 478, "<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						} else {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 477, "<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 479, "<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 478, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 480, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if page.Total > 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 479, "<p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 481, "<p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5893,7 +5909,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 480, ". Counts use current completed analyses and effective occurrence decisions, including singletons.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 482, ". Counts use current completed analyses and effective occurrence decisions, including singletons.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -5909,12 +5925,12 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 								}()
 							}
 							ctx = templ.InitializeContext(ctx)
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 481, "<caption>Current effective vocabulary</caption><thead><tr><th scope=\"col\">Lemma</th><th scope=\"col\">Part of speech</th><th scope=\"col\">Occurrence counts</th><th scope=\"col\">Learner state</th></tr></thead><tbody>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 483, "<caption>Current effective vocabulary</caption><thead><tr><th scope=\"col\">Lemma</th><th scope=\"col\">Part of speech</th><th scope=\"col\">Occurrence counts</th><th scope=\"col\">Learner state</th></tr></thead><tbody>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							for _, row := range page.Rows {
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 482, "<tr><th scope=\"row\"><a class=\"vocabulary-lemma-link\" href=\"")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 484, "<tr><th scope=\"row\"><a class=\"vocabulary-lemma-link\" href=\"")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -5927,7 +5943,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 483, "\">")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 485, "\">")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -5940,7 +5956,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 484, "</a></th><td><code>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 486, "</a></th><td><code>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -5953,7 +5969,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 485, "</code></td><td>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 487, "</code></td><td>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -5966,7 +5982,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 486, "</td><td>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 488, "</td><td>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -5979,22 +5995,22 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 487, " ")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 489, " ")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 								if row.InBookDeck {
-									templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 488, "<small>In a Book deck</small>")
+									templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 490, "<small>In a Book deck</small>")
 									if templ_7745c5c3_Err != nil {
 										return templ_7745c5c3_Err
 									}
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 489, "</td></tr>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 491, "</td></tr>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 490, "</tbody>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 492, "</tbody>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6004,7 +6020,7 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 491, " ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 493, " ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -6014,12 +6030,12 @@ func VocabularyBrowsePageView(user domain.User, csrf string, language string, pa
 						}
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 492, "<div id=\"vocabulary-recovery\" aria-live=\"polite\"></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 494, "<div id=\"vocabulary-recovery\" aria-live=\"polite\"></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 493, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 495, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -6070,7 +6086,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 494, " <p id=\"concordance-pending\" class=\"htmx-indicator\" role=\"status\">Searching. The previous results remain under their previously applied query and scope.</p><div id=\"concordance-workflow\" hx-on:htmx:error=\"window.showConcordanceNetworkRecovery(ctx)\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 496, " <p id=\"concordance-pending\" class=\"htmx-indicator\" role=\"status\">Searching. The previous results remain under their previously applied query and scope.</p><div id=\"concordance-workflow\" hx-on:htmx:error=\"window.showConcordanceNetworkRecovery(ctx)\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -6087,7 +6103,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 495, "<a href=\"/catalogs\">Connect a catalog</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 497, "<a href=\"/catalogs\">Connect a catalog</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6099,7 +6115,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				}
 			}
 			if language != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 496, "<p class=\"concordance-language\">Study language: <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 498, "<p class=\"concordance-language\">Study language: <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6112,12 +6128,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 497, "</code> <span>· Current analyzed Books</span></p><form method=\"get\" action=\"/vocabulary/concordance\" hx-get=\"/vocabulary/concordance\" hx-target=\"#concordance-workflow\" hx-select=\"#concordance-workflow\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" class=\"concordance-query\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 499, "</code> <span>· Current analyzed Books</span></p><form method=\"get\" action=\"/vocabulary/concordance\" hx-get=\"/vocabulary/concordance\" hx-target=\"#concordance-workflow\" hx-select=\"#concordance-workflow\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" class=\"concordance-query\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, bookID := range lookup.BookIDs {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 498, "<input type=\"hidden\" name=\"book\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 500, "<input type=\"hidden\" name=\"book\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6130,13 +6146,13 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 499, "\"> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 501, "\"> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 				if lookup.GrammarDirection != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 500, "<input type=\"hidden\" name=\"grammar\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 502, "<input type=\"hidden\" name=\"grammar\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6149,7 +6165,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 501, "\"><input type=\"hidden\" name=\"relation\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 503, "\"><input type=\"hidden\" name=\"relation\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6162,42 +6178,42 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 502, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 504, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 503, "<div class=\"concordance-query-field\"><label for=\"concordance-mode\">Lookup evidence</label> <select class=\"input\" id=\"concordance-mode\" name=\"mode\"><option value=\"surface\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 505, "<div class=\"concordance-query-field\"><label for=\"concordance-mode\">Lookup evidence</label> <select class=\"input\" id=\"concordance-mode\" name=\"mode\"><option value=\"surface\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if lookup.Mode == "surface" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 504, " selected")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 505, ">Observed surface</option> <option value=\"effective\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if lookup.Mode == "effective" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 506, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 507, ">Effective lemma</option> <option value=\"analyzer\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 507, ">Observed surface</option> <option value=\"effective\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if lookup.Mode == "analyzer" {
+				if lookup.Mode == "effective" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 508, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 509, ">Analyzer lemma (evidence)</option></select></div><div class=\"concordance-query-field\"><label for=\"concordance-term\">Exact term</label><input class=\"input\" id=\"concordance-term\" type=\"search\" name=\"term\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 509, ">Effective lemma</option> <option value=\"analyzer\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if lookup.Mode == "analyzer" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 510, " selected")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 511, ">Analyzer lemma (evidence)</option></select></div><div class=\"concordance-query-field\"><label for=\"concordance-term\">Exact term</label><input class=\"input\" id=\"concordance-term\" type=\"search\" name=\"term\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6210,12 +6226,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 510, "\" required></div><div class=\"concordance-pos-field\"><label for=\"concordance-upos\">Part of speech</label> <select class=\"input\" id=\"concordance-upos\" name=\"upos\"><option value=\"\">Choose for a lemma lookup</option> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 512, "\" required></div><div class=\"concordance-pos-field\"><label for=\"concordance-upos\">Part of speech</label> <select class=\"input\" id=\"concordance-upos\" name=\"upos\"><option value=\"\">Choose for a lemma lookup</option> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, pos := range []string{"NOUN", "VERB", "ADJ", "ADV", "PROPN", "PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "NUM", "PART", "INTJ", "PUNCT", "SYM", "X"} {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 511, "<option value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 513, "<option value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6228,17 +6244,17 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 512, "\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 514, "\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if lookup.UPOS == pos {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 513, " selected")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 515, " selected")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 514, ">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 516, ">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6251,12 +6267,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 515, "</option>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 517, "</option>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 516, "</select></div><button class=\"button\" type=\"submit\">Find</button></form><div class=\"concordance-scopes\"><details><summary>Books (applied: ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 518, "</select></div><button class=\"button\" type=\"submit\">Find</button></form><div class=\"concordance-scopes\"><details><summary>Books (applied: ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6269,7 +6285,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 517, ")</summary><form method=\"get\" action=\"/vocabulary/concordance\" hx-get=\"/vocabulary/concordance\" hx-target=\"#concordance-workflow\" hx-select=\"#concordance-workflow\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\"><input type=\"hidden\" name=\"mode\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 519, ")</summary><form method=\"get\" action=\"/vocabulary/concordance\" hx-get=\"/vocabulary/concordance\" hx-target=\"#concordance-workflow\" hx-select=\"#concordance-workflow\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\"><input type=\"hidden\" name=\"mode\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6282,7 +6298,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 518, "\"><input type=\"hidden\" name=\"term\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 520, "\"><input type=\"hidden\" name=\"term\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6295,7 +6311,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 519, "\"><input type=\"hidden\" name=\"upos\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 521, "\"><input type=\"hidden\" name=\"upos\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6308,12 +6324,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 520, "\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 522, "\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if lookup.GrammarDirection != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 521, "<input type=\"hidden\" name=\"grammar\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 523, "<input type=\"hidden\" name=\"grammar\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6326,7 +6342,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 522, "\"><input type=\"hidden\" name=\"relation\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 524, "\"><input type=\"hidden\" name=\"relation\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6339,17 +6355,17 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 523, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 525, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 524, "<fieldset><legend>Search current analysis in</legend> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 526, "<fieldset><legend>Search current analysis in</legend> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, book := range books {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 525, "<label><input type=\"checkbox\" name=\"book\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 527, "<label><input type=\"checkbox\" name=\"book\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6362,17 +6378,17 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 526, "\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 528, "\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if concordanceBookSelected(lookup.BookIDs, book.BookID) {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 527, " checked")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 529, " checked")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 528, ">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 530, ">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6385,12 +6401,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 529, "</label>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 531, "</label>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 530, "</fieldset><button class=\"button button--outline\" type=\"submit\">Apply Books</button></form></details> <details><summary>Grammar (applied: ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 532, "</fieldset><button class=\"button button--outline\" type=\"submit\">Apply Books</button></form></details> <details><summary>Grammar (applied: ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6403,7 +6419,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 531, ")</summary><form method=\"get\" action=\"/vocabulary/concordance\" hx-get=\"/vocabulary/concordance\" hx-target=\"#concordance-workflow\" hx-select=\"#concordance-workflow\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\"><input type=\"hidden\" name=\"mode\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 533, ")</summary><form method=\"get\" action=\"/vocabulary/concordance\" hx-get=\"/vocabulary/concordance\" hx-target=\"#concordance-workflow\" hx-select=\"#concordance-workflow\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\"><input type=\"hidden\" name=\"mode\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6416,7 +6432,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 532, "\"><input type=\"hidden\" name=\"term\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 534, "\"><input type=\"hidden\" name=\"term\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6429,7 +6445,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 533, "\"><input type=\"hidden\" name=\"upos\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 535, "\"><input type=\"hidden\" name=\"upos\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6442,12 +6458,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 534, "\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 536, "\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, bookID := range lookup.BookIDs {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 535, "<input type=\"hidden\" name=\"book\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 537, "<input type=\"hidden\" name=\"book\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6460,32 +6476,32 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 536, "\"> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 538, "\"> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 537, "<label for=\"concordance-grammar\">Grammar direction</label> <select class=\"input\" id=\"concordance-grammar\" name=\"grammar\"><option value=\"\">No grammar filter</option><option value=\"own\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 539, "<label for=\"concordance-grammar\">Grammar direction</label> <select class=\"input\" id=\"concordance-grammar\" name=\"grammar\"><option value=\"\">No grammar filter</option><option value=\"own\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if lookup.GrammarDirection == "own" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 538, " selected")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 539, ">Queried occurrence's own relation</option><option value=\"governor\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if lookup.GrammarDirection == "governor" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 540, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 541, ">Dependents of queried governor</option></select> <label for=\"concordance-relation\">Dependency relation</label><input class=\"input\" id=\"concordance-relation\" name=\"relation\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 541, ">Queried occurrence's own relation</option><option value=\"governor\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if lookup.GrammarDirection == "governor" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 542, " selected")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 543, ">Dependents of queried governor</option></select> <label for=\"concordance-relation\">Dependency relation</label><input class=\"input\" id=\"concordance-relation\" name=\"relation\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -6498,12 +6514,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 542, "\" placeholder=\"e.g. nsubj\"> <button class=\"button button--outline\" type=\"submit\">Apply grammar</button></form></details></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 544, "\" placeholder=\"e.g. nsubj\"> <button class=\"button button--outline\" type=\"submit\">Apply grammar</button></form></details></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if message != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 543, "<div id=\"concordance-recovery\" aria-live=\"polite\"><p role=\"alert\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 545, "<div id=\"concordance-recovery\" aria-live=\"polite\"><p role=\"alert\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6516,7 +6532,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 544, "</p><a class=\"button button--outline\" href=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 546, "</p><a class=\"button button--outline\" href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6529,32 +6545,32 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 545, "\">Retry Concordance lookup</a></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 547, "\">Retry Concordance lookup</a></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 546, "<div id=\"concordance-recovery\" aria-live=\"polite\"></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 548, "<div id=\"concordance-recovery\" aria-live=\"polite\"></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 547, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 549, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if applied {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 548, "<section id=\"concordance-results\" aria-labelledby=\"concordance-summary\"><h2 id=\"concordance-summary\" tabindex=\"-1\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 550, "<section id=\"concordance-results\" aria-labelledby=\"concordance-summary\"><h2 id=\"concordance-summary\" tabindex=\"-1\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 549, " autofocus")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 551, " autofocus")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 550, ">Current results</h2><p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 552, ">Current results</h2><p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6567,7 +6583,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 551, " · ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 553, " · ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6580,7 +6596,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 552, " · ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 554, " · ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6593,7 +6609,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 553, ".</p><p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 555, ".</p><p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6606,7 +6622,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 554, " · page ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 556, " · page ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -6628,34 +6644,34 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 555, ".</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 557, ".</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if len(result.Occurrences) == 0 && lookup.Page == 1 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 556, "<p>No current analyzed occurrences match this exact lookup.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 558, "<p>No current analyzed occurrences match this exact lookup.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 					if len(result.Occurrences) == 0 && lookup.Page > 1 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 557, "<p>No results are available on this page. The search scope may have changed; use Previous or restart the lookup rather than treating this page as a zero-match search.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 559, "<p>No results are available on this page. The search scope may have changed; use Previous or restart the lookup rather than treating this page as a zero-match search.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 					if len(result.Occurrences) > 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 558, "<ol id=\"concordance-native-results\" class=\"concordance-results\" role=\"list\">")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 560, "<ol id=\"concordance-native-results\" class=\"concordance-results\" role=\"list\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						for index, occurrence := range result.Occurrences {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 559, "<li class=\"concordance-result\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 561, "<li class=\"concordance-result\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							if concordanceStartsBookGroup(result.Occurrences, index) {
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 560, "<div class=\"concordance-book-label\"><span class=\"concordance-book-title\">")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 562, "<div class=\"concordance-book-label\"><span class=\"concordance-book-title\">")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -6668,7 +6684,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 561, "</span> <span class=\"concordance-book-count\">")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 563, "</span> <span class=\"concordance-book-count\">")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -6681,17 +6697,17 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 562, "</span></div>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 564, "</span></div>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 							} else {
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 563, "<div class=\"concordance-book-label\" aria-hidden=\"true\"></div>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 565, "<div class=\"concordance-book-label\" aria-hidden=\"true\"></div>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 564, "<details class=\"concordance-row\" name=\"concordance-occurrences\" id=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 566, "<details class=\"concordance-row\" name=\"concordance-occurrences\" id=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6704,17 +6720,17 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 565, "\" tabindex=\"-1\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 567, "\" tabindex=\"-1\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							if concordanceFocusMatches(occurrence, focusTarget) {
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 566, " autofocus")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 568, " autofocus")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 567, "><summary aria-label=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 569, "><summary aria-label=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6727,7 +6743,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 568, "\"><span class=\"concordance-before\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 570, "\"><span class=\"concordance-before\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6740,7 +6756,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 569, "</span> <strong class=\"concordance-surface\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 571, "</span> <strong class=\"concordance-surface\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6753,7 +6769,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 570, "</strong> <span class=\"concordance-after\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 572, "</strong> <span class=\"concordance-after\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6766,12 +6782,12 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 571, "</span></summary><div class=\"concordance-context\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 573, "</span></summary><div class=\"concordance-context\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							before, target, after := concordanceSentenceParts(occurrence)
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 572, "<p class=\"reading-text\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 574, "<p class=\"reading-text\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6785,7 +6801,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 573, "<strong class=\"concordance-observed-target\">")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 575, "<strong class=\"concordance-observed-target\">")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -6798,7 +6814,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
-								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 574, "</strong>")
+								templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 576, "</strong>")
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -6822,7 +6838,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 									return templ_7745c5c3_Err
 								}
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 575, "</p></div></details> <a class=\"concordance-study-link\" aria-label=\"Study this sentence and its syntax\" title=\"Study this sentence and its syntax\" href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 577, "</p></div></details> <a class=\"concordance-study-link\" aria-label=\"Study this sentence and its syntax\" title=\"Study this sentence and its syntax\" href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6835,23 +6851,23 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 576, "\"><span aria-hidden=\"true\">↗</span></a></li>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 578, "\"><span aria-hidden=\"true\">↗</span></a></li>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 577, "</ol>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 579, "</ol>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 					if result.HasPrevious || result.HasNext {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 578, "<nav aria-label=\"Concordance pages\">")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 580, "<nav aria-label=\"Concordance pages\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						if result.HasPrevious {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 579, "<a class=\"button button--outline\" href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 581, "<a class=\"button button--outline\" href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6864,7 +6880,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 580, "\" hx-get=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 582, "\" hx-get=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6877,13 +6893,13 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 581, "\" hx-target=\"#concordance-results\" hx-select=\"#concordance-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\">Previous</a> ")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 583, "\" hx-target=\"#concordance-results\" hx-select=\"#concordance-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\">Previous</a> ")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
 						if result.HasNext {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 582, "<a class=\"button button--outline\" href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 584, "<a class=\"button button--outline\" href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6896,7 +6912,7 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 583, "\" hx-get=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 585, "\" hx-get=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -6909,23 +6925,23 @@ func VocabularyConcordancePageView(user domain.User, csrf, language string, book
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 584, "\" hx-target=\"#concordance-results\" hx-select=\"#concordance-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\">Next</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 586, "\" hx-target=\"#concordance-results\" hx-select=\"#concordance-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#concordance-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#concordance-pending\" hx-status:409=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false\">Next</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 585, "</nav>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 587, "</nav>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 586, "</section>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 588, "</section>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 587, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 589, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -6976,7 +6992,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 588, " <p><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 590, " <p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -6989,7 +7005,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 589, "\">Return to Concordance results</a></p><section class=\"reading-width\" aria-labelledby=\"sentence-study-heading\"><h2 id=\"sentence-study-heading\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 591, "\">Return to Concordance results</a></p><section class=\"reading-width\" aria-labelledby=\"sentence-study-heading\"><h2 id=\"sentence-study-heading\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7002,7 +7018,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 590, "</h2><p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 592, "</h2><p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7015,7 +7031,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 591, " · sentence ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 593, " · sentence ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7028,7 +7044,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 592, "</p><p>Identified target: <strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 594, "</p><p>Identified target: <strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7041,7 +7057,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 593, "</strong></p><p class=\"reading-text sentence-study-text\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 595, "</strong></p><p class=\"reading-text sentence-study-text\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7054,27 +7070,27 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 594, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 596, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(study.Tokens) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 595, "<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 597, "<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 596, "<h3>Analyzer-attributed tokens</h3><ol class=\"sentence-study-tokens\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 598, "<h3>Analyzer-attributed tokens</h3><ol class=\"sentence-study-tokens\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, token := range study.Tokens {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 597, "<li>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 599, "<li>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if token.Ordinal == study.TargetOrdinal {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 598, "<strong>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 600, "<strong>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7087,12 +7103,12 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 599, " — identified target</strong> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 601, " — identified target</strong> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 600, "<strong>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 602, "<strong>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7105,12 +7121,12 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 601, "</strong> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 603, "</strong> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 602, ": <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 604, ": <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7123,7 +7139,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 603, "</code>, lemma evidence <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 605, "</code>, lemma evidence <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7136,7 +7152,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 604, "</code>, effective lemma <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 606, "</code>, effective lemma <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7149,7 +7165,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 605, "</code>; dependency <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 607, "</code>; dependency <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7162,7 +7178,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 606, "</code>, head ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 608, "</code>, head ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7175,7 +7191,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 607, " (token ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 609, " (token ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7188,33 +7204,33 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 608, "). ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 610, "). ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if token.Corrected {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 609, "<span>Corrected for this occurrence.</span> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 611, "<span>Corrected for this occurrence.</span> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
 					if token.Excluded {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 610, "<span>Excluded from effective vocabulary; retained as syntax evidence.</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 612, "<span>Excluded from effective vocabulary; retained as syntax evidence.</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 611, "</li>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 613, "</li>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 612, "</ol>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 614, "</ol>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if study.GrammarDirection == "governor" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 613, "<h3>Relevant dependents · <code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 615, "<h3>Relevant dependents · <code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -7227,12 +7243,12 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 614, "</code></h3><ul>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 616, "</code></h3><ul>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, token := range sentenceStudyRelevantDependents(study) {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 615, "<li>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 617, "<li>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7245,7 +7261,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 616, " — token ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 618, " — token ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7258,7 +7274,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 617, ", head ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 619, ", head ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7271,7 +7287,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 618, ", relation <code>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 620, ", relation <code>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7284,7 +7300,7 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 619, "</code>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 621, "</code>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -7297,18 +7313,18 @@ func VocabularySentenceStudyPageView(user domain.User, csrf string, study domain
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 620, "</li>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 622, "</li>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 621, "</ul>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 623, "</ul>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 622, "</section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 624, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7591,7 +7607,7 @@ func VocabularyConcordanceErrorPageView(user domain.User, csrf, language string,
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 623, " <p>Active study language: <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 625, " <p>Active study language: <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7604,7 +7620,7 @@ func VocabularyConcordanceErrorPageView(user domain.User, csrf, language string,
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 624, "</code>.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 626, "</code>.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7643,7 +7659,7 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 			templ_7745c5c3_Var364 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 625, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 627, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7658,7 +7674,7 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 626, "<form method=\"get\" action=\"/vocabulary/concordance\"><input type=\"hidden\" name=\"mode\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 628, "<form method=\"get\" action=\"/vocabulary/concordance\"><input type=\"hidden\" name=\"mode\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7671,7 +7687,7 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 627, "\"><input type=\"hidden\" name=\"term\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 629, "\"><input type=\"hidden\" name=\"term\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7684,7 +7700,7 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 628, "\"><input type=\"hidden\" name=\"upos\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 630, "\"><input type=\"hidden\" name=\"upos\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7697,12 +7713,12 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 629, "\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 631, "\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if lookup.GrammarDirection != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 630, "<input type=\"hidden\" name=\"grammar\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 632, "<input type=\"hidden\" name=\"grammar\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7715,7 +7731,7 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 631, "\"><input type=\"hidden\" name=\"relation\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 633, "\"><input type=\"hidden\" name=\"relation\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7728,17 +7744,17 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 632, "\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 634, "\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 633, "<input type=\"hidden\" name=\"page\" value=\"1\"><fieldset><legend>Books for this search (leave all unchecked to search all current Books)</legend> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 635, "<input type=\"hidden\" name=\"page\" value=\"1\"><fieldset><legend>Books for this search (leave all unchecked to search all current Books)</legend> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, book := range books {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 634, "<label><input type=\"checkbox\" name=\"book\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 636, "<label><input type=\"checkbox\" name=\"book\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7751,17 +7767,17 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 635, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 637, "\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if concordanceBookSelected(lookup.BookIDs, book.BookID) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 636, " checked")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 638, " checked")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 637, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 639, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7774,12 +7790,12 @@ func VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, lo
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 638, "</label>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 640, "</label>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 639, "</fieldset><button class=\"button\" type=\"submit\">Retry Concordance lookup from page 1</button></form><p>For an unusually broad query, select one or a few Books above. Retry begins at page 1 so it cannot silently skip matches after a scope change.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 641, "</fieldset><button class=\"button\" type=\"submit\">Retry Concordance lookup from page 1</button></form><p>For an unusually broad query, select one or a few Books above. Retry begins at page 1 so it cannot silently skip matches after a scope change.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7824,7 +7840,7 @@ func VocabularyConcordanceChangedPageView(user domain.User, csrf, language strin
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 640, " <p>Active study language: <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 642, " <p>Active study language: <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7837,7 +7853,7 @@ func VocabularyConcordanceChangedPageView(user domain.User, csrf, language strin
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 641, "</code>.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 643, "</code>.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7876,7 +7892,7 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 			templ_7745c5c3_Var375 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 642, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 644, "<div id=\"concordance-recovery\" aria-live=\"polite\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7884,7 +7900,7 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 643, "<a class=\"button button--outline\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 645, "<a class=\"button button--outline\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7897,7 +7913,7 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 644, "\">Restart from results</a><form method=\"get\" action=\"/vocabulary/concordance\"><input type=\"hidden\" name=\"mode\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 646, "\">Restart from results</a><form method=\"get\" action=\"/vocabulary/concordance\"><input type=\"hidden\" name=\"mode\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7910,7 +7926,7 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 645, "\"><input type=\"hidden\" name=\"term\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 647, "\"><input type=\"hidden\" name=\"term\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7923,7 +7939,7 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 646, "\"><input type=\"hidden\" name=\"upos\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 648, "\"><input type=\"hidden\" name=\"upos\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7936,12 +7952,12 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 647, "\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 649, "\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if lookup.GrammarDirection != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 648, "<input type=\"hidden\" name=\"grammar\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 650, "<input type=\"hidden\" name=\"grammar\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7954,7 +7970,7 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 649, "\"><input type=\"hidden\" name=\"relation\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 651, "\"><input type=\"hidden\" name=\"relation\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7967,13 +7983,13 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 650, "\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 652, "\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		for _, book := range books {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 651, "<label><input type=\"checkbox\" name=\"book\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 653, "<label><input type=\"checkbox\" name=\"book\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -7986,17 +8002,17 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 652, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 654, "\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if concordanceBookSelected(lookup.BookIDs, book.BookID) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 653, " checked")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 655, " checked")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 654, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 656, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8009,12 +8025,12 @@ func VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary, 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 655, "</label> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 657, "</label> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 656, "<button class=\"button\" type=\"submit\">Retry with current evidence</button></form></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 658, "<button class=\"button\" type=\"submit\">Retry with current evidence</button></form></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -8059,7 +8075,7 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 657, " <div id=\"vocabulary-recovery\" aria-live=\"polite\"><p>Active study language: <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 659, " <div id=\"vocabulary-recovery\" aria-live=\"polite\"><p>Active study language: <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8072,7 +8088,7 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 658, "</code>.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 660, "</code>.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8080,7 +8096,7 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 659, "<form method=\"get\" action=\"/vocabulary\"><input type=\"hidden\" name=\"q\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 661, "<form method=\"get\" action=\"/vocabulary\"><input type=\"hidden\" name=\"q\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8093,7 +8109,7 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 660, "\"> <input type=\"hidden\" name=\"reading\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 662, "\"> <input type=\"hidden\" name=\"reading\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8106,7 +8122,7 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 661, "\"> <input type=\"hidden\" name=\"page\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 663, "\"> <input type=\"hidden\" name=\"page\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8119,18 +8135,18 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 662, "\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 664, "\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if query.IncludeAll {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 663, "<input type=\"hidden\" name=\"all\" value=\"1\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 665, "<input type=\"hidden\" name=\"all\" value=\"1\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if query.Revision != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 664, "<input type=\"hidden\" name=\"rev\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 666, "<input type=\"hidden\" name=\"rev\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8143,12 +8159,12 @@ func VocabularyBrowseErrorPageView(user domain.User, csrf, language string, quer
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 665, "\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 667, "\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 666, "<button type=\"submit\">Retry Browse</button></form><a class=\"vocabulary-action-link\" href=\"/vocabulary\">Clear search</a><p>Browse does not report partial counts as complete.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 668, "<button type=\"submit\">Retry Browse</button></form><a class=\"vocabulary-action-link\" href=\"/vocabulary\">Clear search</a><p>Browse does not report partial counts as complete.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8199,7 +8215,7 @@ func VocabularyBrowseChangedPageView(user domain.User, csrf, language string, qu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 667, " <div id=\"vocabulary-recovery\" aria-live=\"polite\"><p>Active study language: <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 669, " <div id=\"vocabulary-recovery\" aria-live=\"polite\"><p>Active study language: <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8212,7 +8228,7 @@ func VocabularyBrowseChangedPageView(user domain.User, csrf, language string, qu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 668, "</code>.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 670, "</code>.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8220,7 +8236,7 @@ func VocabularyBrowseChangedPageView(user domain.User, csrf, language string, qu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 669, "<a role=\"button\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 671, "<a role=\"button\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8233,7 +8249,7 @@ func VocabularyBrowseChangedPageView(user domain.User, csrf, language string, qu
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 670, "\">Restart in the Current reading</a> <a class=\"vocabulary-action-link\" href=\"/vocabulary\">Clear search</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 672, "\">Restart in the Current reading</a> <a class=\"vocabulary-action-link\" href=\"/vocabulary\">Clear search</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8268,7 +8284,7 @@ func VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) templ
 			templ_7745c5c3_Var395 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 671, "<section aria-label=\"Vocabulary pages\"><p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 673, "<section aria-label=\"Vocabulary pages\"><p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -8281,12 +8297,12 @@ func VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) templ
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 672, "</p><nav aria-label=\"Browse pages\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 674, "</p><nav aria-label=\"Browse pages\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if page.Page > 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 673, "<a class=\"btn btn-outline\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 675, "<a class=\"btn btn-outline\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8299,7 +8315,7 @@ func VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) templ
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 674, "\" hx-get=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 676, "\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8312,13 +8328,13 @@ func VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) templ
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 675, "\" hx-target=\"#vocabulary-browse-results\" hx-select=\"#vocabulary-browse-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#vocabulary-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#vocabulary-pending\" hx-status:409=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\">Previous</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 677, "\" hx-target=\"#vocabulary-browse-results\" hx-select=\"#vocabulary-browse-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#vocabulary-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#vocabulary-pending\" hx-status:409=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\">Previous</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if page.Page*25 < int(page.Total) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 676, "<a class=\"btn btn-outline\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 678, "<a class=\"btn btn-outline\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8331,7 +8347,7 @@ func VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) templ
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 677, "\" hx-get=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 679, "\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8344,12 +8360,12 @@ func VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) templ
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 678, "\" hx-target=\"#vocabulary-browse-results\" hx-select=\"#vocabulary-browse-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#vocabulary-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#vocabulary-pending\" hx-status:409=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\">Next</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 680, "\" hx-target=\"#vocabulary-browse-results\" hx-select=\"#vocabulary-browse-results\" hx-swap=\"outerHTML\" hx-push-url=\"true\" hx-sync=\"#vocabulary-workflow:replace\" hx-config=\"timeout:9s\" hx-indicator=\"#vocabulary-pending\" hx-status:409=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:4xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\" hx-status:5xx=\"target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false\">Next</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 679, "</nav></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 681, "</nav></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -8418,7 +8434,7 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 680, " <section id=\"known-vocabulary\" class=\"known-vocabulary\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 682, " <section id=\"known-vocabulary\" class=\"known-vocabulary\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8436,7 +8452,7 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 681, "<a href=\"/catalogs\">Connect a catalog</a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 683, "<a href=\"/catalogs\">Connect a catalog</a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -8447,19 +8463,19 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 682, "<p>Choose a study language in the shell before importing a lemma file.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 684, "<p>Choose a study language in the shell before importing a lemma file.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
 				if len(languages) == 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 683, "<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 685, "<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 684, " <p>Viewing <strong>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 686, " <p>Viewing <strong>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8472,7 +8488,7 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 685, "</strong> <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 687, "</strong> <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8485,12 +8501,12 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 686, "</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 688, "</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if studyLanguagePresent(languages, language) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 687, "<form class=\"vocabulary-import-form\" method=\"post\" action=\"/vocabulary/import\" enctype=\"multipart/form-data\" hx-post=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 689, "<form class=\"vocabulary-import-form\" method=\"post\" action=\"/vocabulary/import\" enctype=\"multipart/form-data\" hx-post=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -8503,7 +8519,7 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 688, "\" hx-encoding=\"multipart/form-data\" hx-target=\"#vocabulary-results\" hx-swap=\"innerHTML\" hx-indicator=\"#vocabulary-import-pending\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 690, "\" hx-encoding=\"multipart/form-data\" hx-target=\"#vocabulary-results\" hx-swap=\"innerHTML\" hx-indicator=\"#vocabulary-import-pending\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -8516,18 +8532,18 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 689, "\"><label for=\"known-vocabulary-file\">UTF-8 lemma file</label><input id=\"known-vocabulary-file\" type=\"file\" name=\"vocabulary_file\" accept=\"text/plain,.txt\" required><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button class=\"btn btn-primary\" type=\"submit\">Import known vocabulary</button><p id=\"vocabulary-import-pending\" class=\"htmx-indicator\" role=\"status\">Importing known vocabulary. Keep this page open while the request completes.</p></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 691, "\"><label for=\"known-vocabulary-file\">UTF-8 lemma file</label><input id=\"known-vocabulary-file\" type=\"file\" name=\"vocabulary_file\" accept=\"text/plain,.txt\" required><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button class=\"btn btn-primary\" type=\"submit\">Import known vocabulary</button><p id=\"vocabulary-import-pending\" class=\"htmx-indicator\" role=\"status\">Importing known vocabulary. Keep this page open while the request completes.</p></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 690, "<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 692, "<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 691, "</section><section id=\"vocabulary-results\" aria-live=\"polite\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 693, "</section><section id=\"vocabulary-results\" aria-live=\"polite\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8535,7 +8551,7 @@ func VocabularyPageWithResult(user domain.User, csrf string, languages, knownLan
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 692, "</section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 694, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8577,7 +8593,7 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 			}
 		}
 		if result != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 693, "<article class=\"resource-card vocabulary-callout known-vocabulary-result\"><h2>Import result</h2><p role=\"status\"><strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 695, "<article class=\"resource-card vocabulary-callout known-vocabulary-result\"><h2>Import result</h2><p role=\"status\"><strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8590,7 +8606,7 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 694, "</strong> · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 696, "</strong> · ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8603,7 +8619,7 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 695, " · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 697, " · ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8616,12 +8632,12 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 696, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 698, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(result.Rejected) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 697, "<h3>Rejected rows</h3>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 699, "<h3>Rejected rows</h3>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8637,12 +8653,12 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 698, "<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 700, "<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, rejection := range result.Rejected {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 699, "<tr><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 701, "<tr><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -8655,7 +8671,7 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 700, "</td><td><code>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 702, "</td><td><code>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -8668,7 +8684,7 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 701, "</code></td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 703, "</code></td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -8681,12 +8697,12 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 702, "</td></tr>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 704, "</td></tr>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 703, "</tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 705, "</tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -8697,7 +8713,7 @@ func KnownVocabResult(result *knownvocab.ImportResult, message string) templ.Com
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 704, "</article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 706, "</article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8790,7 +8806,7 @@ func KnownVocabImportStatusPage(user domain.User, csrf string, status knownvocab
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 705, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 707, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -8798,12 +8814,12 @@ func KnownVocabImportStatusPage(user domain.User, csrf string, status knownvocab
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 706, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 708, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if knownVocabJobBusy(string(status.State)) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 707, "<p><a class=\"vocabulary-action-link\" href=\"/vocabulary/import\">Return to Vocabulary</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 709, "<p><a class=\"vocabulary-action-link\" href=\"/vocabulary/import\">Return to Vocabulary</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8857,12 +8873,12 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 708, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 710, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 709, "<form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 711, "<form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8875,7 +8891,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 710, "\" hx-post=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 712, "\" hx-post=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8888,7 +8904,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 711, "\" hx-target=\"#enrichment-job-status\" hx-swap=\"outerHTML\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 713, "\" hx-target=\"#enrichment-job-status\" hx-swap=\"outerHTML\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8901,7 +8917,7 @@ func EnrichmentJobStatus(status enrichmentjob.Status, csrf string) templ.Compone
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 712, "\"><button class=\"button button--outline\" type=\"submit\">Cancel translations</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 714, "\"><button class=\"button button--outline\" type=\"submit\">Cancel translations</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8938,29 +8954,29 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if knownVocabJobBusy(string(status.State)) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 713, "<p>Return to Vocabulary to review the result after processing finishes.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 715, "<p>Return to Vocabulary to review the result after processing finishes.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if status.State == "completed" {
 			if len(status.Rejected) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 714, "<p><strong>Import completed with partial rejection.</strong> Successful rows remain known; correct the rejected rows and upload another additive import if needed.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 716, "<p><strong>Import completed with partial rejection.</strong> Successful rows remain known; correct the rejected rows and upload another additive import if needed.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 715, "<p><strong>Import complete.</strong></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 717, "<p><strong>Import complete.</strong></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 716, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 718, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(status.Rejected) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 717, "<h3>Rejected rows</h3>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 719, "<h3>Rejected rows</h3>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -8976,12 +8992,12 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 718, "<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 720, "<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, rejection := range status.Rejected {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 719, "<tr><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 721, "<tr><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -8994,7 +9010,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 720, "</td><td><code>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 722, "</td><td><code>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9007,7 +9023,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 721, "</code></td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 723, "</code></td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9020,12 +9036,12 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 722, "</td></tr>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 724, "</td></tr>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 723, "</tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 725, "</tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9036,7 +9052,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 724, " <p><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 726, " <p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9049,13 +9065,13 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 725, "\">Return to Vocabulary to import more known vocabulary</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 727, "\">Return to Vocabulary to import more known vocabulary</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 726, "<p><strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 728, "<p><strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9068,7 +9084,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 727, "</strong> · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 729, "</strong> · ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9081,7 +9097,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 728, " · ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 730, " · ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9094,13 +9110,13 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 729, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 731, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if status.Error != "" && status.State != "cancelled" && status.State != "discarded" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 730, "<p role=\"alert\"><strong>Import failed:</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 732, "<p role=\"alert\"><strong>Import failed:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9113,18 +9129,18 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 731, " Upload the original file again after correcting the problem.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 733, " Upload the original file again after correcting the problem.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if status.State == "cancelled" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 732, "<p role=\"alert\"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 734, "<p role=\"alert\"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if status.Language != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 733, "<p>Selected language: <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 735, "<p>Selected language: <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -9137,12 +9153,12 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 734, "</code></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 736, "</code></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 735, " <p><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 737, " <p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9155,13 +9171,13 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 736, "\">Return to Vocabulary to retry the import</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 738, "\">Return to Vocabulary to retry the import</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if status.State == "discarded" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 737, "<p role=\"alert\"><strong>Import failed.</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 739, "<p role=\"alert\"><strong>Import failed.</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9175,17 +9191,17 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 738, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 740, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 739, "The job was discarded after repeated attempts. Upload the file again after correcting the problem.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 741, "The job was discarded after repeated attempts. Upload the file again after correcting the problem.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if status.Language != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 740, "<p>Selected language: <code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 742, "<p>Selected language: <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -9198,12 +9214,12 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 741, "</code></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 743, "</code></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 742, " <p><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 744, " <p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9216,7 +9232,7 @@ func knownVocabImportStatusBody(status knownvocab.Status) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 743, "\">Return to Vocabulary to retry the import</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 745, "\">Return to Vocabulary to retry the import</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9247,7 +9263,7 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if action.State != deckJourneyUnknown {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 744, "<div id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 746, "<div id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9260,13 +9276,13 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 745, "\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 747, "\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if action.Message != "" {
 				if strings.Contains(action.Message, "changed since") {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 746, "<p role=\"alert\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 748, "<p role=\"alert\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9279,12 +9295,12 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 747, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 749, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 748, "<p role=\"status\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 750, "<p role=\"status\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9297,14 +9313,14 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 749, "</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 751, "</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
 			if action.Error != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 750, "<p role=\"alert\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 752, "<p role=\"alert\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -9317,18 +9333,18 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 751, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 753, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if action.State == deckJourneyNotMember {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 752, "<p><strong>Not in To Read.</strong> Manage this book's disposition in <a href=\"/library\">My Books</a>.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 754, "<p><strong>Not in To Read.</strong> Manage this book's disposition in <a href=\"/library\">My Books</a>.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if action.State == deckIsToRead {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 753, "<p><strong>To Read.</strong> This book is already in To Read.</p><p><a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 755, "<p><strong>To Read.</strong> This book is already in To Read.</p><p><a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -9341,12 +9357,12 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 754, "\">View in Reading</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 756, "\">View in Reading</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else if action.State == deckIsCurrentReading {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 755, "<p><strong>Current Book.</strong> This deck is preparation for the Book you are reading now.</p><p><a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 757, "<p><strong>Current Book.</strong> This deck is preparation for the Book you are reading now.</p><p><a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -9359,12 +9375,12 @@ func DeckJourneyAction(action deckJourneyActionView) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 756, "\">View current book in Reading</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 758, "\">View current book in Reading</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 757, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 759, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9410,7 +9426,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 758, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 760, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9420,7 +9436,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 759, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 761, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9437,7 +9453,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 760, "<a href=\"/library\">Go to My Books</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 762, "<a href=\"/library\">Go to My Books</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9448,7 +9464,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 761, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 763, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9465,12 +9481,12 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 762, "<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 764, "<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, job := range syncJobs {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 763, "<tr><td><a href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 765, "<tr><td><a href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9483,7 +9499,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 764, "\">Catalog sync</a></td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 766, "\">Catalog sync</a></td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9496,7 +9512,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 765, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 767, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9509,7 +9525,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 766, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 768, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9522,7 +9538,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 767, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 769, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9535,7 +9551,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 768, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 770, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9548,12 +9564,12 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 769, "</td></tr>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 771, "</td></tr>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 770, "</tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 772, "</tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9564,7 +9580,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 771, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 773, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9581,17 +9597,17 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 772, "<thead><tr><th>Kind</th><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 774, "<thead><tr><th>Kind</th><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					for _, job := range jobs {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 773, "<tr><td>Analysis</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 775, "<tr><td>Analysis</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 774, "<a href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 776, "<a href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -9604,7 +9620,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 775, "\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 777, "\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -9617,12 +9633,12 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 776, "</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 778, "</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						} else {
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 777, "<a href=\"")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 779, "<a href=\"")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -9635,7 +9651,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 778, "\">")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 780, "\">")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -9648,12 +9664,12 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
-							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 779, "</a>")
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 781, "</a>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 780, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 782, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9666,7 +9682,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 781, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 783, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9674,7 +9690,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 782, "</td><td><progress aria-label=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 784, "</td><td><progress aria-label=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9687,7 +9703,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 783, "\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 785, "\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9700,7 +9716,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 784, "\" max=\"100\"></progress> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 786, "\" max=\"100\"></progress> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9713,7 +9729,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 785, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 787, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9726,7 +9742,7 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 786, "</td><td>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 788, "</td><td>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -9739,12 +9755,12 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 787, "</td></tr>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 789, "</td></tr>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 788, "</tbody>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 790, "</tbody>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9802,7 +9818,7 @@ func CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.St
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 789, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 791, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9859,7 +9875,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 790, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 792, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -9876,7 +9892,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 				}
 				ctx = templ.InitializeContext(ctx)
 				if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 791, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 793, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9889,7 +9905,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 792, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 794, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9902,17 +9918,17 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 793, "\"><button class=\"button\" type=\"submit\">Retry catalog sync</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 795, "\"><button class=\"button\" type=\"submit\">Retry catalog sync</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 794, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 796, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if catalogueSyncStatusRunning(status) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 795, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 797, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9925,7 +9941,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 796, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 798, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9938,7 +9954,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 797, "\"><button class=\"button button--outline\" type=\"submit\">Cancel catalog sync</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 799, "\"><button class=\"button button--outline\" type=\"submit\">Cancel catalog sync</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -9949,7 +9965,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 798, " <p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 800, " <p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10000,7 +10016,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 799, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 801, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10008,7 +10024,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 800, " <section class=\"narrow\" aria-labelledby=\"journey-deck-task-heading\"><h2 id=\"journey-deck-task-heading\">Deck preparation task</h2><p>This task belongs to <strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 802, " <section class=\"narrow\" aria-labelledby=\"journey-deck-task-heading\"><h2 id=\"journey-deck-task-heading\">Deck preparation task</h2><p>This task belongs to <strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10021,7 +10037,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 801, "</strong>. Preparation never changes reading state, Known vocabulary, or Reserved vocabulary.</p><dl><dt>Book language</dt><dd>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 803, "</strong>. Preparation never changes reading state, Known vocabulary, or Reserved vocabulary.</p><dl><dt>Book language</dt><dd>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10034,7 +10050,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 802, "</dd><dt>Current analysis</dt><dd><code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 804, "</dd><dt>Current analysis</dt><dd><code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10047,7 +10063,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 803, "</code> from the current EPUB snapshot <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 805, "</code> from the current EPUB snapshot <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10060,12 +10076,12 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 804, "</code></dd>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 806, "</code></dd>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if task.Goal {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 805, "<dt>Frozen reading snapshot</dt><dd><code>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 807, "<dt>Frozen reading snapshot</dt><dd><code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10078,7 +10094,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 806, "</code> · ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 808, "</code> · ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10091,12 +10107,12 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 807, "</dd>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 809, "</dd>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 808, "</dl>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 810, "</dl>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10117,7 +10133,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 809, "<p role=\"note\"><strong>Deck state: Missing.</strong> This exact reading snapshot remains unchanged. Prepare it when ready.</p><form class=\"focused-deck-form\" method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 811, "<p role=\"note\"><strong>Deck state: Missing.</strong> This exact reading snapshot remains unchanged. Prepare it when ready.</p><form class=\"focused-deck-form\" method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10130,7 +10146,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 810, "\" data-prepare-deck><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 812, "\" data-prepare-deck><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10143,7 +10159,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 811, "\"> <button type=\"submit\">Prepare deck</button></form><section data-deck-preparation role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" hidden></section>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 813, "\"> <button type=\"submit\">Prepare deck</button></form><section data-deck-preparation role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" hidden></section>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10155,12 +10171,12 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 				}
 			} else {
 				if task.Missing {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 812, "<p role=\"note\"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 814, "<p role=\"note\"><strong>Deck state: Not prepared.</strong> No artifact exists for this exact current analysis.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 813, " <form class=\"focused-deck-form\" method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 815, " <form class=\"focused-deck-form\" method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10173,7 +10189,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 814, "\" data-prepare-deck><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 816, "\" data-prepare-deck><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10186,12 +10202,12 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 815, "\"><p>Preparation uses the configured translation provider to create contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent. If the provider is unavailable, preparation fails without creating a local-only deck; configure it and retry.</p><button type=\"submit\">Prepare deck</button></form><section data-deck-preparation role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" hidden></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 817, "\"><p>Preparation uses the configured translation provider to create contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent. If the provider is unavailable, preparation fails without creating a local-only deck; configure it and retry.</p><button type=\"submit\">Prepare deck</button></form><section data-deck-preparation role=\"status\" aria-live=\"polite\" aria-atomic=\"true\" hidden></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 816, "<p><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 818, "<p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10204,7 +10220,7 @@ func JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckP
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 817, "\">Back to this Book in Reading</a></p></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 819, "\">Back to this Book in Reading</a></p></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10264,12 +10280,12 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 				}
 				ctx = templ.InitializeContext(ctx)
 				if chooser.CurrentBookID != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 818, "<a class=\"button button--outline\" href=\"/reading\">Return to current reading</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 820, "<a class=\"button button--outline\" href=\"/reading\">Return to current reading</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 819, "<a class=\"button button--outline\" href=\"/library?disposition=to_read\">Review To Read books</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 821, "<a class=\"button button--outline\" href=\"/library?disposition=to_read\">Review To Read books</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10280,7 +10296,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 820, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 822, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10290,7 +10306,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 821, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 823, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10300,7 +10316,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 822, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 824, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10310,53 +10326,53 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 823, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if chooser.Language == "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 824, "<section class=\"reading-chooser-empty\" aria-labelledby=\"reading-chooser-no-language-heading\"><h2 id=\"reading-chooser-no-language-heading\">Choose a study language</h2><p>Reading candidates appear after My Books has a book with a chosen language.</p><a class=\"button button--outline\" href=\"/library\">Open My Books</a></section>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 825, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if chooser.Language != "" && readingChooserCandidateCount(chooser) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 826, "<section class=\"reading-chooser-empty\" aria-labelledby=\"reading-chooser-empty-heading\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if chooser.CurrentBookID != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 827, "<h2 id=\"reading-chooser-empty-heading\">No other eligible To Read books</h2><p>Your current book remains unchanged. Move another book to To Read or return to your current reading.</p><a class=\"button button--outline\" href=\"/reading\">Return to current reading</a>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 828, "<h2 id=\"reading-chooser-empty-heading\">No To Read books yet</h2><p>Move a book to To Read in My Books when you may want to read it. You can leave other books in Inbox or set them aside.</p><a class=\"button button--outline\" href=\"/library\">Browse My Books</a>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 829, "</section>")
+			if chooser.Language == "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 826, "<section class=\"reading-chooser-empty\" aria-labelledby=\"reading-chooser-no-language-heading\"><h2 id=\"reading-chooser-no-language-heading\">Choose a study language</h2><p>Reading candidates appear after My Books has a book with a chosen language.</p><a class=\"button button--outline\" href=\"/library\">Open My Books</a></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 830, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 827, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if chooser.Language != "" && readingChooserCandidateCount(chooser) == 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 828, "<section class=\"reading-chooser-empty\" aria-labelledby=\"reading-chooser-empty-heading\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if chooser.CurrentBookID != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 829, "<h2 id=\"reading-chooser-empty-heading\">No other eligible To Read books</h2><p>Your current book remains unchanged. Move another book to To Read or return to your current reading.</p><a class=\"button button--outline\" href=\"/reading\">Return to current reading</a>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 830, "<h2 id=\"reading-chooser-empty-heading\">No To Read books yet</h2><p>Move a book to To Read in My Books when you may want to read it. You can leave other books in Inbox or set them aside.</p><a class=\"button button--outline\" href=\"/library\">Browse My Books</a>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 831, "</section>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 832, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
 				if len(chooser.At99Plus)+len(chooser.At97To99)+len(chooser.At95To97)+len(chooser.Below95)+len(chooser.NoComparison) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 831, "<p>Coverage compares currently Known vocabulary with analyzable tokens in each current analysis. Bands use exact token counts; displayed percentages are rounded.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 833, "<p>Coverage compares currently Known vocabulary with analyzable tokens in each current analysis. Bands use exact token counts; displayed percentages are rounded.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 832, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 834, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10364,7 +10380,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 833, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 835, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10372,7 +10388,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 834, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 836, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10380,7 +10396,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 835, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 837, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10388,7 +10404,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 836, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 838, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10396,12 +10412,12 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 837, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 839, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if len(chooser.InProgress) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 838, "<section aria-labelledby=\"reading-chooser-in-progress-heading\"><h2 id=\"reading-chooser-in-progress-heading\">Analysis in progress</h2><p>Accepted analysis work remains visible here while it runs.</p><ul class=\"reading-chooser-list\" role=\"list\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 840, "<section aria-labelledby=\"reading-chooser-in-progress-heading\"><h2 id=\"reading-chooser-in-progress-heading\">Analysis in progress</h2><p>Accepted analysis work remains visible here while it runs.</p><ul class=\"reading-chooser-list\" role=\"list\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10411,17 +10427,17 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 839, "</ul></section>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 841, "</ul></section>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 840, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 842, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if len(chooser.Attention) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 841, "<section aria-labelledby=\"reading-chooser-attention-heading\"><h2 id=\"reading-chooser-attention-heading\">Needs attention</h2><p>These candidates need current content or usable analysis before their coverage can be compared.</p><ul class=\"reading-chooser-list\" role=\"list\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 843, "<section aria-labelledby=\"reading-chooser-attention-heading\"><h2 id=\"reading-chooser-attention-heading\">Needs attention</h2><p>These candidates need current content or usable analysis before their coverage can be compared.</p><ul class=\"reading-chooser-list\" role=\"list\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10431,7 +10447,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 842, "</ul></section>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 844, "</ul></section>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10469,7 +10485,7 @@ func ReadingChooserBand(title, description string, books []readingChooserBookVie
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(books) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 843, "<section aria-label=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 845, "<section aria-label=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10482,7 +10498,7 @@ func ReadingChooserBand(title, description string, books []readingChooserBookVie
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 844, "\"><h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 846, "\"><h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10495,7 +10511,7 @@ func ReadingChooserBand(title, description string, books []readingChooserBookVie
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 845, "</h2><p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 847, "</h2><p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10508,7 +10524,7 @@ func ReadingChooserBand(title, description string, books []readingChooserBookVie
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 846, "</p><ul class=\"reading-chooser-list\" role=\"list\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 848, "</p><ul class=\"reading-chooser-list\" role=\"list\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10518,7 +10534,7 @@ func ReadingChooserBand(title, description string, books []readingChooserBookVie
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 847, "</ul></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 849, "</ul></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10548,7 +10564,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			templ_7745c5c3_Var497 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 848, "<li class=\"reading-chooser-book\"><article class=\"reading-chooser-entry\"><div class=\"reading-chooser-entry__identity\"><div class=\"reading-chooser-entry__cover\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 850, "<li class=\"reading-chooser-book\"><article class=\"reading-chooser-entry\"><div class=\"reading-chooser-entry__identity\"><div class=\"reading-chooser-entry__cover\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -10556,7 +10572,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 849, "</div><div><h3 class=\"bibliographic-title\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 851, "</div><div><h3 class=\"bibliographic-title\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -10569,12 +10585,12 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 850, "</h3>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 852, "</h3>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 851, "<p>By ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 853, "<p>By ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10587,17 +10603,17 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 852, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 854, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 853, "</div></div><div class=\"reading-chooser-entry__evidence\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 855, "</div></div><div class=\"reading-chooser-entry__evidence\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if item.Coverage != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 854, "<p class=\"numeric\"><strong>Known vocabulary coverage:</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 856, "<p class=\"numeric\"><strong>Known vocabulary coverage:</strong> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10610,7 +10626,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 855, " (")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 857, " (")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10623,7 +10639,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 856, " of ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 858, " of ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10636,7 +10652,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 857, " analyzable tokens)</p><p class=\"numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 859, " analyzable tokens)</p><p class=\"numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10649,13 +10665,13 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 858, "</p><details><summary>Coverage investment at 95%, 97%, and 99%</summary><ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 860, "</p><details><summary>Coverage investment at 95%, 97%, and 99%</summary><ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, threshold := range item.Coverage.Thresholds {
 				if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 859, "<li class=\"numeric\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 861, "<li class=\"numeric\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10668,13 +10684,13 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 860, "</li>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 862, "</li>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 861, "</ul><p>Investment counts eligible vocabulary identities, not deck size.</p></details> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 863, "</ul><p>Investment counts eligible vocabulary identities, not deck size.</p></details> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10691,7 +10707,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 862, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 864, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10704,7 +10720,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 863, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 865, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10717,7 +10733,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 864, "\"> <input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 866, "\"> <input type=\"hidden\" name=\"expected_current_book_id\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10730,7 +10746,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 865, "\"> <input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 867, "\"> <input type=\"hidden\" name=\"expected_current_snapshot_id\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10743,7 +10759,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 866, "\"> <button class=\"button\" type=\"submit\">Confirm switch to this book</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 868, "\"> <button class=\"button\" type=\"submit\">Confirm switch to this book</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10766,7 +10782,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 867, "<form method=\"post\" action=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 869, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10779,7 +10795,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 868, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 870, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10792,7 +10808,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 869, "\"> <button class=\"button\" type=\"submit\">Confirm start reading</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 871, "\"> <button class=\"button\" type=\"submit\">Confirm start reading</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10803,7 +10819,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 870, " <p><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 872, " <p><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10816,12 +10832,12 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 871, "\">Review a word in this Book</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 873, "\">Review a word in this Book</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 872, "<p><strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 874, "<p><strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10834,7 +10850,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 873, "</strong> — ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 875, "</strong> — ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -10847,13 +10863,13 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 874, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 876, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if item.State == readingChooserInProgress {
 				if item.Book.Acquired.AnalysisJobID > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 875, "<a href=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 877, "<a href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -10866,18 +10882,18 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 876, "\">Review analysis progress</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 878, "\">Review analysis progress</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 877, "<a href=\"/library?disposition=to_read\">Review To Read books</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 879, "<a href=\"/library?disposition=to_read\">Review To Read books</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else if item.State == readingChooserNeedsAttention {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 878, "<form method=\"post\" action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 880, "<form method=\"post\" action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10890,7 +10906,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 879, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 881, "\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -10903,13 +10919,13 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 880, "\"> <button class=\"button\" type=\"submit\">Retry acquisition or analysis</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 882, "\"> <button class=\"button\" type=\"submit\">Retry acquisition or analysis</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 881, "</div></article></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 883, "</div></article></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -10938,44 +10954,44 @@ func VocabularyViewsNav(active string) templ.Component {
 			templ_7745c5c3_Var519 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 882, "<nav aria-label=\"Vocabulary views\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 884, "<nav aria-label=\"Vocabulary views\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if active == "browse" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 883, "<a href=\"/vocabulary\" aria-current=\"page\">Browse</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 885, "<a href=\"/vocabulary\" aria-current=\"page\">Browse</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 884, "<a href=\"/vocabulary\">Browse</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 886, "<a href=\"/vocabulary\">Browse</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if active == "concordance" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 885, "<a href=\"/vocabulary/concordance\" aria-current=\"page\">Concordance</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 887, "<a href=\"/vocabulary/concordance\" aria-current=\"page\">Concordance</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 886, "<a href=\"/vocabulary/concordance\">Concordance</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 888, "<a href=\"/vocabulary/concordance\">Concordance</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if active == "import" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 887, "<a href=\"/vocabulary/import\" aria-current=\"page\">Import Known words</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 889, "<a href=\"/vocabulary/import\" aria-current=\"page\">Import Known words</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 888, "<a href=\"/vocabulary/import\">Import Known words</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 890, "<a href=\"/vocabulary/import\">Import Known words</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 889, "</nav>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 891, "</nav>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -11004,7 +11020,7 @@ func VocabularyPageHeader(active string) templ.Component {
 			templ_7745c5c3_Var520 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 890, "<header class=\"vocabulary-page-header\"><h1>Vocabulary</h1>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 892, "<header class=\"vocabulary-page-header\"><h1>Vocabulary</h1>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -11012,7 +11028,7 @@ func VocabularyPageHeader(active string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 891, "</header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 893, "</header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

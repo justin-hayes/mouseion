@@ -1464,7 +1464,11 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   font-weight: 650;
 }
 
-.library-book__membership span,
+.library-book__membership .status-badge {
+  max-width: 100%;
+  white-space: normal;
+}
+
 .library-book__journey-action span {
   color: var(--mouseion-color-accent);
   font-weight: 700;
