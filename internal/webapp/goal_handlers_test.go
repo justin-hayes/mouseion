@@ -261,7 +261,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.NotContains(t, body, "Reading Journey")
 	assert.NotContains(t, body, "Primary Goal")
 	for _, want := range []string{
-		"Reading in Italian",
+		"Italian (it)",
 		`id="journey-book-fixture-empty"`,
 		"Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.",
 	} {
@@ -277,7 +277,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	body = response.Body.String()
-	assert.True(t, strings.Contains(body, "Reading in German") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Journey did not remain isolated after Italian move: %s", body)
+	assert.True(t, strings.Contains(body, "German (de)") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Reading did not remain isolated after Italian move: %s", body)
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
 }
 
@@ -452,7 +452,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 		"Reading finished",
 		"Vocabulary transition",
 		"Vocabulary: 2 identities newly Known; 0 identities already Known",
-		`href="/reading">Choose what to read next</a>`,
+		`href="/reading">Choose a To Read book</a>`,
 	} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish outcome missing %q: %s", want, finished.Body.String())
 	}
@@ -499,7 +499,7 @@ func TestPrimaryGoalFinishOutcomeShowsStructuredVocabularyCounts(t *testing.T) {
 	residual := primaryGoalFinishView{BookTitle: "Reading-only book", GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
 	var output bytes.Buffer
 	require.NoError(t, PrimaryGoalFinish(residual).Render(context.Background(), &output))
-	for _, want := range []string{"Vocabulary: 2 identities newly Known; 0 identities already Known", "Choose what to read next"} {
+	for _, want := range []string{"Vocabulary: 2 identities newly Known; 0 identities already Known", "Choose a To Read book"} {
 		assert.True(t, strings.Contains(output.String(), want), "residual outcome missing %q: %s", want, output.String())
 	}
 	assert.NotContains(t, output.String(), "achievement")
@@ -513,7 +513,7 @@ func TestPrimaryGoalFinishOutcomeExplainsEmptySnapshot(t *testing.T) {
 	for _, want := range []string{
 		"Reading finished",
 		"Vocabulary: 0 identities newly Known; 0 identities already Known",
-		"Choose what to read next",
+		"Choose a To Read book",
 	} {
 		assert.Contains(t, html, want)
 	}
@@ -544,7 +544,7 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 	for _, want := range []string{
 		"Reading finished",
 		"Vocabulary: 0 identities newly Known; 0 identities already Known",
-		"Choose what to read next",
+		"Choose a To Read book",
 	} {
 		assert.Contains(t, finished.Body.String(), want)
 	}

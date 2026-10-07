@@ -2204,7 +2204,9 @@
     padding-block: var(--mouseion-space-6);
   }
   body.reading-shell .journey-finish-outcome h1 {
-    font-family: var(--mouseion-font-reading);
+    font-family: var(--mouseion-font-application);
+    font-size: 1.5625rem;
+    font-weight: 600;
   }
   body.reading-shell .scope-unit label {
     display: flex;
@@ -2254,13 +2256,9 @@
   }
   .journey-goal {
     margin-bottom: var(--mouseion-space-7);
-    border: 1px solid var(--mouseion-color-accent);
-    border-left-width: var(--mouseion-space-1);
-    padding: clamp(var(--mouseion-space-4), 4vw, var(--mouseion-space-6));
-    background: var(--mouseion-color-accent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background: color-mix(in srgb, var(--mouseion-color-accent) 7%, var(--mouseion-color-surface-raised));
-    }
+    border: 0;
+    padding: 0;
+    background: transparent;
   }
   .journey-goal > h2 {
     margin-bottom: var(--mouseion-space-5);
@@ -2270,8 +2268,8 @@
     gap: 0;
     min-width: 0;
     margin: 0;
-    padding-inline-start: var(--mouseion-space-5);
-    list-style-position: outside;
+    padding: 0;
+    list-style: none;
     border-top: 2px solid var(--mouseion-color-text);
   }
   .journey-list > li {
@@ -2389,6 +2387,61 @@
     border-top: 1px solid var(--mouseion-color-border);
     padding-top: var(--mouseion-space-4);
   }
+  .journey-book {
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 18rem);
+  }
+  .journey-book__title-page {
+    display: contents;
+  }
+  .journey-book--goal .journey-book__identity {
+    grid-column: 2;
+  }
+  .journey-book__title {
+    margin: 0 0 var(--mouseion-space-3);
+    font-family: var(--mouseion-font-reading);
+    font-size: clamp(2.4375rem, 4vw, 3.0625rem);
+    font-weight: 500;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+  .journey-book__since {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mouseion-space-1);
+    margin-bottom: var(--mouseion-space-2);
+    color: var(--mouseion-color-text-muted);
+    font-family: var(--mouseion-font-application);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .journey-book__lifecycle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    gap: var(--mouseion-space-2);
+    margin-top: var(--mouseion-space-4);
+  }
+  .journey-book__lifecycle > p {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--mouseion-color-text-muted);
+    font-size: 0.875rem;
+  }
+  .journey-book__lifecycle .confirmation, .journey-book__lifecycle > a, .journey-book__lifecycle .more-actions {
+    flex: 0 1 auto;
+  }
+  .journey-book--goal .journey-book__evidence {
+    grid-column: 3;
+    max-width: 18rem;
+    color: var(--mouseion-color-text-muted);
+    font-size: 0.9375rem;
+  }
+  .reading-add-books {
+    margin-block: var(--mouseion-space-5);
+    text-align: right;
+  }
   .scope-actions {
     display: flex;
     flex-wrap: wrap;
@@ -2449,6 +2502,20 @@
     .journey-book__cover {
       width: 4.5rem;
     }
+    .journey-book__title {
+      font-size: 1.9375rem;
+    }
+    .journey-book--goal .journey-book__evidence {
+      width: 100%;
+      max-width: none;
+    }
+    .journey-book__lifecycle {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .journey-book__lifecycle > *, .journey-book__lifecycle .confirmation, .journey-book__lifecycle > a, .journey-book__lifecycle .more-actions {
+      width: 100%;
+    }
     .journey-book__controls {
       width: 100%;
       align-items: stretch;
@@ -2458,6 +2525,46 @@
     }
     .scope-summary {
       position: static;
+    }
+  }
+  .reading-chooser-entry {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+    align-items: start;
+    gap: var(--mouseion-space-5);
+    border-bottom: 1px solid var(--mouseion-color-border);
+    padding-block: var(--mouseion-space-4);
+  }
+  .reading-chooser-entry__identity {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--mouseion-space-4);
+  }
+  .reading-chooser-entry__cover, .reading-chooser-entry__cover .book-cover-media {
+    width: 4.5rem;
+  }
+  .reading-chooser-entry__identity h3 {
+    margin-bottom: var(--mouseion-space-1);
+  }
+  .reading-chooser-entry__evidence {
+    min-width: 0;
+    color: var(--mouseion-color-text-muted);
+    font-size: 0.9375rem;
+  }
+  .reading-chooser-entry__evidence > :first-child {
+    margin-top: 0;
+  }
+  .reading-chooser-entry__evidence .confirmation {
+    margin-block: var(--mouseion-space-3);
+  }
+  @media (max-width: 40rem) {
+    .reading-chooser-entry {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--mouseion-space-3);
+    }
+    .reading-chooser-entry__evidence {
+      margin-left: calc(4.5rem + var(--mouseion-space-4));
     }
   }
 }

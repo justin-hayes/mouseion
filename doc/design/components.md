@@ -1,7 +1,7 @@
 # Interface components
 
 Status: **Established implementation components plus shipped learner-facing
-patterns.** My Books cover-grid and Reading thumbnail patterns are shipped. The
+patterns.** My Books cover-grid and Reading title-page/chooser patterns are shipped. The
 JourneyOrder, JourneyForecast, and PrimaryGoalSummary sections below are
 historical contracts, not current Reading UI. Current behavior is defined by the
 [Reading workflow](../features/reading-workflow.md).
@@ -100,11 +100,14 @@ one-pattern/one-Templ-component implementation.
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
 | `BibliographicBookItem` | Keep title, author, and edition identity primary while pairing intent, evidence state, and one contextual action. | Primary Goal, in Journey, outside Journey, reading finished, unassessed, stale/questionable, cannot assess, long/missing metadata | My Books, Reading Journey, Read history |
+| `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
+| `ToReadCandidates` | Present other To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading |
+| `ReadingChooser` | Group neutral To Read candidates by current Known-vocabulary coverage band; require explicit confirmation to start or switch. | Empty chooser, no comparison, in-progress analysis, attention required, start/switch confirmation | Between-Books Reading chooser |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. The Goal leads with Book identity, shows current and after-completion coverage only, and keeps deck actions snapshot-bound. | No evidence, analysis active/failed/complete, reading active, vocabulary work active/complete, deck missing/active/ready/failed/empty | Reading Journey |
 | `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, unavailable evidence, compact viewport | Reading Journey |
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
-| `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the candidate chooser without replaying forecasts or selecting another Goal. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Primary Goal completion receipt |
+| `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
 
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
@@ -242,6 +245,13 @@ slice.
   resource actions belong beside the resource they affect.
 - On book-led surfaces, title, author, and relevant edition identity precede
   intent, evidence, status, and action. Metrics never become a surrogate title.
+- When a Book is current Reading, its full title is the page's single `h1` in
+  Literata, preceded by the real “Reading since” date; cover, author, and
+  lifecycle confirmations remain with that identity. Preparation and vocabulary
+  facts annotate it in a narrow margin and move below it on compact screens.
+- Every To Read candidate collection is unordered. The between-Books chooser
+  groups candidates by truthful Known-vocabulary coverage bands; bands describe
+  evidence, not learner intent, difficulty, or a recommended order.
 - Reading Journey exposes one learner order. Forecast stages explain that order
   and never become a second route or recommendation.
 - A status badge never replaces a heading, explanatory sentence, progress

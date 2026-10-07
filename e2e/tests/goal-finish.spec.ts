@@ -67,7 +67,7 @@ test('finishing current reading records Read history and supports reading again'
     await candidate.getByRole('button', { name: 'Confirm start reading' }).click();
     await expect(page).toHaveURL(/\/reading\?message=/);
   }
-  const title = (await currentReading.getByRole('heading', { level: 3 }).first().textContent())?.trim() ?? '';
+  const title = (await currentReading.getByRole('heading', { level: 1 }).locator('a').textContent())?.trim() ?? '';
   expect(title).toBeTruthy();
   const finishDisclosure = currentReading.locator('details').filter({ hasText: 'Mark reading finished' }).first();
   await finishDisclosure.locator('summary').click();
@@ -83,7 +83,7 @@ test('finishing current reading records Read history and supports reading again'
   await expect(page.locator('#primary-goal-section')).toHaveClass(/journey-finish-outcome/);
   await expect(page.locator('#primary-goal-section')).toContainText('Vocabulary transition');
   await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
-  await expect(page.getByRole('link', { name: 'Choose what to read next' })).toHaveAttribute('href', '/reading');
+  await expect(page.getByRole('link', { name: 'Choose a To Read book' })).toHaveAttribute('href', '/reading');
   await page.goto('/library?history=read');
   const history = page.locator('.library-grid .library-book').filter({ hasText: title });
   await expect(history).toBeVisible();

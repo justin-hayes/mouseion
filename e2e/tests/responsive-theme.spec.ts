@@ -286,7 +286,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.locator('ul.reading-chooser-list').first()).toBeVisible();
     await expect(page.locator('ol.reading-chooser-list')).toHaveCount(0);
-    await expect(page.locator('.reading-chooser-book').filter({ hasText: 'Current coverage:' }).first()).toContainText('Current coverage:');
+    await expect(page.locator('.reading-chooser-book').filter({ hasText: 'Known vocabulary coverage:' }).first()).toContainText('Known vocabulary coverage:');
     await expectNoPageOverflow(page);
     const chooserSummaries = await page.locator('.reading-chooser-book details > summary:visible').evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
@@ -834,7 +834,7 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(current.getByRole('link', { name: 'Switch current reading' })).toBeVisible();
       const finishSummary = current.locator('details').filter({ hasText: 'Mark reading finished' }).locator('summary');
       await expect(finishSummary).toBeVisible();
-      const primaryActions = await current.locator('.goal-card__actions > a.button, .goal-card__actions > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
+      const primaryActions = await current.locator('.journey-book__lifecycle > a.button, .journey-book__lifecycle > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
         const box = node.getBoundingClientRect();
         return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
       }));
@@ -907,7 +907,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     const layout = await thumbnails.evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
-      const card = node.parentElement?.getBoundingClientRect();
+      const card = node.closest('.journey-book')?.getBoundingClientRect();
       return { width: box.width, height: box.height, right: box.right, cardRight: card?.right ?? 0 };
     }));
     for (const item of layout) {
@@ -922,8 +922,8 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     await page.goto('/reading');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-    await expect(page.getByRole('heading', { name: 'To Read books', exact: true })).toBeVisible();
-    await expect(page.locator('.journey-book__controls').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toBeVisible();
+    await expect(page.locator('.journey-book__lifecycle').first()).toBeVisible();
     await expectNoPageOverflow(page);
   });
 

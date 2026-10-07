@@ -493,8 +493,10 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 
 templ JourneyPage(user domain.User, csrf string, journey journeyPageView, message string, pageError string) {
 	@ShellLayout("Reading", &user, csrf, NavigationReadingJourney, shellStyleReading) {
-		@PageHeader(journeyPageTitle(journey), "Review your current Book and other books you may want to read.", nil) {
-			<a class="button button--outline" href="/library">Add books from My Books</a>
+		if journey.Goal == nil {
+			@PageHeader("Reading", "Choose a To Read book when you are ready.", nil) {
+				<a class="button button--outline" href="/library">Add books from My Books</a>
+			}
 		}
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -506,7 +508,10 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			@ReadingLanguageHandoff(*journey.LanguageHandoff, journey.LanguageLabel, journey.ActiveLanguageLabel, csrf)
 		}
 		@GoalSection(journey.Goal, csrf, "", "", "")
-		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">To Read books</h2>
+		if journey.Goal != nil {
+			<p class="reading-add-books"><a href="/library">Add books from My Books</a></p>
+		}
+		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Other To Read books</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
 	}
@@ -532,7 +537,7 @@ templ PrimaryGoalFinish(outcome primaryGoalFinishView) {
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
 		<h2>Vocabulary transition</h2>
 		<p>{ finishGraduationText(outcome) }</p>
-		<p><a class="button button--outline" href="/reading">Choose what to read next</a></p>
+		<p><a class="button button--outline" href="/reading">Choose a To Read book</a></p>
 	</section>
 }
 templ JourneyProvisionalList(journey journeyPageView, csrf, focusBookID, statusMessage string) {
@@ -552,15 +557,15 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 				<a class="button button--outline" href="/library">Browse My Books</a>
 			}
 		}
-		<ol class="journey-list" aria-label="To Read books">
+		<ul class="journey-list" aria-label="To Read books">
 			for _, item := range journey.Provisional {
 				<li>@JourneyBookCard(item, false, csrf)</li>
 			}
-		</ol>
+		</ul>
 	</div>
 }
 templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, focusBookID string) {
-	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-heading" class="journey-goal" data-focus-id={ goalSectionFocusID(focusBookID) }><h2 id="primary-goal-heading">Current reading</h2>
+	<section id="primary-goal-section" tabindex="-1" aria-label="Current reading" class="journey-goal" data-focus-id={ goalSectionFocusID(focusBookID) }>
 		if message != "" {
 			<p id="goal-section-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ message }</p>
 		}
@@ -575,33 +580,54 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 	</section>
 }
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
-	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }><div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Cover)</div><div class="journey-book__identity"><h3>
-	if journeyEntryAvailable(item) {
-		<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
-	} else {
-		{ canonicalBookTitle(item.Book) }
-	}
-	</h3>
-	if author := canonicalBookAuthor(item.Book); author != "" {
-		<p class="journey-book__author">By { author }</p>
-	}
+	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }>
+		<div class={ journeyBookTitlePageClass(primary) }>
+			<div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Cover)</div>
+			<div class="journey-book__identity">
+				if primary {
+					<h1 class="journey-book__title">
+						if !item.ReadingSince.IsZero() {
+							<span class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></span>
+						}
+						if journeyEntryAvailable(item) {
+							<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+						} else {
+							{ canonicalBookTitle(item.Book) }
+						}
+					</h1>
+				} else {
+					<h3>
+						if journeyEntryAvailable(item) {
+							<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+						} else {
+							{ canonicalBookTitle(item.Book) }
+						}
+					</h3>
+				}
+				if author := canonicalBookAuthor(item.Book); author != "" {
+					<p class="journey-book__author">By { author }</p>
+				}
+				if primary {
+					@GoalLifecycleActions(item, csrf)
+					if item.GoalReadingOnly {
+						@StatusBadge("Reading only", StatusInfo)
+						if item.GoalUnassessed {
+							<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Book. Reading directly is the current path.</p>
+						} else {
+							<p>Analysis evidence exists, but this Book has no deck-eligible vocabulary. Reading directly is the current path.</p>
+						}
+					}
+				} else {
+					<p>@StatusBadge("To Read", StatusNeutral)</p>
+				}
+			</div>
+		</div>
+	<div class="journey-book__evidence">
 	if primary {
 		<p>@StatusBadge("Current reading", StatusInfo) <span aria-hidden="true">·</span> Current commitment</p>
 		<p class="metadata"><strong>Reading state</strong>: Not yet marked finished. Reading, analysis, and deck preparation remain independent facts.</p>
 		<p class="metadata"><strong>Reserved vocabulary</strong>: <span class="numeric">{ fmt.Sprintf("%d", item.GoalSnapshotSize) }</span> frozen identities.</p>
-	} else {
-		<p>@StatusBadge("To Read", StatusNeutral)</p>
 	}
-	if primary && item.GoalReadingOnly {
-		@StatusBadge("Reading only", StatusInfo)
-		if item.GoalUnassessed {
-			<p>No analysis or deck-eligible vocabulary exists yet, so Mouseion cannot model vocabulary for this Book. Reading directly is the current path.</p>
-		} else {
-			<p>Analysis evidence exists, but this Book has no deck-eligible vocabulary. Reading directly is the current path.</p>
-		}
-	}
-	</div>
-	<div class="journey-book__evidence">
 	@JourneyEvidence(item, csrf, primary)
 	if primary {
 		<section class="goal-card__deck" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
@@ -638,28 +664,25 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 				</div>
 			</details>
 		</div>
-	} else {
-		<div class="goal-card__actions">
-				@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
-				<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Mark reading finished</button></form>
-			}
-			<a class="button button--outline" href="/reading/switch">Switch current reading</a>
-			@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
-				<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline">Confirm stop for now</button></form>
-			}
-			@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain. You can move it back to To Read from My Books.", StatusDanger) {
-				<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--danger">Confirm set aside</button></form>
-			}
-			<details class="more-actions">
-				<summary>More actions</summary>
-				<div class="more-actions__body">
-				<p>Book disposition is managed in <a href="/library">My Books</a>.</p>
-				</div>
-			</details>
-			<p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p>
-		</div>
 	}
 	</article>
+}
+
+templ GoalLifecycleActions(item journeyBookView, csrf string) {
+	<div class="journey-book__lifecycle" role="group" aria-label="Reading actions">
+		@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
+			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Mark reading finished</button></form>
+		}
+		<a class="button button--outline" href="/reading/switch">Switch current reading</a>
+		@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
+			<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline">Confirm stop for now</button></form>
+		}
+		@Confirmation("Set aside this Book", "This clears the current reading, moves the Book to Set Aside, and releases only its active Reserved vocabulary. Its analysis, decks, and history remain. You can move it back to To Read from My Books.", StatusDanger) {
+			<form method="post" action="/reading/set-aside"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--danger">Confirm set aside</button></form>
+		}
+		<details class="more-actions"><summary>More actions</summary><div class="more-actions__body"><p>Book disposition is managed in <a href="/library">My Books</a>.</p></div></details>
+		<p>To replace this Book, use Switch current reading and choose another eligible To Read book.</p>
+	</div>
 }
 
 templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation domain.DeckPreparation) {
@@ -690,7 +713,9 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 }
 
 templ JourneyEvidence(item journeyBookView, csrf string, primary bool) {
-	if journeyEvidenceState(item) != "current" {
+	if !primary && journeyEvidenceState(item) == "current" && item.Coverage != nil {
+		<p class="metadata"><strong>Known vocabulary coverage:</strong> { fmt.Sprintf("%d of %d analyzable tokens", item.Coverage.KnownTokenCount, item.Coverage.AnalyzableTokenCount) }</p>
+	} else if journeyEvidenceState(item) != "current" {
 		<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
 		{{ action := journeyAnalysisAction(item) }}
 		if action.Status != "" {
@@ -1869,13 +1894,19 @@ templ ReadingChooserBand(title, description string, books []readingChooserBookVi
 
 templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<li class="reading-chooser-book">
-		<article class="resource-card">
-			<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
-			if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
-				<p>By { author }</p>
-			}
+		<article class="reading-chooser-entry">
+			<div class="reading-chooser-entry__identity">
+				<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Cover)</div>
+				<div>
+					<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
+					if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
+						<p>By { author }</p>
+					}
+				</div>
+			</div>
+			<div class="reading-chooser-entry__evidence">
 			if item.Coverage != nil {
-				<p class="numeric"><strong>Current coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ item.Coverage.KnownTokenCount } of { item.Coverage.AnalyzableTokenCount } analyzable tokens)</p>
+				<p class="numeric"><strong>Known vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ item.Coverage.KnownTokenCount } of { item.Coverage.AnalyzableTokenCount } analyzable tokens)</p>
 				<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
 				<details>
 					<summary>Coverage investment at 95%, 97%, and 99%</summary>
@@ -1921,6 +1952,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 					</form>
 				}
 			}
+			</div>
 		</article>
 	</li>
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ func testJourneyBook(id, title, status string) journeyBookView {
 	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, AnalysisStatus: status}}
 }
 
-func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
+func TestJourneyPageRendersCurrentBookBeforeUnorderedProvisionalBooks(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "ready")
 	provisional := []journeyBookView{
 		testJourneyBook("first", "First provisional book", "ready"),
@@ -34,9 +35,28 @@ func TestJourneyPageRendersGoalAndProvisionalOrder(t *testing.T) {
 	firstIndex := strings.Index(html, "First provisional book")
 	secondIndex := strings.Index(html, "Second provisional book")
 	assert.True(t, goalIndex >= 0 && provisionalIndex >= 0 && firstIndex >= 0 && secondIndex >= 0 && goalIndex <= provisionalIndex && firstIndex <= secondIndex, "journey order was not goal-first and learner-ordered: goal=%d provisional=%d first=%d second=%d", goalIndex, provisionalIndex, firstIndex, secondIndex)
-	assert.Contains(t, html, `<ol class="journey-list" aria-label="To Read books">`)
+	assert.Contains(t, html, `<ul class="journey-list" aria-label="To Read books">`)
+	assert.NotContains(t, html, `<ol class="journey-list"`)
 	assert.NotContains(t, html, "vocabulary-efficient")
 	assert.NotContains(t, html, "advisory order")
+}
+
+func TestJourneyPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBook(t *testing.T) {
+	goal := testJourneyBook("current", "Der lange Weg nach Hause", "ready")
+	goal.Book.BookAuthor = "A. Reader"
+	goal.Cover = domain.BookCover{State: domain.BookCoverUnavailable}
+	goal.ReadingSince = time.Date(2026, time.January, 3, 12, 0, 0, 0, time.UTC)
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+
+	assert.Contains(t, html, "Reading since")
+	assert.Contains(t, html, `<time datetime="2026-01-03">January 3, 2026</time>`)
+	assert.Contains(t, html, "Der lange Weg nach Hause")
+	assert.Contains(t, html, "By A. Reader")
+	assert.Contains(t, html, `class="journey-book__title-page journey-book__title-page--current"`)
+	assert.Contains(t, html, `class="journey-book__lifecycle"`)
+	assert.Contains(t, html, "Mark reading finished")
+	assert.Contains(t, html, "Switch current reading")
+	assert.Contains(t, html, "Set aside this Book")
 }
 
 func TestJourneyPageRendersAlignedCoverMediaForGoalAndProvisionalBooks(t *testing.T) {
@@ -257,6 +277,8 @@ func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
 	assert.NotContains(t, html, "Assessment:")
 	assert.NotContains(t, html, "Analysis result ready")
 	assert.NotContains(t, html, "Current coverage")
+	assert.Contains(t, html, "Known vocabulary coverage:")
+	assert.Contains(t, html, "0 of 10 analyzable tokens")
 	assert.NotContains(t, html, "On arrival")
 }
 

@@ -131,7 +131,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('Reading Journey keeps goal-first keyboard order and announces feedback', async ({ page }) => {
     await signIn(page);
     await page.goto('/reading?message=Journey%20updated');
-    const goalHeading = page.locator('#primary-goal-heading');
+    const goalHeading = page.locator('.journey-book__title');
     const provisionalHeading = page.locator('#provisional-journey-heading');
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Journey updated');
