@@ -60,6 +60,8 @@ func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 	html := output.String()
 	assert.False(t, strings.Contains(html, `action="/reading/books/journey-book/to-read"`) || strings.Contains(html, "Move to To Read"), "existing To Read book still exposed add action: %s", html)
 	assert.Contains(t, html, "To Read")
+	assert.Contains(t, html, `<span class="status-badge status-badge--neutral"><span class="status-badge__shape status-badge__shape--ring" aria-hidden="true"></span>To Read</span>`)
+	assert.NotContains(t, html, `<span aria-hidden="true">●</span>`)
 	assert.Contains(t, html, "View in Reading")
 	assert.Contains(t, html, `href="/reading#journey-book-journey-book"`)
 }
@@ -74,6 +76,7 @@ func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
 	html := output.String()
 	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/to-read"`) || strings.Contains(html, "Move to To Read"), "current reading still exposed add action: %s", html)
 	assert.Contains(t, html, "Currently reading")
+	assert.Contains(t, html, `<span class="status-badge status-badge--info"><span class="status-badge__shape status-badge__shape--dot" aria-hidden="true"></span>Currently reading</span>`)
 	assert.Contains(t, html, `href="/reading#journey-book-goal-book"`)
 	assert.NotContains(t, html, "To Read")
 }
