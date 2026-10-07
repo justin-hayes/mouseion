@@ -85,7 +85,7 @@ test('finishing current reading records Read history and supports reading again'
   await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
   await expect(page.getByRole('link', { name: 'Choose a To Read book' })).toHaveAttribute('href', '/reading');
   await page.goto('/library?history=read');
-  const history = page.locator('.library-grid .library-book').filter({ hasText: title });
+  const history = page.locator('.library-books .library-book').filter({ hasText: title });
   await expect(history).toBeVisible();
   await expect(history).toContainText('Read');
   await history.getByText('More actions', { exact: true }).click();
@@ -93,7 +93,7 @@ test('finishing current reading records Read history and supports reading again'
   await history.getByRole('button', { name: 'Read again' }).click();
 
   await expect(page).toHaveURL(/\/library\?disposition=to_read/);
-  const reread = page.locator('.library-grid .library-book').filter({ hasText: title });
+  const reread = page.locator('.library-books .library-book').filter({ hasText: title });
   await expect(reread).toContainText('To Read');
   await expect(reread.getByRole('link', { name: 'View in Reading' })).toBeVisible();
 
@@ -101,7 +101,7 @@ test('finishing current reading records Read history and supports reading again'
   await reread.getByText('Set aside', { exact: true }).click();
   await reread.getByRole('button', { name: 'Confirm set aside' }).click();
   await expect(page).toHaveURL(/\/library\?history=read&message=/);
-  const readAgainLater = page.locator('.library-grid .library-book').filter({ hasText: title });
-  await expect(readAgainLater).toContainText('Workflow');
+  const readAgainLater = page.locator('.library-books .library-book').filter({ hasText: title });
+  await expect(readAgainLater).toContainText('Disposition');
   await expect(readAgainLater).toContainText('Read');
 });

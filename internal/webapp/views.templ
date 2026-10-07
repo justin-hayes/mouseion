@@ -225,37 +225,43 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 
 templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) {
 	<li id={ myBookRowID(book.Book.ID) } class="resource-card library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
-		if myBookInJourney(book) {
-			<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
-				@BookCoverMedia(book.Book.ID, book.Cover)
-				<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
-			</a>
-		} else {
-			<div class="library-book__identity-link">
-				@BookCoverMedia(book.Book.ID, book.Cover)
-				<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
-			</div>
-		}
-		if author := strings.TrimSpace(book.Book.Author); author != "" {
-			<p class="library-book__author">By { author }</p>
-		}
-		if myBookInJourney(book) {
-			if book.WorkflowBucket() == domain.MyBookBucketCurrentReading {
-				<p class="library-book__membership">Currently reading</p>
+		<div class="library-book__identity">
+			if myBookInJourney(book) {
+				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
+					@BookCoverMedia(book.Book.ID, book.Cover)
+					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+				</a>
 			} else {
-				<p class="library-book__membership"><span aria-hidden="true">+</span> To Read</p>
+				<div class="library-book__identity-link">
+					@BookCoverMedia(book.Book.ID, book.Cover)
+					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+				</div>
 			}
-		}
-		if book.CompletionCount > 0 {
-			<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
-			<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>
-		}
+			if author := strings.TrimSpace(book.Book.Author); author != "" {
+				<p class="library-book__author">By { author }</p>
+			}
+		</div>
+		<div class="library-book__notes">
+			if myBookInJourney(book) {
+				if book.WorkflowBucket() == domain.MyBookBucketCurrentReading {
+					<p class="library-book__membership">Currently reading</p>
+				} else {
+					<p class="library-book__membership"><span aria-hidden="true">●</span> To Read</p>
+				}
+			}
+			if book.Disposition != "" && !myBookInJourney(book) {
+				<p class="metadata"><strong>Disposition</strong>: { myBookWorkflowLabel(book) }</p>
+			}
+			if book.CompletionCount > 0 {
+				<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
+				<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>
+			}
+		</div>
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
 				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
 			}
 			if book.Disposition != "" {
-				<p class="metadata"><strong>Workflow</strong>: { myBookWorkflowLabel(book) }</p>
 				if myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionSetAside {
 					if book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
@@ -344,12 +350,12 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 		@MyBooksDispositionFilterLink(browse, "Inbox", domain.BookDispositionInbox, myBooksDispositionCount(browse, domain.BookDispositionInbox))
 		@MyBooksDispositionFilterLink(browse, "To Read", domain.BookDispositionToRead, myBooksDispositionCount(browse, domain.BookDispositionToRead))
 		@MyBooksDispositionFilterLink(browse, "Set Aside", domain.BookDispositionSetAside, myBooksDispositionCount(browse, domain.BookDispositionSetAside))
-		<a class="btn btn-outline" { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
+		<a { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
 	</nav>
 }
 
 templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
-	<a class="btn btn-outline" { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
+	<a { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
@@ -389,7 +395,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 					}
 				</ul>
 			} else {
-				<ul class="library-grid" role="list">
+				<ul class="library-books" role="list">
 					for _, book := range books {
 						if myBooksBookInLanguage(browse, book) {
 							@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
@@ -413,27 +419,26 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 }
 
 templ NeedsLanguageStrip(count int) {
-	<section class="library-needs-language" aria-labelledby="library-needs-language-heading">
-		<h2 id="library-needs-language-heading">Books awaiting a language</h2>
-		if count == 1 {
-			<p>1 book is outside the active language collections because the catalog has not assigned a language.</p>
-		} else {
-			<p>{ fmt.Sprintf("%d books are outside the active language collections because the catalog has not assigned a language.", count) }</p>
-		}
-		<p>Fix the language in the catalog, then re-sync from <a href="/catalogs">Catalogs</a>.</p>
-		<p><a href="/library?needs-language">Review books awaiting a language</a></p>
-	</section>
+	<aside class="library-needs-language" aria-label="Books awaiting a language">
+		<div class="library-needs-language__summary">
+			if count == 1 {
+				<strong>1 book awaiting a language</strong>
+			} else {
+				<strong>{ fmt.Sprintf("%d books awaiting a language", count) }</strong>
+			}
+			<a href="/library?needs-language">Review</a>
+			<details><summary>Why?</summary><p>The catalog has not assigned a language. Set it in the catalog, then re-sync from <a href="/catalogs">Catalogs</a>.</p></details>
+		</div>
+	</aside>
 }
 
 templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		<section class="library-masthead" aria-labelledby="library-page-title">
-			<header class="page-header">
-				<div class="page-header__content">
-					<h1 id="library-page-title">{ myBooksPageHeading(browse) }</h1>
-					<p>Your working collection: literature you care about, with clear evidence for what you can do next.</p>
-				</div>
-			</header>
+			<h1 id="library-page-title">My Books</h1>
+			if browse.Language != "" {
+				<p class="library-language-context">{ myBooksLanguageName(browse) } collection</p>
+			}
 		</section>
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -463,10 +468,6 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@EmptyState("Choose a study language", "Choose a language in the shell before browsing its Books.") {}
 			}
 		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
-			if browse.NeedsLanguageCount > 0 {
-				@NeedsLanguageStrip(browse.NeedsLanguageCount)
-			}
-			@MyBooksDispositionFilters(browse)
 			<section class="library-finder" aria-label="Find books">
 				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
 					<label for="library-search-query">Search My Books</label>
@@ -475,13 +476,17 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					<button class="btn btn-primary" type="submit">Search</button>
 					</div>
 				</form>
+				@MyBooksDispositionFilters(browse)
 			</section>
+			if browse.NeedsLanguageCount > 0 {
+				@NeedsLanguageStrip(browse.NeedsLanguageCount)
+			}
 			<div id="library-recovery" aria-live="polite"></div>
 			@MyBooksResults(csrf, books, browse)
 		} else if len(books) > 0 {
 			<section class="library-list" aria-labelledby="acquired-books-heading">
-				<h2 id="acquired-books-heading">Books in My Books</h2>
-				<ul class="library-grid" role="list">
+				<h2 id="acquired-books-heading">Books</h2>
+				<ul class="library-books" role="list">
 					for _, book := range books {
 						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
 					}

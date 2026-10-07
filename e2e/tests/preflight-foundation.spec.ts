@@ -57,7 +57,7 @@ test('Preflight is bounded by Mouseion document and shared-control contracts', a
   expect(inputStyle.borderColor).toBe(foundation.input.expectedBorderColor);
   expect(Number.parseFloat(inputStyle.width)).toBeGreaterThan(0);
 
-  const books = page.locator('.library-grid');
+  const books = page.locator('.library-books');
   await expect(books).toHaveAttribute('role', 'list');
   await expect(books.getByRole('listitem').first()).toBeVisible();
 

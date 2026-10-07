@@ -109,11 +109,11 @@ test.describe('authenticated learner smoke', () => {
     await expect(page).toHaveURL(/\/library/);
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await expect(page.locator('section#library-results')).toBeVisible();
-    await expect(page.locator('.library-grid a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
-    await expect(page.locator('.library-grid a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(0);
-    await expect(page.locator('.library-grid a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toHaveCount(0);
+    await expect(page.locator('.library-books a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.locator('.library-books a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(0);
+    await expect(page.locator('.library-books a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toHaveCount(0);
     await expect(page.getByText('Analysis failed — action required')).toHaveCount(0);
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toHaveCount(0);
   });
@@ -726,7 +726,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.goto('/library');
     const libraryLanguage = page.getByLabel('Study language');
     if (await libraryLanguage.inputValue() !== 'de') await libraryLanguage.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
     const retiredBookResponse = await page.goto('/books/fixture-metadata-only');
     expect(retiredBookResponse?.status()).toBe(404);
     const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');

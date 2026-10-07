@@ -116,8 +116,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
-    const title = page.locator('.library-grid a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    const title = page.locator('.library-books a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
     const item = title.locator('xpath=ancestor::li');
@@ -125,7 +125,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(itemFocusStops.first()).toHaveClass(/library-book__identity-link/);
     await expect(itemFocusStops.nth(1)).toHaveText(/View in Reading/);
     await expect(itemFocusStops.nth(2)).toHaveText('More actions');
-    await expect(page.locator('.library-grid').getByText('Review failed analysis')).toHaveCount(0);
+    await expect(page.locator('.library-books').getByText('Review failed analysis')).toHaveCount(0);
   });
 
   test('Reading Journey keeps goal-first keyboard order and announces feedback', async ({ page }) => {
@@ -275,7 +275,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.goto('/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books in German');
+    await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await page.goto('/jobs');
     const region = page.getByRole('region', { name: 'Analysis history' });
     await expect(region).toHaveAttribute('tabindex', '0');

@@ -245,38 +245,20 @@ func myBooksResultsHeading(browse MyBooksBrowseState) string {
 	}
 	if browse.History {
 		if browse.Query != "" {
-			return fmt.Sprintf("Read history in %s matching “%s”", myBooksLanguageName(browse), browse.Query)
+			return fmt.Sprintf("Read history matching “%s”", browse.Query)
 		}
-		return "Read history in " + myBooksLanguageName(browse)
+		return "Read history"
 	}
-	workflow := ""
 	if browse.Disposition != "" {
-		workflow = myBooksDispositionLabel(browse.Disposition) + " in "
-	}
-	if browse.Language != "" {
-		language := myBooksLanguageName(browse)
 		if browse.Query != "" {
-			return fmt.Sprintf("%sMy Books in %s matching “%s”", workflow, language, browse.Query)
+			return fmt.Sprintf("%s books matching “%s”", myBooksDispositionLabel(browse.Disposition), browse.Query)
 		}
-		return workflow + "My Books in " + language
+		return myBooksDispositionLabel(browse.Disposition) + " books"
 	}
 	if browse.Query != "" {
-		return fmt.Sprintf("%sMy Books matching “%s”", workflow, browse.Query)
+		return fmt.Sprintf("Books matching “%s”", browse.Query)
 	}
-	if workflow != "" {
-		return strings.TrimSpace(workflow) + "My Books"
-	}
-	return "Books in My Books"
-}
-
-func myBooksPageHeading(browse MyBooksBrowseState) string {
-	if browse.NeedsLanguage {
-		return "Books awaiting a language"
-	}
-	if browse.Language == "" {
-		return "My Books"
-	}
-	return "My Books in " + myBooksLanguageName(browse)
+	return "Books"
 }
 
 func myBooksLanguageName(browse MyBooksBrowseState) string {

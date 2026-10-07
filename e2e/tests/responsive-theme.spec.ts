@@ -754,14 +754,14 @@ test.describe('responsive and theme regression coverage', () => {
       await switcher.selectOption('de');
       await expect(page).toHaveURL(/\/library$/);
     }
-    await expect(page.locator('.library-grid .library-book__identity-link[href="/reading#journey-book-fixture-book"]')).toBeVisible();
-    await expect(page.locator('.library-grid a[href="/books/fixture-failed"]')).toHaveCount(0);
-    await expect(page.locator('.library-grid a[href="/books/fixture-edge-content"]')).toHaveCount(0);
-    await expect(page.locator('.library-grid a[href="/books/fixture-empty"]')).toHaveCount(0);
+    await expect(page.locator('.library-books .library-book__identity-link[href="/reading#journey-book-fixture-book"]')).toBeVisible();
+    await expect(page.locator('.library-books a[href="/books/fixture-failed"]')).toHaveCount(0);
+    await expect(page.locator('.library-books a[href="/books/fixture-edge-content"]')).toHaveCount(0);
+    await expect(page.locator('.library-books a[href="/books/fixture-empty"]')).toHaveCount(0);
     expect(await page.locator('.library-book').filter({ has: page.locator('.library-book__identity-link[href^="/reading#"]') }).count()).toBeGreaterThan(0);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
-    const libraryControls = page.locator('.library-grid button:visible, .library-grid a.library-book__journey-action:visible, .library-grid > .library-book > details > summary:visible');
+    const libraryControls = page.locator('.library-books button:visible, .library-books a.library-book__journey-action:visible, .library-books > .library-book > details > summary:visible');
     const libraryControlBoxes = await libraryControls.evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };

@@ -274,10 +274,11 @@ Use when peer content and actions no longer fit comfortably side by side.
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.
 
-The shipped My Books cover grid keeps ordinary document order and uses
-two columns at typical compact widths, reducing columns when long content or
-zoom makes that necessary. It never introduces horizontal page scrolling or an
-ARIA-grid keyboard model. Reading keeps its semantic candidate-list structure and
+My Books uses one semantic unordered list at every width. Each Book is a compact
+text-led row with a small reserved cover, full title and author, one contextual
+action, and quiet disposition/evidence notes; notes move below identity on
+compact screens. It never introduces horizontal page scrolling or an ARIA-grid
+keyboard model. Reading keeps its semantic candidate-list structure and
 reserves a modest aligned thumbnail column.
 
 ### Standard — above `40rem` and below `72rem`
@@ -399,9 +400,10 @@ vocabulary-coverage bands and asks for explicit start/switch confirmation. The
 completion receipt reports exact modeled vocabulary changes and returns to that
 neutral chooser.
 
-The shipped Book Covers slice changes My Books from repeated rows to
-`MyBooksCoverItem` grid items and adds `BookCoverMedia` thumbnails to Reading
-without changing the shell or destination set.
+The shipped Book Covers slice introduced covers in My Books and Reading. My
+Books now presents those covers in a one-column `MyBooksCoverItem` list; Reading
+continues to use `BookCoverMedia` thumbnails without changing the shell or
+destination set.
 
 New components require repeated user-goal and behavior evidence. They must use
 the semantic tokens in this document, preserve native server-rendered behavior,
