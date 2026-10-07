@@ -131,7 +131,11 @@ retrieval pending, and advertised image unavailable. A replacement in progress
 continues showing the prior validated image.
 
 Real images use empty alternative text when title text is adjacent. Placeholder
-visuals are hidden from the accessibility tree. A cover and title that navigate
+visuals are hidden from the accessibility tree and carry the first title initial
+over a tinted surface. Ignore a leading German (*Der*, *Die*, *Das*), Italian
+(*Il*, *La*, *Lo*, *Gli*, *Le*, *L'*) or Modern Greek (*Ο*, *Η*, *Το*, *Οι*)
+article; when the title is only an article, retain its initial. Keep the visible
+pending, unavailable, or no-cover state label. A cover and title that navigate
 to the same Reading Journey anchor form one link and one focus stop; when no
 anchor exists, cover media does not become an implicit control. Reserve intrinsic
 space, lazy-load below-viewport images, preserve visible focus on the containing
@@ -222,6 +226,12 @@ JavaScript may enhance an interaction only after the server-rendered path has a
 coherent destination, error state, and recovery action. An HTMX fragment must
 preserve the same component root and live-region semantics when it replaces
 itself.
+
+Every native disclosure uses the same chevron immediately before its visible
+summary text. The cue points right while closed and turns down while open; it is
+not replaced by browser markers, text glyphs, or workflow-specific variants.
+Native Enter/Space behavior, visible keyboard focus, a 44px minimum target, and
+reduced-motion support remain intact.
 
 Concordance lookup, applied-scope filters, paging, and occurrence review use the
 shared control and feedback states from the application foundation. Workflow
@@ -382,6 +392,11 @@ through an icon or color. A badge is not interactive. Avoid ambiguous labels
 such as **Active**, **Reading**, **Ready**, or **Completed** without the fact they
 qualify. Primary Goal is a relationship role and should not receive generic
 success styling.
+
+Pair visible status words with a decorative shape hidden from assistive
+technology: filled dot for current/ready, ring for neutral or in-progress, and
+diamond for failure. Keep the shape distinguishable in both themes and
+forced-colors mode; it supplements rather than replaces the label.
 
 ### `Feedback`
 

@@ -322,7 +322,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, book.Cover).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -361,7 +361,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, book.Cover).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2707,7 +2707,7 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = BookCoverMedia(journeyBookID(item), item.Cover).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = BookCoverMedia(journeyBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -10552,7 +10552,7 @@ func ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curren
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = BookCoverMedia(item.Book.Book.ID, item.Book.Cover).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

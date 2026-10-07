@@ -76,6 +76,34 @@ test('applies Literata to actual Book identity and passage text', async ({ page 
   expect(passageFace.fits).toBe(true);
 });
 
+test('loads self-hosted Literata italic only for italic Book labels', async ({ page }) => {
+  const fontRequests: string[] = [];
+  page.on('request', (request) => {
+    if (/\.woff2(?:\?|$)/.test(request.url())) fontRequests.push(request.url());
+  });
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  expect(fontRequests.every(url => url.startsWith(new URL('/static/vendor/fonts/', page.url()).origin))).toBe(true);
+  expect(fontRequests.some(url => url.includes('-italic.woff2'))).toBe(false);
+  expect(await page.locator('link[rel="preload"][href*="italic"]').count()).toBe(0);
+
+  await page.getByLabel('Username').fill('fixture-learner');
+  await page.getByLabel('Password').fill('fixture-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+  const label = page.locator('.concordance-book-title').first();
+  await expect(label).toBeVisible();
+  const face = await label.evaluate(async element => {
+    const style = getComputedStyle(element);
+    const loaded = await document.fonts.load(`italic ${style.fontWeight} ${style.fontSize} "Literata Variable"`, element.textContent!);
+    return { style: style.fontStyle, loaded: loaded.length > 0 && loaded.every(font => font.status === 'loaded') };
+  });
+  expect(face.style).toBe('italic');
+  expect(face.loaded).toBe(true);
+  expect(fontRequests.some(url => url.includes('-italic.woff2'))).toBe(true);
+  expect(fontRequests.every(url => url.startsWith(new URL('/static/vendor/fonts/', page.url()).origin))).toBe(true);
+});
+
 test('sign-in and Greek text remain visible and usable when local font requests fail', async ({ page }) => {
   await page.route('**/*.woff2', (route) => route.abort());
   await page.goto('/login');

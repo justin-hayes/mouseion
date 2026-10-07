@@ -123,6 +123,63 @@ body {
   line-height: 1.5;
 }
 
+details > summary {
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details > summary::before {
+  box-sizing: border-box;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 0.5rem;
+  margin-inline-end: var(--mouseion-space-2);
+  border-top: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg);
+  transition: transform 120ms ease;
+}
+
+details[open] > summary::before {
+  transform: rotate(135deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  details > summary::before {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  details > summary::before {
+    border-color: CanvasText;
+  }
+
+  .status-badge__shape,
+  .status::before {
+    forced-color-adjust: none;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+
+  .status-badge__shape--dot,
+  .status-badge__shape--diamond,
+  .status-analyzed::before,
+  .status-active::before,
+  .status-ready::before,
+  .status-complete::before,
+  .status-abandoned::before {
+    background: CanvasText;
+  }
+}
+
 :focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
   outline-offset: 2px;
@@ -510,23 +567,6 @@ textarea {
   white-space: nowrap;
 }
 
-.site-header__account > summary::-webkit-details-marker {
-  display: none;
-}
-
-.site-header__account > summary::after {
-  width: 0.4em;
-  height: 0.4em;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  content: "";
-  transform: rotate(45deg) translateY(-0.15em);
-}
-
-.site-header__account[open] > summary::after {
-  transform: rotate(-135deg);
-}
-
 .site-header__account-compact {
   display: none;
 }
@@ -804,6 +844,30 @@ progress {
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.4;
+}
+
+.status-badge__shape {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 0.55rem;
+  margin-inline-end: var(--mouseion-space-1);
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+
+.status-badge__shape--dot {
+  background: currentColor;
+}
+
+.status-badge__shape--diamond {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-basis: 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: currentColor;
+  transform: rotate(45deg);
 }
 
 .status-badge--neutral {
@@ -1093,10 +1157,6 @@ progress {
   list-style: none;
 }
 
-.library-add-book > summary::-webkit-details-marker {
-  display: none;
-}
-
 .library-add-book[open] > summary {
   background: var(--mouseion-color-accent);
   color: var(--mouseion-color-surface-raised);
@@ -1209,20 +1269,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   align-items: center;
   cursor: pointer;
   list-style: none;
-}
-
-.library-needs-language details > summary::-webkit-details-marker {
-  display: none;
-}
-
-.library-needs-language details > summary::before {
-  content: "▸";
-  flex: 0 0 1.25rem;
-  color: var(--mouseion-color-accent);
-}
-
-.library-needs-language details[open] > summary::before {
-  content: "▾";
 }
 
 .library-language-pills {
@@ -1357,7 +1403,20 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   height: 100%;
   place-items: center;
   padding: var(--mouseion-space-3);
-  color: var(--mouseion-color-text-muted);
+  gap: var(--mouseion-space-1);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-quiet);
+  text-align: center;
+}
+
+.book-cover-media__initial {
+  font-family: var(--mouseion-font-reading);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.book-cover-media__label {
   font-size: var(--mouseion-font-size-metadata);
   text-align: center;
 }
@@ -1460,10 +1519,25 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 }
 
 .status {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mouseion-space-2);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-1) var(--mouseion-space-3);
   white-space: nowrap;
   background: var(--mouseion-color-surface-quiet);
+}
+
+.status::before {
+  box-sizing: border-box;
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 0.55rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  content: "";
 }
 
 .status-analyzed,
@@ -1473,12 +1547,26 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   color: var(--mouseion-color-success);
 }
 
+.status-analyzed::before,
+.status-active::before,
+.status-ready::before,
+.status-complete::before {
+  background: currentColor;
+}
+
 .status-analyzing {
   color: var(--mouseion-color-info);
 }
 
 .status-abandoned {
   color: var(--mouseion-color-danger);
+}
+
+.status-abandoned::before {
+  border: 0;
+  border-radius: 0;
+  background: currentColor;
+  transform: rotate(45deg);
 }
 
 .book-actions {

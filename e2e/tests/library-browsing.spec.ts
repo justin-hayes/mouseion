@@ -9,6 +9,31 @@ async function signIn(page: Page) {
 }
 
 test.describe('My Books collection browsing', () => {
+  test('uses one visible native disclosure cue and text-backed status shapes', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/reading');
+
+    const account = page.locator('details').filter({ has: page.getByText('Account', { exact: true }) });
+    const summary = account.locator('summary');
+    await expect(summary).toBeVisible();
+    expect((await summary.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const closedCue = await summary.evaluate(element => getComputedStyle(element, '::before').transform);
+    await summary.focus();
+    await page.keyboard.press('Space');
+    await expect(account).toHaveAttribute('open', '');
+    const openCue = await summary.evaluate(element => getComputedStyle(element, '::before').transform);
+    expect(openCue).not.toBe(closedCue);
+
+    const badge = page.locator('.status-badge').filter({ hasText: 'Current reading' });
+    await expect(badge).toBeVisible();
+    const shape = badge.locator('[aria-hidden="true"]');
+    await expect(shape).toBeVisible();
+    await expect(shape).toHaveAttribute('aria-hidden', 'true');
+    expect(await shape.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+    expect((await badge.innerText()).trim()).toContain('Current reading');
+  });
+
   test('uses Mouseion-owned styles without loading Pico', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');

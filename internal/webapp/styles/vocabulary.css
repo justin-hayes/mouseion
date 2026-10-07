@@ -386,16 +386,6 @@ body.reading-shell .lemma-review summary {
   cursor: pointer;
 }
 
-body.reading-shell .lemma-review details > summary::before {
-  content: "▸";
-  flex: 0 0 1.25rem;
-  color: var(--mouseion-color-accent);
-}
-
-body.reading-shell .lemma-review details[open] > summary::before {
-  content: "▾";
-}
-
 #main-content:has(form.concordance-query) > .vocabulary-page-header {
   margin-bottom: var(--mouseion-space-2);
 }
@@ -586,21 +576,6 @@ body.vocabulary-shell #concordance-results nav a {
   cursor: pointer;
 }
 
-.concordance-scopes summary::-webkit-details-marker,
-.concordance-row summary::-webkit-details-marker {
-  display: none;
-}
-
-.concordance-scopes summary::before {
-  content: "▸";
-  flex: 0 0 1.25rem;
-  color: var(--mouseion-color-accent);
-}
-
-.concordance-scopes details[open] > summary::before {
-  content: "▾";
-}
-
 .concordance-results {
   list-style: none;
   padding-inline-start: 0;
@@ -670,16 +645,14 @@ body.vocabulary-shell #concordance-results nav a {
 
 .concordance-row summary::before {
   position: absolute;
-  inset-block: 0;
+  inset-block-start: 50%;
   inset-inline-start: 0;
-  display: flex;
-  align-items: center;
-  content: "▸";
-  color: var(--mouseion-color-accent);
+  margin: 0;
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .concordance-row[open] > summary::before {
-  content: "▾";
+  transform: translateY(-50%) rotate(135deg);
 }
 
 .concordance-before,
