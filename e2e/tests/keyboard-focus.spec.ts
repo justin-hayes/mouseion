@@ -96,12 +96,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
+    for (const name of ['My Books', 'Reading', 'Vocabulary', 'Catalogs']) {
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
+    }
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('Study language')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.locator('.site-header__account summary')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'My Books' })).toBeFocused();
     const focusStyle = await page.evaluate(() => {
       const element = document.activeElement;
       if (!element) return { outline: 'none', width: '0px', boxShadow: 'none' };
@@ -109,6 +111,20 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       return { outline: style.outlineStyle, width: style.outlineWidth, boxShadow: style.boxShadow };
     });
     expect(focusStyle.outline !== 'none' || focusStyle.width !== '0px' || focusStyle.boxShadow !== 'none').toBeTruthy();
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/library');
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.skip-link')).toBeFocused();
+    await page.keyboard.press('Tab');
+    for (const name of ['Mouseion', 'My Books', 'Reading', 'Vocabulary', 'Catalogs']) {
+      await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
+      if (name !== 'Catalogs') await page.keyboard.press('Tab');
+    }
+    await page.keyboard.press('Tab');
+    await expect(page.getByLabel('Study language')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.site-header__account summary')).toBeFocused();
   });
 
   test('My Books exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {

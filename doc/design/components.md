@@ -75,14 +75,17 @@ and server-rendered validation/recovery when enhancement is unavailable. Do not
 add select, radio, or textarea component styles to these workflows: they are not
 used here.
 
-The application shell is one compact top bar at every width. Compact screens use
-two rows: wordmark, active study language, and account disclosure first; the four
-destinations second. Wider screens arrange those same elements in one horizontal
-bar when space permits, with readable reflow for long labels or enlarged text.
-It remains one navigation landmark with the same document and keyboard order in
-both forms. Current context uses a textual link and annotation rule; do
-not add icon-only destinations, counters, or a second navigation system. All
-four authenticated destinations share the same native-link treatment. The
+The application shell is one top bar at every width. Its document and keyboard
+order is wordmark, four destinations, study language, then account. Wide screens
+show that same order on one horizontal bar when space permits, with the study
+language and account at the trailing end. Compact screens intentionally use two
+visual rows: wordmark, active study language, and account disclosure first; the
+four destinations second. This visual arrangement keeps the destinations
+together and learner controls within easy reach while preserving the stable
+keyboard sequence. It remains one navigation landmark; long labels and enlarged
+text reflow without clipping. Current context uses a textual link and annotation
+rule; do not add icon-only destinations, counters, or a second navigation
+system. All four authenticated destinations share the same native-link treatment. The
 current destination is identified by `aria-current="page"` and restrained
 annotation-blue underline emphasis, never a filled button treatment or button
 role. The active study-language switcher keeps its label, native POST behavior,

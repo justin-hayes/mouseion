@@ -300,17 +300,21 @@ reserves a modest aligned thumbnail column.
 This is the default content-led layout. Auto-fit grids use available space while
 preserving minimum readable item widths. Do not add tablet-specific variants.
 
-The shared shell remains one compact top bar at every width. On compact screens,
-its first row holds the wordmark, active study language, and account disclosure;
-the second row holds the four primary destinations. Wider screens keep those
-same controls in one horizontal bar when space permits; long labels and enlarged
-text may make it taller. The one navigation landmark and document order remain
-identical at every width; destinations never become icon-only or move into a
-separate navigation system. The active study-language select retains the
-programmatic label “Study language”; visually hide that label on compact screens
-to keep the control beside the wordmark and account disclosure. Keep the short
-visible “Study language” label on wider screens. Name language options by their
-endonyms (Deutsch, Italiano, Ελληνικά), without appending language codes.
+The shared shell remains one top bar at every width. Its document and keyboard
+order is always wordmark, four primary destinations, study language, then
+account. On wide screens those items follow that same order visually, with the
+study-language switcher and account disclosure at the trailing end. On compact
+screens the wordmark, active study language, and account disclosure share the
+first visual row, while all four destinations occupy the second visual row. This
+intentional compact visual reordering keeps the destinations together and the
+learner controls beside the wordmark without changing the single navigation
+landmark or keyboard sequence. Long labels and enlarged text may make the bar
+taller; destinations never become icon-only or move into a separate navigation
+system. The active study-language select retains the programmatic label “Study
+language”; visually hide that label on compact screens to keep the control
+beside the wordmark and account disclosure. Keep the short visible “Study
+language” label on wider screens. Name language options by their endonyms
+(Deutsch, Italiano, Ελληνικά), without appending language codes.
 
 ### Wide data — from `72rem`
 
@@ -318,9 +322,10 @@ Data-dense coverage and threshold summaries may use wider minimum columns and
 more separation. Wide layouts do not justify oversized headings, longer reading
 measures, or decorative empty space.
 
-Responsive changes must preserve the same document order and keyboard order.
-Horizontal page scrolling is not an accepted fallback; a deliberately
-scrollable data table must label and contain its own overflow.
+Responsive changes preserve document and keyboard order even where compact
+visual rows intentionally differ. Horizontal page scrolling is not an accepted
+fallback; a deliberately scrollable data table must label and contain its own
+overflow.
 
 ## Accessibility foundation
 

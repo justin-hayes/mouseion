@@ -46,8 +46,10 @@ keyboard use, and preserves a clear path back to the parent Book or Reading.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
-The shell also carries a native **active study language** control alongside the
-four destinations, on every authenticated screen. It lists the learner's study
+The shell also carries a native **active study language** control on every
+authenticated screen. It follows the four destinations in document and keyboard
+order; wide screens place it at the trailing end, while compact screens show it
+beside the wordmark above the destinations. It lists the learner's study
 languages plus any known-vocabulary-only language marked "no books", marks a
 newly arrived study language "new", and is keyboard-accessible and
 server-rendered before enhancement. Changing it navigates to the same screen in
