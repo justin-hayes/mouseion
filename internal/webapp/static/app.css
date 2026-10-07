@@ -3183,7 +3183,7 @@
   .concordance-row summary {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 12rem) minmax(0, 1fr);
     align-items: baseline;
     gap: var(--mouseion-space-2);
     font-family: var(--mouseion-font-reading);
@@ -3217,7 +3217,7 @@
     font-family: var(--mouseion-font-reading);
     font-weight: 700;
     text-align: center;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
   .concordance-study-link {
     display: flex;
