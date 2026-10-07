@@ -1,0 +1,743 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway, #1480): three design directions, switchable via ?variant=A|B|C. See README.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mouseion prototype</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+:root {
+  --ground: #F3F6F7; --leaf: #FCFDFB; --quiet: #E3EBF0; --ink: #17232D; --pencil: #586873;
+  --blue: #2457B2; --blue-hover: #1B4690; --rule: #CCD7DE; --control: #6B7C88;
+  --danger: #A03631; --warning: #7A4D00; --ok: #2E6A43;
+  --tint-1: #DCE6EC; --tint-2: #E6E3D6; --tint-3: #D9E4DA; --tint-4: #EADDD8; --tint-5: #DFDEEA;
+  --ui: 'Commissioner Variable', Commissioner, system-ui, sans-serif;
+  --read: 'Literata Variable', Literata, Georgia, 'Times New Roman', serif;
+  --t-meta: .8125rem; --t-small: .875rem; --t-body: 1rem; --t-lead: 1.25rem; --t-h: 1.5625rem; --t-h1: 1.953rem; --t-title: 2.441rem; --t-display: 3.052rem;
+  --s1: .25rem; --s2: .5rem; --s3: .75rem; --s4: 1rem; --s5: 1.5rem; --s6: 2rem; --s7: 3rem; --s8: 4rem;
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --ground: #111A22; --leaf: #192630; --quiet: #233441; --ink: #EDF3F5; --pencil: #A9B8C2;
+  --blue: #8FB4FF; --blue-hover: #B5CCFF; --rule: #2F4352; --control: #7F93A2;
+  --danger: #FFAAA4; --warning: #F0C26B; --ok: #8FD3A6;
+  --tint-1: #24384A; --tint-2: #3A3628; --tint-3: #263A2D; --tint-4: #3E2B2A; --tint-5: #2E2D42;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 400 var(--t-body)/1.5 var(--ui); font-optical-sizing: auto; }
+a { color: var(--blue); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+a:hover { color: var(--blue-hover); }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 2px; }
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; padding: 0; }
+ul[role="list"], ul.plain { list-style: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: var(--s4); top: -4rem; background: var(--leaf); padding: var(--s3) var(--s4); z-index: 10; }
+.skip:focus { top: var(--s4); }
+.meta { color: var(--pencil); font-size: var(--t-small); }
+.title { font-family: var(--read); font-weight: 560; line-height: 1.2; letter-spacing: -.005em; text-wrap: balance; overflow-wrap: anywhere; hyphens: auto; }
+.author { color: var(--pencil); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Controls */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s4); border-radius: 6px; border: 1px solid var(--control); background: var(--leaf); color: var(--ink); font: 550 var(--t-small)/1.2 var(--ui); text-decoration: none; cursor: pointer; }
+.btn:hover { border-color: var(--ink); color: var(--ink); }
+.btn--primary { background: var(--blue); border-color: var(--blue); color: var(--leaf); }
+.btn--primary:hover { background: var(--blue-hover); border-color: var(--blue-hover); color: var(--leaf); }
+.btn--quiet { border-color: transparent; background: transparent; color: var(--blue); padding: 0 var(--s2); }
+.btn--quiet:hover { color: var(--blue-hover); border-color: transparent; text-decoration: underline; }
+.btn--danger { color: var(--danger); }
+input[type="search"], input[type="text"], select { min-height: 44px; border: 1px solid var(--control); border-radius: 6px; background: var(--leaf); color: var(--ink); font: 400 var(--t-body)/1.2 var(--ui); padding: 0 var(--s3); }
+select { padding-right: var(--s5); }
+label.field { display: grid; gap: var(--s1); font-size: var(--t-small); font-weight: 550; }
+
+/* Disclosures: one cue everywhere — a chevron that turns, plus text. */
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+.disc > summary { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; color: var(--blue); font-weight: 550; font-size: var(--t-small); }
+.disc > summary::before { content: ""; width: .45em; height: .45em; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; flex: none; margin-right: .1em; }
+.disc[open] > summary::before { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.confirm-body { padding: var(--s3) 0 var(--s4) calc(.45em + var(--s3)); display: grid; gap: var(--s3); max-width: 34rem; }
+
+/* Covers */
+.cover { --w: 120px; width: var(--w); aspect-ratio: 2 / 3; flex: none; container-type: inline-size; border-radius: 2px 4px 4px 2px; overflow: hidden; position: relative; display: block; }
+.cover--fill { width: 100%; }
+.cover > .cv { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.cover--img { color: #fff; box-shadow: inset 3px 0 0 rgba(0,0,0,.18); }
+.cover--img > .cv { padding: 10cqi 9cqi; justify-content: space-between; }
+.cover--img .ci-title { font: 650 12cqi/1.05 var(--ui); letter-spacing: -.01em; }
+.cover--img .ci-author { font: 500 7.5cqi/1.2 var(--ui); opacity: .9; }
+.cover--reclam { background: #F0C419; color: #1A1A1A; }
+.cover--reclam .ci-title { border-top: 1.5cqi solid #1A1A1A; padding-top: 5cqi; font-weight: 700; }
+.cover--forest { background: #2F4A3C; }
+.cover--forest .ci-title { font: 500 13cqi/1.05 var(--read); font-style: italic; }
+.cover--oxblood { background: #6A2B2E; }
+.cover--oxblood .ci-title { font: 700 15cqi/.95 var(--ui); text-transform: none; }
+.cover--ink { background: linear-gradient(160deg, #23384F 0 55%, #C9B48A 55% 100%); }
+.cover--ink .ci-author { color: #23384F; }
+.cover--sea { background: #1D5F7A; }
+.cover--sea .ci-title { font: 600 12cqi/1.05 var(--read); }
+.cover--type { background: var(--tint); color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.cover--type > .cv { padding: 11cqi 10cqi; gap: 6cqi; }
+.cover--type > .cv::after { content: ""; position: absolute; inset: 5cqi; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); pointer-events: none; }
+.cover--type .ct-long { font-size: 9.5cqi !important; }
+.cover--type .ct-title { font: 560 12.5cqi/1.12 var(--read); overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.cover--type .ct-author { font: 400 8cqi/1.2 var(--ui); color: var(--pencil); }
+.cover--type .ct-note { margin-top: auto; font: 500 7.5cqi/1.2 var(--ui); color: var(--pencil); }
+.cover--initial > .cv { align-items: center; justify-content: center; padding: 0; }
+.cover--initial .ct-initial { font: 500 48cqi/1 var(--read); color: color-mix(in srgb, var(--ink) 55%, transparent); }
+
+/* Status text with a shape cue */
+.status { display: inline-flex; align-items: baseline; gap: .4em; font-size: var(--t-small); font-weight: 550; }
+.status::before { content: ""; width: .55em; height: .55em; border-radius: 50%; border: 1.5px solid currentColor; flex: none; transform: translateY(-.05em); }
+.status--now { color: var(--blue); } .status--now::before { background: currentColor; }
+.status--fail { color: var(--danger); } .status--fail::before { border-radius: 1px; transform: translateY(-.05em) rotate(45deg); }
+.status--quiet { color: var(--pencil); }
+.status--ok { color: var(--ok); } .status--ok::before { background: currentColor; }
+
+.notice { border-left: 3px solid var(--warning); background: color-mix(in srgb, var(--warning) 7%, var(--leaf)); padding: var(--s3) var(--s4); font-size: var(--t-small); display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
+.notice .disc > summary { min-height: 0; }
+
+.passage { font: 400 1.125rem/1.68 var(--read); max-width: 34em; }
+.passage mark, .kw { background: none; color: var(--blue); font-weight: 650; }
+
+/* =========================== Prototype switcher (not part of any design) */
+.proto { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 100; display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #111; color: #fff; border-radius: 999px; font: 500 13px/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.35); white-space: nowrap; }
+.proto button, .proto select { background: #2a2a2a; color: #fff; border: 0; border-radius: 999px; height: 30px; padding: 0 10px; font: inherit; cursor: pointer; }
+.proto b { padding: 0 6px; }
+body { padding-bottom: 72px; }
+
+/* =========================== A — Margin notes */
+.vA .bar { background: var(--leaf); border-bottom: 1px solid var(--rule); }
+.vA .bar-in { max-width: 76rem; margin: 0 auto; padding: var(--s2) var(--s5); display: flex; align-items: center; gap: var(--s5); }
+.vA .mark { font: 600 1.25rem/1 var(--read); color: var(--ink); text-decoration: none; letter-spacing: -.01em; }
+.vA .nav ul { display: flex; gap: var(--s1); list-style: none; }
+.vA .nav a { display: flex; align-items: center; min-height: 44px; padding: 0 var(--s3); color: var(--ink); text-decoration: none; font-weight: 500; border-radius: 6px; }
+.vA .nav a:hover { background: var(--quiet); }
+.vA .nav a[aria-current] { color: var(--blue); box-shadow: inset 0 -2px 0 var(--blue); border-radius: 0; font-weight: 650; }
+.vA .tools { margin-left: auto; display: flex; align-items: center; gap: var(--s3); }
+.vA .tools label { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-small); color: var(--pencil); }
+.account { position: relative; }
+.account > summary { display: flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s2); font-size: var(--t-small); color: var(--pencil); }
+.account > summary::after { content: ""; width: .4em; height: .4em; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-.15em); }
+.account[open] > summary::after { transform: rotate(-135deg); }
+.account .panel { position: absolute; right: 0; top: 100%; background: var(--leaf); border: 1px solid var(--rule); border-radius: 6px; padding: var(--s3); display: grid; gap: var(--s2); min-width: 12rem; z-index: 5; }
+.vA main { max-width: 76rem; margin: 0 auto; padding: var(--s6) var(--s5) var(--s8); }
+.vA .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2) var(--s4); margin-bottom: var(--s4); }
+.vA h1:not(.title) { font: 650 var(--t-h)/1.2 var(--ui); letter-spacing: -.01em; }
+.vA h2:not(.title) { font: 650 var(--t-lead)/1.3 var(--ui); }
+.vA .grid { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; column-gap: var(--s6); }
+.vA .find { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.vA .find input { flex: 1 1 16rem; max-width: 28rem; }
+.tabs { display: flex; flex-wrap: wrap; gap: var(--s1); list-style: none; }
+.tabs a { display: inline-flex; align-items: center; gap: .35em; min-height: 44px; padding: 0 var(--s3); border-radius: 6px; color: var(--ink); text-decoration: none; font-size: var(--t-small); font-weight: 550; }
+.tabs a:hover { background: var(--quiet); }
+.tabs a[aria-current] { background: var(--ink); color: var(--ground); }
+.tabs .n { color: inherit; opacity: .7; font-variant-numeric: tabular-nums; font-weight: 450; }
+.vA .controls { display: grid; gap: var(--s3); margin-bottom: var(--s5); }
+.vA .entries { list-style: none; }
+.vA .entry { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 18rem; column-gap: var(--s5); padding: var(--s4) 0; }
+.vA .entry + .entry { border-top: 1px solid var(--rule); }
+.vA .entry .title { font-size: var(--t-lead); }
+.vA .entry .title a { color: var(--ink); text-decoration: none; }
+.vA .entry .title a:hover { text-decoration: underline; }
+.vA .entry .acts { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-top: var(--s3); }
+.vA .margin { font-size: var(--t-small); color: var(--pencil); display: grid; gap: var(--s2); align-content: start; padding-left: var(--s4); border-left: 2px solid var(--quiet); }
+.vA .margin p { max-width: 30ch; }
+.vA .titlepage { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: var(--s6); align-items: start; }
+.vA .titlepage .title { font-size: var(--t-display); font-weight: 520; }
+.vA .titlepage .author { font: 400 var(--t-lead)/1.4 var(--read); margin-top: var(--s2); }
+.vA .lifecycle { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s5); align-items: start; }
+.vA .lifecycle > .disc { flex-basis: 100%; }
+.vA .lifecycle > .disc:not([open]) { flex-basis: auto; }
+.vA .apparatus { display: grid; gap: var(--s5); align-content: start; }
+.vA .apparatus dt { font-weight: 650; color: var(--ink); font-size: var(--t-small); }
+.vA .apparatus dd { color: var(--pencil); font-size: var(--t-small); display: grid; gap: var(--s2); margin-top: var(--s1); }
+.vA .apparatus .btns { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
+.vA .section { margin-top: var(--s7); }
+.vA .section > h2 { margin-bottom: var(--s3); }
+/* KWIC */
+.vA .qform { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: end; }
+.vA .qform input { width: 14rem; }
+.vA .scopes { display: flex; flex-wrap: wrap; gap: 0 var(--s5); }
+.vA .summary { margin: var(--s4) 0 var(--s5); font-size: var(--t-small); }
+.vA .summary strong { font-size: var(--t-body); }
+.vA .kgroup { display: grid; grid-template-columns: 12rem minmax(0, 1fr); column-gap: var(--s5); padding: var(--s4) 0; }
+.vA .kgroup + .kgroup { border-top: 1px solid var(--rule); }
+.vA .kgroup > h3 { font: 560 1rem/1.3 var(--read); font-style: italic; }
+.vA .kgroup > h3 .meta { display: block; font: 400 var(--t-meta)/1.4 var(--ui); font-style: normal; margin-top: var(--s1); }
+.vA .klist { list-style: none; }
+.vA .krow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.vA .krow > details > summary { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) max-content minmax(0, 1.25fr); align-items: baseline; column-gap: .4em; min-height: 44px; padding: .55rem 0; font: 400 1.0625rem/1.5 var(--read); }
+.vA .krow > details > summary::before { content: ""; width: .42em; height: .42em; border-right: 2px solid var(--blue); border-bottom: 2px solid var(--blue); transform: rotate(-45deg); transition: transform .15s; align-self: center; }
+.vA .krow > details[open] > summary::before { transform: rotate(45deg); }
+.vA .krow .l { text-align: right; white-space: nowrap; overflow: hidden; direction: rtl; text-overflow: ellipsis; }
+.vA .krow .l > span { direction: ltr; unicode-bidi: isolate; }
+.vA .krow .r { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vA .krow .study { min-height: 44px; display: inline-flex; align-items: center; padding: 0 var(--s2); font-size: var(--t-small); }
+.ctx { padding: var(--s2) 0 var(--s4) 1.65rem; display: grid; gap: var(--s3); }
+.ctx dl { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s5); font-size: var(--t-meta); color: var(--pencil); }
+.ctx dt { display: inline; font-weight: 650; color: var(--ink); }
+.ctx dd { display: inline; margin-left: .3em; }
+.ctx .passage { font-size: 1.0625rem; }
+.ctx .dim { color: var(--pencil); }
+.pager { display: flex; gap: var(--s3); align-items: center; margin-top: var(--s5); }
+
+@media (max-width: 52rem) {
+  .vA .bar-in { flex-wrap: wrap; gap: 0 var(--s3); padding: var(--s1) var(--s4); }
+  .vA .mark { order: 0; }
+  .vA .tools { order: 1; }
+  .vA .nav { order: 2; flex-basis: 100%; }
+  .vA .nav ul { justify-content: space-between; }
+  .vA .nav a { padding: 0 var(--s2); }
+  .vA .tools label .lbl { display: none; }
+  .vA main { padding: var(--s4) var(--s4) var(--s7); }
+  .vA .grid { grid-template-columns: minmax(0, 1fr); }
+  .vA .entry { grid-template-columns: 4rem minmax(0, 1fr); column-gap: var(--s4); }
+  .vA .entry .margin { grid-column: 2; border-left: 0; padding-left: 0; margin-top: var(--s2); }
+  .vA .titlepage { grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--s4); }
+  .vA .titlepage .title { font-size: var(--t-h1); }
+  .vA .titlepage .author { font-size: var(--t-body); }
+  .vA .titlepage .lifecycle { grid-column: 1 / -1; }
+  .vA .apparatus { margin-top: var(--s5); padding: var(--s4); background: var(--leaf); border-radius: 6px; }
+  .vA .kgroup { grid-template-columns: minmax(0, 1fr); row-gap: var(--s2); }
+  .vA .krow > details > summary { grid-template-columns: 1.25rem minmax(0, 1fr); }
+  .vA .krow .l, .vA .krow .r { white-space: normal; direction: ltr; text-align: left; display: inline; }
+  .vA .krow .sent { grid-column: 2; }
+}
+
+/* =========================== B — Shelf */
+.vB .frame { display: grid; grid-template-columns: 13rem minmax(0, 1fr); min-height: 100vh; }
+.vB .rail { background: var(--quiet); padding: var(--s5) var(--s4); display: flex; flex-direction: column; gap: var(--s5); position: sticky; top: 0; height: 100vh; }
+.vB .mark { font: 600 1.375rem/1 var(--read); color: var(--ink); text-decoration: none; padding-left: var(--s3); }
+.vB .nav ul { list-style: none; display: grid; gap: 2px; }
+.vB .nav a { display: flex; align-items: center; min-height: 44px; padding: 0 var(--s3); border-radius: 6px; color: var(--ink); text-decoration: none; font-weight: 500; }
+.vB .nav a:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.vB .nav a[aria-current] { background: var(--leaf); font-weight: 650; box-shadow: inset 3px 0 0 var(--blue); }
+.vB .railfoot { margin-top: auto; display: grid; gap: var(--s3); }
+.vB .railfoot select { width: 100%; }
+.vB .railfoot label { display: grid; gap: var(--s1); font-size: var(--t-meta); color: var(--pencil); font-weight: 550; }
+.vB .account .panel { bottom: 100%; top: auto; left: 0; right: auto; }
+.vB main { padding: var(--s6) var(--s6) var(--s8); max-width: 72rem; width: 100%; }
+.vB h1:not(.title) { font: 650 var(--t-h)/1.2 var(--ui); letter-spacing: -.01em; }
+.vB h2:not(.title) { font: 650 var(--t-lead)/1.3 var(--ui); }
+.vB .head { display: flex; flex-wrap: wrap; gap: var(--s3) var(--s5); align-items: center; justify-content: space-between; margin-bottom: var(--s3); }
+.vB .find { display: flex; gap: var(--s2); }
+.vB .find input { width: 18rem; }
+.vB .controls { display: grid; gap: var(--s3); margin-bottom: var(--s5); }
+.vB .shelf { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--s6) var(--s5); }
+.vB .book { display: grid; gap: var(--s2); align-content: start; }
+.vB .book .cover { margin-bottom: var(--s1); }
+.vB .book .title { font-size: 1.0625rem; }
+.vB .book .title a { color: var(--ink); text-decoration: none; }
+.vB .book .title a:hover { text-decoration: underline; }
+.vB .book .author { font-size: var(--t-small); }
+.vB .book .disc > summary { min-height: 36px; }
+.vB .book .confirm-body { padding-left: 0; }
+.vB .spread { display: grid; grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr); background: var(--leaf); border-radius: 8px; overflow: hidden; }
+.vB .spread .lpage { background: var(--quiet); padding: var(--s6); display: grid; place-items: center; }
+.vB .spread .rpage { padding: var(--s6); display: grid; gap: var(--s4); align-content: start; }
+.vB .spread .title { font-size: var(--t-title); font-weight: 520; }
+.vB .spread .author { font: 400 var(--t-lead)/1.4 var(--read); }
+.vB .ledger { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 var(--s5); margin-top: var(--s3); }
+.vB .ledger > dt, .vB .ledger > dd { padding: var(--s3) 0; border-top: 1px solid var(--rule); }
+.vB .ledger > dt { font-weight: 650; font-size: var(--t-small); }
+.vB .ledger > dd { font-size: var(--t-small); color: var(--pencil); display: grid; gap: var(--s2); }
+.vB .ledger .btns { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.vB .lifecycle { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); padding-top: var(--s3); border-top: 1px solid var(--rule); }
+.vB .lifecycle > .disc[open] { flex-basis: 100%; }
+.vB .row-shelf { display: grid; grid-auto-flow: column; grid-auto-columns: 9rem; gap: var(--s5); overflow-x: auto; padding: var(--s2) var(--s1) var(--s4); list-style: none; scroll-snap-type: x proximity; }
+.vB .row-shelf > li { scroll-snap-align: start; }
+.vB .section { margin-top: var(--s7); }
+.vB .section > h2 { margin-bottom: var(--s1); }
+.vB .section > .meta { margin-bottom: var(--s4); }
+.vB .qform { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: end; }
+.vB .qform input { width: 14rem; }
+.vB .scopes { display: flex; flex-wrap: wrap; gap: 0 var(--s5); }
+.vB .summary { margin: var(--s4) 0 var(--s5); font-size: var(--t-small); }
+.vB .summary strong { font-size: var(--t-body); }
+.vB .sents { list-style: none; display: grid; gap: var(--s5); max-width: 42rem; }
+.vB .sent { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s4); }
+.vB .sent > details > summary { display: block; }
+.vB .sent > details > summary .passage { font-size: 1.1875rem; }
+.vB .sent .src { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-meta); color: var(--pencil); margin-top: var(--s1); }
+.vB .sent .src::before { content: ""; width: .4em; height: .4em; border-right: 2px solid var(--blue); border-bottom: 2px solid var(--blue); transform: rotate(-45deg); transition: transform .15s; }
+.vB .sent > details[open] .src::before { transform: rotate(45deg); }
+.vB .sent .src i { font: italic 500 var(--t-small)/1.3 var(--read); color: var(--ink); }
+.vB .sent .study { align-self: start; min-height: 44px; display: inline-flex; align-items: center; font-size: var(--t-small); }
+.vB .sent .ctx { padding-left: 0; }
+@media (max-width: 52rem) {
+  .vB .frame { grid-template-columns: minmax(0, 1fr); }
+  .vB .rail { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0 var(--s3); padding: var(--s2) var(--s4); }
+  .vB .mark { padding: 0; font-size: 1.2rem; }
+  .vB .nav { order: 3; flex-basis: 100%; }
+  .vB .nav ul { display: flex; justify-content: space-between; }
+  .vB .nav a { padding: 0 var(--s2); }
+  .vB .nav a[aria-current] { box-shadow: inset 0 -3px 0 var(--blue); background: transparent; border-radius: 0; }
+  .vB .railfoot { margin: 0 0 0 auto; display: flex; gap: var(--s2); align-items: center; }
+  .vB .railfoot label span { display: none; }
+  .vB .account .panel { top: 100%; bottom: auto; right: 0; left: auto; }
+  .vB main { padding: var(--s4) var(--s4) var(--s7); }
+  .vB .find { flex-basis: 100%; } .vB .find input { flex: 1; width: auto; }
+  .vB .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s4); }
+  .vB .spread { grid-template-columns: minmax(0, 1fr); }
+  .vB .spread .lpage { padding: var(--s5) var(--s4) 0; background: var(--leaf); place-items: start; }
+  .vB .spread .lpage .cover { --w: 7rem !important; }
+  .vB .spread .rpage { padding: var(--s4); }
+  .vB .spread .title { font-size: var(--t-h1); }
+  .vB .ledger { grid-template-columns: minmax(0, 1fr); }
+  .vB .ledger > dd { border-top: 0; padding-top: 0; }
+  .vB .row-shelf { grid-auto-columns: 7.5rem; }
+}
+
+/* =========================== C — Desk */
+.vC .bar { background: var(--ink); color: var(--ground); }
+.vC .bar-in { max-width: 74rem; margin: 0 auto; padding: 0 var(--s5); display: flex; align-items: center; gap: var(--s5); }
+.vC .mark { font: 600 1.15rem/1 var(--read); color: var(--ground); text-decoration: none; }
+.vC .nav ul { display: flex; list-style: none; }
+.vC .nav a { display: flex; align-items: center; min-height: 48px; padding: 0 var(--s3); color: color-mix(in srgb, var(--ground) 82%, transparent); text-decoration: none; font-weight: 500; font-size: var(--t-small); }
+.vC .nav a:hover { color: var(--ground); }
+.vC .nav a[aria-current] { color: var(--ground); box-shadow: inset 0 -3px 0 var(--ground); font-weight: 650; }
+.vC .bar :focus-visible { outline-color: var(--ground); }
+.vC .tools { margin-left: auto; display: flex; gap: var(--s2); align-items: center; }
+.vC .tools select { min-height: 36px; background: transparent; color: var(--ground); border-color: color-mix(in srgb, var(--ground) 45%, transparent); }
+.vC .tools select option { color: #17232D; }
+.vC .account > summary { color: color-mix(in srgb, var(--ground) 82%, transparent); }
+.vC .account .panel { color: var(--ink); }
+.vC .now { background: var(--leaf); border-bottom: 1px solid var(--rule); }
+.vC .now-in { max-width: 74rem; margin: 0 auto; padding: var(--s2) var(--s5); display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; }
+.vC .now .cover { --w: 28px; }
+.vC .now .lbl { font-size: var(--t-meta); color: var(--pencil); }
+.vC .now .title { font-size: 1.0625rem; }
+.vC .now .title a { color: var(--ink); }
+.vC .now .status { margin-left: auto; }
+.vC main { max-width: 74rem; margin: 0 auto; padding: var(--s5) var(--s5) var(--s8); }
+.vC h1:not(.title) { font: 650 var(--t-h)/1.2 var(--ui); }
+.vC h2:not(.title) { font: 650 var(--t-body)/1.3 var(--ui); display: flex; gap: var(--s2); align-items: baseline; }
+.vC h2 .n { color: var(--pencil); font-weight: 450; }
+.vC .head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s5); margin-bottom: var(--s4); }
+.vC .find { display: flex; gap: var(--s2); margin-left: auto; }
+.vC .find input { width: 20rem; }
+.vC .jump { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); list-style: none; font-size: var(--t-small); margin-bottom: var(--s5); }
+.vC .jump a { display: inline-flex; gap: .35em; min-height: 44px; align-items: center; }
+.vC .group { margin-bottom: var(--s6); }
+.vC .group > h2 { padding-bottom: var(--s2); border-bottom: 2px solid var(--ink); }
+.vC .rows { list-style: none; }
+.vC .rowb { display: grid; grid-template-columns: 2.5rem minmax(0, 2fr) minmax(0, 1.4fr) auto; gap: var(--s4); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.vC .rowb .cover { --w: 2.5rem; }
+.vC .rowb .title { font-size: 1.0625rem; }
+.vC .rowb .title a { color: var(--ink); text-decoration: none; }
+.vC .rowb .title a:hover { text-decoration: underline; }
+.vC .rowb .author { font-size: var(--t-small); }
+.vC .rowb .ev { font-size: var(--t-small); color: var(--pencil); }
+.vC .rowb .acts { display: flex; gap: var(--s2); align-items: center; justify-content: end; }
+.vC .rowb .disc .confirm-body { position: absolute; }
+.vC .desk { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--s7); }
+.vC .ident { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--s5); align-items: start; }
+.vC .ident .title { font-size: var(--t-title); font-weight: 520; }
+.vC .ident .author { font: 400 var(--t-lead)/1.4 var(--read); margin-top: var(--s2); }
+.vC .lifecycle { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s5); grid-column: 1 / -1; }
+.vC .lifecycle > .disc[open] { flex-basis: 100%; }
+.vC .prep { list-style: none; border-top: 2px solid var(--ink); }
+.vC .prep > li { padding: var(--s3) 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--s3); font-size: var(--t-small); }
+.vC .prep b { font-weight: 650; }
+.vC .prep .d { color: var(--pencil); display: grid; gap: var(--s2); }
+.vC .prep .btns { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.vC .section { margin-top: var(--s7); }
+.vC .qform { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: end; }
+.vC .qform input { width: 14rem; }
+.vC .scopes { display: flex; flex-wrap: wrap; gap: 0 var(--s5); }
+.vC .summary { margin: var(--s3) 0 var(--s4); font-size: var(--t-small); }
+.vC .ktable-wrap { overflow-x: auto; }
+.vC .ktable { list-style: none; border-top: 2px solid var(--ink); min-width: 0; }
+.vC .ktable > li { border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.vC .ktable summary { display: grid; grid-template-columns: 1.1rem 11rem minmax(0, 1fr) max-content minmax(0, 1fr); column-gap: .45em; align-items: baseline; padding: .55rem 0; min-height: 44px; font: 400 1rem/1.45 var(--read); }
+.vC .ktable summary::before { content: ""; width: .42em; height: .42em; border-right: 2px solid var(--blue); border-bottom: 2px solid var(--blue); transform: rotate(-45deg); align-self: center; transition: transform .15s; }
+.vC .ktable details[open] summary::before { transform: rotate(45deg); }
+.vC .ktable .bk { font: 500 var(--t-meta)/1.35 var(--ui); color: var(--pencil); padding-right: var(--s3); }
+.vC .ktable .l { text-align: right; white-space: nowrap; overflow: hidden; direction: rtl; text-overflow: ellipsis; }
+.vC .ktable .l > span { direction: ltr; unicode-bidi: isolate; }
+.vC .ktable .r { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vC .ktable .study { min-height: 44px; display: inline-flex; align-items: center; padding: 0 var(--s2); font-size: var(--t-small); }
+.vC .ktable .ctx { padding-left: 1.55rem; }
+@media (max-width: 52rem) {
+  .vC .bar-in { flex-wrap: wrap; padding: 0 var(--s4); gap: 0 var(--s3); }
+  .vC .nav { order: 3; flex-basis: 100%; overflow-x: auto; }
+  .vC .nav ul { justify-content: space-between; }
+  .vC .nav a { padding: 0 var(--s2); }
+  .vC .tools { min-height: 48px; }
+  .vC .now-in { padding: var(--s2) var(--s4); gap: var(--s2) var(--s3); }
+  .vC .now .status { margin-left: 0; flex-basis: 100%; padding-left: calc(28px + var(--s3)); }
+  .vC main { padding: var(--s4) var(--s4) var(--s7); }
+  .vC .find { margin-left: 0; flex-basis: 100%; } .vC .find input { flex: 1; width: auto; }
+  .vC .rowb { grid-template-columns: 2.5rem minmax(0, 1fr); row-gap: var(--s1); }
+  .vC .rowb .ev, .vC .rowb .acts { grid-column: 2; justify-content: start; }
+  .vC .desk { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+  .vC .ident { grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--s4); }
+  .vC .ident .title { font-size: var(--t-h1); }
+  .vC .ident .author { font-size: var(--t-body); }
+  .vC .ktable summary { grid-template-columns: 1.1rem minmax(0, 1fr); }
+  .vC .ktable .bk { grid-column: 2; padding: 0; }
+  .vC .ktable .l, .vC .ktable .r { white-space: normal; direction: ltr; text-align: left; display: inline; }
+  .vC .ktable .sent { grid-column: 2; }
+}
+
+/* =========================== Compact header (shared by all variants) */
+.acct-short { display: none; }
+@media (max-width: 52rem) {
+  .vA .bar-in, .vC .bar-in { align-items: center; }
+  .vA .mark, .vB .mark, .vC .mark { flex: none; }
+  .vA .tools, .vB .railfoot, .vC .tools { margin-left: auto; gap: var(--s1); }
+  .tools select, .railfoot select { max-width: 8.5rem; min-height: 40px; }
+  .acct-long { display: none; } .acct-short { display: inline; }
+  .nav a { white-space: nowrap; font-size: .9375rem; }
+  .tabs a { padding: 0 var(--s2); }
+  .vA .lifecycle, .vB .lifecycle, .vC .lifecycle { display: grid; gap: 0; justify-items: start; }
+  .lifecycle .btn--quiet { padding: 0; }
+}
+@media (max-width: 30rem) { .proto b { display: none; } .proto { gap: 4px; } }
+
+/* =========================== Type specimen */
+.spec { display: grid; gap: var(--s6); max-width: 60rem; }
+.spec section { display: grid; gap: var(--s3); }
+.spec .big { font: 520 var(--t-display)/1.1 var(--read); overflow-wrap: anywhere; hyphens: auto; }
+.spec .ui-sample { font: 400 var(--t-body)/1.5 var(--ui); }
+.spec .ui-sample b { font-weight: 650; }
+.spec .scale { display: grid; gap: var(--s2); }
+.spec .scale span { display: block; }
+.fallback .title, .fallback .passage, .fallback .spec .big { font-family: Georgia, 'Times New Roman', serif !important; }
+.fallback, .fallback .btn, .fallback input, .fallback select { font-family: system-ui, sans-serif !important; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const P = new URLSearchParams(location.search);
+const S = {
+  variant: (P.get('variant') || 'A').toUpperCase(),
+  screen: P.get('screen') || 'books',
+  theme: P.get('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+  lang: P.get('lang') || 'de',
+  fonts: P.get('fonts') || 'local',
+};
+const VARIANTS = { A: 'Margin notes', B: 'Shelf', C: 'Desk' };
+const SCREENS = { books: 'My Books', reading: 'Reading', chooser: 'Reading (between Books)', concordance: 'Concordance', type: 'Type specimen' };
+const LANGS = { de: 'Deutsch', it: 'Italiano', el: 'Ελληνικά' };
+
+// ---------------------------------------------------------------- Fixture content (invented)
+const DATA = {
+  de: {
+    count: 11, waiting: 2,
+    books: [
+      { id: 'weg', title: 'Der lange Weg nach Hause', author: 'Mara Weiss', state: 'now', cover: { style: 'forest' }, ev: 'Deck ready', evDetail: '412 cards, prepared 3 October' },
+      { id: 'kanal', title: 'Das Haus am Kanal', author: 'Ilse Brandner', state: 'to_read', cover: { style: 'reclam' }, ev: '97.4% of running words Known', band: '97to99', next: '99%: 1,206 more words' },
+      { id: 'grenz', title: 'Grenzgänger. Erzählungen aus dem Böhmerwald und dem oberen Mühlviertel', author: 'Johann Pernegger', state: 'to_read', cover: null, ev: '95.8% of running words Known', band: '95to97', next: '97%: 640 more words' },
+      { id: 'ueber', title: 'Die Überfahrt', author: 'Theresa Kolb', state: 'to_read', cover: 'pending', ev: 'Analysis running', evState: 'progress' },
+      { id: 'donau', title: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze und andere Geschichten', author: 'Felix Grün', state: 'to_read', cover: null, ev: 'Analysis failed', evState: 'fail', fix: 'Retry analysis' },
+      { id: 'schnee', title: 'Der Schneefall in Görlitz', author: 'Paul Stein', state: 'to_read', cover: { style: 'ink' }, ev: '99.1% of running words Known', band: '99plus' },
+      { id: 'wasser', title: 'Die Wasserträgerin von Triest', author: 'Lorenz Aichinger', state: 'to_read', cover: { style: 'sea' }, ev: '93.2% of running words Known', band: 'below95', next: '95%: 2,310 more words' },
+      { id: 'briefe', title: 'Briefe an einen jungen Übersetzer', author: 'Clara Rheinfelder', state: 'inbox', cover: null, ev: 'Not analysed yet' },
+      { id: 'lemberg', title: 'Nachtzug nach Lemberg', author: 'Daniel Rosen', state: 'aside', cover: { style: 'oxblood' }, ev: 'Set aside 14 June' },
+      { id: 'verz', title: 'Verzeichnis der verlorenen Dinge', author: 'Anna Weißhaupt', state: 'read', cover: 'unavailable', ev: 'Finished 2 August 2026' },
+      { id: 'sommer', title: 'Ein Sommer in Meran', author: 'Kurt Albers', state: 'to_read', cover: { style: 'reclam' }, ev: 'Content unavailable', evState: 'fail', fix: 'Retry acquisition' },
+    ],
+    current: { since: '12 September 2026', reserved: '412', cards: '412', prepared: '3 October', analysed: '61,204' },
+    term: 'Haus', lemma: 'Haus', pos: 'Noun', feats: 'Neuter, singular',
+    occ: [
+      { book: 'Der lange Weg nach Hause', loc: 'Chapter 3', l: 'Als sie endlich vor dem', k: 'Haus', r: 'ihrer Großmutter stand, war es schon dunkel.', before: 'Der Bus hatte in jedem Dorf gehalten, als hätte er es nicht eilig.', after: 'In der Küche brannte noch Licht.', f: 'Dative' },
+      { book: 'Der lange Weg nach Hause', loc: 'Chapter 7', l: 'Das', k: 'Haus', r: 'sieht gut aus, sagte der Makler, ohne aufzublicken.', before: 'Sie standen zu dritt im Vorgarten und schwiegen.', after: 'Niemand widersprach ihm.', f: 'Nominative' },
+      { book: 'Der lange Weg nach Hause', loc: 'Chapter 12', l: 'Im ganzen', k: 'Haus', r: 'roch es nach Bohnerwachs und kaltem Kaffee.', before: 'Am Sonntag kamen die Verwandten.', after: 'Mara öffnete alle Fenster.', f: 'Dative' },
+      { book: 'Das Haus am Kanal', loc: 'Chapter 1', l: 'Niemand im Viertel wusste, wem das', k: 'Haus', r: 'eigentlich gehörte.', before: 'Seit dem Krieg stand es leer.', after: 'Die Kinder nannten es das Schiff.', f: 'Nominative' },
+      { book: 'Das Haus am Kanal', loc: 'Chapter 4', l: 'Er ging zweimal um das', k: 'Haus', r: 'herum, bevor er klingelte.', before: 'Die Adresse stimmte.', after: 'Drinnen bellte ein Hund.', f: 'Accusative' },
+      { book: 'Nachtzug nach Lemberg', loc: 'Chapter 2', l: 'Hinter dem Bahnhof stand ein einzelnes', k: 'Haus', r: 'mit vernagelten Fenstern.', before: 'Der Zug hielt länger als vorgesehen.', after: 'Rosen zählte die Bretter.', f: 'Nominative' },
+    ],
+  },
+  el: {
+    count: 5, waiting: 0,
+    books: [
+      { id: 'spiti', title: 'Το σπίτι στην άκρη του ελαιώνα', author: 'Ελένη Μαυρίδου', state: 'now', cover: { style: 'sea' }, ev: 'Deck ready', evDetail: '388 cards, prepared 1 October' },
+      { id: 'faros', title: 'Η τελευταία βάρδια του φαροφύλακα', author: 'Νίκος Καραλής', state: 'to_read', cover: null, ev: '96.1% of running words Known', band: '95to97', next: '97%: 702 more words' },
+      { id: 'grammata', title: 'Γράμματα από τη Θεσσαλονίκη, 1917–1922', author: 'Άννα Παπαδοπούλου', state: 'to_read', cover: { style: 'ink' }, ev: '92.7% of running words Known', band: 'below95', next: '95%: 2,840 more words' },
+      { id: 'kipos', title: 'Ο κήπος με τις πορτοκαλιές', author: 'Γιώργος Αλεξίου', state: 'aside', cover: { style: 'oxblood' }, ev: 'Set aside 2 May' },
+      { id: 'treno', title: 'Νυχτερινό τρένο για την Καβάλα', author: 'Δημήτρης Σταύρου', state: 'to_read', cover: 'pending', ev: 'Analysis running', evState: 'progress' },
+    ],
+    current: { since: '20 September 2026', reserved: '388', cards: '388', prepared: '1 October', analysed: '48,930' },
+    term: 'σπίτι', lemma: 'σπίτι', pos: 'Noun', feats: 'Neuter, singular',
+    occ: [
+      { book: 'Το σπίτι στην άκρη του ελαιώνα', loc: 'Chapter 1', l: 'Όταν έφτασε επιτέλους στο', k: 'σπίτι', r: 'της γιαγιάς της, είχε ήδη σκοτεινιάσει.', before: 'Το λεωφορείο σταματούσε σε κάθε χωριό.', after: 'Στην κουζίνα έκαιγε ακόμη φως.', f: 'Accusative' },
+      { book: 'Το σπίτι στην άκρη του ελαιώνα', loc: 'Chapter 5', l: 'Το', k: 'σπίτι', r: 'μύριζε θυμάρι και φρεσκοψημένο ψωμί.', before: 'Άνοιξε την πόρτα χωρίς να χτυπήσει.', after: 'Κανείς δεν απάντησε.', f: 'Nominative' },
+      { book: 'Η τελευταία βάρδια του φαροφύλακα', loc: 'Chapter 2', l: 'Στάθηκε για λίγο μπροστά στο παλιό', k: 'σπίτι', r: 'πριν χτυπήσει την πόρτα.', before: 'Ο αέρας είχε δυναμώσει.', after: 'Από μέσα ακούστηκαν βήματα.', f: 'Accusative' },
+      { book: 'Γράμματα από τη Θεσσαλονίκη, 1917–1922', loc: 'Letter 14', l: 'Κανείς στη γειτονιά δεν ήξερε σε ποιον ανήκε το', k: 'σπίτι', r: '.', before: 'Η φωτιά είχε σταματήσει δύο δρόμους πιο κάτω.', after: 'Σου γράφω από το παράθυρό του.', f: 'Nominative' },
+    ],
+  },
+};
+DATA.it = DATA.de; // Italian collection not modelled; the specimen screen covers Italian glyphs.
+const D = DATA[S.lang] || DATA.de;
+const now = D.books.find(b => b.state === 'now');
+
+// ---------------------------------------------------------------- Helpers
+const url = (o) => { const p = new URLSearchParams({ variant: S.variant, screen: S.screen, theme: S.theme, lang: S.lang, ...o }); if (S.fonts !== 'local') p.set('fonts', S.fonts); return '?' + p; };
+const tint = (s) => `var(--tint-${[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % 5 + 1})`;
+function cover(b, w, fill) {
+  const cls = fill ? ' cover--fill' : '';
+  const st = fill ? '' : `--w:${w}`;
+  if (b.cover && b.cover.style) return `<div class="cover cover--img cover--${b.cover.style}${cls}" style="${st}" aria-hidden="true"><span class="cv"><span class="ci-title">${b.title.split(/[.,]/)[0]}</span><span class="ci-author">${b.author}</span></span></div>`;
+  const small = !fill && parseFloat(w) < 4.6 && !String(w).endsWith('px') || String(w).endsWith('px') && parseFloat(w) < 70;
+  if (small) return `<div class="cover cover--type cover--initial" style="${st};--tint:${tint(b.title)}" aria-hidden="true"><span class="cv"><span class="ct-initial">${[...b.title.replace(/^(Der|Die|Das|Ein|Το|Η|Ο|Οι|Τα)\s+/, '')][0]}</span></span></div>`;
+  const note = b.cover === 'pending' ? 'Cover pending' : b.cover === 'unavailable' ? 'Cover unavailable' : '';
+  return `<div class="cover cover--type${cls}" style="${st};--tint:${tint(b.title)}" aria-hidden="true"><span class="cv"><span class="ct-title${b.title.length > 38 ? ' ct-long' : ''}">${b.title}</span><span class="ct-author">${b.author}</span>${note ? `<span class="ct-note">${note}</span>` : ''}</span></div>`;
+}
+const DISP = { now: 'Reading now', to_read: 'To Read', inbox: 'Inbox', aside: 'Set aside', read: 'Read' };
+function status(b) {
+  if (b.state === 'now') return `<span class="status status--now">Reading now</span>`;
+  if (b.evState === 'fail') return `<span class="status status--fail">${DISP[b.state]}: ${b.ev.toLowerCase()}</span>`;
+  return `<span class="status status--quiet">${DISP[b.state]}</span>`;
+}
+function primaryAction(b) {
+  if (b.state === 'now') return `<a class="btn btn--primary" href="${url({ screen: 'reading' })}">Open in Reading</a>`;
+  if (b.fix) return `<button class="btn">${b.fix}</button>`;
+  if (b.state === 'inbox') return `<button class="btn">Move to To Read</button>`;
+  if (b.state === 'aside') return `<button class="btn">Move back to To Read</button>`;
+  if (b.state === 'read') return `<button class="btn">Read again</button>`;
+  return '';
+}
+function moreActions(b) {
+  const items = { now: ['Set aside'], to_read: ['Move to Inbox', 'Set aside'], inbox: ['Set aside'], aside: ['Move to Inbox'], read: [] }[b.state];
+  if (!items.length) return '';
+  return `<details class="disc"><summary>More<span class="sr"> actions for ${b.title}</span></summary><div class="confirm-body">${items.map(i => `<button class="btn">${i}</button>`).join('')}</div></details>`;
+}
+function filteredBooks() { return D.books; }
+const counts = () => ({ all: D.books.length, inbox: D.books.filter(b => b.state === 'inbox').length, to_read: D.books.filter(b => ['to_read', 'now'].includes(b.state)).length, aside: D.books.filter(b => b.state === 'aside').length, read: D.books.filter(b => b.state === 'read').length });
+function tabs() {
+  const c = counts();
+  return `<nav aria-label="Filter My Books"><ul class="tabs">${[['All', c.all, true], ['Inbox', c.inbox], ['To Read', c.to_read], ['Set aside', c.aside], ['Read', c.read]].map(([l, n, cur]) => `<li><a href="#"${cur ? ' aria-current="page"' : ''}>${l} <span class="n">${n}</span></a></li>`).join('')}</ul></nav>`;
+}
+function waitingNotice() {
+  if (!D.waiting) return '';
+  return `<div class="notice" role="note"><span><strong>${D.waiting} Books need a language</strong> from their catalog before they can join a collection.</span> <a href="#">Review them</a></div>`;
+}
+function findForm(id) { return `<form class="find" role="search" onsubmit="return false"><label class="sr" for="${id}">Search My Books</label><input id="${id}" type="search" placeholder="Title, author, or edition"><button class="btn">Search</button></form>`; }
+function lifecycle(book) {
+  return `
+  <details class="disc"><summary>Finish this Book</summary><div class="confirm-body">
+    <p>Finishing records <i>${book.title}</i> as Read and adds its ${D.current.reserved} reserved words to your Known vocabulary. It doesn't claim you've mastered every card.</p>
+    <div><button class="btn btn--primary">Finish this Book</button></div></div></details>
+  <a class="btn btn--quiet" href="${url({ screen: 'chooser' })}">Switch to another Book</a>
+  <details class="disc"><summary>Stop reading for now</summary><div class="confirm-body">
+    <p><i>${book.title}</i> goes back to To Read. Its analysis and history are kept.</p>
+    <div><button class="btn">Stop reading</button></div></div></details>
+  <details class="disc"><summary>Set aside</summary><div class="confirm-body">
+    <p><i>${book.title}</i> moves to Set aside. Its analysis, deck, and history are kept, and you can move it back to To Read at any time.</p>
+    <div><button class="btn btn--danger">Set aside</button></div></div></details>`;
+}
+const BANDS = [['99plus', '99% or more of running words Known'], ['97to99', '97–99% Known'], ['95to97', '95–97% Known'], ['below95', 'Below 95% Known'], ['none', 'Evidence not ready']];
+const bandOf = (b) => b.band || 'none';
+const sortKey = (t) => t.replace(/^(Der|Die|Das|Ein|Eine|Το|Η|Ο|Οι|Τα)\s+/, '');
+const candidates = () => D.books.filter(b => b.state === 'to_read').sort((x, y) => sortKey(x.title).localeCompare(sortKey(y.title), S.lang));
+function startConfirm(b) {
+  return `<details class="disc"><summary>Start reading<span class="sr"> ${b.title}</span></summary><div class="confirm-body"><p>Starting freezes this Book's vocabulary snapshot and reserves its words for its deck.</p><div><button class="btn btn--primary">Start reading</button></div></div></details>`;
+}
+function qform() {
+  return `<form class="qform" role="search" onsubmit="return false">
+    <label class="field">Look up<select><option>Word as written</option><option>Dictionary form</option></select></label>
+    <label class="field">Term<input type="search" value="${D.term}"></label>
+    <button class="btn btn--primary">Find</button></form>
+    <div class="scopes"><details class="disc"><summary>Books: all current Books</summary><div class="confirm-body meta">Scope controls…</div></details>
+    <details class="disc"><summary>Grammar: any</summary><div class="confirm-body meta">Grammar filter controls…</div></details></div>`;
+}
+function summaryLine() {
+  const books = new Set(D.occ.map(o => o.book)).size;
+  return `<p class="summary" id="results-summary" tabindex="-1"><strong>${D.occ.length} occurrences of “${D.term}” in ${books} Books.</strong> <span class="meta">Word as written, all current Books, any grammar.</span></p>`;
+}
+function ctx(o) {
+  return `<div class="ctx"><p class="passage"><span class="dim">${o.before}</span> ${o.l} <mark>${o.k}</mark> ${o.r} <span class="dim">${o.after}</span></p>
+    <dl><div><dt>Dictionary form</dt><dd>${D.lemma}</dd></div><div><dt>Part of speech</dt><dd>${D.pos}</dd></div><div><dt>Grammar</dt><dd>${D.feats}, ${o.f.toLowerCase()}</dd></div><div><dt>Location</dt><dd>${o.loc}</dd></div></dl></div>`;
+}
+const groupBy = (xs, f) => xs.reduce((m, x) => (m.get(f(x)) ? m.get(f(x)).push(x) : m.set(f(x), [x]), m), new Map());
+function langSelect(labelText) {
+  return `<label><span class="lbl">${labelText}</span><select onchange="location.search='${url({}).replace(/lang=[^&]*/, 'lang=')}'+this.value">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === S.lang ? ' selected' : ''} lang="${k}">${v}</option>`).join('')}</select></label>`;
+}
+const account = `<details class="account"><summary><span class="acct-long">fixture-learner</span><span class="acct-short">Account</span></summary><div class="panel"><span class="meta">Signed in as fixture-learner</span><button class="btn">Log out</button></div></details>`;
+function navList(cls) {
+  const cur = { books: 'books', reading: 'reading', chooser: 'reading', concordance: 'vocab', type: '' }[S.screen];
+  return `<nav class="nav ${cls || ''}" aria-label="Primary"><ul>${[['books', 'My Books', 'books'], ['reading', 'Reading', 'reading'], ['vocab', 'Vocabulary', 'concordance'], ['catalogs', 'Catalogs', 'books']].map(([k, l, sc]) => `<li><a href="${url({ screen: sc })}"${k === cur ? ' aria-current="page"' : ''}>${l}</a></li>`).join('')}</ul></nav>`;
+}
+
+// ---------------------------------------------------------------- Variant A — Margin notes
+const A = {
+  shell: (body) => `<a class="skip" href="#main">Skip to content</a>
+    <header class="bar"><div class="bar-in"><a class="mark" href="${url({ screen: 'books' })}">Mouseion</a>${navList()}<div class="tools">${langSelect('Studying')}${account}</div></div></header>
+    <main id="main" lang="${S.lang}">${body}</main>`,
+  books: () => `
+    <div class="head"><h1>My Books</h1><span class="meta">${D.count} Books in ${LANGS[S.lang]}</span></div>
+    <div class="controls">${findForm('q')}${tabs()}${waitingNotice()}</div>
+    <ul class="entries" role="list">${filteredBooks().map(b => `
+      <li class="entry">
+        <a href="#" tabindex="-1" aria-hidden="true">${cover(b, '4.5rem')}</a>
+        <div>
+          <h2 class="title"><a href="#">${b.title}</a></h2>
+          <p class="author">${b.author}</p>
+          <div class="acts">${primaryAction(b)}${moreActions(b)}</div>
+        </div>
+        <div class="margin">${status(b)}<p>${b.state === 'now' ? `${b.ev}: ${b.evDetail}.` : b.evState === 'fail' ? '' : b.ev + (b.next ? `. To reach ${b.next}.` : '.')}</p></div>
+      </li>`).join('')}</ul>`,
+  reading: () => `
+    <div class="head"><h1 class="sr">Reading</h1></div>
+    <div class="grid">
+      <section class="titlepage" aria-labelledby="cur">
+        ${cover(now, '100%', true)}
+        <div>
+          <p class="meta">Reading since ${D.current.since}</p>
+          <h2 id="cur" class="title">${now.title}</h2>
+          <p class="author">${now.author}</p>
+          <div class="lifecycle">${lifecycle(now)}</div>
+        </div>
+      </section>
+      <dl class="apparatus" aria-label="About this Book's preparation">
+        <div><dt>Deck</dt><dd><span class="status status--ok">Ready</span><span>${D.current.cards} cards, prepared ${D.current.prepared} from the current analysis.</span><span class="btns"><a class="btn btn--primary" href="#">Download deck</a><a class="btn" href="#">Prepare again</a></span></dd></div>
+        <div><dt>Vocabulary</dt><dd><span>${D.current.reserved} words are reserved for this Book. Finishing it adds them to Known vocabulary.</span><a href="${url({ screen: 'concordance' })}">Browse this Book's vocabulary</a></dd></div>
+        <div><dt>Analysis</dt><dd><span>Current. ${D.current.analysed} running words analysed.</span><a href="#">Review flagged dictionary forms</a></dd></div>
+      </dl>
+    </div>
+    <section class="section" aria-labelledby="tr"><h2 id="tr">Also To Read</h2>
+      <ul class="entries" role="list">${candidates().map(b => `
+        <li class="entry"><span>${cover(b, '3.5rem')}</span><div><h3 class="title" style="font-size:1.0625rem"><a href="#">${b.title}</a></h3><p class="author">${b.author}</p></div><div class="margin">${b.evState === 'fail' ? status(b) : `<p>${b.ev}.</p>`}</div></li>`).join('')}</ul>
+    </section>`,
+  chooser: () => `
+    <div class="head"><h1>Choose your next Book</h1><span class="meta">You're between Books. Nothing is selected for you.</span></div>
+    ${BANDS.map(([k, label]) => { const xs = candidates().concat(D.books.filter(b => b.state === 'now')).filter(b => (b.state === 'now' ? 'none' : bandOf(b)) === k && b.state !== 'now'); return xs.length ? `
+      <section class="section" style="margin-top:var(--s6)"><h2>${label}</h2>
+        <ul class="entries" role="list">${xs.map(b => `<li class="entry"><span>${cover(b, '4.5rem')}</span><div><h3 class="title"><a href="#">${b.title}</a></h3><p class="author">${b.author}</p><div class="acts">${b.band ? startConfirm(b) : b.fix ? `<button class="btn">${b.fix}</button>` : ''}</div></div><div class="margin">${b.evState === 'fail' ? status(b) : `<p>${b.ev}.${b.next ? ` To reach ${b.next}.` : ''}</p>`}</div></li>`).join('')}</ul></section>` : ''; }).join('')}`,
+  concordance: () => `
+    <div class="head"><h1>Vocabulary</h1><nav aria-label="Vocabulary"><ul class="tabs"><li><a href="#">Browse</a></li><li><a href="#" aria-current="page">Concordance</a></li><li><a href="#">Import Known words</a></li></ul></nav></div>
+    ${qform()}${summaryLine()}
+    <div>${[...groupBy(D.occ, o => o.book)].map(([book, xs]) => `
+      <section class="kgroup"><h3>${book}<span class="meta">${xs.length} ${xs.length === 1 ? 'occurrence' : 'occurrences'}</span></h3>
+        <ol class="klist" role="list">${xs.map(o => `<li class="krow"><details><summary><span class="l"><span>${o.l}</span></span><span class="kw">${o.k}</span><span class="r">${o.r}</span></summary>${ctx(o)}</details><a class="study" href="#">Study<span class="sr"> sentence from ${o.loc}</span></a></li>`).join('')}</ol>
+      </section>`).join('')}</div>
+    <div class="pager"><span class="meta">Page 1 of 1</span></div>`,
+};
+// mobile KWIC needs a sentence wrapper; patch summary markup for narrow screens
+A.concordanceMobileFix = () => {};
+
+// ---------------------------------------------------------------- Variant B — Shelf
+const B = {
+  shell: (body) => `<a class="skip" href="#main">Skip to content</a><div class="frame">
+    <header class="rail"><a class="mark" href="${url({ screen: 'books' })}">Mouseion</a>${navList()}<div class="railfoot">${langSelect('Studying')}${account}</div></header>
+    <main id="main" lang="${S.lang}">${body}</main></div>`,
+  books: () => `
+    <div class="head"><h1>My Books</h1>${findForm('q')}</div>
+    <div class="controls">${tabs()}${waitingNotice()}</div>
+    <ul class="shelf" role="list">${filteredBooks().map(b => `
+      <li class="book"><a href="#" tabindex="-1" aria-hidden="true">${cover(b, 0, true)}</a>
+        <h2 class="title"><a href="#">${b.title}</a></h2><p class="author">${b.author}</p>
+        ${status(b)}
+        <div>${primaryAction(b).replace('btn--primary', '')}</div>${moreActions(b)}</li>`).join('')}</ul>`,
+  reading: () => `
+    <h1 class="sr">Reading</h1>
+    <section class="spread" aria-labelledby="cur">
+      <div class="lpage">${cover(now, '15rem')}</div>
+      <div class="rpage">
+        <p class="meta">Reading since ${D.current.since}</p>
+        <div><h2 id="cur" class="title">${now.title}</h2><p class="author">${now.author}</p></div>
+        <dl class="ledger">
+          <dt>Deck</dt><dd><span><span class="status status--ok">Ready</span> ${D.current.cards} cards, prepared ${D.current.prepared}.</span><span class="btns"><a class="btn btn--primary" href="#">Download deck</a><a class="btn" href="#">Prepare again</a></span></dd>
+          <dt>Vocabulary</dt><dd><span>${D.current.reserved} words reserved for this Book. Finishing it adds them to Known vocabulary.</span></dd>
+          <dt>Analysis</dt><dd><span>Current, ${D.current.analysed} running words.</span></dd>
+        </dl>
+        <div class="lifecycle">${lifecycle(now)}</div>
+      </div>
+    </section>
+    <section class="section" aria-labelledby="tr"><h2 id="tr">Also To Read</h2><p class="meta">In title order. Coverage describes your current vocabulary, not a recommendation.</p>
+      <ul class="row-shelf" role="list" tabindex="0" aria-label="Also To Read">${candidates().map(b => `<li class="book">${cover(b, 0, true)}<h3 class="title" style="font-size:.95rem"><a href="#">${b.title}</a></h3><p class="meta">${b.ev}</p></li>`).join('')}</ul>
+    </section>`,
+  chooser: () => `
+    <div class="head"><h1>Choose your next Book</h1></div><p class="meta" style="margin-bottom:var(--s5)">You're between Books. Groups describe your current vocabulary coverage, not a recommendation.</p>
+    ${BANDS.map(([k, label]) => { const xs = candidates().filter(b => bandOf(b) === k); return xs.length ? `
+      <section class="section" style="margin-top:var(--s6)"><h2>${label}</h2><p class="meta">${xs.length} ${xs.length === 1 ? 'Book' : 'Books'}</p>
+        <ul class="shelf" role="list">${xs.map(b => `<li class="book">${cover(b, 0, true)}<h3 class="title"><a href="#">${b.title}</a></h3><p class="author">${b.author}</p><p class="meta">${b.evState === 'fail' ? '' : b.ev + '.'}${b.next ? ` To reach ${b.next}.` : ''}</p>${b.evState === 'fail' ? status(b) : ''}${b.band ? startConfirm(b) : b.fix ? `<div><button class="btn">${b.fix}</button></div>` : ''}</li>`).join('')}</ul></section>` : ''; }).join('')}`,
+  concordance: () => `
+    <div class="head"><h1>Vocabulary</h1></div>
+    <nav aria-label="Vocabulary" style="margin-bottom:var(--s4)"><ul class="tabs"><li><a href="#">Browse</a></li><li><a href="#" aria-current="page">Concordance</a></li><li><a href="#">Import Known words</a></li></ul></nav>
+    ${qform()}${summaryLine()}
+    <ol class="sents" role="list">${D.occ.map(o => `<li class="sent"><details><summary><p class="passage">${o.l} <mark>${o.k}</mark> ${o.r}</p><span class="src"><span><i>${o.book}</i>, ${o.loc}</span></span></summary>${ctx(o)}</details><a class="study" href="#">Study<span class="sr"> this sentence</span></a></li>`).join('')}</ol>`,
+};
+
+// ---------------------------------------------------------------- Variant C — Desk
+const C = {
+  shell: (body) => `<a class="skip" href="#main">Skip to content</a>
+    <header class="bar"><div class="bar-in"><a class="mark" href="${url({ screen: 'books' })}">Mouseion</a>${navList()}<div class="tools">${langSelect('')}${account}</div></div></header>
+    ${now && S.screen !== 'reading' ? `<aside class="now" aria-label="Current reading"><div class="now-in">${cover(now, '28px')}<span class="lbl">Reading now</span><span class="title"><a href="${url({ screen: 'reading' })}">${now.title}</a></span><span class="status status--ok">${now.ev}</span></div></aside>` : ''}
+    <main id="main" lang="${S.lang}">${body}</main>`,
+  books: () => {
+    const groups = [['now', 'Reading now'], ['to_read', 'To Read'], ['inbox', 'Inbox'], ['aside', 'Set aside'], ['read', 'Read']];
+    return `<div class="head"><h1>My Books</h1>${findForm('q')}</div>
+    ${waitingNotice() ? `<div style="margin-bottom:var(--s4)">${waitingNotice()}</div>` : ''}
+    <nav aria-label="Jump to"><ul class="jump">${groups.slice(1).map(([k, l]) => `<li><a href="#g-${k}">${l} <span class="meta">${D.books.filter(b => b.state === k).length}</span></a></li>`).join('')}</ul></nav>
+    ${groups.map(([k, l]) => { const xs = D.books.filter(b => b.state === k); return xs.length ? `<section class="group" id="g-${k}" aria-labelledby="h-${k}"><h2 id="h-${k}">${l} <span class="n">${xs.length}</span></h2><ul class="rows" role="list">${xs.map(b => `
+      <li class="rowb">${cover(b, '2.5rem')}<div><h3 class="title"><a href="#">${b.title}</a></h3><p class="author">${b.author}</p></div><p class="ev">${b.evState === 'fail' ? status(b) : b.ev}</p><div class="acts">${primaryAction(b).replace('btn--primary', '')}${moreActions(b)}</div></li>`).join('')}</ul></section>` : ''; }).join('')}`;
+  },
+  reading: () => `
+    <h1 class="sr">Reading</h1>
+    <div class="desk">
+      <section class="ident" aria-labelledby="cur">${cover(now, '100%', true)}<div><p class="meta">Reading since ${D.current.since}</p><h2 id="cur" class="title">${now.title}</h2><p class="author">${now.author}</p></div><div class="lifecycle">${lifecycle(now)}</div></section>
+      <section aria-labelledby="prep"><h2 id="prep" style="margin-bottom:var(--s2)">Preparation</h2>
+        <ul class="prep" role="list">
+          <li><b>Analysis</b><span class="d"><span class="status status--ok">Current</span><span>${D.current.analysed} running words.</span></span></li>
+          <li><b>Vocabulary</b><span class="d"><span>${D.current.reserved} words reserved since ${D.current.since}. Finishing adds them to Known vocabulary.</span></span></li>
+          <li><b>Deck</b><span class="d"><span class="status status--ok">Ready</span><span>${D.current.cards} cards, prepared ${D.current.prepared}.</span><span class="btns"><a class="btn btn--primary" href="#">Download deck</a><a class="btn" href="#">Prepare again</a></span></span></li>
+        </ul></section>
+    </div>
+    <section class="section group" aria-labelledby="tr"><h2 id="tr">Also To Read <span class="n">${candidates().length}</span></h2>
+      <ul class="rows" role="list">${candidates().map(b => `<li class="rowb">${cover(b, '2.5rem')}<div><h3 class="title"><a href="#">${b.title}</a></h3><p class="author">${b.author}</p></div><p class="ev">${b.evState === 'fail' ? status(b) : b.ev}</p><div class="acts"></div></li>`).join('')}</ul></section>`,
+  chooser: () => `<div class="head"><h1>Choose your next Book</h1><span class="meta">Grouped by current vocabulary coverage. Nothing is selected for you.</span></div>
+    ${BANDS.map(([k, label]) => { const xs = candidates().filter(b => bandOf(b) === k); return xs.length ? `<section class="group"><h2>${label} <span class="n">${xs.length}</span></h2><ul class="rows" role="list">${xs.map(b => `<li class="rowb">${cover(b, '2.5rem')}<div><h3 class="title"><a href="#">${b.title}</a></h3><p class="author">${b.author}</p></div><p class="ev">${b.evState === 'fail' ? status(b) : b.ev + (b.next ? `. To reach ${b.next}.` : '.')}</p><div class="acts">${b.band ? startConfirm(b) : b.fix ? `<button class="btn">${b.fix}</button>` : ''}</div></li>`).join('')}</ul></section>` : ''; }).join('')}`,
+  concordance: () => `
+    <div class="head"><h1>Vocabulary</h1><nav aria-label="Vocabulary"><ul class="tabs"><li><a href="#">Browse</a></li><li><a href="#" aria-current="page">Concordance</a></li><li><a href="#">Import Known words</a></li></ul></nav></div>
+    ${qform()}${summaryLine()}
+    <div class="ktable-wrap"><ol class="ktable" role="list">${D.occ.map(o => `<li><details><summary><span class="bk">${o.book}, ${o.loc}</span><span class="l"><span>${o.l}</span></span><span class="kw">${o.k}</span><span class="r">${o.r}</span></summary>${ctx(o)}</details><a class="study" href="#">Study<span class="sr"> sentence</span></a></li>`).join('')}</ol></div>`,
+};
+
+// ---------------------------------------------------------------- Type specimen (shared)
+function specimen() {
+  return `<div class="spec">
+    <h1 style="font:650 var(--t-h)/1.2 var(--ui)">Type specimen</h1>
+    <p class="meta">Literata (Book identity, passages) and Commissioner (interface). Add <code>&amp;fonts=fallback</code> to the URL to preview the fallback stacks.</p>
+    <section lang="de"><p class="big">Donaudampfschifffahrtsgesellschaftskapitänsmütze</p><p class="passage">Als sie endlich vor dem <mark>Haus</mark> ihrer Großmutter stand, war es schon dunkel. Über die Straße hörte man die Glocken; „Grüß Gott“, sagte jemand, und Mara drehte sich nicht um. Größe, Maß, Fußgänger, Ärger, Öl, Übermut.</p></section>
+    <section lang="it"><p class="big" style="font-size:var(--t-title)">La Città più lontana di quanto sembrasse</p><p class="passage">Perché l’università è più lontana di quanto sembrasse? Lì, sull’altra riva, c’era già la nebbia; né Niccolò né sua sorella avevano voglia di parlarne. È così, disse: però non ci crederò.</p></section>
+    <section lang="el"><p class="big" style="font-size:var(--t-title)">Η τελευταία βάρδια του φαροφύλακα</p><p class="passage">Όταν έφτασε επιτέλους στο <mark>σπίτι</mark> της γιαγιάς της, είχε ήδη σκοτεινιάσει. «Πού ήσουν;» ρώτησε η θεία· κανείς δεν απάντησε. Ϊ ϊ ΐ ΰ ϋ — άέήίόύώ ΆΈΉΊΌΎΏ.</p>
+      <p class="ui-sample"><b>Ελληνικά</b> — Αναζήτηση στα βιβλία μου, Συνέχεια ανάγνωσης, Λήψη τράπουλας. <i>Commissioner</i> Greek in the interface face.</p></section>
+    <section><p class="ui-sample"><b>Interface</b> — My Books, Reading, Vocabulary, Catalogs. Download deck. 412 words reserved for this Book. 0123456789 <span class="num">97.4% 1,206</span></p>
+      <div class="scale">${[['49', 'var(--t-display)', 'var(--read)', 520], ['39', 'var(--t-title)', 'var(--read)', 520], ['31', 'var(--t-h1)', 'var(--ui)', 650], ['25', 'var(--t-h)', 'var(--ui)', 650], ['20', 'var(--t-lead)', 'var(--read)', 560], ['16', 'var(--t-body)', 'var(--ui)', 400], ['13', 'var(--t-meta)', 'var(--ui)', 400]].map(([n, s, f, w]) => `<span style="font:${w} ${s}/1.2 ${f}">${n}px — Der lange Weg nach Hause</span>`).join('')}</div></section>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- Render
+const V = { A, B, C }[S.variant] || A;
+document.documentElement.dataset.theme = S.theme;
+document.documentElement.lang = 'en';
+document.body.className = 'v' + S.variant + (S.fonts === 'fallback' ? ' fallback' : '');
+const body = S.screen === 'type' ? specimen() : (V[S.screen] || V.books)();
+document.getElementById('app').innerHTML = V.shell(body) + `
+  <div class="proto" aria-label="Prototype switcher (not part of the design)">
+    <button data-go="-1" aria-label="Previous variant">←</button><b>${S.variant} — ${VARIANTS[S.variant]}</b><button data-go="1" aria-label="Next variant">→</button>
+    <select id="proto-screen">${Object.entries(SCREENS).map(([k, v]) => `<option value="${k}"${k === S.screen ? ' selected' : ''}>${v}</option>`).join('')}</select>
+    <button id="proto-theme">${S.theme === 'dark' ? 'Light' : 'Dark'}</button>
+  </div>`;
+// Wrap KWIC sentence parts so compact layouts can reflow them as one sentence.
+document.querySelectorAll('.krow summary, .ktable summary').forEach(s => {
+  const parts = s.querySelectorAll('.l, .kw, .r');
+  if (matchMedia('(max-width: 52rem)').matches) { const w = document.createElement('span'); w.className = 'sent'; parts.forEach((p, i) => { w.append(p); if (i < 2) w.append(' '); }); s.append(w); }
+});
+const keys = Object.keys(VARIANTS);
+const go = (d) => { location.search = url({ variant: keys[(keys.indexOf(S.variant) + d + keys.length) % keys.length] }); };
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(+b.dataset.go));
+document.getElementById('proto-screen').onchange = (e) => { location.search = url({ screen: e.target.value }); };
+document.getElementById('proto-theme').onclick = () => { location.search = url({ theme: S.theme === 'dark' ? 'light' : 'dark' }); };
+addEventListener('keydown', (e) => { if (e.target.closest('input, textarea, select, [contenteditable]')) return; if (e.key === 'ArrowLeft') go(-1); if (e.key === 'ArrowRight') go(1); });
+</script>
+</body>
+</html>
