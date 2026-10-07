@@ -275,7 +275,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, readDisposition)
 	readPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
 	assert.Contains(t, readPage.Body.String(), "Previously read book")
-	assert.Contains(t, readPage.Body.String(), "To Read</p>")
+	assert.Contains(t, readPage.Body.String(), "To Read</span></p>")
 	assert.Contains(t, readPage.Body.String(), "To Read (1)")
 	assert.Contains(t, readPage.Body.String(), "Read (0)", "To Read history is not counted in Read")
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&historyCount))
@@ -310,7 +310,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, reconsider.Code)
 	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
-	assert.Contains(t, toReadPage.Body.String(), "To Read</p>")
+	assert.Contains(t, toReadPage.Body.String(), "To Read</span></p>")
 	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
 	assert.Contains(t, toReadPage.Body.String(), "Read (0)")
 

@@ -282,7 +282,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	readPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
 	assert.Equal(t, http.StatusOK, readPage.Code)
 	assert.Contains(t, readPage.Body.String(), "Read again")
-	assert.Contains(t, readPage.Body.String(), "To Read</p>")
+	assert.Contains(t, readPage.Body.String(), "To Read</span></p>")
 
 	startAgain := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, startAgain.Code)
@@ -322,7 +322,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, stopped.Code)
 	toReadPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
 	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
-	assert.Contains(t, toReadPage.Body.String(), "To Read</p>")
+	assert.Contains(t, toReadPage.Body.String(), "To Read</span></p>")
 	assert.Contains(t, toReadPage.Body.String(), "Reading history", "stopping restores To Read while retaining history")
 }
 
