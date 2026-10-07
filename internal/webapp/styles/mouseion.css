@@ -532,6 +532,10 @@ textarea {
   gap: var(--mouseion-space-2);
 }
 
+.site-header__language-label {
+  white-space: nowrap;
+}
+
 .site-header__language select {
   box-sizing: border-box;
   width: max-content;
@@ -1641,7 +1645,7 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 /* Compact: content no longer fits comfortably side by side. */
 @media (max-width: 40rem) {
   .site-header {
-    padding: var(--mouseion-space-3);
+    padding: var(--mouseion-space-1) var(--mouseion-space-3);
   }
 
   .site-header__nav {
@@ -1693,18 +1697,25 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   }
 
   .site-header__language label {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--mouseion-space-1);
+    display: flex;
+    gap: 0;
+  }
+
+  .site-header__language-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .site-header__language select {
     width: 100%;
-    min-width: 0;
+    min-width: 44px;
     max-width: 100%;
     flex: 1 1 auto;
     padding-inline: var(--mouseion-space-2);
-    font-size: 0.875rem;
   }
 
   .site-header__account-name {

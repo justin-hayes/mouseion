@@ -304,7 +304,11 @@ the second row holds the four primary destinations. Wider screens keep those
 same controls in one horizontal bar when space permits; long labels and enlarged
 text may make it taller. The one navigation landmark and document order remain
 identical at every width; destinations never become icon-only or move into a
-separate navigation system.
+separate navigation system. The active study-language select retains the
+programmatic label “Study language”; visually hide that label on compact screens
+to keep the control beside the wordmark and account disclosure. Keep the short
+visible “Study language” label on wider screens. Name language options by their
+endonyms (Deutsch, Italiano, Ελληνικά), without appending language codes.
 
 ### Wide data — from `72rem`
 

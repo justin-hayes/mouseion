@@ -62,19 +62,24 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		Options: []activeStudyLanguageOption{
 			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
 			{StudyLanguage: domain.StudyLanguage{Language: "it", DisplayName: "Italian"}, HasBooks: true, NewArrival: true},
+			{StudyLanguage: domain.StudyLanguage{Language: "el", DisplayName: "Greek"}, HasBooks: true},
 			{StudyLanguage: domain.StudyLanguage{Language: "fr", DisplayName: "French"}},
 		},
 	}
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
 	requireMarkup(t, html,
 		`<select id="active-study-language" name="language"`,
-		`German (de)`,
-		`Italian (it) (new)`,
+		`<label for="active-study-language"><span class="site-header__language-label">Study language</span>`,
+		`Deutsch`,
+		`Italiano (new)`,
+		`Ελληνικά`,
 		`French (fr) (no books)`,
 		`value="fr"`,
 		`<noscript><button class="btn btn-primary" type="submit">Switch language</button></noscript>`,
 		`action="/active-study-language"`,
 	)
+	assert.NotContains(t, html, "German (de)")
+	assert.NotContains(t, html, "Greek (el)")
 	assert.False(t, strings.Contains(html, `value="">Choose a study language`), "active language switcher exposes a selectable empty option")
 }
 

@@ -29,6 +29,14 @@ type shellViewContextKey struct{}
 
 func activeStudyLanguageLabel(option activeStudyLanguageOption) string {
 	label := option.DisplayName + " (" + option.Language + ")"
+	switch option.Language {
+	case "de":
+		label = "Deutsch"
+	case "it":
+		label = "Italiano"
+	case "el":
+		label = "Ελληνικά"
+	}
 	if !option.HasBooks {
 		label += " (no books)"
 	}
