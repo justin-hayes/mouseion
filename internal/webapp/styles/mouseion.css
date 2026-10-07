@@ -151,6 +151,27 @@ button,
   font-weight: 650;
 }
 
+a.button {
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mouseion-color-accent);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
+  color: var(--mouseion-color-surface-raised);
+  background: var(--mouseion-color-accent);
+  font: inherit;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+
+a.button:hover {
+  background: var(--mouseion-color-accent-hover);
+}
+
 a {
   color: var(--mouseion-color-accent);
 }
@@ -164,7 +185,7 @@ button.button--quiet {
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--mouseion-color-border);
+  border: 1px solid var(--mouseion-color-control-border);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-2) var(--mouseion-space-3);
   color: var(--mouseion-color-text);
@@ -244,11 +265,7 @@ samp {
   }
 }
 
-body.reading-shell :is(button, input, select, textarea) {
-  max-width: 100%;
-}
-
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button {
+body:is(.vocabulary-shell, .jobs-shell) button {
   min-height: 44px;
   border: 1px solid var(--mouseion-color-accent);
   border-radius: var(--mouseion-radius);
@@ -259,90 +276,20 @@ body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button {
   font-weight: 650;
 }
 
-body.reading-shell button {
-  padding-inline: var(--mouseion-space-4);
-}
-
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button:hover:not(:disabled) {
+body:is(.vocabulary-shell, .jobs-shell) button:hover:not(:disabled) {
   background: var(--mouseion-color-accent-hover);
 }
 
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--outline,
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--quiet {
+body:is(.vocabulary-shell, .jobs-shell) button.button--outline,
+body:is(.vocabulary-shell, .jobs-shell) button.button--quiet {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--outline:hover,
-body:is(.reading-shell, .vocabulary-shell, .jobs-shell) button.button--quiet:hover {
+body:is(.vocabulary-shell, .jobs-shell) button.button--outline:hover,
+body:is(.vocabulary-shell, .jobs-shell) button.button--quiet:hover {
   background: var(--mouseion-color-surface-quiet);
-}
-
-body.reading-shell form {
-  max-width: 100%;
-}
-
-body.reading-shell :is(input, select, textarea) {
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-border);
-  border-radius: var(--mouseion-radius);
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
-  background: var(--mouseion-color-surface-raised);
-}
-
-body.reading-shell summary {
-  min-height: 44px;
-  cursor: pointer;
-}
-
-body.reading-shell .confirmation summary {
-  display: flex;
-  align-items: center;
-}
-
-body.reading-shell :is(.reading-chooser-list, .journey-list) {
-  min-width: 0;
-}
-
-body.reading-shell .reading-chooser-list {
-  padding: 0;
-}
-
-body.reading-shell .reading-chooser-book,
-body.reading-shell .journey-book,
-body.reading-shell .journey-goal,
-body.reading-shell .reading-chooser-empty,
-body.reading-shell .language-handoff,
-body.reading-shell #primary-goal-section {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-body.reading-shell .journey-goal {
-  color: var(--mouseion-color-text);
-}
-
-body.reading-shell .journey-book__identity,
-body.reading-shell .journey-book__evidence,
-body.reading-shell .journey-book__controls,
-body.reading-shell .goal-card__actions {
-  min-width: 0;
-}
-
-body.reading-shell .journey-book__evidence > section,
-body.reading-shell .goal-card__deck {
-  max-width: 100%;
-}
-
-body.reading-shell .journey-finish-outcome {
-  max-width: var(--mouseion-width-reading);
-  border-block: 2px solid var(--mouseion-color-text);
-  padding-block: var(--mouseion-space-6);
-}
-
-body.reading-shell .journey-finish-outcome h1 {
-  font-family: var(--mouseion-font-reading);
 }
 
 /* Vocabulary workflow controls and selection styles. */
@@ -789,7 +736,7 @@ textarea {
 }
 
 /* Shared actions use the application button variants. */
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button, [role="button"]) {
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button, a.button, [role="button"]) {
   box-sizing: border-box;
   min-height: 44px;
   margin: 0;
@@ -804,18 +751,18 @@ textarea {
   text-decoration: none;
 }
 
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.button--outline, .button--quiet) {
-  border-color: var(--mouseion-color-border);
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button.button--outline, button.button--quiet, a.button--outline, a.button--quiet) {
+  border-color: var(--mouseion-color-control-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) button:not(.button--outline, .button--quiet):hover:not(:disabled),
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button, a.button):not(.button--outline, .button--quiet):hover:not(:disabled),
 :is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) [role="button"]:not(.button--outline, .button--quiet):hover {
   background: var(--mouseion-color-accent-hover);
 }
 
-:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(.button--outline, .button--quiet):hover {
+:is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button.button--outline, button.button--quiet, a.button--outline, a.button--quiet):hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
@@ -1249,31 +1196,6 @@ progress {
   border-radius: var(--mouseion-radius);
   background: var(--mouseion-color-surface-raised);
   box-shadow: none;
-}
-
-.reading-chooser-list {
-  display: grid;
-  gap: var(--mouseion-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.reading-chooser-book .resource-card {
-  padding: var(--mouseion-space-4);
-}
-
-.reading-chooser-book h3 {
-  margin-bottom: var(--mouseion-space-1);
-  overflow-wrap: anywhere;
-}
-
-.reading-chooser-book details {
-  margin-block: var(--mouseion-space-3);
-}
-
-.reading-chooser-book form {
-  margin-bottom: 0;
 }
 
 .settings-language-list {
@@ -1778,171 +1700,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   color: var(--mouseion-color-danger);
 }
 
-.journey-goal {
-  margin-bottom: var(--mouseion-space-7);
-  border: 1px solid var(--mouseion-color-accent);
-  border-left-width: var(--mouseion-space-1);
-  padding: clamp(var(--mouseion-space-4), 4vw, var(--mouseion-space-6));
-  background: color-mix(in srgb, var(--mouseion-color-accent) 7%, var(--mouseion-color-surface-raised));
-}
-
-.journey-goal > h2 {
-  margin-bottom: var(--mouseion-space-5);
-}
-
-.journey-list {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-  margin: 0;
-  padding-inline-start: var(--mouseion-space-5);
-  list-style-position: outside;
-  border-top: 2px solid var(--mouseion-color-text);
-}
-
-.journey-list > li {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-}
-
-.journey-book {
-	display: grid;
-	grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 2.2fr);
-	align-items: start;
-	gap: var(--mouseion-space-4);
-	min-width: 0;
-  margin: 0;
-  border: 0;
-  border-bottom: 1px solid var(--mouseion-color-border);
-  border-radius: 0;
-  padding: var(--mouseion-space-5) var(--mouseion-space-4);
-  background: transparent;
-  box-shadow: none;
-  overflow-wrap: anywhere;
-}
-
-.journey-book h3 {
-  font-family: var(--mouseion-font-reading);
-  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
-}
-
-.journey-book > div {
-	min-width: 0;
-}
-
-.journey-book__identity {
-	grid-column: 2;
-}
-
-.journey-book__cover {
-	grid-column: 1;
-	width: 4.5rem;
-}
-
-.journey-book__cover .book-cover-media {
-	width: 4.5rem;
-}
-
-.journey-book__author {
-  margin: calc(var(--mouseion-space-2) * -1) 0 var(--mouseion-space-3);
-  color: var(--mouseion-color-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.journey-book__evidence {
-	grid-column: 3;
-	min-width: 0;
-	width: 100%;
-}
-
-.goal-card__actions {
-	grid-column: 1 / -1;
-}
-
-.journey-book__controls {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--mouseion-space-2);
-	align-items: center;
-	grid-column: 1 / -1;
-	min-width: 0;
-	max-width: 100%;
-	width: min(100%, 22rem);
-}
-
-.journey-book__controls form {
-	margin: 0;
-}
-
-.journey-book__controls .confirmation {
-	min-width: 0;
-}
-
-.journey-book__goal-action button {
-	width: 100%;
-}
-
-.journey-book__goal-action,
-.journey-book__goal-reason,
-.journey-book__controls > .more-actions {
-	flex: 1 1 100%;
-}
-
-.journey-book__goal-reason {
-	margin: 0;
-}
-
-.more-actions {
-	min-width: 0;
-	border-top: 1px solid var(--mouseion-color-border);
-	padding-top: var(--mouseion-space-3);
-}
-
-.more-actions > summary {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  color: var(--mouseion-color-text-muted);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.more-actions__body {
-	display: grid;
-	gap: var(--mouseion-space-3);
-	padding-top: var(--mouseion-space-3);
-}
-
-.more-actions__body > .confirmation {
-	border-top: 0;
-	padding-top: 0;
-}
-
-.journey-status:empty {
-  display: none;
-}
-
-.journey-book h3,
-.journey-book h3 a,
-.journey-book code {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.journey-book--goal {
-	border: 0;
-	padding: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.journey-book--goal .goal-card__deck {
-	margin-top: var(--mouseion-space-5);
-	border-top: 1px solid var(--mouseion-color-border);
-	padding-top: var(--mouseion-space-4);
-}
-
 .book-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -2008,64 +1765,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   gap: var(--mouseion-space-3);
 }
 
-.scope-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mouseion-space-2);
-}
-
-.scope-actions button {
-  width: auto;
-}
-
-.scope-summary {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  justify-content: space-between;
-  gap: var(--mouseion-space-4);
-  padding: var(--mouseion-space-3) var(--mouseion-space-4);
-  margin-bottom: var(--mouseion-space-4);
-  border: 1px solid var(--mouseion-color-accent);
-  border-left-width: var(--mouseion-space-1);
-  background: var(--mouseion-color-surface-quiet);
-}
-
-.scope-units {
-  display: grid;
-  gap: var(--mouseion-space-4);
-}
-
-.scope-unit {
-  margin: 0;
-  border: 1px solid var(--mouseion-color-border);
-  border-radius: var(--mouseion-radius);
-  background: var(--mouseion-color-surface-raised);
-  box-shadow: none;
-}
-
-.scope-unit header,
-.scope-unit dl {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--mouseion-space-4);
-  flex-wrap: wrap;
-}
-
-.scope-unit dl div {
-  min-width: 9rem;
-}
-
-.scope-unit dt {
-  font-weight: 700;
-}
-
-.scope-warning {
-  border-left: var(--mouseion-space-1) solid var(--mouseion-color-info);
-  padding-left: var(--mouseion-space-3);
-}
-
 /* Compact: content no longer fits comfortably side by side. */
 @media (max-width: 40rem) {
   .site-header {
@@ -2127,9 +1826,7 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   }
 
   .page-header,
-  .page-heading,
-  .journey-book,
-  .scope-summary {
+  .page-heading {
     display: flex;
     align-items: stretch;
     flex-direction: column;
@@ -2199,27 +1896,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 
   .right {
     float: none;
-  }
-
-  .journey-book form {
-    width: 100%;
-  }
-
-  .journey-book__cover {
-    width: 4.5rem;
-  }
-
-	.journey-book__controls {
-		width: 100%;
-		align-items: stretch;
-	}
-
-	.journey-book form button {
-		width: 100%;
-	}
-
-  .scope-summary {
-    position: static;
   }
 
   .vocabulary-language-picker {

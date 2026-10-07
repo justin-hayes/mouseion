@@ -231,19 +231,29 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
     let state = 'queued';
+    let releaseCancel!: () => void;
+    const cancelGate = new Promise<void>((resolve) => { releaseCancel = resolve; });
     await page.route('**/deck-preparations/*/status', (route) => {
       if (route.request().headers()['accept'] === 'text/html') {
         return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
       }
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) });
     });
-    await page.route('**/deck-preparations/*/cancel', (route) => { state = 'cancelled'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
+    await page.route('**/deck-preparations/*/cancel', async (route) => {
+      await cancelGate;
+      state = 'cancelled';
+      await route.fulfill({ contentType: 'application/json', body: '{}' });
+    });
     await page.route('**/deck-preparations/*/retry', (route) => { state = 'ready'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
     const status = page.locator('[data-deck-preparation]');
     await page.getByRole('button', { name: 'Prepare deck' }).press('Enter');
     const cancel = status.getByRole('button', { name: 'Cancel preparation' });
     await expect(cancel).toBeVisible();
     await cancel.press('Enter');
+    const cancelPending = status.getByRole('button', { name: 'Canceling deck preparation…' });
+    await expect(cancelPending).toBeDisabled();
+    await expect(status.getByRole('status')).toHaveText('Canceling deck preparation…');
+    releaseCancel();
     await expect(status).toContainText('Deck preparation cancelled');
     const retry = status.getByRole('button', { name: 'Retry preparation' });
     await retry.press('Enter');

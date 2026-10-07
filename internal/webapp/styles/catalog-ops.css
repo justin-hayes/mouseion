@@ -1,38 +1,30 @@
 /* Catalogs, Reading, and operational-job controls. */
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn {
   border-radius: 0.125rem;
   font: inherit;
   text-decoration: none;
 }
 
-body.reading-shell .btn {
-  height: auto;
-  min-width: 0;
-  max-width: 100%;
-  flex-shrink: 1;
-  white-space: normal;
-}
-
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn-primary {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn-primary {
   border-color: var(--mouseion-color-accent);
   color: var(--color-primary-content);
   background: var(--mouseion-color-accent);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn-primary:hover:not(:disabled) {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn-primary:hover:not(:disabled) {
   border-color: var(--mouseion-color-accent-hover);
   background: var(--mouseion-color-accent-hover);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn-outline {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn-outline {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn:focus-visible,
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) main .btn:focus-visible,
 body.catalogs-shell .input:focus-visible,
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .site-header__navigation a:focus-visible {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) .site-header__navigation a:focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
   outline-offset: 3px;
 }
@@ -104,14 +96,14 @@ body.catalogs-shell .confirmation__body {
   overflow-wrap: anywhere;
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) :is(button, a[role="button"], summary) {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) :is(button, a[role="button"], summary) {
   min-height: 44px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) *,
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) *::before,
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) *::after {
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) *,
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) *::before,
+body:is(.catalogs-shell, .jobs-shell, .vocabulary-shell) *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;

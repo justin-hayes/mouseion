@@ -35,6 +35,7 @@
 @import "./login.css" layer(components);
 @import "./my-books.css" layer(components);
 @import "./catalog-ops.css" layer(components);
+@import "./reading.css" layer(components);
 @import "./vocabulary.css" layer(components);
 
 /* daisyUI's input component uses a translucent text-derived border by default.

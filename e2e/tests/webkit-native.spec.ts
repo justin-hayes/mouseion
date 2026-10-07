@@ -149,6 +149,42 @@ test.describe('native WebKit smoke journey', () => {
     await chooseStudyLanguage(page, 'de');
   });
 
+  test('Reading confirmations remain native, visible, and reachable without JavaScript', async ({ browser }) => {
+    const page = await browser.newPage({
+      baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+      javaScriptEnabled: false,
+      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
+      viewport: { width: 320, height: 812 },
+    });
+    try {
+      await signIn(page);
+      await page.goto('/reading');
+      const current = page.locator('#primary-goal-section');
+      const switchLink = current.locator('a[href="/reading/switch"]');
+      await expect(switchLink).toBeVisible();
+      await expect(switchLink).not.toHaveAttribute('role', 'button');
+      const finish = current.locator('details.confirmation').filter({ hasText: 'Mark reading finished' });
+      const summary = finish.locator('summary');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(finish).toHaveAttribute('open', '');
+      await expect(finish.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
+      await page.keyboard.press('Space');
+      await expect(finish).not.toHaveAttribute('open', '');
+
+      await switchLink.click();
+      const switchConfirmation = page.locator('details.confirmation').filter({ hasText: 'Switch to this book' }).first();
+      const switchSummary = switchConfirmation.locator('summary');
+      await switchSummary.focus();
+      await page.keyboard.press('Enter');
+      await expect(switchConfirmation).toHaveAttribute('open', '');
+      await expect(switchConfirmation.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    } finally {
+      await page.close();
+    }
+  });
+
   test('shared navigation and study-language control stay visually consistent across destinations', async ({ page }) => {
     await signIn(page);
     const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentDecoration: string }>;

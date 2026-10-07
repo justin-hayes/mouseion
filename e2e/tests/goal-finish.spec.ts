@@ -26,7 +26,7 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
   const finishForm = finishDisclosure.locator('form[action="/reading/finish"]');
   await finishDisclosure.locator('summary').click();
   await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
-  await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toHaveClass(/btn-primary/);
+  await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toHaveClass(/\bbutton\b/);
   await expect(goal).toContainText('Record the reading achievement');
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);
   await expect(finishForm.locator('input[name="expected_current_book_id"]')).toHaveCount(1);
