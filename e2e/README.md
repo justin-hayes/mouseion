@@ -21,6 +21,13 @@ external fixture server, set `MOUSEION_REUSE_FIXTURE=1` and provide
 `MOUSEION_FIXTURE_URL` (or `MOUSEION_FIXTURE_ADDR`); otherwise the runner always
 starts a fixture server owned by that invocation.
 
+For manual visual or screenshot review, capture all desired states in one
+Playwright invocation and browser session. Let Playwright own the fixture server
+rather than starting additional `go run ./cmd/fixtureserver` processes. If source
+or embedded assets change, rebuild them and restart that invocation once before
+capturing the updated UI. The fixture store is mutable, so avoid concurrent
+browser runs sharing one manually started fixture server.
+
 WebKit requires its browser binary and Linux runtime libraries. On a supported
 Linux runner image, provision the system libraries as an image/setup step with
 `cd e2e && npx playwright install-deps webkit` (this system-package command
