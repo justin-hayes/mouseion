@@ -1,6 +1,7 @@
 package webapp
 
 import "fmt"
+import "time"
 import "github.com/justin-hayes/mouseion/internal/domain"
 
 templ PageHeader(title, description string, status templ.Component) {
@@ -122,7 +123,7 @@ templ ResponsiveTable(label string) {
 	</div>
 }
 
-templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value, max int, busy bool) {
+templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value, max int, busy bool, metadata templ.Component) {
 	<section { attributes... } id={ id } class="async-status" role="status" aria-live="polite" aria-atomic="true" aria-busy={ boolString(busy) }>
 		<p class="async-status__title"><strong>{ title }</strong></p>
 		if summary != "" {
@@ -131,10 +132,32 @@ templ AsyncStatus(attributes templ.Attributes, id, title, summary string, value,
 		if max > 0 {
 			<progress aria-label={ title + " progress" } value={ fmt.Sprintf("%d", value) } max={ fmt.Sprintf("%d", max) }>{ fmt.Sprintf("%d of %d", value, max) }</progress>
 		}
+		if metadata != nil {
+			@metadata
+		}
 		<div class="async-status__actions">
 			{ children... }
 		</div>
 	</section>
+}
+
+templ OperationalJobMetadata(identityLabel, identity string, createdAt time.Time, attempt, attemptCount int, finishedAt *time.Time) {
+	<dl class="operational-metadata" aria-live="off">
+		if identity != "" {
+			<div><dt>{ identityLabel }</dt><dd>{ identity }</dd></div>
+		}
+		<div><dt>Created</dt><dd>
+			if createdAt.IsZero() {
+				Unavailable
+			} else {
+				<time datetime={ createdAt.UTC().Format(time.RFC3339) }>{ createdAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time>
+			}
+		</dd></div>
+		<div><dt>Attempt</dt><dd>{ fmt.Sprintf("%d of %d", maxOne(attempt), maxOne(attemptCount)) }</dd></div>
+		if finishedAt != nil && !finishedAt.IsZero() {
+			<div><dt>Finished</dt><dd><time datetime={ finishedAt.UTC().Format(time.RFC3339) }>{ finishedAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div>
+		}
+	</dl>
 }
 
 templ ActiveStudyLanguageSwitcher(view *shellView, csrf string) {

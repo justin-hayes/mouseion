@@ -214,7 +214,7 @@ func TestDataDisplayPatterns(t *testing.T) {
 }
 
 func TestAsyncStatusPattern(t *testing.T) {
-	html := renderPattern(t, AsyncStatus(nil, "analysis-progress", "Analysis running", "42% complete", 42, 100, true), `<button>Cancel analysis</button>`)
+	html := renderPattern(t, AsyncStatus(nil, "analysis-progress", "Analysis running", "42% complete", 42, 100, true, nil), `<button>Cancel analysis</button>`)
 	requireMarkup(t, html,
 		`id="analysis-progress"`,
 		`class="async-status"`,

@@ -171,6 +171,10 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
     await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
     await expect(page.getByText(/this exact reading snapshot remains unchanged/i)).toBeVisible();
+    const prepareForm = page.locator('form.focused-deck-form');
+    await expect(prepareForm.getByRole('button', { name: 'Prepare deck' })).toBeVisible();
+    expect(await prepareForm.evaluate(node => Number.parseFloat(getComputedStyle(node).paddingInlineStart))).toBeGreaterThanOrEqual(16);
+    expect(await prepareForm.evaluate(node => Number.parseFloat(getComputedStyle(node).rowGap))).toBeGreaterThan(0);
     const preparation = page.locator('[data-deck-preparation]');
     await expect(preparation).toHaveAttribute('role', 'status');
     await expect(preparation).toHaveAttribute('aria-live', 'polite');

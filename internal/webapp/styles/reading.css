@@ -60,6 +60,20 @@ body.reading-shell .goal-card__deck form {
   margin: 0;
 }
 
+body.reading-shell form.focused-deck-form {
+  display: grid;
+  gap: var(--mouseion-space-4);
+  max-width: var(--mouseion-width-form);
+  border: 1px solid var(--mouseion-color-border);
+  border-top: var(--mouseion-space-1) solid var(--mouseion-color-accent);
+  padding: var(--mouseion-space-5);
+  background: var(--mouseion-color-surface-raised);
+}
+
+body.reading-shell .focused-deck-form > :last-child {
+  margin-bottom: 0;
+}
+
 body.reading-shell .goal-card__actions button,
 body.reading-shell .journey-book__controls a,
 body.reading-shell .goal-card__deck button,

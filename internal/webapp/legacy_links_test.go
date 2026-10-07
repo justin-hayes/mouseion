@@ -37,7 +37,7 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 
 func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
 	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
-	urls, err := h.readingBookURLs(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
+	bookContexts, err := h.jobBookContexts(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
 	require.NoError(t, err)
 
 	jobs := []domain.AnalysisJob{
@@ -45,14 +45,15 @@ func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
 		{ID: 2, DisplayNumber: 2, SourceMaterialID: "fixture-failed", AnalysisState: "completed", AnalysisRunID: "run", CorpusID: "corpus"},
 	}
 	var jobsHTML bytes.Buffer
-	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", urls).Render(context.Background(), &jobsHTML))
+	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", bookContexts).Render(context.Background(), &jobsHTML))
 	assert.True(t, strings.Contains(jobsHTML.String(), `href="/reading#journey-book-fixture-book"`) && !strings.Contains(jobsHTML.String(), `href="/books/fixture-failed"`), "jobs rendered legacy or dead result link: %s", jobsHTML.String())
+	assert.Contains(t, jobsHTML.String(), "Fehlgeschlagene Analyse")
 
 }
 
 func TestJobStatusPreservesLegacyDeckPreparationWithoutBookIdentity(t *testing.T) {
 	status := analysis.Status{ID: 7, CorpusID: "legacy-corpus", LogicalState: "completed"}
 	var output bytes.Buffer
-	require.NoError(t, JobStatus("csrf", status, "").Render(context.Background(), &output))
+	require.NoError(t, JobStatus("csrf", status, "", "").Render(context.Background(), &output))
 	assert.True(t, strings.Contains(output.String(), `action="/jobs/7/deck/preparations"`) && strings.Contains(output.String(), "Prepare a deck"), "legacy completed result lost deck preparation action: %s", output.String())
 }
