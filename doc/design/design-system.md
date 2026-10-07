@@ -205,8 +205,9 @@ is not a status cue by itself.
 Commissioner (Kostas Bartsokas, OFL) is the application face. Literata
 (Google Fonts/TypeTogether, OFL) is reserved for Book identity and source text.
 Both are self-hosted variable WOFF2 fonts with Latin, Latin-ext, and Greek
-subsets; Commissioner exposes only weights 400–700, Literata 400–600, and
-Literata uses its optical-size axis. The scale is a major third from
+subsets; Commissioner exposes only weights 400–700, Literata 400–600 in upright
+and italic styles, and Literata uses its optical-size axis. Italic Literata is a
+separate subset and loads only when italic text is used. The scale is a major third from
 16px: 13 / 16 / 20 / 25 / 31 / 39 / 49px. Page headings orient at 25px;
 ordinary section headings use 20px; only a current Book title may reach
 39–49px. Reading passages use 17–19px Literata at approximately 1.65 line
@@ -217,14 +218,25 @@ authoritative titles or require hover to reveal them.
 Font faces use `font-display: swap`, generic sans-serif/serif fallback stacks, and
 local URLs through the embedded static handler. Preload only the Commissioner
 Latin subset used immediately by the interface; Greek, extended-Latin, and
-Literata subsets load when their glyphs are needed. The six font subsets and
+Literata subsets load when their glyphs are needed. The nine font subsets and
 their OFL texts, pinned source paths, and SHA-256 checksums are listed in the
 [vendor inventory](../../internal/webapp/static/vendor/README.md).
 
-Disclosures retain native `<details>/<summary>` behavior and show a visible
-open/closed cue; status uses a shape together with words (filled dot for
-current/ready, ring for neutral, diamond for failure). Never make disclosure
-state or status depend on color alone.
+Disclosures retain native `<details>/<summary>` behavior and use one shared
+chevron beside the visible summary text. It turns when open, respects reduced
+motion, remains visible in forced-colors mode, and keeps native keyboard
+activation, visible focus, and a minimum 44px target. Status uses a decorative,
+accessibility-hidden shape together with visible words: a filled dot for
+current/ready, a ring for neutral or in-progress states, and a diamond for
+failure. Shapes use the status foreground so they remain visible in both themes
+and forced-colors mode. Never make disclosure state or status depend on color
+alone.
+
+A missing, pending, or unavailable Book cover uses a tinted placeholder with the
+first title initial; a leading article is ignored according to the Book language
+(German, Italian, or Modern Greek). If the title is only an article, its own
+initial is retained. Existing visible cover-state text remains, and the complete
+placeholder is `aria-hidden` because the adjacent title is authoritative.
 
 ## Spacing scale
 

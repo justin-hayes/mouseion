@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
@@ -97,6 +98,46 @@ func bookCoverLabel(cover domain.BookCover) string {
 	default:
 		return "No cover available"
 	}
+}
+
+func isBookCoverTitleSeparator(r rune) bool {
+	return unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r)
+}
+
+func bookCoverInitial(title, language string) string {
+	title = strings.TrimFunc(title, isBookCoverTitleSeparator)
+	canonicalLanguage := strings.ToLower(strings.SplitN(strings.ReplaceAll(language, "_", "-"), "-", 2)[0])
+	articles := map[string][]string{
+		"de": {"der", "die", "das"},
+		"it": {"il", "la", "lo", "gli", "le", "l'", "l’"},
+		"el": {"ο", "η", "το", "οι"},
+	}[canonicalLanguage]
+	lowerTitle := strings.ToLower(title)
+	for _, article := range articles {
+		if article == "l'" || article == "l’" {
+			if lowerTitle == article {
+				break
+			}
+			if strings.HasPrefix(lowerTitle, article) {
+				title = title[len(article):]
+				break
+			}
+			continue
+		}
+		if lowerTitle == article {
+			break
+		}
+		if strings.HasPrefix(lowerTitle, article) && len(title) > len(article) && unicode.IsSpace(rune(title[len(article)])) {
+			title = strings.TrimLeftFunc(title[len(article):], isBookCoverTitleSeparator)
+			break
+		}
+	}
+	for _, r := range title {
+		if unicode.IsLetter(r) {
+			return strings.ToUpper(string(r))
+		}
+	}
+	return "?"
 }
 
 type StatusTone string
@@ -218,6 +259,17 @@ func statusBadgeClass(tone StatusTone) string {
 	default:
 		// Unknown tones use the neutral presentation.
 		return "status-badge status-badge--neutral"
+	}
+}
+
+func statusBadgeShapeClass(label string, tone StatusTone) string {
+	switch {
+	case tone == StatusDanger:
+		return "status-badge__shape status-badge__shape--diamond"
+	case strings.Contains(strings.ToLower(label), "current") || strings.Contains(strings.ToLower(label), "ready"):
+		return "status-badge__shape status-badge__shape--dot"
+	default:
+		return "status-badge__shape status-badge__shape--ring"
 	}
 }
 

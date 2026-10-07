@@ -30,12 +30,12 @@ templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
 	}
 }
 
-templ BookCoverMedia(bookID string, cover domain.BookCover) {
+templ BookCoverMedia(bookID, title, language string, cover domain.BookCover) {
 	<div class="book-cover-media">
 		if cover.State == domain.BookCoverAvailable && cover.Width > 0 && cover.Height > 0 {
 			<img class="book-cover-media__image" src={ templ.SafeURL(bookCoverURL(bookID)) } alt="" width={ fmt.Sprintf("%d", cover.Width) } height={ fmt.Sprintf("%d", cover.Height) } loading="lazy" decoding="async"/>
 		} else {
-			<div class="book-cover-media__placeholder" aria-hidden="true"><span>{ bookCoverLabel(cover) }</span></div>
+			<div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">{ bookCoverInitial(title, language) }</span><span class="book-cover-media__label">{ bookCoverLabel(cover) }</span></div>
 		}
 	</div>
 }
@@ -54,7 +54,7 @@ templ Breadcrumb(href, label string) {
 }
 
 templ StatusBadge(label string, tone StatusTone) {
-	<span class={ statusBadgeClass(tone) }>{ label }</span>
+	<span class={ statusBadgeClass(tone) }><span class={ statusBadgeShapeClass(label, tone) } aria-hidden="true"></span>{ label }</span>
 }
 
 templ Feedback(kind FeedbackKind, title, message string) {

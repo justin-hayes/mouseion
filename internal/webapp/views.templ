@@ -228,12 +228,12 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		<div class="library-book__identity">
 			if myBookInJourney(book) {
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
-					@BookCoverMedia(book.Book.ID, book.Cover)
+					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
 					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
 				</a>
 			} else {
 				<div class="library-book__identity-link">
-					@BookCoverMedia(book.Book.ID, book.Cover)
+					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
 					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
 				</div>
 			}
@@ -587,7 +587,7 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }>
 		<div class={ journeyBookTitlePageClass(primary) }>
-			<div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Cover)</div>
+			<div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover)</div>
 			<div class="journey-book__identity">
 				if primary {
 					<h1 class="journey-book__title">
@@ -1923,7 +1923,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 	<li class="reading-chooser-book">
 		<article class="reading-chooser-entry">
 			<div class="reading-chooser-entry__identity">
-				<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Cover)</div>
+				<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
 				<div>
 					<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
 					if author := strings.TrimSpace(item.Book.Book.Author); author != "" {

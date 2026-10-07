@@ -143,8 +143,55 @@ func TestStatusBadgePattern(t *testing.T) {
 	html := renderPattern(t, StatusBadge("Analysis running", StatusInfo), "")
 	requireMarkup(t, html,
 		`class="status-badge status-badge--info"`,
+		`class="status-badge__shape status-badge__shape--ring" aria-hidden="true"`,
 		`Analysis running`,
 	)
+}
+
+func TestStatusBadgeShapeUsesCurrentReadyAndFailureMeaning(t *testing.T) {
+	for _, tt := range []struct {
+		label, shape string
+		tone         StatusTone
+	}{
+		{label: "Current reading", tone: StatusInfo, shape: "dot"},
+		{label: "Deck ready", tone: StatusSuccess, shape: "dot"},
+		{label: "Analysis completed", tone: StatusSuccess, shape: "ring"},
+		{label: "Analysis queued", tone: StatusInfo, shape: "ring"},
+		{label: "Analysis failed", tone: StatusDanger, shape: "diamond"},
+	} {
+		t.Run(tt.label, func(t *testing.T) {
+			html := renderPattern(t, StatusBadge(tt.label, tt.tone), "")
+			requireMarkup(t, html, `class="status-badge__shape status-badge__shape--`+tt.shape+`" aria-hidden="true"`)
+		})
+	}
+}
+
+func TestBookCoverPlaceholderKeepsStateAndDecoratesInitial(t *testing.T) {
+	html := renderPattern(t, BookCoverMedia("book-1", "Die Verwandlung", "de", domain.BookCover{State: domain.BookCoverPending}), "")
+	requireMarkup(t, html,
+		`class="book-cover-media__placeholder" aria-hidden="true"`,
+		`class="book-cover-media__initial">V</span>`,
+		`class="book-cover-media__label">Cover pending</span>`,
+	)
+}
+
+func TestBookCoverInitialIgnoresLeadingArticleForBookLanguage(t *testing.T) {
+	tests := []struct {
+		name, title, language, want string
+	}{
+		{name: "German definite article", title: "Der Prozess", language: "de", want: "P"},
+		{name: "Italian article", title: "Gli indifferenti", language: "it", want: "I"},
+		{name: "Greek article", title: "Το σπίτι", language: "el", want: "Σ"},
+		{name: "article alone", title: "Die", language: "de", want: "D"},
+		{name: "punctuation before article", title: "— Die Verwandlung", language: "de", want: "V"},
+		{name: "elided Italian article", title: "L'amica geniale", language: "it", want: "A"},
+		{name: "unknown language keeps first letter", title: "Der Prozess", language: "fr", want: "D"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, bookCoverInitial(tt.title, tt.language))
+		})
+	}
 }
 
 func TestFeedbackPatterns(t *testing.T) {

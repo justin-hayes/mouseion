@@ -508,6 +508,30 @@
   }
   @font-face {
     font-family: "Literata Variable";
+    font-style: italic;
+    font-display: swap;
+    font-weight: 400 600;
+    src: url("/static/vendor/fonts/literata-greek-opsz-italic.woff2") format("woff2-variations");
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: "Literata Variable";
+    font-style: italic;
+    font-display: swap;
+    font-weight: 400 600;
+    src: url("/static/vendor/fonts/literata-latin-ext-opsz-italic.woff2") format("woff2-variations");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Literata Variable";
+    font-style: italic;
+    font-display: swap;
+    font-weight: 400 600;
+    src: url("/static/vendor/fonts/literata-latin-opsz-italic.woff2") format("woff2-variations");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Literata Variable";
     font-style: normal;
     font-display: swap;
     font-weight: 400 600;
@@ -642,6 +666,48 @@
     font-family: var(--mouseion-font-application);
     font-size: 1rem;
     line-height: 1.5;
+  }
+  details > summary {
+    min-height: 44px;
+    cursor: pointer;
+    list-style: none;
+  }
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+  details > summary::before {
+    box-sizing: border-box;
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: 0 0 0.5rem;
+    margin-inline-end: var(--mouseion-space-2);
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    content: "";
+    transform: rotate(45deg);
+    transition: transform 120ms ease;
+  }
+  details[open] > summary::before {
+    transform: rotate(135deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    details > summary::before {
+      transition: none;
+    }
+  }
+  @media (forced-colors: active) {
+    details > summary::before {
+      border-color: CanvasText;
+    }
+    .status-badge__shape, .status::before {
+      forced-color-adjust: none;
+      color: CanvasText;
+      border-color: CanvasText;
+    }
+    .status-badge__shape--dot, .status-badge__shape--diamond, .status-analyzed::before, .status-active::before, .status-ready::before, .status-complete::before, .status-abandoned::before {
+      background: CanvasText;
+    }
   }
   :focus-visible {
     outline: 3px solid var(--mouseion-color-focus);
@@ -945,20 +1011,6 @@
     list-style: none;
     white-space: nowrap;
   }
-  .site-header__account > summary::-webkit-details-marker {
-    display: none;
-  }
-  .site-header__account > summary::after {
-    width: 0.4em;
-    height: 0.4em;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
-    content: "";
-    transform: rotate(45deg) translateY(-0.15em);
-  }
-  .site-header__account[open] > summary::after {
-    transform: rotate(-135deg);
-  }
   .site-header__account-compact {
     display: none;
   }
@@ -1185,6 +1237,27 @@
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1.4;
+  }
+  .status-badge__shape {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: 0 0 0.55rem;
+    margin-inline-end: var(--mouseion-space-1);
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+  }
+  .status-badge__shape--dot {
+    background: currentColor;
+  }
+  .status-badge__shape--diamond {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-basis: 0.5rem;
+    border: 0;
+    border-radius: 0;
+    background: currentColor;
+    transform: rotate(45deg);
   }
   .status-badge--neutral {
     color: var(--mouseion-color-text);
@@ -1418,9 +1491,6 @@
     font-weight: 650;
     list-style: none;
   }
-  .library-add-book > summary::-webkit-details-marker {
-    display: none;
-  }
   .library-add-book[open] > summary {
     background: var(--mouseion-color-accent);
     color: var(--mouseion-color-surface-raised);
@@ -1515,17 +1585,6 @@
     align-items: center;
     cursor: pointer;
     list-style: none;
-  }
-  .library-needs-language details > summary::-webkit-details-marker {
-    display: none;
-  }
-  .library-needs-language details > summary::before {
-    content: "▸";
-    flex: 0 0 1.25rem;
-    color: var(--mouseion-color-accent);
-  }
-  .library-needs-language details[open] > summary::before {
-    content: "▾";
   }
   .library-language-pills {
     gap: var(--mouseion-space-4);
@@ -1638,7 +1697,18 @@
     height: 100%;
     place-items: center;
     padding: var(--mouseion-space-3);
-    color: var(--mouseion-color-text-muted);
+    gap: var(--mouseion-space-1);
+    color: var(--mouseion-color-text);
+    background: var(--mouseion-color-surface-quiet);
+    text-align: center;
+  }
+  .book-cover-media__initial {
+    font-family: var(--mouseion-font-reading);
+    font-size: 1.75rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .book-cover-media__label {
     font-size: var(--mouseion-font-size-metadata);
     text-align: center;
   }
@@ -1725,19 +1795,42 @@
     font-size: 1.2rem;
   }
   .status {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mouseion-space-2);
     border-radius: var(--mouseion-radius);
     padding: var(--mouseion-space-1) var(--mouseion-space-3);
     white-space: nowrap;
     background: var(--mouseion-color-surface-quiet);
   }
+  .status::before {
+    box-sizing: border-box;
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: 0 0 0.55rem;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    content: "";
+  }
   .status-analyzed, .status-active, .status-ready, .status-complete {
     color: var(--mouseion-color-success);
+  }
+  .status-analyzed::before, .status-active::before, .status-ready::before, .status-complete::before {
+    background: currentColor;
   }
   .status-analyzing {
     color: var(--mouseion-color-info);
   }
   .status-abandoned {
     color: var(--mouseion-color-danger);
+  }
+  .status-abandoned::before {
+    border: 0;
+    border-radius: 0;
+    background: currentColor;
+    transform: rotate(45deg);
   }
   .book-actions {
     display: grid;
@@ -2274,23 +2367,6 @@
     min-height: 44px;
     align-items: center;
     cursor: pointer;
-  }
-  body.reading-shell .confirmation > summary::marker, body.reading-shell .more-actions > summary::marker {
-    color: var(--mouseion-color-accent);
-  }
-  body.reading-shell details > summary {
-    list-style: none;
-  }
-  body.reading-shell details > summary::-webkit-details-marker {
-    display: none;
-  }
-  body.reading-shell details > summary::before {
-    content: "▸";
-    flex: 0 0 1.25rem;
-    color: var(--mouseion-color-accent);
-  }
-  body.reading-shell details[open] > summary::before {
-    content: "▾";
   }
   body.reading-shell .journey-finish-outcome {
     max-width: var(--mouseion-width-reading);
@@ -2973,14 +3049,6 @@
     overflow-wrap: anywhere;
     cursor: pointer;
   }
-  body.reading-shell .lemma-review details > summary::before {
-    content: "▸";
-    flex: 0 0 1.25rem;
-    color: var(--mouseion-color-accent);
-  }
-  body.reading-shell .lemma-review details[open] > summary::before {
-    content: "▾";
-  }
   #main-content:has(form.concordance-query) > .vocabulary-page-header {
     margin-bottom: var(--mouseion-space-2);
   }
@@ -3124,17 +3192,6 @@
     margin: 0;
     cursor: pointer;
   }
-  .concordance-scopes summary::-webkit-details-marker, .concordance-row summary::-webkit-details-marker {
-    display: none;
-  }
-  .concordance-scopes summary::before {
-    content: "▸";
-    flex: 0 0 1.25rem;
-    color: var(--mouseion-color-accent);
-  }
-  .concordance-scopes details[open] > summary::before {
-    content: "▾";
-  }
   .concordance-results {
     list-style: none;
     padding-inline-start: 0;
@@ -3195,15 +3252,13 @@
   }
   .concordance-row summary::before {
     position: absolute;
-    inset-block: 0;
+    inset-block-start: 50%;
     inset-inline-start: 0;
-    display: flex;
-    align-items: center;
-    content: "▸";
-    color: var(--mouseion-color-accent);
+    margin: 0;
+    transform: translateY(-50%) rotate(45deg);
   }
   .concordance-row[open] > summary::before {
-    content: "▾";
+    transform: translateY(-50%) rotate(135deg);
   }
   .concordance-before, .concordance-after {
     min-width: 0;

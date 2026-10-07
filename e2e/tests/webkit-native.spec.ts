@@ -371,14 +371,14 @@ test.describe('native WebKit smoke journey', () => {
     await expect(page.getByRole('button', { name: 'Find' })).toHaveClass(/\bbutton\b/);
     await expect(page.locator('.concordance-scopes fieldset')).toHaveCount(1);
     await expect(page.locator('.concordance-scopes button[type="submit"]').first()).toHaveClass(/\bbutton--outline\b/);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     const bookDisclosure = page.locator('.concordance-scopes details').first();
     const bookSummary = bookDisclosure.locator('summary');
-    const closedBookCue = await bookSummary.evaluate(element => getComputedStyle(element, '::before').content);
-    expect(closedBookCue).toContain('▸');
+    const closedBookCue = await bookSummary.evaluate(element => getComputedStyle(element, '::before').transform);
     await bookSummary.click();
     await expect(bookDisclosure).toHaveAttribute('open', '');
-    const openBookCue = await bookSummary.evaluate(element => getComputedStyle(element, '::before').content);
-    expect(openBookCue).toContain('▾');
+    const openBookCue = await bookSummary.evaluate(element => getComputedStyle(element, '::before').transform);
+    expect(openBookCue).not.toBe(closedBookCue);
     await bookSummary.click();
 
     const results = page.locator('#concordance-results');
@@ -395,14 +395,14 @@ test.describe('native WebKit smoke journey', () => {
     const firstRow = page.locator('#concordance-native-results details').first();
     const secondRow = page.locator('#concordance-native-results details').nth(1);
     const firstSummary = firstRow.locator('summary');
-    expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▸');
+    const closedOccurrenceCue = await firstSummary.evaluate(element => getComputedStyle(element, '::before').transform);
     await expect(page.locator('.concordance-book-label').first()).toContainText('Der lange Weg nach Hause');
     await expect(firstSummary).toContainText('Haus');
 
     // Pointer activation opens native context; keyboard focus remains visible.
     await firstSummary.click();
     await expect(firstRow).toHaveAttribute('open', '');
-    expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').content)).toContain('▾');
+    expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').transform)).not.toBe(closedOccurrenceCue);
     await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
     await firstSummary.focus();

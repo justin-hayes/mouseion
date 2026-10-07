@@ -93,29 +93,6 @@ body.reading-shell details > summary {
   cursor: pointer;
 }
 
-body.reading-shell .confirmation > summary::marker,
-body.reading-shell .more-actions > summary::marker {
-  color: var(--mouseion-color-accent);
-}
-
-body.reading-shell details > summary {
-  list-style: none;
-}
-
-body.reading-shell details > summary::-webkit-details-marker {
-  display: none;
-}
-
-body.reading-shell details > summary::before {
-  content: "▸";
-  flex: 0 0 1.25rem;
-  color: var(--mouseion-color-accent);
-}
-
-body.reading-shell details[open] > summary::before {
-  content: "▾";
-}
-
 body.reading-shell .journey-finish-outcome {
   max-width: var(--mouseion-width-reading);
   border-block: 2px solid var(--mouseion-color-text);
