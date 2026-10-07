@@ -2584,7 +2584,7 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: var(--mouseion-space-1);
-    margin-bottom: var(--mouseion-space-2);
+    margin: 0 0 var(--mouseion-space-2);
     color: var(--mouseion-color-text-muted);
     font-family: var(--mouseion-font-application);
     font-size: 1rem;
