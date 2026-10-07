@@ -1070,7 +1070,6 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			}
 		}
 		if language != "" {
-			<p class="concordance-language">Study language: <code>{ language }</code> <span>· Current analyzed Books</span></p>
 			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
 				for _, bookID := range lookup.BookIDs {
 					<input type="hidden" name="book" value={ bookID }/>
@@ -1086,8 +1085,9 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						<option value="analyzer" selected?={ lookup.Mode == "analyzer" }>Analyzer lemma (evidence)</option>
 					</select>
 				</div>
-				<div class="concordance-query-field">
-					<label for="concordance-term">Exact term</label><input class="input" id="concordance-term" type="search" name="term" value={ lookup.Term } required/>
+				<div class="concordance-query-term">
+					<label for="concordance-term">Exact term</label>
+					<div class="concordance-query-term-controls"><input class="input" id="concordance-term" type="search" name="term" value={ lookup.Term } required/><button class="button" type="submit">Find</button></div>
 				</div>
 				<div class="concordance-pos-field">
 					<label for="concordance-upos">Part of speech</label>
@@ -1097,7 +1097,6 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 						}
 					</select>
 				</div>
-				<button class="button" type="submit">Find</button>
 			</form>
 			<div class="concordance-scopes">
 			<details>
@@ -1140,8 +1139,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			if applied {
 				<section id="concordance-results" aria-labelledby="concordance-summary">
 					<h2 id="concordance-summary" tabindex="-1" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>Current results</h2>
-					<p>{ concordanceAppliedSummary(lookup) } · { concordanceBookScope(lookup, books) } · { concordanceGrammarScope(lookup) }.</p>
-					<p>{ concordanceResultRange(result) } · page { fmt.Sprintf("%d", result.Page) }{ concordanceMoreResultsText(result) }.</p>
+					<p class="concordance-results-summary">{ concordanceResultsSummary(lookup, books, result) }</p>
 					if len(result.Occurrences) == 0 && lookup.Page == 1 {
 						<p>No current analyzed occurrences match this exact lookup.</p>
 					}
@@ -1151,11 +1149,11 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 					if len(result.Occurrences) > 0 {
 						<ol id="concordance-native-results" class="concordance-results" role="list">
 						for index, occurrence := range result.Occurrences {
-							<li class="concordance-result">
+							<li class={ "concordance-result" + concordanceBookGroupClass(result.Occurrences, index) }>
 								if concordanceStartsBookGroup(result.Occurrences, index) {
 									<div class="concordance-book-label">
 										<span class="concordance-book-title">{ occurrence.BookTitle }</span>
-										<span class="concordance-book-count">{ concordanceBookGroupCountText(result.Occurrences, index) }</span>
+								<span class="concordance-book-count">{ concordanceBookGroupCountText(result.Occurrences, index) }</span>
 									</div>
 								} else {
 									<div class="concordance-book-label" aria-hidden="true"></div>
@@ -1177,7 +1175,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 										</p>
 									</div>
 								</details>
-                                <a class="concordance-study-link" aria-label="Study this sentence and its syntax" title="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }><span aria-hidden="true">↗</span></a>
+								<a class="concordance-study-link" aria-label="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, lookup)) }>Study</a>
 							</li>
 						}
 						</ol>
@@ -1265,6 +1263,22 @@ func concordanceAppliedSummary(lookup domain.ConcordanceLookup) string {
 	}
 }
 
+func concordanceResultsSummary(lookup domain.ConcordanceLookup, books []domain.SourceMaterialSummary, result domain.ConcordanceResult) string {
+	page := result.Page
+	if page < 1 {
+		page = 1
+	}
+	summary := concordanceAppliedSummary(lookup) + " in " + concordanceBookScope(lookup, books) + " with " + concordanceGrammarScope(lookup) + "; "
+	if len(result.Occurrences) == 0 {
+		return summary + "no results on page " + fmt.Sprintf("%d", page) + "."
+	}
+	summary += "showing " + concordanceResultRange(result) + " on page " + fmt.Sprintf("%d", page)
+	if result.HasNext {
+		summary += "; more results are available"
+	}
+	return summary + "."
+}
+
 func concordanceBookScope(lookup domain.ConcordanceLookup, books []domain.SourceMaterialSummary) string {
 	if len(lookup.BookIDs) == 0 { return "all current Books" }
 	titles := make([]string, 0, len(lookup.BookIDs))
@@ -1298,6 +1312,13 @@ func concordanceBookTitle(book domain.SourceMaterialSummary) string {
 
 func concordanceStartsBookGroup(occurrences []domain.ConcordanceResultOccurrence, index int) bool {
 	return index == 0 || occurrences[index-1].BookID != occurrences[index].BookID
+}
+
+func concordanceBookGroupClass(occurrences []domain.ConcordanceResultOccurrence, index int) string {
+	if index > 0 && concordanceStartsBookGroup(occurrences, index) {
+		return " concordance-result--book-start"
+	}
+	return ""
 }
 
 func concordanceBookGroupCountText(occurrences []domain.ConcordanceResultOccurrence, index int) string {
@@ -1391,11 +1412,6 @@ func concordanceResultRange(result domain.ConcordanceResult) string {
 	}
 	start := (result.Page-1)*25 + 1
 	return fmt.Sprintf("Results %d–%d", start, start+len(result.Occurrences)-1)
-}
-
-func concordanceMoreResultsText(result domain.ConcordanceResult) string {
-	if result.HasNext { return " · more results available" }
-	return ""
 }
 
 func concordanceLocation(occurrence domain.ConcordanceResultOccurrence) string {

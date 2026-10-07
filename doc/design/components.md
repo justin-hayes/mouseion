@@ -241,7 +241,12 @@ and occurrence decisions remain labeled native forms inside native disclosures.
 Disclosure state is visible without color alone, checkable labels retain a
 generous target around the native-size checkbox, and the result list remains one
 server-rendered ordered list (with an explicit list role when CSS removes native
-markers). Sentence study is a separate named link, and return navigation keeps
+markers). Results read as a keyword-in-context list: each Book's title and
+occurrence count label its group, dividers separate groups rather than individual
+occurrences, and the matched form sits directly between its right-aligned left
+context and left-aligned right context. One sentence names the applied lookup,
+Book scope, grammar filter, and result range. Every occurrence has a visible
+“Study” link; sentence study remains a separate named link, and return navigation keeps
 its occurrence/results-summary focus contract. Playwright role/name assertions
 are automated browser accessibility-tree evidence only; they are not real
 VoiceOver verification. No manual VoiceOver verification is claimed by this

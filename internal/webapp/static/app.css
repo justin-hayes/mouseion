@@ -3069,12 +3069,7 @@
   #main-content:has(form.concordance-query) > .vocabulary-page-header nav[aria-label="Vocabulary views"] {
     font-size: var(--mouseion-font-size-metadata);
   }
-  .concordance-language {
-    margin-block: 0 var(--mouseion-space-2);
-    color: var(--mouseion-color-text-muted);
-    font-size: var(--mouseion-font-size-metadata);
-  }
-  body.vocabulary-shell :is(.concordance-language, #main-content:has(form.concordance-query) > p) {
+  body.vocabulary-shell #main-content:has(form.concordance-query) > p {
     overflow-wrap: anywhere;
   }
   body.vocabulary-shell #main-content, body.reading-shell .lemma-review {
@@ -3152,36 +3147,36 @@
   .concordance-query {
     max-width: var(--mouseion-width-data);
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) minmax(0, 0.8fr) auto;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 0.8fr);
     align-items: end;
     gap: var(--mouseion-space-2) var(--mouseion-space-3);
   }
   .concordance-query:has(#concordance-mode option[value="surface"]:checked) {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) auto;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
   }
-  .concordance-query-field, .concordance-pos-field {
+  .concordance-query-field, .concordance-query-term, .concordance-pos-field {
     min-width: 0;
     display: grid;
     align-content: end;
     gap: var(--mouseion-space-1);
   }
-  .concordance-query-field label, .concordance-pos-field label {
+  .concordance-query-field label, .concordance-query-term label, .concordance-pos-field label {
     margin-bottom: 0;
   }
-  .concordance-query-field select, .concordance-query-field input, .concordance-query .concordance-pos-field select, .concordance-query > button {
+  .concordance-query-field select, .concordance-query-term input, .concordance-query .concordance-pos-field select, .concordance-query-term-controls > button {
     margin-bottom: 0;
+  }
+  .concordance-query-term-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--mouseion-space-2);
   }
   .concordance-query .concordance-pos-field {
     grid-column: 3;
   }
   .concordance-query:has(#concordance-mode option[value="surface"]:checked) .concordance-pos-field {
     display: none;
-  }
-  .concordance-query > button {
-    grid-column: 4;
-  }
-  .concordance-query:has(#concordance-mode option[value="surface"]:checked) > button {
-    grid-column: 3;
   }
   .concordance-scopes {
     min-width: 0;
@@ -3211,6 +3206,9 @@
     padding-inline-start: 0;
     margin-block: var(--mouseion-space-3);
   }
+  .concordance-results-summary {
+    overflow-wrap: anywhere;
+  }
   #main-content:has(form.concordance-query) #concordance-summary {
     margin-block: var(--mouseion-space-2) var(--mouseion-space-1);
   }
@@ -3220,19 +3218,21 @@
   }
   .concordance-result {
     display: grid;
-    grid-template-columns: minmax(9rem, 0.7fr) minmax(0, 2fr) auto;
+    grid-template-columns: minmax(8rem, 0.55fr) minmax(0, 2fr) auto;
     align-items: stretch;
-    gap: var(--mouseion-space-3);
-    border-bottom: 1px solid var(--mouseion-color-border);
+    gap: var(--mouseion-space-2);
+  }
+  .concordance-result--book-start:not(:first-child) {
+    border-top: 1px solid var(--mouseion-color-border);
   }
   .concordance-book-label {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: var(--mouseion-space-1);
     padding-block: var(--mouseion-space-3);
-    text-align: end;
+    text-align: start;
   }
   .concordance-book-title {
     font-family: var(--mouseion-font-reading);
@@ -3254,9 +3254,9 @@
   .concordance-row summary {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 12rem) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
     align-items: baseline;
-    gap: var(--mouseion-space-2);
+    gap: 0;
     font-family: var(--mouseion-font-reading);
     line-height: 1.5;
     max-width: 100%;
@@ -3290,6 +3290,7 @@
   }
   .concordance-study-link {
     display: flex;
+    min-height: 44px;
     align-items: center;
     justify-content: center;
     gap: var(--mouseion-space-1);
@@ -3308,24 +3309,21 @@
   }
   @media (max-width: 40rem) {
     .concordance-query {
-      grid-template-columns: minmax(0, 1fr);
-      align-items: stretch;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      align-items: end;
     }
     .concordance-query:has(#concordance-mode option[value="surface"]:checked) {
-      grid-template-columns: minmax(min(8.5rem, 42vw), 0.9fr) minmax(0, 1.25fr);
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     }
-    .concordance-query-field, .concordance-query .concordance-pos-field, .concordance-query > button {
+    .concordance-query-term, .concordance-query .concordance-pos-field {
       grid-column: 1;
     }
-    .concordance-query:has(#concordance-mode option[value="surface"]:checked) .concordance-query-field {
-      grid-column: auto;
-    }
-    .concordance-query:has(#concordance-mode option[value="surface"]:checked) > button {
-      grid-column: 1 / -1;
+    .concordance-query-term {
+      grid-column: 2;
     }
     .concordance-result {
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: var(--mouseion-space-1) var(--mouseion-space-2);
+      gap: 0 var(--mouseion-space-2);
     }
     .concordance-book-label {
       grid-column: 1 / -1;
@@ -3345,6 +3343,9 @@
       align-self: start;
       min-width: 0;
       padding-inline: var(--mouseion-space-1);
+    }
+    .concordance-row {
+      grid-column: 1;
     }
   }
 }
