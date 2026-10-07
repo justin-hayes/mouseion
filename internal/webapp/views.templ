@@ -880,7 +880,7 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 		</div>
 	}
 }
-templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, readingBookURLs map[string]string) {
+templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, jobBookContexts map[string]jobBookContext) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
 		if message != "" {
@@ -893,15 +893,15 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 		}
 		if len(jobs) > 0 {
 			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Job</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				<thead><tr><th>Job</th><th>Book</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>
-						if url := readingBookURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
+						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}
@@ -909,14 +909,14 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 	}
 }
 
-templ JobPage(user domain.User, csrf string, status analysis.Status, readingBookURL string) {
+templ JobPage(user domain.User, csrf string, status analysis.Status, readingBookURL, bookTitle string) {
 	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
-		@JobStatus(csrf, status, readingBookURL)
+		@JobStatus(csrf, status, readingBookURL, bookTitle)
 	}
 }
-templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
-	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status), AnalysisJobMetadata(status)) {
+templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle string) {
+	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", jobState(status), analysisStatusSummary(status), status.Progress, 100, jobRunning(status), OperationalJobMetadata("Book", bookTitle, status.CreatedAt, status.Attempt, status.AttemptCount, status.FinalizedAt)) {
 		if status.Error != "" {
 			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when you are ready.")
 		}
@@ -949,13 +949,6 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL string) {
 	}
 }
 
-templ AnalysisJobMetadata(status analysis.Status) {
-<dl class="operational-metadata" aria-live="off"><div><dt>Created</dt><dd><time datetime={ status.CreatedAt.UTC().Format(time.RFC3339) }>{ status.CreatedAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div><div><dt>Attempt</dt><dd>{ fmt.Sprintf("%d of %d", maxOne(status.Attempt), maxOne(status.AttemptCount)) }</dd></div>
-	if status.FinalizedAt != nil {
-		<div><dt>Finished</dt><dd><time datetime={ status.FinalizedAt.UTC().Format(time.RFC3339) }>{ status.FinalizedAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div>
-	}
-	</dl>
-}
 templ VocabularyBrowsePageView(user domain.User, csrf string, language string, page domain.VocabularyBrowsePage, query string) {
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("browse")
@@ -1680,7 +1673,7 @@ templ DeckJourneyAction(action deckJourneyActionView) {
 	}
 }
 
-templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, readingBookURLs map[string]string) {
+templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, message string, jobBookContexts map[string]jobBookContext) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil)
 		if message != "" {
@@ -1700,15 +1693,15 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 		}
 		if len(jobs) > 0 {
 			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Kind</th><th>Job</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
+				<thead><tr><th>Kind</th><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
 				for _, job := range jobs {
 					<tr><td>Analysis</td><td>
-						if url := readingBookURLs[job.SourceMaterialID]; url != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(url) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+							<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
 				}
 				</tbody>
 			}
@@ -1724,7 +1717,7 @@ templ CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.S
 }
 
 templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
-	@AsyncStatus(catalogueSyncJobStatusAttributes(status.ID, catalogueSyncStatusRunning(status)), "catalogue-sync-job-status", catalogueSyncJobState(status), catalogueSyncJobSummary(status), status.Progress, 100, catalogueSyncStatusRunning(status), CatalogueSyncJobMetadata(status)) {
+	@AsyncStatus(catalogueSyncJobStatusAttributes(status.ID, catalogueSyncStatusRunning(status)), "catalogue-sync-job-status", catalogueSyncJobState(status), catalogueSyncJobSummary(status), status.Progress, 100, catalogueSyncStatusRunning(status), OperationalJobMetadata("Connection", status.ConnectionName, status.CreatedAt, int(status.Attempt), int(status.AttemptCount), status.FinalizedAt)) {
 		if status.Error != "" {
 			@Feedback(FeedbackError, "Catalog sync needs attention", status.Error)
 		}
@@ -1738,14 +1731,6 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 		}
 		<p>Catalog sync reconciles metadata only; it does not download EPUB content.</p>
 	}
-}
-
-templ CatalogueSyncJobMetadata(status cataloguesync.Status) {
-<dl class="operational-metadata" aria-live="off"><div><dt>Connection</dt><dd>{ status.ConnectionName }</dd></div><div><dt>Created</dt><dd><time datetime={ status.CreatedAt.UTC().Format(time.RFC3339) }>{ status.CreatedAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div><div><dt>Attempt</dt><dd>{ fmt.Sprintf("%d of %d", maxOne(int(status.Attempt)), maxOne(int(status.AttemptCount))) }</dd></div>
-	if status.FinalizedAt != nil {
-		<div><dt>Finished</dt><dd><time datetime={ status.FinalizedAt.UTC().Format(time.RFC3339) }>{ status.FinalizedAt.UTC().Format("2006-01-02 15:04:05 UTC") }</time></dd></div>
-	}
-	</dl>
 }
 
 templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeckPreparationView, resultURL string) {

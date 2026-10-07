@@ -23,7 +23,7 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 		fail(w, e)
 		return
 	}
-	readingBookURLs, err := h.readingBookURLs(r.Context(), u.ID, analysisJobSourceIDs(jobs))
+	jobBookContexts, err := h.jobBookContexts(r.Context(), u.ID, analysisJobSourceIDs(jobs))
 	if err != nil {
 		fail(w, err)
 		return
@@ -36,10 +36,10 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 			fail(w, syncErr)
 			return
 		}
-		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), readingBookURLs))
+		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), jobBookContexts))
 		return
 	}
-	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message"), readingBookURLs))
+	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message"), jobBookContexts))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -53,12 +53,12 @@ func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	journeyURL, err := h.readingBookURLForSource(r.Context(), u.ID, status.SourceMaterialID)
+	book, err := h.jobBookContextForSource(r.Context(), u.ID, status.SourceMaterialID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, JobPage(u, h.csrf(w, r), status, journeyURL))
+	render(w, r, JobPage(u, h.csrf(w, r), status, book.ReadingURL, book.Title))
 }
 func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
 	if status, found, ok := h.loadCatalogueJob(r.Context(), user(r).ID, r.PathValue("id")); ok {
@@ -71,12 +71,12 @@ func (h *Handler) jobStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	journeyURL, err := h.readingBookURLForSource(r.Context(), user(r).ID, status.SourceMaterialID)
+	book, err := h.jobBookContextForSource(r.Context(), user(r).ID, status.SourceMaterialID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	render(w, r, JobStatus(h.csrf(w, r), status, journeyURL))
+	render(w, r, JobStatus(h.csrf(w, r), status, book.ReadingURL, book.Title))
 }
 func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) (analysis.Status, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)

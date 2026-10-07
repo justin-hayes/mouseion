@@ -29,8 +29,12 @@ test.describe('compact task rhythm', () => {
     await expect(status).toContainText('Failed');
     await expect(status.locator('.operational-metadata')).toContainText('Created');
     await expect(status.locator('.operational-metadata')).toContainText('Attempt');
+    await expect(status.locator('.operational-metadata')).toContainText('Fehlgeschlagene Analyse');
     await expect(status.getByRole('progressbar')).toBeVisible();
     await expect(status.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
+
+    await page.goto('/jobs');
+    await expect(page.getByRole('region', { name: 'Analysis history' })).toContainText('Fehlgeschlagene Analyse');
   });
 
   test('catalog-sync polling retains the live status root and its metadata', async ({ page }) => {

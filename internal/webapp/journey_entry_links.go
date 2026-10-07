@@ -10,6 +10,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
+type jobBookContext struct {
+	Title, ReadingURL string
+}
+
 func bookStudyLanguage(detail domain.MyBook) string {
 	language := strings.TrimSpace(detail.Book.LanguageTag)
 	if language == "" && detail.Acquired != nil {
@@ -22,23 +26,32 @@ func bookStudyLanguage(detail domain.MyBook) string {
 // evidence can be served in Reading Journey. Source material IDs are accepted
 // because Jobs and deck history retain acquisition identities.
 func (h *Handler) readingBookURLForSource(ctx context.Context, owner, sourceID string) (string, error) {
+	book, err := h.jobBookContextForSource(ctx, owner, sourceID)
+	return book.ReadingURL, err
+}
+
+func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID string) (jobBookContext, error) {
 	if sourceID == "" {
-		return "", nil
+		return jobBookContext{}, nil
 	}
 	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, sourceID)
 	if errors.Is(err, persistence.ErrNotFound) {
-		return "", nil
+		return jobBookContext{}, nil
 	}
 	if err != nil {
-		return "", err
+		return jobBookContext{}, err
+	}
+	book := jobBookContext{Title: strings.TrimSpace(detail.Book.Title)}
+	if book.Title == "" && detail.Acquired != nil {
+		book.Title = canonicalBookTitle(*detail.Acquired)
 	}
 	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
-		return "", nil
+		return book, nil
 	}
 	if detail.Disposition == domain.BookDispositionToRead {
-		return readingBookOrLanguageHandoffURL(ctx, detail), nil
+		book.ReadingURL = readingBookOrLanguageHandoffURL(ctx, detail)
 	}
-	return "", nil
+	return book, nil
 }
 
 func readingBookOrLanguageHandoffURL(ctx context.Context, detail domain.MyBook) string {
@@ -52,17 +65,17 @@ func readingBookOrLanguageHandoffURL(ctx context.Context, detail domain.MyBook) 
 	return readingBookURL(detail.Book.ID)
 }
 
-func (h *Handler) readingBookURLs(ctx context.Context, owner string, sourceIDs []string) (map[string]string, error) {
-	urls := make(map[string]string, len(sourceIDs))
+func (h *Handler) jobBookContexts(ctx context.Context, owner string, sourceIDs []string) (map[string]jobBookContext, error) {
+	contexts := make(map[string]jobBookContext, len(sourceIDs))
 	for _, sourceID := range sourceIDs {
-		if _, seen := urls[sourceID]; seen {
+		if _, seen := contexts[sourceID]; seen {
 			continue
 		}
-		url, err := h.readingBookURLForSource(ctx, owner, sourceID)
+		book, err := h.jobBookContextForSource(ctx, owner, sourceID)
 		if err != nil {
 			return nil, err
 		}
-		urls[sourceID] = url
+		contexts[sourceID] = book
 	}
-	return urls, nil
+	return contexts, nil
 }

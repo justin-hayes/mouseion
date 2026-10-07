@@ -194,9 +194,10 @@ element, polite live updates, and ordinary retry/cancellation forms. Native
 `details`/`summary` confirmations retain their visible disclosure affordance,
 consequences, and submission behavior without JavaScript.
 
-Job detail keeps task state, progress, and recovery together, with
-creation/finish timestamps, attempt, and operational provenance in an adjacent
-definition-list margin note. Catalog-sync detail names its connection and
+Analysis history and detail keep the Book title distinct from the operational
+job number; detail keeps task state, progress, and recovery together, with
+Book/connection identity, creation/finish timestamps, attempt, and provenance in
+an adjacent definition-list margin note. Catalog-sync detail names its connection and
 retains the metadata-only explanation. Focused Book deck preparation uses the
 same compact page heading and an intentionally spaced bounded form; Book and
 analysis identity, eligibility, external-translation consent, artifact state,
