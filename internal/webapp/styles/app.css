@@ -53,6 +53,12 @@
     min-height: 44px;
   }
 
+  /* daisyUI's primary button defaults to its light-theme content tone. Keep
+   * the shared action readable when Mouseion's accent changes in dark mode. */
+  .btn-primary {
+    color: var(--color-primary-content);
+  }
+
   /* daisyUI caps .input at 20rem; the My Books grid needs its field to fill its track. */
   .library-search__controls input {
     width: 100%;

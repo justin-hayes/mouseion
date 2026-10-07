@@ -167,17 +167,17 @@ templ CatalogueSyncConnectionStatus(view catalogueSyncConnectionView) {
 
 templ CatalogueSyncConnectionActions(csrf string, connection domain.OpdsConnection, view catalogueSyncConnectionView) {
 	<div class="action-group">
-		<form method="post" action={ templ.SafeURL("/connections/" + connection.ID + "/sync") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="btn btn-primary" type="submit" disabled?={ view.Syncing }>Sync now</button></form>
+		<form method="post" action={ templ.SafeURL("/connections/" + connection.ID + "/sync") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit" disabled?={ view.Syncing }>Sync now</button></form>
 		if view.Syncing {
 			<span>Sync already in progress.</span>
 			<a href="/jobs">View job status</a>
 		}
 		if view.Failed {
-			<a role="button" class="btn btn-outline" href={ templ.SafeURL("#edit-connection-" + connection.ID) }>Edit connection</a>
+			<a role="button" class="button button--outline" href={ templ.SafeURL("#edit-connection-" + connection.ID) }>Edit connection</a>
 			<a href="/jobs">View job status</a>
 		}
 		if view.State == "Last synced" {
-			<a role="button" class="btn btn-outline" href="/library">Browse My Books</a>
+			<a role="button" class="button button--outline" href="/library">Browse My Books</a>
 		}
 	</div>
 }

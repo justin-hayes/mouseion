@@ -186,6 +186,47 @@ test.describe('native WebKit smoke journey', () => {
     await chooseStudyLanguage(page, 'de');
   });
 
+  test('Catalogs confirmations and job recovery remain native without JavaScript', async ({ browser }) => {
+    const context = await browser.newContext({
+      baseURL: fixtureBaseURL(),
+      javaScriptEnabled: false,
+      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
+      viewport: test.info().project.name.includes('compact') ? { width: 375, height: 812 } : { width: 1280, height: 800 },
+    });
+    const page = await context.newPage();
+    try {
+      await signIn(page);
+      await page.goto('/catalogs');
+      const addForm = page.locator('#catalog-connection-form form');
+      await expect(addForm).toHaveAttribute('method', 'post');
+      await expect(addForm).toHaveAttribute('action', '/connections');
+      const name = addForm.getByLabel('Name', { exact: true });
+      const url = addForm.getByLabel('Catalog URL', { exact: true });
+      await expect(name).toHaveAttribute('required', '');
+      await expect(url).toHaveAttribute('required', '');
+      await expect(addForm.evaluate(form => (form as HTMLFormElement).reportValidity())).resolves.toBe(false);
+
+      const deletion = page.locator('#connection-fixture-connection details.confirmation');
+      const summary = deletion.locator('summary');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(deletion).toHaveAttribute('open', '');
+      await expect(deletion).toContainText('Books already in My Books and their artifacts remain available.');
+      await expect(deletion.getByRole('button', { name: 'Confirm deletion' })).toBeVisible();
+
+      await page.goto('/jobs/43');
+      const retry = page.getByRole('button', { name: 'Retry analysis' });
+      await expect(retry).toHaveClass(/\bbutton\b/);
+      const retryForm = retry.locator('xpath=ancestor::form');
+      await expect(retryForm).toHaveAttribute('method', 'post');
+      await expect(retryForm).toHaveAttribute('action', '/jobs/43/retry');
+      await expect(retry).toBeEnabled();
+      await expectNoHorizontalOverflow(page);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('Reading confirmations remain native, visible, and reachable without JavaScript', async ({ browser }) => {
     const page = await browser.newPage({
       baseURL: fixtureBaseURL(),

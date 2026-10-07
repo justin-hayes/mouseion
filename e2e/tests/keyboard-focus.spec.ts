@@ -309,6 +309,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const error = page.getByRole('alert').filter({ hasText: 'Analysis needs attention' });
     await expect(error).toBeVisible();
     const retry = page.getByRole('button', { name: 'Retry analysis' });
+    await expect(retry).toHaveClass(/\bbutton\b/);
+    await expect(retry.locator('xpath=ancestor::form')).toHaveAttribute('method', 'post');
+    await expect(retry.locator('xpath=ancestor::form')).toHaveAttribute('action', '/jobs/43/retry');
     await expect(retry).toBeVisible();
     await retry.focus();
     await expect(retry).toBeFocused();
