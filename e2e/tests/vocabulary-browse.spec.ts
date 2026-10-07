@@ -113,6 +113,9 @@ test('Concordance query and applied results summary fit the first desktop and co
       const selectors = [
         '#concordance-mode',
         '#concordance-term',
+        '.concordance-query > button',
+        '.concordance-scopes details:nth-child(1) > summary',
+        '.concordance-scopes details:nth-child(2) > summary',
         '#concordance-summary',
         '#concordance-results > p:nth-of-type(1)',
         '#concordance-results > p:nth-of-type(2)',
@@ -125,6 +128,9 @@ test('Concordance query and applied results summary fit the first desktop and co
     expect(initiallyVisible, `query and result summary intersect ${viewport.width}x${viewport.height}`).toEqual({
       '#concordance-mode': true,
       '#concordance-term': true,
+      '.concordance-query > button': true,
+      '.concordance-scopes details:nth-child(1) > summary': true,
+      '.concordance-scopes details:nth-child(2) > summary': true,
       '#concordance-summary': true,
       '#concordance-results > p:nth-of-type(1)': true,
       '#concordance-results > p:nth-of-type(2)': true,

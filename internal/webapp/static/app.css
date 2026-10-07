@@ -3245,9 +3245,6 @@
     .concordance-query:has(#concordance-mode option[value="surface"]:checked) {
       grid-template-columns: minmax(min(8.5rem, 42vw), 0.9fr) minmax(0, 1.25fr);
     }
-    .concordance-query:has(#concordance-mode option[value="surface"]:checked) > button {
-      grid-column: 1 / -1;
-    }
     .concordance-query-field, .concordance-query .concordance-pos-field, .concordance-query > button {
       grid-column: 1;
     }
