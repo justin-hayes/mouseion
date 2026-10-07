@@ -84,6 +84,20 @@ test.describe('native WebKit smoke journey', () => {
     const page = await context.newPage();
     try {
       await signIn(page);
+      const account = page.locator('.site-header__account');
+      const accountSummary = account.locator('summary');
+      await expect(account.locator('.site-header__account-compact')).toBeVisible();
+      await expect(account.getByRole('button', { name: 'Log out' })).toBeHidden();
+      await accountSummary.focus();
+      await page.keyboard.press('Enter');
+      await expect(account).toHaveAttribute('open', '');
+      await expect(account).toContainText('Signed in as fixture-learner');
+      const logout = account.getByRole('button', { name: 'Log out' });
+      await expect(logout).toBeVisible();
+      await expect(logout).toHaveAttribute('type', 'submit');
+      await page.keyboard.press('Space');
+      await expect(account).not.toHaveAttribute('open', '');
+
       await page.goto('/library');
       await chooseStudyLanguage(page, 'de', true);
       await page.goto('/vocabulary');

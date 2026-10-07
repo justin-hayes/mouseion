@@ -64,10 +64,12 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await expect(page.getByText('Effective lemma: pfad (corrected)')).toHaveCount(2);
     await expect(page.getByText(/Previously reviewed: correct/)).toBeVisible();
 
-    const exclusionDisclosure = page.locator('details summary').first();
+    const exclusionDetails = page.locator('.lemma-review details').first();
+    const exclusionDisclosure = exclusionDetails.locator('summary');
     await exclusionDisclosure.focus();
     await page.keyboard.press('Enter');
-    const excludeButton = page.getByRole('button', { name: 'Preview exclusion' }).first();
+    await expect(exclusionDetails).toHaveAttribute('open', '');
+    const excludeButton = exclusionDetails.getByRole('button', { name: 'Preview exclusion' });
     await excludeButton.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Review the proposed change' })).toBeVisible();

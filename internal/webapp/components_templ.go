@@ -1124,14 +1124,14 @@ func ActiveStudyLanguageSwitcher(view *shellView, csrf string) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if view != nil && len(view.Options) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<li class=\"site-header__language\"><form method=\"post\" action=\"/active-study-language\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<form class=\"site-header__language\" method=\"post\" action=\"/active-study-language\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var57 string
 			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(csrf)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/components.templ`, Line: 142, Col: 139}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/components.templ`, Line: 142, Col: 135}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 			if templ_7745c5c3_Err != nil {
@@ -1144,7 +1144,7 @@ func ActiveStudyLanguageSwitcher(view *shellView, csrf string) templ.Component {
 			var templ_7745c5c3_Var58 string
 			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(view.ReturnTo)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/components.templ`, Line: 142, Col: 202}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/components.templ`, Line: 142, Col: 198}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 			if templ_7745c5c3_Err != nil {
@@ -1202,7 +1202,7 @@ func ActiveStudyLanguageSwitcher(view *shellView, csrf string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</select></label><noscript><button class=\"btn btn-primary\" type=\"submit\">Switch language</button></noscript></form></li>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</select></label><noscript><button class=\"btn btn-primary\" type=\"submit\">Switch language</button></noscript></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

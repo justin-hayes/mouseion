@@ -55,13 +55,13 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 	html := renderShell(t, NavigationLibrary)
 	navigation := renderedPrimaryNavigation(t, html)
 	ordered := []string{
-		`<ul class="site-header__brand">`,
-		`href="/"`,
+		`<a class="site-header__brand" href="/">`,
+		`<details class="site-header__account">`,
+		`<ul class="site-header__navigation">`,
 		`href="/library"`,
 		`href="/reading"`,
 		`href="/vocabulary"`,
 		`href="/catalogs"`,
-		`<form class="inline" method="post" action="/logout"`,
 	}
 	previous := -1
 	for _, fragment := range ordered {
@@ -74,13 +74,25 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 	assert.False(t, strings.Index(html, `class="skip-link"`) > strings.Index(html, `<nav class="site-header__nav"`) || strings.Index(html, `</nav>`) > strings.Index(html, `id="main-content"`), "skip link or main content moved out of keyboard/document order")
 }
 
+func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *testing.T) {
+	navigation := renderedPrimaryNavigation(t, renderShell(t, NavigationLibrary))
+	assert.Equal(t, 1, strings.Count(navigation, `<details class="site-header__account">`))
+	assert.Contains(t, navigation, `<span class="site-header__account-name">learner</span>`)
+	assert.Contains(t, navigation, `<span class="site-header__account-compact">Account</span>`)
+	assert.Contains(t, navigation, `Signed in as <strong>learner</strong>`)
+	assert.Contains(t, navigation, `<summary`)
+	assert.Contains(t, navigation, `<form method="post" action="/logout"`)
+	assert.Contains(t, navigation, `<button class="button button--outline button--quiet" type="submit">Log out</button>`)
+}
+
 func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
 	for _, context := range []NavigationContext{NavigationLibrary, NavigationLearning, NavigationVocabulary, NavigationCatalogs} {
 		t.Run(string(context), func(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
 			assert.NotContains(t, navigation, `class="site-nav__link btn`)
 			assert.NotContains(t, navigation, `role="button"`)
-			assert.Equal(t, 5, strings.Count(navigation, `<a href="/`), "brand and four destinations remain native links")
+		assert.Equal(t, 4, strings.Count(navigation, `<a href="/`), "four destinations remain native links")
+		assert.Contains(t, navigation, `<a class="site-header__brand" href="/">`)
 		})
 	}
 }
@@ -96,14 +108,15 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 	for _, want := range []string{
 		".site-header__nav",
 		".site-header__navigation",
-		"flex-wrap: wrap",
+		".site-header__account",
+		"grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr)",
 		"@media (max-width: 40rem)",
 		".site-nav__link--current",
 		"text-decoration: underline",
 		".site-header__language select",
 		"min-height: 44px",
 		".site-header a:focus-visible",
-		".site-header__brand > li > a",
+		".site-header__brand",
 		"--mouseion-focus-width: 0.125rem",
 		".table-region:focus-visible",
 		"border-collapse: collapse",

@@ -243,6 +243,7 @@ test.describe('responsive and theme regression coverage', () => {
       await noScriptPage.getByRole('button', { name: 'Switch language' }).click();
       await expect(noScriptPage).toHaveURL(/\/catalogs$/);
       await expect(noScriptPage.getByLabel('Study language')).toHaveValue('it');
+      await noScriptPage.locator('.site-header__account summary').click();
       await expect(noScriptPage.getByRole('button', { name: 'Log out' })).toBeVisible();
     } finally {
       await noScriptContext.close();
@@ -309,6 +310,12 @@ test.describe('responsive and theme regression coverage', () => {
   test('Vocabulary Browse owns responsive styling without retired workflow controls', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 812 });
+    await page.evaluate(() => {
+      const language = document.querySelector<HTMLSelectElement>('#active-study-language')!;
+      language.add(new Option('Modern Greek (el)', 'el-fixture'));
+      language.value = 'el-fixture';
+      document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
+    });
     await page.goto('/vocabulary');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -513,6 +520,112 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
     await expect(activeNavigation.getByRole('link', { name: 'Vocabulary' })).toBeVisible();
     await expect(page.getByLabel('Study language')).toBeVisible();
+  });
+
+  test('shared top bar stays compact and consistent across learner destinations', async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    for (const [path, current] of [
+      ['/library', 'My Books'],
+      ['/reading', 'Reading'],
+      ['/vocabulary', 'Vocabulary'],
+      ['/catalogs', 'Catalogs'],
+      ['/jobs', 'My Books'],
+      ['/deck-preparations/fixture-preparation/status', 'My Books'],
+    ] as const) {
+      await page.goto(path);
+      const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+      const destinations = navigation.locator('.site-header__navigation a');
+      await expect(destinations).toHaveCount(4);
+      await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalogs']);
+      await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
+      await expect(navigation.getByLabel('Study language')).toBeVisible();
+
+      const geometry = await page.locator('.site-header').evaluate(header => {
+        const brand = header.querySelector('.site-header__brand')!.getBoundingClientRect();
+        const tools = header.querySelector('.site-header__tools')!.getBoundingClientRect();
+        const language = header.querySelector('.site-header__language')!.getBoundingClientRect();
+        const account = header.querySelector('.site-header__account summary')!.getBoundingClientRect();
+        const links = header.querySelector('.site-header__navigation')!.getBoundingClientRect();
+        return { height: header.getBoundingClientRect().height, brandBottom: brand.bottom, toolsBottom: tools.bottom, languageTop: language.top, languageBottom: language.bottom, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
+      });
+      expect(geometry.height).toBeLessThan(302);
+      expect(geometry.linksTop).toBeGreaterThanOrEqual(Math.max(geometry.brandBottom, geometry.toolsBottom));
+      expect(geometry.accountTop).toBeLessThan(geometry.languageBottom);
+      expect(geometry.accountBottom).toBeGreaterThan(geometry.languageTop);
+      expect(geometry.width).toBe(375);
+      for (const link of await destinations.all()) {
+        const box = await link.boundingBox();
+        expect(box?.width).toBeGreaterThanOrEqual(44);
+        expect(box?.height).toBeGreaterThanOrEqual(44);
+      }
+    }
+
+    const account = page.locator('.site-header__account');
+    await page.evaluate(() => {
+      const language = document.querySelector<HTMLSelectElement>('#active-study-language')!;
+      language.add(new Option('Modern Greek (el)', 'el-fixture'));
+      language.value = 'el-fixture';
+      document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
+    });
+    await page.setViewportSize({ width: 320, height: 812 });
+    await expect(account.locator('.site-header__account-compact')).toBeVisible();
+    await expect(account.locator('.site-header__account-name')).toBeHidden();
+    await expect(account).not.toHaveAttribute('open', '');
+    await expect(account.getByRole('button', { name: 'Log out' })).toBeHidden();
+    const summary = account.locator('summary');
+    expect((await summary.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(account).toHaveAttribute('open', '');
+    await expect(account).toContainText('fixture-learner-with-a-long-account-name');
+    await expect(account.getByRole('button', { name: 'Log out' })).toBeVisible();
+    await expectNoPageOverflow(page);
+
+    await page.setViewportSize({ width: 768, height: 800 });
+    await expect(account.locator('.site-header__account-name')).toBeVisible();
+    await expect(account.locator('.site-header__account-compact')).toBeHidden();
+    const standardLanguage = await page.getByLabel('Study language').evaluate(select => {
+      const option = new Option('Modern Greek (el)', 'el-fixture');
+      select.add(option);
+      select.value = option.value;
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      context.font = getComputedStyle(select).font;
+      return { label: option.text, textWidth: context.measureText(option.text).width, controlWidth: select.getBoundingClientRect().width };
+    });
+    expect(standardLanguage.label).toBe('Modern Greek (el)');
+    expect(standardLanguage.controlWidth).toBeGreaterThan(standardLanguage.textWidth + 24);
+    await expectNoPageOverflow(page);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/library');
+    await page.evaluate(() => {
+      document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
+    });
+    await expect(page.locator('.site-header__account-name')).toBeVisible();
+    await expect(page.locator('.site-header__account-compact')).toBeHidden();
+    const languageSelect = page.getByLabel('Study language');
+    const labelGeometry = await languageSelect.evaluate(select => {
+      const option = new Option('Modern Greek (el)', 'el-fixture');
+      select.add(option);
+      select.value = option.value;
+      const optionText = select.selectedOptions[0].textContent?.trim() ?? '';
+      const box = select.getBoundingClientRect();
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      context.font = getComputedStyle(select).font;
+      return { optionText, textWidth: context.measureText(optionText).width, width: box.width, left: box.left, right: box.right };
+    });
+    expect(labelGeometry.optionText).toBe('Modern Greek (el)');
+    expect(labelGeometry.width).toBeGreaterThan(labelGeometry.textWidth + 24);
+    expect(labelGeometry.left).toBeGreaterThanOrEqual(0);
+    expect(labelGeometry.right).toBeLessThanOrEqual(1280);
+    await expectNoPageOverflow(page);
+    const headerBox = await page.locator('.site-header').boundingBox();
+    expect(headerBox?.x).toBe(0);
+    expect(headerBox?.width).toBe(1280);
   });
 
   test('sign-in controls are styled, focused, and reachable at 200 percent text size', async ({ page }) => {
