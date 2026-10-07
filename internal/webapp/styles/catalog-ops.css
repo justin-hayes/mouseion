@@ -1,6 +1,5 @@
 /* Catalogs, Reading, and operational-job controls. */
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn {
-  min-height: 44px;
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn {
   border-radius: 0.125rem;
   font: inherit;
   text-decoration: none;
@@ -14,24 +13,24 @@ body.reading-shell .btn {
   white-space: normal;
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-primary {
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn-primary {
   border-color: var(--mouseion-color-accent);
   color: var(--color-primary-content);
   background: var(--mouseion-color-accent);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-primary:hover:not(:disabled) {
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn-primary:hover:not(:disabled) {
   border-color: var(--mouseion-color-accent-hover);
   background: var(--mouseion-color-accent-hover);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn-outline {
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn-outline {
   border-color: var(--mouseion-color-border);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
 }
 
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .btn:focus-visible,
+body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) main .btn:focus-visible,
 body.catalogs-shell .input:focus-visible,
 body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .site-header__navigation a:focus-visible {
   outline: 3px solid var(--mouseion-color-focus);
@@ -53,7 +52,8 @@ body.catalogs-shell .input {
   font: inherit;
 }
 
-body.catalogs-shell label {
+body.catalogs-shell #catalog-connection-form label,
+body.catalogs-shell .catalog-list label {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -73,7 +73,7 @@ body.catalogs-shell .form-grid {
   margin-bottom: var(--mouseion-space-4);
 }
 
-body.catalogs-shell form,
+body.catalogs-shell main form,
 body.catalogs-shell .catalog-list article > :is(div[role="status"], p, details, .action-group) {
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -106,16 +106,6 @@ body.catalogs-shell .confirmation__body {
 
 body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) :is(button, a[role="button"], summary) {
   min-height: 44px;
-}
-
-body:is(.catalogs-shell, .jobs-shell, .reading-shell, .vocabulary-shell) .site-header__language select {
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-border);
-  border-radius: 0.125rem;
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
-  font: inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {

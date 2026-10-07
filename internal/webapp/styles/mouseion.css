@@ -1532,42 +1532,6 @@ progress {
   font-weight: 650;
 }
 
-.library-search__controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  max-width: 54rem;
-}
-
-.library-search__controls input,
-.library-search__controls button {
-  margin: 0;
-}
-
-.library-search__controls input {
-  min-width: 0;
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-border);
-  border-right: 0;
-  border-radius: var(--mouseion-radius) 0 0 var(--mouseion-radius);
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
-  background: var(--mouseion-color-surface-raised);
-}
-
-.library-search__controls button {
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-accent);
-  border-radius: 0 var(--mouseion-radius) var(--mouseion-radius) 0;
-  padding: var(--mouseion-space-2) var(--mouseion-space-4);
-  color: var(--mouseion-color-surface-raised);
-  background: var(--mouseion-color-accent);
-  cursor: pointer;
-  font-weight: 650;
-}
-
-.library-search__controls button:hover {
-  background: var(--mouseion-color-accent-hover);
-}
-
 .library-language-pills,
 .library-filters,
 .library-paging {
@@ -1751,17 +1715,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--mouseion-space-2);
-}
-
-.library-book__actions button,
-.library-book__actions a.library-book__journey-action {
-  min-height: 44px;
-  border: 1px solid var(--mouseion-color-accent);
-  border-radius: var(--mouseion-radius);
-  background: transparent;
-  color: var(--mouseion-color-accent);
-  padding-inline: var(--mouseion-space-3);
-  font-size: var(--mouseion-font-size-metadata);
 }
 
 .library-book__actions form {
@@ -2227,21 +2180,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   .library-finder {
     margin-inline: 0;
     padding: var(--mouseion-space-4) 0;
-  }
-
-  .library-search__controls {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--mouseion-space-2);
-  }
-
-  .library-search__controls input,
-  .library-search__controls button {
-    border: 1px solid var(--mouseion-color-border);
-    border-radius: var(--mouseion-radius);
-  }
-
-  .library-search__controls button {
-    border-color: var(--mouseion-color-accent);
   }
 
   .library-language-pills {

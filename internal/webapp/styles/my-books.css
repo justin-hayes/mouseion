@@ -1,40 +1,34 @@
-/* My Books and shared shell component styling. */
-body.my-books-shell .site-header__navigation .btn {
-  min-height: 44px;
-  border-radius: 0.125rem;
-  font: inherit;
-  text-decoration: none;
+.library-search__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: 54rem;
 }
 
-body.my-books-shell .site-header__navigation .btn-primary {
-  color: var(--color-primary-content);
-  background: var(--mouseion-color-accent);
+.library-search__controls input,
+.library-search__controls button {
+  margin: 0;
 }
 
-body.my-books-shell .site-header__navigation .btn-ghost {
-  color: var(--mouseion-color-text);
+.library-search__controls input {
+  border-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-body.my-books-shell .site-header__navigation .btn:focus-visible,
-body.my-books-shell .library-search .input:focus-visible {
-  outline: 3px solid var(--mouseion-color-focus);
-  outline-offset: 3px;
+.library-search__controls button {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
-body.my-books-shell .library-search .input {
-  box-sizing: border-box;
-  min-height: 44px;
-  border-color: var(--mouseion-color-border);
-  border-radius: 0.125rem;
-  color: var(--mouseion-color-text);
-  background: var(--mouseion-color-surface-raised);
-  font: inherit;
-}
+@media (max-width: 40rem) {
+  .library-search__controls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mouseion-space-2);
+  }
 
-body.my-books-shell .library-search .input:focus-visible {
-  border-color: var(--mouseion-color-focus);
-}
-
-body.my-books-shell .my-books-foundation {
-  color: var(--mouseion-color-text);
+  .library-search__controls input,
+  .library-search__controls button {
+    border: 1px solid var(--mouseion-color-control-border);
+    border-radius: var(--mouseion-radius);
+  }
 }

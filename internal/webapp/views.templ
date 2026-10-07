@@ -229,7 +229,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 		}
 		<div class="library-book__actions">
 			if myBookInJourney(book) {
-				<a class="button button--outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
+				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }><span aria-hidden="true">-&gt;</span> View in Reading</a>
 			}
 			if book.Disposition != "" {
 				<p class="metadata"><strong>Workflow</strong>: { myBookWorkflowLabel(book) }</p>
@@ -237,7 +237,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					if book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-							<button type="submit" class="button button--outline library-book__journey-action">Move to To Read</button>
+							<button type="submit" class="btn btn-outline library-book__journey-action">Move to To Read</button>
 						</form>
 					} else {
 						<p class="metadata">Choose a language in the catalog before moving this Book to To Read.</p>
@@ -246,7 +246,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-					<button type="submit" class="button button--outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
+					<button type="submit" class="btn btn-outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
 			<details class="more-actions">
@@ -254,23 +254,23 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 				<div class="more-actions__body">
 					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.IsCurrentReading {
 						@Confirmation("Mark as previously read", "This records one completion from before Mouseion. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
-							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline button--quiet">Confirm previously read</button></form>
+							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="btn btn-outline">Confirm previously read</button></form>
 						}
 					}
 					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
-						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="button button--outline button--quiet">Read again</button></form>
+						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="btn btn-outline">Read again</button></form>
 					}
 					if refreshEligible {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
 							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<button type="submit" class="button button--outline">Refresh metadata</button>
+							<button type="submit" class="btn btn-outline">Refresh metadata</button>
 						</form>
 					}
 					if book.Disposition != "" && (myBookDisposition(book) == domain.BookDispositionInbox || myBookDisposition(book) == domain.BookDispositionToRead) && !book.IsCurrentReading {
 						@Confirmation("Set aside", myBookSetAsideConfirmationText(book), StatusDanger) {
 							<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/set-aside") }>
 								<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-								<button type="submit" class="button button--outline button--quiet">Confirm set aside</button>
+								<button type="submit" class="btn btn-outline">Confirm set aside</button>
 							</form>
 						}
 					}
@@ -296,14 +296,14 @@ templ NeedsLanguageBookRow(book domain.MyBook) {
 }
 
 templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selected, focusResults bool) {
-	<a class="button button--outline" data-my-books-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
+	<a class="btn btn-outline" data-my-books-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
 }
 
 templ MyBooksResultsError(message, retryURL string) {
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
 		<h2 id="library-books-heading" tabindex="-1">My Books could not be loaded</h2>
 		<p role="alert">{ message }</p>
-		<p><a class="button button--outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
+		<p><a class="btn btn-outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
 	</section>
 }
 
@@ -311,7 +311,7 @@ templ MyBooksFailurePage(user domain.User, csrf, message, retryURL string) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		@PageHeader("My Books", "Your working collection is temporarily unavailable.", nil)
 		@Feedback(FeedbackError, "My Books needs attention", message)
-		<p><a role="button" class="button button--outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
+		<p><a class="btn btn-outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
 	}
 }
 
@@ -321,12 +321,12 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 		@MyBooksDispositionFilterLink(browse, "Inbox", domain.BookDispositionInbox, myBooksDispositionCount(browse, domain.BookDispositionInbox))
 		@MyBooksDispositionFilterLink(browse, "To Read", domain.BookDispositionToRead, myBooksDispositionCount(browse, domain.BookDispositionToRead))
 		@MyBooksDispositionFilterLink(browse, "Set Aside", domain.BookDispositionSetAside, myBooksDispositionCount(browse, domain.BookDispositionSetAside))
-		<a class="button button--outline" { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
+		<a class="btn btn-outline" { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksHistoryFilterURL(browse, true)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
 	</nav>
 }
 
 templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
-	<a class="button button--outline" { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
+	<a class="btn btn-outline" { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
 }
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
@@ -404,7 +404,7 @@ templ NeedsLanguageStrip(count int) {
 
 templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
-		<section class="my-books-foundation library-masthead" aria-labelledby="library-page-title">
+		<section class="library-masthead" aria-labelledby="library-page-title">
 			<header class="page-header">
 				<div class="page-header__content">
 					<h1 id="library-page-title">{ myBooksPageHeading(browse) }</h1>
@@ -422,7 +422,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
 				<a role="button" href="/catalogs">Set up a catalog</a>
 				if hasCatalogueConnections {
-					<a role="button" class="button button--outline" href="/catalogs">Sync catalog</a>
+					<a class="btn btn-outline" href="/catalogs">Sync catalog</a>
 				}
 			}
 		}
@@ -433,7 +433,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
 				<a role="button" href="/catalogs">Set up a catalog</a>
 					if hasCatalogueConnections {
-						<a role="button" class="button button--outline" href="/catalogs">Sync catalog</a>
+						<a class="btn btn-outline" href="/catalogs">Sync catalog</a>
 					}
 				}
 			} else {
@@ -449,7 +449,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					<label for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>
-						<button type="submit">Search</button>
+					<button class="btn btn-primary" type="submit">Search</button>
 					</div>
 				</form>
 			</section>

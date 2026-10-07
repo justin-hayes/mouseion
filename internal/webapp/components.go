@@ -202,15 +202,9 @@ func navigationContextForTitle(title string) NavigationContext {
 
 func destinationAttributes(context, destination NavigationContext) templ.Attributes {
 	attributes := templ.Attributes{"class": "site-nav__link"}
-	if context == NavigationLibrary {
-		attributes["class"] = "site-nav__link btn btn-ghost"
-	}
 	if context == destination {
 		attributes["aria-current"] = "page"
 		attributes["class"] = "site-nav__link site-nav__link--current"
-		if context == NavigationLibrary {
-			attributes["class"] = "site-nav__link site-nav__link--current btn btn-primary"
-		}
 	}
 	return attributes
 }

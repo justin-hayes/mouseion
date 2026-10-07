@@ -57,7 +57,12 @@ The application shell is visually an index margin on wide viewports and a top
 index on compact viewports. It remains one navigation landmark with the same
 document and keyboard order in both forms. Current context uses a textual link
 and annotation rule; do not add icon-only destinations, counters, or a second
-navigation system.
+navigation system. All four authenticated destinations share the same
+left-aligned native-link treatment. The current destination is identified by
+`aria-current="page"` and restrained annotation-blue underline emphasis, never a
+filled button treatment or button role. The active study-language switcher keeps
+the same label, control geometry, and typography on every destination; route form
+rules must not restyle it.
 
 ## Canonical shipped patterns
 
@@ -119,6 +124,14 @@ grid. Compact layouts retain two ordinary columns where the viewport permits,
 reduce columns without horizontal overflow, and keep title, author, membership,
 and controls in document and keyboard order. Search-result replacement uses one
 scoped live region and does not announce every cover or item.
+
+My Books search remains a native GET search form. Its shared input contract fills
+and can shrink within the available search track; the submit button stays
+adjacent at wide widths and the group stacks in compact layouts. HTMX may enhance
+submission, history, recovery, and focus without replacing the server-rendered
+form or result states. My Books actions use shared button/input states while
+keeping navigation as links, mutations as submit buttons, and native
+confirmation disclosures for consequential actions.
 
 ## Shared rules
 

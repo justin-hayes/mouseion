@@ -28,7 +28,8 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
-		`role="search"`, `label for="library-search-query">Search My Books`,
+		`role="search"`, `method="get"`, `label for="library-search-query">Search My Books`,
+		`type="search" name="q"`, `class="btn btn-primary" type="submit">Search</button>`,
 		`id="library-results"`, `data-focus-id="library-books-heading"`, `Page 2 of 2`, `href="/library?needs-language"`,
 		`href="/library"`, `href="/library?page=2"`,
 	} {
