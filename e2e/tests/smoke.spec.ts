@@ -256,7 +256,7 @@ test.describe('authenticated learner smoke', () => {
       await rows.nth(2).locator('summary').focus();
       await noScript.keyboard.press('Enter');
       await expect(rows.nth(2)).toHaveAttribute('open', '');
-      await expect(rows.nth(2).getByText('Das Haus sieht gut aus.', { exact: true })).toBeVisible();
+      await expect(rows.nth(2).locator('.concordance-context p')).toHaveText('Das Haus sieht gut aus.');
       await rows.nth(3).locator('summary').focus();
       await noScript.keyboard.press('Space');
       await expect(rows.nth(3)).toHaveAttribute('open', '');
@@ -286,7 +286,7 @@ test.describe('authenticated learner smoke', () => {
       await expect(highZoomResult.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
       const highZoomContent = await highZoomResult.evaluate(row => {
         const rowBox = row.getBoundingClientRect();
-        const book = row.querySelector('.concordance-book-title')!.getBoundingClientRect();
+        const book = row.querySelector('.concordance-book-label')!.getBoundingClientRect();
         const source = row.querySelector('.concordance-context')!.getBoundingClientRect();
         const study = row.querySelector('.concordance-study-link')!.getBoundingClientRect();
         return { rowLeft: rowBox.left, rowRight: rowBox.right, bookLeft: book.left, bookRight: book.right, sourceLeft: source.left, sourceRight: source.right, studyLeft: study.left, studyRight: study.right };
@@ -340,7 +340,7 @@ test.describe('authenticated learner smoke', () => {
     expect(occurrenceIDs).toEqual(Array.from({ length: 25 }, (_, index) => `occurrence-fixture-book-${index}-1`));
     await expect(page.locator('#occurrence-fixture-book-0-1')).toBeVisible();
     const firstRow = rows.locator('.concordance-result').first();
-    await expect(firstRow.locator('.concordance-book-title')).toHaveText('Der lange Weg nach Hause');
+    await expect(firstRow.locator('.concordance-book-label')).toContainText('Der lange Weg nach Hause');
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
     const accentUsesMouseionToken = await firstRow.locator('.concordance-surface').evaluate(element => {
       const probe = document.createElement('span');
@@ -393,7 +393,7 @@ test.describe('authenticated learner smoke', () => {
     await page.setViewportSize({ width: 320, height: 812 });
     const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(horizontalOverflow).toBe(false);
-    await expect(firstRow.locator('.concordance-book-title')).toBeVisible();
+    await expect(firstRow.locator('.concordance-book-label')).toBeVisible();
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
     await expect(secondRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await firstRow.locator('.concordance-study-link').click();

@@ -101,6 +101,114 @@ test('Vocabulary heading and peer navigation keep the compact hierarchy', async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('Concordance query and applied results summary fit the first desktop and compact viewport', async ({ page }) => {
+  await signIn(page);
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    await expect(page.locator('#concordance-mode')).toBeVisible();
+    await expect(page.locator('#concordance-term')).toHaveValue('Haus');
+    await expect(page.locator('#concordance-summary')).toBeVisible();
+    const initiallyVisible = await page.evaluate(() => {
+      const selectors = [
+        '#concordance-mode',
+        '#concordance-term',
+        '.concordance-query > button',
+        '.concordance-scopes details:nth-child(1) > summary',
+        '.concordance-scopes details:nth-child(2) > summary',
+        '#concordance-summary',
+        '#concordance-results > p:nth-of-type(1)',
+        '#concordance-results > p:nth-of-type(2)',
+      ];
+      return Object.fromEntries(selectors.map(selector => {
+        const bounds = document.querySelector(selector)!.getBoundingClientRect();
+        return [selector, bounds.bottom > 0 && bounds.top < window.innerHeight];
+      }));
+    });
+    expect(initiallyVisible, `query and result summary intersect ${viewport.width}x${viewport.height}`).toEqual({
+      '#concordance-mode': true,
+      '#concordance-term': true,
+      '.concordance-query > button': true,
+      '.concordance-scopes details:nth-child(1) > summary': true,
+      '.concordance-scopes details:nth-child(2) > summary': true,
+      '#concordance-summary': true,
+      '#concordance-results > p:nth-of-type(1)': true,
+      '#concordance-results > p:nth-of-type(2)': true,
+    });
+    const bookLabel = page.locator('.concordance-book-label').first();
+    await expect(bookLabel).toContainText('occurrences on this page');
+    await expect(bookLabel.locator('.concordance-book-title')).toBeVisible();
+    const rowPresentation = await page.locator('.concordance-row summary').first().evaluate(summary => {
+      const before = summary.querySelector('.concordance-before')!;
+      const target = summary.querySelector('.concordance-surface')!;
+      const after = summary.querySelector('.concordance-after')!;
+      const bounds = (element: Element) => element.getBoundingClientRect();
+      return {
+        beforeRight: bounds(before).right,
+        targetLeft: bounds(target).left,
+        targetRight: bounds(target).right,
+        afterLeft: bounds(after).left,
+        beforeDisplay: getComputedStyle(before).display,
+        sourceFont: getComputedStyle(summary).fontFamily,
+      };
+    });
+    expect(rowPresentation.sourceFont).toContain('Literata');
+    if (viewport.width > 600) {
+      expect(rowPresentation.beforeRight).toBeLessThanOrEqual(rowPresentation.targetLeft);
+      expect(rowPresentation.afterLeft).toBeGreaterThanOrEqual(rowPresentation.targetRight);
+    } else {
+      expect(rowPresentation.beforeDisplay).toBe('inline');
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
+test('Concordance groups and KWIC rows wrap long German, Italian, and Greek text', async ({ page }) => {
+  await signIn(page);
+  const examples = [
+    {
+      title: 'Der außergewöhnlich lange Titel einer umfassenden deutschen Ausgabe',
+      target: 'Donaudampfschifffahrtselektrizitätenhauptbetriebswerkbauunterbeamtengesellschaft',
+      before: '… zwischen außergewöhnlich langen zusammengesetzten deutschen Wörtern',
+      after: ' und weiteren sorgfältig ausgewählten Beispielen aus dem Text.',
+      passage: 'Am Anfang stand ein langer deutscher Satz, der sich mit vielen zusätzlichen Wörtern und erklärenden Gedanken fortsetzt.',
+    },
+    {
+      title: 'Una storia straordinariamente lunga: edizione italiana annotata',
+      target: 'precipitevolissimevolmente',
+      before: '… attraverso un contesto italiano particolarmente articolato',
+      after: ' e una frase che continua con ulteriori dettagli significativi.',
+      passage: 'All’inizio c’era una frase italiana molto lunga, con accenti, parole composte e un contesto che continua con chiarezza.',
+    },
+    {
+      title: 'Μια εξαιρετικά μακριά ελληνική βιβλιογραφική περιγραφή',
+      target: 'ηλεκτροεγκεφαλογραφήματος',
+      before: '… μέσα σε μια εξαιρετικά εκτενή ελληνική πρόταση',
+      after: ' και με πρόσθετες λέξεις που συνεχίζουν το νόημα.',
+      passage: 'Στην αρχή υπήρχε μια μεγάλη ελληνική πρόταση με τόνους, διαλυτικά και αρκετές επιπλέον λέξεις για το πλήρες νόημα.',
+    },
+  ];
+
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
+    await page.setViewportSize(viewport);
+    for (const example of examples) {
+      await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+      await page.locator('.concordance-row').first().evaluate((row, content) => {
+        row.closest('.concordance-result')!.querySelector('.concordance-book-title')!.textContent = content.title;
+        row.querySelector('.concordance-before')!.textContent = content.before;
+        row.querySelector('.concordance-surface')!.textContent = content.target;
+        row.querySelector('.concordance-after')!.textContent = content.after;
+        row.querySelector('.concordance-context p')!.textContent = content.passage;
+      }, example);
+      const firstRow = page.locator('.concordance-row').first();
+      await expect(page.locator('.concordance-book-title').first()).toHaveText(example.title);
+      await firstRow.locator('summary').click();
+      await expect(firstRow.locator('.concordance-context p')).toHaveText(example.passage);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${viewport.width}px ${example.title}`).toBe(true);
+    }
+  }
+});
+
 test('Browse keeps the current page and controls while exploring a word on page two', async ({ page }) => {
   await signIn(page);
   await page.goto('/vocabulary?q=paging');

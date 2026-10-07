@@ -17,9 +17,14 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 		Surface: "Haus", SentenceStartOffset: start, SentenceEndOffset: start + 4,
 		SentenceOrdinal: 2, TokenOrdinal: 3, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
 	}}
+	continued := occurrence
+	continued.SentenceOrdinal++
+	otherBook := occurrence
+	otherBook.BookID = "book-2"
+	otherBook.BookTitle = "Zweiter Titel"
 	component := VocabularyConcordancePageView(domain.User{}, "", "de", nil,
 		domain.ConcordanceLookup{Mode: "surface", Term: "Haus", Page: 1},
-		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1}, true, "", "")
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence, continued, otherBook}, Page: 1}, true, "", "")
 	var rendered bytes.Buffer
 	if err := component.Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
@@ -29,6 +34,10 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 		`<ol id="concordance-native-results" class="concordance-results" role="list">`,
 		`<details class="concordance-row" name="concordance-occurrences"`,
 		`<a class="concordance-study-link"`,
+		`class="concordance-book-label"`,
+		`2 occurrences on this page`,
+		`1 occurrence on this page`,
+		`Zweiter Titel`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("rendered page missing %q", want)
@@ -39,6 +48,12 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	}
 	if !strings.Contains(body, `Title &lt;/script&gt;&lt;img src=x&gt;`) || strings.Contains(body, `</script><img src=x>`) {
 		t.Fatal("Book title was not escaped in the server-rendered list")
+	}
+	if got := strings.Count(body, `class="concordance-book-label"`); got != 3 {
+		t.Fatalf("rendered %d marginal book labels, want one per result row", got)
+	}
+	if got := strings.Count(body, `class="concordance-book-title"`); got != 2 {
+		t.Fatalf("rendered %d Book titles, want one at each Book group start", got)
 	}
 	for _, forbidden := range []string{`data-concordance-data=`, `<mouseion-concordance`, `concordance-keyboard.js`, `concordance.js`} {
 		if strings.Contains(body, forbidden) {
