@@ -530,7 +530,7 @@ func MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"><span aria-hidden=\"true\">-&gt;</span> View in Reading</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\">View in Reading</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2732,41 +2732,41 @@ func JourneyBookCard(item journeyBookView, primary bool, csrf string) templ.Comp
 			return templ_7745c5c3_Err
 		}
 		if primary {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "<h1 class=\"journey-book__title\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
 			if !item.ReadingSince.IsZero() {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "<span class=\"journey-book__since\"><span>Reading since</span> <time datetime=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 211, "<p class=\"journey-book__since\"><span>Reading since</span> <time datetime=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var129 string
 				templ_7745c5c3_Var129, templ_7745c5c3_Err = templ.JoinStringErrs(item.ReadingSince.Format("2006-01-02"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 595, Col: 123}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 594, Col: 119}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var129))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 212, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var130 string
 				templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.JoinStringErrs(item.ReadingSince.Format("January 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 595, Col: 171}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/views.templ`, Line: 594, Col: 167}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var130))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, "</time></span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 213, "</time></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 214, " <h1 class=\"journey-book__title\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
 			if journeyEntryAvailable(item) {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 215, "<a href=\"")

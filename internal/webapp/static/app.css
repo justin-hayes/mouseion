@@ -1715,6 +1715,9 @@
     font-size: var(--mouseion-font-size-metadata);
     text-align: center;
   }
+  .library-book .book-cover-media__label {
+    display: none;
+  }
   .library-book__identity-link {
     display: grid;
     grid-template-columns: 4rem minmax(0, 1fr);
@@ -2532,8 +2535,6 @@
   }
   .more-actions {
     min-width: 0;
-    border-top: 1px solid var(--mouseion-color-border);
-    padding-top: var(--mouseion-space-3);
   }
   .more-actions > summary {
     display: flex;
@@ -2592,7 +2593,7 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: var(--mouseion-space-1);
-    margin-bottom: var(--mouseion-space-2);
+    margin: 0 0 var(--mouseion-space-2);
     color: var(--mouseion-color-text-muted);
     font-family: var(--mouseion-font-application);
     font-size: 1rem;
@@ -3355,11 +3356,16 @@
     color: var(--mouseion-color-text);
     background-color: var(--mouseion-color-surface-raised);
   }
+  #concordance-workflow select.input {
+    appearance: auto;
+  }
   .btn {
     min-height: 44px;
   }
   .btn-primary {
-    color: var(--color-primary-content);
+    color: var(--mouseion-color-surface);
+    border-color: var(--mouseion-color-accent);
+    background-color: var(--mouseion-color-accent);
   }
   .library-search__controls input {
     width: 100%;

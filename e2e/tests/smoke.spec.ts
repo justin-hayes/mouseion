@@ -222,6 +222,7 @@ test.describe('authenticated learner smoke', () => {
       await signIn(noScript);
       await noScript.goto('/vocabulary/concordance');
       await expect(noScript.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+      expect(await noScript.locator('#concordance-workflow select').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).appearance === 'auto'))).toBe(true);
       await expect(noScript.getByLabel('Lookup evidence')).toHaveValue('surface');
       await expect(noScript.getByLabel('Part of speech')).toBeHidden();
       for (const disclosure of ['Books (applied: all current Books)', 'Grammar (applied: no grammar filter)']) {

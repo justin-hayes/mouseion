@@ -51,14 +51,22 @@
     background-color: var(--mouseion-color-surface-raised);
   }
 
+  /* daisyUI removes the platform select indicator. Concordance filters are
+   * native controls and must retain a visible dropdown affordance without JS. */
+  #concordance-workflow select.input {
+    appearance: auto;
+  }
+
   .btn {
     min-height: 44px;
   }
 
-  /* daisyUI's primary button defaults to its light-theme content tone. Keep
-   * the shared action readable when Mouseion's accent changes in dark mode. */
+  /* Keep primary button foreground, fill, and boundary on Mouseion's active
+   * palette; daisyUI's root aliases otherwise retain their initial light tone. */
   .btn-primary {
-    color: var(--color-primary-content);
+    color: var(--mouseion-color-surface);
+    border-color: var(--mouseion-color-accent);
+    background-color: var(--mouseion-color-accent);
   }
 
   /* daisyUI caps .input at 20rem; the My Books grid needs its field to fill its track. */

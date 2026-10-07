@@ -283,8 +283,6 @@ body.reading-shell .scope-unit label > :not(input) {
 
 .more-actions {
 	min-width: 0;
-	border-top: 1px solid var(--mouseion-color-border);
-	padding-top: var(--mouseion-space-3);
 }
 
 .more-actions > summary {
@@ -358,7 +356,7 @@ body.reading-shell .scope-unit label > :not(input) {
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--mouseion-space-1);
-  margin-bottom: var(--mouseion-space-2);
+  margin: 0 0 var(--mouseion-space-2);
   color: var(--mouseion-color-text-muted);
   font-family: var(--mouseion-font-application);
   font-size: 1rem;

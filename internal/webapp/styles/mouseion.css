@@ -1425,6 +1425,12 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   text-align: center;
 }
 
+/* My Books uses a list-sized cover: the initial is enough to identify a
+ * placeholder there, while the adjacent Book title remains authoritative. */
+.library-book .book-cover-media__label {
+  display: none;
+}
+
 .library-book__identity-link {
   display: grid;
   grid-template-columns: 4rem minmax(0, 1fr);
