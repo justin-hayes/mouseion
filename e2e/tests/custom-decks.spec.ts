@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 
-test('retired Browse selection and Custom-deck routes are unavailable', async ({ page }) => {
-  const baseURL = process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099';
+test('retired Browse selection and Custom-deck routes are unavailable', async ({ page, baseURL }) => {
   const unauthenticated = await page.request.get(`${baseURL}/vocabulary/decks/retained-deck`);
   expect(unauthenticated.status()).toBe(404);
 

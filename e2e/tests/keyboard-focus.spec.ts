@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../support/test';
 
 async function signIn(page: Page, disableEnhancement = false) {
   if (disableEnhancement) {
@@ -166,7 +166,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   });
 
   test('focused Book preparation opens only while its snapshot is Current reading', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
     await restoreFixtureBookCurrent(page);
     const beforeReading = await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
@@ -180,7 +179,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   });
 
   test('book page leads to preparation and terminal polling stops', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
     await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
@@ -222,7 +220,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   });
 
   test('provider outage leaves an actionable failure without blocking Reading', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
     await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
@@ -250,7 +247,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   });
 
   test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'The fixture server is shared across browser projects.');
     await signIn(page);
     await switchToRouteMatch(page);
     await page.goto('/reading/books/fixture-route-match/deck/preparations/new');

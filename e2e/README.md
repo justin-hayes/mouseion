@@ -14,19 +14,32 @@ same four viewport/appearance combinations, so the complete workflow suite is
 not multiplied by a second engine. Run only that focused matrix with
 `make browser-smoke-webkit` (or `cd e2e && npm run smoke:webkit`).
 
-Each Playwright invocation selects an available loopback port for its own
-fixture server and does not reuse an already-running server. This keeps parallel
-checkouts from serving stale pages to one another. To intentionally use an
-external fixture server, set `MOUSEION_REUSE_FIXTURE=1` and provide
-`MOUSEION_FIXTURE_URL` (or `MOUSEION_FIXTURE_ADDR`); otherwise the runner always
-starts a fixture server owned by that invocation.
+Playwright runs four workers. Each worker starts and owns an independent
+in-memory fixture server on a loopback port for its current spec file; it stops
+that server and starts a fresh one at the next file boundary. Tests in a file
+remain ordered and may share state; different files and projects start from a
+fresh fixture baseline and cannot depend on execution order. The test fixture
+provides each test's worker URL as Playwright `baseURL`, including
+manually-created browser contexts and pages. The runner never attaches to an
+existing server.
 
-For manual visual or screenshot review, capture all desired states in one
-Playwright invocation and browser session. Let Playwright own the fixture server
-rather than starting additional `go run ./cmd/fixtureserver` processes. If source
-or embedded assets change, rebuild them and restart that invocation once before
-capturing the updated UI. The fixture store is mutable, so avoid concurrent
-browser runs sharing one manually started fixture server.
+For manual visual or screenshot review, the recommended path is to let
+Playwright manage the per-worker fixture servers, and capture all desired states
+in one invocation and browser session. If an external fixture server is needed,
+start it yourself and run one worker, for example:
+
+```sh
+cd e2e
+MOUSEION_FIXTURE_ADDR=127.0.0.1:8099 go run ../cmd/fixtureserver
+# In another terminal, from e2e:
+MOUSEION_REUSE_FIXTURE=1 MOUSEION_FIXTURE_URL=http://127.0.0.1:8099 \
+  npx playwright test tests/typography.spec.ts --workers=1 --project=desktop-light
+```
+
+External-fixture mode rejects parallel workers and multiple spec files because
+that server has one mutable store. Use one spec file per invocation and restart
+the external server between invocations. If source or embedded assets change,
+rebuild and restart the external server before capturing the updated UI.
 
 WebKit requires its browser binary and Linux runtime libraries. On a supported
 Linux runner image, provision the system libraries as an image/setup step with
@@ -42,8 +55,9 @@ The WebKit journey covers server-rendered sign-in and invalid-credential
 recovery, the authenticated shell and native language/navigation forms,
 keyboard-operable confirmation disclosure, compact/desktop overflow and target
 geometry, focus, and a JavaScript-disabled sign-in/navigation/form/disclosure
-path. Fixture state is shared, so browser projects and workers remain serialized
-and the journey restores the active study language before finishing.
+path. The journey restores the active study language before finishing. Each
+spec file has a fresh fixture store, while the ordered scenario sequence within
+the file stays deterministic.
 
 The focused Concordance journey also runs in all four WebKit projects. It checks
 the applied lookup and Book scope, occurrence-list semantics in Playwright's
@@ -61,9 +75,9 @@ Reading acceptance includes My Books catalog arrivals and disposition,
 current-reading confirmation and stale-write fields, coverage-band selection,
 focus restoration, reduced-motion preference, completion receipt, Read history,
 and Read again. Read-only assertions run
-across desktop/compact and light/dark projects; the stateful finish/history/
-reread loop runs in `desktop-light` only because all projects share one fixture
-server. Migration tests separately assert retained active snapshot contents,
+across desktop/compact and light/dark projects, as do the stateful
+finish/history/reread flows, which each receive a fresh file-scoped fixture.
+Migration tests separately assert retained active snapshot contents,
 completion provenance, and prepared-deck provenance.
 
 ## Browser rendering and contrast checks

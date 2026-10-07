@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../support/test';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -165,9 +165,9 @@ test.describe('authenticated learner smoke', () => {
     expect(route?.status()).toBe(404);
   });
 
-  test('Reading confirmations and chooser actions retain native semantics without JavaScript', async ({ browser }) => {
+  test('Reading confirmations and chooser actions retain native semantics without JavaScript', async ({ browser, baseURL }) => {
     const noScript = await browser.newPage({
-      baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+      baseURL,
       javaScriptEnabled: false,
       colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
       reducedMotion: 'reduce',
@@ -210,9 +210,9 @@ test.describe('authenticated learner smoke', () => {
     }
   });
 
-  test('Concordance lookup is server-rendered and submits without JavaScript', async ({ browser }) => {
+  test('Concordance lookup is server-rendered and submits without JavaScript', async ({ browser, baseURL }) => {
     const noScript = await browser.newPage({
-      baseURL: process.env.MOUSEION_FIXTURE_URL ?? 'http://127.0.0.1:8099',
+      baseURL,
       javaScriptEnabled: false,
       colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
       // 320×200 CSS pixels approximates 400% zoom on a 1280×800 desktop.
@@ -580,8 +580,8 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('concordance-summary');
   });
 
-  test('Concordance return focus is server-rendered with JavaScript disabled', async ({ browser }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
+  test('Concordance return focus is server-rendered with JavaScript disabled', async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
     const noScriptPage = await context.newPage();
     try {
       await signIn(noScriptPage);
@@ -719,7 +719,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
       await expect(page.getByText('Not in To Read.', { exact: false })).toBeVisible();
       await addToJourney.click();
     }
-    // Idempotent end state for every project run over the shared fixture server:
+    // Idempotent end state for repeated execution in this worker's fixture:
     // the book is (or just became) To Read and links to its Reading card.
     await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
     await expect(page.locator('a[href="/reading#journey-book-fixture-failed"]')).toBeVisible();

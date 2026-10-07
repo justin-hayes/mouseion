@@ -1,4 +1,4 @@
-import { expect, Locator, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from '../support/test';
 import { renderedTextContrast } from '../support/contrast';
 
 async function signIn(page: Page) {
@@ -213,7 +213,7 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
-  test('Catalogs owns its styling and preserves legible, recoverable controls', async ({ page, browser }) => {
+  test('Catalogs owns its styling and preserves legible, recoverable controls', async ({ page, browser, baseURL }) => {
     await signIn(page);
 
     for (const width of [375, 1280]) {
@@ -259,7 +259,7 @@ test.describe('responsive and theme regression coverage', () => {
     }
 
     const noScriptContext = await browser.newContext({
-      baseURL: test.info().project.use.baseURL,
+      baseURL,
       javaScriptEnabled: false,
     });
     const noScriptPage = await noScriptContext.newPage();
@@ -396,8 +396,8 @@ test.describe('responsive and theme regression coverage', () => {
     expect(await page.locator('#vocabulary-prefix').evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
 
     await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
-    expect(await textContrast(page.locator('.vocabulary-filter button'))).toBeGreaterThanOrEqual(4.5);
-    expect(await textContrast(page.locator('#vocabulary-prefix'))).toBeGreaterThanOrEqual(4.5);
+    await expect.poll(() => textContrast(page.locator('.vocabulary-filter button'))).toBeGreaterThanOrEqual(4.5);
+    await expect.poll(() => textContrast(page.locator('#vocabulary-prefix'))).toBeGreaterThanOrEqual(4.5);
     expect(await page.locator('#vocabulary-prefix').evaluate(renderedTextContrast, true)).toBeGreaterThanOrEqual(3);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);

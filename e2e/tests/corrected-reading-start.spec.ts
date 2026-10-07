@@ -1,9 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 
-test('a corrected occurrence remains reviewable when starting its Book', async ({ page }, testInfo) => {
-  test.skip(!process.env.MOUSEION_CORRECTED_START_SMOKE, 'Runs separately so its fixture mutations cannot affect the shared browser suite.');
-  test.skip(testInfo.project.name !== 'desktop-light', 'The isolated corrected-start smoke runs once.');
-
+test('a corrected occurrence remains reviewable when starting its Book', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');

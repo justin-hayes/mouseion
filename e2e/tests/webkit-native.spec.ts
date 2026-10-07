@@ -1,9 +1,5 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../support/test';
 import { renderedTextContrast } from '../support/contrast';
-
-function fixtureBaseURL() {
-  return process.env.MOUSEION_FIXTURE_URL ?? `http://${process.env.MOUSEION_FIXTURE_ADDR ?? '127.0.0.1:8099'}`;
-}
 
 async function signIn(page: Page, username = 'fixture-learner', password = 'fixture-password') {
   await page.goto('/login');
@@ -75,9 +71,9 @@ test.describe('native WebKit smoke journey', () => {
     expect(prose.indent).not.toBe('0px');
   });
 
-  test('Vocabulary Browse and import retain native controls and recovery without JavaScript', async ({ browser }) => {
+  test('Vocabulary Browse and import retain native controls and recovery without JavaScript', async ({ browser, baseURL }) => {
     const context = await browser.newContext({
-      baseURL: fixtureBaseURL(),
+      baseURL,
       javaScriptEnabled: false,
       viewport: { width: 375, height: 812 },
     });
@@ -239,9 +235,9 @@ test.describe('native WebKit smoke journey', () => {
     await chooseStudyLanguage(page, 'de');
   });
 
-  test('Catalogs confirmations and job recovery remain native without JavaScript', async ({ browser }) => {
+  test('Catalogs confirmations and job recovery remain native without JavaScript', async ({ browser, baseURL }) => {
     const context = await browser.newContext({
-      baseURL: fixtureBaseURL(),
+      baseURL,
       javaScriptEnabled: false,
       colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
       viewport: test.info().project.name.includes('compact') ? { width: 375, height: 812 } : { width: 1280, height: 800 },
@@ -280,9 +276,9 @@ test.describe('native WebKit smoke journey', () => {
     }
   });
 
-  test('Reading confirmations remain native, visible, and reachable without JavaScript', async ({ browser }) => {
+  test('Reading confirmations remain native, visible, and reachable without JavaScript', async ({ browser, baseURL }) => {
     const page = await browser.newPage({
-      baseURL: fixtureBaseURL(),
+      baseURL,
       javaScriptEnabled: false,
       colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
       viewport: { width: 320, height: 812 },

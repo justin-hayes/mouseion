@@ -141,7 +141,6 @@ gen:
 
 browser-smoke:
 	cd e2e && npm ci --ignore-scripts && npx playwright install chromium webkit && npx playwright test
-	cd e2e && MOUSEION_CORRECTED_START_SMOKE=1 npx playwright test tests/corrected-reading-start.spec.ts --project=desktop-light
 
 browser-smoke-webkit:
 	cd e2e && npm ci --ignore-scripts && npx playwright install webkit && npx playwright test --project='webkit-*'

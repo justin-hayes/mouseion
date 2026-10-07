@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test';
 
 test('locally served fonts shape Latin and Greek text on the sign-in page', async ({ page }) => {
   const fontRequests: string[] = [];

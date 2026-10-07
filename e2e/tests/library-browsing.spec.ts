@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from '../support/test';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -242,8 +242,8 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-results .library-books')).toContainText('Der lange Weg nach Hause');
   });
 
-  test('keeps the server-rendered list usable without JavaScript', async ({ browser }) => {
-    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, javaScriptEnabled: false });
+  test('keeps the server-rendered list usable without JavaScript', async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
     try {
       const page = await context.newPage();
       await signIn(page);
@@ -360,7 +360,6 @@ test.describe('My Books collection browsing', () => {
   });
 
   test('reviews needs-language books without actions', async ({ page }) => {
-    test.skip(test.info().project.name !== 'desktop-light', 'This stateful fixture sync runs once per browser suite.');
     await signIn(page);
     await page.goto('/library');
     const strip = page.locator('aside.library-needs-language');

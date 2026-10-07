@@ -1,8 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
-
-function fixtureBaseURL() {
-  return process.env.MOUSEION_FIXTURE_URL ?? `http://${process.env.MOUSEION_FIXTURE_ADDR ?? '127.0.0.1:8099'}`;
-}
+import { expect, Page, test } from '../support/test';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -16,8 +12,7 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library$/);
 }
 
-test('Current-reading Browse keeps its prefix form usable without JavaScript', async ({ page, browser }) => {
-  const baseURL = fixtureBaseURL();
+test('Current-reading Browse keeps its prefix form usable without JavaScript', async ({ page, browser, baseURL }) => {
   const noScriptContext = await browser.newContext({ baseURL, javaScriptEnabled: false });
   const noScriptPage = await noScriptContext.newPage();
   try {
