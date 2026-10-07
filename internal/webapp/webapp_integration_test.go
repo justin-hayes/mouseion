@@ -504,7 +504,7 @@ func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages
 	page := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
 	assert.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), "Awaiting a language")
-	assert.Contains(t, page.Body.String(), "Fix the language in the catalog, then re-sync")
+	assert.Contains(t, page.Body.String(), "Set it in the catalog, then re-sync")
 	assert.Contains(t, page.Body.String(), `href="/catalogs"`)
 
 	unknown, err := store.ListMyBooksBrowse(ctx, owner.ID, "", domain.LanguageUnknown, "", false, 0, 20)
