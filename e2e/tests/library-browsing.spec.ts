@@ -123,6 +123,38 @@ test.describe('My Books collection browsing', () => {
     }
   });
 
+  test('aligns identity and actions in the text column with status in the margin', async ({ page }) => {
+    await signIn(page);
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 900, height: 900 }, { width: 375, height: 667 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/library');
+      const row = page.locator('.library-books .library-book').filter({ has: page.locator('.library-book__author') }).first();
+      const title = row.locator('.bibliographic-title');
+      const author = row.locator('.library-book__author');
+      const cover = row.locator('.book-cover-media');
+      const notes = row.locator('.library-book__notes');
+      const actions = row.locator('.library-book__actions');
+      const geometry = await Promise.all([title, author, cover, notes, actions].map(locator => locator.boundingBox()));
+      const [titleBox, authorBox, coverBox, notesBox, actionsBox] = geometry;
+      expect(titleBox && authorBox && coverBox && notesBox && actionsBox).toBeTruthy();
+      expect(Math.abs(titleBox!.x - authorBox!.x)).toBeLessThanOrEqual(1);
+      expect(coverBox!.x).toBeLessThan(titleBox!.x);
+      expect(Math.abs(titleBox!.x - actionsBox!.x)).toBeLessThanOrEqual(1);
+      expect(await notes.evaluate(element => getComputedStyle(element).borderLeftWidth)).not.toBe('0px');
+      if (viewport.width <= 640) {
+        expect(notesBox!.y).toBeGreaterThanOrEqual(authorBox!.y + authorBox!.height);
+        expect(actionsBox!.y).toBeGreaterThanOrEqual(notesBox!.y + notesBox!.height);
+      } else {
+        expect(notesBox!.x).toBeGreaterThan(titleBox!.x);
+        expect(actionsBox!.y).toBeGreaterThanOrEqual(titleBox!.y + titleBox!.height);
+      }
+    }
+    await page.emulateMedia({ forcedColors: 'active' });
+    const marginEdge = page.locator('.library-book__notes').first();
+    await expect(marginEdge).toBeVisible();
+    expect(await marginEdge.evaluate(element => getComputedStyle(element).borderLeftColor)).not.toBe('rgba(0, 0, 0, 0)');
+  });
+
   test('wraps long multilingual Book identity at compact width and 200% text size', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 667 });
@@ -171,7 +203,7 @@ test.describe('My Books collection browsing', () => {
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
-    await expect(page.locator('#library-books-heading')).toBeFocused();
+    await expect(page.locator('#library-results')).toBeFocused();
     await page.goto('/library');
     const firstBook = page.locator('.library-books .library-book').first();
     await firstBook.getByText('More actions', { exact: true }).click();
@@ -352,7 +384,7 @@ test.describe('My Books collection browsing', () => {
       await page.goto('/library');
       const syncedBook = page.locator('.library-books .library-book').filter({ hasText: 'Browser sync metadata book' });
       await expect(syncedBook).toBeVisible();
-      await expect(syncedBook.locator('.metadata').filter({ hasText: 'Disposition' })).toContainText('Inbox');
+      await expect(syncedBook.locator('.library-book__membership .status-badge')).toHaveText('Inbox');
     }
   });
 });

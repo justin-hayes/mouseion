@@ -288,12 +288,16 @@ Use when peer content and actions no longer fit comfortably side by side.
 - the scope summary stops sticking so it cannot dominate a short viewport;
 - reading and keyboard order remain content before action.
 
-My Books uses one semantic unordered list at every width. Each Book is a compact
-text-led row with a small reserved cover, full title and author, one contextual
-action, and quiet disposition/evidence notes; notes move below identity on
-compact screens. It never introduces horizontal page scrolling or an ARIA-grid
-keyboard model. Reading keeps its semantic candidate-list structure and
-reserves a modest aligned thumbnail column.
+My Books uses one semantic unordered list at every width. Each Book follows the
+[`AnnotatedBookRow`](components.md#annotatedbookrow) pattern: a small reserved
+cover, full title and author in a text column, contextual actions beneath that
+identity, and canonical bucket status in a visibly edged right margin. On
+compact screens the cover stays beside title and author, then the margin note
+and actions follow below the text column. Rows separate through whitespace and
+the margin edge rather than boxes or heavy rules. It never introduces
+horizontal page scrolling or an ARIA-grid keyboard model. Reading keeps its
+semantic candidate-list structure and reserves a modest aligned thumbnail
+column.
 
 ### Standard — above `40rem` and below `72rem`
 
@@ -424,7 +428,7 @@ completion receipt reports exact modeled vocabulary changes and returns to that
 neutral chooser.
 
 The shipped Book Covers slice introduced covers in My Books and Reading. My
-Books now presents those covers in a one-column `MyBooksCoverItem` list; Reading
+Books presents those covers in the one-column `AnnotatedBookRow` list; Reading
 continues to use `BookCoverMedia` thumbnails without changing the shell or
 destination set.
 

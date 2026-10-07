@@ -102,6 +102,5 @@ test('finishing current reading records Read history and supports reading again'
   await reread.getByRole('button', { name: 'Confirm set aside' }).click();
   await expect(page).toHaveURL(/\/library\?history=read&message=/);
   const readAgainLater = page.locator('.library-books .library-book').filter({ hasText: title });
-  await expect(readAgainLater).toContainText('Disposition');
-  await expect(readAgainLater).toContainText('Read');
+  await expect(readAgainLater.locator('.library-book__membership .status-badge')).toHaveText('Read');
 });

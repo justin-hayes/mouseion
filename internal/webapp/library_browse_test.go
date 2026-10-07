@@ -30,7 +30,7 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	for _, want := range []string{
 		`role="search"`, `method="get"`, `label for="library-search-query">Search My Books`,
 		`type="search" name="q"`, `class="btn btn-primary" type="submit">Search</button>`,
-		`id="library-results"`, `data-focus-id="library-books-heading"`, `Page 2 of 2`, `href="/library?needs-language"`,
+		`id="library-results"`, `data-focus-id="library-results"`, `aria-label="My Books results"`, `Page 2 of 2`, `href="/library?needs-language"`,
 		`href="/library"`, `href="/library?page=2"`,
 	} {
 		assert.True(t, strings.Contains(html, want), "browse markup missing %q: %s", want, html)
@@ -346,6 +346,7 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 	assert.Contains(t, html, "Inbox (2)")
 	assert.Contains(t, html, "To Read (3)")
 	assert.Contains(t, html, "Set Aside (1)")
+	assert.Contains(t, html, "2 books found")
 	assert.Contains(t, html, `action="/library/books/to-read/set-aside"`)
 	assert.Contains(t, html, `action="/library/books/inbox-book/set-aside"`)
 	assert.Contains(t, html, "This sets aside the Book without adding it to Reading.")
