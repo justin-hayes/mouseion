@@ -14,6 +14,13 @@ same four viewport/appearance combinations, so the complete workflow suite is
 not multiplied by a second engine. Run only that focused matrix with
 `make browser-smoke-webkit` (or `cd e2e && npm run smoke:webkit`).
 
+Each Playwright invocation selects an available loopback port for its own
+fixture server and does not reuse an already-running server. This keeps parallel
+checkouts from serving stale pages to one another. To intentionally use an
+external fixture server, set `MOUSEION_REUSE_FIXTURE=1` and provide
+`MOUSEION_FIXTURE_URL` (or `MOUSEION_FIXTURE_ADDR`); otherwise the runner always
+starts a fixture server owned by that invocation.
+
 WebKit requires its browser binary and Linux runtime libraries. On a supported
 Linux runner image, provision the system libraries as an image/setup step with
 `cd e2e && npx playwright install-deps webkit` (this system-package command
