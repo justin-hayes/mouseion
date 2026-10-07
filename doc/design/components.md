@@ -346,8 +346,12 @@ The established shell provides landmarks, skip navigation, and explicit route
 context for the active destination or workflow action.
 
 The authenticated shell also carries the active language switcher. It is a
-native, labeled `select` backed by an ordinary POST form; JavaScript may submit
+native `select` backed by an ordinary POST form and labeled “Study language”;
+visually hide the label on compact screens while preserving its accessible
+name, and keep the short visible label on wider screens. JavaScript may submit
 it immediately on change, while a no-script submit button remains available.
+Name options by their language endonyms (Deutsch, Italiano, Ελληνικά), without
+language codes.
 Current study languages are selectable, newly arrived languages carry a visible
 `new` marker, and known-vocabulary-only languages carry `no books` and remain
 selectable for read-only Vocabulary. The effective selection is resolved on each

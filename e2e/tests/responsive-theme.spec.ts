@@ -68,6 +68,39 @@ async function boundaryContrast(element: Locator) {
 }
 
 test.describe('responsive and theme regression coverage', () => {
+  test('compact shell retains an accessible language name, endonyms, and usable navigation at 200% text', async ({ page }) => {
+    await page.route(/\.woff2(?:\?|$)/, (route) => route.abort());
+    await signIn(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/library');
+
+    const header = page.locator('.site-header');
+    const language = page.getByLabel('Study language');
+    await expect(language).toBeVisible();
+    await expect(language.locator('option').filter({ hasText: 'Deutsch' })).toHaveCount(1);
+    await expect(language.locator('option').filter({ hasText: 'Italiano' })).toHaveCount(1);
+    const languageOptions = await language.locator('option').allTextContents();
+    expect(languageOptions.join(' ')).not.toMatch(/German \(de\)|Italian \(it\)|Greek \(el\)/);
+    const labelStyle = await page.locator('.site-header__language-label').evaluate((node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      return { position: style.position, clipPath: style.clipPath, width: box.width, height: box.height };
+    });
+    expect(labelStyle.position).toBe('absolute');
+    expect(labelStyle.clipPath).toBe('inset(50%)');
+    expect(labelStyle.width).toBe(1);
+    expect(labelStyle.height).toBe(1);
+    const compactHeight = (await header.boundingBox())!.height;
+    expect(compactHeight).toBeLessThan(130);
+
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
+    const shellControls = page.locator('.site-header__brand, .site-nav__link, #active-study-language, .site-header__account > summary');
+    await expect44pxTouchTargets(shellControls);
+    await expect(page.locator('.site-header__navigation .site-nav__link')).toHaveCount(4);
+    await expect(page.locator('.site-header__account > summary')).toBeVisible();
+  });
+
   test('measures rendered RGB and modern colors over the actual translucent backdrop', async ({ page }) => {
     await page.goto('/login');
     await page.evaluate(() => {

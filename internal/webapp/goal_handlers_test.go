@@ -261,7 +261,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.NotContains(t, body, "Reading Journey")
 	assert.NotContains(t, body, "Primary Goal")
 	for _, want := range []string{
-		"Italian (it)",
+		"Italiano",
 		`id="journey-book-fixture-empty"`,
 		"Reserved vocabulary</strong>: <span class=\"numeric\">0</span> frozen identities.",
 	} {
@@ -277,7 +277,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	body = response.Body.String()
-	assert.True(t, strings.Contains(body, "German (de)") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Reading did not remain isolated after Italian move: %s", body)
+	assert.True(t, strings.Contains(body, "Deutsch") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Reading did not remain isolated after Italian move: %s", body)
 	assert.Contains(t, body, "Reserved vocabulary</strong>: <span class=\"numeric\">2</span> frozen identities.")
 }
 
