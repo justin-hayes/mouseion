@@ -87,11 +87,11 @@ compiler, or network access.
 | Every full page, including sign-in and recovery pages | `app.css` | One embedded, compiled stylesheet contains the Mouseion foundation and all workflow rules. Route body classes bound route-specific behavior without conditional asset loading. |
 | HTMX fragments | Host page's `app.css` | Fragments do not load a second stylesheet; error and recovery content uses the same rules as the full page. |
 
-The one application foundation includes Tailwind utilities and selected
-daisyUI controls, but does not enable Tailwind Preflight: the explicit Mouseion
-native baseline remains the authority until the final cutover after workflow
-migrations. Cascade ownership is explicit: theme, base, Mouseion components,
-then utilities (including daisyUI component utilities). System appearance
+The one application foundation enables Tailwind Preflight in the base layer,
+then restores Mouseion's explicit document typography, prose list cues, and
+native-control contracts above that reset. Cascade ownership is explicit:
+theme, base (including Preflight), Mouseion components, then utilities
+(including daisyUI component utilities). System appearance
 selects the light or dark semantic palette until an explicit
 `data-theme="light"` or `data-theme="dark"` override is present. Native
 `color-scheme` follows that effective appearance on anonymous and authenticated
@@ -104,18 +104,15 @@ inputs and do not construct utility names at runtime. CSS sources are assembled
 by the one build entry point and are available before any no-JavaScript or
 enhanced interaction is used.
 
-The shared-controls rollout kept the existing Mouseion native baseline as a
-temporary compatibility boundary while workflows migrated. Shared shell/My
-Books (#1488), Reading/deck preparation (#1489), Concordance/occurrence review
-(#1490), Vocabulary/import (#1491), and Catalogs/jobs (#1492) now use the shared
-controls. The final cutover (#1493) enables Preflight and retires the remaining
-compatibility baseline. Keep route-owned layout in the existing component
-stylesheets; do not let those rules override sign-in's shared controls.
-Vocabulary Browse uses the shared input/button contracts and a native checkbox
-whose label provides the 44px target. Known-vocabulary import deliberately keeps
-the native file input and multipart form so the platform picker and ordinary
-submission behavior remain intact. The sign-in foundation does not depend on
-that cutover.
+The shared-controls rollout and Preflight cutover are complete across shell,
+My Books, Reading, Vocabulary, Concordance, Catalogs, and operational tasks.
+Route-owned stylesheets own layout and composition; the shared foundation owns
+typography, native controls, focus, disabled/busy states, theme, and reduced
+motion. Keep route rules from overriding sign-in's shared controls. Vocabulary
+Browse uses the shared input/button contracts and a native checkbox whose label
+provides the 44px target. Known-vocabulary import deliberately keeps the native
+file input and multipart form so the platform picker and ordinary submission
+behavior remain intact.
 
 The app-wide [Concordance rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
 ships one Templ-owned result list with native disclosures and HTMX 4.0.0 for

@@ -22,7 +22,9 @@ The reusable layer is deliberately small:
 - `internal/webapp/components.go` owns closed variants, view adapters, and safe
   state-to-presentation mappings;
 - `internal/webapp/static/app.css` owns component layout and appearance through
-  Mouseion semantic tokens;
+  Mouseion semantic tokens; Tailwind Preflight is confined to its base layer,
+  with Mouseion document typography, prose lists, and native-control behavior
+  restored by the shared foundation;
 - `internal/webapp/components_test.go` owns rendered structure, semantics,
   states, and keyboard-relevant contracts;
 - `internal/webapp/foundations_test.go` verifies adoption on representative

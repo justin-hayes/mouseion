@@ -177,7 +177,7 @@ func TestMyBooksCoverGridUsesNativeListAndStablePresentationStates(t *testing.T)
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 
-	assert.Contains(t, html, `<ul class="library-grid">`)
+	assert.Contains(t, html, `<ul class="library-grid" role="list">`)
 	assert.Equal(t, 4, strings.Count(html, `class="resource-card library-book"`))
 	assert.NotContains(t, html, `role="grid"`)
 	assert.NotContains(t, html, `aria-rowindex`)
