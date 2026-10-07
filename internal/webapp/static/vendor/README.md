@@ -11,7 +11,25 @@ output. The application does not require a browser-time connection to a CDN.
 | ------------------- | ------: | ------------------------------------------ | ------------------------------------------------------------------ |
 | `htmx-4.0.0.min.js` |   4.0.0 | `htmx.org` npm package, `dist/htmx.min.js` | `e484d9171a9db30a39c8f16e3d709d4137f3211c659f8e6125816635033d593f` |
 
-The corresponding upstream licenses are under [`licenses/`](licenses/).
+## Shipped typefaces
+
+The approved #1480 Margin notes direction uses Commissioner for application UI
+and Literata for Book identity and source passages. Both are OFL-licensed and
+served from this embedded directory; fonts do not load from a third-party host.
+The source CSS and original assets are preserved in the prototype at commit
+`3fd446144af25013a19ab99d0a83e4e778fe7737`.
+
+| Asset | Version / upstream source | License | SHA-256 |
+| --- | --- | --- | --- |
+| `fonts/commissioner-latin-wght-normal.woff2` | `@fontsource-variable/commissioner@5.3.0/files/commissioner-latin-wght-normal.woff2` | OFL (`fonts/commissioner-OFL.txt`) | `e3d539b926881fbb3592788297eee24d6d179c1c06dbad36805fc722775247ce` |
+| `fonts/commissioner-latin-ext-wght-normal.woff2` | `@fontsource-variable/commissioner@5.3.0/files/commissioner-latin-ext-wght-normal.woff2` | OFL (`fonts/commissioner-OFL.txt`) | `bd6c9bcd8fddfa16facc4398d075d0dfdf1286fc08334b94e8ea0c94beb1e0ff` |
+| `fonts/commissioner-greek-wght-normal.woff2` | `@fontsource-variable/commissioner@5.3.0/files/commissioner-greek-wght-normal.woff2` | OFL (`fonts/commissioner-OFL.txt`) | `75d4734b1d207892feee610186e34fe02912d604025906fdeca5c7b8c295a622` |
+| `fonts/literata-latin-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-latin-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `29de894c768689feef6ab4ef274a9a16d19bfc5b0c3cbfcdac80ef220816210c` |
+| `fonts/literata-latin-ext-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-latin-ext-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `1160835f4cdae6a86572ed501c13b62b341480cc7c13fc88ba0c21efdf1fcd73` |
+| `fonts/literata-greek-opsz-normal.woff2` | `@fontsource-variable/literata@5.3.0/files/literata-greek-opsz-normal.woff2` | OFL (`fonts/literata-OFL.txt`) | `1a7f2e3f1b37ae8c92b57eb8f164da44ac369783bd58ad6295368bbc7b9f7d08` |
+
+HTMX and build-tool upstream licenses are under [`licenses/`](licenses/);
+the two font OFL texts are alongside the font assets in [`fonts/`](fonts/).
 
 ## CSS build tools
 

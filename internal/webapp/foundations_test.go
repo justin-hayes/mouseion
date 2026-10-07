@@ -59,6 +59,7 @@ func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	require.NoError(t, Layout("My Books", &domain.User{Username: "learner"}, "csrf").Render(context.Background(), &library))
 
 	assert.Contains(t, login.String(), `href="/static/app.css"`)
+	assert.Contains(t, login.String(), `rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2"`)
 	assert.Contains(t, login.String(), `class="login-screen`)
 	assert.Contains(t, library.String(), `href="/static/app.css"`)
 	assert.Contains(t, library.String(), `href="/static/app.css"`)
@@ -230,6 +231,36 @@ func TestAppStylesExposeMouseionFoundations(t *testing.T) {
 	} {
 		assert.True(t, strings.Contains(css, want), "application CSS missing foundation %q", want)
 	}
+}
+
+func TestTypographyAssetsAreEmbeddedAndServedLocally(t *testing.T) {
+	for _, path := range []string{
+		"/static/vendor/fonts/commissioner-latin-wght-normal.woff2",
+		"/static/vendor/fonts/commissioner-latin-ext-wght-normal.woff2",
+		"/static/vendor/fonts/commissioner-greek-wght-normal.woff2",
+		"/static/vendor/fonts/literata-latin-opsz-normal.woff2",
+		"/static/vendor/fonts/literata-latin-ext-opsz-normal.woff2",
+		"/static/vendor/fonts/literata-greek-opsz-normal.woff2",
+	} {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+			response := httptest.NewRecorder()
+			StaticHandler().ServeHTTP(response, request)
+			assert.Equal(t, http.StatusOK, response.Code)
+			assert.Equal(t, "font/woff2", response.Header().Get("Content-Type"))
+			assert.NotEmpty(t, response.Body.Bytes())
+		})
+	}
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
+	response := httptest.NewRecorder()
+	StaticHandler().ServeHTTP(response, request)
+	css := response.Body.String()
+	assert.Contains(t, css, `font-family: "Commissioner Variable"`)
+	assert.Contains(t, css, `font-family: "Literata Variable"`)
+	assert.Contains(t, css, `url("/static/vendor/fonts/commissioner-greek-wght-normal.woff2")`)
+	assert.Contains(t, css, `url("/static/vendor/fonts/literata-greek-opsz-normal.woff2")`)
+	assert.NotRegexp(t, `url\(https?://`, css, "font CSS must not make third-party requests")
 }
 
 func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {

@@ -19,7 +19,7 @@ templ Layout(title string, user *domain.User, csrf string) {
 
 templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, shellStyles ...shellStyle) {
 	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title>
-	<link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
+	<link rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];

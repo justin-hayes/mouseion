@@ -5,7 +5,7 @@
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  padding-block: clamp(3rem, 12vh, 8rem);
+  padding-block: clamp(1.5rem, 8vh, 3rem);
 }
 
 .narrow.login-screen {
@@ -29,16 +29,16 @@
 }
 
 .login-screen h1 {
-  margin-block: 0 0.65rem;
-  font-family: var(--mouseion-font-reading);
-  font-size: clamp(2.25rem, 6vw, 3.2rem);
-  font-weight: 500;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  margin-block: 0 var(--mouseion-space-2);
+  font-family: var(--mouseion-font-application);
+  font-size: var(--mouseion-font-size-page-title);
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
 }
 
 .login-screen__intro {
-  margin-block: 0 2rem;
+  margin-block: 0 var(--mouseion-space-5);
   color: var(--mouseion-color-text-muted);
 }
 
@@ -53,13 +53,13 @@
 
 .login-form {
   display: grid;
-  gap: 1.25rem;
+  gap: var(--mouseion-space-4);
 }
 
 .login-field {
   display: grid;
-  gap: 0.4rem;
-  font-weight: 650;
+  gap: var(--mouseion-space-2);
+  font-weight: 550;
 }
 
 .login-field small {
