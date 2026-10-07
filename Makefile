@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -41,6 +41,17 @@ build: go-tmp
 test: go-tmp
 	go test ./...
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests
+
+# Targeted Go tests get a per-invocation build temp directory under .tmp, so
+# interrupted runs cannot leave build files in a RAM-backed system temp dir.
+test-go:
+	tools/go-test.sh unit $(if $(strip $(PACKAGES)),$(PACKAGES),./...)
+
+test-go-integration:
+	tools/go-test.sh integration $(if $(strip $(PACKAGES)),$(PACKAGES),./internal/...)
+
+go-test-clean:
+	tools/go-test.sh clean
 
 test-integration: go-tmp
 	go test -count=1 -tags=integration ./internal/...
