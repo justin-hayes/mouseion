@@ -3354,7 +3354,7 @@
     min-height: 44px;
   }
   .btn-primary {
-    color: var(--color-primary-content);
+    color: var(--mouseion-color-surface);
   }
   .library-search__controls input {
     width: 100%;

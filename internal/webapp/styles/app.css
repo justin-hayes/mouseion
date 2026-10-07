@@ -64,7 +64,7 @@
   /* daisyUI's primary button defaults to its light-theme content tone. Keep
    * the shared action readable when Mouseion's accent changes in dark mode. */
   .btn-primary {
-    color: var(--color-primary-content);
+    color: var(--mouseion-color-surface);
   }
 
   /* daisyUI caps .input at 20rem; the My Books grid needs its field to fill its track. */
