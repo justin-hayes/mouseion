@@ -161,13 +161,14 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	publishedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, publishedPage.Code)
 	assert.NotContains(t, publishedPage.Body.String(), "This Book is not shown as analyzed until its result is published")
-	assert.Contains(t, readingPage.Body.String(), "Confirm set aside", "current-reading Set Aside remains explicit and confirmed")
+	assert.Contains(t, readingPage.Body.String(), "Confirm end current reading", "End current reading is explicit and confirmed")
+	assert.NotContains(t, readingPage.Body.String(), "Set aside this Book")
 	assert.Contains(t, readingPage.Body.String(), `href="/library"`, "Reading directs disposition decisions to My Books")
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
 	assert.Contains(t, readingPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`, "the current reading offers explicit optional preparation")
 
 	setEnqueueFailure(false)
-	prepare := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
+	prepare := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, prepare.Code)
 	assert.Contains(t, prepare.Header().Get("Location"), "/deck-preparations/")
 

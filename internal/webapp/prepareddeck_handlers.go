@@ -580,14 +580,6 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return false
 	}
-	if !expectedCommitmentMatches(r, preparation.GoalSnapshotID) {
-		if wantsPreparationJSON(r) {
-			http.Error(w, goalStaleMessage, http.StatusConflict)
-		} else {
-			h.respondGoal(w, r, "", goalStaleMessage, bookID)
-		}
-		return false
-	}
 	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
@@ -604,6 +596,14 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 	}
 	if !goal.IsActive() || goal.BookID != bookID || goal.SnapshotID != preparation.GoalSnapshotID || goal.SourceMaterialID != preparation.SourceMaterialID || goal.AnalysisRunID != preparation.AnalysisRunID {
 		http.NotFound(w, r)
+		return false
+	}
+	if !expectedCommitmentMatches(r, preparation.GoalSnapshotID) {
+		if wantsPreparationJSON(r) {
+			http.Error(w, goalStaleMessage, http.StatusConflict)
+		} else {
+			h.respondGoal(w, r, "", goalStaleMessage, bookID)
+		}
 		return false
 	}
 	return true
