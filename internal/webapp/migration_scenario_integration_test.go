@@ -204,7 +204,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.NotContains(t, laterGoal.Header().Get("Location"), "error=")
 	finishedDisposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, finishedDisposition, "choosing a later current reading changed the finished Book disposition")
+	assert.Equal(t, domain.BookDispositionInbox, finishedDisposition, "choosing a later current reading changed the finished Book disposition")
 	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, secondBook.ID, goal.BookID)

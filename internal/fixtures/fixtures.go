@@ -2031,7 +2031,7 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 		preparation.ReleasedAt = &now
 		preparation.UpdatedAt = now
 	}
-	s.dispositions[fixtureDispositionKey(owner, expectedBookID)] = domain.BookDispositionSetAside
+	s.dispositions[fixtureDispositionKey(owner, expectedBookID)] = domain.BookDispositionInbox
 	delete(s.primaryGoals, key)
 	return persistence.ReadingFinishResult{Completion: completion}, nil
 }

@@ -38,17 +38,27 @@ language, or presents the learner with an unordered chooser between Books.
    retired Set Aside action and its mutation are removed, not translated.
 4. Starting current reading freezes the vocabulary snapshot. Finishing records a
    completion, accepts eligible snapshot identities into modeled Known
-   vocabulary, and returns a receipt with the next-choice link. It does not
-   automatically select another Book.
+   vocabulary with set semantics, clears the current role and reservations, and
+   sets the underlying disposition to **Inbox**, all atomically; a failure
+   leaves no partial history or Known change. The Book is neither hidden nor
+   replaced by a next Book: the receipt only links to the chooser. Finish does
+   not depend on a deck, its preparation state, omitted cards, or live Browse
+   counts, and works with an empty frozen snapshot. Replaying the same Finish
+   adds no history or acceptance, and a stale snapshot of the same Book cannot
+   finish a newer reading.
 5. My Books shows each Book in exactly one visible workflow bucket. In
    precedence order, that is **Currently reading**, **To Read**, **Read** when
    completion history exists, **Inbox**, then **Set Aside**. The To Read tab
    includes the current Book, labeled Currently reading, as well as other To
    Read Books. A historical Inbox or Set Aside Book appears in Read without
    changing its persisted disposition or completion provenance; a historical
-   To Read Book remains To Read. **Read again** moves a Read Book to To Read;
-   setting it aside again returns it to Read. Starting it creates a fresh
-   current-reading snapshot while retaining earlier completions.
+   To Read Book remains To Read. A finished Book is Inbox underneath and
+   projects as Read through its history. **Read again** moves a Read Book to To
+   Read without starting it, changing visibility, erasing history, or adopting a
+   released snapshot. Starting it creates a fresh current-reading snapshot while
+   retaining earlier completions. A previously-read assertion is an idempotent
+   assertion-time fact that changes neither disposition nor visibility and
+   accepts no vocabulary. Finishing claims no mastery.
 6. Set Aside keeps a Book visible in My Books and reversible to To Read. Read
    history is append-only and does not imply Known vocabulary. There is no
    ordinary Remove from My Books action; the retired removal request cannot

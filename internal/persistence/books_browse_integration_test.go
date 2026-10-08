@@ -187,7 +187,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.Len(t, read.Items, 1)
 	assert.Equal(t, domain.MyBookBucketRead, read.Items[0].WorkflowBucket())
 	assert.Equal(t, 1, read.ReadCount)
-	assert.Equal(t, domain.BookDispositionSetAside, read.Items[0].Disposition, "Read is a projection and preserves the underlying disposition")
+	assert.Equal(t, domain.BookDispositionInbox, read.Items[0].Disposition, "Read is a projection and preserves the underlying disposition")
 	detail, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, read.Items[0].CompletionCount, detail.CompletionCount)

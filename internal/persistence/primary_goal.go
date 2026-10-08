@@ -637,7 +637,7 @@ func switchReplayProven(ctx context.Context, q *sqlcgen.Queries, owner, language
 }
 
 // RecordReadingFinishedPrimaryGoal atomically records completion, graduates the
-// frozen snapshot, sets the Book aside, and clears the current reading. The
+// frozen snapshot, returns the Book to Inbox, and clears the current reading. The
 // snapshot is the completion request identity, so retries remain idempotent
 // even after the Book is completed again in the future.
 func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (result ReadingFinishResult, err error) {
@@ -729,7 +729,7 @@ func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, ow
 		}
 		alreadyKnownCount = counts.SnapshotCount - graduatedCount
 	}
-	if err = upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionSetAside); err != nil {
+	if err = upsertBookDisposition(ctx, q, owner, expectedBookID, domain.BookDispositionInbox); err != nil {
 		return ReadingFinishResult{}, err
 	}
 	if err = releasePrimaryGoalSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
