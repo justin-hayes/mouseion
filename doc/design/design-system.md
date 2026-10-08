@@ -270,6 +270,13 @@ Widths reflect content behavior rather than arbitrary page templates:
 The `.narrow`, `.reading-width`, and `.data-width` roles apply those measures.
 Book text should not be stretched to fill a data-dense container.
 
+The Reading chooser also uses the annotated Book row's cover / identity /
+edged-margin composition. Its contextual confirmation, word-review link, or
+outline retry sits below the author rather than inside the evidence margin.
+Coverage and locale-grouped distinct-word counts remain supporting evidence,
+with rounded display percentages but exact-count band membership. Books without
+comparable current analysis are **Not assessed**, not a learner problem.
+
 ## Responsive behavior
 
 Breakpoints are named by the layout pressure they resolve, not by device type:

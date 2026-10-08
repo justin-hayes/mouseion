@@ -35,6 +35,17 @@ func (i readingChooserInsights) Coverage(ctx context.Context, owner, corpusID st
 	return i.Insights.Coverage(ctx, owner, corpusID)
 }
 
+func TestReadingChooserFormatsEvidenceWithoutChangingBandBoundaries(t *testing.T) {
+	assert.Equal(t, "To reach 99%: 1,206 more distinct words marked Known.", readingChooserThresholdText(domain.CoverageThreshold{
+		TargetPercent: 99, LemmaCount: 1206, Reachable: true,
+	}))
+	assert.Equal(t, "1,234,567", readingChooserCount(1234567))
+	assert.Equal(t, "98.9%", readingChooserCoverageDisplay(domain.AnalysisCoverage{
+		KnownTokenCount: 989, AnalyzableTokenCount: 1000,
+	}))
+	assert.Equal(t, domain.CoverageBand97To99, domain.CoverageBandFor(989, 1000), "display rounding must not determine group membership")
+}
+
 func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
@@ -71,18 +82,20 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Contains(t, body, "Known vocabulary coverage:")
 	assert.Contains(t, body, `<ul class="reading-chooser-list" role="list">`)
 	assert.Contains(t, body, `class="reading-chooser-entry__cover"`)
-	assert.Contains(t, body, "eligible vocabulary identities")
+	assert.Contains(t, body, "more distinct words marked Known")
+	assert.NotContains(t, body, "eligible vocabulary identities")
+	assert.NotContains(t, body, "analyzable tokens")
 	assert.Contains(t, body, "Start reading")
 	assert.Contains(t, body, "Confirm start reading")
 	assert.Contains(t, body, "Analysis in progress")
 	assert.Contains(t, body, "This Book is not shown as analyzed until its result is published")
 	assert.Contains(t, body, "Review To Read books")
-	assert.Contains(t, body, "Needs attention")
+	assert.Contains(t, body, "Not assessed")
 	assert.Contains(t, body, "The last analysis did not complete.")
 	assert.Contains(t, body, `action="/reading/books/fixture-failed/reanalyze"`)
 	assert.Contains(t, body, "The analysis no longer matches the current book content")
 	assert.Contains(t, body, "No vocabulary comparison")
-	assert.Contains(t, body, "No analyzable tokens")
+	assert.Contains(t, body, "No words to compare")
 	assert.NotContains(t, body, "Known vocabulary coverage: 0.0%")
 	assert.NotContains(t, body, "Italian goal")
 	assert.NotContains(t, body, "Metadata-only migration book")
@@ -376,6 +389,6 @@ func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Analysis in progress")
 	assert.NotContains(t, response.Body.String(), "No To Read books yet")
-	assert.NotContains(t, response.Body.String(), "Needs attention")
+	assert.NotContains(t, response.Body.String(), "Not assessed")
 	assert.NotContains(t, response.Body.String(), "Known vocabulary coverage:")
 }

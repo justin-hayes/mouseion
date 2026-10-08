@@ -1897,13 +1897,13 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 		}
 		if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
 			if len(chooser.At99Plus)+len(chooser.At97To99)+len(chooser.At95To97)+len(chooser.Below95)+len(chooser.NoComparison) > 0 {
-				<p>Coverage compares currently Known vocabulary with analyzable tokens in each current analysis. Bands use exact token counts; displayed percentages are rounded.</p>
+				<p>Coverage shows how often words in your Known vocabulary appear in each Book. These groups use exact counts, though the displayed percentages are rounded. They are not reading recommendations.</p>
 			}
-			@ReadingChooserBand("99% or above", "At least 99% of analyzable tokens match Known vocabulary.", chooser.At99Plus, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("97% to below 99%", "At least 97% and below 99% of analyzable tokens match Known vocabulary.", chooser.At97To99, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("95% to below 97%", "At least 95% and below 97% of analyzable tokens match Known vocabulary.", chooser.At95To97, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("Below 95%", "Below 95% of analyzable tokens match Known vocabulary.", chooser.Below95, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-			@ReadingChooserBand("No vocabulary comparison", "Analysis completed, but there are no analyzable tokens for a numeric coverage comparison.", chooser.NoComparison, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("99% or above", "At least 99% of word occurrences are already Known.", chooser.At99Plus, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("97% to below 99%", "At least 97%, but less than 99%, of word occurrences are already Known.", chooser.At97To99, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("95% to below 97%", "At least 95%, but less than 97%, of word occurrences are already Known.", chooser.At95To97, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("Below 95%", "Less than 95% of word occurrences are already Known.", chooser.Below95, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			@ReadingChooserBand("No vocabulary comparison", "There are no words to compare for coverage in this analysis.", chooser.NoComparison, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 			if len(chooser.InProgress) > 0 {
 				<section aria-labelledby="reading-chooser-in-progress-heading">
 					<h2 id="reading-chooser-in-progress-heading">Analysis in progress</h2>
@@ -1916,9 +1916,9 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 				</section>
 			}
 			if len(chooser.Attention) > 0 {
-				<section aria-labelledby="reading-chooser-attention-heading">
-					<h2 id="reading-chooser-attention-heading">Needs attention</h2>
-					<p>These candidates need current content or usable analysis before their coverage can be compared.</p>
+				<section aria-labelledby="reading-chooser-unavailable-heading">
+					<h2 id="reading-chooser-unavailable-heading">Not assessed</h2>
+					<p>These Books need current content or analysis before their coverage can be compared.</p>
 					<ul class="reading-chooser-list" role="list">
 						for _, item := range chooser.Attention {
 							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
@@ -1947,63 +1947,64 @@ templ ReadingChooserBand(title, description string, books []readingChooserBookVi
 templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<li class="reading-chooser-book">
 		<article class="reading-chooser-entry">
+			<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
 			<div class="reading-chooser-entry__identity">
-				<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
-				<div>
 					<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
 					if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
 						<p>By { author }</p>
 					}
+				<div class="reading-chooser-entry__actions">
+					if item.Coverage != nil {
+						if currentBookID != "" {
+							@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis, decks, and history remain. You can start either book again later.", StatusNeutral) {
+								<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
+									<input type="hidden" name="csrf_token" value={ csrf }/>
+									<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
+									<input type="hidden" name="expected_current_snapshot_id" value={ currentSnapshotID }/>
+									<button class="button" type="submit">Confirm switch to this book</button>
+								</form>
+							}
+						} else {
+							@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
+								<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
+									<input type="hidden" name="csrf_token" value={ csrf }/>
+									<button class="button" type="submit">Confirm start reading</button>
+								</form>
+							}
+						}
+						<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
+					} else if item.State == readingChooserInProgress {
+						if item.Book.Acquired.AnalysisJobID > 0 {
+							<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
+						} else {
+							<a href="/library?disposition=to_read">Review To Read books</a>
+						}
+					} else if item.State == readingChooserNeedsAttention {
+						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<button class="button button--outline" type="submit">Retry acquisition or analysis</button>
+						</form>
+					}
 				</div>
 			</div>
 			<div class="reading-chooser-entry__evidence">
-			if item.Coverage != nil {
-				<p class="numeric"><strong>Known vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ item.Coverage.KnownTokenCount } of { item.Coverage.AnalyzableTokenCount } analyzable tokens)</p>
-				<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
-				<details>
-					<summary>Coverage investment at 95%, 97%, and 99%</summary>
-					<ul>
-					for _, threshold := range item.Coverage.Thresholds {
-						if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
-							<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
+				if item.Coverage != nil {
+					<p class="numeric"><strong>Known vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.KnownTokenCount) } of { readingChooserCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
+					<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
+					<details>
+						<summary>Words to reach 95%, 97%, and 99%</summary>
+						<ul>
+						for _, threshold := range item.Coverage.Thresholds {
+							if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
+								<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
+							}
 						}
-					}
-					</ul>
-					<p>Investment counts eligible vocabulary identities, not deck size.</p>
-				</details>
-				if currentBookID != "" {
-					@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis, decks, and history remain. You can start either book again later.", StatusNeutral) {
-						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
-							<input type="hidden" name="expected_current_snapshot_id" value={ currentSnapshotID }/>
-						<button class="button" type="submit">Confirm switch to this book</button>
-						</form>
-					}
+						</ul>
+						<p>These counts are distinct words, not the number of cards in a deck.</p>
+					</details>
 				} else {
-					@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
-						<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button class="button" type="submit">Confirm start reading</button>
-						</form>
+					<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
 					}
-				}
-				<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
-			} else {
-				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
-				if item.State == readingChooserInProgress {
-					if item.Book.Acquired.AnalysisJobID > 0 {
-						<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
-					} else {
-						<a href="/library?disposition=to_read">Review To Read books</a>
-					}
-				} else if item.State == readingChooserNeedsAttention {
-					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button class="button" type="submit">Retry acquisition or analysis</button>
-					</form>
-				}
-			}
 			</div>
 		</article>
 	</li>
