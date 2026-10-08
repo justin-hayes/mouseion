@@ -39,7 +39,7 @@ func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, files)
 	for _, file := range files {
-		data, readErr := os.ReadFile(file)
+		data, readErr := os.ReadFile(file) //nolint:gosec // filepath.Glob only returns checked-in generated paths.
 		require.NoError(t, readErr, "read %s", file)
 		for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`} {
 			assert.False(t, strings.Contains(string(data), dead), "generated %s still contains removed template %q", file, dead)
