@@ -36,11 +36,39 @@ func CoverageBandFor(knownTokens, analyzableTokens int64) CoverageBand {
 	}
 }
 
+// CoverageGapToNextBand returns the number of Known tokens needed to reach the
+// next coverage band. The target follows CoverageBandFor's exact boundaries.
+func CoverageGapToNextBand(knownTokens, analyzableTokens int64) (targetPercent int, gap int64) {
+	if analyzableTokens <= 0 {
+		return 0, 0
+	}
+	if knownTokens < 0 {
+		knownTokens = 0
+	}
+	if knownTokens > analyzableTokens {
+		knownTokens = analyzableTokens
+	}
+	switch CoverageBandFor(knownTokens, analyzableTokens) {
+	case CoverageBandBelow95:
+		targetPercent = 95
+	case CoverageBand95To97:
+		targetPercent = 97
+	case CoverageBand97To99:
+		targetPercent = 99
+	case CoverageBand99Plus, CoverageBandNoComparison:
+		return 0, 0
+	}
+	return targetPercent, max(minimumTokensForCoverage(analyzableTokens, targetPercent)-knownTokens, 0)
+}
+
 // coverageAtLeast compares known/total with percent/100 by computing the
 // smallest integer token count that reaches the threshold. Splitting total by
 // 100 keeps the exact arithmetic safe for the full int64 range.
 func coverageAtLeast(known, total int64, percent int64) bool {
+	return known >= minimumTokensForCoverage(total, int(percent))
+}
+
+func minimumTokensForCoverage(total int64, percent int) int64 {
 	quotient, remainder := total/100, total%100
-	required := quotient*percent + (remainder*percent+99)/100
-	return known >= required
+	return quotient*int64(percent) + (remainder*int64(percent)+99)/100
 }

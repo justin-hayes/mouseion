@@ -103,17 +103,19 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Less(t, strings.Index(body, "Der lange Weg nach Hause"), strings.Index(body, "Route differs: new German"), "same-band candidates should be in neutral title order")
 }
 
-func TestReadingChooserRecoveryDoesNotRequireIsToReadship(t *testing.T) {
+func TestReadingChooserRecoveryRequiresToReadIntent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
-	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionToRead))
+	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionInbox))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	handler.services.Analysis = fixtures.Analysis{}
 
 	response := goalRequest(t, h, "/reading/books/fixture-failed/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/reading?message=Analysis+")
+	assert.Equal(t, http.StatusNotFound, response.Code)
+	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionInbox, disposition, "recovery must not change the Book's bucket")
 }
 
 func TestCurrentReadingRefreshIsRejectedWithoutSubmittingAnalysis(t *testing.T) {

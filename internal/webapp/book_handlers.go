@@ -133,7 +133,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 	message := refreshMessage(result)
 	if isPartialHTMXRequest(r) {
 		row := domain.MyBook{Book: result.Book}
-		if refreshed, readErr := h.services.Store.Books.GetBookDetail(r.Context(), u.ID, result.Book.ID); readErr == nil {
+		if refreshed, readErr := h.myBooksRefreshRowDetail(r.Context(), u.ID, result.Book.ID); readErr == nil {
 			row = refreshed
 			row.Book = result.Book
 		} else if !errors.Is(readErr, persistence.ErrNotFound) {
@@ -155,11 +155,23 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/library?message="+url.QueryEscape(message))
 }
 
+func (h *Handler) myBooksRefreshRowDetail(ctx context.Context, owner, bookID string) (domain.MyBook, error) {
+	if reader, ok := h.services.Store.Books.(MyBooksRefreshRowStore); ok {
+		return reader.GetBookDetailForMyBooksRefresh(ctx, owner, bookID)
+	}
+	return h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+}
+
 func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
 	message := "Metadata could not be refreshed. Check the connection and try again."
 	if isPartialHTMXRequest(r) {
-		book, ok := h.bookDetail(w, r, u.ID, bookID)
-		if !ok {
+		book, err := h.myBooksRefreshRowDetail(r.Context(), u.ID, bookID)
+		if errors.Is(err, persistence.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		if err != nil {
+			fail(w, err)
 			return
 		}
 		if err := h.annotateBookToRead(r.Context(), u.ID, &book); err != nil {

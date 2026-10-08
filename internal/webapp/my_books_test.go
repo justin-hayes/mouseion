@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -41,6 +42,103 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	for _, forbidden := range []string{"Not acquired / metadata only", "Review scope", "Prepare deck", "View analysis result", "Start analysis", `action="/books/metadata-book/analyze"`, "coverage", "current reading", "Analysis evidence"} {
 		assert.False(t, strings.Contains(row, forbidden), "metadata-only My Books item exposed unsupported state or action %q: %s", forbidden, row)
 	}
+}
+
+func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
+	tests := []struct {
+		name string
+		book domain.MyBook
+		want string
+		omit string
+	}{
+		{name: "metadata only is neutral", book: domain.MyBook{}, omit: "0%"},
+		{name: "analysis running", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzing"}}, want: "Analysis running."},
+		{name: "failed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analysis failed"}}, want: "Analysis failed."},
+		{name: "cancelled", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analysis cancelled"}}, want: "Analysis cancelled."},
+		{name: "stale", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "stale"}}, want: "Analysis out of date."},
+		{name: "unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "content unavailable"}}, want: "Content unavailable."},
+		{name: "not analysed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"}, AnalysisStatus: "not analyzed"}}, want: "Not analysed yet."},
+		{name: "coverage with next band gap", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzed"}, CoverageKnownTokens: 974, CoverageTotalTokens: 1000}, want: "97.4% of running words Known. 16 more words to reach 99%.", omit: "ready"},
+		{name: "deck state is distinct from coverage", book: domain.MyBook{IsCurrentReading: true, Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzed"}, CoverageTotalTokens: 0, DeckState: "ready", DeckCardCount: 412}, want: "Deck ready: 412 cards.", omit: "0%"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := myBookMarginEvidence(tt.book)
+			if tt.want != "" {
+				assert.Contains(t, got, tt.want)
+			}
+			if tt.omit != "" {
+				assert.NotContains(t, strings.ToLower(got), strings.ToLower(tt.omit))
+			}
+		})
+	}
+}
+
+func TestMyBookMarginEvidenceShowsDeckStateOnlyForCurrentReading(t *testing.T) {
+	book := domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzed"}, DeckState: "ready", DeckCardCount: 12}
+	assert.NotContains(t, myBookMarginEvidence(book), "Deck")
+	book.IsCurrentReading = true
+	assert.Contains(t, myBookMarginEvidence(book), "Deck ready: 12 cards.")
+	for state, want := range map[string]string{
+		"queued":    "Deck preparation running.",
+		"preparing": "Deck preparation running.",
+		"failed":    "Deck preparation failed.",
+		"cancelled": "Deck preparation cancelled.",
+	} {
+		book.DeckState = state
+		assert.Contains(t, myBookMarginEvidence(book), want, state)
+	}
+}
+
+func TestMyBookMarginEvidenceShowsLatestCompletionForReadBucket(t *testing.T) {
+	completedAt := time.Date(2026, time.August, 2, 0, 0, 0, 0, time.UTC)
+	book := domain.MyBook{
+		Disposition:        domain.BookDispositionInbox,
+		CompletionCount:    1,
+		LatestCompletionAt: &completedAt,
+	}
+	assert.Equal(t, "Finished 2 Aug 2026.", myBookMarginEvidence(book))
+}
+
+func TestMyBookEvidenceRecoveryHonorsToReadAndCurrentReadingPolicy(t *testing.T) {
+	book := domain.MyBook{
+		Disposition: domain.BookDispositionToRead,
+		Acquired: &domain.SourceMaterialSummary{
+			AnalysisStatus: "analysis failed",
+			Source:         domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
+		},
+	}
+	assert.Equal(t, "Retry analysis", myBookEvidenceRecovery(book))
+	book.Disposition = domain.BookDispositionInbox
+	assert.Equal(t, "Retry analysis by moving to To Read", myBookEvidenceRecovery(book), "failed evidence in Inbox retains a valid recovery action")
+	assert.Equal(t, "/library/books/book/to-read", myBookEvidenceRecoveryURL(domain.MyBook{Book: domain.Book{ID: "book"}, Disposition: domain.BookDispositionInbox}))
+	book.Disposition = domain.BookDispositionToRead
+	book.IsCurrentReading = true
+	assert.Empty(t, myBookEvidenceRecovery(book), "current reading rejects its own reanalysis POST")
+	book.IsCurrentReading = false
+	book.Acquired.AnalysisStatus = "analysis cancelled"
+	assert.Equal(t, "Retry analysis", myBookEvidenceRecovery(book))
+	book.Acquired.AnalysisStatus = "not analyzed"
+	book.Acquired.Source.ContentSnapshotID = ""
+	assert.Equal(t, "Retry acquisition", myBookEvidenceRecovery(book), "either missing content identity makes content unavailable")
+}
+
+func TestMyBooksNonToReadFailureOffersBucketTransitionRecovery(t *testing.T) {
+	book := domain.MyBook{
+		Book:        domain.Book{ID: "inbox-failed", OwnerID: "owner", Title: "Inbox failure"},
+		Disposition: domain.BookDispositionInbox,
+		Acquired: &domain.SourceMaterialSummary{
+			Source:         domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
+			AnalysisStatus: "analysis failed",
+		},
+	}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "Analysis failed.")
+	assert.Contains(t, html, "Retry analysis by moving to To Read")
+	assert.Contains(t, html, `action="/library/books/inbox-failed/to-read"`)
+	assert.Contains(t, html, `name="expected_revision" value="0"`)
 }
 
 func TestMyBooksMetadataOnlyRowHidesRefreshWhenIneligible(t *testing.T) {

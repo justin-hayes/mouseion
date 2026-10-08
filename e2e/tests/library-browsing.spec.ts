@@ -9,6 +9,61 @@ async function signIn(page: Page) {
 }
 
 test.describe('My Books collection browsing', () => {
+  test('keeps failed-analysis recovery beside its neutral evidence note at desktop and compact widths', async ({ page }) => {
+    await signIn(page);
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme });
+      for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
+        await page.setViewportSize(viewport);
+        await page.goto('/library');
+        const failedRow = page.locator('#book-row-fixture-failed');
+        await expect(failedRow.locator('.library-book__evidence')).toHaveText('Analysis failed.');
+        const retryAnalysis = failedRow.getByRole('button', { name: 'Retry analysis' });
+        await expect(retryAnalysis).toBeVisible();
+        await expect(retryAnalysis.locator('xpath=..')).toHaveAttribute('action', '/reading/books/fixture-failed/reanalyze');
+        await expect(failedRow.locator('.library-book__evidence')).not.toContainText(/0%|coverage|ready/i);
+        const analyzedRow = page.locator('#book-row-fixture-book');
+        await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
+        await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
+        await expect(analyzedRow.locator('.library-book__evidence')).toContainText('Deck ready: 412 cards');
+        await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');
+        await expect(page.locator('#book-row-fixture-failed .library-book__evidence')).not.toContainText('Deck');
+        await expect(page.locator('#book-row-fixture-running .library-book__evidence')).toHaveText('Analysis running.');
+        const unavailableRow = page.locator('#book-row-fixture-route-unavailable');
+        await expect(unavailableRow.locator('.library-book__evidence')).toHaveText('Content unavailable.');
+        await expect(unavailableRow.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
+        await expect(page.locator('#book-row-fixture-not-analyzed .library-book__evidence')).toHaveText('Not analysed yet.');
+        await expect(page.locator('#book-row-fixture-read-history .library-book__evidence')).toHaveText('Finished 3 Jan 2026.');
+      }
+    }
+  });
+
+  test('wraps the recovery action without compact horizontal overflow at 200% text', async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/library');
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    const recovery = page.locator('.library-book__recovery');
+    await expect(recovery.first()).toBeVisible();
+    const dimensions = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.library-book__recovery'));
+      return {
+        viewport: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
+        recoveries: buttons.map(button => ({
+          right: button.getBoundingClientRect().right,
+          scrollWidth: button.scrollWidth,
+          clientWidth: button.clientWidth,
+        })),
+      };
+    });
+    expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
+    for (const button of dimensions.recoveries) {
+      expect(button.right).toBeLessThanOrEqual(dimensions.viewport);
+      expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth);
+    }
+  });
+
   test('uses one visible native disclosure cue and text-backed status shapes', async ({ page }) => {
     await signIn(page);
     await page.goto('/reading');

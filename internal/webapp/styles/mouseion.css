@@ -1389,6 +1389,30 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   overflow-wrap: anywhere;
 }
 
+.library-book__evidence {
+  color: var(--mouseion-color-text);
+  font-size: 0.875rem;
+}
+
+.library-book__notes > form {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.library-book__recovery {
+  display: block;
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
 .library-book__actions {
   grid-area: actions;
 }

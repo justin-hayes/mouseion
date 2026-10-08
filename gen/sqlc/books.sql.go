@@ -8,6 +8,8 @@ package sqlc
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bookExists = `-- name: BookExists :one
@@ -42,7 +44,10 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
      , d.revision AS disposition_revision
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
-     , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
+      , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
+      , COALESCE(deck.state, '')::text AS deck_state
+      , COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards
+      , deck.completed_at AS deck_completed_at
      , EXISTS (
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
@@ -55,7 +60,15 @@ LEFT JOIN LATERAL (
            (SELECT h.completion_source FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1) AS latest_completion_source
     FROM reading_history h
     WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
-) history ON true
+ ) history ON true
+ LEFT JOIN LATERAL (
+     SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
+     FROM deck_preparations p
+      WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
+        AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
+        AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
+     ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
+ ) deck ON true
 WHERE e.book_owner_id = $1
   AND (
     $2::text = ''
@@ -121,6 +134,9 @@ type BrowseMyBooksEvidenceRow struct {
 	CompletionCount         int64
 	LatestCompletedAt       interface{}
 	LatestCompletionSource  string
+	DeckState               string
+	DeckTotalCards          int64
+	DeckCompletedAt         pgtype.Timestamptz
 	IsCurrentReading        bool
 }
 
@@ -178,6 +194,9 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.CompletionCount,
 			&i.LatestCompletedAt,
 			&i.LatestCompletionSource,
+			&i.DeckState,
+			&i.DeckTotalCards,
+			&i.DeckCompletedAt,
 			&i.IsCurrentReading,
 		); err != nil {
 			return nil, err
@@ -277,22 +296,30 @@ func (q *Queries) GetBookForUpdate(ctx context.Context, arg GetBookForUpdatePara
 	return id, err
 }
 
-const getMyBookCompletionCount = `-- name: GetMyBookCompletionCount :one
-SELECT count(*)::bigint
+const getMyBookCompletionSummary = `-- name: GetMyBookCompletionSummary :one
+SELECT count(*)::bigint AS completion_count,
+       COALESCE((SELECT h.completed_at FROM reading_history h WHERE h.owner_id = $1 AND h.book_id = $2 ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), 'epoch'::timestamptz) AS latest_completed_at,
+       COALESCE((SELECT h.completion_source FROM reading_history h WHERE h.owner_id = $1 AND h.book_id = $2 ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), '')::text AS latest_completion_source
 FROM reading_history
 WHERE owner_id = $1 AND book_id = $2
 `
 
-type GetMyBookCompletionCountParams struct {
+type GetMyBookCompletionSummaryParams struct {
 	Owner string
 	Book  string
 }
 
-func (q *Queries) GetMyBookCompletionCount(ctx context.Context, arg GetMyBookCompletionCountParams) (int64, error) {
-	row := q.db.QueryRow(ctx, getMyBookCompletionCount, arg.Owner, arg.Book)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
+type GetMyBookCompletionSummaryRow struct {
+	CompletionCount        int64
+	LatestCompletedAt      interface{}
+	LatestCompletionSource string
+}
+
+func (q *Queries) GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getMyBookCompletionSummary, arg.Owner, arg.Book)
+	var i GetMyBookCompletionSummaryRow
+	err := row.Scan(&i.CompletionCount, &i.LatestCompletedAt, &i.LatestCompletionSource)
+	return i, err
 }
 
 const getMyBookDetail = `-- name: GetMyBookDetail :one
@@ -352,6 +379,47 @@ func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams
 	return i, err
 }
 
+const getMyBookMarginEvidence = `-- name: GetMyBookMarginEvidence :one
+SELECT COALESCE(deck.state, '')::text AS deck_state,
+       COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards,
+       deck.completed_at AS deck_completed_at,
+       EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id = e.book_owner_id::uuid AND g.book_id = e.book_id::uuid) AS is_current_reading
+FROM my_books_evidence e
+LEFT JOIN LATERAL (
+    SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
+    FROM deck_preparations p
+     WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
+       AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
+       AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
+    ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
+) deck ON true
+WHERE e.book_owner_id = $1 AND e.book_id = $2
+`
+
+type GetMyBookMarginEvidenceParams struct {
+	Owner string
+	Book  string
+}
+
+type GetMyBookMarginEvidenceRow struct {
+	DeckState        string
+	DeckTotalCards   int64
+	DeckCompletedAt  pgtype.Timestamptz
+	IsCurrentReading bool
+}
+
+func (q *Queries) GetMyBookMarginEvidence(ctx context.Context, arg GetMyBookMarginEvidenceParams) (GetMyBookMarginEvidenceRow, error) {
+	row := q.db.QueryRow(ctx, getMyBookMarginEvidence, arg.Owner, arg.Book)
+	var i GetMyBookMarginEvidenceRow
+	err := row.Scan(
+		&i.DeckState,
+		&i.DeckTotalCards,
+		&i.DeckCompletedAt,
+		&i.IsCurrentReading,
+	)
+	return i, err
+}
+
 const listActiveBooks = `-- name: ListActiveBooks :many
 SELECT b.id::text,
        b.owner_id::text,
@@ -399,6 +467,106 @@ func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActi
 			&i.LanguageTag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyBooksCoverageTokens = `-- name: ListMyBooksCoverageTokens :many
+SELECT e.book_id,
+       e.corpus_id,
+       e.analysis_run_id,
+       COALESCE(co.analyzable_token_count, 0)::bigint AS source_analyzable_token_count,
+       t.language,
+       t.surface,
+       t.canonical_lemma,
+       t.upos,
+       t.dependency,
+       t.start_offset,
+       t.end_offset,
+       s.unit_id AS source_document_id,
+       (c.owner_id IS NOT NULL)::boolean AS has_correction,
+       c.canonical_lemma AS correction_lemma,
+       COALESCE(c.excluded, false) AS correction_excluded,
+       (NOT COALESCE(c.excluded, false) AND EXISTS (
+           SELECT 1 FROM known_vocabulary kv
+           WHERE kv.owner_id::text = e.book_owner_id AND kv.language = t.language
+             AND kv.canonical_lemma = btrim(COALESCE(c.canonical_lemma, t.canonical_lemma))
+             AND (kv.upos = upper(btrim(t.upos)) OR kv.upos = '')
+       ))::boolean AS is_known
+FROM my_books_evidence e
+JOIN corpora co ON co.owner_id::text = e.book_owner_id AND co.id::text = e.corpus_id
+  AND co.analysis_run_id::text = e.analysis_run_id
+JOIN corpus_tokens t ON t.owner_id::text = e.book_owner_id
+  AND t.corpus_id::text = e.corpus_id AND t.analysis_run_id::text = e.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+LEFT JOIN occurrence_lemma_corrections c ON c.owner_id = t.owner_id
+  AND c.book_id::text = e.book_id AND c.corpus_id = t.corpus_id
+  AND c.analysis_run_id = t.analysis_run_id AND c.source_document_id = s.unit_id
+  AND c.start_offset = t.start_offset AND c.end_offset = t.end_offset
+WHERE e.book_owner_id = $1
+  AND e.book_id = ANY($2::text[])
+  AND e.corpus_id <> '' AND e.analysis_run_id <> ''
+ORDER BY e.book_id, t.sentence_ordinal, t.token_ordinal
+`
+
+type ListMyBooksCoverageTokensParams struct {
+	Owner   string
+	BookIds []string
+}
+
+type ListMyBooksCoverageTokensRow struct {
+	BookID                     string
+	CorpusID                   string
+	AnalysisRunID              string
+	SourceAnalyzableTokenCount int64
+	Language                   string
+	Surface                    string
+	CanonicalLemma             string
+	Upos                       string
+	Dependency                 string
+	StartOffset                int64
+	EndOffset                  int64
+	SourceDocumentID           string
+	HasCorrection              bool
+	CorrectionLemma            pgtype.Text
+	CorrectionExcluded         bool
+	IsKnown                    bool
+}
+
+func (q *Queries) ListMyBooksCoverageTokens(ctx context.Context, arg ListMyBooksCoverageTokensParams) ([]ListMyBooksCoverageTokensRow, error) {
+	rows, err := q.db.Query(ctx, listMyBooksCoverageTokens, arg.Owner, arg.BookIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMyBooksCoverageTokensRow{}
+	for rows.Next() {
+		var i ListMyBooksCoverageTokensRow
+		if err := rows.Scan(
+			&i.BookID,
+			&i.CorpusID,
+			&i.AnalysisRunID,
+			&i.SourceAnalyzableTokenCount,
+			&i.Language,
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.SourceDocumentID,
+			&i.HasCorrection,
+			&i.CorrectionLemma,
+			&i.CorrectionExcluded,
+			&i.IsKnown,
 		); err != nil {
 			return nil, err
 		}

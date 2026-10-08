@@ -293,6 +293,11 @@ func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
 	book.CompletionCount = int(row.CompletionCount)
 	book.LatestCompletionAt = completionTime(row.LatestCompletedAt)
 	book.LatestCompletionSource = domain.ReadingCompletionSource(row.LatestCompletionSource)
+	book.DeckState = row.DeckState
+	book.DeckCardCount = row.DeckTotalCards
+	if row.DeckCompletedAt.Valid {
+		book.DeckPreparedAt = &row.DeckCompletedAt.Time
+	}
 	return book
 }
 

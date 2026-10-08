@@ -248,6 +248,18 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 			}
 		<div class="library-book__notes">
 			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))</p>
+			if evidence := myBookMarginEvidence(book); evidence != "" {
+				<p class="library-book__evidence">{ evidence }</p>
+				if action := myBookEvidenceRecovery(book); action != "" {
+					<form method="post" action={ templ.SafeURL(myBookEvidenceRecoveryURL(book)) }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						if book.Disposition != domain.BookDispositionToRead {
+							<input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
+						}
+						<button type="submit" class="library-book__recovery">{ action }</button>
+					</form>
+				}
+			}
 			if book.CompletionCount > 0 {
 				<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
 				<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>

@@ -134,9 +134,11 @@ func NewStore() *Store {
 	store := &Store{
 		books: []domain.SourceMaterialSummary{
 			{Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause", MediaType: "application/epub+zip", SourceIdentifier: "fixture-de", ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", FullText: "Haus. Ein kurzer deutscher Satz.\n\n" + "Ein sehr langer Beispielsatz mit vielen Wörtern für die Anzeige von realistischem Randinhalt im Browser."}, BookID: BookID, BookAuthor: "Mara Weiss, Herausgeberin der langen deutschen Ausgabe", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisJobID: 42},
-			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
+			{Source: domain.SourceMaterial{ID: "fixture-empty", OwnerID: OwnerID, Language: "it", Title: "Empty chapter", MediaType: "application/epub+zip", ContentRevisionID: "fixture-empty-revision", ContentSnapshotID: "fixture-empty-snapshot"}, AnalysisStatus: "not analyzed", AnalysisState: ""},
 			{Source: domain.SourceMaterial{ID: ItalianGoalBookID, OwnerID: OwnerID, Language: "it", Title: "Una meta italiana", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot"}, BookAuthor: "Giulia Conti", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-italian-goal-run", CorpusID: "fixture-italian-goal-corpus"},
 			{Source: domain.SourceMaterial{ID: "fixture-failed", OwnerID: OwnerID, Language: "de", Title: "Fehlgeschlagene Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-failed-revision", ContentSnapshotID: "fixture-failed-snapshot"}, BookAuthor: "Jonas Keller", AnalysisStatus: "analysis failed", AnalysisState: "failed", AnalysisJobID: 43},
+			{Source: domain.SourceMaterial{ID: "fixture-running", OwnerID: OwnerID, Language: "de", Title: "Analyse läuft", MediaType: "application/epub+zip", ContentRevisionID: "fixture-running-revision", ContentSnapshotID: "fixture-running-snapshot"}, BookAuthor: "Nina Weber", AnalysisStatus: "analyzing", AnalysisState: "running", AnalysisJobID: 44},
+			{Source: domain.SourceMaterial{ID: "fixture-not-analyzed", OwnerID: OwnerID, Language: "de", Title: "Noch nicht analysiert", MediaType: "application/epub+zip", ContentRevisionID: "fixture-not-analyzed-revision", ContentSnapshotID: "fixture-not-analyzed-snapshot"}, BookAuthor: "Mila Braun", AnalysisStatus: "not analyzed"},
 			{Source: domain.SourceMaterial{ID: routeMatchBookID, OwnerID: OwnerID, Language: "de", Title: "Route match: familiar German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-match-revision", ContentSnapshotID: "fixture-route-match-snapshot"}, BookAuthor: "Anja Roth", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-match-run", CorpusID: "fixture-route-match-corpus"},
 			{Source: domain.SourceMaterial{ID: LemmaFlagBookID, OwnerID: OwnerID, Language: "de", Title: "Flagged lemma review fixture", MediaType: "application/epub+zip", ContentRevisionID: "fixture-lemma-flag-revision", ContentSnapshotID: "fixture-lemma-flag-snapshot"}, BookAuthor: "Fixture Learner", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-lemma-flag-run", CorpusID: "fixture-lemma-flag-corpus"},
 			{Source: domain.SourceMaterial{ID: routeDiffersBookID, OwnerID: OwnerID, Language: "de", Title: "Route differs: new German", MediaType: "application/epub+zip", ContentRevisionID: "fixture-route-differs-revision", ContentSnapshotID: "fixture-route-differs-snapshot"}, BookAuthor: "Paul Stein", AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "fixture-route-differs-run", CorpusID: "fixture-route-differs-corpus"},
@@ -183,10 +185,15 @@ func NewStore() *Store {
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}, {
 			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+		}, {
+			Book:            domain.Book{ID: "fixture-read-history", OwnerID: OwnerID, Title: "Previously finished fixture", Author: "Elise Sommer", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			CompletionCount: 1, LatestCompletionAt: timePtr(fixtureJourneyTime.AddDate(0, 0, -12)), LatestCompletionSource: domain.ReadingCompletionPreviouslyRead,
 		}},
 		dispositions: map[string]domain.BookDisposition{
 			fixtureDispositionKey(OwnerID, BookID):                 domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, "fixture-failed"):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-running"):      domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"): domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeMatchBookID):       domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, LemmaFlagBookID):        domain.BookDispositionSetAside,
 			fixtureDispositionKey(OwnerID, routeDiffersBookID):     domain.BookDispositionToRead,
@@ -1072,6 +1079,14 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		}
 	}
 	for i := range out {
+		if out[i].Book.ID == BookID {
+			out[i].CoverageKnownTokens = 974
+			out[i].CoverageTotalTokens = 1000
+			out[i].DeckState = "ready"
+			out[i].DeckCardCount = 412
+			preparedAt := fixtureJourneyTime
+			out[i].DeckPreparedAt = &preparedAt
+		}
 		for _, reading := range s.primaryGoals {
 			if reading.OwnerID == out[i].Book.OwnerID && reading.BookID == out[i].Book.ID {
 				out[i].IsCurrentReading = true

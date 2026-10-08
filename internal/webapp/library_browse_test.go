@@ -385,7 +385,7 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 
 	toRead := request("/library?disposition=to_read")
 	require.Equal(t, http.StatusOK, toRead.Code)
-	assert.Contains(t, toRead.Body.String(), "To Read (7)")
+	assert.Contains(t, toRead.Body.String(), "To Read (9)")
 	assert.Contains(t, toRead.Body.String(), `id="book-row-`+fixtures.BookID+`"`)
 	assert.Contains(t, toRead.Body.String(), "Currently reading")
 }

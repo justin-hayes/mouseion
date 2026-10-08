@@ -4,20 +4,25 @@ package webapp
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "lemma-review-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -221,6 +226,13 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, int64(3), coverage.KnownTokenCount, "Known matches the corrected effective identity")
 	assert.Zero(t, coverage.UnknownTokenCount)
 	assert.Equal(t, int64(3), coverage.AnalyzableTokenCount, "correction does not change the source-derived denominator")
+	myBooksAuth := auth.New(store, time.Hour)
+	myBooksHandler := New(Services{Auth: myBooksAuth, WebAuth: webauth.New(myBooksAuth, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	cookies, _ := loginCookies(t, myBooksHandler, "lemma-review-owner", "learner-password")
+	myBooksPage := perform(t, myBooksHandler, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, http.StatusOK, myBooksPage.Code)
+	assert.Contains(t, myBooksPage.Body.String(), fmt.Sprintf("%.1f%% of running words Known.", float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount)), "My Books margin coverage must match analysisinsights.Coverage after the exact-occurrence correction and exclusion decisions")
+	assert.NotContains(t, myBooksPage.Body.String(), ">0.0% of running words Known.")
 
 	oldSnapshotID := reading.SnapshotID
 	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, oldSnapshotID))

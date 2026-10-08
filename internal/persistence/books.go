@@ -146,6 +146,9 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
+	if err := s.populateMyBooksCoverage(ctx, owner, result.Items); err != nil {
+		return MyBooksBrowseResult{}, err
+	}
 	for _, item := range []struct {
 		bucket domain.MyBookBucket
 	}{
@@ -251,15 +254,43 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	}
 	book.Disposition = state.disposition
 	book.DispositionRevision = state.revision
-	completionCount, err := s.queries().GetMyBookCompletionCount(ctx, sqlcgen.GetMyBookCompletionCountParams{Owner: owner, Book: book.Book.ID})
+	completion, err := s.queries().GetMyBookCompletionSummary(ctx, sqlcgen.GetMyBookCompletionSummaryParams{Owner: owner, Book: book.Book.ID})
 	if err != nil {
 		return domain.MyBook{}, err
 	}
-	book.CompletionCount, err = checked.IntFromInt64(completionCount)
+	book.CompletionCount, err = checked.IntFromInt64(completion.CompletionCount)
 	if err != nil {
 		return domain.MyBook{}, fmt.Errorf("invalid reading completion count: %w", err)
 	}
+	if book.CompletionCount > 0 {
+		book.LatestCompletionAt = completionTime(completion.LatestCompletedAt)
+	}
+	book.LatestCompletionSource = domain.ReadingCompletionSource(completion.LatestCompletionSource)
 	return book, nil
+}
+
+// GetBookDetailForMyBooksRefresh loads the otherwise-expensive current margin
+// evidence only for the HTMX row refresh path that renders the My Books row.
+func (s *PostgresStore) GetBookDetailForMyBooksRefresh(ctx context.Context, owner, id string) (domain.MyBook, error) {
+	book, err := s.GetBookDetail(ctx, owner, id)
+	if err != nil {
+		return domain.MyBook{}, err
+	}
+	margin, err := s.queries().GetMyBookMarginEvidence(ctx, sqlcgen.GetMyBookMarginEvidenceParams{Owner: owner, Book: book.Book.ID})
+	if err != nil {
+		return domain.MyBook{}, err
+	}
+	book.DeckState = margin.DeckState
+	book.DeckCardCount = margin.DeckTotalCards
+	book.IsCurrentReading = margin.IsCurrentReading
+	if margin.DeckCompletedAt.Valid {
+		book.DeckPreparedAt = &margin.DeckCompletedAt.Time
+	}
+	page := []domain.MyBook{book}
+	if err := s.populateMyBooksCoverage(ctx, owner, page); err != nil {
+		return domain.MyBook{}, err
+	}
+	return page[0], nil
 }
 
 type bookDispositionState struct {
