@@ -14,30 +14,29 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 
 templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
-		if myBookInJourney(book) {
-			<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
-				@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
-				<div class="library-book__text">
-					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
-					if author := strings.TrimSpace(book.Book.Author); author != "" {
-						<span class="library-book__author">By { author }</span>
-					}
+			if myBookInJourney(book) {
+				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
+					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
+					<div class="library-book__text">
+						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+						if author := strings.TrimSpace(book.Book.Author); author != "" {
+							<span class="library-book__author">By { author }</span>
+						}
+					</div>
+				</a>
+			} else {
+				<div class="library-book__identity-link">
+					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
+					<div class="library-book__text">
+						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
+						if author := strings.TrimSpace(book.Book.Author); author != "" {
+							<span class="library-book__author">By { author }</span>
+						}
+					</div>
 				</div>
-			</a>
-		} else {
-			<div class="library-book__identity-link">
-				@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
-				<div class="library-book__text">
-					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h2>
-					if author := strings.TrimSpace(book.Book.Author); author != "" {
-						<span class="library-book__author">By { author }</span>
-					}
-				</div>
-			</div>
-		}
+			}
 		<div class="library-book__notes">
-			<p class="library-book__membership">
-				@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))
+			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))
 				if book.Hidden {
 					@StatusBadge("Hidden", StatusNeutral)
 				}
@@ -76,7 +75,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 				}
 			} else if !myBookInJourney(book) {
 				<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
-					<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
+				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 					<button type="submit" class="btn btn-outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
@@ -91,11 +90,11 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 					}
 					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.IsCurrentReading {
 						@Confirmation("Mark as previously read", "This records one completion from before Mouseion. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
-							<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="btn btn-outline">Confirm previously read</button></form>
+							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="btn btn-outline">Confirm previously read</button></form>
 						}
 					}
 					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
-						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="btn btn-outline">Read again</button></form>
+						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="btn btn-outline">Read again</button></form>
 					}
 					if refreshEligible {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
@@ -138,8 +137,7 @@ templ NeedsLanguageBookRow(csrf string, book domain.MyBook, returnTo string) {
 			}
 			<p class="metadata">Language not assigned in the catalog</p>
 			if book.Hidden {
-				<p class="library-book__membership">@StatusBadge("Hidden", StatusNeutral)
-</p>
+				<p class="library-book__membership">@StatusBadge("Hidden", StatusNeutral)</p>
 			}
 		</div>
 		@BookVisibilityForm(csrf, book, returnTo)
@@ -293,13 +291,13 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
 			} else if browse.AllCount == 0 {
 				@EmptyState("Set up a catalog connection", "Mouseion needs a catalog connection owned by your learner account before it can build My Books. Ready-language metadata will appear here.") {
-					<a role="button" href="/catalogs">Set up a catalog</a>
+				<a role="button" href="/catalogs">Set up a catalog</a>
 					if hasCatalogueConnections {
 						<a class="btn btn-outline" href="/catalogs">Sync catalog</a>
 					}
 				}
 			} else {
-				@EmptyState("Choose a study language", "Choose a language in the shell before browsing its Books.")
+				@EmptyState("Choose a study language", "Choose a language in the shell before browsing its Books.") {}
 			}
 		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
 			<section class="library-finder" aria-label="Find books">

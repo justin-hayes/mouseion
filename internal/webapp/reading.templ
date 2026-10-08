@@ -23,8 +23,7 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		if journey.Goal != nil {
 			<p class="reading-add-books"><a href="/library">Add books from My Books</a></p>
 		}
-		<section aria-labelledby="provisional-journey-heading">
-			<h2 id="provisional-journey-heading">Other To Read books</h2>
+		<section aria-labelledby="provisional-journey-heading"><h2 id="provisional-journey-heading">Other To Read books</h2>
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
 	}
@@ -65,8 +64,7 @@ templ JourneyProvisionalContent(journey journeyPageView, csrf, focusBookID, stat
 		}
 		<ul class="journey-list" aria-label="To Read books">
 			for _, item := range journey.Provisional {
-				<li>@JourneyBookCard(item, false, csrf)
-</li>
+				<li>@JourneyBookCard(item, false, csrf)</li>
 			}
 		</ul>
 	</div>
@@ -91,8 +89,7 @@ templ GoalSection(goal *journeyBookView, csrf string, message, sectionError, foc
 templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 	<article id={ journeyBookAnchorID(journeyBookID(item)) } tabindex="-1" data-focus-anchor class={ journeyBookClass(primary) }>
 		<div class={ journeyBookTitlePageClass(primary) }>
-			<div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover)
-</div>
+			<div class="journey-book__cover">@BookCoverMedia(journeyBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover)</div>
 			<div class="journey-book__identity">
 				if primary {
 					if !item.ReadingSince.IsZero() {
@@ -130,64 +127,64 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 				}
 			</div>
 		</div>
-		<div class="journey-book__evidence">
-			if primary {
-				<section class="reading-note" aria-labelledby={ "reading-note-reserved-" + journeyBookID(item) }>
-					<h2 id={ "reading-note-reserved-" + journeyBookID(item) }>Reserved vocabulary</h2>
-					<p>{ reservedVocabularySummary(item.GoalSnapshotSize) }</p>
-				</section>
-				<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + journeyBookID(item) }>
-					<h2 id={ "reading-note-analysis-" + journeyBookID(item) }>Analysis</h2>
-					if journeyEvidenceState(item) == "current" {
-						<p>Current analysis evidence is available for this Book.</p>
-					} else {
-						@JourneyEvidence(item, csrf, true)
-					}
-					if bookHasCompletedAnalysis(item.Book) {
-						<p><a href={ templ.SafeURL("/reading/books/" + journeyBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
-					}
-				</section>
-			}
-			if primary {
-				<section class="goal-card__deck reading-note" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
-					<h2 id={ "goal-deck-heading-" + journeyBookID(item) }>Book deck</h2>
-					if bookHasCompletedAnalysis(item.Book) {
-						<p><a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Open focused deck task</a></p>
-					}
-					if item.GoalSnapshotSize == 0 {
-						<p>No Book deck is needed because no vocabulary was reserved for this reading.</p>
-					} else if item.GoalPreparation != nil {
-						<p class="metadata"><strong>Deck status</strong>: { deckPreparationTitle(*item.GoalPreparation) }.</p>
-						@GoalDeckPreparationStatus(csrf, journeyBookID(item), item.GoalSnapshotID, *item.GoalPreparation)
-					} else if item.GoalDeckMissing {
-						<p role="note" aria-live="polite"><strong>Deck missing.</strong> Prepare a deck for the vocabulary reserved for this reading.</p>
-						<form method="post" action={ templ.SafeURL("/reading/books/" + journeyBookID(item) + "/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Prepare deck</button></form>
-					} else if item.GoalDeckUnavailable {
-						<p role="note" aria-live="polite"><strong>Deck unavailable.</strong> Retry preparation when it is available.</p>
-						<form method="post" action={ templ.SafeURL("/reading/books/" + journeyBookID(item) + "/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
-					}
-				</section>
+	<div class="journey-book__evidence">
+	if primary {
+		<section class="reading-note" aria-labelledby={ "reading-note-reserved-" + journeyBookID(item) }>
+			<h2 id={ "reading-note-reserved-" + journeyBookID(item) }>Reserved vocabulary</h2>
+			<p>{ reservedVocabularySummary(item.GoalSnapshotSize) }</p>
+		</section>
+		<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + journeyBookID(item) }>
+			<h2 id={ "reading-note-analysis-" + journeyBookID(item) }>Analysis</h2>
+			if journeyEvidenceState(item) == "current" {
+				<p>Current analysis evidence is available for this Book.</p>
 			} else {
-				<section class="reading-note journey-book__margin" aria-labelledby={ journeyEvidenceHeadingID(item) }>
-					@JourneyEvidence(item, csrf, false)
-				</section>
+				@JourneyEvidence(item, csrf, true)
 			}
+			if bookHasCompletedAnalysis(item.Book) {
+				<p><a href={ templ.SafeURL("/reading/books/" + journeyBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
+			}
+		</section>
+	}
+	if primary {
+		<section class="goal-card__deck reading-note" aria-labelledby={ "goal-deck-heading-" + journeyBookID(item) }>
+			<h2 id={ "goal-deck-heading-" + journeyBookID(item) }>Book deck</h2>
+			if bookHasCompletedAnalysis(item.Book) {
+				<p><a href={ templ.SafeURL(journeyDeckPreparationTaskURL(journeyBookID(item))) }>Open focused deck task</a></p>
+			}
+			if item.GoalSnapshotSize == 0 {
+				<p>No Book deck is needed because no vocabulary was reserved for this reading.</p>
+			} else if item.GoalPreparation != nil {
+				<p class="metadata"><strong>Deck status</strong>: { deckPreparationTitle(*item.GoalPreparation) }.</p>
+				@GoalDeckPreparationStatus(csrf, journeyBookID(item), item.GoalSnapshotID, *item.GoalPreparation)
+			} else if item.GoalDeckMissing {
+				<p role="note" aria-live="polite"><strong>Deck missing.</strong> Prepare a deck for the vocabulary reserved for this reading.</p>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Prepare deck</button></form>
+			} else if item.GoalDeckUnavailable {
+				<p role="note" aria-live="polite"><strong>Deck unavailable.</strong> Retry preparation when it is available.</p>
+				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
+			}
+		</section>
+	} else {
+		<section class="reading-note journey-book__margin" aria-labelledby={ journeyEvidenceHeadingID(item) }>
+			@JourneyEvidence(item, csrf, false)
+		</section>
+	}
+	</div>
+	if !primary {
+		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
+			if item.CanChooseGoal {
+				<a class="button button--quiet journey-book__switch" href="/reading/switch">Switch current reading</a>
+			} else if item.GoalEligibilityReason != "" {
+				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
+			}
+			<details class="more-actions">
+				<summary>More actions</summary>
+				<div class="more-actions__body">
+				<p>Book disposition is managed in <a href="/library">My Books</a>.</p>
+				</div>
+			</details>
 		</div>
-		if !primary {
-			<div class="journey-book__controls" role="group" aria-label={ "Actions for " + canonicalBookTitle(item.Book) }>
-				if item.CanChooseGoal {
-					<a class="button button--quiet journey-book__switch" href="/reading/switch">Switch current reading</a>
-				} else if item.GoalEligibilityReason != "" {
-					<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
-				}
-				<details class="more-actions">
-					<summary>More actions</summary>
-					<div class="more-actions__body">
-						<p>Book disposition is managed in <a href="/library">My Books</a>.</p>
-					</div>
-				</details>
-			</div>
-		}
+	}
 	</article>
 }
 
@@ -205,20 +202,20 @@ templ GoalLifecycleActions(item journeyBookView, csrf string) {
 
 templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation domain.DeckPreparation) {
 	<p><strong>{ deckPreparationTitle(preparation) }.</strong> { deckPreparationSummary(preparation) }</p>
-	if preparation.State == domain.DeckPreparationReady {
-		if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
-			@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-			<form method="post" action={ templ.SafeURL("/reading/books/" + bookID + "/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
-		} else if deckPreparationEmpty(preparation) {
-			<p>No cards were created from this snapshot.</p>
-		} else {
-			<a class="button" download href={ templ.SafeURL("/deck-preparations/" + preparation.ID + "/download") }>Download deck</a>
-			<form method="post" action={ templ.SafeURL("/deck-preparations/" + preparation.ID + "/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
+		if preparation.State == domain.DeckPreparationReady {
+			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
+				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
+				<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
+			} else if deckPreparationEmpty(preparation) {
+				<p>No cards were created from this snapshot.</p>
+			} else {
+			<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
 		}
 	} else if deckPreparationActive(preparation) {
-		<form method="post" action={ templ.SafeURL("/reading/books/" + bookID + "/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button button--outline">Cancel preparation</button></form>
+		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button button--outline">Cancel preparation</button></form>
 		if preparation.State == domain.DeckPreparationQueued {
-			<form method="post" action={ templ.SafeURL("/reading/books/" + bookID + "/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
+			<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
 		}
 	} else {
 		if preparation.State == domain.DeckPreparationFailed {
@@ -226,7 +223,7 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 		} else if preparation.State == domain.DeckPreparationCancelled {
 			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact reading snapshot when ready.")
 		}
-		<form method="post" action={ templ.SafeURL("/reading/books/" + bookID + "/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
+		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
 	}
 }
 
@@ -265,9 +262,9 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 	@ShellLayout(readingChooserPageTitle(chooser), &user, csrf, NavigationReadingJourney, shellStyleReading) {
 		@PageHeader(readingChooserPageTitle(chooser), readingChooserPageDescription(chooser), nil) {
 			if chooser.CurrentBookID != "" {
-				<a class="button button--outline" href="/reading">Return to current reading</a>
+			<a class="button button--outline" href="/reading">Return to current reading</a>
 			} else {
-				<a class="button button--outline" href="/library?disposition=to_read">Review To Read books</a>
+			<a class="button button--outline" href="/library?disposition=to_read">Review To Read books</a>
 			}
 		}
 		if message != "" {
@@ -348,13 +345,12 @@ templ ReadingChooserBand(title, description string, books []readingChooserBookVi
 templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<li class="reading-chooser-book">
 		<article class="reading-chooser-entry">
-			<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)
-</div>
+			<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
 			<div class="reading-chooser-entry__identity">
-				<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
-				if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
-					<p>By { author }</p>
-				}
+					<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
+					if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
+						<p>By { author }</p>
+					}
 				<div class="reading-chooser-entry__actions">
 					if item.Coverage != nil {
 						if currentBookID != "" {
@@ -374,7 +370,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 								</form>
 							}
 						}
-						<p><a href={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/lemma-review") }>Review a word in this Book</a></p>
+						<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
 					} else if item.State == readingChooserInProgress {
 						if item.Book.Acquired.AnalysisJobID > 0 {
 							<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
@@ -396,17 +392,17 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 					<details>
 						<summary>Words to reach 95%, 97%, and 99%</summary>
 						<ul>
-							for _, threshold := range item.Coverage.Thresholds {
-								if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
-									<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
-								}
+						for _, threshold := range item.Coverage.Thresholds {
+							if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
+								<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
 							}
+						}
 						</ul>
 						<p>These counts are distinct words, not the number of cards in a deck.</p>
 					</details>
 				} else {
 					<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
-				}
+					}
 			</div>
 		</article>
 	</li>
