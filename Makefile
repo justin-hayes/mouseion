@@ -111,6 +111,7 @@ TEMPL ?= templ
 TEMPL_VERSION := v0.3.977
 
 templ-install:
+	mkdir -p $(GOTMPDIR)
 	go install github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION)
 
 templ:

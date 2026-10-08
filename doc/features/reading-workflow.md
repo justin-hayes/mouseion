@@ -36,7 +36,14 @@ language, or presents the learner with an unordered chooser between Books.
    missing or stale identity, including after a same-Book restart, is rejected
    with no change. A replay is accepted only when durable facts prove it. The
    retired Set Aside action and its mutation are removed, not translated.
-4. Starting current reading freezes the vocabulary snapshot. Finishing records a
+   A successful Switch releases the former reservations and freezes a fresh
+   snapshot for the replacement in one transaction; the former Book stays in To
+   Read. A failed, stale, review-gated, or count-readiness-blocked Switch changes
+   nothing: no release, completion, or Known acceptance.
+4. Starting current reading freezes the vocabulary snapshot. Returning to a Book
+   after End or Switch, or rereading it, is always a fresh start with a fresh
+   freeze reflecting the then-current Known and Reserved vocabulary; a released
+   snapshot is never resumed or expanded. Finishing records a
    completion, accepts eligible snapshot identities into modeled Known
    vocabulary, and returns a receipt with the next-choice link. It does not
    automatically select another Book.
