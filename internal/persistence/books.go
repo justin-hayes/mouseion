@@ -456,7 +456,8 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 		}
 		updated = domain.Book(row)
 		if languageState == domain.LanguageChosen {
-			return removeIncompatibleBookGoals(ctx, q, owner, bookID, languageTag)
+			_, err = removeIncompatibleBookGoals(ctx, q, owner, bookID, languageTag)
+			return err
 		}
 		snapshotIDs, err := q.LockPrimaryGoalsForAllLanguages(ctx, sqlcgen.LockPrimaryGoalsForAllLanguagesParams{Owner: owner, Book: bookID})
 		if err != nil {
@@ -635,7 +636,10 @@ type CatalogueEntryReconcileResult struct {
 	Created         bool
 	TitleChanged    bool
 	LanguageChanged bool
-	AuthorChanged   bool
+	// CurrentReadingEnded reports that an incompatible Current reading was ended
+	// (reservations released, no completion) by the language correction.
+	CurrentReadingEnded bool
+	AuthorChanged       bool
 }
 
 // Upserted reports whether the entry added or updated a Book.
@@ -676,7 +680,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		bookID = aliasBook
 	}
 	created := bookID == ""
-	var titleChanged, authorChanged, languageChanged bool
+	var titleChanged, authorChanged, languageChanged, readingEnded bool
 	if bookID == "" {
 		createdBook, insertErr := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: author, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
 		err = insertErr
@@ -703,7 +707,7 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 		return CatalogueEntryReconcileResult{}, err
 	}
 	if languageChanged {
-		if err = removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
+		if readingEnded, err = removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
 			return CatalogueEntryReconcileResult{}, err
 		}
 	}
@@ -728,18 +732,21 @@ func (s *PostgresStore) ReconcileCatalogueEntry(ctx context.Context, owner, conn
 	if err = tx.Commit(ctx); err != nil {
 		return CatalogueEntryReconcileResult{}, err
 	}
-	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged, AuthorChanged: authorChanged, LanguageChanged: languageChanged}, nil
+	return CatalogueEntryReconcileResult{Book: book, Created: created, TitleChanged: titleChanged, AuthorChanged: authorChanged, LanguageChanged: languageChanged, CurrentReadingEnded: readingEnded}, nil
 }
 
-func removeIncompatibleBookGoals(ctx context.Context, q *sqlcgen.Queries, owner, bookID, language string) error {
+func removeIncompatibleBookGoals(ctx context.Context, q *sqlcgen.Queries, owner, bookID, language string) (bool, error) {
 	snapshotIDs, err := q.LockPrimaryGoalsExceptLanguage(ctx, sqlcgen.LockPrimaryGoalsExceptLanguageParams{Owner: owner, Book: bookID, Language: language})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if err = releasePrimaryGoalSnapshots(ctx, q, owner, snapshotIDs); err != nil {
-		return err
+		return false, err
 	}
-	return q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: owner, BookID: bookID, Language: language})
+	if err = q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: owner, BookID: bookID, Language: language}); err != nil {
+		return false, err
+	}
+	return len(snapshotIDs) > 0, nil
 }
 
 // ResolveOrCreateBookForAcquisitionForBook promotes an explicitly selected

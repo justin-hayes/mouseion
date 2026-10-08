@@ -16,7 +16,6 @@ body.reading-shell .reading-chooser-book,
 body.reading-shell .journey-book,
 body.reading-shell .journey-goal,
 body.reading-shell .reading-chooser-empty,
-body.reading-shell .language-handoff,
 body.reading-shell #primary-goal-section {
   min-width: 0;
   overflow-wrap: anywhere;

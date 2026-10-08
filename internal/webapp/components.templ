@@ -162,7 +162,7 @@ templ OperationalJobMetadata(identityLabel, identity string, createdAt time.Time
 
 templ ActiveStudyLanguageSwitcher(view *shellView, csrf string) {
 	if view != nil && len(view.Options) > 0 {
-		<form class="site-header__language" method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="return_to" value={ view.ReturnTo }/><label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language" name="language" required onchange="this.form.submit()">if view.ActiveLanguage == "" {
+		<form class="site-header__language" method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language" name="language" required onchange="this.form.submit()">if view.ActiveLanguage == "" {
 			<option value="" disabled selected>Choose a study language</option>
 		}
 			for _, option := range view.Options {

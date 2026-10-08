@@ -60,7 +60,7 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 	browseQuery := domain.VocabularyBrowseQuery{
 		// Legacy Book/POS/state/sort parameters are intentionally ignored. Browse
 		// is always the complete current-Book identity set in frequency order.
-		Prefix: prefix, ReadingBookID: values.Get("reading"), Sort: "occurrences", Page: page,
+		Language: language, Prefix: prefix, ReadingBookID: values.Get("reading"), Sort: "occurrences", Page: page,
 		Revision: values.Get("rev"), IncludeAll: values.Get("all") == "1",
 	}
 	// Browse is an interactive request, not a durable background job. Bound the
@@ -83,13 +83,14 @@ func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
 		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
 		return
 	}
-	browse := domain.VocabularyBrowsePage{Page: page}
+	browse := domain.VocabularyBrowsePage{Page: page, Language: language}
 	if current.IsActive() {
 		browseQuery.CurrentBookID = current.BookID
 		browseQuery.ReadingBookID = current.BookID
 		browse.CurrentBookID = current.BookID
 		browse, err = h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
 		browse.CurrentBookID = current.BookID
+		browse.Language = language
 		if err != nil {
 			log.Printf("mouseion: load vocabulary Browse: %v", err)
 			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
@@ -113,6 +114,9 @@ func vocabularyBrowseErrorStatus(err error, ctx context.Context) int {
 
 func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query string) string {
 	values := url.Values{}
+	if browse.Language != "" {
+		values.Set("language", browse.Language)
+	}
 	if query != "" {
 		values.Set("q", query)
 	}

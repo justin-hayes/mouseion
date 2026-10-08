@@ -103,6 +103,9 @@ type RefreshResult struct {
 	Missing      bool
 	Failed       bool
 	CoverPending bool
+	// CurrentReadingEnded reports that a language correction ended an
+	// incompatible Current reading.
+	CurrentReadingEnded bool
 }
 
 // AliasBackfillResult reports the deterministic legacy alias migration.
@@ -430,7 +433,7 @@ func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (Refre
 			if coverErr != nil {
 				return RefreshResult{Book: reconciled.Book, Failed: true}, coverErr
 			}
-			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created, CoverPending: coverPending}, nil
+			return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created, CoverPending: coverPending, CurrentReadingEnded: reconciled.CurrentReadingEnded}, nil
 		}
 	}
 	return RefreshResult{Book: book, Missing: true}, nil

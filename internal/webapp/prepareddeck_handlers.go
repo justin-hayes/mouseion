@@ -153,7 +153,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookOrLanguageHandoffURL(r.Context(), detail)))
+	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookURLInActiveLanguage(r.Context(), detail)))
 }
 
 func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
@@ -460,12 +460,13 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 	resultURL := ""
 	if journeyAction.BookID != "" {
 		resultURL, err = h.reachablePreparationReturnURL(r.Context(), user(r).ID, journeyAction)
+		if errors.Is(err, errPreparationOtherLanguage) {
+			err = nil
+			journeyAction = emptyDeckJourneyAction()
+		}
 		if err != nil {
 			fail(w, err)
 			return
-		}
-		if strings.Contains(resultURL, "language_handoff_book=") {
-			journeyAction = emptyDeckJourneyAction()
 		}
 	}
 	if isPartialHTMXRequest(r) {
@@ -617,8 +618,16 @@ func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner strin
 	if !detail.IsToRead {
 		return "", nil
 	}
-	return readingBookOrLanguageHandoffURL(ctx, detail), nil
+	target := readingBookURLInActiveLanguage(ctx, detail)
+	if target == "" {
+		return "", errPreparationOtherLanguage
+	}
+	return target, nil
 }
+
+// errPreparationOtherLanguage marks a preparation whose Book belongs to another
+// study language, so it offers no Reading link or membership action.
+var errPreparationOtherLanguage = errors.New("preparation Book is in another study language")
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if h.services.PreparedDeck == nil {

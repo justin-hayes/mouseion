@@ -31,6 +31,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		lookup.Page = page
 	}
 	requestedLanguage, _ := activeStudyLanguageForContext(r.Context())
+	lookup.Language = requestedLanguage
 	loadError := func(language string, books []domain.SourceMaterialSummary, err error) {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
 			h.renderConcordanceFailure(w, r, http.StatusGatewayTimeout, u, language, books, lookup, false)
@@ -158,7 +159,7 @@ func safeConcordanceReturnURL(candidate string) string {
 	}
 	for key := range values {
 		switch key {
-		case "mode", "term", "upos", "book", "grammar", "relation", "rev", "page", "focus":
+		case "language", "mode", "term", "upos", "book", "grammar", "relation", "rev", "page", "focus":
 		default:
 			return "/vocabulary/concordance"
 		}
@@ -172,6 +173,9 @@ func safeConcordanceReturnURL(candidate string) string {
 
 func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) string {
 	values := url.Values{}
+	if lookup.Language != "" {
+		values.Set("language", lookup.Language)
+	}
 	values.Set("mode", lookup.Mode)
 	values.Set("term", lookup.Term)
 	if lookup.UPOS != "" {

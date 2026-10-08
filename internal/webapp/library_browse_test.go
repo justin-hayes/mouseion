@@ -225,7 +225,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.Equal(t, 50, store.offset)
 	legacy := request("/library?language=it&q=Dampf")
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
-	assert.Equal(t, "/library?q=Dampf", legacy.Header().Get("Location"))
+	assert.Equal(t, languageChangedPath(), legacy.Header().Get("Location"), "an old-language request recovers to My Books instead of reinterpreting its filters")
 	partialRequest := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		r.Header.Set("Hx-Request-Type", "partial")
@@ -238,7 +238,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	}
 	partialLegacy := partialRequest("/library?language=it&q=Dampf")
 	assert.Equal(t, http.StatusOK, partialLegacy.Code)
-	assert.Equal(t, "/library?q=Dampf", partialLegacy.Header().Get("Hx-Redirect"))
+	assert.Equal(t, languageChangedPath(), partialLegacy.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialLegacy.Header().Get("Location"))
 	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?q=Dampf", nil)
 	htmxRequest.Header.Set("Hx-Request-Type", "partial")

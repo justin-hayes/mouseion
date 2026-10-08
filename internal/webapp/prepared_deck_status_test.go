@@ -159,8 +159,8 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJour
 
 	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{ActiveLanguage: "it"})
 	got, err = h.reachablePreparationReturnURL(crossLanguageContext, "owner-1", action)
-	require.NoError(t, err)
-	assert.Equal(t, journeyLanguageHandoffURL("book-1", "de"), got)
+	require.ErrorIs(t, err, errPreparationOtherLanguage)
+	assert.Equal(t, "", got)
 
 	store.detail.Acquired.AnalysisState = "failed"
 	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)

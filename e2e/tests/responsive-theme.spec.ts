@@ -274,7 +274,7 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(noScriptPage.getByRole('button', { name: 'Switch language' })).toBeVisible();
       await noScriptPage.getByLabel('Study language').selectOption('it');
       await noScriptPage.getByRole('button', { name: 'Switch language' }).click();
-      await expect(noScriptPage).toHaveURL(/\/catalogs$/);
+      await expect(noScriptPage).toHaveURL(/\/library$/);
       await expect(noScriptPage.getByLabel('Study language')).toHaveValue('it');
       await noScriptPage.locator('.site-header__account summary').click();
       await expect(noScriptPage.getByRole('button', { name: 'Log out' })).toBeVisible();
@@ -432,14 +432,14 @@ test.describe('responsive and theme regression coverage', () => {
       });
       await expect(source).toBeVisible();
       await expectNoPageOverflow(page);
-      expect(await textContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(4.5);
-      expect(await boundaryContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(3);
+      expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
+      expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.locator('#concordance-mode'))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.locator('.concordance-scopes input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
       await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
-      expect(await textContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(4.5);
-      expect(await boundaryContrast(page.locator('.concordance-query input'))).toBeGreaterThanOrEqual(3);
+      expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
+      expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.locator('#concordance-mode'))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.locator('.concordance-scopes input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);

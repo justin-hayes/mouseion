@@ -63,7 +63,7 @@ func (h *Handler) legacyConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	service, ok := h.services.CatalogueSync.(interface {
@@ -85,7 +85,7 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/catalogs?message="+url.QueryEscape("Catalog sync submitted."))
 }
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	u := user(r)
@@ -112,7 +112,7 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, location)
 }
 func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	u := user(r)
@@ -142,7 +142,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/catalogs?message=Catalog+updated")
 }
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	u := user(r)

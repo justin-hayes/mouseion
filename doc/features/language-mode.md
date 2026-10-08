@@ -84,13 +84,37 @@ labels use **Language** and the language's own name, never **Mode** or
 - The route validates the Book's own language, owner, membership, and current
   evidence before deciding where to send the learner.
 - A same-language bookmark redirects to its anchor in Reading.
-- A valid cross-language bookmark redirects to Reading with a
-  language-selection handoff. The handoff names the Book and target language and
-  offers an explicit, CSRF-protected switch whose return URL contains the Book's
-  canonical anchor.
-- The route never auto-switches the active language or redirects cross-language
-  bookmarks to a page where the promised Book anchor is absent. Unauthorized,
-  non-member, and unavailable Books remain unavailable.
+- A cross-language bookmark is a supported old-language request: it recovers to
+  My Books in the active language with the *Your study language changed* notice
+  (see "Language precedence" below). The former Reading language-selection
+  handoff chooser is retired.
+- The route never auto-switches the active language. Unauthorized, non-member,
+  and unavailable Books remain unavailable.
+
+## Language precedence ([ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md))
+
+- A deliberate switcher change stores the new language and lands at **My Books in
+  that language** with screen, query, filter, and return state reset. Opening a
+  page never changes the stored language, starts a reading, or submits an import;
+  the lazy deterministic default/reset remains context resolution only.
+- Supported Reading, Browse, Concordance, Study, import, lifecycle, and
+  preparation requests carry language identity. A request that names another
+  language than the active one (an explicit `language` parameter) or a form
+  rendered under another language (the form token is bound to the language it was
+  rendered for) redirects to My Books in the *current* active language with the
+  notice, **before** any reading or evidence is restored and before any mutation.
+  The selection is not switched back and old input is never reused under the new
+  language. The deliberate language change, sign-out, and catalog management are
+  language-agnostic and unaffected.
+- Language wins over stale commitment, evidence, or return restoration. References
+  stay owner/language validated and grant no authorization.
+- A catalog correction that makes a Current reading's Book language incompatible
+  ends that reading with an explanation: reservations are released without
+  completion or Known acceptance; visibility, history, snapshots, and artifacts
+  are preserved; a fresh commitment in the corrected language is required.
+  Missing or stale analysis alone never ends a commitment.
+- Native cached Back may show stale content without a request; safety is enforced
+  on every subsequent request. No polling or Back interception is required.
 
 ## States
 

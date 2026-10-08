@@ -13,7 +13,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -242,27 +241,10 @@ func journeyEvidenceHeadingID(item journeyBookView) string {
 }
 
 type journeyPageView struct {
-	Language            string
-	LanguageLabel       string
-	ActiveLanguageLabel string
-	LanguageHandoff     *journeyLanguageHandoffView
-	Goal                *journeyBookView
-	Provisional         []journeyBookView
-}
-
-type journeyLanguageHandoffView struct {
-	BookID        string
-	BookTitle     string
 	Language      string
 	LanguageLabel string
-}
-
-func journeyLanguageHandoffURL(bookID, language string) string {
-	query := url.Values{}
-	query.Set("language", language)
-	query.Set("language_handoff_book", bookID)
-	query.Set("language_handoff_language", language)
-	return "/reading?" + query.Encode()
+	Goal          *journeyBookView
+	Provisional   []journeyBookView
 }
 
 type deckJourneyState string
@@ -419,44 +401,6 @@ func (h *Handler) currentReading(ctx context.Context, owner, language string) (d
 		return h.services.Store.CurrentReading.GetCurrentReading(ctx, owner, language)
 	}
 	return h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
-}
-
-func (h *Handler) journeyLanguageHandoff(ctx context.Context, owner, activeLanguage, bookID, targetLanguage string) (journeyLanguageHandoffView, bool, error) {
-	bookID = strings.TrimSpace(bookID)
-	targetLanguage = canonicalization.NormalizeLanguage(targetLanguage)
-	if bookID == "" || targetLanguage == "" || canonicalization.NormalizeLanguage(activeLanguage) == targetLanguage {
-		return journeyLanguageHandoffView{}, false, nil
-	}
-	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return journeyLanguageHandoffView{}, false, nil
-	}
-	if err != nil {
-		return journeyLanguageHandoffView{}, false, err
-	}
-	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
-		return journeyLanguageHandoffView{}, false, nil
-	}
-	if canonicalization.NormalizeLanguage(bookStudyLanguage(detail)) != targetLanguage {
-		return journeyLanguageHandoffView{}, false, nil
-	}
-	if detail.Disposition != domain.BookDispositionToRead {
-		return journeyLanguageHandoffView{}, false, nil
-	}
-	label := targetLanguage
-	if shell := shellViewFromContext(ctx); shell != nil {
-		for _, option := range shell.Options {
-			if option.Language == targetLanguage {
-				label = option.DisplayName
-				break
-			}
-		}
-	}
-	title := strings.TrimSpace(detail.Book.Title)
-	if title == "" && detail.Acquired != nil {
-		title = strings.TrimSpace(detail.Acquired.Source.Title)
-	}
-	return journeyLanguageHandoffView{BookID: detail.Book.ID, BookTitle: title, Language: targetLanguage, LanguageLabel: label}, true, nil
 }
 
 func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {

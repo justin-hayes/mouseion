@@ -235,10 +235,9 @@ The shipped application uses `/library` for My Books and `/reading` for Reading.
 `/reading`; obsolete mutation forms return `410 Gone` and do not mutate state. A
 former `/journey/{bookID}` URL is a compatibility bookmark: after the same owner,
 language, membership, and current-evidence checks, it redirects to the
-corresponding `/reading` Book anchor and includes the Book's language as an
-explicit one-request `?language=` selector. That selector is validated against
-the learner's current study languages and does not change the stored active
-language. Invalid or non-study values fall back to the active language.
+corresponding `/reading` Book anchor and is a supported old-language request when
+the Book's language is not the active one: it recovers to My Books with the
+*Your study language changed* notice (ADR 0086) instead of switching language.
 Historical artifacts remain supporting records.
 The application does not present a duplicate Book-detail, analysis-result, queue,
 campaign, or plan surface.
@@ -376,10 +375,10 @@ Vocabulary) present, and never defines which languages are studied. It defaults
 deterministically (the sole study language, else the language of the most
 recently activated chosen-language Book) and resets lazily when the selection
 leaves the set. A shell-level switcher carries it on every authenticated screen;
-changing it navigates to the same screen in the new language on language-scoped
-screens. Compatibility bookmarks validate a Book's own language before redirecting
-to its Reading anchor. The URL's one-request language selector controls that
-Reading view but never changes the stored active mode. A newly arrived study
+changing it lands at My Books in the newly active language with screen, filter,
+and return state reset (ADR 0086). Supported requests and forms that name another
+language recover to My Books with a notice before any restoration or mutation;
+the stored mode is never switched back. A newly arrived study
 language appears passively
 in the switcher (marked "new") without changing the mode.
 
@@ -475,8 +474,10 @@ needed.
 11. **Active study language mode** is resolved by
     [ADR 0050](../adr/0050-active-study-language.md): one stored selection
     pointing into the derived set scopes My Books, Reading, and Vocabulary.
-    `?language=` is not supported on My Books or Vocabulary; `/reading?language=`
-    is the validated one-request exception. The "All languages" pill and per-row
+    Supported old-language requests (including an explicit `?language=` that is not
+    the active language) recover to My Books per
+    [ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md);
+    there is no one-request language selector. The "All languages" pill and per-row
     language tags are removed; a shell-level native switcher carries the mode;
     new languages arrive passively; legacy no-language Books surface only
     through a **needs language** strip.
