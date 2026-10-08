@@ -11,7 +11,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const vocabularyBrowseCountBuilderVersion = 1
+// Version 2 normalizes identities like the shared selection projection: trimmed
+// lemma and trimmed upper-case UPOS. Version 1 matched them verbatim.
+const vocabularyBrowseCountBuilderVersion = 2
 
 var ErrBrowseCountDecisionsChanged = errors.New("occurrence decisions changed during Browse count rebuild")
 
@@ -64,12 +66,12 @@ func applyVocabularyBrowseDecisionDeltasTx(ctx context.Context, tx pgx.Tx, ready
 			oldLemma = o.CanonicalLemma
 		}
 		if !o.Excluded && browseCountIdentityEligible(oldLemma, o.UPOS) {
-			identity := browseCountIdentity{lemma: oldLemma, upos: o.UPOS}
+			identity := normalizedBrowseCountIdentity(oldLemma, o.UPOS)
 			deltas[identity]--
 			affected[identity] = struct{}{}
 		}
 		if !decision.Excluded && browseCountIdentityEligible(decision.CanonicalLemma, o.UPOS) {
-			identity := browseCountIdentity{lemma: decision.CanonicalLemma, upos: o.UPOS}
+			identity := normalizedBrowseCountIdentity(decision.CanonicalLemma, o.UPOS)
 			deltas[identity]++
 			affected[identity] = struct{}{}
 		}
@@ -112,10 +114,10 @@ func applyVocabularyBrowseDecisionDeltasTx(ctx context.Context, tx pgx.Tx, ready
 			LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=$1 AND d.book_id=$2 AND d.analysis_run_id=t.analysis_run_id AND d.corpus_id=t.corpus_id
 				AND d.source_document_id=s.unit_id AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
 			WHERE t.owner_id=$1 AND t.analysis_run_id=$3 AND t.corpus_id=$4 AND t.language=$5
-				AND t.upos=$7 AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
+				AND upper(btrim(t.upos))=$7 AND upper(btrim(t.upos)) IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
 				AND COALESCE(d.excluded,false)=false AND d.canonical_lemma IS NOT NULL
-				AND COALESCE(d.canonical_lemma,t.canonical_lemma)=$6
-				AND COALESCE(d.canonical_lemma,t.canonical_lemma) ~ '[[:alpha:]]')`,
+				AND btrim(COALESCE(d.canonical_lemma,t.canonical_lemma))=$6
+				AND btrim(COALESCE(d.canonical_lemma,t.canonical_lemma)) ~ '[[:alpha:]]')`,
 			ready.owner, ready.book, ready.run, ready.corpus, ready.language, identity.lemma, identity.upos).Scan(&corrected); err != nil {
 			return fmt.Errorf("recompute corrected Browse identity state: %w", err)
 		}
@@ -127,11 +129,16 @@ func applyVocabularyBrowseDecisionDeltasTx(ctx context.Context, tx pgx.Tx, ready
 	return nil
 }
 
+func normalizedBrowseCountIdentity(lemma, upos string) browseCountIdentity {
+	return browseCountIdentity{lemma: strings.TrimSpace(lemma), upos: strings.ToUpper(strings.TrimSpace(upos))}
+}
+
 func browseCountIdentityEligible(lemma, upos string) bool {
-	if upos != "NOUN" && upos != "VERB" && upos != "ADJ" && upos != "ADV" {
-		return false
+	switch strings.ToUpper(strings.TrimSpace(upos)) {
+	case "NOUN", "VERB", "ADJ", "ADV":
+		return strings.ContainsFunc(lemma, unicode.IsLetter)
 	}
-	return strings.ContainsFunc(lemma, unicode.IsLetter)
+	return false
 }
 
 // BuildVocabularyBrowseCountsTx replaces a Book's count projection for one
@@ -152,7 +159,7 @@ func BuildVocabularyBrowseCountsTx(ctx context.Context, tx pgx.Tx, owner, book, 
 	if _, err := tx.Exec(ctx, `
 INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count,corrected)
 SELECT t.owner_id,$2,$6,t.analysis_run_id,t.corpus_id,
-       COALESCE(d.canonical_lemma,t.canonical_lemma),t.upos,count(*)::bigint,bool_or(d.canonical_lemma IS NOT NULL)
+       btrim(COALESCE(d.canonical_lemma,t.canonical_lemma)),upper(btrim(t.upos)),count(*)::bigint,bool_or(d.canonical_lemma IS NOT NULL)
 FROM corpus_tokens t
 JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.analysis_run_id=t.analysis_run_id
  AND s.corpus_id=t.corpus_id AND s.sentence_ordinal=t.sentence_ordinal
@@ -162,9 +169,9 @@ LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=$1 AND d.book_id=$2
  AND d.analysis_run_id=t.analysis_run_id AND d.corpus_id=t.corpus_id
  AND d.source_document_id=s.unit_id AND d.start_offset=t.start_offset AND d.end_offset=t.end_offset
 WHERE t.owner_id=$1 AND t.analysis_run_id=$4 AND t.corpus_id=$5 AND t.language=$6
- AND t.upos IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
- AND COALESCE(d.excluded,false)=false AND COALESCE(d.canonical_lemma,t.canonical_lemma) ~ '[[:alpha:]]'
-GROUP BY t.owner_id,t.analysis_run_id,t.corpus_id,COALESCE(d.canonical_lemma,t.canonical_lemma),t.upos`,
+ AND upper(btrim(t.upos)) IN ('NOUN','VERB','ADJ','ADV') AND t.dependency <> 'compound:prt'
+ AND COALESCE(d.excluded,false)=false AND btrim(COALESCE(d.canonical_lemma,t.canonical_lemma)) ~ '[[:alpha:]]'
+GROUP BY t.owner_id,t.analysis_run_id,t.corpus_id,btrim(COALESCE(d.canonical_lemma,t.canonical_lemma)),upper(btrim(t.upos))`,
 		owner, book, source, run, corpus, language, snapshot); err != nil {
 		return fmt.Errorf("build effective Browse counts: %w", err)
 	}

@@ -478,96 +478,63 @@ func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActi
 	return items, nil
 }
 
-const listMyBooksCoverageTokens = `-- name: ListMyBooksCoverageTokens :many
-SELECT e.book_id,
-       e.corpus_id,
-       e.analysis_run_id,
-       COALESCE(co.analyzable_token_count, 0)::bigint AS source_analyzable_token_count,
-       t.language,
-       t.surface,
-       t.canonical_lemma,
-       t.upos,
-       t.dependency,
-       t.start_offset,
-       t.end_offset,
-       s.unit_id AS source_document_id,
-       (c.owner_id IS NOT NULL)::boolean AS has_correction,
-       c.canonical_lemma AS correction_lemma,
-       COALESCE(c.excluded, false) AS correction_excluded,
-       (NOT COALESCE(c.excluded, false) AND EXISTS (
-           SELECT 1 FROM known_vocabulary kv
-           WHERE kv.owner_id::text = e.book_owner_id AND kv.language = t.language
-             AND kv.canonical_lemma = btrim(COALESCE(c.canonical_lemma, t.canonical_lemma))
-             AND (kv.upos = upper(btrim(t.upos)) OR kv.upos = '')
-       ))::boolean AS is_known
-FROM my_books_evidence e
-JOIN corpora co ON co.owner_id::text = e.book_owner_id AND co.id::text = e.corpus_id
-  AND co.analysis_run_id::text = e.analysis_run_id
-JOIN corpus_tokens t ON t.owner_id::text = e.book_owner_id
-  AND t.corpus_id::text = e.corpus_id AND t.analysis_run_id::text = e.analysis_run_id
-JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
-  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
-LEFT JOIN occurrence_lemma_corrections c ON c.owner_id = t.owner_id
-  AND c.book_id::text = e.book_id AND c.corpus_id = t.corpus_id
-  AND c.analysis_run_id = t.analysis_run_id AND c.source_document_id = s.unit_id
-  AND c.start_offset = t.start_offset AND c.end_offset = t.end_offset
-WHERE e.book_owner_id = $1
-  AND e.book_id = ANY($2::text[])
-  AND e.corpus_id <> '' AND e.analysis_run_id <> ''
-ORDER BY e.book_id, t.sentence_ordinal, t.token_ordinal
+const listMyBooksCoverage = `-- name: ListMyBooksCoverage :many
+WITH ready AS (
+    SELECT r.owner_id, r.book_id, r.analysis_run_id, r.corpus_id,
+           COALESCE(co.analyzable_token_count, 0)::bigint AS total_tokens
+    FROM my_books_evidence e
+    JOIN vocabulary_browse_count_readiness r ON r.owner_id = $1::uuid
+      AND r.book_id = ANY($2::uuid[])
+      AND r.owner_id::text = e.book_owner_id
+      AND r.book_id::text = e.book_id
+      AND r.analysis_run_id::text = e.analysis_run_id
+      AND r.corpus_id::text = e.corpus_id
+      AND r.builder_version = 2
+    JOIN corpora co ON co.owner_id = r.owner_id AND co.id = r.corpus_id
+      AND co.analysis_run_id = r.analysis_run_id
+), counted AS (
+    SELECT ready.book_id, c.occurrence_count,
+           EXISTS (
+               SELECT 1 FROM known_vocabulary kv
+               WHERE kv.owner_id = c.owner_id AND kv.language = c.language
+                 AND kv.canonical_lemma = btrim(c.canonical_lemma)
+                 AND (kv.upos = upper(btrim(c.upos)) OR kv.upos = '')
+           ) AS is_known
+    FROM ready
+    JOIN vocabulary_browse_counts c ON c.owner_id = ready.owner_id AND c.book_id = ready.book_id
+      AND c.analysis_run_id = ready.analysis_run_id AND c.corpus_id = ready.corpus_id
+)
+SELECT ready.book_id::text AS book_id,
+       ready.total_tokens,
+       COALESCE((SELECT sum(counted.occurrence_count) FROM counted
+                 WHERE counted.book_id = ready.book_id AND counted.is_known), 0)::bigint AS known_tokens
+FROM ready
 `
 
-type ListMyBooksCoverageTokensParams struct {
+type ListMyBooksCoverageParams struct {
 	Owner   string
 	BookIds []string
 }
 
-type ListMyBooksCoverageTokensRow struct {
-	BookID                     string
-	CorpusID                   string
-	AnalysisRunID              string
-	SourceAnalyzableTokenCount int64
-	Language                   string
-	Surface                    string
-	CanonicalLemma             string
-	Upos                       string
-	Dependency                 string
-	StartOffset                int64
-	EndOffset                  int64
-	SourceDocumentID           string
-	HasCorrection              bool
-	CorrectionLemma            pgtype.Text
-	CorrectionExcluded         bool
-	IsKnown                    bool
+type ListMyBooksCoverageRow struct {
+	BookID      string
+	TotalTokens int64
+	KnownTokens int64
 }
 
-func (q *Queries) ListMyBooksCoverageTokens(ctx context.Context, arg ListMyBooksCoverageTokensParams) ([]ListMyBooksCoverageTokensRow, error) {
-	rows, err := q.db.Query(ctx, listMyBooksCoverageTokens, arg.Owner, arg.BookIds)
+// Coverage comes from the durable Vocabulary Browse inventory counts joined to
+// the learner's current Known vocabulary. A Book without ready counts for its
+// current analysis produces no row, so it never shows a stale or scanned figure.
+func (q *Queries) ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error) {
+	rows, err := q.db.Query(ctx, listMyBooksCoverage, arg.Owner, arg.BookIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListMyBooksCoverageTokensRow{}
+	items := []ListMyBooksCoverageRow{}
 	for rows.Next() {
-		var i ListMyBooksCoverageTokensRow
-		if err := rows.Scan(
-			&i.BookID,
-			&i.CorpusID,
-			&i.AnalysisRunID,
-			&i.SourceAnalyzableTokenCount,
-			&i.Language,
-			&i.Surface,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.Dependency,
-			&i.StartOffset,
-			&i.EndOffset,
-			&i.SourceDocumentID,
-			&i.HasCorrection,
-			&i.CorrectionLemma,
-			&i.CorrectionExcluded,
-			&i.IsKnown,
-		); err != nil {
+		var i ListMyBooksCoverageRow
+		if err := rows.Scan(&i.BookID, &i.TotalTokens, &i.KnownTokens); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

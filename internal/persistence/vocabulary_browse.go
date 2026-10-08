@@ -47,14 +47,14 @@ WITH all_books AS (
      SELECT 1 FROM projection_scope s
      LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=s.owner_id AND r.book_id=s.book_id
        AND r.analysis_run_id=s.analysis_run_id AND r.corpus_id=s.corpus_id
-       AND r.language=$2 AND r.builder_version=1
+       AND r.language=$2 AND r.builder_version=2
      WHERE r.owner_id IS NULL
    ) AS ready,
    EXISTS (
      SELECT 1 FROM projection_scope s
      LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=s.owner_id AND r.book_id=s.book_id
        AND r.analysis_run_id=s.analysis_run_id AND r.corpus_id=s.corpus_id
-       AND r.language=$2 AND r.builder_version=1
+       AND r.language=$2 AND r.builder_version=2
       JOIN river_job failed ON failed.kind='rebuild_vocabulary_browse_counts' AND failed.state='discarded'
         AND failed.args->>'owner_id'=s.owner_id::text AND failed.args->>'book_id'=s.book_id::text
         AND failed.args->>'run_id'=s.analysis_run_id::text
@@ -72,7 +72,7 @@ WITH all_books AS (
      AND EXISTS (SELECT 1 FROM vocabulary_browse_count_readiness ready
        WHERE ready.owner_id=r.owner_id AND ready.book_id=r.book_id
          AND ready.analysis_run_id=r.analysis_run_id AND ready.corpus_id=r.corpus_id
-         AND ready.language=$2 AND ready.builder_version=1)
+         AND ready.language=$2 AND ready.builder_version=2)
  ), current_evidence AS (
   SELECT p.book_id::text AS book_id,c.upos,c.canonical_lemma AS lemma,c.corrected,c.occurrence_count
   FROM vocabulary_browse_counts c JOIN projection_ready p
