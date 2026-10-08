@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"sort"
 	"strings"
@@ -48,7 +49,7 @@ func journeyBookClass(primary bool) string {
 	if primary {
 		return "resource-card journey-book journey-book--goal"
 	}
-	return "resource-card journey-book"
+	return "resource-card journey-book journey-book--provisional"
 }
 
 func journeyBookTitlePageClass(primary bool) string {
@@ -230,7 +231,14 @@ func journeyCurrentCoverage(item journeyBookView) string {
 	if item.Coverage == nil {
 		return "unavailable"
 	}
-	return fmt.Sprintf("%.1f%%", knownCoveragePercent(*item.Coverage))
+	if item.Coverage.AnalyzableTokenCount <= 0 {
+		return "No analyzable tokens"
+	}
+	return fmt.Sprintf("%.0f%%", math.Round(knownCoveragePercent(*item.Coverage)))
+}
+
+func journeyEvidenceHeadingID(item journeyBookView) string {
+	return "journey-evidence-heading-" + journeyBookID(item)
 }
 
 type journeyPageView struct {
