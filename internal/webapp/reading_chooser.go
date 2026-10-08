@@ -394,6 +394,12 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 		if book.Disposition != domain.BookDispositionToRead || language == "" || book.Book.LanguageTag != language {
 			continue
 		}
+		// Hidden only keeps a Book out of the default chooser; it never makes
+		// the Book ineligible. Recovery is My Books → Show hidden books →
+		// Unhide → choose it here.
+		if book.Hidden {
+			continue
+		}
 		candidate := readingChooserBookView{Book: book}
 		if book.Acquired == nil || book.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*book.Acquired) {
 			candidate.State, candidate.Description = readingChooserEvidenceState(book)

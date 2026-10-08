@@ -113,6 +113,7 @@ type Store struct {
 	myBooks                []domain.MyBook
 	dispositions           map[string]domain.BookDisposition
 	dispositionRevisions   map[string]int64
+	visibility             map[string]fixtureVisibility
 	primaryGoals           map[string]domain.PrimaryGoal
 	goalSnapshotSequence   map[string]int
 	readingHistory         map[string]domain.ReadingCompletion
@@ -206,6 +207,7 @@ func NewStore() *Store {
 			fixtureDispositionKey(OwnerID, ItalianGoalBookID):      domain.BookDispositionToRead,
 		},
 		dispositionRevisions: make(map[string]int64),
+		visibility:           make(map[string]fixtureVisibility),
 		importedHistory:      make(map[string]domain.ReadingCompletion),
 		primaryGoals: map[string]domain.PrimaryGoal{
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
@@ -1070,11 +1072,13 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 			source.BookTitle = source.Source.Title
 		}
 		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: source.BookTitle, Author: source.BookAuthor, LanguageState: languageState, LanguageTag: languageTag}, Cover: fixtureCover(bookID), Acquired: &source, Disposition: s.bookDispositionLocked(source.Source.OwnerID, bookID), DispositionRevision: s.bookDispositionRevisionLocked(source.Source.OwnerID, bookID)})
+		s.applyVisibilityLocked(&out[len(out)-1])
 	}
 	for _, book := range s.myBooks {
 		if owner == "" || book.Book.OwnerID == owner {
 			book.Disposition = s.bookDispositionLocked(book.Book.OwnerID, book.Book.ID)
 			book.DispositionRevision = s.bookDispositionRevisionLocked(book.Book.OwnerID, book.Book.ID)
+			s.applyVisibilityLocked(&book)
 			out = append(out, book)
 		}
 	}
@@ -1115,6 +1119,51 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 
 func fixtureDispositionKey(owner, bookID string) string { return owner + "\x00" + bookID }
 
+// fixtureVisibility mirrors one book_visibility row; a missing row is a
+// visible Book at revision 0.
+type fixtureVisibility struct {
+	hidden   bool
+	revision int64
+}
+
+func (s *Store) applyVisibilityLocked(book *domain.MyBook) {
+	state := s.visibility[fixtureDispositionKey(book.Book.OwnerID, book.Book.ID)]
+	book.Hidden, book.VisibilityRevision = state.hidden, state.revision
+}
+
+func (s *Store) GetBookVisibility(_ context.Context, owner, bookID string) (bool, int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.fixtureBookExists(owner, bookID) {
+		return false, 0, errNotFound
+	}
+	state := s.visibility[fixtureDispositionKey(owner, bookID)]
+	return state.hidden, state.revision, nil
+}
+
+// SetBookHidden mirrors the production expected-revision protocol and writes
+// only the visibility state.
+func (s *Store) SetBookHidden(_ context.Context, owner, bookID string, expectedRevision int64, hidden bool) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.fixtureBookExists(owner, bookID) {
+		return false, errNotFound
+	}
+	key := fixtureDispositionKey(owner, bookID)
+	state := s.visibility[key]
+	if state.revision == expectedRevision+1 && state.hidden == hidden {
+		return false, nil
+	}
+	if state.revision != expectedRevision {
+		return false, persistence.ErrStaleBookVisibility
+	}
+	if state.hidden == hidden {
+		return false, nil
+	}
+	s.visibility[key] = fixtureVisibility{hidden: hidden, revision: expectedRevision + 1}
+	return true, nil
+}
+
 func (s *Store) bookDispositionLocked(owner, bookID string) domain.BookDisposition {
 	if disposition, ok := s.dispositions[fixtureDispositionKey(owner, bookID)]; ok {
 		return disposition
@@ -1133,7 +1182,13 @@ func (s *Store) bookDispositionRevisionLocked(owner, bookID string) int64 {
 // the shared browser fixture store: literal case-insensitive title substring
 // search, one language filter, lowercased deterministic title ordering, and
 // counts over the complete active owner collection.
-func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *Store) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+	return s.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, false, offset, limit)
+}
+
+// ListMyBooksBrowseWithVisibility mirrors the production visibility scope:
+// Hidden Books are omitted unless showHidden is set and all counts follow it.
+func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	query = strings.ToLower(strings.TrimSpace(query))
@@ -1142,8 +1197,19 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	if language != domain.LanguageUnknown {
 		language = normalizeFixtureLanguage(language)
 	}
-	all := s.myBooksForOwner(owner)
-	result := persistence.MyBooksBrowseResult{AllCount: len(all)}
+	everything := s.myBooksForOwner(owner)
+	result := persistence.MyBooksBrowseResult{AllCount: len(everything)}
+	all := make([]domain.MyBook, 0, len(everything))
+	for _, book := range everything {
+		inLanguage := language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language)
+		if book.Hidden && inLanguage {
+			result.HiddenCount++
+		}
+		if book.Hidden && !showHidden {
+			continue
+		}
+		all = append(all, book)
+	}
 	counts := map[string]int{}
 	for _, book := range all {
 		tag := domain.LanguageUnknown

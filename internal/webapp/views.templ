@@ -225,7 +225,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
-templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message string) {
+templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 			if myBookInJourney(book) {
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
@@ -249,7 +249,11 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 				</div>
 			}
 		<div class="library-book__notes">
-			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))</p>
+			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))
+				if book.Hidden {
+					@StatusBadge("Hidden", StatusNeutral)
+				}
+			</p>
 			if evidence := myBookMarginEvidence(book); evidence != "" {
 				<p class="library-book__evidence">{ evidence }</p>
 				if action := myBookEvidenceRecovery(book); action != "" {
@@ -288,9 +292,15 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 					<button type="submit" class="btn btn-outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
+			if book.Hidden {
+				@BookVisibilityForm(csrf, book, returnTo)
+			}
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
+					if !book.Hidden {
+						@BookVisibilityForm(csrf, book, returnTo)
+					}
 					if book.CompletionCount == 0 && book.Book.LanguageState == domain.LanguageChosen && !book.IsCurrentReading {
 						@Confirmation("Mark as previously read", "This records one completion from before Mouseion. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
 							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="btn btn-outline">Confirm previously read</button></form>
@@ -322,15 +332,28 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message s
 	</li>
 }
 
-templ NeedsLanguageBookRow(book domain.MyBook) {
-	<li class="library-diagnostic-item" aria-labelledby={ "book-title-" + book.Book.ID }>
+templ BookVisibilityForm(csrf string, book domain.MyBook, returnTo string) {
+	<form class="library-book__visibility" method="post" action={ templ.SafeURL(myBookVisibilityURL(book)) }>
+		<input type="hidden" name="csrf_token" value={ csrf }/>
+		<input type="hidden" name="expected_visibility_revision" value={ fmt.Sprint(book.VisibilityRevision) }/>
+		<input type="hidden" name="return_to" value={ returnTo }/>
+		<button type="submit" class="btn btn-outline">{ myBookVisibilityActionLabel(book) }</button>
+	</form>
+}
+
+templ NeedsLanguageBookRow(csrf string, book domain.MyBook, returnTo string) {
+	<li class="library-diagnostic-item" id={ myBookRowID(book.Book.ID) } aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div>
 			<h3 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h3>
 			if author := strings.TrimSpace(book.Book.Author); author != "" {
 				<p class="library-book__author">By { author }</p>
 			}
 			<p class="metadata">Language not assigned in the catalog</p>
+			if book.Hidden {
+				<p class="library-book__membership">@StatusBadge("Hidden", StatusNeutral)</p>
+			}
 		</div>
+		@BookVisibilityForm(csrf, book, returnTo)
 	</li>
 }
 
@@ -364,6 +387,12 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 	</nav>
 }
 
+templ MyBooksShowHiddenControl(browse MyBooksBrowseState) {
+	<p class="library-hidden-toggle">
+		<a id="library-show-hidden" href={ templ.SafeURL(myBooksShowHiddenURL(browse)) }>{ myBooksShowHiddenLabel(browse) }</a>
+	</p>
+}
+
 templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
 	<a { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
 }
@@ -372,18 +401,22 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 	<section id="library-results" tabindex="-1" aria-label="My Books results" data-focus-id="library-results">
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
+				if !browse.ShowHidden && browse.HiddenCount > 0 {
+					{ myBooksHiddenOmittedLabel(browse.HiddenCount) }
+					<a href={ templ.SafeURL(myBooksShowHiddenURL(browse)) }>Show hidden books</a>
+				}
 				if myBooksHasActiveResultFilter(browse) {
 					{ myBooksResultCount(browse.Total) }.
 				}
 				if browse.TextNoMatch && browse.NeedsLanguage {
-					No books awaiting a language match “{ browse.Query }”. <a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksFilteredURL("", 1, true, browse.Disposition)) } hx-get={ myBooksFilteredURL("", 1, true, browse.Disposition) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
+					No books awaiting a language match “{ browse.Query }”. <a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
 				} else if browse.TextNoMatch {
 					if browse.History {
 						No books with reading history in { myBooksLanguageName(browse) } match “{ browse.Query }”.
 					} else {
 						No books in your local collection in { myBooksLanguageName(browse) } match “{ browse.Query }”.
 					}
-					<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
+					<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
 				} else if browse.NeedsLanguage {
 					No books are awaiting a language in the local collection.
 				} else if browse.History {
@@ -403,14 +436,14 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 			if browse.NeedsLanguage {
 				<ul class="library-diagnostic-list" role="list">
 					for _, book := range books {
-						@NeedsLanguageBookRow(book)
+						@NeedsLanguageBookRow(csrf, book, myBooksResultsURL(browse, browse.Page))
 					}
 				</ul>
 			} else {
 				<ul class="library-books" role="list">
 					for _, book := range books {
 						if myBooksBookInLanguage(browse, book) {
-							@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
+							@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "", myBooksResultsURL(browse, browse.Page))
 						}
 					}
 				</ul>
@@ -481,14 +514,18 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			}
 		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
 					<label class="sr-only" for="library-search-query">Search My Books</label>
+					if browse.ShowHidden {
+						<input type="hidden" name="show-hidden" value=""/>
+					}
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>
 						<button class="btn btn-outline" type="submit">Search</button>
 					</div>
 				</form>
 				@MyBooksDispositionFilters(browse)
+				@MyBooksShowHiddenControl(browse)
 			</section>
 			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)
@@ -500,7 +537,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				<h2 id="acquired-books-heading">Books</h2>
 				<ul class="library-books" role="list">
 					for _, book := range books {
-						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "")
+						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "", "/library")
 					}
 				</ul>
 			</section>

@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -117,6 +118,8 @@ type MyBooksBrowseState struct {
 	Query              string
 	Disposition        domain.BookDisposition
 	History            bool
+	ShowHidden         bool
+	HiddenCount        int
 	Language           string
 	LanguageLabel      string
 	NeedsLanguage      bool
@@ -143,9 +146,19 @@ func myBooksFilteredURL(query string, page int, needsLanguage bool, disposition 
 }
 
 func myBooksHistoryURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition, history bool) string {
+	return myBooksScopedURL(query, page, needsLanguage, disposition, history, false)
+}
+
+// myBooksScopedURL is the one place a My Books location is spelled. Flag
+// parameters (needs-language, show-hidden) are bare so the address stays
+// readable and ordinary links work without JavaScript.
+func myBooksScopedURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition, history, showHidden bool) string {
 	values := url.Values{}
 	if needsLanguage {
 		values.Set("needs-language", "")
+	}
+	if showHidden {
+		values.Set("show-hidden", "")
 	}
 	if query != "" {
 		values.Set("q", query)
@@ -159,13 +172,18 @@ func myBooksHistoryURL(query string, page int, needsLanguage bool, disposition d
 	if history {
 		values.Set("history", "read")
 	}
-	if encoded := values.Encode(); encoded != "" {
-		if needsLanguage {
-			encoded = strings.Replace(encoded, "needs-language=", "needs-language", 1)
-		}
-		return "/library?" + encoded
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/library"
 	}
-	return "/library"
+	parts := strings.Split(encoded, "&")
+	for i, part := range parts {
+		if part == "needs-language=" || part == "show-hidden=" {
+			parts[i] = strings.TrimSuffix(part, "=")
+		}
+	}
+	encoded = strings.Join(parts, "&")
+	return "/library?" + encoded
 }
 
 func parseMyBooksBrowseRequest(rURL *url.URL) (query string, page int, needsLanguage bool) {
@@ -193,32 +211,93 @@ func parseMyBooksBrowseRequestWithHistory(rURL *url.URL) (query string, page int
 	return query, page, needsLanguage, disposition, history
 }
 
+// parseMyBooksShowHidden reports the visibility scope. Presence of the bare
+// show-hidden parameter selects it; the default scope omits Hidden Books.
+func parseMyBooksShowHidden(rURL *url.URL) bool {
+	return rURL.Query().Has("show-hidden")
+}
+
+// myBooksReturnFromRequest derives the browse location of an HTMX row refresh
+// from the page that issued it, so a row's Hide/Unhide returns to that view.
+func myBooksReturnFromRequest(r *http.Request) string {
+	current, err := url.Parse(r.Header.Get("Hx-Current-Url"))
+	if err != nil || current.Path != "/library" {
+		return "/library"
+	}
+	return myBooksReturnURL(current.Path + "?" + current.RawQuery)
+}
+
+// myBooksReturnURL validates a posted return location. Only a local /library
+// address is honored, so Hide/Unhide can return to the exact browse state
+// without becoming an open redirect.
+func myBooksReturnURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.Path != "/library" {
+		return "/library"
+	}
+	values := parsed.Query()
+	values.Del("message")
+	values.Del("error")
+	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(&url.URL{RawQuery: values.Encode()})
+	return myBooksScopedURL(query, page, needsLanguage, disposition, history, parseMyBooksShowHidden(&url.URL{RawQuery: values.Encode()}))
+}
+
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksHistoryURL(browse.Query, page, browse.NeedsLanguage, browse.Disposition, browse.History)
+	return myBooksScopedURL(browse.Query, page, browse.NeedsLanguage, browse.Disposition, browse.History, browse.ShowHidden)
+}
+
+// myBooksClearSearchURL keeps every control except the search text.
+func myBooksClearSearchURL(browse MyBooksBrowseState) string {
+	return myBooksScopedURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History, browse.ShowHidden)
 }
 
 func myBooksHistoryFilterURL(browse MyBooksBrowseState, history bool) string {
-	return myBooksHistoryURL(browse.Query, 1, browse.NeedsLanguage, "", history)
+	return myBooksScopedURL(browse.Query, 1, browse.NeedsLanguage, "", history, browse.ShowHidden)
 }
 
+// myBooksShowHiddenURL toggles the visibility scope while keeping the rest of
+// the browse state.
+func myBooksShowHiddenURL(browse MyBooksBrowseState) string {
+	return myBooksScopedURL(browse.Query, 1, browse.NeedsLanguage, browse.Disposition, browse.History, !browse.ShowHidden)
+}
+
+func myBooksShowHiddenLabel(browse MyBooksBrowseState) string {
+	if browse.ShowHidden {
+		return "Stop showing hidden books"
+	}
+	if browse.HiddenCount > 0 {
+		return fmt.Sprintf("Show hidden books (%d)", browse.HiddenCount)
+	}
+	return "Show hidden books"
+}
+
+func myBooksHiddenOmittedLabel(count int) string {
+	if count == 1 {
+		return "1 hidden book is not shown."
+	}
+	return fmt.Sprintf("%d hidden books are not shown.", count)
+}
+
+// myBookVisibleBucketURL names where a Book is listed. A Hidden Book is only
+// listed in the Show hidden books scope, so its location carries that scope.
 func myBookVisibleBucketURL(book domain.MyBook, page int) string {
+	hidden := book.Hidden
 	switch book.WorkflowBucket() {
 	case domain.MyBookBucketInbox:
-		return myBooksFilteredURL("", page, false, domain.BookDispositionInbox)
-	case domain.MyBookBucketToRead:
-		return myBooksFilteredURL("", page, false, domain.BookDispositionToRead)
+		return myBooksScopedURL("", page, false, domain.BookDispositionInbox, false, hidden)
+	case domain.MyBookBucketToRead, domain.MyBookBucketCurrentReading:
+		return myBooksScopedURL("", page, false, domain.BookDispositionToRead, false, hidden)
 	case domain.MyBookBucketRead:
-		return myBooksHistoryURL("", page, false, "", true)
+		return myBooksScopedURL("", page, false, "", true, hidden)
 	case domain.MyBookBucketSetAside:
-		return myBooksFilteredURL("", page, false, domain.BookDispositionSetAside)
-	case domain.MyBookBucketCurrentReading:
-		return myBooksFilteredURL("", page, false, domain.BookDispositionToRead)
+		return myBooksScopedURL("", page, false, domain.BookDispositionSetAside, false, hidden)
 	}
 	return "/library"
 }
 
 func myBooksDispositionURL(browse MyBooksBrowseState, disposition domain.BookDisposition) string {
-	return myBooksFilteredURL(browse.Query, 1, browse.NeedsLanguage, disposition)
+	return myBooksScopedURL(browse.Query, 1, browse.NeedsLanguage, disposition, false, browse.ShowHidden)
 }
 
 func myBooksDispositionCount(browse MyBooksBrowseState, disposition domain.BookDisposition) int {
@@ -369,4 +448,19 @@ func myBooksPageOffset(page int) int {
 		return maxInt
 	}
 	return (page - 1) * myBooksPageSize
+}
+
+func myBookVisibilityURL(book domain.MyBook) string {
+	action := "hide"
+	if book.Hidden {
+		action = "unhide"
+	}
+	return "/library/books/" + url.PathEscape(book.Book.ID) + "/" + action
+}
+
+func myBookVisibilityActionLabel(book domain.MyBook) string {
+	if book.Hidden {
+		return "Unhide"
+	}
+	return "Hide"
 }

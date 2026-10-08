@@ -128,6 +128,8 @@ type MyBook struct {
 	Acquired               *SourceMaterialSummary
 	Disposition            BookDisposition
 	DispositionRevision    int64
+	Hidden                 bool
+	VisibilityRevision     int64
 	IsToRead               bool
 	IsCurrentReading       bool
 	CompletionCount        int

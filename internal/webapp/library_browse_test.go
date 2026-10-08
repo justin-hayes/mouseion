@@ -141,6 +141,10 @@ func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query
 	return s.result, s.err
 }
 
+func (s *browseRecordingStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, _ bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+	return s.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
+}
+
 func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

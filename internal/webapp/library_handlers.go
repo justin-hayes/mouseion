@@ -18,6 +18,25 @@ type myBooksBrowseReader interface {
 	ListMyBooksBrowse(context.Context, string, string, string, string, bool, int, int) (persistence.MyBooksBrowseResult, error)
 }
 
+// myBooksVisibilityBrowseReader is the browse read model with an explicit
+// Hidden-visibility scope. Stores that only implement myBooksBrowseReader get
+// its default scope, which omits Hidden Books.
+type myBooksVisibilityBrowseReader interface {
+	ListMyBooksBrowseWithVisibility(context.Context, string, string, string, string, bool, bool, int, int) (persistence.MyBooksBrowseResult, error)
+}
+
+func browseMyBooks(ctx context.Context, store any, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (persistence.MyBooksBrowseResult, bool, error) {
+	if reader, ok := store.(myBooksVisibilityBrowseReader); ok {
+		result, err := reader.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, showHidden, offset, limit)
+		return result, true, err
+	}
+	if reader, ok := store.(myBooksBrowseReader); ok {
+		result, err := reader.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
+		return result, true, err
+	}
+	return persistence.MyBooksBrowseResult{}, false, nil
+}
+
 const myBooksLoadFailureMessage = "My Books could not be loaded. Try refreshing the page."
 
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -33,9 +52,10 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(r.URL)
+	showHidden := parseMyBooksShowHidden(r.URL)
 	if _, hasLanguage := r.URL.Query()["language"]; hasLanguage {
-		// #nosec G710 -- myBooksFilteredURL constructs only a local /library URL and escapes query values.
-		redirectMyBooksBrowse(w, r, myBooksFilteredURL(query, page, needsLanguage, disposition))
+		// #nosec G710 -- myBooksScopedURL constructs only a local /library URL and escapes query values.
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(query, page, needsLanguage, disposition, false, showHidden))
 		return
 	}
 	requestedLanguage := activeLanguage
@@ -45,8 +65,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	var books []domain.MyBook
 	var err error
 	var browse MyBooksBrowseState
-	if reader, ok := h.services.Store.Books.(myBooksBrowseReader); ok {
-		result, readErr := reader.ListMyBooksBrowse(r.Context(), u.ID, query, requestedLanguage, string(disposition), history, myBooksPageOffset(page), myBooksPageSize)
+	if result, ok, readErr := browseMyBooks(r.Context(), h.services.Store.Books, u.ID, query, requestedLanguage, string(disposition), history, showHidden, myBooksPageOffset(page), myBooksPageSize); ok {
 		err = readErr
 		books = result.Items
 		if activeLanguage == "" && !needsLanguage {
@@ -55,9 +74,11 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		}
 		browse = myBooksBrowseState(query, page, needsLanguage, disposition, activeLanguage, activeLanguageLabel, result)
 		browse.History = history
+		browse.ShowHidden = showHidden
+		browse.HiddenCount = result.HiddenCount
 		if err == nil && result.Total > 0 && myBooksPageOffset(page) >= result.Total {
 			lastPage := myBooksPageCount(result.Total)
-			redirectMyBooksBrowse(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history))
+			redirectMyBooksBrowse(w, r, myBooksScopedURL(query, lastPage, needsLanguage, disposition, history, showHidden))
 			return
 		}
 		if err == nil && page > 1 && result.Total == 0 {
@@ -68,7 +89,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 					lastPage = 1
 				}
 			}
-			redirectMyBooksBrowse(w, r, myBooksHistoryURL(query, lastPage, needsLanguage, disposition, history))
+			redirectMyBooksBrowse(w, r, myBooksScopedURL(query, lastPage, needsLanguage, disposition, history, showHidden))
 			return
 		}
 	} else if reader, ok := h.services.Store.Books.(interface {
@@ -123,7 +144,7 @@ func redirectMyBooksBrowse(w http.ResponseWriter, r *http.Request, path string) 
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther) //nolint:gosec // SafeReturnPath rejects external redirect destinations.
+	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther)
 }
 
 func (h *Handler) renderMyBooksFailure(w http.ResponseWriter, r *http.Request, u domain.User) {
@@ -175,9 +196,9 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	page := 1
-	if reader, ok := h.services.Store.Books.(myBooksBrowseReader); ok {
+	if _, hasBrowse := h.services.Store.Books.(myBooksBrowseReader); hasBrowse {
 		activeLanguage, _ := activeStudyLanguageForContext(r.Context())
-		page, err = myBooksPageForBook(r.Context(), reader, owner, activeLanguage, book)
+		page, err = myBooksPageForBook(r.Context(), h.services.Store.Books, owner, activeLanguage, book)
 		if err != nil {
 			fail(w, err)
 			return
@@ -192,7 +213,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 	redirect(w, r, location)
 }
 
-func myBooksPageForBook(ctx context.Context, reader myBooksBrowseReader, owner, language string, book domain.MyBook) (int, error) {
+func myBooksPageForBook(ctx context.Context, store any, owner, language string, book domain.MyBook) (int, error) {
 	bucket := book.WorkflowBucket()
 	disposition, _ := bucket.PersistedDisposition()
 	if bucket == domain.MyBookBucketCurrentReading {
@@ -200,7 +221,7 @@ func myBooksPageForBook(ctx context.Context, reader myBooksBrowseReader, owner, 
 	}
 	history := bucket == domain.MyBookBucketRead
 	for offset := 0; ; offset += myBooksPageSize {
-		result, err := reader.ListMyBooksBrowse(ctx, owner, "", language, string(disposition), history, offset, myBooksPageSize)
+		result, _, err := browseMyBooks(ctx, store, owner, "", language, string(disposition), history, book.Hidden, offset, myBooksPageSize)
 		if err != nil {
 			return 0, err
 		}
@@ -283,7 +304,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if transitionErr != nil {
 		err = transitionErr
 		if errors.Is(err, persistence.ErrStaleBookDisposition) {
-			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
+			redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
 			return
 		}
 		fail(w, err)
@@ -298,7 +319,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 			message = fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", handle.DisplayNumber)
 		}
 	}
-	redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&message="+url.QueryEscape(message))
+	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&message="+url.QueryEscape(message))
 }
 
 func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
@@ -331,9 +352,9 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, persistence.ErrStaleBookDisposition):
-			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
+			redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionSetAside, false, detail.Hidden)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
 		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
-			redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("Current reading cannot be set aside. Finish or clear it first."))
+			redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&error="+url.QueryEscape("Current reading cannot be set aside. Finish or clear it first."))
 		case errors.Is(err, persistence.ErrNotFound):
 			http.NotFound(w, r)
 		default:
@@ -341,9 +362,9 @@ func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	location := myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)
+	location := myBooksScopedURL("", 1, false, domain.BookDispositionSetAside, false, detail.Hidden)
 	if detail.CompletionCount > 0 {
-		location = myBooksHistoryURL("", 1, false, "", true)
+		location = myBooksScopedURL("", 1, false, "", true, detail.Hidden)
 	}
 	redirect(w, r, location+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
 }
@@ -354,4 +375,68 @@ func expectedDispositionRevision(r *http.Request) (int64, bool) {
 	}
 	revision, err := strconv.ParseInt(r.FormValue("expected_revision"), 10, 64)
 	return revision, err == nil && revision > 0
+}
+
+func (h *Handler) hideBook(w http.ResponseWriter, r *http.Request) {
+	h.setBookVisibility(w, r, true)
+}
+
+func (h *Handler) unhideBook(w http.ResponseWriter, r *http.Request) {
+	h.setBookVisibility(w, r, false)
+}
+
+// setBookVisibility records the desired Hidden value against the revision the
+// form rendered. It writes only visibility: Start, End, Finish, disposition,
+// reservations, and history are deliberately not consulted or changed, so a
+// Hidden Current reading stays in Reading and Hide never ends it.
+func (h *Handler) setBookVisibility(w http.ResponseWriter, r *http.Request, hidden bool) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner, bookID := user(r).ID, r.PathValue("id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	returnTo := myBooksReturnURL(r.FormValue("return_to"))
+	withNotice := func(key, text string) string {
+		separator := "?"
+		if strings.Contains(returnTo, "?") {
+			separator = "&"
+		}
+		return returnTo + separator + key + "=" + url.QueryEscape(text)
+	}
+	expectedRevision, err := strconv.ParseInt(r.FormValue("expected_visibility_revision"), 10, 64)
+	if err != nil || expectedRevision < 0 {
+		redirect(w, r, withNotice("error", "This My Books form is out of date. Refresh My Books and try again."))
+		return
+	}
+	visibility, ok := h.services.Store.Books.(persistence.BookVisibilityStore)
+	if !ok {
+		fail(w, errors.New("book visibility is unavailable"))
+		return
+	}
+	if _, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		fail(w, err)
+		return
+	}
+	if _, err := visibility.SetBookHidden(r.Context(), owner, bookID, expectedRevision, hidden); err != nil {
+		switch {
+		case errors.Is(err, persistence.ErrStaleBookVisibility):
+			redirect(w, r, withNotice("error", "This Book's visibility changed in another tab. No changes were made; refresh My Books and try again."))
+		case errors.Is(err, persistence.ErrNotFound):
+			http.NotFound(w, r)
+		default:
+			fail(w, err)
+		}
+		return
+	}
+	if hidden {
+		redirect(w, r, withNotice("message", "Book hidden. Use Show hidden books to find it again. Reading intent and history are unchanged."))
+		return
+	}
+	redirect(w, r, withNotice("message", "Book unhidden. Reading intent and history are unchanged."))
 }

@@ -256,6 +256,15 @@ follows the Book across language corrections and is independent of analysis,
 deck state, and reading history; the current Book remains To Read underneath.
 _Avoid_: book status, reading state, workflow state.
 
+**Hidden (Book visibility)**:
+An owner-and-Book choice stored apart from disposition (`book_visibility`; a
+missing row is a visible Book at revision 0). Hide/Unhide request a desired
+value against the expected visibility revision. It only removes the Book from
+default My Books and the default Reading chooser; it never changes disposition,
+Current reading, history, Known, analysis, or corpus participation. Recovery is
+My Books → Show hidden books → Unhide.
+_Avoid_: archived, deleted, set aside.
+
 **Book workflow bucket**:
 The one visible My Books placement of a Book, derived in precedence order from
 Current reading, To Read, Read when history exists, Inbox, then Set Aside.
