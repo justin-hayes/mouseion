@@ -94,8 +94,7 @@ type CurrentReadingStore interface {
 	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
 	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
-	StopCurrentReading(context.Context, string, string, string, string) error
-	SetAsideCurrentReading(context.Context, string, string, string, string) error
+	EndCurrentReading(context.Context, string, string, string, string) error
 	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
 }
 
@@ -257,8 +256,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.startReading)))
 	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))
-	h.mux.Handle("POST /reading/stop", h.user(http.HandlerFunc(h.stopReading)))
-	h.mux.Handle("POST /reading/set-aside", h.user(http.HandlerFunc(h.setAsideCurrentReading)))
+	h.mux.Handle("POST /reading/end", h.user(http.HandlerFunc(h.endCurrentReading)))
 	h.mux.Handle("POST /reading/books/{id}/deck/cancel", h.user(http.HandlerFunc(h.cancelCurrentReadingDeck)))
 	h.mux.Handle("POST /reading/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryCurrentReadingDeck)))
 	// Preserve focused artifact controls under their old URLs; these routes

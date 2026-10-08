@@ -80,6 +80,13 @@ func (h *Handler) respondGoal(w http.ResponseWriter, r *http.Request, message, p
 	redirect(w, r, location)
 }
 
+// expectedCommitmentMatches reports whether the request names the exact
+// commitment snapshot; a missing identity never matches.
+func expectedCommitmentMatches(r *http.Request, snapshotID string) bool {
+	expected := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
+	return expected != "" && snapshotID != "" && expected == snapshotID
+}
+
 func (h *Handler) retryCurrentReadingDeck(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return

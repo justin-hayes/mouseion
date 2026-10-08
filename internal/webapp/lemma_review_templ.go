@@ -136,7 +136,7 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 						return templ_7745c5c3_Err
 					}
 					if recovery.ActiveReadingBookID != "" && recovery.ActiveReadingBookID != bookID {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p role=\"note\">Another Book is current reading. Stop or switch that reading before confirming this recovery, so Mouseion can restart this Book with its corrected snapshot.</p>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p role=\"note\">Another Book is current reading. End or switch that reading before confirming this recovery, so Mouseion can restart this Book with its corrected snapshot.</p>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}

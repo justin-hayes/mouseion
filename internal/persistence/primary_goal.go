@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -529,6 +530,9 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	if err := (domain.PrimaryGoal{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
 		return domain.PrimaryGoal{}, err
 	}
+	if idempotent && !exactCommitment(expectedBookID, expectedSnapshotID) {
+		return domain.PrimaryGoal{}, ErrGoalStale
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -549,20 +553,23 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	if err != nil {
 		return domain.PrimaryGoal{}, err
 	}
-	if idempotent && current.GBookID == bookID && current.GBookID != expectedBookID {
-		snapshotSize, sizeErr := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
-		if sizeErr != nil {
-			return domain.PrimaryGoal{}, sizeErr
+	if current.GBookID != expectedBookID || (expectedSnapshotID != "" && current.SnapshotID != expectedSnapshotID) {
+		if idempotent && current.GBookID == bookID {
+			proven, proofErr := switchReplayProven(ctx, q, owner, language, expectedBookID, expectedSnapshotID, current.SnapshotID)
+			if proofErr != nil {
+				return domain.PrimaryGoal{}, proofErr
+			}
+			if proven {
+				snapshotSize, sizeErr := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
+				if sizeErr != nil {
+					return domain.PrimaryGoal{}, sizeErr
+				}
+				if err = tx.Commit(ctx); err != nil {
+					return domain.PrimaryGoal{}, err
+				}
+				return primaryGoalFromValues(current.GOwnerID, current.Language, current.GBookID, current.SnapshotID, current.SourceMaterialID, current.AnalysisRunID, current.ContentRevisionID, current.ContentSnapshotID, current.CorpusID, snapshotSize, current.CreatedAt, current.UpdatedAt), nil
+			}
 		}
-		if err = tx.Commit(ctx); err != nil {
-			return domain.PrimaryGoal{}, err
-		}
-		return primaryGoalFromValues(current.GOwnerID, current.Language, current.GBookID, current.SnapshotID, current.SourceMaterialID, current.AnalysisRunID, current.ContentRevisionID, current.ContentSnapshotID, current.CorpusID, snapshotSize, current.CreatedAt, current.UpdatedAt), nil
-	}
-	if current.GBookID != expectedBookID {
-		return domain.PrimaryGoal{}, ErrGoalStale
-	}
-	if expectedSnapshotID != "" && current.SnapshotID != expectedSnapshotID {
 		return domain.PrimaryGoal{}, ErrGoalStale
 	}
 	if err = ensurePrimaryGoalCandidate(ctx, tx, owner, language, bookID); err != nil {
@@ -600,12 +607,49 @@ func (s *PostgresStore) changePrimaryGoal(ctx context.Context, owner, language, 
 	return result, nil
 }
 
+// switchReplayProven reports whether the current reading is the successor that
+// an earlier Switch from the expected commitment created. Switch releases the
+// old snapshot and freezes the new one in one transaction, so their timestamps
+// coincide; an End followed by a later Start does not satisfy that, and neither
+// does a completed or still-active expected snapshot.
+func switchReplayProven(ctx context.Context, q *sqlcgen.Queries, owner, language, expectedBookID, expectedSnapshotID, currentSnapshotID string) (bool, error) {
+	if currentSnapshotID == "" {
+		return false, nil
+	}
+	former, err := q.GetPrimaryGoalSnapshotLifecycle(ctx, sqlcgen.GetPrimaryGoalSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if former.BookID != expectedBookID || !former.ReleasedAt.Valid || former.Completed {
+		return false, nil
+	}
+	successor, err := q.GetPrimaryGoalSnapshotLifecycle(ctx, sqlcgen.GetPrimaryGoalSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: currentSnapshotID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return successor.CreatedAt.Equal(former.ReleasedAt.Time), nil
+}
+
 // RecordReadingFinishedPrimaryGoal atomically records completion, graduates the
 // frozen snapshot, sets the Book aside, and clears the current reading. The
 // snapshot is the completion request identity, so retries remain idempotent
 // even after the Book is completed again in the future.
 func (s *PostgresStore) RecordReadingFinishedPrimaryGoal(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (result ReadingFinishResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
+	// A legacy Goal that never received a snapshot has no snapshot identity to
+	// name; the empty expectation still has to match the current row exactly.
+	if _, parseErr := uuid.Parse(expectedBookID); parseErr != nil {
+		return ReadingFinishResult{}, ErrGoalStale
+	}
+	if _, parseErr := uuid.Parse(expectedSnapshotID); parseErr != nil && expectedSnapshotID != "" {
+		return ReadingFinishResult{}, ErrGoalStale
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return ReadingFinishResult{}, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 
@@ -47,21 +48,17 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	return s.changePrimaryGoal(ctx, owner, language, bookID, expectedBookID, expectedSnapshotID, true)
 }
 
-// StopCurrentReading releases the current reading while preserving its
-// immutable snapshot and operational provenance.
-func (s *PostgresStore) StopCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
-	return s.transitionCurrentReading(ctx, owner, language, expectedBookID, expectedSnapshotID, domain.BookDispositionToRead)
-}
-
-// SetAsideCurrentReading ends the active reading and moves its Book to Set Aside
-// in the same transaction. Replaying the same request after it has committed is
-// a no-op.
-func (s *PostgresStore) SetAsideCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
-	return s.transitionCurrentReading(ctx, owner, language, expectedBookID, expectedSnapshotID, domain.BookDispositionSetAside)
-}
-
-func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string, disposition domain.BookDisposition) (err error) {
+// EndCurrentReading releases exactly the expected commitment's Reserved
+// vocabulary and clears the current role without recording completion or Known
+// acceptance. The Book keeps its disposition (To Read), visibility, snapshot,
+// history, and artifacts. A replay is accepted only when durable facts prove
+// that the expected snapshot was released without completion and no reading is
+// current; Book identity or disposition alone is never proof.
+func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (err error) {
 	language = canonicalization.NormalizeLanguage(language)
+	if !exactCommitment(expectedBookID, expectedSnapshotID) {
+		return ErrGoalStale
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -76,26 +73,23 @@ func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, lan
 	}
 	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
-		actual, dispositionErr := q.GetBookDisposition(ctx, sqlcgen.GetBookDispositionParams{OwnerID: owner, BookID: expectedBookID})
-		if dispositionErr != nil {
-			return dispositionErr
+		lifecycle, lifecycleErr := q.GetPrimaryGoalSnapshotLifecycle(ctx, sqlcgen.GetPrimaryGoalSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
+		if errors.Is(lifecycleErr, pgx.ErrNoRows) {
+			return ErrGoalStale
 		}
-		if domain.BookDisposition(actual) == disposition {
-			return tx.Commit(ctx)
+		if lifecycleErr != nil {
+			return lifecycleErr
 		}
-		return ErrNotFound
+		if lifecycle.BookID != expectedBookID || !lifecycle.ReleasedAt.Valid || lifecycle.Completed {
+			return ErrGoalStale
+		}
+		return tx.Commit(ctx)
 	}
 	if err != nil {
 		return err
 	}
-	if current.GBookID != expectedBookID {
+	if current.GBookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
 		return ErrGoalStale
-	}
-	if expectedSnapshotID != "" && current.SnapshotID != expectedSnapshotID {
-		return ErrGoalStale
-	}
-	if err = upsertBookDisposition(ctx, q, owner, expectedBookID, disposition); err != nil {
-		return err
 	}
 	if err = releasePrimaryGoalSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return err
@@ -104,6 +98,17 @@ func (s *PostgresStore) transitionCurrentReading(ctx context.Context, owner, lan
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// exactCommitment reports whether both identities are present and well formed,
+// so malformed or missing expectations are rejected as stale instead of
+// reaching SQL.
+func exactCommitment(bookID, snapshotID string) bool {
+	if _, err := uuid.Parse(bookID); err != nil {
+		return false
+	}
+	_, err := uuid.Parse(snapshotID)
+	return err == nil
 }
 
 // FinishCurrentReading accepts the frozen snapshot and records the same

@@ -35,7 +35,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 					if recovery.ReadyDeckSnapshotID != "" {
 						<p>The existing deck remains available for download and stays bound to its old Reading snapshot. After confirming an identity change, Mouseion will start a new Reading snapshot and prepare a new deck generation from it. The old artifact is not changed.</p>
 						if recovery.ActiveReadingBookID != "" && recovery.ActiveReadingBookID != bookID {
-							<p role="note">Another Book is current reading. Stop or switch that reading before confirming this recovery, so Mouseion can restart this Book with its corrected snapshot.</p>
+							<p role="note">Another Book is current reading. End or switch that reading before confirming this recovery, so Mouseion can restart this Book with its corrected snapshot.</p>
 						}
 					} else {
 						<p>The existing deck remains available for download. An identity-changing decision does not update it; after confirming a decision, explicitly re-prepare into a new generation. Do not use presentation-only re-rendering for a vocabulary identity change.</p>

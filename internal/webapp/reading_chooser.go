@@ -178,15 +178,10 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 }
 
-func (h *Handler) stopReading(w http.ResponseWriter, r *http.Request) {
-	h.transitionCurrentReading(w, r, false)
-}
-
-func (h *Handler) setAsideCurrentReading(w http.ResponseWriter, r *http.Request) {
-	h.transitionCurrentReading(w, r, true)
-}
-
-func (h *Handler) transitionCurrentReading(w http.ResponseWriter, r *http.Request, setAside bool) {
+// endCurrentReading ends the exact expected commitment. It needs no live
+// analysis, so End stays available when the Book's analysis is missing or
+// stale. Replays are verified by the store against durable facts.
+func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
@@ -194,51 +189,27 @@ func (h *Handler) transitionCurrentReading(w http.ResponseWriter, r *http.Reques
 	language, _ := activeStudyLanguageForContext(r.Context())
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
 	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-	if language == "" || expectedBookID == "" || expectedSnapshotID == "" {
-		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language and refresh Reading before changing the current book."))
+	if language == "" {
+		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language and refresh Reading before ending the current reading."))
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
+	if expectedBookID == "" || expectedSnapshotID == "" {
+		redirect(w, r, "/reading?error="+url.QueryEscape(endCurrentReadingStaleMessage))
 		return
 	}
-	disposition := domain.BookDispositionToRead
-	message := "Reading paused. The book remains To Read; its analysis and history are preserved."
-	if setAside {
-		disposition = domain.BookDispositionSetAside
-		message = "Book set aside. Its analysis, deck, and history are preserved."
-	}
-	if !current.IsActive() {
-		actual, dispositionErr := h.services.Store.Books.GetBookDetail(r.Context(), owner, expectedBookID)
-		if dispositionErr != nil {
-			fail(w, dispositionErr)
-			return
-		}
-		if actual.Disposition == disposition {
-			redirect(w, r, "/reading?message="+url.QueryEscape(message))
-			return
-		}
-	}
-	if current.BookID != expectedBookID || (current.IsActive() && current.SnapshotID != expectedSnapshotID) {
-		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed before this action. No changes were made; review Reading and try again."))
-		return
-	}
-	if setAside {
-		err = h.services.Store.CurrentReading.SetAsideCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
-	} else {
-		err = h.services.Store.CurrentReading.StopCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
-	}
-	if errors.Is(err, persistence.ErrCurrentReadingStale) {
-		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed before this action. No changes were made; review Reading and try again."))
+	err := h.services.Store.CurrentReading.EndCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
+	if errors.Is(err, persistence.ErrCurrentReadingStale) || errors.Is(err, persistence.ErrNotFound) {
+		redirect(w, r, "/reading?error="+url.QueryEscape(endCurrentReadingStaleMessage))
 		return
 	}
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(message))
+	redirect(w, r, "/reading?message="+url.QueryEscape("Reading ended. "+h.goalBookTitle(r.Context(), owner, expectedBookID)+" stays in To Read; its analysis, decks, and history are preserved. Choose a Book when you are ready."))
 }
+
+const endCurrentReadingStaleMessage = "The current reading changed before this action. No changes were made; review Reading and try again."
 
 func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {

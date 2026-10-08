@@ -434,6 +434,44 @@ func (q *Queries) GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoa
 	return i, err
 }
 
+const getPrimaryGoalSnapshotLifecycle = `-- name: GetPrimaryGoalSnapshotLifecycle :one
+SELECT s.book_id::text AS book_id, s.created_at, s.released_at,
+       EXISTS (
+           SELECT 1 FROM reading_history h
+           WHERE h.owner_id = s.owner_id AND h.goal_snapshot_id = s.id
+       ) AS completed
+FROM primary_goal_snapshots s
+WHERE s.owner_id = $1 AND s.language = $2
+  AND s.id = $3
+`
+
+type GetPrimaryGoalSnapshotLifecycleParams struct {
+	Owner    string
+	Language string
+	Snapshot string
+}
+
+type GetPrimaryGoalSnapshotLifecycleRow struct {
+	BookID     string
+	CreatedAt  time.Time
+	ReleasedAt pgtype.Timestamptz
+	Completed  bool
+}
+
+// Durable facts that prove a lifecycle replay: who the commitment belonged to,
+// when it was frozen and released, and whether it was completed.
+func (q *Queries) GetPrimaryGoalSnapshotLifecycle(ctx context.Context, arg GetPrimaryGoalSnapshotLifecycleParams) (GetPrimaryGoalSnapshotLifecycleRow, error) {
+	row := q.db.QueryRow(ctx, getPrimaryGoalSnapshotLifecycle, arg.Owner, arg.Language, arg.Snapshot)
+	var i GetPrimaryGoalSnapshotLifecycleRow
+	err := row.Scan(
+		&i.BookID,
+		&i.CreatedAt,
+		&i.ReleasedAt,
+		&i.Completed,
+	)
+	return i, err
+}
+
 const getReadingCompletion = `-- name: GetReadingCompletion :one
 SELECT owner_id::text, language, book_id::text, completed_at,
        COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,

@@ -316,7 +316,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, bookID, goal.BookID)
 	assert.NotEqual(t, "", goal.SnapshotID)
-	stopped := perform(t, h, http.MethodPost, "/reading/stop", url.Values{
+	stopped := perform(t, h, http.MethodPost, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {bookID}, "expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stopped.Code)

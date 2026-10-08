@@ -214,11 +214,11 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	cleared := goalRequest(t, h, "/reading/stop", url.Values{
+	cleared := goalRequest(t, h, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, cleared.Code)
-	clearedAgain := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
+	clearedAgain := goalRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
 	assert.NotContains(t, clearedAgain.Header().Get("Location"), "error=")
 }
@@ -229,7 +229,7 @@ func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	cleared := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
+	cleared := goalRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)
 	chosen := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{
 		"csrf_token": {csrf},
@@ -382,6 +382,7 @@ func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
 
 	response := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/preparations", url.Values{
 		"csrf_token":                   {csrf},
+		"expected_current_snapshot_id": {goal.SnapshotID},
 		"external_translation_consent": {"on"},
 	}, cookies)
 
@@ -525,7 +526,7 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 	h, cookies, csrf, store := goalFixtureSession(t)
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	cleared := goalRequest(t, h, "/reading/stop", url.Values{
+	cleared := goalRequest(t, h, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)

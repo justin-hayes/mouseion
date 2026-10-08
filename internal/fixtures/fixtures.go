@@ -116,6 +116,8 @@ type Store struct {
 	visibility             map[string]fixtureVisibility
 	primaryGoals           map[string]domain.PrimaryGoal
 	goalSnapshotSequence   map[string]int
+	endedSnapshots         map[string]string
+	switchSuccessors       map[string]string
 	readingHistory         map[string]domain.ReadingCompletion
 	importedHistory        map[string]domain.ReadingCompletion
 	syncStatuses           []domain.CatalogueSyncStatus
@@ -214,6 +216,8 @@ func NewStore() *Store {
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
 		goalSnapshotSequence: make(map[string]int),
+		endedSnapshots:       make(map[string]string),
+		switchSuccessors:     make(map[string]string),
 		goalSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{
 			"fixture-de-goal-snapshot": {
 				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
@@ -1851,12 +1855,16 @@ func (s *Store) SwitchCurrentReading(_ context.Context, owner, language, bookID,
 	if !active {
 		return domain.CurrentReading{}, persistence.ErrNotFound
 	}
-	if goal.BookID == bookID && goal.BookID != expectedBookID {
+	if expectedBookID == "" || expectedSnapshotID == "" {
+		return domain.CurrentReading{}, persistence.ErrGoalStale
+	}
+	if goal.BookID == bookID && s.switchSuccessors[expectedSnapshotID] == goal.SnapshotID {
 		return goal, nil
 	}
 	if goal.BookID != expectedBookID || goal.SnapshotID != expectedSnapshotID {
 		return domain.CurrentReading{}, persistence.ErrGoalStale
 	}
+	previousSnapshotID := goal.SnapshotID
 	if !s.fixtureBookExists(owner, bookID) {
 		return domain.CurrentReading{}, errNotFound
 	}
@@ -1867,6 +1875,7 @@ func (s *Store) SwitchCurrentReading(_ context.Context, owner, language, bookID,
 	goal = s.fixtureGoalFromBook(owner, language, bookID, goal.CreatedAt)
 	goal.UpdatedAt = time.Now()
 	s.primaryGoals[key] = goal
+	s.switchSuccessors[previousSnapshotID] = goal.SnapshotID
 	return goal, nil
 }
 
@@ -1935,36 +1944,27 @@ func (s *Store) ClearPrimaryGoal(_ context.Context, owner, language, expectedBoo
 	return nil
 }
 
-func (s *Store) StopCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
-	return s.transitionFixtureCurrentReading(owner, language, expectedBookID, expectedSnapshotID, domain.BookDispositionToRead)
-}
-
-func (s *Store) SetAsideCurrentReading(_ context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
-	return s.transitionFixtureCurrentReading(owner, language, expectedBookID, expectedSnapshotID, domain.BookDispositionSetAside)
-}
-
-func (s *Store) transitionFixtureCurrentReading(owner, language, expectedBookID, expectedSnapshotID string, disposition domain.BookDisposition) error {
+// EndCurrentReading clears the exact expected commitment. A replay succeeds
+// only for a snapshot this store recorded as ended.
+func (s *Store) EndCurrentReading(_ context.Context, owner, language, expectedBookID, expectedSnapshotID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
 	key := fixtureGoalKey(owner, language)
 	goal, active := s.primaryGoals[key]
+	if expectedBookID == "" || expectedSnapshotID == "" {
+		return persistence.ErrGoalStale
+	}
 	if !active {
-		if !s.fixtureBookExists(owner, expectedBookID) {
-			return persistence.ErrNotFound
-		}
-		if s.bookDispositionLocked(owner, expectedBookID) == disposition {
+		if s.endedSnapshots[expectedSnapshotID] == expectedBookID {
 			return nil
 		}
-		return persistence.ErrNotFound
-	}
-	if goal.BookID != expectedBookID {
 		return persistence.ErrGoalStale
 	}
-	if goal.SnapshotID != expectedSnapshotID {
+	if goal.BookID != expectedBookID || goal.SnapshotID != expectedSnapshotID {
 		return persistence.ErrGoalStale
 	}
-	s.dispositions[fixtureDispositionKey(owner, expectedBookID)] = disposition
+	s.endedSnapshots[expectedSnapshotID] = expectedBookID
 	delete(s.primaryGoals, key)
 	return nil
 }
@@ -1976,6 +1976,9 @@ func (s *Store) RecordReadingFinishedPrimaryGoal(_ context.Context, owner, langu
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
 	key := fixtureGoalKey(owner, language)
+	if expectedBookID == "" || expectedSnapshotID == "" {
+		return persistence.ReadingFinishResult{}, persistence.ErrGoalStale
+	}
 	goal, ok := s.primaryGoals[key]
 	if !ok {
 		completion, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)]

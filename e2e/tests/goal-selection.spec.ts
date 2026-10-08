@@ -43,11 +43,11 @@ test.describe('Current reading selection', () => {
       await page.goto('/reading');
 
       const current = page.locator('#primary-goal-section');
-      const stop = current.locator('details').filter({ hasText: 'Stop reading for now' });
+      const stop = current.locator('details').filter({ hasText: 'End current reading' });
       const setAside = current.locator('details').filter({ hasText: 'Set aside this Book' });
       await expect(stop).toContainText('The Book remains To Read');
       await expect(setAside).toContainText('moves the Book to Set Aside');
-      for (const [confirmation, button] of [[stop, 'Confirm stop for now'], [setAside, 'Confirm set aside']] as const) {
+      for (const [confirmation, button] of [[stop, 'Confirm end current reading'], [setAside, 'Confirm set aside']] as const) {
         await confirmation.locator('summary').focus();
         await expect(confirmation.locator('summary')).toBeFocused();
         await confirmation.locator('summary').press('Enter');
@@ -59,7 +59,7 @@ test.describe('Current reading selection', () => {
       }
 
       const staleStopForm = stop.locator('form');
-      const staleResponse = await page.request.post(new URL('/reading/stop', page.url()).toString(), {
+      const staleResponse = await page.request.post(new URL('/reading/end', page.url()).toString(), {
         maxRedirects: 0,
         form: {
           csrf_token: await staleStopForm.locator('input[name="csrf_token"]').inputValue(),
@@ -218,9 +218,9 @@ test.describe('Current reading selection', () => {
       await expect(currentCard.getByRole('link', { name: 'Open focused deck task' }))
         .toHaveAttribute('href', /\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
 
-      const stop = currentCard.locator('details').filter({ hasText: 'Stop reading for now' });
+      const stop = currentCard.locator('details').filter({ hasText: 'End current reading' });
       await stop.locator('summary').click();
-      await stop.getByRole('button', { name: 'Confirm stop for now' }).click();
+      await stop.getByRole('button', { name: 'Confirm end current reading' }).click();
       await expect(page).toHaveURL(/\/reading\?message=/);
       await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 

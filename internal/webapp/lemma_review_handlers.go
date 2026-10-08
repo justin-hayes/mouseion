@@ -261,7 +261,7 @@ func (h *Handler) lemmaReviewCorrectionAvailability(ctx context.Context, ownerID
 		return false, "", err
 	}
 	if currentReadingBlocksLemmaDecision(current, bookID) {
-		return false, "This Book is current reading. Stop reading before changing its vocabulary; the frozen reading snapshot remains unchanged.", nil
+		return false, "This Book is current reading. End current reading before changing its vocabulary; the frozen reading snapshot remains unchanged.", nil
 	}
 	return true, "", nil
 }

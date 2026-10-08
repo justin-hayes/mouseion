@@ -59,7 +59,8 @@ func TestJourneyPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.Contains(t, html, `class="journey-book__lifecycle"`)
 	assert.Contains(t, html, "Mark reading finished")
 	assert.Contains(t, html, "Switch current reading")
-	assert.Contains(t, html, "Set aside this Book")
+	assert.Contains(t, html, "End current reading")
+	assert.NotContains(t, html, "Set aside this Book")
 }
 
 func TestJourneyPageRendersAlignedCoverMediaForGoalAndProvisionalBooks(t *testing.T) {
