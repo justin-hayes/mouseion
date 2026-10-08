@@ -52,6 +52,9 @@ func main() {
 		}
 	})
 	mux.Handle("/static/", webapp.StaticHandler())
+	if os.Getenv("MOUSEION_CONCORDANCE_PROTOTYPE") == "1" {
+		mux.HandleFunc("GET /vocabulary/concordance", webapp.ConcordancePrototypeHandler)
+	}
 	mux.Handle("/", h)
 	log.Print("mouseion fixture server listening")
 	log.Fatal((&http.Server{

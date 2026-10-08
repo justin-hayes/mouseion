@@ -22,6 +22,11 @@ export GOTMPDIR := $(CURDIR)/.tmp/go
 
 .PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
 
+# Throwaway design evidence only; never run this fixture server against real data.
+.PHONY: prototype-concordance
+prototype-concordance: go-tmp
+	MOUSEION_CONCORDANCE_PROTOTYPE=1 go run ./cmd/fixtureserver
+
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
 
