@@ -342,6 +342,16 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 		_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL,true)`, owner.ID, book.ID, corpusID, runID, sourceDocumentID, start, start+5)
 		require.NoError(t, err)
 	}
+	// Effective Browse counts after the correction (+1) and exclusions (-5).
+	for _, count := range []struct {
+		lemma, upos string
+		occurrences int64
+	}{{"σπίτι", "NOUN", 86}, {"πηγαίνω", "VERB", 9}} {
+		_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count) VALUES($1,$2,'el',$3,$4,$5,$6,$7)`, owner.ID, book.ID, runID, corpusID, count.lemma, count.upos, count.occurrences)
+		require.NoError(t, err)
+	}
+	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'el',$3,$4,$5)`, owner.ID, book.ID, runID, corpusID, vocabularyBrowseCountBuilderVersion)
+	require.NoError(t, err)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
 		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID,
 		Filename: "margin.apkg", DeckName: "Margin evidence", ContentHash: source.ContentHash,

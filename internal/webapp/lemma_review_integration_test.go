@@ -226,6 +226,12 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, int64(3), coverage.KnownTokenCount, "Known matches the corrected effective identity")
 	assert.Zero(t, coverage.UnknownTokenCount)
 	assert.Equal(t, int64(3), coverage.AnalyzableTokenCount, "correction does not change the source-derived denominator")
+	// Decisions retire the Book's Browse counts until the durable rebuild runs;
+	// My Books shows no coverage without them, so publish them as the job would.
+	rebuildTx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(ctx, rebuildTx, owner.ID, book.ID, source.ID, analysisRun, corpus.ID, "de"))
+	require.NoError(t, rebuildTx.Commit(ctx))
 	myBooksAuth := auth.New(store, time.Hour)
 	myBooksHandler := New(Services{Auth: myBooksAuth, WebAuth: webauth.New(myBooksAuth, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, myBooksHandler, "lemma-review-owner", "learner-password")
