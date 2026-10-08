@@ -225,19 +225,13 @@ test.describe('authenticated learner smoke', () => {
       await noScript.goto('/vocabulary/concordance');
       await expect(noScript.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
       expect(await noScript.locator('#concordance-workflow select').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).appearance === 'auto'))).toBe(true);
-      await expect(noScript.getByLabel('Lookup evidence')).toHaveValue('surface');
-      await expect(noScript.getByLabel('Part of speech')).toBeHidden();
-      for (const disclosure of ['Books (applied: all current Books)', 'Grammar (applied: no grammar filter)']) {
-        const summary = noScript.getByText(disclosure, { exact: true });
-        await summary.focus();
-        await noScript.keyboard.press('Enter');
-        await expect(summary.locator('..')).toHaveAttribute('open', '');
-        await expect(summary).toBeFocused();
-      }
-      await noScript.getByLabel('Exact term').fill('Haus');
+      await expect(noScript.getByLabel('Lemma or word form')).toBeVisible();
+      for (const retired of ['Lookup evidence', 'Part of speech', 'Grammar direction']) await expect(noScript.getByLabel(retired)).toHaveCount(0);
+      await expect(noScript.locator('#concordance-workflow details, #concordance-workflow select')).toHaveCount(0);
+      await noScript.getByLabel('Lemma or word form').fill('Haus');
       await noScript.getByRole('button', { name: 'Find', exact: true }).click();
-      await expect(noScript).toHaveURL(/mode=surface.*term=Haus/);
-      await expect(noScript.getByRole('heading', { name: 'Current results' })).toBeVisible();
+      await expect(noScript).toHaveURL(/term=Haus/);
+      await expect(noScript.getByRole('heading', { name: 'Forms of haus' })).toBeVisible();
       const rows = noScript.locator('details.concordance-row');
       await expect(rows).toHaveCount(25);
       const studyLinks = noScript.getByRole('link', { name: 'Study this sentence and its syntax' });
@@ -275,9 +269,9 @@ test.describe('authenticated learner smoke', () => {
       await expect(noScript.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
       await expect(noScript.locator('.sentence-study-tokens')).toContainText('Corrected for this occurrence');
       await noScript.getByRole('link', { name: 'Return to Concordance results' }).click();
-      await expect(noScript).toHaveURL(/\/vocabulary\/concordance\?.*#occurrence-fixture-book-0-1$/);
-      await expect(noScript.getByRole('heading', { name: 'Current results' })).toBeVisible();
-      await expect.poll(() => noScript.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
+      await expect(noScript).toHaveURL(/\/vocabulary\/concordance\?.*#occurrence-fixture-book-2-1$/);
+      await expect(noScript.getByRole('heading', { name: 'Forms of haus' })).toBeVisible();
+      await expect.poll(() => noScript.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-2-1');
       const compactOverflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
       expect(compactOverflow).toBe(false);
       await noScript.setViewportSize({ width: 320, height: 200 });
@@ -302,7 +296,7 @@ test.describe('authenticated learner smoke', () => {
       expect(highZoomContent.studyLeft).toBeGreaterThanOrEqual(0);
       expect(highZoomContent.studyRight).toBeLessThanOrEqual(320);
       await noScript.setViewportSize({ width: 1280, height: 800 });
-      await noScript.goto('/vocabulary/concordance?mode=surface&term=Haus');
+      await noScript.goto('/vocabulary/concordance?term=Haus');
       await expectConcordanceScanSpace(noScript, '#concordance-native-results .concordance-result');
       await noScript.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' }).click();
       await expect(noScript).toHaveURL(/page=2/);
@@ -325,7 +319,7 @@ test.describe('authenticated learner smoke', () => {
     });
     await page.goto('/vocabulary/concordance');
     await expect(page.locator('#concordance-results')).toHaveCount(0);
-    await page.getByLabel('Exact term').fill('Haus');
+    await page.getByLabel('Lemma or word form').fill('Haus');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     const results = page.locator('#concordance-results');
     const rows = page.locator('#concordance-native-results');
@@ -339,8 +333,8 @@ test.describe('authenticated learner smoke', () => {
     await expectConcordanceScanSpace(page, '#concordance-native-results .concordance-result');
     const occurrenceIDs = await rows.locator('details.concordance-row').evaluateAll(rows => rows.map(row => row.id));
     expect(new Set(occurrenceIDs).size).toBe(occurrenceIDs.length);
-    expect(occurrenceIDs).toEqual(Array.from({ length: 25 }, (_, index) => `occurrence-fixture-book-${index}-1`));
-    await expect(page.locator('#occurrence-fixture-book-0-1')).toBeVisible();
+    expect(occurrenceIDs).toEqual(Array.from({ length: 25 }, (_, index) => `occurrence-fixture-book-${index + 2}-1`));
+    await expect(page.locator('#occurrence-fixture-book-2-1')).toBeVisible();
     const firstRow = rows.locator('.concordance-result').first();
     await expect(firstRow.locator('.concordance-book-label')).toContainText('Der lange Weg nach Hause');
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
@@ -354,13 +348,6 @@ test.describe('authenticated learner smoke', () => {
     });
     expect(accentUsesMouseionToken).toBe(true);
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    const bookFilter = page.locator('.concordance-scopes details').first();
-    const bookFilterSummary = bookFilter.locator('summary');
-    const closedBookCue = await bookFilterSummary.evaluate(element => getComputedStyle(element, '::before').transform);
-    await bookFilterSummary.click();
-    await expect(bookFilter).toHaveAttribute('open', '');
-    expect(await bookFilterSummary.evaluate(element => getComputedStyle(element, '::before').transform)).not.toBe(closedBookCue);
-    await bookFilterSummary.click();
     await expect(firstRow.locator('details')).not.toHaveAttribute('open', '');
     const closedOccurrenceCue = await firstRow.locator('summary').evaluate(element => getComputedStyle(element, '::before').transform);
     await firstRow.locator('summary').click();
@@ -402,39 +389,36 @@ test.describe('authenticated learner smoke', () => {
     await firstRow.locator('.concordance-study-link').click();
     await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
-    const returnedOccurrence = page.locator('#occurrence-fixture-book-0-1');
+    const returnedOccurrence = page.locator('#occurrence-fixture-book-2-1');
     await expect(returnedOccurrence).toBeVisible();
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
-    await expect(results).toContainText('lookup for “Haus”');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-2-1');
+    await expect(results).toContainText('Forms of haus');
   });
 
   test('Concordance paging preserves the query controls in the DOM', async ({ page }) => {
     await page.goto('/vocabulary/concordance');
-    await page.getByLabel('Exact term').fill('Haus');
+    await page.getByLabel('Lemma or word form').fill('Haus');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(25);
-    await page.getByLabel('Exact term').evaluate(element => element.setAttribute('data-stable-control', 'yes'));
+    await page.getByLabel('Lemma or word form').evaluate(element => element.setAttribute('data-stable-control', 'yes'));
     await page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' }).click();
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(1);
-    await expect(page.getByLabel('Exact term')).toHaveAttribute('data-stable-control', 'yes');
+    await expect(page.getByLabel('Lemma or word form')).toHaveAttribute('data-stable-control', 'yes');
   });
 
   test('Concordance network failure keeps old results and offers the attempted query', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj');
+    await page.goto('/vocabulary/concordance?term=Haus');
     const oldResults = page.locator('#concordance-results');
-    await expect(oldResults).toContainText('lookup for “Haus”');
+    await expect(oldResults).toContainText('Forms of haus');
     await page.route(/\/vocabulary\/concordance.*term=Netzwerk/, route => route.abort());
-    await page.getByLabel('Exact term').fill('Netzwerk');
+    await page.getByLabel('Lemma or word form').fill('Netzwerk');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     const recovery = page.locator('#concordance-recovery');
     await expect(recovery).toContainText('connection failed or the browser-side request timed out');
     const retry = recovery.getByRole('link', { name: 'Retry Concordance lookup' });
     await expect(retry).toHaveAttribute('href', /term=Netzwerk/);
-    await expect(retry).toHaveAttribute('href', /book=fixture-book/);
-    await expect(retry).toHaveAttribute('href', /grammar=own/);
-    await expect(retry).toHaveAttribute('href', /relation=obj/);
-    await expect(oldResults).toContainText('lookup for “Haus”');
+    await expect(oldResults).toContainText('Forms of haus');
     await expect(page).toHaveURL(/term=Haus/);
     await page.unroute(/\/vocabulary\/concordance.*term=Netzwerk/);
   });
@@ -443,7 +427,7 @@ test.describe('authenticated learner smoke', () => {
     // htmx schedules its request timeout with setTimeout; fast-forward past it
     // instead of waiting out the real 9s.
     await page.clock.install();
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    await page.goto('/vocabulary/concordance?term=Haus');
     const oldResults = page.locator('#concordance-results');
     let releaseRequest!: () => void;
     const requestGate = new Promise<void>(resolve => { releaseRequest = resolve; });
@@ -455,12 +439,12 @@ test.describe('authenticated learner smoke', () => {
       try { await route.continue(); } catch { /* HTMX times out and aborts this request. */ }
     });
     try {
-      await page.getByLabel('Exact term').fill('Slow');
+      await page.getByLabel('Lemma or word form').fill('Slow');
       await page.getByRole('button', { name: 'Find', exact: true }).click();
       await started;
       await page.clock.fastForward(10_000);
       await expect(page.locator('#concordance-recovery')).toContainText('browser-side request timed out');
-      await expect(oldResults).toContainText('lookup for “Haus”');
+      await expect(oldResults).toContainText('Forms of haus');
       await expect(page).toHaveURL(/term=Haus/);
     } finally {
       releaseRequest();
@@ -469,7 +453,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('Concordance applies only the newest overlapping lookup', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+    await page.goto('/vocabulary/concordance?term=Haus');
     let releaseSlow!: () => void;
     const slowResponse = new Promise<void>(resolve => { releaseSlow = resolve; });
     let slowRequestStarted!: () => void;
@@ -479,49 +463,20 @@ test.describe('authenticated learner smoke', () => {
       await slowResponse;
       try { await route.continue(); } catch { /* HTMX may have aborted the superseded request. */ }
     });
-    await page.getByLabel('Exact term').fill('Langsam');
+    await page.getByLabel('Lemma or word form').fill('Langsam');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     await slowRequest;
-    await page.getByLabel('Exact term').fill('Haus2');
+    await page.getByLabel('Lemma or word form').fill('Haus2');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
-    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
+    await expect(page.locator('#concordance-results')).toContainText('Word form haus2');
     releaseSlow();
-    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”');
-    await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Langsam”');
+    await expect(page.locator('#concordance-results')).toContainText('Word form haus2');
+    await expect(page.locator('#concordance-results')).not.toContainText('Word form langsam');
     await expect(page).toHaveURL(/term=Haus2/);
   });
 
-  test('Concordance Book and grammar drafts stay separate until explicitly applied', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
-    const currentResults = page.locator('#concordance-results');
-    await expect(currentResults).toContainText('all current Books');
-    await expect(currentResults).toContainText('no grammar filter');
-
-    const books = page.locator('details').filter({ hasText: /^Books \(applied:/ });
-    await books.locator('summary').click();
-    const firstBook = books.locator('input[name="book"]').first();
-    await expect(firstBook).toBeVisible();
-    const bookTitle = (await firstBook.locator('xpath=..').innerText()).trim();
-    await firstBook.check();
-    await expect(currentResults).toContainText('all current Books');
-    await books.getByRole('button', { name: 'Apply Books' }).click();
-    await expect(page).toHaveURL(/book=/);
-    await expect(page.locator('.concordance-results')).toHaveCount(1);
-    await expect(currentResults).toContainText(bookTitle);
-    await expect(currentResults).toContainText('no grammar filter');
-
-    const grammar = page.locator('details').filter({ hasText: /^Grammar \(applied:/ });
-    await grammar.locator('summary').click();
-    await grammar.getByLabel('Grammar direction').selectOption('own');
-    await grammar.getByLabel('Dependency relation').fill('obj');
-    await expect(currentResults).toContainText('no grammar filter');
-    await grammar.getByRole('button', { name: 'Apply grammar' }).click();
-    await expect(page).toHaveURL(/grammar=own.*relation=obj/);
-    await expect(currentResults).toContainText('own relation: obj');
-  });
-
 test('Concordance disclosures, study return, and paging work across the 25-result boundary', async ({ page }) => {
-    const query = 'mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj';
+    const query = 'term=Haus';
     await page.goto(`/vocabulary/concordance?${query}&page=1`);
     const results = page.locator('#concordance-native-results');
     await expect(results.locator('.concordance-result')).toHaveCount(25);
@@ -542,13 +497,10 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(firstStudyLink).toBeFocused();
     await page.keyboard.press('Enter');
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
-    await expect(page).toHaveURL(/page=1.*#occurrence-fixture-book-0-1$/);
+    await expect(page).toHaveURL(/page=1.*#occurrence-fixture-book-2-1$/);
     let returnedURL = new URL(page.url());
-    expect(returnedURL.searchParams.getAll('book')).toEqual(['fixture-book']);
-    expect(returnedURL.searchParams.get('grammar')).toBe('own');
-    expect(returnedURL.searchParams.get('relation')).toBe('obj');
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-0-1');
-    expect(returnedURL.searchParams.get('focus')).toBe('occurrence-fixture-book-0-1');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('occurrence-fixture-book-2-1');
+    expect(returnedURL.searchParams.get('focus')).toBe('occurrence-fixture-book-2-1');
 
     const next = page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' });
     await expect(next).toHaveAttribute('href', /page=2/);
@@ -556,14 +508,11 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page).toHaveURL(/page=2/);
     await expect(results.locator('.concordance-result')).toHaveCount(1);
     const pageTwoID = await disclosures.first().getAttribute('id');
-    expect(pageTwoID).toBe('occurrence-fixture-book-25-1');
+    expect(pageTwoID).toBe('occurrence-fixture-book-27-1');
     await results.locator('.concordance-result').first().locator('.concordance-study-link').click();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
     await expect(page).toHaveURL(new RegExp(`page=2.*#${pageTwoID}$`));
     returnedURL = new URL(page.url());
-    expect(returnedURL.searchParams.getAll('book')).toEqual(['fixture-book']);
-    expect(returnedURL.searchParams.get('grammar')).toBe('own');
-    expect(returnedURL.searchParams.get('relation')).toBe('obj');
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe(pageTwoID);
     expect(returnedURL.searchParams.get('focus')).toBe(pageTwoID);
     await expect(page.locator('#concordance-summary').locator('..')).toContainText('page 2');
@@ -587,16 +536,16 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const noScriptPage = await context.newPage();
     try {
       await signIn(noScriptPage);
-      await noScriptPage.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj&page=2&focus=occurrence-fixture-book-25-1#occurrence-fixture-book-25-1');
-      const target = noScriptPage.locator('#occurrence-fixture-book-25-1');
+      await noScriptPage.goto('/vocabulary/concordance?term=Haus&page=2&focus=occurrence-fixture-book-27-1#occurrence-fixture-book-27-1');
+      const target = noScriptPage.locator('#occurrence-fixture-book-27-1');
       await expect(target).toBeFocused();
       await target.locator('..').locator('.concordance-study-link').click();
       await noScriptPage.getByRole('link', { name: 'Return to Concordance results' }).click();
-      await expect(noScriptPage).toHaveURL(/page=2.*#occurrence-fixture-book-25-1$/);
-      expect(new URL(noScriptPage.url()).searchParams.get('focus')).toBe('occurrence-fixture-book-25-1');
+      await expect(noScriptPage).toHaveURL(/page=2.*#occurrence-fixture-book-27-1$/);
+      expect(new URL(noScriptPage.url()).searchParams.get('focus')).toBe('occurrence-fixture-book-27-1');
       await expect(target).toBeFocused();
 
-      await noScriptPage.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj&page=2&focus=occurrence-missing#occurrence-missing');
+      await noScriptPage.goto('/vocabulary/concordance?term=Haus&page=2&focus=occurrence-missing#occurrence-missing');
       await expect(noScriptPage.locator('#concordance-summary')).toBeFocused();
     } finally {
       await context.close();
@@ -604,26 +553,26 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
   });
 
   test('Concordance keeps its applied results labeled while an enhanced lookup is pending', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj');
-    await expect(page.getByRole('heading', { name: 'Current results' })).toBeVisible();
+    await page.goto('/vocabulary/concordance?term=Haus');
+    await expect(page.getByRole('heading', { name: 'Forms of haus' })).toBeVisible();
     await page.evaluate(() => {
       const nativeFetch = window.fetch.bind(window);
       window.fetch = (...args) => new Promise((resolve, reject) => {
         window.setTimeout(() => nativeFetch(...args).then(resolve, reject), 1300);
       });
     });
-    await page.getByLabel('Exact term').fill('Haus2');
+    await page.getByLabel('Lemma or word form').fill('Haus2');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     await expect(page.locator('#concordance-pending')).toBeVisible();
-    await expect(page.locator('#concordance-pending')).toContainText('previous results remain under their previously applied query and scope');
-    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
-    await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
-    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus2”', { timeout: 5000 });
+    await expect(page.locator('#concordance-pending')).toContainText('previous results remain under their previously applied lookup');
+    await expect(page.locator('#concordance-results')).toContainText('Forms of haus');
+    await expect(page.locator('#concordance-results')).not.toContainText('Word form haus2');
+    await expect(page.locator('#concordance-results')).toContainText('Word form haus2', { timeout: 5000 });
     await expect(page).toHaveURL(/term=Haus2/);
     await page.goBack();
-    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
-    await expect(page.locator('#concordance-results')).not.toContainText('lookup for “Haus2”');
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus&book=fixture-book&grammar=own&relation=obj');
+    await expect(page.locator('#concordance-results')).toContainText('Forms of haus');
+    await expect(page.locator('#concordance-results')).not.toContainText('Word form haus2');
+    await page.goto('/vocabulary/concordance?term=Haus');
     const nextPage = page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' });
     await nextPage.evaluate(link => {
       const nextURL = new URL((link as HTMLAnchorElement).href);
@@ -635,29 +584,22 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await nextPage.click();
     expect((await conflictResponse).status()).toBe(409);
     await expect(page.locator('#concordance-recovery')).toContainText('Current evidence changed');
-    const restart = page.locator('#concordance-recovery').getByRole('link', { name: 'Restart from results' });
+    const restart = page.locator('#concordance-recovery').getByRole('link', { name: 'Refresh results' });
     await expect(restart).toHaveAttribute('href', /page=1/);
     await expect(restart).not.toHaveAttribute('href', /rev=/);
-    await expect(restart).toHaveAttribute('href', /book=fixture-book/);
-    await expect(restart).toHaveAttribute('href', /grammar=own/);
-    await expect(restart).toHaveAttribute('href', /relation=obj/);
-    await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
+    await expect(page.locator('#concordance-results')).toContainText('Forms of haus');
     await expect(page).toHaveURL(/term=Haus/);
 
     for (const [term, statusCode, message] of [['fixture-server-error', 500, 'Concordance lookup was not applied'], ['fixture-server-timeout', 504, 'Concordance server timed out']] as const) {
-      await page.getByLabel('Exact term').fill(term);
+      await page.getByLabel('Lemma or word form').fill(term);
       const failureResponse = page.waitForResponse(response => response.url().includes(`term=${term}`));
       await page.getByRole('button', { name: 'Find', exact: true }).click();
       expect((await failureResponse).status()).toBe(statusCode);
       await expect(page.locator('#concordance-recovery')).toContainText(message);
       const retryForm = page.locator('#concordance-recovery form');
-      await expect(retryForm.getByRole('button', { name: 'Retry Concordance lookup from page 1' })).toBeVisible();
+      await expect(retryForm.getByRole('button', { name: 'Retry' })).toBeVisible();
       await expect(retryForm.locator('input[name="term"]')).toHaveValue(term);
-      await expect(retryForm.locator('input[name="book"]')).toHaveValue('fixture-book');
-      await expect(retryForm.locator('input[name="book"]')).toBeChecked();
-      await expect(retryForm.locator('input[name="grammar"]')).toHaveValue('own');
-      await expect(retryForm.locator('input[name="relation"]')).toHaveValue('obj');
-      await expect(page.locator('#concordance-results')).toContainText('lookup for “Haus”');
+      await expect(page.locator('#concordance-results')).toContainText('Forms of haus');
       await expect(page.locator('#concordance-results')).not.toContainText(`lookup for “${term}”`);
       await expect(page).toHaveURL(/term=Haus/);
     }

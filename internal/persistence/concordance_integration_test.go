@@ -119,38 +119,29 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	require.NoError(t, err)
 	require.Len(t, languageDependents, 1)
 
-	ownRelation, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "haus", UPOS: "NOUN", BookIDs: []string{bookA.ID, bookB.ID},
-		GrammarDirection: "own", Relation: "obj", Page: 1,
-	})
+	lemmaLookup, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, ownRelation.Occurrences, 1)
-	assert.Equal(t, bookA.ID, ownRelation.Occurrences[0].BookID)
-
-	governorDependents, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "das", UPOS: "DET", BookIDs: []string{bookA.ID},
-		GrammarDirection: "governor", Relation: "obj", Page: 1,
-	})
+	assert.Equal(t, domain.ConcordanceMatchLemma, lemmaLookup.Match)
+	require.Len(t, lemmaLookup.Occurrences, 2)
+	assert.Equal(t, bookA.ID, lemmaLookup.Occurrences[0].BookID)
+	assert.Equal(t, bookB.ID, lemmaLookup.Occurrences[1].BookID)
+	dasLookup, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "Das", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, governorDependents.Occurrences, 1)
-	assert.Equal(t, "Haus", governorDependents.Occurrences[0].Surface)
+	assert.Equal(t, domain.ConcordanceMatchLemma, dasLookup.Match, "das is an evidenced lemma")
+	targetOccurrence := lemmaLookup.Occurrences[0]
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version) VALUES($1,$2,$3,$4,$5,2,5,'der','de','1')`,
-		alice.ID, bookA.ID, governorDependents.Occurrences[0].CorpusID,
-		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].UnitID)
+		alice.ID, bookA.ID, targetOccurrence.CorpusID, targetOccurrence.AnalysisRunID, targetOccurrence.UnitID)
 	require.NoError(t, err)
-	correctedGovernor, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "der", UPOS: "DET", BookIDs: []string{bookA.ID},
-		GrammarDirection: "governor", Relation: "obj", Page: 1,
-	})
+	correctedLemma, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "der", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, correctedGovernor.Occurrences, 1)
-	uncorrectedGovernor, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "das", UPOS: "DET", BookIDs: []string{bookA.ID},
-		GrammarDirection: "governor", Relation: "obj", Page: 1,
-	})
+	assert.Equal(t, domain.ConcordanceMatchLemma, correctedLemma.Match)
+	require.Len(t, correctedLemma.Occurrences, 1)
+	assert.Equal(t, "Das", correctedLemma.Occurrences[0].Surface, "the correction attributes the occurrence to the corrected lemma")
+	uncorrectedForm, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "das", Match: domain.ConcordanceMatchForm, Page: 1})
 	require.NoError(t, err)
-	assert.Empty(t, uncorrectedGovernor.Occurrences)
+	require.Len(t, uncorrectedForm.Occurrences, 1, "surface lookup retains unchanged source matching after correction")
 
+	governorDependents := lemmaLookup
 	study, err := store.GetVocabularySentenceStudy(ctx, alice.ID, bookA.ID,
 		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].CorpusID,
 		governorDependents.Occurrences[0].UnitID, governorDependents.Occurrences[0].SentenceOrdinal,

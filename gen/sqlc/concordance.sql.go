@@ -11,6 +11,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const concordanceLemmaEvidenced = `-- name: ConcordanceLemmaEvidenced :one
+SELECT EXISTS (
+  SELECT 1
+    FROM concordance_occurrences o
+    LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
+      AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
+      AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
+      AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
+   WHERE o.owner_id=$1 AND o.language=$2
+     AND NOT COALESCE(d.excluded, false)
+     AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$3::text
+)::boolean AS evidenced
+`
+
+type ConcordanceLemmaEvidencedParams struct {
+	Owner    string
+	Language string
+	Term     string
+}
+
+// A lemma is recognized only from non-excluded effective identities in the
+// eligible owner/language corpus, across every evidenced part of speech.
+func (q *Queries) ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, concordanceLemmaEvidenced, arg.Owner, arg.Language, arg.Term)
+	var evidenced bool
+	err := row.Scan(&evidenced)
+	return evidenced, err
+}
+
 const getVocabularySentenceStudy = `-- name: GetVocabularySentenceStudy :many
 
 SELECT COALESCE(t.surface, '')::text AS surface,
@@ -1338,49 +1367,24 @@ SELECT o.surface,
     AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
     AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
  WHERE o.owner_id=$1 AND o.language=$2
-   AND ($3::text='governor' OR $4::text <> 'surface' OR o.surface=$5)
-   AND ($3::text='governor' OR $4::text <> 'effective' OR
-        (NOT COALESCE(d.excluded, false)
-         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$5
-         AND o.upos=$6))
-   AND ($3::text='governor' OR $4::text <> 'analyzer' OR
-        (t.raw_lemma=$5 AND o.upos=$6))
-   AND ($7::text = '' OR o.book_id::text = ANY(string_to_array($7, ',')))
-   AND ($3::text = '' OR
-        ($3::text = 'own' AND o.dependency=$8) OR
-        ($3::text = 'governor' AND o.dependency=$8 AND EXISTS (
-          SELECT 1
-            FROM corpus_tokens g
-            LEFT JOIN occurrence_lemma_corrections gd ON gd.owner_id=o.owner_id
-              AND gd.book_id=o.book_id::uuid AND gd.corpus_id=g.corpus_id
-              AND gd.analysis_run_id=g.analysis_run_id
-              AND gd.source_document_id=o.unit_id
-              AND gd.start_offset=g.start_offset AND gd.end_offset=g.end_offset
-           WHERE g.owner_id=o.owner_id AND g.language=o.language
-             AND g.analysis_run_id=o.analysis_run_id::uuid AND g.corpus_id=o.corpus_id::uuid
-             AND g.sentence_ordinal=o.sentence_ordinal AND g.token_ordinal=o.head_ordinal
-             AND NOT COALESCE(gd.excluded, false)
-             AND (($4::text='effective'
-                   AND COALESCE(gd.canonical_lemma, g.canonical_lemma)=$5
-                   AND g.upos=$6)
-               OR ($4::text='analyzer' AND g.raw_lemma=$5 AND g.upos=$6)
-               OR ($4::text='surface' AND g.surface=$5))
-        )))
+   AND NOT COALESCE(d.excluded, false)
+   AND (($3::text='lemma'
+         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$4::text
+         AND ($5::text='' OR o.upos=$5))
+     OR ($3::text='form'
+         AND translate(lower(o.surface), 'ς', 'σ')=$4::text))
  ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
- LIMIT 26 OFFSET $9::bigint
+ LIMIT 26 OFFSET $6::bigint
 `
 
 type ListVocabularyConcordanceParams struct {
-	Owner            string
-	Language         string
-	GrammarDirection string
-	Mode             string
-	Term             string
-	Upos             string
-	BookIds          string
-	Relation         string
-	Offset           int64
+	Owner    string
+	Language string
+	Match    string
+	Term     string
+	Upos     string
+	Offset   int64
 }
 
 type ListVocabularyConcordanceRow struct {
@@ -1417,12 +1421,9 @@ func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabul
 	rows, err := q.db.Query(ctx, listVocabularyConcordance,
 		arg.Owner,
 		arg.Language,
-		arg.GrammarDirection,
-		arg.Mode,
+		arg.Match,
 		arg.Term,
 		arg.Upos,
-		arg.BookIds,
-		arg.Relation,
 		arg.Offset,
 	)
 	if err != nil {

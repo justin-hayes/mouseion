@@ -149,7 +149,7 @@ test.describe('My Books collection browsing', () => {
     expect(await moreActions.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('0px');
     await page.goto('/vocabulary/concordance');
     const concordanceSelects = page.locator('#concordance-workflow select');
-    expect(await concordanceSelects.evaluateAll(nodes => nodes.every(node => getComputedStyle(node).appearance === 'auto'))).toBe(true);
+    await expect(concordanceSelects).toHaveCount(0);
   });
 
   test('shows the first Book identity in the initial desktop and compact viewport', async ({ page }) => {

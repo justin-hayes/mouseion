@@ -71,7 +71,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(language, row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
+					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(language, row.CanonicalLemma, row.UPOS)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 						if row.InBookDeck {
 							<small>In a Book deck</small>
 						}

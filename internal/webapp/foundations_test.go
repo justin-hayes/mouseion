@@ -151,15 +151,15 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	}
 
 	var concordance bytes.Buffer
-	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", nil, domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, "", "").Render(context.Background(), &concordance))
+	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, "", "").Render(context.Background(), &concordance))
 	assert.Contains(t, concordance.String(), `class="vocabulary-shell"`)
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
 	var sentenceStudy, lemmaReview, concordanceError, concordanceChanged bytes.Buffer
 	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/vocabulary/concordance").Render(context.Background(), &sentenceStudy))
 	require.NoError(t, LemmaReviewPage(domain.User{Username: "learner"}, "csrf", "book", "Book", "", "", true, nil, nil, lemmaReviewRecovery{}, nil).Render(context.Background(), &lemmaReview))
-	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", nil, domain.ConcordanceLookup{}, false).Render(context.Background(), &concordanceError))
-	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", nil, domain.ConcordanceLookup{}).Render(context.Background(), &concordanceChanged))
+	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false).Render(context.Background(), &concordanceError))
+	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), lemmaReview.String(), concordanceError.String(), concordanceChanged.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
 		assert.NotContains(t, html, `href="/static/vocabulary.css"`)

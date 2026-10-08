@@ -9,6 +9,7 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"golang.org/x/text/unicode/norm"
 )
 
 // ListBookOccurrencesByLemma returns occurrences in a Book's current analysis
@@ -141,9 +142,26 @@ func (s *PostgresStore) ListStudyLanguageDependentsByGovernorLemma(ctx context.C
 	return mapConcordanceRows(rows), nil
 }
 
-// ListVocabularyConcordance returns one page of exact effective, observed
-// surface, or analyzer-evidence matches from current analyses. Fetching one
-// extra row determines whether a next page exists without inventing a total.
+// concordanceTerms normalizes one submitted term for lemma and form matching.
+// The lemma key follows the language's canonical-lemma profile so it equals
+// stored effective lemmas; the form key only folds case (and Greek final
+// sigma) so accents and other spelling distinctions stay meaningful.
+func concordanceTerms(language, term string) (lemma, form string) {
+	term = norm.NFC.String(strings.TrimSpace(term))
+	profile, err := canonicalization.For(language)
+	if err != nil {
+		profile = canonicalization.LanguageNeutral()
+	}
+	lemma = profile.Canonical(term)
+	form = strings.ReplaceAll(strings.ToLower(term), "ς", "σ")
+	return lemma, form
+}
+
+// ListVocabularyConcordance returns one page of effective-lemma or literal
+// word-form matches from current analyses. An unspecified interpretation is
+// recognized first: an evidenced effective lemma wins and expands its observed
+// forms; otherwise only the typed source form matches. Fetching one extra row
+// determines whether a next page exists without inventing a total.
 func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (pageResult domain.ConcordanceResult, errResult error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if lookup.Page < 1 {
@@ -180,17 +198,39 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 	if lookup.Revision != "" && lookup.Revision != revision {
 		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Stale: true}, nil
 	}
+	lemmaTerm, formTerm := concordanceTerms(language, lookup.Term)
+	queries := sqlcgen.New(tx)
+	match, upos := lookup.Match, lookup.UPOS
+	if match == "" {
+		evidenced, err := queries.ConcordanceLemmaEvidenced(ctx, sqlcgen.ConcordanceLemmaEvidencedParams{
+			Owner: owner, Language: language, Term: lemmaTerm,
+		})
+		if err != nil {
+			return domain.ConcordanceResult{}, err
+		}
+		match = domain.ConcordanceMatchForm
+		if evidenced {
+			match = domain.ConcordanceMatchLemma
+		}
+	}
+	if match != domain.ConcordanceMatchLemma {
+		upos = ""
+	}
+	term := formTerm
+	if match == domain.ConcordanceMatchLemma {
+		term = lemmaTerm
+	}
+	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Match: match, Term: term}
 	const maxConcordancePage = int((1<<31-1)/25 + 1)
 	if lookup.Page > maxConcordancePage {
 		if err := tx.Commit(ctx); err != nil {
 			return domain.ConcordanceResult{}, err
 		}
-		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: true, Revision: revision}, nil
+		result.HasPrevious = true
+		return result, nil
 	}
-	rows, err := sqlcgen.New(tx).ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
-		Owner: owner, Language: language, Mode: lookup.Mode, Term: lookup.Term,
-		Upos: lookup.UPOS, BookIds: strings.Join(lookup.BookIDs, ","),
-		GrammarDirection: lookup.GrammarDirection, Relation: lookup.Relation,
+	rows, err := queries.ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
+		Owner: owner, Language: language, Match: match, Term: term, Upos: upos,
 		Offset: (int64(lookup.Page) - 1) * 25,
 	})
 	if err != nil {
@@ -199,7 +239,6 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 	if err := tx.Commit(ctx); err != nil {
 		return domain.ConcordanceResult{}, err
 	}
-	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision}
 	if len(rows) > 25 {
 		result.HasNext = true
 		rows = rows[:25]
