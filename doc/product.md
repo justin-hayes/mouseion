@@ -179,6 +179,7 @@ amendments.
 83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted; implementation complete in PR #1404, awaiting human review and merge**: removes duplicate Lit results and migrates the app to HTMX 4 without Alpine.
 84. [ADR 0084: Project effective vocabulary counts for Browse](adr/0084-browse-effective-count-projection.md) — **accepted; partially implemented**: Browse gates on exact per-Book projections and durable rebuilds; the 500-Book/50-million-token acceptance measurement remains pending.
 85. [ADR 0085: Reading owns Book vocabulary and deck preparation](adr/0085-reading-owned-book-vocabulary.md) — **accepted; implementation pending**: adds corpus-qualified two-occurrence candidates, freezes Reading once before Book-deck preparation, and retires independent custom-deck selection and UI without prematurely deleting stored artifacts.
+86. [ADR 0086: Reading Working desk, independent Hidden visibility, and corpus-wide Concordance](adr/0086-reading-working-desk-hidden-visibility-and-concordance.md) — **proposed; awaiting human acceptance, nothing shipped**: contracts disposition to Inbox/To Read, adds independent Hidden visibility and End current reading with commitment-bound expected-state protection, defines the backed-up maintenance cutover, and reconciles ADR 0050/0043 navigation and the ADR 0078/0081/0084/0085 clauses it amends while preserving ADR 0083.
 
 ### Superseded or historical decisions
 
