@@ -48,18 +48,20 @@ templ ConcordancePrototypePage(v concordancePrototypeView) {
 				<section class="cp-results" aria-labelledby="cp-results-heading">
 					if v.Term != "" && len(v.Rows) > 0 {
 						<h2 id="cp-results-heading" tabindex="-1">{ v.Applied }</h2>
-						<p class="cp-context">All currently analyzed books in Deutsch.
+						<p class="cp-context">
+							All currently analyzed books in Deutsch.
 							if v.Scenario != "no-current" && v.Scenario != "changed" && v.Scenario != "stale" {
-								 Current reading first.
-								}
+								Current reading first.
+							}
 							if v.Scenario == "changed" {
-								 Previously applied book first.
-								}
+								Previously applied book first.
+							}
 						</p>
-						<p class="cp-range">Occurrences { fmt.Sprint(v.Start) }–{ fmt.Sprint(v.End) } · page { fmt.Sprint(v.Page) }
+						<p class="cp-range">
+							Occurrences { fmt.Sprint(v.Start) }–{ fmt.Sprint(v.End) } · page { fmt.Sprint(v.Page) }
 							if v.Rows[0].Continued {
-								 · first book continued
-								}
+								· first book continued
+							}
 						</p>
 						<ol class="cp-list" role="list">
 							for _, row := range v.Rows {
@@ -85,7 +87,8 @@ templ ConcordancePrototypePage(v concordancePrototypeView) {
 									</details>
 									<a class="concordance-study-link" href={ templ.SafeURL(v.link(v.Variant, v.Scenario, v.Page, row.ID)) } aria-label={ "Study example containing " + row.Target + " from " + row.Book }>Study</a>
 									if v.Variant == "inline" {
-										<div class="cp-source-cell">@ConcordancePrototypeSource(row)</div>
+										<div class="cp-source-cell">@ConcordancePrototypeSource(row)
+</div>
 									}
 								</li>
 							}

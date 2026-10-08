@@ -26,19 +26,30 @@ templ ConnectionsPageForBook(user domain.User, csrf string, connections []domain
 				<a href="#catalog-connection-form">Add catalog connection</a>
 			}
 		}
-		<article id="catalog-connection-form"><h2>Add catalog connection</h2><form class="catalog-connection-form" method="post" action="/connections"><input type="hidden" name="csrf_token" value={ csrf }/>
-			if bookID != "" {
-				<input type="hidden" name="book_id" value={ bookID }/>
-			}
-		<div class="form-grid"><label>Name<input class="input" name="name" required/></label><label>Catalog URL<input class="input" type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input class="input" name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button" type="submit">Add catalog</button></form></article>
+		<article id="catalog-connection-form">
+			<h2>Add catalog connection</h2>
+			<form class="catalog-connection-form" method="post" action="/connections">
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				if bookID != "" {
+					<input type="hidden" name="book_id" value={ bookID }/>
+				}
+				<div class="form-grid"><label>Name<input class="input" name="name" required/></label><label>Catalog URL<input class="input" type="url" name="url" required placeholder="https://example.com/opds"/></label></div>
+				<div class="form-grid"><label>Username <small>(optional)</small><input class="input" name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button" type="submit">Add catalog</button>
+			</form>
+		</article>
 		if len(connections) > 0 {
 			<h2>Catalog maintenance</h2>
 			<p>Edit a saved connection or remove future catalog access. Owned books and their artifacts remain.</p>
 		}
 		<div class="catalog-list">
-		for _, c := range connections {
-				<article class="catalog-record" id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div class="catalog-record__status" id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))<div class="catalog-record__details"><p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form class="catalog-connection-form" method="post" action={ templ.SafeURL("/connections/"+c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline" type="submit">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/connections/"+c.ID+"/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Confirm deletion</button></form>}</div></article>
-		}
+			for _, c := range connections {
+				<article class="catalog-record" id={ "connection-" + c.ID } aria-labelledby={ "connection-name-" + c.ID }><header><h3 id={ "connection-name-" + c.ID }>{ c.Name }</h3></header><div class="catalog-record__status" id={ "connection-status-" + c.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(catalogueSyncConnectionViewFor(c, statuses))
+</div>@CatalogueSyncConnectionActions(csrf, c, catalogueSyncConnectionViewFor(c, statuses))
+<div class="catalog-record__details"><p class="break">{ safeConnectionURL(c.URL) }</p><p>{ credentialSummary(c) }</p><details id={ "edit-connection-" + c.ID }><summary>Edit connection</summary><form class="catalog-connection-form" method="post" action={ templ.SafeURL("/connections/" + c.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ c.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(c) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ c.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline" type="submit">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {
+	<form method="post" action={ templ.SafeURL("/connections/" + c.ID + "/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Confirm deletion</button></form>
+}
+</div></article>
+			}
 		</div>
 	}
 }
@@ -56,16 +67,25 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 		}
 		if len(jobs) > 0 {
 			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
-				for _, job := range jobs {
-					<tr><td>
-						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
-						} else {
-							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
-						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
-				}
+				<thead><tr><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead>
+				<tbody>
+					for _, job := range jobs {
+						<tr>
+							<td>
+								if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+									<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
+								} else {
+									<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
+								}
+							</td>
+							<td>{ jobBookContexts[job.SourceMaterialID].Title }</td>
+							<td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))
+</td>
+							<td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d", job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td>
+							<td>{ completedAtLabel(&job.CreatedAt) }</td>
+							<td>{ job.Error }</td>
+						</tr>
+					}
 				</tbody>
 			}
 		}
@@ -94,18 +114,19 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 		}
 		if status.CorpusID != "" {
 			if status.LogicalState == "completed" {
-					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
-						<p>Analysis complete. Continue with this book in Reading.</p>
-						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
+				if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
+					<p>Analysis complete. Continue with this book in Reading.</p>
+					<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
+				} else {
+					if status.SourceMaterialID != "" && status.RunID != "" {
+						<p>Analysis complete, but this book is no longer available in Reading.</p>
 					} else {
-						if status.SourceMaterialID != "" && status.RunID != "" {
-							<p>Analysis complete, but this book is no longer available in Reading.</p>
-						} else {
-							<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
-							<p>Deck preparation requires the configured translation provider to produce contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent.</p>
-							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
-						}
+						<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
+						<p>Deck preparation requires the configured translation provider to produce contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent.</p>
+						<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form>
+						<section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
 					}
+				}
 			} else {
 				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
 			}
@@ -120,29 +141,42 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 			@Feedback(FeedbackInfo, "", message)
 		}
 		if len(jobs) == 0 && len(syncJobs) == 0 {
-			@EmptyState("No jobs yet", "Catalog sync and analysis work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
+			@EmptyState("No jobs yet", "Catalog sync and analysis work will appear here when submitted.") {
+				<a href="/library">Go to My Books</a>
+			}
 		}
 		if len(syncJobs) > 0 {
 			@ResponsiveTable("Catalog sync history") {
-				<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>
-				for _, job := range syncJobs {
-					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>Catalog sync</a></td><td>{ job.ConnectionName }</td><td>{ catalogueSyncJobState(job) }</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
-				}
+				<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead>
+				<tbody>
+					for _, job := range syncJobs {
+						<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>Catalog sync</a></td><td>{ job.ConnectionName }</td><td>{ catalogueSyncJobState(job) }</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
+					}
 				</tbody>
 			}
 		}
 		if len(jobs) > 0 {
 			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Kind</th><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
-				for _, job := range jobs {
-					<tr><td>Analysis</td><td>
-						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
-						} else {
-							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
-						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
-				}
+				<thead><tr><th>Kind</th><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead>
+				<tbody>
+					for _, job := range jobs {
+						<tr>
+							<td>Analysis</td>
+							<td>
+								if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.AnalysisState == "completed" && job.AnalysisRunID != "" && job.CorpusID != "" {
+									<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
+								} else {
+									<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
+								}
+							</td>
+							<td>{ jobBookContexts[job.SourceMaterialID].Title }</td>
+							<td>@StatusBadge(analysisJobStatusLabel(job.AnalysisState), analysisJobStatusTone(job.AnalysisState))
+</td>
+							<td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d", job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td>
+							<td>{ completedAtLabel(&job.CreatedAt) }</td>
+							<td>{ job.Error }</td>
+						</tr>
+					}
 				</tbody>
 			}
 		}
@@ -163,7 +197,7 @@ templ CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) {
 		}
 		@ActionGroup() {
 			if status.LogicalState == "failed" || status.LogicalState == "cancelled" {
-					<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit">Retry catalog sync</button></form>
+				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/retry", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit">Retry catalog sync</button></form>
 			}
 			if catalogueSyncStatusRunning(status) {
 				<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/cancel", status.ID)) }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Cancel catalog sync</button></form>

@@ -100,17 +100,13 @@ test('Concordance query and applied results summary fit the first desktop and co
   await signIn(page);
   for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
     await page.setViewportSize(viewport);
-    await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
-    await expect(page.locator('#concordance-mode')).toBeVisible();
+    await page.goto('/vocabulary/concordance?term=Haus');
     await expect(page.locator('#concordance-term')).toHaveValue('Haus');
     await expect(page.locator('#concordance-summary')).toBeVisible();
     const initiallyVisible = await page.evaluate(() => {
       const selectors = [
-        '#concordance-mode',
         '#concordance-term',
         '.concordance-query-term-controls > button',
-        '.concordance-scopes details:nth-child(1) > summary',
-        '.concordance-scopes details:nth-child(2) > summary',
         '#concordance-summary',
         '#concordance-results > .concordance-results-summary',
         '#concordance-native-results li:first-child .concordance-row > summary',
@@ -121,11 +117,8 @@ test('Concordance query and applied results summary fit the first desktop and co
       }));
     });
     expect(initiallyVisible, `query and result summary intersect ${viewport.width}x${viewport.height}`).toEqual({
-      '#concordance-mode': true,
       '#concordance-term': true,
       '.concordance-query-term-controls > button': true,
-      '.concordance-scopes details:nth-child(1) > summary': true,
-      '.concordance-scopes details:nth-child(2) > summary': true,
       '#concordance-summary': true,
       '#concordance-results > .concordance-results-summary': true,
       '#concordance-native-results li:first-child .concordance-row > summary': true,
@@ -187,7 +180,7 @@ test('Concordance groups and KWIC rows wrap long German, Italian, and Greek text
   for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
     await page.setViewportSize(viewport);
     for (const example of examples) {
-      await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+      await page.goto('/vocabulary/concordance?term=Haus');
       await page.locator('.concordance-row').first().evaluate((row, content) => {
         row.closest('.concordance-result')!.querySelector('.concordance-book-title')!.textContent = content.title;
         row.querySelector('.concordance-before')!.textContent = content.before;

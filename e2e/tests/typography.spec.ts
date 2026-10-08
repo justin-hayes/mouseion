@@ -55,7 +55,7 @@ test('applies Literata to actual Book identity and passage text', async ({ page 
   expect(bookFace.family).toContain('Literata Variable');
   expect(bookFace.loaded).toBe(true);
 
-  await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+  await page.goto('/vocabulary/concordance?term=Haus');
   await page.locator('.concordance-row summary').first().click();
   const passage = page.locator('.reading-text').first();
   await expect(passage).toBeVisible();
@@ -90,7 +90,7 @@ test('loads self-hosted Literata italic only for italic Book labels', async ({ p
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+  await page.goto('/vocabulary/concordance?term=Haus');
   const label = page.locator('.concordance-book-title').first();
   await expect(label).toBeVisible();
   const face = await label.evaluate(async element => {
@@ -146,7 +146,7 @@ test('sign-in and Greek text remain visible and usable when local font requests 
   expect(bookFits.contentWidth).toBeLessThanOrEqual(Math.ceil(bookFits.renderedWidth));
   expect(bookFits.pageWidth).toBeLessThanOrEqual(bookFits.viewportWidth);
 
-  await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+  await page.goto('/vocabulary/concordance?term=Haus');
   await page.locator('.concordance-row summary').first().click();
   const passage = page.locator('.reading-text').first();
   await expect(passage).toBeVisible();

@@ -446,19 +446,31 @@ type ConcordanceOccurrence struct {
 	UnitOrder, SentenceOrdinal, TokenOrdinal  int64
 }
 
-// ConcordanceLookup describes one exact learner-facing lookup. Analyzer mode
-// names preserved analyzer evidence and is deliberately distinct from effective
-// vocabulary identity.
+// Concordance lookup interpretations. A lemma lookup expands every observed
+// form of an evidenced effective lemma; a form lookup matches only the typed
+// observed source form.
+const (
+	ConcordanceMatchLemma = "lemma"
+	ConcordanceMatchForm  = "form"
+)
+
+// ConcordanceLookup describes one learner-facing lookup of a single literal
+// lemma or word form across the eligible analyzed corpus.
 type ConcordanceLookup struct {
 	// Language is the study language the request was issued for. Supported
 	// links and forms carry it so an old-language request is recognized.
-	Language         string
-	Mode, Term, UPOS string
-	BookIDs          []string
-	GrammarDirection string
-	Relation         string
-	Page             int
-	Revision         string
+	Language string
+	// Term is the submitted term with surrounding whitespace trimmed.
+	Term string
+	// Match is the applied interpretation. It is empty for an independent
+	// submission, which recognizes it against the corpus; supported page and
+	// Browse links carry it so paging never reruns recognition.
+	Match string
+	// UPOS restricts a lemma lookup to one exact part of speech. Only a
+	// supported Browse identity link supplies it.
+	UPOS     string
+	Page     int
+	Revision string
 }
 
 type ConcordanceResult struct {
@@ -468,6 +480,10 @@ type ConcordanceResult struct {
 	HasNext     bool
 	Revision    string
 	Stale       bool
+	// Match and Term describe the applied interpretation; Term is normalized
+	// for the language (the canonical lemma or the lowercased source form).
+	Match string
+	Term  string
 }
 
 type ConcordanceResultOccurrence struct {
@@ -478,7 +494,7 @@ type ConcordanceResultOccurrence struct {
 
 type SentenceStudy struct {
 	BookID, BookTitle, ChapterTitle, SentenceText string
-	TargetSurface, GrammarDirection, Relation     string
+	TargetSurface                                 string
 	SentenceOrdinal, TargetOrdinal                int64
 	Tokens                                        []SentenceStudyToken
 }

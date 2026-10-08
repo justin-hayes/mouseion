@@ -417,7 +417,7 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/vocabulary/concordance?mode=surface&term=Haus');
+      await page.goto('/vocabulary/concordance?term=Haus');
       await expect(page.locator('body')).toHaveClass('vocabulary-shell');
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
       await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -434,15 +434,11 @@ test.describe('responsive and theme regression coverage', () => {
       await expectNoPageOverflow(page);
       expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
       expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
-      expect(await boundaryContrast(page.locator('#concordance-mode'))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
-      expect(await boundaryContrast(page.locator('.concordance-scopes input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
       await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
       expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
       expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
-      expect(await boundaryContrast(page.locator('#concordance-mode'))).toBeGreaterThanOrEqual(3);
       expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
-      expect(await boundaryContrast(page.locator('.concordance-scopes input[type="checkbox"]').first())).toBeGreaterThanOrEqual(3);
       await page.locator('html').evaluate((node) => node.removeAttribute('data-theme'));
       await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
       await expectNoPageOverflow(page);

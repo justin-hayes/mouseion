@@ -13,78 +13,85 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 		@VocabularyPageHeader("browse")
 		<p id="vocabulary-pending" class="htmx-indicator" role="status">Loading Browse. The previous results remain visible until the request completes.</p>
 		<div id="vocabulary-workflow" hx-on:htmx:error="window.showVocabularyNetworkRecovery(ctx)">
-		if language == "" {
-			@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before browsing vocabulary.") {
-				<a class="vocabulary-action-link" href="/catalogs">Connect a catalog</a>
-			}
-		}
-		if language != "" {
-			<p class="vocabulary-language">Viewing active study language <code>{ language }</code>.</p>
-			if page.CurrentBookID == "" {
-				<p role="status">No Current reading is set for this study language.</p>
-				<p><a class="vocabulary-action-link" href="/reading">Choose a Book in Reading</a></p>
-			} else if len(page.Books) > 0 && !page.Books[0].HasCurrentAnalysis {
-				<p><strong>Current reading: { page.Books[0].Title }</strong></p>
-				<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
-				<p><a class="vocabulary-action-link" href="/reading">Review this Book in Reading</a></p>
-			} else if len(page.Books) > 0 {
-				<p class="vocabulary-scope"><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>
-			}
-			if page.CurrentBookID != "" {
-			<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
-				<input type="hidden" name="language" value={ language }/>
-				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
-				<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
-				<p class="vocabulary-exclusions">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p>
-				<label for="vocabulary-include-all"><input id="vocabulary-include-all" type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
-			<button class="btn btn-primary" type="submit">Search</button>
-			</form>
-			}
-			<div id="vocabulary-browse-results">
-			if query != "" {
-				<p class="vocabulary-applied-query">Applied prefix: <code>{ query }</code></p>
-			}
-			if page.BrowseCountsUnavailable {
-				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
-			} else if page.BrowseCountsUpdating {
-				<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>
-			} else if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
-			<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h2>
-			if page.Total == 0 && page.InventoryTotal == 0 {
-				<p>The current analysis has no eligible vocabulary identities.</p>
-			}
-			if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
-				<p>No eligible identities are in this Book.</p>
-			}
-			if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
-				<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>
-			}
-			if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
-				if query != "" && !page.IncludeAll {
-					<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>
-				} else {
-					<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+			if language == "" {
+				@EmptyState("No study languages yet", "Add or sync a Book with a chosen language before browsing vocabulary.") {
+					<a class="vocabulary-action-link" href="/catalogs">Connect a catalog</a>
 				}
 			}
-			if page.Total > 0 {
-				<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Counts use current completed analyses and effective occurrence decisions, including singletons.</p>
-				@ResponsiveTable("Current effective vocabulary") {
-					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
-				for _, row := range page.Rows {
-					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(language, row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
-						if row.InBookDeck {
-							<small>In a Book deck</small>
+			if language != "" {
+				<p class="vocabulary-language">Viewing active study language <code>{ language }</code>.</p>
+				if page.CurrentBookID == "" {
+					<p role="status">No Current reading is set for this study language.</p>
+					<p><a class="vocabulary-action-link" href="/reading">Choose a Book in Reading</a></p>
+				} else if len(page.Books) > 0 && !page.Books[0].HasCurrentAnalysis {
+					<p><strong>Current reading: { page.Books[0].Title }</strong></p>
+					<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
+					<p><a class="vocabulary-action-link" href="/reading">Review this Book in Reading</a></p>
+				} else if len(page.Books) > 0 {
+					<p class="vocabulary-scope"><strong>Current reading: { page.Books[0].Title }</strong> — this Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>
+				}
+				if page.CurrentBookID != "" {
+					<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
+						<input type="hidden" name="language" value={ language }/>
+						<input type="hidden" name="reading" value={ page.CurrentBookID }/>
+						<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
+						<p class="vocabulary-exclusions">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p>
+						<label for="vocabulary-include-all"><input id="vocabulary-include-all" type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
+						<button class="btn btn-primary" type="submit">Search</button>
+					</form>
+				}
+				<div id="vocabulary-browse-results">
+					if query != "" {
+						<p class="vocabulary-applied-query">Applied prefix: <code>{ query }</code></p>
+					}
+					if page.BrowseCountsUnavailable {
+						<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
+					} else if page.BrowseCountsUpdating {
+						<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>
+					} else if page.CurrentBookID != "" && len(page.Books) > 0 && page.Books[0].HasCurrentAnalysis {
+						<h2 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h2>
+						if page.Total == 0 && page.InventoryTotal == 0 {
+							<p>The current analysis has no eligible vocabulary identities.</p>
 						}
-					</td></tr>
-				}
-				</tbody>
-				}
-				@VocabularyBrowsePager(page, query)
+						if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
+							<p>No eligible identities are in this Book.</p>
+						}
+						if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
+							<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>
+						}
+						if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
+							if query != "" && !page.IncludeAll {
+								<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>
+							} else {
+								<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+							}
+						}
+						if page.Total > 0 {
+							<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Counts use current completed analyses and effective occurrence decisions, including singletons.</p>
+							@ResponsiveTable("Current effective vocabulary") {
+								<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead>
+								<tbody>
+									for _, row := range page.Rows {
+										<tr>
+											<th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(language, row.CanonicalLemma, row.UPOS)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th>
+											<td><code>{ row.UPOS }</code></td>
+											<td>{ vocabularyBrowseOccurrenceCounts(row) }</td>
+											<td>
+												{ vocabularyBrowseState(row) }
+												if row.InBookDeck {
+													<small>In a Book deck</small>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							}
+							@VocabularyBrowsePager(page, query)
+						}
+					}
+					<div id="vocabulary-recovery" aria-live="polite"></div>
+				</div>
 			}
-			}
-		<div id="vocabulary-recovery" aria-live="polite"></div>
-		</div>
-		}
 		</div>
 	}
 }
@@ -93,23 +100,23 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("browse")
 		<div id="vocabulary-recovery" aria-live="polite">
-		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
-		<form method="get" action="/vocabulary">
-			<input type="hidden" name="language" value={ query.Language }/>
-			<input type="hidden" name="q" value={ query.Prefix }/>
-			<input type="hidden" name="reading" value={ query.ReadingBookID }/>
-			<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
-		if query.IncludeAll {
-			<input type="hidden" name="all" value="1"/>
-		}
-		if query.Revision != "" {
-			<input type="hidden" name="rev" value={ query.Revision }/>
-		}
-		<button type="submit">Retry Browse</button>
-		</form>
-		<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
-		<p>Browse does not report partial counts as complete.</p>
+			<p>Active study language: <code>{ language }</code>.</p>
+			@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
+			<form method="get" action="/vocabulary">
+				<input type="hidden" name="language" value={ query.Language }/>
+				<input type="hidden" name="q" value={ query.Prefix }/>
+				<input type="hidden" name="reading" value={ query.ReadingBookID }/>
+				<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
+				if query.IncludeAll {
+					<input type="hidden" name="all" value="1"/>
+				}
+				if query.Revision != "" {
+					<input type="hidden" name="rev" value={ query.Revision }/>
+				}
+				<button type="submit">Retry Browse</button>
+			</form>
+			<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
+			<p>Browse does not report partial counts as complete.</p>
 		</div>
 	}
 }
@@ -118,23 +125,26 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("browse")
 		<div id="vocabulary-recovery" aria-live="polite">
-		<p>Active study language: <code>{ language }</code>.</p>
-		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
-		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll, Language: query.Language}, query.Prefix)) }>Restart in the Current reading</a>
-		<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
+			<p>Active study language: <code>{ language }</code>.</p>
+			@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
+			<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll, Language: query.Language}, query.Prefix)) }>Restart in the Current reading</a>
+			<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
 		</div>
 	}
 }
 
 templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
-	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p><nav aria-label="Browse pages">
-		if page.Page > 1 {
-			<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
-		}
-		if page.Page*25 < int(page.Total) {
-			<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
-		}
-	</nav></section>
+	<section aria-label="Vocabulary pages">
+		<p>{ fmt.Sprintf("Page %d of %d", page.Page, (int(page.Total)+24)/25) }</p>
+		<nav aria-label="Browse pages">
+			if page.Page > 1 {
+				<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
+			}
+			if page.Page*25 < int(page.Total) {
+				<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
+			}
+		</nav>
+	</section>
 }
 
 func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
@@ -165,27 +175,28 @@ templ VocabularyPageWithResult(user domain.User, csrf string, languages, knownLa
 	@ShellLayout("Vocabulary", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("import")
 		<section id="known-vocabulary" class="known-vocabulary">
-		if language == "" {
-			if len(languages) == 0 {
-				@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
-					<a href="/catalogs">Connect a catalog</a>
+			if language == "" {
+				if len(languages) == 0 {
+					@EmptyState("No study languages yet", "Add or sync a book with a chosen language before importing known vocabulary.") {
+						<a href="/catalogs">Connect a catalog</a>
+					}
+				} else {
+					<p>Choose a study language in the shell before importing a lemma file.</p>
 				}
 			} else {
-				<p>Choose a study language in the shell before importing a lemma file.</p>
+				if len(languages) == 0 {
+					<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book.</p>
+				}
+				<p>Viewing <strong>{ vocabularyLanguageName(languages, knownLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
+				if studyLanguagePresent(languages, language) {
+					<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post={ knownVocabImportAction() } hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML" hx-indicator="#vocabulary-import-pending"><input type="hidden" name="csrf_token" value={ csrf }/><label for="known-vocabulary-file">UTF-8 lemma file</label><input id="known-vocabulary-file" type="file" name="vocabulary_file" accept="text/plain,.txt" required/><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button class="btn btn-primary" type="submit">Import known vocabulary</button><p id="vocabulary-import-pending" class="htmx-indicator" role="status">Importing known vocabulary. Keep this page open while the request completes.</p></form>
+				} else {
+					<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
+				}
 			}
-		} else {
-			if len(languages) == 0 {
-				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book.</p>
-			}
-			<p>Viewing <strong>{ vocabularyLanguageName(languages, knownLanguages, language) }</strong> <code>{ language }</code>. Imports are additive and idempotent: new, duplicate, and rejected rows are reported separately.</p>
-			if studyLanguagePresent(languages, language) {
-				<form class="vocabulary-import-form" method="post" action="/vocabulary/import" enctype="multipart/form-data" hx-post={ knownVocabImportAction() } hx-encoding="multipart/form-data" hx-target="#vocabulary-results" hx-swap="innerHTML" hx-indicator="#vocabulary-import-pending"><input type="hidden" name="csrf_token" value={ csrf }/><label for="known-vocabulary-file">UTF-8 lemma file</label><input id="known-vocabulary-file" type="file" name="vocabulary_file" accept="text/plain,.txt" required/><small>One lemma per nonblank line. Tab-separated columns are rejected.</small><button class="btn btn-primary" type="submit">Import known vocabulary</button><p id="vocabulary-import-pending" class="htmx-indicator" role="status">Importing known vocabulary. Keep this page open while the request completes.</p></form>
-			} else {
-				<p>This language is preserved from earlier vocabulary imports, but it is not currently represented by a chosen-language book. Importing is unavailable until a book in this language is added.</p>
-			}
-		}
 		</section>
-		<section id="vocabulary-results" aria-live="polite">@KnownVocabResult(result, message)</section>
+		<section id="vocabulary-results" aria-live="polite">@KnownVocabResult(result, message)
+</section>
 	}
 }
 
@@ -194,16 +205,19 @@ templ KnownVocabResult(result *knownvocab.ImportResult, message string) {
 		@Feedback(FeedbackError, "Import not completed", message)
 	}
 	if result != nil {
-		<article class="resource-card vocabulary-callout known-vocabulary-result"><h2>Import result</h2><p role="status"><strong>{ fmt.Sprintf("%d new", result.Imported) }</strong> · { fmt.Sprintf("%d duplicates", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
-		if len(result.Rejected) > 0 {
-			<h3>Rejected rows</h3>
-			@ResponsiveTable("Rejected vocabulary rows") {
-				<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
-				for _, rejection := range result.Rejected {
-					<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+		<article class="resource-card vocabulary-callout known-vocabulary-result">
+			<h2>Import result</h2>
+			<p role="status"><strong>{ fmt.Sprintf("%d new", result.Imported) }</strong> · { fmt.Sprintf("%d duplicates", result.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(result.Rejected)) }</p>
+			if len(result.Rejected) > 0 {
+				<h3>Rejected rows</h3>
+				@ResponsiveTable("Rejected vocabulary rows") {
+					<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead>
+					<tbody>
+						for _, rejection := range result.Rejected {
+							<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
+						}
+					</tbody>
 				}
-				</tbody>
-			}
 			}
 		</article>
 	}
@@ -237,50 +251,53 @@ templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
 }
 
 templ knownVocabImportStatusBody(status knownvocab.Status) {
-		if knownVocabJobBusy(string(status.State)) {
-			<p>Return to Vocabulary to review the result after processing finishes.</p>
+	if knownVocabJobBusy(string(status.State)) {
+		<p>Return to Vocabulary to review the result after processing finishes.</p>
+	}
+	if status.State == "completed" {
+		if len(status.Rejected) > 0 {
+			<p><strong>Import completed with partial rejection.</strong> Successful rows remain known; correct the rejected rows and upload another additive import if needed.</p>
+		} else {
+			<p><strong>Import complete.</strong></p>
 		}
-		if status.State == "completed" {
-			if len(status.Rejected) > 0 {
-				<p><strong>Import completed with partial rejection.</strong> Successful rows remain known; correct the rejected rows and upload another additive import if needed.</p>
-			} else {
-				<p><strong>Import complete.</strong></p>
-			}
-			if len(status.Rejected) > 0 {
-				<h3>Rejected rows</h3>@ResponsiveTable("Rejected vocabulary rows") {
-					<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead><tbody>
-					for _, rejection := range status.Rejected {
-						<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
-					}
-					</tbody>
-				}
-				}
-				<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to import more known vocabulary</a></p>
+		if len(status.Rejected) > 0 {
+			<h3>Rejected rows</h3>@ResponsiveTable("Rejected vocabulary rows") {
+	<thead><tr><th>Row</th><th>Original</th><th>Reason</th></tr></thead>
+	<tbody>
+		for _, rejection := range status.Rejected {
+			<tr><td>{ fmt.Sprintf("%d", rejection.Row) }</td><td><code>{ rejection.Original }</code></td><td>{ rejection.Error }</td></tr>
 		}
-		if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
-			<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
+	</tbody>
+}
 		}
-		if status.Error != "" && status.State != "cancelled" && status.State != "discarded" {
-			<p role="alert"><strong>Import failed:</strong> { status.Error } Upload the original file again after correcting the problem.</p>
+		<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to import more known vocabulary</a></p>
+	}
+	if status.State == "completed" || status.State == "discarded" || status.State == "cancelled" {
+		<p><strong>{ fmt.Sprintf("%d new", status.Imported) }</strong> · { fmt.Sprintf("%d duplicates", status.AlreadyKnown) } · { fmt.Sprintf("%d rejected", len(status.Rejected)) }</p>
+	}
+	if status.Error != "" && status.State != "cancelled" && status.State != "discarded" {
+		<p role="alert"><strong>Import failed:</strong> { status.Error } Upload the original file again after correcting the problem.</p>
+	}
+	if status.State == "cancelled" {
+		<p role="alert"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>
+		if status.Language != "" {
+			<p>Selected language: <code>{ status.Language }</code></p>
 		}
-		if status.State == "cancelled" {
-			<p role="alert"><strong>Import cancelled.</strong> No new result is available from this attempt. Upload the file again when ready.</p>
-			if status.Language != "" {
-				<p>Selected language: <code>{ status.Language }</code></p>
-			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
-		}
-		if status.State == "discarded" {
-			<p role="alert"><strong>Import failed.</strong>
+		<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
+	}
+	if status.State == "discarded" {
+		<p role="alert">
+			<strong>Import failed.</strong>
 			if status.Error != "" {
 				{ status.Error }
 			}
-			The job was discarded after repeated attempts. Upload the file again after correcting the problem.</p>
-			if status.Language != "" {
-				<p>Selected language: <code>{ status.Language }</code></p>
-			}
-			<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
+			The job was discarded after repeated attempts. Upload the file again after correcting the problem.
+		</p>
+		if status.Language != "" {
+			<p>Selected language: <code>{ status.Language }</code></p>
 		}
+		<p><a href={ templ.SafeURL(knownVocabImportRecoveryTarget()) }>Return to Vocabulary to retry the import</a></p>
+	}
 }
 
 templ VocabularyViewsNav(active string) {
