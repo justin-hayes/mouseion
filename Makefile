@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
 
 # Throwaway design evidence only; never run this fixture server against real data.
 .PHONY: prototype-concordance
@@ -30,7 +30,9 @@ prototype-concordance: go-tmp
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
 
-go-tmp:
+# Generated templ output (internal/webapp/*_templ.go) is not committed, so every
+# target that compiles Go regenerates it first.
+go-tmp: templ
 	mkdir -p $(GOTMPDIR)
 
 setup:
@@ -49,10 +51,10 @@ test: go-tmp
 
 # Targeted Go tests get a per-invocation build temp directory under .tmp, so
 # interrupted runs cannot leave build files in a RAM-backed system temp dir.
-test-go:
+test-go: templ
 	tools/go-test.sh unit $(if $(strip $(PACKAGES)),$(PACKAGES),./...)
 
-test-go-integration:
+test-go-integration: templ
 	tools/go-test.sh integration $(if $(strip $(PACKAGES)),$(PACKAGES),./internal/...)
 
 go-test-clean:
@@ -104,8 +106,19 @@ lint-go: go-tmp
 lint: lint-go
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
 
+# templ is pinned: newer releases require Go >= 1.25.
+TEMPL ?= templ
+TEMPL_VERSION := v0.3.977
+
+templ-install:
+	go install github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION)
+
 templ:
-	templ generate
+	@test "$$($(TEMPL) version 2>/dev/null)" = "$(TEMPL_VERSION)" || { \
+		printf 'templ $(TEMPL_VERSION) is required; run make templ-install and put $$(go env GOPATH)/bin on PATH.\n' >&2; \
+		exit 1; \
+	}
+	$(TEMPL) generate
 
 # Build committed frontend stylesheets with checksummed standalone tools; Go
 # serves the generated assets and never invokes the compiler at runtime.

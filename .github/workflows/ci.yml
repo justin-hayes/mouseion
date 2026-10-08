@@ -33,6 +33,7 @@ jobs:
           filters: |
             go:
               - '**/*.go'
+              - '**/*.templ'
               - 'go.mod'
               - 'go.sum'
               - 'proto/**'
@@ -97,6 +98,15 @@ jobs:
           go-version-file: go.mod
           # The self-hosted runner retains Go's module and build caches.
           cache: false
+
+      - name: Generate templ views
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.go == 'true'
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
 
       - name: Go build
         if: |
@@ -257,6 +267,12 @@ jobs:
           # The self-hosted runner retains Go's module and build caches.
           cache: false
 
+      - name: Generate templ views
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
@@ -281,6 +297,7 @@ jobs:
           filters: |
             go:
               - '**/*.go'
+              - '**/*.templ'
               - 'go.mod'
               - 'go.sum'
               - 'proto/**'
@@ -299,6 +316,15 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+
+      - name: Generate templ views
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          steps.changes.outputs.go == 'true'
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
 
       # Every package with integration tests runs; each test gets its own
       # database cloned from a migrated template, so packages run in parallel.
@@ -329,6 +355,7 @@ jobs:
           filters: |
             browser:
               - '**/*.go'
+              - '**/*.templ'
               - 'internal/**'
               - 'cmd/**'
               - 'e2e/**'
@@ -357,6 +384,13 @@ jobs:
         # Browser system dependencies are provisioned on ci01; runner jobs
         # intentionally do not have sudo access.
         run: npx --prefix e2e playwright install chromium webkit
+      - name: Generate templ views
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
+
       - name: Build fixture server
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         run: mkdir -p .tmp && go build -o .tmp/fixtureserver ./cmd/fixtureserver
