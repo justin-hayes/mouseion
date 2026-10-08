@@ -10,7 +10,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied bool, message, focusTarget string) {
+templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied, readingChanged bool, message, focusTarget string) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("concordance")
 		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied lookup.</p>
@@ -43,6 +43,15 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 					<section id="concordance-results" aria-labelledby="concordance-summary">
 						<h2 id="concordance-summary" tabindex="-1" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>{ concordanceAppliedSummary(lookup, result) }</h2>
 						<p class="concordance-results-summary">{ concordanceResultsSummary(result) }</p>
+						if note := concordancePriorityNote(result); note != "" && (len(result.Occurrences) > 0 || lookup.Page == 1) {
+							<p id="concordance-priority" class="concordance-priority">{ note }</p>
+						}
+						if readingChanged {
+							<p id="concordance-reading-changed" class="concordance-priority" role="status">
+								Your reading changed after this lookup, so these results keep their original order.
+								<a href={ templ.SafeURL(vocabularyConcordanceRestartURL(concordanceAppliedLookup(lookup, result))) }>Refresh results</a>
+							</p>
+						}
 						if len(result.Occurrences) == 0 && lookup.Page == 1 {
 							<p>No analyzed occurrences of this { concordanceMatchNoun(result) } in your { language } Books. This is a corpus result, not a lookup failure.</p>
 						}
@@ -206,10 +215,28 @@ func concordanceResultsSummary(result domain.ConcordanceResult) string {
 		return "No results on page " + fmt.Sprintf("%d", page) + "."
 	}
 	summary := concordanceResultRange(result) + " on page " + fmt.Sprintf("%d", page)
+	if result.Continued {
+		summary += "; continues " + result.Occurrences[0].BookTitle + " from the previous page"
+	}
 	if result.HasNext {
 		summary += "; more results are available"
 	}
 	return summary + "."
+}
+
+// concordancePriorityNote explains how the captured priority Book shaped the
+// order. It names the Book as the one being read at lookup time, never as the
+// current one, and never reports an unavailable analysis as zero matches.
+func concordancePriorityNote(result domain.ConcordanceResult) string {
+	switch result.PriorityState {
+	case domain.ConcordancePriorityMatches:
+		return "Results begin with " + result.PriorityTitle + ", the Book you were reading when you looked this up."
+	case domain.ConcordancePriorityNoMatches:
+		return "No matches in " + result.PriorityTitle + ", the Book you were reading when you looked this up. Results from your other Books follow."
+	case domain.ConcordancePriorityUnavailable:
+		return result.PriorityTitle + ", the Book you were reading when you looked this up, has no current analysis to search, so its occurrences are not counted. Results from your other Books follow."
+	}
+	return "No Book was being read when you looked this up, so Books are ordered by title."
 }
 
 func concordanceStartsBookGroup(occurrences []domain.ConcordanceResultOccurrence, index int) bool {
@@ -405,6 +432,9 @@ templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeou
 			}
 			if lookup.Page > 1 {
 				<input type="hidden" name="page" value={ fmt.Sprintf("%d", lookup.Page) }/>
+			}
+			if lookup.Priority != "" {
+				<input type="hidden" name="priority" value={ lookup.Priority }/>
 			}
 			if lookup.Revision != "" {
 				<input type="hidden" name="rev" value={ lookup.Revision }/>

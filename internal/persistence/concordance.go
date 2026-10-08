@@ -3,9 +3,11 @@ package persistence
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -221,17 +223,42 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 		term = lemmaTerm
 	}
 	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Match: match, Term: term}
+	priorityAnalyzed := false
+	if lookup.Priority != "" && lookup.Priority != domain.ConcordancePriorityNone {
+		if !concordanceBookIDPattern.MatchString(lookup.Priority) {
+			result.InvalidPriority = true
+			return result, nil
+		}
+		book, err := queries.GetConcordancePriorityBook(ctx, sqlcgen.GetConcordancePriorityBookParams{
+			Owner: owner, Book: lookup.Priority, Language: pgtype.Text{String: language, Valid: true},
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			result.InvalidPriority = true
+			return result, nil
+		}
+		if err != nil {
+			return domain.ConcordanceResult{}, err
+		}
+		result.PriorityBookID, result.PriorityTitle, priorityAnalyzed = lookup.Priority, book.Title, book.Analyzed
+	}
 	const maxConcordancePage = int((1<<31-1)/25 + 1)
 	if lookup.Page > maxConcordancePage {
 		if err := tx.Commit(ctx); err != nil {
 			return domain.ConcordanceResult{}, err
 		}
 		result.HasPrevious = true
+		result.PriorityState = concordancePriorityState(result.PriorityBookID, priorityAnalyzed, false)
 		return result, nil
+	}
+	// Later pages start one row early so the preceding row can say whether the
+	// first Book group is a continuation.
+	offset := (int64(lookup.Page) - 1) * 25
+	if lookup.Page > 1 {
+		offset--
 	}
 	rows, err := queries.ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
 		Owner: owner, Language: language, Match: match, Term: term, Upos: upos,
-		Offset: (int64(lookup.Page) - 1) * 25,
+		PriorityBook: result.PriorityBookID, Offset: offset,
 	})
 	if err != nil {
 		return domain.ConcordanceResult{}, err
@@ -239,10 +266,17 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 	if err := tx.Commit(ctx); err != nil {
 		return domain.ConcordanceResult{}, err
 	}
+	priorityMatched := len(rows) > 0 && rows[0].PriorityMatched
+	result.PriorityState = concordancePriorityState(result.PriorityBookID, priorityAnalyzed, priorityMatched)
+	var previousBookID string
+	if lookup.Page > 1 && len(rows) > 0 {
+		previousBookID, rows = rows[0].BookID, rows[1:]
+	}
 	if len(rows) > 25 {
 		result.HasNext = true
 		rows = rows[:25]
 	}
+	result.Continued = len(rows) > 0 && rows[0].BookID == previousBookID
 	for _, row := range rows {
 		occurrence := domain.ConcordanceResultOccurrence{
 			ConcordanceOccurrence: concordanceOccurrenceFromFields(
@@ -260,6 +294,26 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 		result.Occurrences = append(result.Occurrences, occurrence)
 	}
 	return result, nil
+}
+
+// concordanceBookIDPattern is the canonical text form of a Book identity; any
+// other captured priority is malformed before it reaches a uuid column.
+var concordanceBookIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// concordancePriorityState separates a priority Book with no matches from one
+// whose current analysis is unavailable, so a missing analysis is never
+// reported as zero occurrences.
+func concordancePriorityState(priorityBookID string, analyzed, matched bool) string {
+	switch {
+	case priorityBookID == "":
+		return ""
+	case !analyzed:
+		return domain.ConcordancePriorityUnavailable
+	case matched:
+		return domain.ConcordancePriorityMatches
+	default:
+		return domain.ConcordancePriorityNoMatches
+	}
 }
 
 // GetVocabularySentenceStudy returns the complete token-level analyzer parse

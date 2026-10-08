@@ -121,6 +121,9 @@ type Querier interface {
 	GetBookVisibilityForUpdate(ctx context.Context, arg GetBookVisibilityForUpdateParams) (GetBookVisibilityForUpdateRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
+	// An owned Book in the study language, with whether it has a current analysis
+	// that can contribute occurrences.
+	GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
 	// Card export and generated-vocabulary persistence queries.
 	GetCorpusForAnalysis(ctx context.Context, arg GetCorpusForAnalysisParams) (GetCorpusForAnalysisRow, error)

@@ -29,6 +29,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		Term: strings.TrimSpace(query.Get("term")), Match: strings.TrimSpace(query.Get("as")),
 		UPOS: strings.TrimSpace(query.Get("upos")), Page: 1,
 		Revision: strings.TrimSpace(query.Get("rev")),
+		Priority: strings.TrimSpace(query.Get("priority")),
 	}
 	focusTarget := strings.TrimSpace(query.Get("focus"))
 	pageValid := true
@@ -64,7 +65,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		language = ""
 	}
 	invite := func(status int, message string) {
-		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, message, ""))
+		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, false, message, ""))
 	}
 	switch {
 	case !pageValid:
@@ -73,7 +74,8 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	case lookup.Match != "" && lookup.Match != domain.ConcordanceMatchLemma && lookup.Match != domain.ConcordanceMatchForm,
 		lookup.Match == "" && lookup.UPOS != "",
 		lookup.Match == domain.ConcordanceMatchForm && lookup.UPOS != "",
-		lookup.Match != "" && lookup.Term == "":
+		lookup.Match != "" && lookup.Term == "",
+		lookup.Priority == "" && lookup.Revision != "":
 		invite(http.StatusBadRequest, concordanceNoticeState)
 		return
 	case language == "" || lookup.Term == "":
@@ -82,6 +84,21 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	case len(strings.Fields(lookup.Term)) > 1:
 		invite(http.StatusBadRequest, concordanceNoticeOneTerm)
 		return
+	}
+	current, err := h.services.Store.CurrentReading.GetCurrentReading(queryCtx, u.ID, language)
+	if err != nil {
+		loadError(language, err)
+		return
+	}
+	currentPriority := domain.ConcordancePriorityNone
+	if current.IsActive() {
+		currentPriority = current.BookID
+	}
+	// A fresh lookup captures the then-current Book, or its explicit absence.
+	// Supported applied state keeps what it captured, even after the learner
+	// starts, ends, or switches reading.
+	if lookup.Priority == "" {
+		lookup.Priority = currentPriority
 	}
 	result, err := h.services.Store.VocabularyConcordance.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
 	if err != nil {
@@ -97,8 +114,14 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, true)
 		return
 	}
+	if result.InvalidPriority {
+		lookup.Priority = ""
+		invite(http.StatusBadRequest, concordanceNoticeState)
+		return
+	}
 	lookup = concordanceAppliedLookup(lookup, result)
-	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, "", focusTarget))
+	readingChanged := lookup.Priority != currentPriority
+	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", focusTarget))
 }
 
 func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, lookup domain.ConcordanceLookup, changed bool) {
@@ -153,7 +176,7 @@ func safeConcordanceReturnURL(candidate string) string {
 	}
 	for key := range values {
 		switch key {
-		case "language", "term", "as", "upos", "rev", "page", "focus":
+		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
 		default:
 			return "/vocabulary/concordance"
 		}
@@ -177,6 +200,9 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	if lookup.UPOS != "" {
 		values.Set("upos", lookup.UPOS)
 	}
+	if lookup.Priority != "" {
+		values.Set("priority", lookup.Priority)
+	}
 	if lookup.Revision != "" {
 		values.Set("rev", lookup.Revision)
 	}
@@ -184,9 +210,14 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	return "/vocabulary/concordance?" + values.Encode()
 }
 
-// vocabularyConcordanceRestartURL starts the same applied lookup over from
-// page 1 against current evidence.
+// vocabularyConcordanceRestartURL starts the applied lookup over from page 1
+// against current evidence and the current reading. An exact Browse identity
+// (lemma with a part of speech) keeps its meaning; an independent lookup
+// recognizes its term again.
 func vocabularyConcordanceRestartURL(lookup domain.ConcordanceLookup) string {
-	lookup.Revision = ""
+	lookup.Revision, lookup.Priority = "", ""
+	if lookup.UPOS == "" {
+		lookup.Match = ""
+	}
 	return vocabularyConcordancePageURL(1, lookup)
 }

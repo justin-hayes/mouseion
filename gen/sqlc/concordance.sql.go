@@ -40,6 +40,35 @@ func (q *Queries) ConcordanceLemmaEvidenced(ctx context.Context, arg Concordance
 	return evidenced, err
 }
 
+const getConcordancePriorityBook = `-- name: GetConcordancePriorityBook :one
+SELECT b.title,
+       EXISTS (SELECT 1 FROM current_analysis_identity ca
+                WHERE ca.owner_id=b.owner_id AND ca.book_id=b.id)::boolean AS analyzed
+  FROM books b
+ WHERE b.owner_id=$1 AND b.id=$2
+   AND b.language_state='chosen' AND b.language_tag=$3
+`
+
+type GetConcordancePriorityBookParams struct {
+	Owner    string
+	Book     string
+	Language pgtype.Text
+}
+
+type GetConcordancePriorityBookRow struct {
+	Title    string
+	Analyzed bool
+}
+
+// An owned Book in the study language, with whether it has a current analysis
+// that can contribute occurrences.
+func (q *Queries) GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error) {
+	row := q.db.QueryRow(ctx, getConcordancePriorityBook, arg.Owner, arg.Book, arg.Language)
+	var i GetConcordancePriorityBookRow
+	err := row.Scan(&i.Title, &i.Analyzed)
+	return i, err
+}
+
 const getVocabularySentenceStudy = `-- name: GetVocabularySentenceStudy :many
 
 SELECT COALESCE(t.surface, '')::text AS surface,
@@ -1356,7 +1385,9 @@ SELECT o.surface,
        t.raw_lemma,
        COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
        (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
-       COALESCE(d.excluded, false)::boolean AS excluded
+       COALESCE(d.excluded, false)::boolean AS excluded,
+       -- Computed over the whole matched set, before paging.
+       COALESCE(bool_or(o.book_id=$1::text) OVER (), false)::boolean AS priority_matched
   FROM concordance_occurrences o
   -- The view exposes these UUIDs as text; keep the indexed token keys uncast.
   JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
@@ -1366,25 +1397,29 @@ SELECT o.surface,
     AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
     AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
     AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
- WHERE o.owner_id=$1 AND o.language=$2
+ WHERE o.owner_id=$2 AND o.language=$3
    AND NOT COALESCE(d.excluded, false)
-   AND (($3::text='lemma'
-         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$4::text
-         AND ($5::text='' OR o.upos=$5))
-     OR ($3::text='form'
-         AND translate(lower(o.surface), 'ς', 'σ')=$4::text))
- ORDER BY lower(o.book_title), o.book_title, o.book_id,
+   AND (($4::text='lemma'
+         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$5::text
+         AND ($6::text='' OR o.upos=$6))
+     OR ($4::text='form'
+         AND translate(lower(o.surface), 'ς', 'σ')=$5::text))
+ ORDER BY (o.book_id=$1::text) DESC,
+          lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
- LIMIT 26 OFFSET $6::bigint
+ -- The caller starts one row early on later pages and reads one row past the
+ -- page: the first row decides "continued", the last decides "next".
+ LIMIT 27 OFFSET $7::bigint
 `
 
 type ListVocabularyConcordanceParams struct {
-	Owner    string
-	Language string
-	Match    string
-	Term     string
-	Upos     string
-	Offset   int64
+	PriorityBook string
+	Owner        string
+	Language     string
+	Match        string
+	Term         string
+	Upos         string
+	Offset       int64
 }
 
 type ListVocabularyConcordanceRow struct {
@@ -1415,10 +1450,12 @@ type ListVocabularyConcordanceRow struct {
 	EffectiveLemma      string
 	Corrected           bool
 	Excluded            bool
+	PriorityMatched     bool
 }
 
 func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {
 	rows, err := q.db.Query(ctx, listVocabularyConcordance,
+		arg.PriorityBook,
 		arg.Owner,
 		arg.Language,
 		arg.Match,
@@ -1461,6 +1498,7 @@ func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabul
 			&i.EffectiveLemma,
 			&i.Corrected,
 			&i.Excluded,
+			&i.PriorityMatched,
 		); err != nil {
 			return nil, err
 		}
