@@ -25,3 +25,21 @@ func TestCoverageBandUsesExactBoundaries(t *testing.T) {
 		})
 	}
 }
+
+func TestCoverageGapToNextBandUsesExactSharedBoundaries(t *testing.T) {
+	for _, test := range []struct {
+		known, total int64
+		wantTarget   int
+		wantGap      int64
+	}{
+		{known: 949, total: 1000, wantTarget: 95, wantGap: 1},
+		{known: 974, total: 1000, wantTarget: 99, wantGap: 16},
+		{known: 990, total: 1000},
+		{known: 1, total: 0},
+	} {
+		gotTarget, gotGap := CoverageGapToNextBand(test.known, test.total)
+		if gotTarget != test.wantTarget || gotGap != test.wantGap {
+			t.Errorf("CoverageGapToNextBand(%d, %d) = (%d, %d), want (%d, %d)", test.known, test.total, gotTarget, gotGap, test.wantTarget, test.wantGap)
+		}
+	}
+}

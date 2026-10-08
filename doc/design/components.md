@@ -163,7 +163,16 @@ Use one labeled contextual action and a native **More actions** disclosure.
 **Move to To Read** is primary for Inbox or Set Aside Books; **View in Reading**
 is primary for the current Book and To Read Books. The disclosure owns **Set
 aside**, eligible metadata refresh, and confirmed My Books removal. Do not add
-analysis, acquired-content, or next-action status to this pattern.
+standalone analysis/acquisition controls or next-action recommendations. Its
+margin note may state concise current evidence: analysis running, failed,
+unavailable, not yet analysed, or current token-weighted Known coverage and its
+gap to the next coverage band. Coverage annotates evidence; it is never
+readiness, recommendation, or failure framing. When there is no evidence, show
+no note rather than `0%`. A Read Book may show its latest completion date. Deck
+state is shown only for the current-reading Book. Failed-analysis and
+unavailable-content notes retain an adjacent, valid recovery action whenever
+recovery is available; do not show a dead route or offer refresh for the current
+Book.
 
 Reading's **Other To Read books** list reuses the same cover/identity/edged-margin
 composition, but not My Books' bucket note or action set. The section heading

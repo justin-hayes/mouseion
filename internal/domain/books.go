@@ -133,6 +133,11 @@ type MyBook struct {
 	CompletionCount        int
 	LatestCompletionAt     *time.Time
 	LatestCompletionSource ReadingCompletionSource
+	CoverageKnownTokens    int64
+	CoverageTotalTokens    int64
+	DeckState              string
+	DeckCardCount          int64
+	DeckPreparedAt         *time.Time
 }
 
 // WorkflowBucket derives the visible My Books role. A current reading keeps

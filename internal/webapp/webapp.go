@@ -53,6 +53,12 @@ type BookStore interface {
 	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
 }
 
+// MyBooksRefreshRowStore adds the full margin evidence needed only when an
+// HTMX metadata refresh re-renders a My Books row.
+type MyBooksRefreshRowStore interface {
+	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
+}
+
 type BookCoverStore interface {
 	GetActiveBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
 }

@@ -74,6 +74,8 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 | **Current analysis evidence** | The Book's current completed evidence, owned by the Book and presented from Reading. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the learner surface |
 | **Analysis evidence** | Current coverage and warning-only quality information used by Reading; internal thresholds and top-unknown data remain available to analysis services without a learner-facing detail page. | Dashboard metrics, difficulty score, text profile on the learner surface |
 | **View in Reading** | Leave operational status and open the Book's canonical Reading anchor, directly or through the run-specific compatibility redirect. | View job, view exact result |
+| **Not analysed yet** | Current acquired content has no completed analysis; a recovery action may accompany the note when available. | Not assessed as 0%, analysis failure |
+| **Analysis failed** / **Content unavailable** | A factual current-evidence state. Keep its adjacent recovery action when one is available, and do not expose an action whose route or preconditions are invalid. | Dead retry link, failure framing for absent evidence |
 
 Use **job** only for operational history or implementation-facing detail. A
 Book's learner-facing state may be **ready to analyze**, **analysis queued**,
@@ -156,6 +158,12 @@ Always state whether a number is current, token-weighted, scoped, stale, or
 unavailable. Coverage bands are evidence labels, not a literary judgment or a
 claim that the learner can or cannot read a book. Prepared decks and reading
 snapshots select recurring vocabulary and make no coverage claim.
+
+My Books may annotate a Book with current analysis state, current token-weighted
+Known coverage and the gap to the next coverage band, or the latest completion
+date for a Read Book. Absent coverage is neutral, never `0%`. Deck state belongs
+in this margin only for the current-reading Book. These notes report evidence;
+they do not imply readiness, recommendation, or vocabulary mastery.
 
 **Language view** and **language corpus view** were the names used for the panel
 proposed by [ADR 0042](../adr/0042-derived-language-corpus-view.md). That panel is

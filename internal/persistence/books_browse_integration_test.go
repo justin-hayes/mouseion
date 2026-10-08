@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -187,6 +188,12 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	assert.Equal(t, domain.MyBookBucketRead, read.Items[0].WorkflowBucket())
 	assert.Equal(t, 1, read.ReadCount)
 	assert.Equal(t, domain.BookDispositionSetAside, read.Items[0].Disposition, "Read is a projection and preserves the underlying disposition")
+	detail, err := store.GetBookDetail(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, read.Items[0].CompletionCount, detail.CompletionCount)
+	require.NotNil(t, detail.LatestCompletionAt)
+	assert.Equal(t, read.Items[0].LatestCompletionAt, detail.LatestCompletionAt)
+	assert.Equal(t, read.Items[0].LatestCompletionSource, detail.LatestCompletionSource)
 
 	// Reconsideration retains append-only history but moves the visible Book to
 	// To Read. Setting it aside again projects that same Book back into Read.
@@ -288,6 +295,105 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 		}
 	}
 	assert.NotEmpty(t, italianCurrent.SnapshotID)
+}
+
+func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "browse-margin-evidence", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "el", "margin-evidence")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID))
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT id::text FROM corpora WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID).Scan(&corpusID))
+	_, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=100, distinct_lemma_count=2 WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, source.ID)
+	require.NoError(t, err)
+	const sourceDocumentID = "margin-evidence-unit"
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,0,'fixture evidence',0,2000)`, owner.ID, runID, corpusID, sourceDocumentID)
+	require.NoError(t, err)
+	insertToken := func(ordinal int64, lemma, upos, dependency string, start, end int64) {
+		t.Helper()
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,morphology,dependency,head,start_offset,end_offset) VALUES($1,'el',$2,$3,0,$4,$5,$5,$5,$6,'{}'::jsonb,$7,0,$8,$9)`, owner.ID, runID, corpusID, ordinal, lemma, upos, dependency, start, end)
+		require.NoError(t, insertErr)
+	}
+	for i := range int64(90) {
+		start := i * 10
+		insertToken(i, "σπίτι", "NOUN", "root", start, start+5)
+	}
+	for i := range int64(10) {
+		start := int64(1000) + i*10
+		insertToken(90+i, "πηγαίνω", "VERB", "root", start, start+7)
+	}
+	for i := range int64(5) {
+		start := int64(1200) + i*10
+		insertToken(100+i, "123", "NOUN", "root", start, start+3)
+	}
+	_, err = store.PutKnownVocabulary(ctx, owner.ID, "el", "σπίτι", "")
+	require.NoError(t, err)
+	// Correct an unknown occurrence into Known, and exclude five formerly Known
+	// occurrences. The browse projection must follow the same decisions as Reading.
+	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,1000,1007,'σπίτι','el','1',false)`, owner.ID, book.ID, corpusID, runID, sourceDocumentID)
+	require.NoError(t, err)
+	for i := range int64(5) {
+		start := i * 10
+		_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL,true)`, owner.ID, book.ID, corpusID, runID, sourceDocumentID, start, start+5)
+		require.NoError(t, err)
+	}
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
+		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID,
+		Filename: "margin.apkg", DeckName: "Margin evidence", ContentHash: source.ContentHash,
+	})
+	require.NoError(t, err)
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	ready, err := store.CompleteDeckPreparation(ctx, owner.ID, preparation.ID, domain.DeckPreparation{
+		Artifact: []byte("apkg"), Filename: "margin.apkg", DeckName: "Margin evidence", TotalCards: 42,
+	})
+	require.NoError(t, err)
+
+	beforeCurrent, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "el", "", false, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, beforeCurrent.Items, 1)
+	assert.False(t, beforeCurrent.Items[0].IsCurrentReading)
+	assert.Empty(t, beforeCurrent.Items[0].DeckState, "prepared deck evidence is not queried for a non-current Book")
+
+	_, err = store.StartCurrentReading(ctx, owner.ID, "el", book.ID)
+	require.NoError(t, err)
+	browse, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "el", "", false, 0, 25)
+	require.NoError(t, err)
+	require.Len(t, browse.Items, 1)
+	got := browse.Items[0]
+	assert.True(t, got.IsCurrentReading)
+	assert.Equal(t, int64(86), got.CoverageKnownTokens, "wildcard-UPOS identity plus corrections/exclusions drive Known coverage")
+	assert.Equal(t, int64(100), got.CoverageTotalTokens, "the source-derived denominator is authoritative even when occurrence exclusions exist")
+	authoritativeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpusID)
+	require.NoError(t, err)
+	assert.Equal(t, authoritativeCoverage.KnownTokenCount, got.CoverageKnownTokens, "My Books Known matches the authoritative coverage service after exact-occurrence corrections and exclusions")
+	assert.Equal(t, authoritativeCoverage.AnalyzableTokenCount, got.CoverageTotalTokens, "My Books total matches the authoritative source-derived denominator after exclusions")
+	assert.Equal(t, "ready", got.DeckState)
+	assert.Equal(t, int64(42), got.DeckCardCount)
+	require.NotNil(t, got.DeckPreparedAt)
+	assert.Equal(t, ready.CompletedAt, got.DeckPreparedAt)
+
+	// Generic detail reads remain lean; only the metadata-refresh row read loads
+	// corpus-sized current margin evidence.
+	detail, err := store.GetBookDetail(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Zero(t, detail.CoverageKnownTokens)
+	assert.Zero(t, detail.CoverageTotalTokens)
+	assert.Empty(t, detail.DeckState)
+	assert.False(t, detail.IsCurrentReading)
+
+	refreshDetail, err := store.GetBookDetailForMyBooksRefresh(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, got.CoverageKnownTokens, refreshDetail.CoverageKnownTokens, "excluded Known occurrences must not inflate the numerator")
+	assert.Equal(t, int64(100), refreshDetail.CoverageTotalTokens)
+	assert.Equal(t, got.DeckState, refreshDetail.DeckState)
+	assert.Equal(t, got.DeckCardCount, refreshDetail.DeckCardCount)
+	assert.True(t, refreshDetail.IsCurrentReading)
 }
 
 func dispositionCountForBucket(counts []DispositionCount, disposition domain.BookDisposition) int {

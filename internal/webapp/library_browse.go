@@ -13,6 +13,102 @@ import (
 
 const myBooksPageSize = 25
 
+// myBookMarginEvidence summarizes facts for the current source analysis only.
+// Empty evidence stays empty; it is never converted into a failure or 0%.
+func myBookMarginEvidence(book domain.MyBook) string {
+	if book.WorkflowBucket() == domain.MyBookBucketRead && book.LatestCompletionAt != nil {
+		return "Finished " + myBooksCompletionDateLabel(book.LatestCompletionAt) + "."
+	}
+	if book.Acquired == nil {
+		return ""
+	}
+	var notes []string
+	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
+	switch status {
+	case "analyzing":
+		notes = append(notes, "Analysis running.")
+	case "analysis failed", "failed":
+		notes = append(notes, "Analysis failed.")
+	case "analysis cancelled", "cancelled":
+		notes = append(notes, "Analysis cancelled.")
+	case "stale":
+		notes = append(notes, "Analysis out of date.")
+	case "content unavailable":
+		notes = append(notes, "Content unavailable.")
+	case "not analyzed":
+		if !myBookHasCurrentContent(book) {
+			notes = append(notes, "Content unavailable.")
+		} else {
+			notes = append(notes, "Not analysed yet.")
+		}
+	case "analyzed":
+		if book.CoverageTotalTokens > 0 {
+			known := max(min(book.CoverageKnownTokens, book.CoverageTotalTokens), 0)
+			percent := float64(known) * 100 / float64(book.CoverageTotalTokens)
+			bandTarget, gap := domain.CoverageGapToNextBand(known, book.CoverageTotalTokens)
+			if bandTarget > 0 {
+				notes = append(notes, fmt.Sprintf("%.1f%% of running words Known. %d more words to reach %d%%.", percent, gap, bandTarget))
+			} else {
+				notes = append(notes, fmt.Sprintf("%.1f%% of running words Known.", percent))
+			}
+		}
+	default:
+		if !myBookHasCurrentContent(book) {
+			notes = append(notes, "Content unavailable.")
+		} else {
+			notes = append(notes, "Not analysed yet.")
+		}
+	}
+	if book.IsCurrentReading && book.DeckState == "ready" {
+		if book.DeckPreparedAt != nil {
+			notes = append(notes, fmt.Sprintf("Deck ready: %d cards, prepared %s.", book.DeckCardCount, book.DeckPreparedAt.Local().Format("2 January 2006")))
+		} else {
+			notes = append(notes, fmt.Sprintf("Deck ready: %d cards.", book.DeckCardCount))
+		}
+	} else if book.IsCurrentReading && (book.DeckState == "preparing" || book.DeckState == "queued") {
+		notes = append(notes, "Deck preparation running.")
+	} else if book.IsCurrentReading && book.DeckState == "failed" {
+		notes = append(notes, "Deck preparation failed.")
+	} else if book.IsCurrentReading && book.DeckState == "cancelled" {
+		notes = append(notes, "Deck preparation cancelled.")
+	}
+	return strings.Join(notes, " ")
+}
+
+func myBookEvidenceRecovery(book domain.MyBook) string {
+	if book.Acquired == nil || book.IsCurrentReading {
+		return ""
+	}
+	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
+	action := ""
+	if status == "analysis failed" || status == "failed" || status == "analysis cancelled" || status == "cancelled" || status == "stale" {
+		action = "Retry analysis"
+	} else if status == "content unavailable" || !myBookHasCurrentContent(book) {
+		action = "Retry acquisition"
+	}
+	if action == "" || book.Disposition == domain.BookDispositionToRead {
+		return action
+	}
+	if book.CompletionCount > 0 {
+		return action + " by reading again"
+	}
+	return action + " by moving to To Read"
+}
+
+func myBookEvidenceRecoveryURL(book domain.MyBook) string {
+	if book.Disposition == domain.BookDispositionToRead {
+		return readingReanalyzeURL(book.Book.ID)
+	}
+	if book.CompletionCount > 0 {
+		return "/library/books/" + url.PathEscape(book.Book.ID) + "/read-again"
+	}
+	return "/library/books/" + url.PathEscape(book.Book.ID) + "/to-read"
+}
+
+func myBookHasCurrentContent(book domain.MyBook) bool {
+	return book.Acquired != nil && book.Acquired.Source.ContentRevisionID != "" && book.Acquired.Source.ContentSnapshotID != ""
+}
+
 // MyBooksBrowseState carries the server-rendered collection controls and
 // result state. Enabled deliberately distinguishes the new read model from
 // the zero-value legacy rendering used by lightweight stores.
