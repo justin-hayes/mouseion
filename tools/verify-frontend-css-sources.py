@@ -78,7 +78,7 @@ def main() -> None:
         # The temporary-only markers prove that every declared source group is
         # scanned, while generated/tests/vendor/temporary inputs stay excluded.
         included = {
-            "views.templ": "w-[731px]",
+            "layout.templ": "w-[731px]",
             "new-authored-view.templ": "w-[732px]",
             "lemma_review.templ": "w-[733px]",
             "components.go": "w-[734px]",
@@ -93,7 +93,7 @@ def main() -> None:
                 source.write(f"\n/* class: {candidate} */\n")
 
         excluded = {
-            "views_templ.go": "w-[741px]",
+            "layout_templ.go": "w-[741px]",
             "tests/source_test.go": "w-[742px]",
             "static/vendor/third-party.js": "w-[743px]",
             "temporary.html": "w-[744px]",

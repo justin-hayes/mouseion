@@ -35,10 +35,15 @@ func TestReconciliation_NoRawHexInTemplates(t *testing.T) {
 // are gone from generated code, and both GET / and GET /known-vocab are now
 // handler-level redirects rather than rendered pages.
 func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
-	data, err := os.ReadFile("views_templ.go")
-	require.NoError(t, err, "read views_templ.go: %v", err)
-	for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`} {
-		assert.False(t, strings.Contains(string(data), dead), "generated views_templ.go still contains removed template %q", dead)
+	files, err := filepath.Glob("*_templ.go")
+	require.NoError(t, err)
+	require.NotEmpty(t, files)
+	for _, file := range files {
+		data, readErr := os.ReadFile(file) //nolint:gosec // filepath.Glob only returns checked-in generated paths.
+		require.NoError(t, readErr, "read %s", file)
+		for _, dead := range []string{`func Dashboard(`, `func KnownVocabPage(`} {
+			assert.False(t, strings.Contains(string(data), dead), "generated %s still contains removed template %q", file, dead)
+		}
 	}
 }
 
