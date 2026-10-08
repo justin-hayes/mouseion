@@ -464,7 +464,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
 	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, fixtures.BookID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, disposition)
+	assert.Equal(t, domain.BookDispositionInbox, disposition)
 	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	graduated := 0

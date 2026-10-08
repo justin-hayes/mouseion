@@ -287,8 +287,8 @@ _Avoid_: Reading Journey, Primary Goal, reading queue.
 **Inbox**:
 The disposition of a newly discovered Book not yet triaged by the learner.
 Metadata changes or catalog reappearance do not recreate Inbox work. A Book
-marked previously read leaves the visible Inbox for Read without losing its
-underlying disposition.
+marked previously read, and a Book whose reading was finished, leaves the
+visible Inbox for Read while Inbox remains its underlying disposition.
 _Avoid_: unprocessed queue, notification.
 
 **To Read**:

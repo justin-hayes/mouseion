@@ -81,7 +81,7 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, disposition, "legacy membership was not contracted to To Read")
 	disposition, err = store.GetBookDisposition(ctx, owner.ID, finished.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, disposition, "cutover overwrote the finished Book's existing disposition")
+	assert.Equal(t, domain.BookDispositionInbox, disposition, "cutover overwrote the finished Book's existing disposition")
 
 	loaded, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
