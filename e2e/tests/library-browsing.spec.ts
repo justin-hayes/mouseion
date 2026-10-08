@@ -126,9 +126,11 @@ test.describe('My Books collection browsing', () => {
       const controls = node.getBoundingClientRect();
       return { inputWidth: input.width, inputRight: input.right, inputBottom: input.bottom, inputTop: input.top, submitLeft: submit.left, submitTop: submit.top, controlsWidth: controls.width };
     });
-    expect(searchLayout.inputWidth).toBeGreaterThan(searchLayout.controlsWidth * 0.55);
+    // The field has a bounded measure (28rem) with the outline Search action beside it.
+    expect(searchLayout.inputWidth).toBeGreaterThan(Math.min(searchLayout.controlsWidth * 0.55, 400));
     if (Math.abs(searchLayout.submitTop - searchLayout.inputTop) < 1) {
-      expect(Math.abs(searchLayout.submitLeft - searchLayout.inputRight)).toBeLessThanOrEqual(1);
+      expect(searchLayout.submitLeft - searchLayout.inputRight).toBeGreaterThanOrEqual(0);
+      expect(searchLayout.submitLeft - searchLayout.inputRight).toBeLessThanOrEqual(12);
     } else {
       expect(searchLayout.submitTop).toBeGreaterThanOrEqual(searchLayout.inputBottom);
     }

@@ -534,7 +534,7 @@ test.describe('responsive and theme regression coverage', () => {
     const colors = await page.locator('.site-header').evaluate((node) => {
       const style = getComputedStyle(node);
       const probe = document.createElement('span');
-      probe.style.backgroundColor = 'var(--mouseion-color-surface-quiet)';
+      probe.style.backgroundColor = 'var(--mouseion-color-surface-raised)';
       document.body.append(probe);
       const tokenBackground = getComputedStyle(probe).backgroundColor;
       probe.remove();

@@ -59,6 +59,29 @@
 
   .btn {
     min-height: 44px;
+    border-radius: var(--mouseion-radius);
+    padding-inline: var(--mouseion-space-4);
+    font-size: var(--mouseion-font-size-metadata);
+    font-weight: 550;
+  }
+
+  /* Outline actions share the native outline button's boundary and ink. */
+  .btn-outline {
+    border-color: var(--mouseion-color-control-border);
+    color: var(--mouseion-color-text);
+    background-color: var(--mouseion-color-surface-raised);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--mouseion-color-text);
+    color: var(--mouseion-color-text);
+    background-color: var(--mouseion-color-surface-raised);
+  }
+
+  /* Concordance fields fill their bounded grid tracks, as My Books search does. */
+  #concordance-workflow .concordance-query .input {
+    width: 100%;
+    min-width: 0;
   }
 
   /* Keep primary button foreground, fill, and boundary on Mouseion's active
