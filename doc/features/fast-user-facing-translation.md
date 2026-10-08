@@ -60,7 +60,7 @@ without returning to one long, in-memory preparation attempt.
 
 ### End-to-end path
 
-1. `internal/webapp/webapp.go` and `internal/webapp/views.templ` submit the existing
+1. `internal/webapp/webapp.go` and `internal/webapp/deck_preparation.templ` submit the existing
    owner-scoped preparation with optional external-translation consent and poll its
    status.
 2. `internal/prepareddeck/jobs.go` creates the `deck_preparations` row and the
@@ -82,7 +82,7 @@ without returning to one long, in-memory preparation attempt.
    `internal/persistence/prepared_deck_run_transitions.go` claim finalization and
    atomically complete the APKG through the existing `cardexport.Service` boundary.
 9. `internal/persistence/prepared_deck_status.go`, `internal/webapp/webapp.go`, and
-   `internal/webapp/views.templ` derive and render aggregate progress. Download
+   `internal/webapp/deck_preparation.templ` derive and render aggregate progress. Download
    remains a read-only operation in `internal/prepareddeck/jobs.go`.
 
 ### Existing reusable foundations
@@ -274,7 +274,7 @@ current operational logging policy permits it.
 | Planning/dispatch | `internal/prepareddeck/cutover.go`, `durable.go`, new mode/planner files | Select a frozen mode; retain Batch planner; create standard per-item jobs. |
 | Standard worker | new `internal/prepareddeck/standard_*.go`; `recovery.go` | One claimed item and provider attempt per River job; cache hit, strict request, persisted retry, terminal failure, and restart repair. |
 | Runtime config | `internal/prepareddeck/config.go`; `cmd/server/main.go`; `internal/analysis/jobs.go`; `.env.example`; `compose.yaml` | Parse settings, create dedicated queue, wire standard provider and workers, retain Batch workers when configured. |
-| Status/UI | `internal/persistence/prepared_deck_status.go`; `internal/webapp/webapp.go`; `views.templ` and generated file/tests | Expose execution mode and mode-aware phases/counts; remove Batch language from standard jobs. |
+| Status/UI | `internal/persistence/prepared_deck_status.go`; `internal/webapp/webapp.go`; `deck_preparation.templ` and generated file/tests | Expose execution mode and mode-aware phases/counts; remove Batch language from standard jobs. |
 | Metrics/smoke | `internal/prepareddeck/metrics.go` | Generalize telemetry across standard and Batch. |
 
 ## Implementation issues and dependency waves

@@ -1,0 +1,231 @@
+package webapp
+
+import (
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+templ Layout(title string, user *domain.User, csrf string) {
+	@ShellLayout(title, user, csrf, navigationContextForTitle(title))
+}
+
+templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, shellStyles ...shellStyle) {
+	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title>
+	<link rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
+window.escapeHtml = function (s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+};
+document.addEventListener('submit', function (evt) {
+  var form = evt.target.closest && evt.target.closest('form[data-acquire]');
+  if (!form) return;
+  var button = form.querySelector('button[type="submit"]');
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }
+});
+document.addEventListener('submit', async function (evt) {
+  var form = evt.target.closest && evt.target.closest('form[data-prepare-deck]');
+  if (!form) return;
+  evt.preventDefault();
+  var button = form.querySelector('button[type="submit"]');
+  var status = form.parentElement.querySelector('[data-deck-preparation]');
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Preparing deck…'; }
+  try {
+    var response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+    if (!response.ok) {
+      var detail = (await response.text()).trim();
+      throw new Error(detail || ('Request failed with status ' + response.status));
+    }
+    form.hidden = true;
+    status.hidden = false;
+    await window.pollDeckPreparation(response.url, status, form);
+  } catch (error) {
+    status.hidden = false;
+    status.innerHTML = '<p role="alert">Deck preparation could not start: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>';
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = 'Prepare deck'; }
+  }
+});
+window.pollDeckPreparation = async function (statusURL, target, sourceForm) {
+  try {
+    var response = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
+    var preparation = await response.json();
+    var stateLabels = {queued: 'Deck queued', preparing: 'Preparing deck', ready: 'Deck ready', failed: 'Deck preparation failed', cancelled: 'Deck preparation cancelled'};
+    var phaseLabels = {queued: 'Waiting to start', freezing: 'Freezing the selected vocabulary', submitting: 'Submitting translation requests', waiting: 'Waiting for Batch translation; it can take hours (up to 24h)', reconciling: 'Reconciling translation results', retrying: 'Retrying temporary translation failures', translating: 'Translating selected vocabulary', assembling: 'Assembling the Anki package', finalizing: 'Finalizing the Anki package', completed: 'Preparation complete', failed: 'Preparation failed', cancelled: 'Preparation cancelled'};
+    var active = preparation.state === 'queued' || preparation.state === 'preparing';
+    var html = '<h3>' + window.escapeHtml(stateLabels[preparation.state] || 'Deck preparation') + '</h3>';
+    if (active) {
+      html += '<p aria-busy="true">' + window.escapeHtml(phaseLabels[preparation.phase] || (preparation.state === 'queued' ? 'Waiting for preparation to begin' : 'Preparing the deck')) + '…</p>';
+      var t = preparation.translation || {};
+      if (Number(t.eligible || 0) > 0) html += 'Translations: ' + Number(t.completed || 0) + ' complete · ' + Number(t.failed || 0) + ' unavailable · ' + Number(t.retrying || 0) + ' retrying · ' + Number(t.pending || 0) + ' waiting.';
+      var b = preparation.batch || {};
+      if (Number(b.requests || 0) > 0) html += 'Batch requests: ' + Number(b.completed || 0) + ' complete · ' + Number(b.failed || 0) + ' failed · ' + Number(b.expired || 0) + ' expired' + (Number(b.age_seconds || 0) > 0 ? ' · running for ' + Math.floor(Number(b.age_seconds || 0) / 3600) + 'h' : '') + '.';
+    }
+    html += '<progress aria-label="Deck preparation progress" value="' + Number(preparation.progress || 0) + '" max="100">' + Number(preparation.progress || 0) + '%</progress>';
+    if (preparation.deck_name) html += '<p><strong>Deck:</strong> <code>' + window.escapeHtml(preparation.deck_name) + '</code><br/><strong>Filename:</strong> <code>' + window.escapeHtml(preparation.filename) + '</code></p>';
+    if (preparation.ready) {
+      var readyResponse = await fetch(statusURL, {credentials: 'same-origin', headers: {'Accept': 'text/html', 'HX-Request-Type': 'partial'}});
+      if (!readyResponse.ok) throw new Error((await readyResponse.text()).trim() || ('Request failed with status ' + readyResponse.status));
+      target.outerHTML = await readyResponse.text(); return;
+    } else if (active) {
+      html += '<button type="button" class="button button--outline" data-cancel-preparation>Cancel preparation</button>';
+    } else {
+      if (preparation.error) html += '<p role="alert">' + window.escapeHtml(preparation.error) + '</p>';
+      html += '<button type="button" class="button" data-retry-preparation>Retry preparation</button>';
+    }
+    target.innerHTML = html;
+    var cancel = target.querySelector('[data-cancel-preparation]');
+    if (cancel) cancel.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\/status$/, '/cancel'), target, sourceForm, cancel); });
+    var retry = target.querySelector('[data-retry-preparation]');
+    if (retry) retry.addEventListener('click', function () { window.updateDeckPreparation(statusURL.replace(/\/status$/, '/retry'), target, sourceForm, retry); });
+    if (active) setTimeout(function () { window.pollDeckPreparation(statusURL, target, sourceForm); }, 1500);
+  } catch (error) {
+    target.innerHTML = '<p role="alert">Could not check deck preparation: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p><button type="button" class="button button--outline" data-check-preparation>Try again</button>';
+    target.querySelector('[data-check-preparation]').addEventListener('click', function () { window.pollDeckPreparation(statusURL, target, sourceForm); });
+  }
+};
+window.updateDeckPreparation = async function (action, target, sourceForm, actionButton) {
+  var data = new FormData();
+  data.set('csrf_token', sourceForm.querySelector('[name="csrf_token"]').value);
+  var actionLabel = /\/cancel$/.test(action) ? 'Canceling deck preparation…' : 'Retrying deck preparation…';
+  var originalLabel = actionButton ? actionButton.textContent : '';
+  if (actionButton) {
+    actionButton.disabled = true;
+    actionButton.setAttribute('aria-busy', 'true');
+    actionButton.textContent = actionLabel;
+  }
+  target.setAttribute('aria-busy', 'true');
+  var pendingStatus = document.createElement('p');
+  pendingStatus.setAttribute('role', 'status');
+  pendingStatus.setAttribute('data-deck-action-pending', '');
+  pendingStatus.textContent = actionLabel;
+  target.insertBefore(pendingStatus, target.firstChild);
+  try {
+    var response = await fetch(action, {method: 'POST', body: data, credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+    if (!response.ok) throw new Error((await response.text()).trim() || ('Request failed with status ' + response.status));
+    target.removeAttribute('aria-busy');
+    await window.pollDeckPreparation(action.replace(/\/(cancel|retry)$/, '/status'), target, sourceForm);
+  } catch (error) {
+    target.removeAttribute('aria-busy');
+    var pendingMessage = target.querySelector('[data-deck-action-pending]');
+    if (pendingMessage) pendingMessage.remove();
+    if (actionButton) {
+      actionButton.disabled = false;
+      actionButton.removeAttribute('aria-busy');
+      actionButton.textContent = originalLabel;
+    }
+    target.insertAdjacentHTML('beforeend', '<p role="alert">Deck action failed: ' + window.escapeHtml(error && error.message ? error.message : 'Please try again.') + '</p>');
+  }
+};
+window.showConcordanceNetworkRecovery = function (ctx) {
+  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;
+  var recovery = document.getElementById('concordance-recovery');
+  if (!recovery) return;
+  recovery.replaceChildren();
+  var message = document.createElement('p');
+  message.setAttribute('role', 'alert');
+  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';
+  var retry = document.createElement('a');
+  retry.href = ctx.request.action; retry.className = 'button button--outline';
+  retry.textContent = 'Retry Concordance lookup';
+  recovery.append(message, retry);
+};
+window.showVocabularyNetworkRecovery = function (ctx) {
+  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#vocabulary-workflow') || ctx.response) return;
+  var recovery = document.getElementById('vocabulary-recovery');
+  if (!recovery) return;
+  recovery.replaceChildren();
+  var message = document.createElement('p');
+  message.setAttribute('role', 'alert');
+  message.textContent = 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';
+  var retry = document.createElement('a');
+  retry.href = ctx.request.action;
+  retry.textContent = 'Retry Browse';
+  recovery.append(message, retry);
+};
+document.addEventListener('htmx:after:swap', function (evt) {
+  var ctx = evt.detail && evt.detail.ctx;
+  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;
+  var summary = document.getElementById('vocabulary-results-heading');
+  if (summary) {
+    summary.focus();
+    var clicked = ctx.sourceEvent && ctx.sourceEvent.target;
+    if (clicked && clicked.closest && clicked.closest('nav[aria-label="Browse pages"]')) {
+      summary.scrollIntoView({block: 'start'});
+    }
+  }
+});
+document.addEventListener('htmx:after:history:restore', function () {
+  if (window.location.pathname !== '/vocabulary') return;
+  var summary = document.getElementById('vocabulary-results-heading');
+  if (summary) summary.focus();
+});
+document.addEventListener('htmx:after:swap', function (evt) {
+  var ctx = evt.detail && evt.detail.ctx;
+  if (!ctx || !ctx.target || (ctx.target.id !== 'concordance-workflow' && ctx.target.id !== 'concordance-results')) return;
+  var summary = document.getElementById('concordance-summary');
+  if (summary) summary.focus();
+});
+document.addEventListener('htmx:after:history:restore', function () {
+  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;
+  var summary = document.getElementById('concordance-summary');
+  if (summary) summary.focus();
+});
+function focusConcordanceSummaryForMissingReturnTarget() {
+  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;
+  var target = new URLSearchParams(window.location.search).get('focus');
+  if (!target || document.getElementById(target)) return;
+  var summary = document.getElementById('concordance-summary');
+  if (summary) summary.focus();
+}
+document.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);
+window.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);
+document.addEventListener('htmx:after:swap', function (evt) {
+			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
+			var region = document.getElementById(id);
+			if (!region) return;
+			var focusID = region.getAttribute('data-focus-id');
+			if (!focusID) return;
+			var ctx = evt.detail && evt.detail.ctx;
+			var swappedTarget = ctx && ctx.target;
+			if (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;
+			var source = ctx && ctx.sourceElement;
+			var targetSelector = source && source.getAttribute('hx-target');
+			var target = targetSelector ? document.querySelector(targetSelector) : null;
+			var targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));
+			if (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {
+			  region.removeAttribute('data-focus-id');
+			  return;
+    }
+    var focusTarget = document.getElementById(focusID);
+    if (focusTarget) focusTarget.focus();
+    region.removeAttribute('data-focus-id');
+  });
+});
+	</script></head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><a class="site-header__brand" href="/"><strong>Mouseion</strong></a>
+	if user != nil {
+		<ul class="site-header__navigation">
+		<li><a href="/library" { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href="/reading" { destinationAttributes(context, NavigationReadingJourney)... }>Reading</a></li><li><a href="/vocabulary" { destinationAttributes(context, NavigationVocabulary)... }>Vocabulary</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalogs</a></li></ul>
+		<div class="site-header__tools">@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), csrf)
+		<details class="site-header__account"><summary><span class="site-header__account-name">{ user.Username }</span><span class="site-header__account-compact">Account</span></summary><div class="site-header__account-panel"><p>Signed in as <strong>{ user.Username }</strong></p><form method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet" type="submit">Log out</button></form></div></details></div>
+	}
+	</nav></header><main id="main-content" class="page-container" tabindex="-1">{ children... }</main></body></html>
+}
+
+templ LoginPage(csrf, message, next string, onboarding bool) {
+	@ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in"), shellStyleLogin) { <article class="narrow login-screen">
+	if onboarding {
+		<h1>Create your account</h1><p class="login-screen__intro">Set up the first learner account for this Mouseion installation.</p>
+	} else {
+		<h1>Sign in</h1><p class="login-screen__intro">Return to your reading desk.</p>
+	}
+	if message != "" {
+		<p class="alert alert-error login-screen__error" role="alert">{ message }</p>
+	}
+	if onboarding {
+		<form class="login-form" method="post" action="/onboarding"><input type="hidden" name="csrf_token" value={ csrf }/><label class="login-field">Username<input name="username" required autocomplete="username"/></label><label class="login-field">Password<input type="password" name="password" minlength="8" required autocomplete="new-password"/><small>Use at least 8 characters.</small></label><button class="btn btn-primary" type="submit">Create account</button></form>
+	} else {
+		<form class="login-form" method="post" action="/login"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="next" value={ next }/><label class="login-field">Username<input name="username" required autocomplete="username"/></label><label class="login-field">Password<input type="password" name="password" required autocomplete="current-password"/></label><button class="btn btn-primary" type="submit">Sign in</button></form>
+	}
+	</article> }
+}
