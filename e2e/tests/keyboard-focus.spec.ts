@@ -144,14 +144,15 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('.library-books').getByText('Review failed analysis')).toHaveCount(0);
   });
 
-  test('Reading Journey keeps goal-first keyboard order and announces feedback', async ({ page }) => {
+  test('Reading keeps goal-first keyboard order and announces feedback', async ({ page }) => {
     await signIn(page);
     await page.goto('/reading?message=Journey%20updated');
     const goalHeading = page.locator('.journey-book__title');
-    const provisionalHeading = page.locator('#provisional-journey-heading');
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Journey updated');
-    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#provisional-journey-heading')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    // The current Book precedes the Vocabulary Browse; no Other To Read section is rendered.
+    await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
+    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#vocabulary-workflow')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     const goalLink = page.locator('.journey-book--goal a').first();
     await goalLink.focus();
     await expect(goalLink).toBeFocused();

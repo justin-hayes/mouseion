@@ -32,8 +32,8 @@ func TestReconciliation_NoRawHexInTemplates(t *testing.T) {
 
 // TestReconciliation_DeadTemplatesRemoved pins the residual-consistency result
 // of issue #381: the unreachable Dashboard and direct KnownVocabPage templates
-// are gone from generated code, and both GET / and GET /known-vocab are now
-// handler-level redirects rather than rendered pages.
+// are gone from generated code, and GET / is now a
+// handler-level redirect, and GET /known-vocab is retired without a redirect.
 func TestReconciliation_DeadTemplatesRemoved(t *testing.T) {
 	files, err := filepath.Glob("*_templ.go")
 	require.NoError(t, err)
@@ -55,14 +55,13 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 	assert.Equal(t, "/library", rec.Header().Get("Location"))
 }
 
-func TestReconciliation_KnownVocabRedirectsToVocabulary(t *testing.T) {
-	h := &Handler{}
+func TestReconciliation_KnownVocabAliasIsRetiredWithoutRedirect(t *testing.T) {
+	h, cookies, _, _ := goalFixtureSession(t)
 	for _, path := range []string{"/known-vocab", "/known-vocab?language=de"} {
 		t.Run(path, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			h.knownVocabPage(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
-			assert.Equal(t, http.StatusSeeOther, rec.Code)
-			assert.Equal(t, "/vocabulary", rec.Header().Get("Location"))
+			response := performReadingRequest(t, h, http.MethodGet, path, nil, cookies, false)
+			assert.Equal(t, http.StatusNotFound, response.Code)
+			assert.Empty(t, response.Header().Get("Location"))
 		})
 	}
 }

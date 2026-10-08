@@ -14,6 +14,8 @@ import (
 // ListVocabularyBrowsePage projects current analyzer tokens through the
 // owner's occurrence decisions. The default view hides identities already
 // accounted for by learner state or a successful preparation for this Book.
+// A page past the last page returns no rows with its exact Total; the caller
+// decides how to explain it rather than silently serving a different page.
 func (s *PostgresStore) ListVocabularyBrowsePage(ctx context.Context, owner, language string, queryParams domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	if queryParams.Page < 1 {
 		queryParams.Page = 1
@@ -185,11 +187,6 @@ ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
 	result, err := readVocabularyBrowseRows(rows, queryParams)
 	if err != nil {
 		return domain.VocabularyBrowsePage{}, err
-	}
-	lastPage := int((result.Total + 24) / 25)
-	if lastPage > 0 && queryParams.Page > lastPage {
-		queryParams.Page = lastPage
-		return s.ListVocabularyBrowsePage(ctx, owner, language, queryParams)
 	}
 	return result, nil
 }

@@ -26,9 +26,10 @@ language, or presents the learner with an unordered chooser between Books.
    needed. Analysis may be queued, running, ready, stale, failed, or unavailable;
    evidence status does not create a recommendation or order.
 3. Reading shows either the current Book or To Read candidates grouped by their
-   current lexical-coverage band, with incomplete evidence kept distinct. The
-   learner can start a supported candidate, or end or switch a current Book
-   through explicit confirmations. End releases only the Reserved vocabulary,
+   current lexical-coverage band, with incomplete evidence kept distinct. While a
+   Book is current, the same page hosts its vocabulary Browse (the working desk)
+   and lists no other To Read candidates. The learner can start a supported
+   candidate, or end or switch a current Book through explicit confirmations. End releases only the Reserved vocabulary,
    records no completion or Known acceptance, and leaves the Book in To Read
    with its snapshots, history, and artifacts intact; reading never ends from
    inactivity. End, Finish, Switch, and new deck preparation, retry, or

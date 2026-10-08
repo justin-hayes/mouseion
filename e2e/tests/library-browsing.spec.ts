@@ -145,8 +145,8 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
     await expect(page.getByRole('heading', { level: 1, name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
     await expect(page.locator('.journey-book__since')).toContainText('Reading since');
-    const moreActions = page.locator('.journey-book .more-actions').first();
-    expect(await moreActions.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('0px');
+    await expect(page.locator('#vocabulary-prefix')).toHaveClass(/\binput\b/);
+    await expect(page.locator('.reading-supporting')).toHaveCount(1);
     await page.goto('/vocabulary/concordance');
     const concordanceSelects = page.locator('#concordance-workflow select');
     await expect(concordanceSelects).toHaveCount(0);

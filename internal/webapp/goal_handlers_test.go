@@ -109,17 +109,7 @@ func TestGoalSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
 func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) {
 	goal := testJourneyBook("goal", "Goal book", "analyzed")
 	goal.GoalSnapshotID = "goal-snapshot"
-	first := testJourneyBook("first", "First book", "analyzed")
-	second := testJourneyBook("second", "Second book", "ready")
-	first.Book.Source.MediaType = "application/epub+zip"
-	first.Book.Source.ContentRevisionID = "first-revision"
-	first.Book.Source.ContentSnapshotID = "first-snapshot"
-	first.Book.AnalysisState = "completed"
-	first.Book.AnalysisRunID = "first-run"
-	first.Book.CorpusID = "first-corpus"
-	first.CanChooseGoal = true
-	second.GoalEligibilityReason = "This book needs a successfully completed current analysis before it can become a current reading."
-	html := renderJourney(t, journeyPageView{Goal: &goal, Provisional: []journeyBookView{first, second}}, "", "")
+	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
 	assert.NotContains(t, html, `action="/goal/books/`)
 	assert.Contains(t, html, `action="/reading/finish"`)
 	assert.True(t, strings.Contains(html, `name="expected_current_book_id" value="goal"`), "finish form did not carry the current Book: %s", html)
@@ -262,7 +252,6 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.NotContains(t, body, "Primary Goal")
 	for _, want := range []string{
 		"Italiano",
-		`id="journey-book-fixture-empty"`,
 		"0 lemmas are set aside from vocabulary selection while you read this Book.",
 	} {
 		assert.True(t, strings.Contains(body, want), "Italian Journey page missing %q: %s", want, body)
@@ -412,8 +401,9 @@ func TestJourneyPageShowsEmptyActiveLanguageJourney(t *testing.T) {
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
-	for _, want := range []string{"No other To Read books", "Browse My Books"} {
-		assert.True(t, strings.Contains(body, want), "empty Italian Reading page missing %q: %s", want, body)
+	assert.Contains(t, body, `id="vocabulary-workflow"`, "the current Book's Browse belongs to Reading")
+	for _, retired := range []string{"Other To Read", "No other To Read books", "provisional-journey"} {
+		assert.NotContains(t, body, retired)
 	}
 	assert.False(t, strings.Contains(body, `id="journey-book-fixture-empty"`) || strings.Contains(body, `id="journey-book-fixture-edge-content"`), "empty Italian Journey page exposed a member: %s", body)
 }

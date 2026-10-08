@@ -2,140 +2,18 @@ package webapp
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"mime"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
-	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/riverqueue/river/rivertype"
 )
-
-func vocabularyBrowseDisplayLemma(language, lemma, upos string) string {
-	return lemmadisplay.Format(language, lemma, upos)
-}
-
-func vocabularyBrowseOccurrenceCounts(row domain.VocabularyBrowseRow) string {
-	return fmt.Sprintf("In this Book: %d; Across analyzed books: %d", row.OccurrenceCount, row.AcrossBooksOccurrenceCount)
-}
-
-func (h *Handler) knownVocabPage(w http.ResponseWriter, r *http.Request) {
-	redirect(w, r, "/vocabulary")
-}
-
-func (h *Handler) vocabularyPage(w http.ResponseWriter, r *http.Request) {
-	u := user(r)
-	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	language, _ := activeStudyLanguageForContext(r.Context())
-	if !learnerLanguagePresent(languages, knownLanguages, language) {
-		language = ""
-	}
-	if language == "" {
-		render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), "", domain.VocabularyBrowsePage{}, ""))
-		return
-	}
-	page, err := strconv.Atoi(r.URL.Query().Get("page"))
-	if err != nil || page < 1 {
-		page = 1
-	}
-	prefix := r.URL.Query().Get("q")
-	values := r.URL.Query()
-	browseQuery := domain.VocabularyBrowseQuery{
-		// Legacy Book/POS/state/sort parameters are intentionally ignored. Browse
-		// is always the complete current-Book identity set in frequency order.
-		Language: language, Prefix: prefix, ReadingBookID: values.Get("reading"), Sort: "occurrences", Page: page,
-		Revision: values.Get("rev"), IncludeAll: values.Get("all") == "1",
-	}
-	// Browse is an interactive request, not a durable background job. Bound the
-	// complete read (including the optional selection lookup) so an unusually
-	// broad corpus can never leave the learner waiting indefinitely or turn a
-	// partially-read result into a successful page.
-	browseCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
-	defer cancel()
-	current := domain.CurrentReading{}
-	if h.services.Store.CurrentReading != nil {
-		current, err = h.services.Store.CurrentReading.GetCurrentReading(browseCtx, u.ID, language)
-		if err != nil {
-			log.Printf("mouseion: load Current reading for vocabulary Browse: %v", err)
-			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
-			return
-		}
-	}
-	if browseQuery.ReadingBookID != "" && (!current.IsActive() || browseQuery.ReadingBookID != current.BookID) {
-		browseQuery.CurrentBookID = current.BookID
-		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
-		return
-	}
-	browse := domain.VocabularyBrowsePage{Page: page, Language: language}
-	if current.IsActive() {
-		browseQuery.CurrentBookID = current.BookID
-		browseQuery.ReadingBookID = current.BookID
-		browse.CurrentBookID = current.BookID
-		browse, err = h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, u.ID, language, browseQuery)
-		browse.CurrentBookID = current.BookID
-		browse.Language = language
-		if err != nil {
-			log.Printf("mouseion: load vocabulary Browse: %v", err)
-			renderStatus(w, r, vocabularyBrowseErrorStatus(err, browseCtx), VocabularyBrowseErrorPageView(u, h.csrf(w, r), language, browseQuery))
-			return
-		}
-		browse.ReadingBookID = current.BookID
-	}
-	if current.IsActive() && browseQuery.Revision != "" && browseQuery.Revision != browse.CorpusRevision {
-		renderStatus(w, r, http.StatusConflict, VocabularyBrowseChangedPageView(u, h.csrf(w, r), language, browseQuery))
-		return
-	}
-	render(w, r, VocabularyBrowsePageView(u, h.csrf(w, r), language, browse, prefix))
-}
-
-func vocabularyBrowseErrorStatus(err error, ctx context.Context) int {
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return http.StatusGatewayTimeout
-	}
-	return http.StatusInternalServerError
-}
-
-func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query string) string {
-	values := url.Values{}
-	if browse.Language != "" {
-		values.Set("language", browse.Language)
-	}
-	if query != "" {
-		values.Set("q", query)
-	}
-	if browse.IncludeAll {
-		values.Set("all", "1")
-	}
-	readingBookID := browse.ReadingBookID
-	if readingBookID == "" {
-		readingBookID = browse.CurrentBookID
-	}
-	if readingBookID != "" {
-		values.Set("reading", readingBookID)
-	}
-	if browse.CorpusRevision != "" {
-		values.Set("rev", browse.CorpusRevision)
-	}
-	values.Set("page", strconv.Itoa(page))
-	return "/vocabulary?" + values.Encode()
-}
 
 func (h *Handler) vocabularyImportPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)

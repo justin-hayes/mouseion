@@ -143,6 +143,9 @@ window.showVocabularyNetworkRecovery = function (ctx) {
   retry.textContent = 'Retry Browse';
   recovery.append(message, retry);
 };
+function isConcordancePath() {
+  return window.location.pathname === '/vocabulary' || window.location.pathname.startsWith('/vocabulary/concordance');
+}
 document.addEventListener('htmx:after:swap', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
   if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;
@@ -156,7 +159,7 @@ document.addEventListener('htmx:after:swap', function (evt) {
   }
 });
 document.addEventListener('htmx:after:history:restore', function () {
-  if (window.location.pathname !== '/vocabulary') return;
+  if (window.location.pathname !== '/reading') return;
   var summary = document.getElementById('vocabulary-results-heading');
   if (summary) summary.focus();
 });
@@ -167,12 +170,12 @@ document.addEventListener('htmx:after:swap', function (evt) {
   if (summary) summary.focus();
 });
 document.addEventListener('htmx:after:history:restore', function () {
-  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;
+  if (!isConcordancePath()) return;
   var summary = document.getElementById('concordance-summary');
   if (summary) summary.focus();
 });
 function focusConcordanceSummaryForMissingReturnTarget() {
-  if (!window.location.pathname.startsWith('/vocabulary/concordance')) return;
+  if (!isConcordancePath()) return;
   var target = new URLSearchParams(window.location.search).get('focus');
   if (!target || document.getElementById(target)) return;
   var summary = document.getElementById('concordance-summary');
@@ -181,14 +184,13 @@ function focusConcordanceSummaryForMissingReturnTarget() {
 document.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);
 window.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);
 document.addEventListener('htmx:after:swap', function (evt) {
-			['provisional-journey-list', 'provisional-journey-content', 'primary-goal-section', 'library-results'].forEach(function (id) {
+			['primary-goal-section', 'library-results'].forEach(function (id) {
 			var region = document.getElementById(id);
 			if (!region) return;
 			var focusID = region.getAttribute('data-focus-id');
 			if (!focusID) return;
 			var ctx = evt.detail && evt.detail.ctx;
 			var swappedTarget = ctx && ctx.target;
-			if (id === 'provisional-journey-list' && swappedTarget && swappedTarget.id !== 'provisional-journey-content') return;
 			var source = ctx && ctx.sourceElement;
 			var targetSelector = source && source.getAttribute('hx-target');
 			var target = targetSelector ? document.querySelector(targetSelector) : null;

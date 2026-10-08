@@ -17,15 +17,13 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   const noScriptPage = await noScriptContext.newPage();
   try {
     await signIn(noScriptPage);
-    await noScriptPage.goto('/vocabulary');
+    await noScriptPage.goto('/reading');
     await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
-    await expect(noScriptPage.getByRole('navigation', { name: 'Vocabulary views' }).getByRole('link', { name: 'Browse' })).toHaveAttribute('aria-current', 'page');
-    await expect(noScriptPage.getByRole('navigation', { name: 'Vocabulary views' }).getByRole('link', { name: 'Import Known words' })).toBeVisible();
     await expect(noScriptPage.locator('body')).not.toContainText('Browse selection');
     await expect(noScriptPage.locator('body')).not.toContainText('Custom deck');
     await expect(noScriptPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
     await expect(noScriptPage.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
-    const browseForm = noScriptPage.locator('form[action="/vocabulary"]');
+    const browseForm = noScriptPage.locator('form[action="/reading"]');
     await expect(browseForm.locator('input[name="reading"]')).toHaveValue('fixture-book');
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveClass(/\binput\b/);
     const includeAll = noScriptPage.getByRole('checkbox', { name: 'Show already accounted-for words' });
@@ -44,7 +42,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await expect(search).toBeFocused();
     await search.fill('haus');
     await search.press('Enter');
-    await expect(noScriptPage).toHaveURL(/\/vocabulary\?.*all=1.*q=haus|\/vocabulary\?.*q=haus.*all=1/);
+    await expect(noScriptPage).toHaveURL(/\/reading\?.*all=1.*q=haus|\/reading\?.*q=haus.*all=1/);
     await expect(noScriptPage.locator('.vocabulary-applied-query')).toContainText('Applied prefix: haus');
     await expect(noScriptPage.locator('#vocabulary-results-heading')).toBeFocused();
     await expect(browseForm.locator('input[name="book"], input[name="pos"], select[name="known"], select[name="reserved"], select[name="sort"]')).toHaveCount(0);
@@ -54,7 +52,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     const noOverflow = await noScriptPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(noOverflow).toBe(true);
 
-    await noScriptPage.goto('/vocabulary?q=zznotfound');
+    await noScriptPage.goto('/reading?q=zznotfound');
     await expect(noScriptPage.getByText('No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.')).toBeVisible();
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('zznotfound');
   } finally {
@@ -63,7 +61,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
 
   await signIn(page);
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.goto('/vocabulary');
+  await page.goto('/reading');
   await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -71,13 +69,15 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
 test('Vocabulary heading and peer navigation keep the compact hierarchy', async ({ page }) => {
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 800 });
+  // Browse lives in Reading; /vocabulary is the Concordance and its peer views.
   await page.goto('/vocabulary');
   const header = page.locator('.vocabulary-page-header');
   const heading = header.getByRole('heading', { name: 'Vocabulary', exact: true });
   const navigation = header.getByRole('navigation', { name: 'Vocabulary views' });
   await expect(heading).toBeVisible();
-  await expect(navigation.getByRole('link')).toHaveCount(3);
-  await expect(navigation.getByRole('link', { name: 'Browse' })).toHaveAttribute('aria-current', 'page');
+  await expect(navigation.getByRole('link')).toHaveCount(2);
+  await expect(navigation.getByRole('link', { name: 'Concordance', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(navigation.getByRole('link', { name: 'Import Known words' })).not.toHaveAttribute('aria-current', 'page');
   const desktopLayout = await header.evaluate(element => {
     const title = element.querySelector('h1')!.getBoundingClientRect();
     const tabs = element.querySelector('nav')!.getBoundingClientRect();
@@ -199,12 +199,12 @@ test('Concordance groups and KWIC rows wrap long German, Italian, and Greek text
 
 test('Browse keeps the current page and controls while exploring a word on page two', async ({ page }) => {
   await signIn(page);
-  await page.goto('/vocabulary?q=paging');
-  await page.locator('form[action="/vocabulary"]').evaluate(element => element.setAttribute('data-stable-search', 'yes'));
+  await page.goto('/reading?q=paging');
+  await page.locator('form[action="/reading"]').evaluate(element => element.setAttribute('data-stable-search', 'yes'));
   await page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link', { name: 'Next' }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(page.getByText('Page 2 of 2')).toBeVisible();
-  await expect(page.locator('form[action="/vocabulary"]')).toHaveAttribute('data-stable-search', 'yes');
+  await expect(page.locator('form[action="/reading"]')).toHaveAttribute('data-stable-search', 'yes');
   await page.locator('#vocabulary-workflow').evaluate(element => element.setAttribute('data-stable-controls', 'yes'));
   const row = page.getByRole('row').filter({ hasText: 'paging25' });
   await expect(row.getByRole('link', { name: 'paging25' })).toBeVisible();
@@ -216,7 +216,7 @@ test('Browse keeps the current page and controls while exploring a word on page 
 
 test('Browse pagination lands on the new results rather than above them', async ({ page }) => {
   await signIn(page);
-  await page.goto('/vocabulary?q=paging');
+  await page.goto('/reading?q=paging');
   for (const [direction, number] of [['Next', 2], ['Previous', 1]] as const) {
     await page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link', { name: direction }).click();
     await expect(page.getByText(`Page ${number} of 2`)).toBeVisible();
