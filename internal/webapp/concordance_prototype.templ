@@ -1,0 +1,139 @@
+package webapp
+
+import (
+	"fmt"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+// THROWAWAY fixture-only UI: see concordance_prototype.go.
+templ ConcordancePrototypePage(v concordancePrototypeView) {
+	@ShellLayout("Concordance prototype", &domain.User{Username: "Prototype learner"}, "", NavigationVocabulary, shellStyleVocabulary) {
+		<link rel="stylesheet" href="/static/concordance-prototype.css"/>
+		<script src="/static/concordance-prototype.js" defer></script>
+		<div class="cp-page" data-variant={ v.Variant }>
+			<header class="cp-heading"><h1>Vocabulary</h1><nav aria-label="Vocabulary views"><a href={ templ.SafeURL(v.link(v.Variant, "mixed", 1, "")) } aria-current="page">Concordance</a><span>Import known vocabulary</span></nav></header>
+			if v.Study != "" {
+				for _, row := range v.Rows {
+					if row.ID == v.Study {
+						<section class="cp-study reading-width">
+							<h2>Study this sentence and its syntax</h2>
+							<p><a href={ templ.SafeURL(v.link(v.Variant, v.Scenario, v.Page, "") + "&focus=" + row.ID + "#" + row.ID) }>Return to Concordance results</a></p>
+							<h3 class="bibliographic-title">{ row.Book }</h3>
+							<p class="metadata">Example source unit · identified target: { row.Target }</p>
+							<p class="reading-text">{ row.Before }<strong>{ row.Target }</strong>{ row.After }</p>
+							<h3>Analyzer-attributed tokens</h3>
+							<p>In the real Study view, this is where preserved analyzer and effective-identity evidence appears. This layout prototype contains no genuine syntax evidence.</p>
+							<p class="metadata">Study is a read-only visual stub. Its scope remains unchanged.</p>
+						</section>
+					}
+				}
+			} else {
+				if v.Scenario == "browse" {
+					<p class="cp-return"><a href="#prototype-tools">Back to book vocabulary</a> <span class="metadata">Return is a fixture stub, not a new navigation decision.</span></p>
+				}
+				<form method="get" action="/vocabulary/concordance" class="cp-query">
+					<input type="hidden" name="variant" value={ v.Variant }/>
+					<input type="hidden" name="case" value={ v.Scenario }/>
+					<label for="cp-term">Lemma or word form</label>
+					<div><input class="input" type="search" id="cp-term" name="term" value={ v.Term }/><button class="button" type="submit">Find</button></div>
+				</form>
+				if v.Notice != "" {
+					<div class="cp-notice" role="status">
+						<p>{ v.Notice }</p>
+						if v.Action != "" {
+							<a class="button button--outline" href={ templ.SafeURL(v.link(v.Variant, "mixed", 1, "")) }>{ v.Action }</a>
+						}
+					</div>
+				}
+				<section class="cp-results" aria-labelledby="cp-results-heading">
+					if v.Term != "" && len(v.Rows) > 0 {
+						<h2 id="cp-results-heading" tabindex="-1">{ v.Applied }</h2>
+						<p class="cp-context">All currently analyzed books in Deutsch.
+							if v.Scenario != "no-current" && v.Scenario != "changed" && v.Scenario != "stale" {
+								 Current reading first.
+								}
+							if v.Scenario == "changed" {
+								 Previously applied book first.
+								}
+						</p>
+						<p class="cp-range">Occurrences { fmt.Sprint(v.Start) }–{ fmt.Sprint(v.End) } · page { fmt.Sprint(v.Page) }
+							if v.Rows[0].Continued {
+								 · first book continued
+								}
+						</p>
+						<ol class="cp-list" role="list">
+							for _, row := range v.Rows {
+								<li class="cp-result" id={ row.ID } tabindex="-1" autofocus?={ v.Focus == row.ID }>
+									if v.Variant == "original" {
+										<div class="concordance-book-label cp-original-source">
+											if row.First {
+												<span class="concordance-book-title">{ row.Book }</span><span class="concordance-book-count">{ row.countText() }</span>
+											}
+										</div>
+									} else if v.Variant == "margin" {
+										<div class="cp-source-cell">
+											if row.First {
+												@ConcordancePrototypeSource(row)
+											}
+										</div>
+									}
+									<details class="concordance-row cp-sentence" name="cp-sentences">
+										<summary aria-label={ "Full sentence containing " + row.Target }>
+											<span class="concordance-before"><span>{ concordanceContextText(row.Before) }</span></span><strong class="concordance-surface">{ row.Target }</strong><span class="concordance-after">{ concordanceContextText(row.After) }</span>
+										</summary>
+										<div class="concordance-context"><p class="reading-text">{ row.Before }<strong class="concordance-observed-target">{ row.Target }</strong>{ row.After }</p></div>
+									</details>
+									<a class="concordance-study-link" href={ templ.SafeURL(v.link(v.Variant, v.Scenario, v.Page, row.ID)) } aria-label={ "Study example containing " + row.Target + " from " + row.Book }>Study</a>
+									if v.Variant == "inline" {
+										<div class="cp-source-cell">@ConcordancePrototypeSource(row)</div>
+									}
+								</li>
+							}
+						</ol>
+					} else {
+						<h2 id="cp-results-heading" tabindex="-1">Concordance</h2>
+					}
+					if v.Previous || v.Next {
+						<nav class="cp-paging" aria-label="Concordance pages">
+							if v.Previous {
+								<a class="button button--outline" href={ templ.SafeURL(v.link(v.Variant, v.Scenario, v.Page-1, "")) }>Previous</a>
+							}
+							if v.Next {
+								<a class="button button--outline" href={ templ.SafeURL(v.link(v.Variant, v.Scenario, v.Page+1, "")) }>Next</a>
+							}
+						</nav>
+					}
+				</section>
+			}
+			<details class="cp-tools" id="prototype-tools">
+				<summary>Prototype scenarios and applied state</summary>
+				<p>Throwaway visual evidence. All sentences and behavior are synthetic; no account, vocabulary, or book data is changed.</p>
+				<form method="get" action="/vocabulary/concordance">
+					<input type="hidden" name="variant" value={ v.Variant }/>
+					<input type="hidden" name="term" value={ v.Term }/>
+					<label for="cp-case">Scenario</label>
+					<select class="input" id="cp-case" name="case">
+						for _, scenario := range []string{"mixed", "paging", "browse", "long-target", "no-current", "no-current-matches", "stale", "changed", "empty", "loading", "error", "revision", "language", "legacy"} {
+							<option value={ scenario } selected?={ scenario == v.Scenario }>{ scenario }</option>
+						}
+					</select>
+					<button class="button button--outline" type="submit">Show scenario</button>
+				</form>
+				<p class="metadata">Variant: { v.Variant }; scenario: { v.Scenario }; submitted term: { v.Term }; applied description: { v.Applied }; page: { fmt.Sprint(v.Page) }; evidence: synthetic revision 1.</p>
+				<p class="metadata">"original" reproduces the shipped source/first-occurrence layout coupling with the same mock data. "inline" is a source-column comparison, not the selected design. Search uses small visual presets, not production matching.</p>
+			</details>
+			<nav class="cp-switcher" aria-label="Prototype variants">
+				<a href={ templ.SafeURL(v.variantStep(-1)) } aria-label="Previous layout variant" data-cp-previous>←</a>
+				<span>Prototype: <strong>{ v.Variant }</strong></span>
+				<a href={ templ.SafeURL(v.variantStep(1)) } aria-label="Next layout variant" data-cp-next>→</a>
+			</nav>
+		</div>
+	}
+}
+
+templ ConcordancePrototypeSource(row concordancePrototypeRow) {
+	<div class="cp-source">
+		<span class="cp-source-title">{ row.Book }</span>
+		<span class="cp-source-count"><span class="cp-count-desktop">{ row.countText() }</span><span class="cp-count-compact">{ fmt.Sprint(row.Count) } on page</span></span>
+	</div>
+}
