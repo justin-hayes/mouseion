@@ -1,0 +1,140 @@
+package webapp
+
+import (
+	"fmt"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+// ReadingBrowse is the live Vocabulary Browse for the Current reading Book. It
+// is the only full vocabulary Working desk and always renders inside Reading.
+templ ReadingBrowse(view readingBrowseView) {
+	<section id="vocabulary-workflow" class="reading-browse" aria-labelledby="reading-browse-heading" hx-on:htmx:error="window.showVocabularyNetworkRecovery(ctx)">
+		<h2 id="reading-browse-heading">Vocabulary</h2>
+		<p id="vocabulary-pending" class="htmx-indicator" role="status">Loading Browse. The previous results remain visible until the request completes.</p>
+		switch view.Problem {
+			case readingBrowseFailed, readingBrowseTimedOut:
+				@readingBrowseRecovery(view) {
+					@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
+					<form method="get" action="/reading">
+						<input type="hidden" name="language" value={ view.Query.Language }/>
+						<input type="hidden" name="q" value={ view.Query.Prefix }/>
+						<input type="hidden" name="reading" value={ view.Query.ReadingBookID }/>
+						<input type="hidden" name="page" value={ fmt.Sprintf("%d", view.Query.Page) }/>
+						if view.Query.IncludeAll {
+							<input type="hidden" name="all" value="1"/>
+						}
+						if view.Query.Revision != "" {
+							<input type="hidden" name="rev" value={ view.Query.Revision }/>
+						}
+						<button type="submit">Retry Browse</button>
+					</form>
+					<a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>Clear search</a>
+					<p>Browse does not report partial counts as complete.</p>
+				}
+			case readingBrowseChanged:
+				@readingBrowseRecovery(view) {
+					@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
+					<a role="button" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>Restart in the Current reading</a>
+				}
+			case readingBrowsePageMalformed:
+				@readingBrowseRecovery(view) {
+					@Feedback(FeedbackWarning, "That page is not available", fmt.Sprintf("Browse pages are numbered from 1, and %q is not a page number. No results were substituted.", view.RequestedPage))
+					<a role="button" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>First page</a>
+				}
+			case readingBrowsePageOutOfRange:
+				@readingBrowseRecovery(view) {
+					@Feedback(FeedbackWarning, "That page is not available", fmt.Sprintf("Page %d is past the end of these results, which have %d. No results were substituted.", view.Query.Page, readingBrowseLastPage(view.Page)))
+					<a role="button" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>First page</a>
+				}
+			default:
+				@readingBrowseResults(view)
+		}
+	</section>
+}
+
+templ readingBrowseRecovery(view readingBrowseView) {
+	<div id="vocabulary-recovery" aria-live="polite">
+		<p>Active study language: <code>{ view.Language }</code>.</p>
+		{ children... }
+	</div>
+}
+
+templ readingBrowseResults(view readingBrowseView) {
+	{{ page := view.Page }}
+	{{ query := view.Prefix }}
+	<p class="vocabulary-language">Viewing active study language <code>{ view.Language }</code>.</p>
+	if len(page.Books) == 0 || !page.Books[0].HasCurrentAnalysis {
+		<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
+		<p><a class="vocabulary-action-link" href="/reading/switch">Switch current reading</a></p>
+	} else {
+		<p class="vocabulary-scope">This Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>
+		<form method="get" action="/reading" class="data-width vocabulary-filter" hx-get="/reading" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
+			<input type="hidden" name="language" value={ view.Language }/>
+			<input type="hidden" name="reading" value={ page.CurrentBookID }/>
+			<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
+			<p class="vocabulary-exclusions">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p>
+			<label for="vocabulary-include-all"><input id="vocabulary-include-all" type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
+			<button class="btn btn-primary" type="submit">Search</button>
+		</form>
+		<div id="vocabulary-browse-results">
+			if query != "" {
+				<p class="vocabulary-applied-query">Applied prefix: <code>{ query }</code></p>
+			}
+			if page.BrowseCountsUnavailable {
+				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
+			} else if page.BrowseCountsUpdating {
+				<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>
+			} else {
+				<h3 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h3>
+				if page.Total == 0 && page.InventoryTotal == 0 {
+					<p>The current analysis has no eligible vocabulary identities.</p>
+				}
+				if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
+					<p>No eligible identities are in this Book.</p>
+				}
+				if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
+					<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>
+				}
+				if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
+					if query != "" && !page.IncludeAll {
+						<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>
+					} else {
+						<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+					}
+				}
+				if page.Total > 0 {
+					<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Counts use current completed analyses and effective occurrence decisions, including singletons.</p>
+					@ResponsiveTable("Current effective vocabulary") {
+						<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
+						for _, row := range page.Rows {
+							<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(view.Language, row.CanonicalLemma, row.UPOS)) }>{ vocabularyBrowseDisplayLemma(view.Language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
+								if row.InBookDeck {
+									<small>In a Book deck</small>
+								}
+							</td></tr>
+						}
+						</tbody>
+					}
+					@VocabularyBrowsePager(page, query)
+				}
+			}
+			<div id="vocabulary-recovery" aria-live="polite"></div>
+		</div>
+	}
+}
+
+templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
+	<section aria-label="Vocabulary pages"><p>{ fmt.Sprintf("Page %d of %d", page.Page, readingBrowseLastPage(page)) }</p><nav aria-label="Browse pages">
+		if page.Page > 1 {
+			<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page-1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Previous</a>
+		}
+		if page.Page*vocabularyBrowsePageSize < int(page.Total) {
+			<a class="btn btn-outline" href={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-get={ templ.SafeURL(vocabularyBrowsePageURL(page.Page+1, page, query)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">Next</a>
+		}
+	</nav></section>
+}
+
+func readingBrowseLastPage(page domain.VocabularyBrowsePage) int {
+	return vocabularyBrowseLastPage(page.Total)
+}

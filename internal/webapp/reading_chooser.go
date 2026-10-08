@@ -57,7 +57,11 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		}
 		journey.Language = language
 		journey.LanguageLabel = languageLabel
-		render(w, r, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+		status := http.StatusOK
+		if journey.Goal != nil {
+			journey.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, goal.BookID)
+		}
+		renderStatus(w, r, status, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 		return
 	}
 	view, err := h.buildReadingChooser(r.Context(), owner.ID, language, languageLabel)

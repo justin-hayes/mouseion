@@ -36,10 +36,11 @@ The product supports these top-level goals:
 7. understand derived study languages and import known vocabulary;
 8. maintain the learner-owned catalog connections that feed My Books.
 
-**Accepted target (partially shipped):** in Vocabulary, Browse effective
-identities in the active language's Current reading Book, ranked by occurrence
-count after excluding already accounted-for vocabulary by default. Concordance
-remains cross-Book; saved selections and Custom decks are retired. See the
+**Accepted target (partially shipped):** on Reading, the current Book's
+vocabulary Browse lists effective identities in the active language's Current
+reading Book, ranked by occurrence count after excluding already accounted-for
+vocabulary by default. Concordance remains cross-Book in Vocabulary; saved
+selections and Custom decks are retired. See the
 [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
 and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md).
 
@@ -90,7 +91,9 @@ browsed only here.
 ### Reading
 
 **Reading** at `/reading` owns the current Book for the active study language or,
-between Books, an unordered chooser of To Read candidates. Coverage bands label
+between Books, an unordered chooser of To Read candidates. While a Book is
+current, the same page hosts its full vocabulary Browse (the working desk); other
+To Read candidates are not listed. Coverage bands label
 current evidence and do not rank candidates or predict outcomes. Starting
 freezes a vocabulary snapshot; finishing records a completion without selecting
 the next Book. Stop, set-aside, and switch are explicit reversible actions.
@@ -159,15 +162,16 @@ The authenticated shell exposes four principal destinations:
 
 - **My Books** — the canonical home, broad book collection, and sole browse
   surface for synced catalog metadata;
-- **Reading** — the current Book and the To Read candidate chooser. Older
-  Reading Journey and Primary Goal terms are not used on active screens;
-- **Vocabulary** — Browse, Concordance, and known-vocabulary import; the accepted
+- **Reading** — the current Book with its vocabulary Browse, or the To Read
+  candidate chooser between Books. Older Reading Journey and Primary Goal terms
+  are not used on active screens;
+- **Vocabulary** — Concordance (landing) and known-vocabulary import; the accepted
   target removes saved selection and Custom deck UI beneath this destination.
 - **Catalogs** — learner-owned catalogue connections and metadata sync.
 
 Catalogs is a configuration and sync destination, not a book-browse surface.
-My Books remains the sole **bibliographic Book** browse surface; the accepted
-Vocabulary target browses vocabulary identities, not Books or catalog entries.
+My Books remains the sole **bibliographic Book** browse surface; the Browse
+working desk on Reading lists vocabulary identities, not Books or catalog entries.
 Marking a Book To Read expresses the learner's reading intent and may trigger
 acquisition and analysis. The upstream
 catalog browser is retired.
@@ -206,7 +210,8 @@ My Books
 
 Reading (active study language)
     current Book, when present
-    unordered To Read candidates grouped by current coverage evidence
+    current Book's vocabulary Browse (working desk)
+    between Books: unordered To Read candidates grouped by current coverage evidence
     Book anchors for current evidence and recovery
         focused deck-preparation task
         exact-analysis compatibility redirect to the Book anchor
@@ -218,8 +223,7 @@ Catalogs
     connection setup and sync status
 
 Vocabulary (partially shipped)
-    Browse effective identities (shipped landing)
-    Concordance exact lookup and KWIC context (shipped slice)
+    Concordance exact lookup and KWIC context (shipped landing slice)
     focused sentence study and grammar exploration (target)
     Import known vocabulary (shipped peer view)
 
@@ -262,7 +266,7 @@ surface:
 /catalogs
 /connections (compatibility redirect to `/catalogs`)
 /settings (compatibility redirect to `/library`)
-/vocabulary and known-vocabulary import support routes
+/vocabulary (Concordance landing) and /vocabulary/import support routes
 ```
 
 Mutation, fragment, and JSON status endpoints support a parent screen; they are
@@ -382,11 +386,11 @@ the stored mode is never switched back. A newly arrived study
 language appears passively
 in the switcher (marked "new") without changing the mode.
 
-Vocabulary owns Browse and the additive known-vocabulary import workflow,
+Vocabulary owns Concordance and the additive known-vocabulary import workflow,
 scoped to the active language; import remains an accessible peer view. Browse
-lists current, owner-specific effective vocabulary evidence and distinguishes
-analysis coverage from an empty or filtered inventory. It does not display
-Known-only identities without current occurrences. Import remains eligible only
+lives on Reading for the current Book; it lists current, owner-specific effective
+vocabulary evidence and distinguishes analysis coverage from an empty or filtered
+inventory. It does not display Known-only identities without current occurrences. Import remains eligible only
 for the derived study-language set and retains its existing additive behavior;
 known-vocabulary-only languages stay selectable in the switcher as read-only
 "no books" entries. Catalog metadata changes do not delete known-vocabulary
@@ -398,18 +402,21 @@ deck behavior remains independent of Browse.
 The [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
 and [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md) define the
 accepted target. Keep exactly the existing four primary destinations;
-within Vocabulary, **Browse** (landing), **Concordance**, and **Import known
-vocabulary** are separate, connected peer views. Browse is shipped at
-`/vocabulary`; import is shipped at `/vocabulary/import`. Browse covers effective
-vocabulary identities in the active study language's Current reading Book,
-not the Book catalog or only its prepared-deck candidates. Browse identity links
+within Vocabulary, **Concordance** (landing at `/vocabulary`) and **Import known
+vocabulary** are separate, connected peer views. Browse is hosted on Reading
+(`/reading`) as the working desk for the active study language's Current reading
+Book; import is shipped at `/vocabulary/import`. Browse covers effective
+vocabulary identities in that Book, not the Book catalog or only its
+prepared-deck candidates. Old Browse query state on `/vocabulary` is not
+reinterpreted as lookup. Browse identity links
 and exact surface/effective/analyzer lookup with paged KWIC context are shipped.
 Applied multi-Book and grammar filters plus focused textual sentence study are
 also shipped. Saved Browse selection and Custom decks are shipped but are
 retired by the accepted Reading-centered target. Concordance exposes sentence
 context without altering analyzer evidence. Return paths among the Vocabulary
-views and from focused sentence study preserve context. Reading gains no permanent Vocabulary
-navigation or new study-state transition. Known import retains its existing
+views and from focused sentence study preserve context. Reading's only Vocabulary surface is the
+current Book's Browse; it adds no permanent Vocabulary navigation or new
+study-state transition. Known import retains its existing
 contract rather than merging with Browse inventory or presenting a Known-only
 vocabulary list.
 
@@ -446,7 +453,7 @@ needed.
 6. **Routes and terminology** are reconciled in the shipped shell and supporting
     surfaces: My Books, Reading, Vocabulary, and Catalogs are the active
     navigation destinations; `/known-vocab`
-   remains a compatibility route with its documented redirect. Campaign routes
+   is retired and returns 404 without a redirect. Campaign routes
    are not learner-facing webapp routes.
 7. **One current analysis per Book** follows [ADR 0040](../adr/0040-one-current-analysis-per-book.md):
      Reading Book anchors are the current evidence surface for To Read members, prior

@@ -50,19 +50,20 @@ test.describe('migration and epistemic regression coverage', () => {
     expect(css).toContain('prefers-reduced-motion');
   });
 
-  test('shows current reading and unordered To Read choices without forecasts', async ({ page }) => {
+  test('shows current reading and Browse without Other To Read choices or forecasts', async ({ page }) => {
     await page.goto('/reading');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
-    await expect(page.locator('#provisional-journey-heading')).toHaveText('Other To Read books');
-    await expect(page.locator('ol.journey-list')).toHaveCount(0);
-    await expect(page.locator('ul.journey-list')).toBeVisible();
+    await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
+    await expect(page.locator('ol.journey-list, ul.journey-list')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
-    await expect(page.getByRole('list', { name: 'To Read books' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'To Read books' })).toHaveCount(0);
+    await expect(page.locator('#vocabulary-workflow')).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
-    await expect(page.locator('#provisional-journey-status')).toHaveAttribute('aria-live', 'polite');
+    await expect(page.locator('#provisional-journey-status')).toHaveCount(0);
     await expectPostFormsCarryCSRF(page);
     const retiredJourneyRoute = await page.goto('/journey/fixture-book');
     expect(retiredJourneyRoute?.status()).toBe(404);

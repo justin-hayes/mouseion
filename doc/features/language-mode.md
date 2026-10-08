@@ -67,13 +67,14 @@ labels use **Language** and the language's own name, never **Mode** or
 
 ### Reading (`/reading`)
 
-- Shows the active language's current Book or unordered To Read chooser.
+- Shows the active language's current Book, with its vocabulary Browse, or the unordered To Read chooser between Books.
 - Current reading is independent per language; completion in one language does
   not affect current reading or history in another.
 - An empty chooser offers a path to the active language's My Books.
 
 ### Vocabulary (`/vocabulary`)
 
+- Opens Concordance; the current Book's Browse lives on Reading.
 - Scoped to the active language; the page's language `<select>` is removed.
   Import targets the active language and is always eligible there.
 - Known-vocabulary-only languages are reachable through the switcher

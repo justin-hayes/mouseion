@@ -34,19 +34,19 @@ The product behavior is defined primarily by:
 ## Canonical destination
 
 **Vocabulary** is currently the primary-navigation destination for
-vocabulary work. Its deployed peer views are Browse, an initial exact-lookup
-Concordance slice, and known-vocabulary import. This supporting workflow owns
+vocabulary work. Its deployed peer views are Concordance (the landing view, an
+initial exact-lookup slice) and known-vocabulary import. Browse for the current
+Book is hosted on Reading. This supporting workflow owns
 the import path:
 
 1. **Known-vocabulary import** — submit an additive lemma file for the active
    study language and understand its durable processing result.
 
-The retained `/known-vocab` route is compatibility surface, not an independent
-product area. The implementation redirects `GET /known-vocab` to `/vocabulary`.
-New known-vocabulary functionality belongs in Vocabulary. The partially deployed
-target adds Browse as its landing view and Concordance as another peer view,
-while keeping import distinct. Browse, exact-lookup/KWIC, applied Book and
-grammar filters, and focused textual sentence study are available. Named Custom
+The `/known-vocab` route is retired and returns 404 without a redirect; it is not
+an independent product area. New known-vocabulary functionality belongs in
+Vocabulary. Concordance is the Vocabulary landing view, and import stays distinct.
+Browse, which lives on Reading for the current Book, exact-lookup/KWIC, applied
+Book and grammar filters, and focused textual sentence study are available. Named Custom
 decks and recoverable Browse selection are now available, including read-only
 retention when a deck language leaves the derived study-language set; Custom
 deck preparation remains target behavior.

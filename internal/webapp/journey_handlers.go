@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
@@ -42,20 +40,6 @@ type journeyBookView struct {
 	GoalEligibilityReason  string
 	Coverage               *domain.AnalysisCoverage
 	StatisticsUnavailable  bool
-}
-
-func journeyBookClass(primary bool) string {
-	if primary {
-		return "resource-card journey-book journey-book--goal"
-	}
-	return "resource-card journey-book journey-book--provisional"
-}
-
-func journeyBookTitlePageClass(primary bool) string {
-	if primary {
-		return "journey-book__title-page journey-book__title-page--current"
-	}
-	return "journey-book__title-page"
 }
 
 func journeyBookAnchorID(bookID string) string {
@@ -226,25 +210,11 @@ func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
 	}
 }
 
-func journeyCurrentCoverage(item journeyBookView) string {
-	if item.Coverage == nil {
-		return "unavailable"
-	}
-	if item.Coverage.AnalyzableTokenCount <= 0 {
-		return "No analyzable tokens"
-	}
-	return fmt.Sprintf("%.0f%%", math.Round(knownCoveragePercent(*item.Coverage)))
-}
-
-func journeyEvidenceHeadingID(item journeyBookView) string {
-	return "journey-evidence-heading-" + journeyBookID(item)
-}
-
 type journeyPageView struct {
 	Language      string
 	LanguageLabel string
 	Goal          *journeyBookView
-	Provisional   []journeyBookView
+	Browse        readingBrowseView
 }
 
 type deckJourneyState string
@@ -466,42 +436,6 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		book.GoalSnapshotSize = goal.SnapshotSize
 		h.addGoalDeckPreparation(ctx, owner, &book, goal)
 		view.Goal = &book
-	}
-	toReadIDs := make([]string, 0, len(coverByBookID))
-	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
-	}); ok {
-		myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner)
-		if readErr != nil {
-			return journeyPageView{}, readErr
-		}
-		for _, myBook := range myBooks {
-			if myBook.Disposition == domain.BookDispositionToRead && myBook.Book.LanguageTag == language && myBook.Book.ID != goal.BookID {
-				toReadIDs = append(toReadIDs, myBook.Book.ID)
-			}
-		}
-	}
-	sort.Slice(toReadIDs, func(i, j int) bool {
-		left, right := canonicalBookTitle(bookByID[toReadIDs[i]]), canonicalBookTitle(bookByID[toReadIDs[j]])
-		if left == right {
-			return toReadIDs[i] < toReadIDs[j]
-		}
-		return left < right
-	})
-	for _, bookID := range toReadIDs {
-		if bookID == goal.BookID {
-			continue
-		}
-		book, bookErr := h.journeyBook(ctx, owner, bookID, bookByID)
-		if bookErr != nil {
-			return journeyPageView{}, bookErr
-		}
-		book.Cover = coverByBookID[bookID]
-		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
-			return journeyPageView{}, err
-		}
-		book.CanChooseGoal, book.GoalEligibilityReason = journeyGoalEligibility(book.Book)
-		view.Provisional = append(view.Provisional, book)
 	}
 	return view, nil
 }

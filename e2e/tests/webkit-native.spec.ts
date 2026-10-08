@@ -91,13 +91,13 @@ test.describe('native WebKit smoke journey', () => {
 
       await page.goto('/library');
       await chooseStudyLanguage(page, 'de', true);
-      await page.goto('/vocabulary');
+      await page.goto('/reading');
       const prefix = page.getByRole('searchbox', { name: 'Canonical lemma prefix' });
       await expect(prefix).toHaveClass(/\binput\b/);
       await page.getByRole('checkbox', { name: 'Show already accounted-for words' }).check();
       await prefix.fill('haus');
       await prefix.press('Enter');
-      await expect(page).toHaveURL(/\/vocabulary\?.*all=1.*q=haus|\/vocabulary\?.*q=haus.*all=1/);
+      await expect(page).toHaveURL(/\/reading\?.*all=1.*q=haus|\/reading\?.*q=haus.*all=1/);
       await expect(page.locator('#vocabulary-results-heading')).toBeFocused();
 
       await page.goto('/vocabulary/import');

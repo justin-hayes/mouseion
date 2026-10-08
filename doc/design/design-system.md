@@ -311,7 +311,7 @@ My Books uses one semantic unordered list at every width. Each Book follows the
 [`AnnotatedBookRow`](components.md#annotatedbookrow) pattern: a small reserved
 cover, full title and author in a text column, contextual actions beneath that
 identity, and canonical bucket status in a visibly edged right margin. Reading's
-Other To Read list reuses that cover/identity/margin composition while the section
+between-Books candidate list reuses that cover/identity/margin composition while the section
 provides bucket context and the margin carries coverage or its recovery state.
 On compact screens the cover stays beside title and author, then the margin note
 and actions follow below the text column. Rows separate through whitespace and
@@ -403,8 +403,9 @@ overflow.
 - Vocabulary is canonical for importing known vocabulary; study languages are
   derived from chosen-language Books rather than maintained on a Settings route.
 - The [accepted Vocabulary target](../features/vocabulary-browse-and-concordance.md)
-  adds a vocabulary-identity Browse and learner-facing Concordance beneath the
-  existing destination. Browse now scopes current evidence to the active study
+  adds a vocabulary-identity Browse, hosted on Reading as the working desk for the
+  Current reading Book, and a learner-facing Concordance beneath the existing
+  Vocabulary destination. Browse scopes current evidence to the active study
   language's Current reading Book; the accepted [Reading-owned contract](../features/reading-owned-book-vocabulary.md)
   retires selection and saved Custom deck UI. Browse's default accounted-for exclusions and include-all
   control are shipped; other remaining accepted Browse behavior remains target

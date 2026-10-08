@@ -21,7 +21,7 @@ language without a product reason.
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
 | **Inbox / To Read / Set Aside** | Persisted Book dispositions: Inbox is untriaged, To Read expresses reading intent and ensures acquisition/analysis when needed, and Set Aside is not currently intended. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position |
-| **Reading** | The current Book or, between Books, the unordered chooser of To Read candidates. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
+| **Reading** | The current Book with its vocabulary Browse, or, between Books, the unordered chooser of To Read candidates. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
 | **Read / Read again** | Read is the visible bucket for an Inbox or Set Aside Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
@@ -124,7 +124,7 @@ and vocabulary knowledge remain independent facts.
 
 | Term | Meaning | Avoid |
 |---|---|---|
-| **Browse** | Vocabulary view of owner-specific effective lemma + POS identities with current analyzed evidence in the active language's Current reading Book, including singletons; frequency-ranked and excluding Known, Reserved, and already prepared-for-this-Book identities by default. | Book prepared-deck candidates, Known-vocabulary list, cross-Book inventory |
+| **Browse** | Working-desk view on Reading of owner-specific effective lemma + POS identities with current analyzed evidence in the active language's Current reading Book, including singletons; frequency-ranked and excluding Known, Reserved, and already prepared-for-this-Book identities by default. | Book prepared-deck candidates, Known-vocabulary list, cross-Book inventory |
 | **Concordance** | Occurrence exploration with both sentence/KWIC context and analyzer-attributed syntax; effective lookup remains distinct from observed surface and analyzer-evidence lookup. | KWIC as the whole feature, global correction |
 
 These terms follow the [current Vocabulary specification](../features/vocabulary-browse-and-concordance.md)

@@ -8,6 +8,13 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
+// Compact Reading collapses the analysis, reservation, and preparation details.
+// Open them before asserting on their contents; desktop shows them already.
+async function openSupportingDetails(page: Page) {
+  const summary = page.locator('details.reading-supporting > summary');
+  if (await summary.isVisible()) await summary.click();
+}
+
 // Stateful flows remain ordered within this file and get a fresh fixture store
 // for each project/worker assignment.
 test.describe('Current reading selection', () => {
@@ -29,6 +36,7 @@ test.describe('Current reading selection', () => {
       await expect(page).toHaveURL(/\/reading\?message=/);
     }
     await expect(currentCard).toBeVisible();
+    await openSupportingDetails(page);
     await currentCard.getByRole('link', { name: 'Open focused deck task' }).click();
     await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
     await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
@@ -145,37 +153,32 @@ test.describe('Current reading selection', () => {
       await expect(goal.locator('.reading-note').filter({ hasText: '2 lemmas' })).toContainText('2 lemmas');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
-    const provisional = page.locator('#provisional-journey-list .journey-list > li');
+    // While a Book is current, Reading has no Other To Read section; the
+    // alternatives and their start or switch actions live in the chooser.
+    await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
+    await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
+    await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
+    const currentEnd = goal.locator('details').filter({ hasText: 'End current reading' });
+    await currentEnd.locator('summary').click();
+    await expect(currentEnd.getByRole('button', { name: 'Confirm end current reading' })).toBeVisible();
+
+    await page.goto('/reading/switch');
+    const chooser = page.locator('li.reading-chooser-book');
     // Membership can grow within the stateful sequence in this file, so assert
     // structurally instead of by exact count.
-    await expect(provisional.first()).toBeVisible();
-     await expect(provisional.filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-     await expect(provisional.filter({ hasText: 'Donaudampfschifffahrtsgesellschaftskapitänsmütze' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-      await expect(provisional.filter({ hasText: 'Route evidence pending' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-      await expect(provisional.filter({ hasText: 'Route match: familiar German' })).toContainText('By Anja Roth');
-      await expect(provisional.filter({ hasText: 'Route evidence pending' }).locator('.journey-book__author')).toHaveCount(0);
-       await expect(provisional.filter({ hasText: 'Route match: familiar German' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-       await expect(provisional.filter({ hasText: 'Route differs: new German' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+    await expect(chooser.first()).toBeVisible();
+    await expect(chooser.locator('details').filter({ hasText: 'Start reading' })).toHaveCount(0);
+    await expect(chooser.filter({ hasText: 'Empty chapter' }).locator('details').filter({ hasText: 'Switch to this book' })).toHaveCount(0);
+    const eligible = chooser.filter({ hasText: 'Route match: familiar German' });
+    await expect(eligible).toContainText('By Anja Roth');
+    await expect(eligible.locator('details').filter({ hasText: 'Switch to this book' })).toHaveCount(1);
 
-       const eligible = provisional.filter({ hasText: 'Route match: familiar German' });
-       const moreActions = eligible.locator('details.more-actions');
-       await expect(moreActions).toBeVisible();
-       await expect(moreActions).not.toHaveAttribute('open', '');
-       await expect(provisional.getByRole('button', { name: 'Confirm removal' })).toHaveCount(0);
-       await moreActions.locator(':scope > summary').click();
-       await expect(moreActions.getByRole('link', { name: 'My Books' })).toHaveAttribute('href', '/library');
-       const currentEnd = goal.locator('details').filter({ hasText: 'End current reading' });
-       await currentEnd.locator('summary').click();
-       await expect(currentEnd.getByRole('button', { name: 'Confirm end current reading' })).toBeVisible();
-
-      const ineligible = provisional.filter({ hasText: 'Route evidence pending' });
-      await expect(ineligible).toContainText('cannot be started');
-      await expect(ineligible.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-      await expect(ineligible.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
-
-      await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
-
-      await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
+    const ineligible = chooser.filter({ hasText: 'Route evidence pending' });
+    await expect(ineligible).toContainText('Route evidence pending');
+    await expect(ineligible.locator('details').filter({ hasText: 'Switch to this book' })).toHaveCount(0);
+    await expect(ineligible.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
 
       const retryAcquisition = ineligible.getByRole('button', { name: 'Retry acquisition' });
       const retryForm = retryAcquisition.locator('xpath=ancestor::form');
@@ -214,6 +217,7 @@ test.describe('Current reading selection', () => {
       const title = (await currentCard.getByRole('heading', { level: 1 }).locator('a').textContent())?.trim() ?? '';
       expect(title).toBeTruthy();
 
+      await openSupportingDetails(page);
       await expect(currentCard.getByRole('link', { name: 'Open focused deck task' }))
         .toHaveAttribute('href', /\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
 

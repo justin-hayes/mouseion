@@ -819,3 +819,31 @@ body.reading-shell .scope-unit label > :not(input) {
     grid-column: 2;
   }
 }
+
+/* Current Book workspace: Browse owns the primary area; preparation and
+ * evidence annotate it in a quiet margin on wide screens and collapse behind a
+ * native disclosure on compact ones. */
+.reading-browse {
+  margin-block-start: var(--mouseion-space-8);
+  border-block-start: 1px solid var(--mouseion-color-border);
+  padding-block-start: var(--mouseion-space-6);
+}
+
+.reading-supporting > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+@media (min-width: 64rem) {
+  /* Match the body.reading-shell details > summary rule so the desktop hide wins. */
+  body.reading-shell details.reading-supporting > summary {
+    display: none;
+  }
+
+  .reading-supporting::details-content {
+    content-visibility: visible;
+    display: block;
+  }
+}
