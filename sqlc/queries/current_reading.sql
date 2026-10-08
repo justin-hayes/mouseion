@@ -117,6 +117,18 @@ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('preparation')
   AND p.analysis_run_id = s.analysis_run_id
 ;
 
+-- name: GetPrimaryGoalSnapshotLifecycle :one
+-- Durable facts that prove a lifecycle replay: who the commitment belonged to,
+-- when it was frozen and released, and whether it was completed.
+SELECT s.book_id::text AS book_id, s.created_at, s.released_at,
+       EXISTS (
+           SELECT 1 FROM reading_history h
+           WHERE h.owner_id = s.owner_id AND h.goal_snapshot_id = s.id
+       ) AS completed
+FROM primary_goal_snapshots s
+WHERE s.owner_id = sqlc.arg('owner') AND s.language = sqlc.arg('language')
+  AND s.id = sqlc.arg('snapshot');
+
 -- name: LockPrimaryGoalSnapshot :one
 SELECT id::text
 FROM primary_goal_snapshots

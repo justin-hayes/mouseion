@@ -41,6 +41,10 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 		http.NotFound(w, r)
 		return
 	}
+	if !expectedCommitmentMatches(r, goal.SnapshotID) {
+		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+		return
+	}
 	handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, goal)
 	if submitErr != nil {
 		handlePreparationError(w, r, submitErr)
@@ -218,6 +222,10 @@ func (h *Handler) submitCurrentBookDeckPreparation(w http.ResponseWriter, r *htt
 	}
 	if h.services.PreparedDeck == nil || goal.SnapshotSize == 0 {
 		http.NotFound(w, r)
+		return true
+	}
+	if !expectedCommitmentMatches(r, goal.SnapshotID) {
+		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
 		return true
 	}
 	handle, err := h.services.PreparedDeck.SubmitForGoal(r.Context(), user(r).ID, goal.AnalysisRunID, goal.SnapshotID)
@@ -561,7 +569,7 @@ func (h *Handler) runPreparationGeneration(w http.ResponseWriter, r *http.Reques
 // allowPreparationGeneration prevents historical Book preparations (including
 // ones made by the retired analysis-job path) from being retried, re-prepared,
 // or presentation-rerendered. Only the exact active Reading snapshot can
-// create another generation. Non-Book preparations retain their existing
+// create another generation, and the request must name that snapshot. Non-Book preparations retain their existing
 // lifecycle.
 func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Request, owner string, preparation domain.DeckPreparation) bool {
 	bookID := preparation.BookID
@@ -588,6 +596,14 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 	}
 	if !goal.IsActive() || goal.BookID != bookID || goal.SnapshotID != preparation.GoalSnapshotID || goal.SourceMaterialID != preparation.SourceMaterialID || goal.AnalysisRunID != preparation.AnalysisRunID {
 		http.NotFound(w, r)
+		return false
+	}
+	if !expectedCommitmentMatches(r, preparation.GoalSnapshotID) {
+		if wantsPreparationJSON(r) {
+			http.Error(w, goalStaleMessage, http.StatusConflict)
+		} else {
+			h.respondGoal(w, r, "", goalStaleMessage, bookID)
+		}
 		return false
 	}
 	return true

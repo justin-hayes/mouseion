@@ -27,8 +27,15 @@ language, or presents the learner with an unordered chooser between Books.
    evidence status does not create a recommendation or order.
 3. Reading shows either the current Book or To Read candidates grouped by their
    current lexical-coverage band, with incomplete evidence kept distinct. The
-   learner can start a supported candidate, or stop, set aside, or switch a
-   current Book through explicit confirmations.
+   learner can start a supported candidate, or end or switch a current Book
+   through explicit confirmations. End releases only the Reserved vocabulary,
+   records no completion or Known acceptance, and leaves the Book in To Read
+   with its snapshots, history, and artifacts intact; reading never ends from
+   inactivity. End, Finish, Switch, and new deck preparation, retry, or
+   re-preparation must name the exact expected commitment (Book and snapshot);
+   missing or stale identity, including after a same-Book restart, is rejected
+   with no change. A replay is accepted only when durable facts prove it. The
+   retired Set Aside action and its mutation are removed, not translated.
 4. Starting current reading freezes the vocabulary snapshot. Finishing records a
    completion, accepts eligible snapshot identities into modeled Known
    vocabulary, and returns a receipt with the next-choice link. It does not

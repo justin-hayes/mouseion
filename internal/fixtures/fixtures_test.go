@@ -227,7 +227,7 @@ func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
 
 	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, "stale-book", reading.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrCurrentReadingStale)
-	require.NoError(t, store.StopCurrentReading(ctx, OwnerID, "de", BookID, reading.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", BookID, reading.SnapshotID))
 	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, reserved)
@@ -240,7 +240,7 @@ func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
 
 	reading, err = store.GetCurrentReading(ctx, OwnerID, "it")
 	require.NoError(t, err)
-	require.NoError(t, store.StopCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID, reading.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID, reading.SnapshotID))
 	reading, err = store.GetCurrentReading(ctx, OwnerID, "it")
 	require.NoError(t, err)
 	assert.False(t, reading.IsActive())

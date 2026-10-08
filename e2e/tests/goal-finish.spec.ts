@@ -32,8 +32,7 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
   await expect(finishForm.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(1);
 
   for (const [label, button] of [
-    ['Stop reading for now', 'Confirm stop for now'],
-    ['Set aside this Book', 'Confirm set aside'],
+    ['End current reading', 'Confirm end current reading'],
   ]) {
     const disclosure = goal.locator('details').filter({ hasText: label }).first();
     await disclosure.locator('summary').click();

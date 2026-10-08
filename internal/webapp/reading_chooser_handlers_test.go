@@ -201,7 +201,7 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	assert.NotContains(t, page.Body.String(), "Lower bound")
 }
 
-func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
+func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
@@ -213,8 +213,9 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	readingPage := httptest.NewRecorder()
 	h.ServeHTTP(readingPage, readingRequest)
 	require.Equal(t, http.StatusOK, readingPage.Code)
-	assert.Contains(t, readingPage.Body.String(), "Stop reading for now")
-	assert.Contains(t, readingPage.Body.String(), "Set aside this Book")
+	assert.Contains(t, readingPage.Body.String(), "End current reading")
+	assert.NotContains(t, readingPage.Body.String(), "Set aside this Book")
+	assert.NotContains(t, readingPage.Body.String(), "Stop reading for now")
 	assert.Contains(t, readingPage.Body.String(), `name="expected_current_snapshot_id"`)
 	assert.Contains(t, readingPage.Body.String(), `action="/reading/finish"`)
 	assert.NotContains(t, readingPage.Body.String(), `action="/goal/finish"`)
@@ -254,7 +255,7 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, snapshotID, current.SnapshotID, "retry leaves the switched reading unchanged")
 
-	stopped := goalRequest(t, h, "/reading/stop", url.Values{
+	stopped := goalRequest(t, h, "/reading/end", url.Values{
 		"csrf_token":                   {csrf},
 		"expected_current_book_id":     {current.BookID},
 		"expected_current_snapshot_id": {snapshotID},
@@ -267,7 +268,7 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
 
-	retriedStop := goalRequest(t, h, "/reading/stop", url.Values{
+	retriedStop := goalRequest(t, h, "/reading/end", url.Values{
 		"csrf_token":                   {csrf},
 		"expected_current_book_id":     {"fixture-route-match"},
 		"expected_current_snapshot_id": {snapshotID},
@@ -275,33 +276,11 @@ func TestAuthenticatedCurrentReadingCanSwitchStopAndSetAside(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, retriedStop.Code)
 	assert.NotContains(t, retriedStop.Header().Get("Location"), "error=")
 
-	started := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, started.Code)
-	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	setAsideSnapshotID := current.SnapshotID
-	setAside := goalRequest(t, h, "/reading/set-aside", url.Values{
-		"csrf_token":                   {csrf},
-		"expected_current_book_id":     {"fixture-route-match"},
-		"expected_current_snapshot_id": {setAsideSnapshotID},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, setAside.Code)
-	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.False(t, current.IsActive())
-	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-route-match")
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, disposition)
-	retriedSetAside := goalRequest(t, h, "/reading/set-aside", url.Values{
-		"csrf_token":                   {csrf},
-		"expected_current_book_id":     {"fixture-route-match"},
-		"expected_current_snapshot_id": {setAsideSnapshotID},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, retriedSetAside.Code)
-	assert.NotContains(t, retriedSetAside.Header().Get("Location"), "error=")
+	retired := goalRequest(t, h, "/reading/set-aside", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.GreaterOrEqual(t, retired.Code, http.StatusBadRequest, "retired Set Aside mutation is rejected")
 
 	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-route-match", domain.BookDispositionToRead))
-	started = goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
+	started := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)

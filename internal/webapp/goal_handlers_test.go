@@ -214,11 +214,11 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	cleared := goalRequest(t, h, "/reading/stop", url.Values{
+	cleared := goalRequest(t, h, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, cleared.Code)
-	clearedAgain := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
+	clearedAgain := goalRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
 	assert.NotContains(t, clearedAgain.Header().Get("Location"), "error=")
 }
@@ -229,7 +229,7 @@ func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	cleared := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
+	cleared := goalRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)
 	chosen := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{
 		"csrf_token": {csrf},
@@ -382,6 +382,7 @@ func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
 
 	response := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/preparations", url.Values{
 		"csrf_token":                   {csrf},
+		"expected_current_snapshot_id": {goal.SnapshotID},
 		"external_translation_consent": {"on"},
 	}, cookies)
 
@@ -525,7 +526,7 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 	h, cookies, csrf, store := goalFixtureSession(t)
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	cleared := goalRequest(t, h, "/reading/stop", url.Values{
+	cleared := goalRequest(t, h, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)
@@ -550,4 +551,40 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 	}
 	assert.NotContains(t, finished.Body.String(), `<article role="alert" class=`)
 	assert.NotContains(t, finished.Body.String(), "celebrat")
+}
+
+func TestEndCurrentReadingRejectsStaleMissingAndCSRFThenEndsExactCommitment(t *testing.T) {
+	h, cookies, csrf, store := goalFixtureSession(t)
+	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+
+	for name, form := range map[string]url.Values{
+		"stale book":       {"csrf_token": {csrf}, "expected_current_book_id": {"stale-book"}, "expected_current_snapshot_id": {goal.SnapshotID}},
+		"stale snapshot":   {"csrf_token": {csrf}, "expected_current_book_id": {goal.BookID}, "expected_current_snapshot_id": {"stale-snapshot"}},
+		"missing snapshot": {"csrf_token": {csrf}, "expected_current_book_id": {goal.BookID}},
+	} {
+		rejected := goalRequest(t, h, "/reading/end", form, cookies)
+		assert.Equal(t, http.StatusSeeOther, rejected.Code, name)
+		assert.Contains(t, rejected.Header().Get("Location"), "error=", name)
+	}
+	missingCSRF := goalRequest(t, h, "/reading/end", url.Values{"expected_current_book_id": {goal.BookID}, "expected_current_snapshot_id": {goal.SnapshotID}}, cookies)
+	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
+	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, goal.SnapshotID, current.SnapshotID, "rejected End leaves the commitment")
+
+	exact := url.Values{"csrf_token": {csrf}, "expected_current_book_id": {goal.BookID}, "expected_current_snapshot_id": {goal.SnapshotID}}
+	ended := goalRequest(t, h, "/reading/end", exact, cookies)
+	assert.Equal(t, http.StatusSeeOther, ended.Code)
+	assert.NotContains(t, ended.Header().Get("Location"), "error=")
+	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.False(t, current.IsActive())
+	replay := goalRequest(t, h, "/reading/end", exact, cookies)
+	assert.NotContains(t, replay.Header().Get("Location"), "error=", "verified replay is harmless")
+
+	for _, path := range []string{"/reading/stop", "/reading/set-aside"} {
+		retired := goalRequest(t, h, path, exact, cookies)
+		assert.GreaterOrEqual(t, retired.Code, http.StatusBadRequest, path)
+	}
 }

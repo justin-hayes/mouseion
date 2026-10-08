@@ -139,7 +139,8 @@ func TestExplicitReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
 	requireHandler(t, h).services.PreparedDeck = repreparingPreparedDeck{}
 
 	response := goalRequest(t, h, "/deck-preparations/old-preparation/reprepare", url.Values{
-		"csrf_token": {csrf},
+		"csrf_token":                   {csrf},
+		"expected_current_snapshot_id": {"fixture-de-goal-snapshot"},
 	}, cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)

@@ -119,7 +119,7 @@ func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *te
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, accepted.RunID).Scan(&acceptedState))
 	assert.Equal(t, "queued", acceptedState, "the accepted job remains queued")
 
-	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
 	transition, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -144,7 +144,7 @@ func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *te
 	require.NoError(t, err)
 	require.NoError(t, transition.Commit(ctx))
 	require.ErrorIs(t, <-racedSubmission, ErrCurrentBook, "submission must observe the current state after acquiring the shared Book lock")
-	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&runCount))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis'`, owner.ID).Scan(&historyCount))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, owner.ID).Scan(&jobCount))

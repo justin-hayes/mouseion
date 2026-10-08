@@ -167,6 +167,9 @@ type Querier interface {
 	GetPrimaryGoalBookID(ctx context.Context, arg GetPrimaryGoalBookIDParams) (string, error)
 	GetPrimaryGoalCandidateIdentity(ctx context.Context, arg GetPrimaryGoalCandidateIdentityParams) (GetPrimaryGoalCandidateIdentityRow, error)
 	GetPrimaryGoalForUpdate(ctx context.Context, arg GetPrimaryGoalForUpdateParams) (GetPrimaryGoalForUpdateRow, error)
+	// Durable facts that prove a lifecycle replay: who the commitment belonged to,
+	// when it was frozen and released, and whether it was completed.
+	GetPrimaryGoalSnapshotLifecycle(ctx context.Context, arg GetPrimaryGoalSnapshotLifecycleParams) (GetPrimaryGoalSnapshotLifecycleRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
 	GetSourceContentRevisionByDigest(ctx context.Context, arg GetSourceContentRevisionByDigestParams) (string, error)

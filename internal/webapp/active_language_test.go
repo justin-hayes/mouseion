@@ -130,7 +130,7 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	for _, path := range []string{
-		"/reading/stop", "/reading/finish", "/reading/books/" + fixtures.BookID + "/start",
+		"/reading/end", "/reading/finish", "/reading/books/" + fixtures.BookID + "/start",
 		"/reading/books/" + fixtures.BookID + "/switch", "/library/books/" + fixtures.BookID + "/to-read",
 		"/library/books/" + fixtures.BookID + "/previously-read",
 	} {
@@ -178,7 +178,7 @@ func TestSubmissionsWithoutLanguageIdentityKeepWorking(t *testing.T) {
 	h, cookies, csrf, _ := goalFixtureSession(t)
 	response := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.NotEqual(t, languageChangedPath(), response.Header().Get("Location"))
-	forged := goalRequest(t, h, "/reading/stop", url.Values{"csrf_token": {"forged.de"}}, cookies)
+	forged := goalRequest(t, h, "/reading/end", url.Values{"csrf_token": {"forged.de"}}, cookies)
 	assert.Equal(t, http.StatusForbidden, forged.Code, "the language suffix never replaces the CSRF secret")
 }
 

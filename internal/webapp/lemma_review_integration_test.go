@@ -241,7 +241,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.NotContains(t, myBooksPage.Body.String(), ">0.0% of running words Known.")
 
 	oldSnapshotID := reading.SnapshotID
-	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, oldSnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, oldSnapshotID))
 	currentOccurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
 	require.NoError(t, store.PutLemmaCorrection(ctx, currentOccurrences[0], "drachen", "german-post-1996", "6"), "stopping permits an identity change without completing the old snapshot")

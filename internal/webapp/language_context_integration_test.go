@@ -56,7 +56,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, switched.Code)
 	assert.Equal(t, "/library", switched.Header().Get("Location"))
 
-	for _, path := range []string{"/reading/finish", "/reading/stop", "/reading/books/" + book.ID + "/switch", "/reading/books/" + book.ID + "/start", "/library/books/" + book.ID + "/previously-read"} {
+	for _, path := range []string{"/reading/finish", "/reading/end", "/reading/books/" + book.ID + "/switch", "/reading/books/" + book.ID + "/start", "/library/books/" + book.ID + "/previously-read"} {
 		response := post(path, url.Values{"csrf_token": {oldToken}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {reading.SnapshotID}})
 		assert.Equal(t, http.StatusSeeOther, response.Code, path)
 		assert.Equal(t, languageChangedPath(), response.Header().Get("Location"), path)

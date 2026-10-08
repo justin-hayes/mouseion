@@ -265,7 +265,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	}
 	stopped, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	require.NoError(t, store.StopCurrentReading(ctx, owner.ID, "de", book.ID, stopped.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, stopped.SnapshotID))
 	toRead, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, toRead.Items, 1)
@@ -285,13 +285,13 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	}
 	assert.Equal(t, domain.MyBookBucketToRead, buckets[book.ID], "switch returns the former current Book to To Read")
 	assert.Equal(t, domain.MyBookBucketCurrentReading, buckets[replacement.ID])
-	require.NoError(t, store.SetAsideCurrentReading(ctx, owner.ID, "de", replacement.ID, switched.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", replacement.ID, switched.SnapshotID))
 	all, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
 	for _, item := range all.Items {
 		if item.Book.ID == replacement.ID {
-			assert.Equal(t, domain.BookDispositionSetAside, item.Disposition)
-			assert.Equal(t, domain.MyBookBucketSetAside, item.WorkflowBucket(), "setting aside ends current reading and preserves the explicit disposition")
+			assert.Equal(t, domain.BookDispositionToRead, item.Disposition)
+			assert.Equal(t, domain.MyBookBucketToRead, item.WorkflowBucket(), "ending keeps the Book in To Read")
 		}
 	}
 	assert.NotEmpty(t, italianCurrent.SnapshotID)

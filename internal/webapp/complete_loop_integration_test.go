@@ -224,7 +224,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	beforePreparation, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
 	require.NoError(t, err)
 	require.Empty(t, beforePreparation, "starting Reading does not automatically prepare a deck")
-	submitted := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
+	submitted := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {goal.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, ctx, func() (bool, string) {
@@ -316,7 +316,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, bookID, goal.BookID)
 	assert.NotEqual(t, "", goal.SnapshotID)
-	stopped := perform(t, h, http.MethodPost, "/reading/stop", url.Values{
+	stopped := perform(t, h, http.MethodPost, "/reading/end", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {bookID}, "expected_current_snapshot_id": {goal.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stopped.Code)
