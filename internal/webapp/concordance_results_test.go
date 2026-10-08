@@ -134,17 +134,65 @@ func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.
 	}
 }
 
-func TestConcordanceContextWindowsDoNotSplitUnicode(t *testing.T) {
-	sentence := strings.Repeat("a", 48) + " 🐈Haus🌿 " + strings.Repeat("b", 48)
-	start := int64(strings.Index(sentence, "Haus"))
-	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
-		SentenceText: sentence, Surface: "Haus", SentenceStartOffset: start, SentenceEndOffset: start + 4,
-	}}
-	left, right := concordanceBefore(occurrence), concordanceAfter(occurrence)
-	if !utf8.ValidString(left) || !utf8.ValidString(right) {
-		t.Fatalf("context windows split UTF-8: left=%q right=%q", left, right)
+func TestConcordanceSentencePartsUseCodePointOffsets(t *testing.T) {
+	for _, test := range []struct {
+		name, sentence, surface, before, after string
+	}{
+		{
+			name:     "multi-byte letters before the occurrence",
+			sentence: "Wie er tatsächlich verstand, dass sie ihn zu erwürgen gedenke, falls er ihre Pita nicht aufesse.",
+			surface:  "gedenke",
+			before:   "Wie er tatsächlich verstand, dass sie ihn zu erwürgen ",
+			after:    ", falls er ihre Pita nicht aufesse.",
+		},
+		{
+			name:     "dash and umlaut before the occurrence",
+			sentence: "Auch Sretoje – erzählten von all dem, auch gedenken.",
+			surface:  "gedenken",
+			before:   "Auch Sretoje – erzählten von all dem, auch ",
+			after:    ".",
+		},
+		{
+			name:     "astral symbols around the occurrence",
+			sentence: "a 🐈Haus🌿 b",
+			surface:  "Haus",
+			before:   "a 🐈",
+			after:    "🌿 b",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			start := int64(utf8.RuneCountInString(test.before))
+			occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
+				SentenceText: test.sentence, Surface: test.surface,
+				SentenceStartOffset: start, SentenceEndOffset: start + int64(utf8.RuneCountInString(test.surface)),
+			}}
+			before, target, after := concordanceSentenceParts(occurrence)
+			if before != test.before || target != test.surface || after != test.after {
+				t.Fatalf("parts = %q | %q | %q, want %q | %q | %q", before, target, after, test.before, test.surface, test.after)
+			}
+		})
 	}
-	if !strings.HasPrefix(left, "…") || !strings.HasSuffix(left, " 🐈") || !strings.HasPrefix(right, "🌿 ") {
-		t.Fatalf("context windows lost Unicode boundaries: left=%q right=%q", left, right)
+}
+
+func TestConcordanceSentencePartsRejectOffsetsOutsideTheSentence(t *testing.T) {
+	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
+		SentenceText: "Das Haus.", Surface: "Haus", SentenceStartOffset: 4, SentenceEndOffset: 40,
+	}}
+	if before, target, after := concordanceSentenceParts(occurrence); before != "" || target != "" || after != "" {
+		t.Fatalf("out-of-range offsets produced parts %q | %q | %q", before, target, after)
+	}
+}
+
+func TestConcordanceContextTextKeepsOnlyBoundarySpaces(t *testing.T) {
+	for input, want := range map[string]string{
+		"Wie er  tatsächlich\n verstand ": "Wie er tatsächlich verstand ",
+		" , falls  er":                   " , falls er",
+		", falls er":                     ", falls er",
+		" ":                              " ",
+		"":                               "",
+	} {
+		if got := concordanceContextText(input); got != want {
+			t.Errorf("concordanceContextText(%q) = %q, want %q", input, got, want)
+		}
 	}
 }

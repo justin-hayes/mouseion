@@ -210,11 +210,21 @@ body.reading-shell .scope-unit label > :not(input) {
 }
 
 .journey-book--provisional {
-  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 18rem);
-  column-gap: var(--mouseion-space-4);
-  row-gap: var(--mouseion-space-3);
-  padding: var(--mouseion-space-3) 0;
+  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(12rem, 18rem);
+  grid-template-rows: auto 1fr;
+  column-gap: var(--mouseion-space-5);
+  row-gap: var(--mouseion-space-2);
+  padding: var(--mouseion-space-4) 0;
   border-bottom: 0;
+}
+
+.journey-list > li + li {
+  border-top: 1px solid var(--mouseion-color-border);
+}
+
+/* At thumbnail size the adjacent title identifies a missing cover. */
+.journey-book--provisional .book-cover-media__label {
+  display: none;
 }
 
 .journey-book--provisional .journey-book__cover {
@@ -229,8 +239,11 @@ body.reading-shell .scope-unit label > :not(input) {
 
 .journey-book--provisional .journey-book__identity h3 {
   margin: 0 0 var(--mouseion-space-1);
-  font-size: 1.25rem;
-  line-height: 1.3;
+  font-size: var(--mouseion-font-size-section-title);
+  font-weight: 560;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-wrap: balance;
 }
 
 .journey-book--provisional .journey-book__identity-link {
@@ -253,23 +266,31 @@ body.reading-shell .scope-unit label > :not(input) {
   grid-column: 3;
   grid-row: 1 / span 2;
   align-self: stretch;
-  border-left: 1px solid var(--mouseion-color-border);
-  padding: var(--mouseion-space-2) 0 var(--mouseion-space-2) var(--mouseion-space-3);
-  background: var(--mouseion-color-surface-quiet);
+  border-left: 2px solid var(--mouseion-color-surface-quiet);
+  padding-left: var(--mouseion-space-4);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
   overflow-wrap: anywhere;
 }
 
 .journey-book--provisional .journey-book__margin h4 {
-  margin: 0 0 var(--mouseion-space-2);
+  margin: 0 0 var(--mouseion-space-1);
   color: var(--mouseion-color-text-muted);
-  font: 600 0.8125rem/1.4 var(--mouseion-font-application);
+  font: 550 var(--mouseion-font-size-metadata)/1.4 var(--mouseion-font-application);
+  letter-spacing: 0;
+}
+
+.journey-book--provisional .journey-book__margin p {
+  margin: 0 0 var(--mouseion-space-2);
 }
 
 .journey-book__coverage {
   margin: 0;
+  color: var(--mouseion-color-text);
   font-variant-numeric: tabular-nums;
   font-size: var(--mouseion-font-size-stat);
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .journey-book--provisional .journey-book__margin p:last-child {
@@ -296,6 +317,7 @@ body.reading-shell .scope-unit label > :not(input) {
 
 .journey-book--provisional .journey-book__switch {
   min-height: 44px;
+  justify-content: flex-start;
   padding-inline: 0;
 }
 
@@ -383,9 +405,10 @@ body.reading-shell .scope-unit label > :not(input) {
   display: flex;
   min-height: 44px;
   align-items: center;
-  color: var(--mouseion-color-text-muted);
+  color: var(--mouseion-color-accent);
   cursor: pointer;
-  font-weight: 600;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
 }
 
 .more-actions__body {
@@ -415,7 +438,15 @@ body.reading-shell .scope-unit label > :not(input) {
 	padding: 0;
   background: transparent;
   box-shadow: none;
-  grid-template-columns: 13rem minmax(0, 1fr) minmax(0, 18rem);
+  grid-template-columns: 13rem minmax(0, 1fr) minmax(12rem, 18rem);
+  column-gap: var(--mouseion-space-6);
+}
+
+.journey-book--goal .journey-book__author {
+  margin: 0;
+  font-family: var(--mouseion-font-reading);
+  font-size: var(--mouseion-font-size-section-title);
+  line-height: 1.4;
 }
 
 .journey-book--goal .goal-card__deck {
@@ -438,12 +469,14 @@ body.reading-shell .scope-unit label > :not(input) {
 }
 
 .journey-book__title {
-  margin: 0 0 var(--mouseion-space-3);
+  margin: 0 0 var(--mouseion-space-2);
   font-family: var(--mouseion-font-reading);
   font-size: clamp(2.4375rem, 4vw, 3.0625rem);
-  font-weight: 500;
-  line-height: 1.08;
+  font-weight: 520;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .journey-book--goal .journey-book__title a {
@@ -466,8 +499,8 @@ body.reading-shell .scope-unit label > :not(input) {
   margin: 0 0 var(--mouseion-space-2);
   color: var(--mouseion-color-text-muted);
   font-family: var(--mouseion-font-application);
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 400;
   line-height: 1.4;
 }
 
@@ -475,8 +508,8 @@ body.reading-shell .scope-unit label > :not(input) {
   display: flex;
   flex-wrap: wrap;
   align-items: start;
-  gap: var(--mouseion-space-2);
-  margin-top: var(--mouseion-space-4);
+  gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  margin-top: var(--mouseion-space-5);
 }
 
 .journey-book__lifecycle .confirmation {
@@ -486,8 +519,16 @@ body.reading-shell .scope-unit label > :not(input) {
 }
 
 .journey-book__lifecycle .confirmation summary {
-  padding-inline: var(--mouseion-space-2);
   text-align: left;
+}
+
+/* An open confirmation takes its own line so its explanation has a measure. */
+.journey-book__lifecycle .confirmation[open] {
+  flex-basis: 100%;
+}
+
+.journey-book__lifecycle .confirmation__body {
+  max-width: 34rem;
 }
 
 .journey-book__lifecycle .confirmation,
@@ -500,18 +541,33 @@ body.reading-shell .scope-unit label > :not(input) {
   grid-column: 3;
   max-width: 18rem;
   color: var(--mouseion-color-text-muted);
-  font-size: 0.9375rem;
+  font-size: var(--mouseion-font-size-metadata);
 }
 
 .journey-book--goal .reading-note + .reading-note {
   margin-top: var(--mouseion-space-5);
 }
 
+/* Apparatus notes are labelled like a definition list, not as page sections. */
 .journey-book--goal .reading-note h2 {
-  margin-bottom: var(--mouseion-space-2);
+  margin-bottom: var(--mouseion-space-1);
   color: var(--mouseion-color-text);
-  font-size: 1.25rem;
-  line-height: 1.25;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+
+.journey-book--goal .reading-note p {
+  margin-bottom: var(--mouseion-space-2);
+}
+
+.journey-book--goal .goal-card__deck :is(a.button, form) {
+  margin: 0 var(--mouseion-space-2) var(--mouseion-space-2) 0;
+}
+
+.journey-book--goal .goal-card__deck form {
+  display: inline-block;
 }
 
 .journey-book--goal .reading-note > :last-child {

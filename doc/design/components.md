@@ -442,7 +442,8 @@ success styling.
 
 Pair visible status words with a decorative shape hidden from assistive
 technology: filled dot for current/ready, ring for neutral or in-progress, and
-diamond for failure. Keep the shape distinguishable in both themes and
+diamond for failure. A badge is set as a margin note, words and shape in the
+status colour without a box or fill, and neutral states use pencil tone. Keep the shape distinguishable in both themes and
 forced-colors mode; it supplements rather than replaces the label.
 
 ### `Feedback`

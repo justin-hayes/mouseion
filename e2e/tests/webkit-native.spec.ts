@@ -314,7 +314,7 @@ test.describe('native WebKit smoke journey', () => {
 
   test('shared navigation and study-language control stay visually consistent across destinations', async ({ page }) => {
     await signIn(page);
-    const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentDecoration: string }>;
+    const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentMarker: string }>;
     for (const destination of [
       { name: 'My Books', path: '/library' },
       { name: 'Reading', path: '/reading' },
@@ -340,9 +340,9 @@ test.describe('native WebKit smoke journey', () => {
       });
       const currentStyle = await current.evaluate(link => {
         const style = getComputedStyle(link);
-        return { background: style.backgroundColor, decoration: style.textDecorationLine };
+        return { background: style.backgroundColor, marker: style.boxShadow };
       });
-      measurements.push({ destination: destination.name, ...style, currentBackground: currentStyle.background, currentDecoration: currentStyle.decoration });
+      measurements.push({ destination: destination.name, ...style, currentBackground: currentStyle.background, currentMarker: currentStyle.marker });
     }
 
     expect(new Set(measurements.map(item => item.labelDirection)).size).toBe(1);
@@ -351,7 +351,8 @@ test.describe('native WebKit smoke journey', () => {
     expect(new Set(measurements.map(item => item.selectRadius)).size).toBe(1);
     expect(measurements.every(item => item.labelDirection === 'row')).toBe(true);
     expect(measurements.every(item => item.selectHeight >= 44)).toBe(true);
-    expect(measurements.every(item => item.currentDecoration.includes('underline'))).toBe(true);
+    // The current destination carries an inset accent rule rather than an underline.
+    expect(measurements.every(item => item.currentMarker.includes('inset'))).toBe(true);
     expect(new Set(measurements.map(item => item.currentBackground)).size, JSON.stringify(measurements)).toBe(1);
     expect(measurements.every(item => item.currentBackground !== 'rgb(36, 87, 178)')).toBe(true);
     await expectNoHorizontalOverflow(page);

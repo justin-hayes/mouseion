@@ -121,7 +121,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 	}
 	require.NoError(t, ReadingChooserBook(candidate, "csrf", "", "").Render(context.Background(), &chooser))
 	assert.Contains(t, current.String(), `<button class="button" type="submit">Mark reading finished</button>`)
-	assert.Contains(t, current.String(), `<a class="button button--outline" href="/reading/switch">Switch current reading</a>`)
+	assert.Contains(t, current.String(), `<a class="button button--quiet" href="/reading/switch">Switch current reading</a>`)
 	assert.NotContains(t, current.String(), `role="button"`)
 	assert.Contains(t, chooser.String(), `<button class="button" type="submit">Confirm start reading</button>`)
 	assert.Contains(t, chooser.String(), `class="confirmation"`)

@@ -179,7 +179,7 @@ test.describe('authenticated learner smoke', () => {
       const current = noScript.locator('#primary-goal-section');
       const switchLink = current.locator('a[href="/reading/switch"]');
       await expect(switchLink).toBeVisible();
-      await expect(switchLink).toHaveAttribute('class', /button--outline/);
+      await expect(switchLink).toHaveAttribute('class', /button--quiet/);
       await expect(switchLink).not.toHaveAttribute('role', 'button');
 
       const finish = current.locator('details.confirmation').filter({ hasText: 'Mark reading finished' });

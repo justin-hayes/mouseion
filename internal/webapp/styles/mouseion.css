@@ -5,8 +5,8 @@
   --mouseion-color-surface-quiet: #e3ebf0;
   --mouseion-color-text: #17232d;
   --mouseion-color-text-muted: #586873;
-  --mouseion-color-border: #b8c5cc;
-  --mouseion-color-control-border: #71838d;
+  --mouseion-color-border: #ccd7de;
+  --mouseion-color-control-border: #6b7c88;
   --mouseion-color-accent: #2457b2;
   --mouseion-color-accent-hover: #173f87;
   --mouseion-color-focus: #2457b2;
@@ -43,7 +43,7 @@
   --border: 1px;
   --depth: 0;
   --noise: 0;
-  --mouseion-radius: 0.125rem;
+  --mouseion-radius: 0.375rem;
   --mouseion-focus-width: 0.125rem;
 
   /* Typography roles. */
@@ -51,7 +51,7 @@
   --mouseion-font-reading: "Literata Variable", serif;
   --mouseion-line-height-reading: 1.65;
   --mouseion-font-size-metadata: 0.875rem;
-  --mouseion-font-size-stat: 1.75rem;
+  --mouseion-font-size-stat: 1.25rem;
   --mouseion-font-size-page-title: 1.5625rem;
   --mouseion-font-size-section-title: 1.25rem;
   --mouseion-font-size-reading: 1.0625rem;
@@ -70,6 +70,9 @@
   --mouseion-width-form: 38rem;
   --mouseion-width-reading: 42rem;
   --mouseion-width-data: 72rem;
+  /* The shell and every page share one centred measure, including its gutter. */
+  --mouseion-width-page: 76rem;
+  --mouseion-page-gutter: var(--mouseion-space-5);
 }
 
 [data-theme="dark"] {
@@ -78,7 +81,7 @@
   --mouseion-color-surface-quiet: #233441;
   --mouseion-color-text: #edf3f5;
   --mouseion-color-text-muted: #a9b8c2;
-  --mouseion-color-border: #536571;
+  --mouseion-color-border: #2f4352;
   --mouseion-color-control-border: #718692;
   --mouseion-color-accent: #8fb4ff;
   --mouseion-color-accent-hover: #b6cdff;
@@ -101,7 +104,7 @@
     --mouseion-color-surface-quiet: #233441;
     --mouseion-color-text: #edf3f5;
     --mouseion-color-text-muted: #a9b8c2;
-    --mouseion-color-border: #536571;
+    --mouseion-color-border: #2f4352;
     --mouseion-color-control-border: #718692;
     --mouseion-color-accent: #8fb4ff;
     --mouseion-color-accent-hover: #b6cdff;
@@ -189,16 +192,20 @@ details[open] > summary::before {
   outline-offset: 2px;
 }
 
+/* Controls speak in the interface's small size and a medium weight, so Book
+   identity rather than chrome carries the page's emphasis. */
 button,
 [role="button"] {
   min-height: 44px;
   border: 1px solid var(--mouseion-color-accent);
   border-radius: var(--mouseion-radius);
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
   color: var(--mouseion-color-surface-raised);
   background: var(--mouseion-color-accent);
   cursor: pointer;
-  font-weight: 650;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
+  line-height: 1.2;
 }
 
 a.button {
@@ -213,7 +220,9 @@ a.button {
   color: var(--mouseion-color-surface-raised);
   background: var(--mouseion-color-accent);
   font: inherit;
-  font-weight: 650;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
+  line-height: 1.2;
   text-align: center;
   text-decoration: none;
 }
@@ -227,6 +236,7 @@ a {
 }
 
 a.button--outline,
+a.button--quiet,
 a[role="button"],
 button.button--outline,
 button.button--quiet {
@@ -237,20 +247,40 @@ button.button--quiet {
   justify-content: center;
   border: 1px solid var(--mouseion-color-control-border);
   border-radius: var(--mouseion-radius);
-  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  padding: var(--mouseion-space-2) var(--mouseion-space-4);
   color: var(--mouseion-color-text);
   background: var(--mouseion-color-surface-raised);
   font: inherit;
-  font-weight: 650;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
+  line-height: 1.2;
   text-align: center;
   text-decoration: none;
 }
 
 a.button--outline:hover,
 a[role="button"]:hover,
-button.button--outline:hover:not(:disabled),
+button.button--outline:hover:not(:disabled) {
+  border-color: var(--mouseion-color-text);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
+}
+
+/* A quiet action reads as an annotation link while keeping a button's target. */
+a.button--quiet,
+button.button--quiet {
+  border-color: transparent;
+  padding-inline: var(--mouseion-space-2);
+  color: var(--mouseion-color-accent);
+  background: transparent;
+}
+
+a.button--quiet:hover,
 button.button--quiet:hover:not(:disabled) {
-  background: var(--mouseion-color-surface-quiet);
+  border-color: transparent;
+  color: var(--mouseion-color-accent-hover);
+  background: transparent;
+  text-decoration: underline;
 }
 
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
@@ -303,7 +333,7 @@ h6 {
   margin: 0 0 var(--mouseion-space-3);
   color: var(--mouseion-color-text);
   font-weight: 650;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.01em;
   line-height: 1.2;
 }
 
@@ -406,7 +436,6 @@ button,
 [role="button"] {
   min-height: 44px;
   box-shadow: none;
-  font-weight: 650;
 }
 
 input,
@@ -435,18 +464,19 @@ textarea {
   z-index: 10;
   width: 100%;
   max-width: none;
-  padding: var(--mouseion-space-2) clamp(var(--mouseion-space-4), 4vw, var(--mouseion-space-6));
+  padding: var(--mouseion-space-2) var(--mouseion-page-gutter);
   border-bottom: 1px solid var(--mouseion-color-border);
-  background: var(--mouseion-color-surface-quiet);
+  background: var(--mouseion-color-surface-raised);
 }
 
 .site-header__nav {
   display: flex;
   align-items: center;
   min-width: 0;
+  max-width: calc(var(--mouseion-width-page) - 2 * var(--mouseion-page-gutter));
   flex-wrap: wrap;
   gap: var(--mouseion-space-2) var(--mouseion-space-5);
-  margin: 0;
+  margin: 0 auto;
   padding: 0;
 }
 
@@ -478,9 +508,9 @@ textarea {
 
 .site-header__brand strong {
   font-family: var(--mouseion-font-reading);
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.01em;
 }
 
 .site-header__brand {
@@ -497,7 +527,7 @@ textarea {
 
 .site-header__navigation {
   flex-wrap: wrap;
-  gap: var(--mouseion-space-2);
+  gap: var(--mouseion-space-1);
 }
 
 .site-nav__link {
@@ -505,9 +535,16 @@ textarea {
   display: flex;
   align-items: center;
   min-height: 44px;
-  padding: var(--mouseion-space-2) var(--mouseion-space-2);
+  border-radius: var(--mouseion-radius);
+  padding: var(--mouseion-space-2) var(--mouseion-space-3);
+  color: var(--mouseion-color-text);
+  font-weight: 500;
   white-space: nowrap;
   text-decoration: none;
+}
+
+.site-nav__link:hover {
+  background: var(--mouseion-color-surface-quiet);
 }
 
 .site-header a:focus-visible,
@@ -538,18 +575,20 @@ textarea {
 }
 
 .site-header__language-label {
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
   white-space: nowrap;
 }
 
 .site-header__language select {
   box-sizing: border-box;
   width: max-content;
-  min-width: 11rem;
+  min-width: 8rem;
   max-width: min(32vw, 24rem);
   min-height: 44px;
   flex: 0 0 auto;
   margin: 0;
-  border: 1px solid var(--mouseion-color-border);
+  border: 1px solid var(--mouseion-color-control-border);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-2) var(--mouseion-space-3);
   color: var(--mouseion-color-text);
@@ -640,7 +679,9 @@ textarea {
   background: var(--mouseion-color-accent);
   box-shadow: none;
   font: inherit;
-  font-weight: 650;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
+  line-height: 1.2;
   text-decoration: none;
 }
 
@@ -656,23 +697,26 @@ textarea {
 }
 
 :is(.page-header__actions, .action-group, .async-status__actions, .confirmation__body) :is(button.button--outline, button.button--quiet, a.button--outline, a.button--quiet):hover {
-  background: var(--mouseion-color-surface-quiet);
+  border-color: var(--mouseion-color-text);
 }
 
 .site-nav__link--current {
-  color: var(--mouseion-color-text);
+  border-radius: 0;
+  color: var(--mouseion-color-accent);
+  box-shadow: inset 0 -2px 0 var(--mouseion-color-accent);
   font-weight: 650;
-  text-decoration: underline;
-  text-decoration-color: var(--mouseion-color-accent);
-  text-decoration-thickness: 0.18em;
-  text-underline-offset: 0.38em;
+}
+
+.site-nav__link--current:hover {
+  background: transparent;
 }
 
 #main-content {
-  max-width: 88rem;
+  box-sizing: border-box;
+  max-width: var(--mouseion-width-page);
   min-width: 0;
   margin-inline: auto;
-  padding: clamp(var(--mouseion-space-6), 5vw, var(--mouseion-space-8));
+  padding: var(--mouseion-space-6) var(--mouseion-page-gutter) var(--mouseion-space-8);
 }
 
 #main-content:focus-visible {
@@ -709,7 +753,7 @@ article.narrow {
 
 .bibliographic-title {
   font-family: var(--mouseion-font-reading);
-  font-weight: 600;
+  font-weight: 560;
   letter-spacing: 0;
   font-optical-sizing: auto;
 }
@@ -841,26 +885,24 @@ progress {
   color: var(--mouseion-color-text-muted);
 }
 
+/* Status is a pencilled note: words and a shape in the status colour, without
+   a box competing with the Book it annotates. */
 .status-badge {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  border: 1px solid currentColor;
-  border-radius: var(--mouseion-radius);
-  padding: 0.12rem var(--mouseion-space-2);
+  gap: 0.4em;
   white-space: nowrap;
-  background: var(--mouseion-color-surface-raised);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
   line-height: 1.4;
 }
 
 .status-badge__shape {
   display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  flex: 0 0 0.55rem;
-  margin-inline-end: var(--mouseion-space-1);
+  width: 0.55em;
+  height: 0.55em;
+  flex: 0 0 0.55em;
   border: 1.5px solid currentColor;
   border-radius: 50%;
 }
@@ -870,9 +912,9 @@ progress {
 }
 
 .status-badge__shape--diamond {
-  width: 0.5rem;
-  height: 0.5rem;
-  flex-basis: 0.5rem;
+  width: 0.5em;
+  height: 0.5em;
+  flex-basis: 0.5em;
   border: 0;
   border-radius: 0;
   background: currentColor;
@@ -880,7 +922,7 @@ progress {
 }
 
 .status-badge--neutral {
-  color: var(--mouseion-color-text);
+  color: var(--mouseion-color-text-muted);
 }
 
 .status-badge--info {
@@ -1021,8 +1063,9 @@ progress {
   min-height: 44px;
   display: flex;
   align-items: center;
-  color: var(--mouseion-color-text-muted);
-  font-weight: 600;
+  color: var(--mouseion-color-accent);
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
 }
 
 .confirmation--danger summary {
@@ -1130,15 +1173,16 @@ progress {
 
 .library-masthead {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--mouseion-space-3);
-  margin-bottom: var(--mouseion-space-3);
+  gap: var(--mouseion-space-2) var(--mouseion-space-4);
+  margin-bottom: var(--mouseion-space-4);
 }
 
 .library-masthead h1 {
   margin: 0;
   font-size: var(--mouseion-font-size-page-title);
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .library-language-context {
@@ -1188,6 +1232,8 @@ progress {
 }
 
 .library-finder {
+  display: grid;
+  gap: var(--mouseion-space-3);
   margin-bottom: var(--mouseion-space-3);
   padding: 0;
   background: transparent;
@@ -1195,12 +1241,7 @@ progress {
 
 .library-search {
   max-width: none;
-  margin-bottom: var(--mouseion-space-2);
-}
-
-.library-search label {
-  margin-bottom: var(--mouseion-space-2);
-  font-weight: 650;
+  margin: 0;
 }
 
 .library-language-pills,
@@ -1212,51 +1253,46 @@ progress {
   align-items: center;
 }
 
+/* Filters are tabs over one list: the current bucket is inked in, the others
+   stay plain text with their counts in pencil. */
 .library-filters {
-  gap: var(--mouseion-space-1) var(--mouseion-space-3);
+  gap: var(--mouseion-space-1);
   margin: 0;
 }
 
 .library-filters a {
+  display: inline-flex;
   min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-body.my-books-shell .library-filters a[aria-current="page"] {
-  border-color: transparent;
-  border-bottom-color: var(--mouseion-color-accent);
-  border-radius: 0;
-  background: transparent;
-  color: var(--mouseion-color-text);
-  box-shadow: none;
-}
-
-.library-filters a {
   min-height: 44px;
+  align-items: center;
   border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  padding: var(--mouseion-space-2) 0;
+  border-radius: var(--mouseion-radius);
+  padding: 0 var(--mouseion-space-3);
   background: transparent;
   box-shadow: none;
   color: var(--mouseion-color-text);
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .library-filters a:hover {
-  text-decoration: underline;
+  background: var(--mouseion-color-surface-quiet);
 }
 
 body.my-books-shell .library-filters a[aria-current="page"] {
-  font-weight: 650;
+  color: var(--mouseion-color-surface);
+  background: var(--mouseion-color-text);
 }
 
 .library-needs-language {
   margin: 0 0 var(--mouseion-space-3);
-  border-left: 2px solid var(--mouseion-color-warning);
-  padding: var(--mouseion-space-1) var(--mouseion-space-3);
-  color: var(--mouseion-color-text-muted);
+  border-left: 3px solid var(--mouseion-color-warning);
+  padding: var(--mouseion-space-1) var(--mouseion-space-4);
+  background: color-mix(in srgb, var(--mouseion-color-warning) 7%, var(--mouseion-color-surface-raised));
+  color: var(--mouseion-color-text);
   font-size: var(--mouseion-font-size-metadata);
 }
 
@@ -1333,37 +1369,44 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 
 .library-books {
   display: grid;
-  gap: var(--mouseion-space-4);
+  gap: 0;
   min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* The identity link spans the cover and text columns as a subgrid, so the
+   cover can run down beside both the title and the actions while the actions
+   follow the author directly instead of waiting below the cover. */
 .library-books > .library-book {
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr) minmax(10rem, 16rem);
-  grid-template-rows: auto auto auto;
-  grid-template-areas: "identity identity notes" ". actions notes" "message message message";
+  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(12rem, 18rem);
+  grid-template-rows: auto 1fr auto;
   align-items: start;
-  gap: var(--mouseion-space-2) var(--mouseion-space-3);
+  column-gap: var(--mouseion-space-5);
+  row-gap: 0;
   min-width: 0;
   min-height: 0;
   margin: 0;
   border-radius: 0;
-  padding: 0 0 var(--mouseion-space-2);
+  padding: var(--mouseion-space-4) 0;
   background: transparent;
   box-shadow: none;
 }
 
+.library-books > .library-book + .library-book {
+  border-top: 1px solid var(--mouseion-color-border);
+}
+
 .library-book__identity-link {
-  grid-area: identity;
+  grid-column: 1 / 3;
+  grid-row: 1 / 3;
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
-  width: 100%;
+  grid-template-columns: subgrid;
+  grid-template-rows: subgrid;
   min-width: 0;
-  align-items: start;
-  gap: var(--mouseion-space-1) var(--mouseion-space-3);
+  align-self: stretch;
   color: var(--mouseion-color-text);
   text-decoration: none;
 }
@@ -1376,87 +1419,110 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 }
 
 .library-book__notes {
-  grid-area: notes;
+  grid-column: 3;
+  grid-row: 1 / 3;
+  display: grid;
+  align-content: start;
+  gap: var(--mouseion-space-2);
   min-width: 0;
-  min-height: 100%;
-  border-left: 2px solid var(--mouseion-color-border);
-  padding: var(--mouseion-space-1) 0 var(--mouseion-space-1) var(--mouseion-space-3);
-  background: var(--mouseion-color-surface-quiet);
+  align-self: stretch;
+  border-left: 2px solid var(--mouseion-color-surface-quiet);
+  padding-left: var(--mouseion-space-4);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
 }
 
 .library-book__notes p {
-  margin: 0 0 var(--mouseion-space-1);
+  margin: 0;
+  max-width: 34ch;
   overflow-wrap: anywhere;
 }
 
 .library-book__evidence {
-  color: var(--mouseion-color-text);
-  font-size: 0.875rem;
+  color: var(--mouseion-color-text-muted);
 }
 
 .library-book__notes > form {
-  box-sizing: border-box;
-  width: 100%;
   min-width: 0;
+  margin: 0;
 }
 
 .library-book__recovery {
-  display: block;
-  box-sizing: border-box;
-  inline-size: 100%;
-  max-inline-size: 100%;
-  min-inline-size: 0;
-  font-size: 0.875rem;
-  font-weight: 650;
+  border-color: var(--mouseion-color-control-border);
+  color: var(--mouseion-color-text);
+  background: var(--mouseion-color-surface-raised);
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: start;
 }
 
+.library-book__recovery:hover:not(:disabled) {
+  border-color: var(--mouseion-color-text);
+}
+
 .library-book__actions {
-  grid-area: actions;
+  position: relative;
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: var(--mouseion-space-3);
 }
 
 .library-book__message {
-  grid-area: message;
+  grid-column: 2 / -1;
+  grid-row: 3;
 }
 
 .book-cover-media {
+  position: relative;
   display: grid;
   width: 100%;
   aspect-ratio: 2 / 3;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--mouseion-color-border);
+  border-radius: 2px 4px 4px 2px;
   background: var(--mouseion-color-surface-quiet);
+}
+
+/* A real cover keeps its own proportions instead of being letterboxed. */
+.book-cover-media:has(> .book-cover-media__image) {
+  aspect-ratio: auto;
 }
 
 .library-book__identity-link .book-cover-media {
   grid-column: 1;
-  grid-row: 1;
-  width: 4rem;
-  max-width: 4rem;
-  aspect-ratio: 2 / 3;
+  grid-row: 1 / -1;
+  width: 4.5rem;
+  max-width: 4.5rem;
   align-self: start;
 }
 
 .book-cover-media__image {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
 }
 
 .book-cover-media__placeholder {
   display: grid;
   width: 100%;
   height: 100%;
-  place-items: center;
+  place-content: center;
   padding: var(--mouseion-space-3);
   gap: var(--mouseion-space-1);
-  color: var(--mouseion-color-text);
+  border: 1px solid color-mix(in srgb, var(--mouseion-color-text) 14%, transparent);
+  border-radius: inherit;
+  color: color-mix(in srgb, var(--mouseion-color-text) 60%, transparent);
   background: var(--mouseion-color-surface-quiet);
   text-align: center;
+}
+
+/* An inner rule makes the placeholder read as a plain bound cover. */
+.book-cover-media__placeholder::after {
+  position: absolute;
+  inset: 6%;
+  border: 1px solid color-mix(in srgb, var(--mouseion-color-text) 22%, transparent);
+  content: "";
+  pointer-events: none;
 }
 
 .book-cover-media__initial {
@@ -1480,8 +1546,9 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 .library-book__identity-link .bibliographic-title {
   overflow-wrap: anywhere;
   margin: 0;
-  font-size: 1.2rem;
-  line-height: 1.25;
+  font-size: var(--mouseion-font-size-section-title);
+  line-height: 1.2;
+  text-wrap: balance;
 }
 
 .library-book__identity-link:hover .bibliographic-title,
@@ -1501,10 +1568,7 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 }
 
 .library-book__membership {
-  margin: 0 0 var(--mouseion-space-2);
-  color: var(--mouseion-color-text-muted);
-  font-size: var(--mouseion-font-size-metadata);
-  font-weight: 650;
+  margin: 0;
 }
 
 .library-book__membership .status-badge {
@@ -1522,8 +1586,9 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   width: auto;
   min-width: 0;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--mouseion-space-3);
+  gap: var(--mouseion-space-2) var(--mouseion-space-3);
 }
 
 .library-book__actions form {
@@ -1705,7 +1770,7 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 
   .site-header__nav {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: var(--mouseion-space-2);
   }
@@ -1717,7 +1782,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   }
 
   .site-header__brand strong {
-    overflow-wrap: anywhere;
     font-size: 1.2rem;
   }
 
@@ -1823,13 +1887,32 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 
   .library-books > .library-book {
     grid-template-columns: 4rem minmax(0, 1fr);
-    grid-template-areas: "identity identity" ". notes" ". actions" "message message";
-    row-gap: var(--mouseion-space-1);
-    column-gap: var(--mouseion-space-3);
+    grid-template-rows: auto auto 1fr auto;
+    column-gap: var(--mouseion-space-4);
+  }
+
+  .library-book__identity-link {
+    grid-row: 1 / 4;
   }
 
   .library-book__notes {
-    min-height: 0;
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: var(--mouseion-space-2);
+    padding-left: var(--mouseion-space-3);
+  }
+
+  .library-book__actions {
+    grid-row: 3;
+  }
+
+  .library-book__message {
+    grid-row: 4;
+  }
+
+  .library-book__identity-link .book-cover-media {
+    width: 4rem;
+    max-width: 4rem;
   }
 
   .library-book__journey-action,

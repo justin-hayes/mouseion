@@ -166,7 +166,10 @@ Color never carries state alone; pair it with visible text or an accessible name
 
 Shared buttons use the default primary treatment, `.button--outline` or
 `.button--quiet` for secondary actions, and `.button--danger` for destructive
-actions. Native disabled state remains authoritative and is visually distinct;
+actions. Controls use the 14px interface size at a medium (550) weight and a
+6px radius, so Book identity rather than chrome carries a page's emphasis. A
+quiet action is borderless annotation-blue text that keeps a 44px target; use
+it for in-place secondary moves such as **Switch current reading**. Native disabled state remains authoritative and is visually distinct;
 busy controls expose `aria-busy` and retain visible status text. Invalid inputs
 use the danger boundary, while read-only fields use the quiet surface without
 losing their meaningful control boundary.
@@ -265,7 +268,11 @@ Widths reflect content behavior rather than arbitrary page templates:
 - `--mouseion-width-form` (`38rem`) for authentication and focused settings;
 - `--mouseion-width-reading` (`42rem`) for passages and sustained prose;
 - `--mouseion-width-data` (`72rem`) for tables, scope review, and metric-rich
-  analysis.
+  analysis;
+- `--mouseion-width-page` (`76rem`, including the `--mouseion-page-gutter`) for
+  the shell itself. The top bar's contents and every page's main column share
+  this one centred measure, so the wordmark, page title, and Book rows start on
+  the same left edge.
 
 The `.narrow`, `.reading-width`, and `.data-width` roles apply those measures.
 Book text should not be stretched to fill a data-dense container.
@@ -399,6 +406,12 @@ overflow.
   behavior. Exact-lookup Concordance, applied Book/grammar filters, KWIC
   disclosures, and focused textual sentence study are shipped. These views do
   not duplicate the My Books bibliographic browser or Reading chooser.
+  A KWIC row splits its sentence at the occurrence's corpus offsets, which
+  count Unicode code points, never bytes. The left context is the whole
+  sentence before the observed target, set flush against it and cut with an
+  ellipsis at its start; the right context begins with the text immediately
+  after the target and is cut with an ellipsis at its end. Width decides how
+  much context shows; the server does not shorten it.
 - Loading, empty, error, disabled, success, degraded, historical, and
   asynchronous states are explicit.
 - Errors explain what happened and the next available action.

@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
@@ -480,10 +482,10 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		} else if browse.Enabled && (browse.AllCount > 0 || browse.NeedsLanguage) {
 			<section class="library-finder" aria-label="Find books">
 				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)) } hx-get={ myBooksHistoryURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
-					<label for="library-search-query">Search My Books</label>
+					<label class="sr-only" for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or edition"/>
-					<button class="btn btn-primary" type="submit">Search</button>
+						<button class="btn btn-outline" type="submit">Search</button>
 					</div>
 				</form>
 				@MyBooksDispositionFilters(browse)
@@ -681,7 +683,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 	if !primary {
 		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
 			if item.CanChooseGoal {
-				<a class="button button--outline journey-book__switch" href="/reading/switch">Switch current reading</a>
+				<a class="button button--quiet journey-book__switch" href="/reading/switch">Switch current reading</a>
 			} else if item.GoalEligibilityReason != "" {
 				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
@@ -701,7 +703,7 @@ templ GoalLifecycleActions(item journeyBookView, csrf string) {
 		@Confirmation("Mark reading finished", goalCompletionConfirmationText(item), StatusNeutral) {
 			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button class="button" type="submit">Mark reading finished</button></form>
 		}
-		<a class="button button--outline" href="/reading/switch">Switch current reading</a>
+		<a class="button button--quiet" href="/reading/switch">Switch current reading</a>
 		@Confirmation("Stop reading for now", "This clears the current reading and releases only its active Reserved vocabulary. The Book remains To Read, and its analysis, decks, and history remain. You can start it again from Reading.", StatusNeutral) {
 			<form method="post" action="/reading/stop"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ journeyBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.GoalSnapshotID }/><button type="submit" class="button button--outline">Confirm stop for now</button></form>
 		}
@@ -1191,13 +1193,16 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 									<div class="concordance-book-label" aria-hidden="true"></div>
 								}
 								<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
+									{{ before, target, after := concordanceSentenceParts(occurrence) }}
 									<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
-										<span class="concordance-before">{ concordanceBefore(occurrence) }</span>
-										<strong class="concordance-surface">{ occurrence.Surface }</strong>
-										<span class="concordance-after">{ concordanceAfter(occurrence) }</span>
+										if target != "" {
+											// One line: inline whitespace between these parts would add spaces to the sentence.
+											<span class="concordance-before"><span>{ concordanceContextText(before) }</span></span><strong class="concordance-surface">{ target }</strong><span class="concordance-after">{ concordanceContextText(after) }</span>
+										} else {
+											<span class="concordance-before"></span><strong class="concordance-surface">{ occurrence.Surface }</strong><span class="concordance-after">{ " " + occurrence.SentenceText }</span>
+										}
 									</summary>
 									<div class="concordance-context">
-										{{ before, target, after := concordanceSentenceParts(occurrence) }}
 										<p class="reading-text">
 											if target != "" {
 												{ before }<strong class="concordance-observed-target">{ target }</strong>{ after }
@@ -1467,39 +1472,59 @@ func concordanceDecisionLabel(occurrence domain.ConcordanceResultOccurrence) str
 	return " (" + strings.Join(labels, "; ") + ")"
 }
 
-func concordanceBefore(occurrence domain.ConcordanceResultOccurrence) string {
-	start := int(occurrence.SentenceStartOffset)
-	if start < 0 || start > len(occurrence.SentenceText) {
-		return "…"
-	}
-	runes := []rune(occurrence.SentenceText[:start])
-	if len(runes) > 44 {
-		runes = runes[len(runes)-44:]
-		return "…" + string(runes)
-	}
-	return string(runes)
-}
-
-func concordanceAfter(occurrence domain.ConcordanceResultOccurrence) string {
-	end := int(occurrence.SentenceEndOffset)
-	if end < 0 || end > len(occurrence.SentenceText) {
-		return "…"
-	}
-	runes := []rune(occurrence.SentenceText[end:])
-	if len(runes) > 44 {
-		return string(runes[:44]) + "…"
-	}
-	return string(runes)
-}
-
+// concordanceSentenceParts splits the sentence around the observed occurrence.
+// Corpus offsets count Unicode code points (SourceLocation in
+// normalized_corpus.proto), so they are converted to byte offsets before
+// slicing; otherwise every multi-byte letter before the occurrence shifts it.
 func concordanceSentenceParts(occurrence domain.ConcordanceResultOccurrence) (string, string, string) {
-	start := int(occurrence.SentenceStartOffset)
-	end := int(occurrence.SentenceEndOffset)
 	text := occurrence.SentenceText
-	if start < 0 || end <= start || end > len(text) || text[start:end] != occurrence.Surface {
+	start, startOK := codePointByteOffset(text, occurrence.SentenceStartOffset)
+	end, endOK := codePointByteOffset(text, occurrence.SentenceEndOffset)
+	if !startOK || !endOK || end <= start {
 		return "", "", ""
 	}
 	return text[:start], text[start:end], text[end:]
+}
+
+// concordanceContextText collapses whitespace runs to single spaces while
+// keeping a boundary space, so the KWIC summary separates the key word from
+// its neighbours exactly where the sentence does. The boundary space is a
+// no-break space: the left context is laid out right-to-left so it can be cut
+// at its start, and bidi rule L1 would move an ordinary trailing space to the
+// far edge of that line.
+func concordanceContextText(text string) string {
+	const boundary = " "
+	collapsed := strings.Join(strings.Fields(text), " ")
+	if collapsed == "" {
+		if text != "" {
+			return boundary
+		}
+		return ""
+	}
+	if first, _ := utf8.DecodeRuneInString(text); unicode.IsSpace(first) {
+		collapsed = boundary + collapsed
+	}
+	if last, _ := utf8.DecodeLastRuneInString(text); unicode.IsSpace(last) {
+		collapsed += boundary
+	}
+	return collapsed
+}
+
+func codePointByteOffset(text string, offset int64) (int, bool) {
+	if offset < 0 {
+		return 0, false
+	}
+	var seen int64
+	for index := range text {
+		if seen == offset {
+			return index, true
+		}
+		seen++
+	}
+	if seen == offset {
+		return len(text), true
+	}
+	return 0, false
 }
 
 templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, timeout bool) {
