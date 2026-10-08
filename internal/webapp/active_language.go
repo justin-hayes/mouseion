@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
 type activeStudyLanguageOption struct {
@@ -21,7 +19,6 @@ type activeStudyLanguageOption struct {
 
 type shellView struct {
 	ActiveLanguage string
-	ReturnTo       string
 	Options        []activeStudyLanguageOption
 }
 
@@ -68,7 +65,7 @@ func activeStudyLanguageForContext(ctx context.Context) (language, label string)
 	return language, language
 }
 
-func (h *Handler) loadShellView(ctx context.Context, owner, returnTo string) (*shellView, error) {
+func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, error) {
 	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
@@ -94,7 +91,6 @@ func (h *Handler) loadShellView(ctx context.Context, owner, returnTo string) (*s
 	}
 	view := &shellView{
 		ActiveLanguage: active,
-		ReturnTo:       returnTo,
 	}
 	for _, language := range studyLanguages {
 		view.Options = append(view.Options, activeStudyLanguageOption{
@@ -112,25 +108,14 @@ func (h *Handler) loadShellView(ctx context.Context, owner, returnTo string) (*s
 	return view, nil
 }
 
-func shellReturnPath(r *http.Request) string {
-	if r.Method == http.MethodGet {
-		return r.URL.RequestURI()
-	}
-	referer, err := url.Parse(strings.TrimSpace(r.Header.Get("Referer")))
-	if err == nil && referer.Path != "" {
-		return webauth.SafeReturnPath(referer.RequestURI())
-	}
-	return "/library"
-}
-
 func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	u := user(r)
 	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.FormValue("language")))
 	if language == "" {
-		redirect(w, r, activeStudyLanguageReturnPath(r.FormValue("return_to"), language))
+		redirect(w, r, "/library")
 		return
 	}
 	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
@@ -155,44 +140,7 @@ func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, activeStudyLanguageReturnPath(r.FormValue("return_to"), language))
-}
-
-func activeStudyLanguageReturnPath(raw, language string) string {
-	path := webauth.SafeReturnPath(strings.TrimSpace(raw))
-	u, err := url.Parse(path)
-	if err != nil {
-		return "/"
-	}
-	legacyJourneyURL := ""
-	if after, ok := strings.CutPrefix(u.Path, "/books/"); ok {
-		bookID := after
-		if bookID != "" && !strings.Contains(bookID, "/") {
-			legacyJourneyURL = readingBookURL(bookID)
-		}
-	}
-	if legacyJourneyURL != "" {
-		if u.RawQuery != "" {
-			base, fragment, hasFragment := strings.Cut(legacyJourneyURL, "#")
-			if hasFragment {
-				return base + "?" + u.RawQuery + "#" + fragment
-			}
-			return legacyJourneyURL + "?" + u.RawQuery
-		}
-		return legacyJourneyURL
-	}
-	if u.Path == "/library" || u.Path == "/reading" || u.Path == "/vocabulary" || u.Path == "/vocabulary/import" {
-		query := u.Query()
-		// A saved mode change removes any request-only language override so the
-		// learner's new active language wins.
-		query.Del("language")
-		u.RawQuery = query.Encode()
-	}
-	if result := u.RequestURI(); result != "" {
-		if u.Fragment != "" {
-			return result + "#" + url.PathEscape(u.Fragment)
-		}
-		return result
-	}
-	return "/"
+	// A deliberate change resets screen, filter, and return state: the learner
+	// lands at My Books in the newly active language.
+	redirect(w, r, "/library")
 }

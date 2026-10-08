@@ -23,7 +23,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		h.services.WebAuth.ServeHTTP(w, r)
 		return
 	}
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	token, err := h.services.Auth.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
@@ -49,7 +49,7 @@ func (h *Handler) onboard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	_, token, err := h.services.Auth.CreateFirstAccount(r.Context(), r.FormValue("username"), r.FormValue("password"))
@@ -80,7 +80,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	if c, err := r.Cookie(webauth.CookieName); err == nil {
@@ -102,7 +102,7 @@ func (h *Handler) logoutAll(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if !h.checkCSRF(w, r) {
+	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
 	if err := h.services.Auth.LogoutEverywhere(r.Context(), user(r).ID); err != nil {

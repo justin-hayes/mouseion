@@ -185,6 +185,9 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 }
 
 func refreshMessage(result cataloguesync.RefreshResult) string {
+	if result.CurrentReadingEnded {
+		return "Metadata refreshed. This Book's language changed, so your current reading of it ended without finishing; reservations were released and history is kept. Start it again in its new language to read it."
+	}
 	switch {
 	case result.CoverPending:
 		return "Metadata refreshed. Cover pending."
@@ -227,7 +230,12 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	redirect(w, r, readingBookOrLanguageHandoffURL(r.Context(), detail))
+	target := readingBookURLInActiveLanguage(r.Context(), detail)
+	if target == "" {
+		redirectLanguageChanged(w, r)
+		return
+	}
+	redirect(w, r, target)
 }
 
 func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {

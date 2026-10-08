@@ -194,6 +194,7 @@ func TestCatalogueLanguageCorrectionEndsIncompatibleCurrentReading(t *testing.T)
 	corrected, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "language-entry", "Updated title", "Updated author", "it")
 	require.NoError(t, err)
 	assert.True(t, corrected.LanguageChanged)
+	assert.True(t, corrected.CurrentReadingEnded, "the correction must report that it ended the old role so the learner is told")
 	assert.Equal(t, "it", corrected.Book.LanguageTag)
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, owner.ID, book.ID), "language correction rewrote learner disposition")
 

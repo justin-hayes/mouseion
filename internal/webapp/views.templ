@@ -558,9 +558,6 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
 		}
-		if journey.LanguageHandoff != nil {
-			@ReadingLanguageHandoff(*journey.LanguageHandoff, journey.LanguageLabel, journey.ActiveLanguageLabel, csrf)
-		}
 		@GoalSection(journey.Goal, csrf, "", "", "")
 		if journey.Goal != nil {
 			<p class="reading-add-books"><a href="/library">Add books from My Books</a></p>
@@ -569,14 +566,6 @@ templ JourneyPage(user domain.User, csrf string, journey journeyPageView, messag
 			@JourneyProvisionalList(journey, csrf, "", "")
 		</section>
 	}
-}
-
-templ ReadingLanguageHandoff(handoff journeyLanguageHandoffView, pageLanguageLabel, activeLanguageLabel, csrf string) {
-	<section class="language-handoff" aria-labelledby="language-handoff-heading">
-		<h2 id="language-handoff-heading">This Book is in { handoff.LanguageLabel }</h2>
-		<p><strong>{ handoff.BookTitle }</strong> is in { handoff.LanguageLabel }. This Reading page is showing { pageLanguageLabel }, while your saved study language is { activeLanguageLabel }. This request does not change the saved language; switch it if you want { handoff.LanguageLabel } to become active.</p>
-		<form method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ handoff.Language }/><input type="hidden" name="return_to" value={ readingBookURL(handoff.BookID) }/><button class="button" type="submit">Switch to { handoff.LanguageLabel } and open this Book</button></form>
-	</section>
 }
 
 templ PrimaryGoalFinishPage(user domain.User, csrf string, outcome primaryGoalFinishView) {
@@ -1074,6 +1063,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 			}
 			if page.CurrentBookID != "" {
 			<form method="get" action="/vocabulary" class="data-width vocabulary-filter" hx-get="/vocabulary" hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
+				<input type="hidden" name="language" value={ language }/>
 				<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 				<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
 				<p class="vocabulary-exclusions">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p>
@@ -1112,7 +1102,7 @@ templ VocabularyBrowsePageView(user domain.User, csrf string, language string, p
 				@ResponsiveTable("Current effective vocabulary") {
 					<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
 				for _, row := range page.Rows {
-					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
+					<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(language, row.CanonicalLemma, row.UPOS, page.CurrentBookID)) }>{ vocabularyBrowseDisplayLemma(language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 						if row.InBookDeck {
 							<small>In a Book deck</small>
 						}
@@ -1142,6 +1132,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 		}
 		if language != "" {
 			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
+				<input type="hidden" name="language" value={ lookup.Language }/>
 				for _, bookID := range lookup.BookIDs {
 					<input type="hidden" name="book" value={ bookID }/>
 				}
@@ -1173,6 +1164,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			<details>
 				<summary>Books (applied: { concordanceBookScope(lookup, books) })</summary>
 			<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
+				<input type="hidden" name="language" value={ lookup.Language }/>
 					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 					if lookup.GrammarDirection != "" {
 						<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
@@ -1188,6 +1180,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, boo
 			<details>
 				<summary>Grammar (applied: { concordanceGrammarScope(lookup) })</summary>
 				<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">
+					<input type="hidden" name="language" value={ lookup.Language }/>
 					<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 					for _, bookID := range lookup.BookIDs {
 						<input type="hidden" name="book" value={ bookID }/>
@@ -1318,8 +1311,11 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 	}
 }
 
-func vocabularyConcordanceURL(lemma, upos, bookID string) string {
+func vocabularyConcordanceURL(language, lemma, upos, bookID string) string {
 	values := url.Values{"mode": {"effective"}, "term": {lemma}, "upos": {upos}}
+	if language != "" {
+		values.Set("language", language)
+	}
 	if bookID != "" {
 		values.Set("book", bookID)
 	}
@@ -1435,6 +1431,9 @@ func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, l
 	if lookup.GrammarDirection != "" {
 		values.Set("grammar", lookup.GrammarDirection)
 		values.Set("relation", lookup.Relation)
+	}
+	if lookup.Language != "" {
+		values.Set("language", lookup.Language)
 	}
 	focusTarget := concordanceOccurrenceID(occurrence)
 	backValues, _ := url.Parse(vocabularyConcordancePageURL(lookup.Page, lookup))
@@ -1580,6 +1579,7 @@ templ VocabularyConcordanceErrorRecovery(books []domain.SourceMaterialSummary, l
 			@Feedback(FeedbackError, "Concordance lookup was not applied", "The search did not complete. Retry it, or narrow the term or Book scope. A failed search is not a zero-result claim.")
 		}
 		<form method="get" action="/vocabulary/concordance">
+			<input type="hidden" name="language" value={ lookup.Language }/>
 			<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 			if lookup.GrammarDirection != "" {
 				<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
@@ -1609,6 +1609,7 @@ templ VocabularyConcordanceChangedRecovery(books []domain.SourceMaterialSummary,
 		@Feedback(FeedbackWarning, "Current evidence changed", "This page was not applied because analyses or occurrence corrections changed after the previous result page. Restart to avoid silently skipping or repeating matches.")
 		<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordanceRestartURL(lookup)) }>Restart from results</a>
 		<form method="get" action="/vocabulary/concordance">
+			<input type="hidden" name="language" value={ lookup.Language }/>
 			<input type="hidden" name="mode" value={ lookup.Mode }/><input type="hidden" name="term" value={ lookup.Term }/><input type="hidden" name="upos" value={ lookup.UPOS }/>
 			if lookup.GrammarDirection != "" {
 				<input type="hidden" name="grammar" value={ lookup.GrammarDirection }/><input type="hidden" name="relation" value={ lookup.Relation }/>
@@ -1628,6 +1629,7 @@ templ VocabularyBrowseErrorPageView(user domain.User, csrf, language string, que
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackError, "Browse could not be loaded", "Your search was not applied. Retry with this prefix or a shorter one. A failed request is not an empty result.")
 		<form method="get" action="/vocabulary">
+			<input type="hidden" name="language" value={ query.Language }/>
 			<input type="hidden" name="q" value={ query.Prefix }/>
 			<input type="hidden" name="reading" value={ query.ReadingBookID }/>
 			<input type="hidden" name="page" value={ fmt.Sprintf("%d", query.Page) }/>
@@ -1651,7 +1653,7 @@ templ VocabularyBrowseChangedPageView(user domain.User, csrf, language string, q
 		<div id="vocabulary-recovery" aria-live="polite">
 		<p>Active study language: <code>{ language }</code>.</p>
 		@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
-		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll}, query.Prefix)) }>Restart in the Current reading</a>
+		<a role="button" href={ templ.SafeURL(vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{CurrentBookID: query.CurrentBookID, IncludeAll: query.IncludeAll, Language: query.Language}, query.Prefix)) }>Restart in the Current reading</a>
 		<a class="vocabulary-action-link" href="/vocabulary">Clear search</a>
 		</div>
 	}
@@ -1956,9 +1958,6 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 		}
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
-		}
-		if chooser.LanguageHandoff != nil {
-			@ReadingLanguageHandoff(*chooser.LanguageHandoff, chooser.LanguageLabel, chooser.ActiveLanguageLabel, csrf)
 		}
 		if chooser.Language == "" {
 			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">

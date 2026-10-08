@@ -150,12 +150,14 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('main h1')).toHaveCount(1);
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/reading$/);
+    await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/reading');
     await expect(page.getByRole('heading', { name: 'Choose a To Read book in fr', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse My Books', exact: true })).toBeVisible();
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/reading$/);
+    await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/reading');
     await expect(page.locator('main h1')).toHaveCount(1);
 
   });
@@ -698,12 +700,12 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
 
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
-    await expect(page).toHaveURL(/\/deck-preparations\/fixture-preparation\/status$/);
-    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute(
-      'href',
-      '/reading?language=de&language_handoff_book=fixture-book&language_handoff_language=de',
-    );
+    await expect(page).toHaveURL(/\/library(?:\?|$)/);
+    await page.goto('/deck-preparations/fixture-preparation/status');
+    // An old-language Book has no reachable Reading entry; the retired handoff chooser is gone.
+    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
+
     await page.goto('/deck-preparations/fixture-journey-preparation/status');
     await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
     await expect(page.locator('a[href="/reading#journey-book-fixture-empty"]')).toBeVisible();
@@ -711,7 +713,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
 
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page).toHaveURL(/\/deck-preparations\/fixture-journey-preparation\/status$/);
+    await expect(page).toHaveURL(/\/library(?:\?|$)/);
     await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
     const addToJourney = page.getByRole('button', { name: 'Move to To Read' });
     if (await addToJourney.count() > 0) {
@@ -762,12 +764,14 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(page.getByRole('table', { name: 'Current effective vocabulary' }).getByRole('row')).toHaveCount(3);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/vocabulary(?:\?|$)/);
+    await expect(page).toHaveURL(/\/library(?:\?|$)/);
     await page.goto('/vocabulary');
     await expect(page.getByText(/active study language.*fr/)).toBeVisible();
     await expect(page.getByText('bonjour')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /import known vocabulary/i })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
+    await expect(page).toHaveURL(/\/library(?:\?|$)/);
+    await page.goto('/vocabulary');
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
     await page.goto('/vocabulary/import');
     await submitKnownVocabularyImport(page);

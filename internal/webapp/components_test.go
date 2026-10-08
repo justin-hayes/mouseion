@@ -58,7 +58,6 @@ func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T
 func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
 		ActiveLanguage: "de",
-		ReturnTo:       "/library",
 		Options: []activeStudyLanguageOption{
 			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
 			{StudyLanguage: domain.StudyLanguage{Language: "it", DisplayName: "Italian"}, HasBooks: true, NewArrival: true},
@@ -85,7 +84,6 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 
 func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
 	view := &shellView{
-		ReturnTo: "/library",
 		Options: []activeStudyLanguageOption{
 			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
 		},
@@ -97,14 +95,6 @@ func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, "csrf"), "")
 	assert.Equal(t, "", html, "empty language switcher rendered markup")
-}
-
-func TestActiveStudyLanguageReturnPathKeepsScopedLanguageInTransition(t *testing.T) {
-	assert.Equal(t, "/library?q=title", activeStudyLanguageReturnPath("/library?language=de&q=title", "it"))
-	assert.Equal(t, "/reading#journey-book-book-1", activeStudyLanguageReturnPath("/books/book-1", "it"))
-	assert.Equal(t, "/reading?message=updated#journey-book-book-1", activeStudyLanguageReturnPath("/books/book-1?message=updated", "it"))
-	assert.Equal(t, "/vocabulary", activeStudyLanguageReturnPath("/vocabulary?language=de", "it"))
-	assert.Equal(t, "/vocabulary/import", activeStudyLanguageReturnPath("/vocabulary/import?language=de", "it"))
 }
 
 func TestCatalogueSyncConnectionViewDoesNotExposeSyncScope(t *testing.T) {

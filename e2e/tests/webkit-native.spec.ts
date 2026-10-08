@@ -178,7 +178,8 @@ test.describe('native WebKit smoke journey', () => {
 
     await page.goto('/reading');
     await chooseStudyLanguage(page, 'it');
-    await expect(page).toHaveURL(/\/reading$/);
+    await expect(page).toHaveURL(/\/library$/);
+    await page.goto('/reading');
     await expect(page.locator('main h1')).toContainText(/italian/i);
     await expect(page.getByLabel('Study language')).toHaveValue('it');
 
@@ -556,7 +557,8 @@ test.describe('native WebKit smoke journey', () => {
       await expect(page).toHaveURL(/\/vocabulary$/);
       await page.goto('/reading');
       await chooseStudyLanguage(page, 'it', true);
-      await expect(page).toHaveURL(/\/reading$/);
+      await expect(page).toHaveURL(/\/library$/);
+      await page.goto('/reading');
       await expect(page.locator('main h1')).toContainText(/italian/i);
 
       await page.goto('/catalogs');

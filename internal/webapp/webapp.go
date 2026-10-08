@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -317,13 +318,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) user(next http.Handler) http.Handler {
 	return h.services.WebAuth.RequireUser(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := user(r)
-		view, err := h.loadShellView(r.Context(), u.ID, shellReturnPath(r))
+		view, err := h.loadShellView(r.Context(), u.ID)
 		if err != nil {
 			fail(w, err)
 			return
 		}
 		if view != nil {
 			r = r.WithContext(context.WithValue(r.Context(), shellViewContextKey{}, view))
+		}
+		if requestNamesOtherLanguage(r, view) {
+			// Language precedence: recover before any reading or evidence restoration.
+			redirectLanguageChanged(w, r)
+			return
 		}
 		next.ServeHTTP(w, r)
 	}))
@@ -346,9 +352,13 @@ func render(w http.ResponseWriter, r *http.Request, component interface {
 }
 func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(csrfCookie); err == nil && len(c.Value) >= 32 {
-		return c.Value
+		return languageBoundCSRFToken(r.Context(), c.Value)
 	}
-	return h.rotateCSRF(w, r)
+	token := h.rotateCSRF(w, r)
+	if token == "" {
+		return ""
+	}
+	return languageBoundCSRFToken(r.Context(), token)
 }
 func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 	b := make([]byte, 32)
@@ -363,14 +373,37 @@ func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: token, Path: "/", HttpOnly: true, Secure: h.services.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: int(h.services.SessionLifetime.Seconds())})
 	return token
 }
+
+// checkCSRF authorizes a mutation and revalidates the study language the form
+// was rendered for. A submission from a page rendered under another language
+// recovers to My Books before any handler state changes.
 func (h *Handler) checkCSRF(w http.ResponseWriter, r *http.Request) bool {
-	c, err := r.Cookie(csrfCookie)
-	token := r.FormValue("csrf_token")
-	if err != nil || token == "" || subtle.ConstantTimeCompare([]byte(c.Value), []byte(token)) != 1 {
-		http.Error(w, "invalid CSRF token", http.StatusForbidden)
+	formLanguage, scoped, ok := h.verifyCSRFToken(w, r)
+	if !ok {
+		return false
+	}
+	if scoped && !formLanguageIsActive(r.Context(), formLanguage) {
+		redirectLanguageChanged(w, r)
 		return false
 	}
 	return true
+}
+
+// checkCSRFAnyLanguage authorizes language-agnostic mutations, such as the
+// deliberate language change itself, sign-out, and catalog management.
+func (h *Handler) checkCSRFAnyLanguage(w http.ResponseWriter, r *http.Request) bool {
+	_, _, ok := h.verifyCSRFToken(w, r)
+	return ok
+}
+
+func (h *Handler) verifyCSRFToken(w http.ResponseWriter, r *http.Request) (language string, scoped, ok bool) {
+	c, err := r.Cookie(csrfCookie)
+	token, language, scoped := strings.Cut(r.FormValue("csrf_token"), csrfLanguageSeparator)
+	if err != nil || token == "" || subtle.ConstantTimeCompare([]byte(c.Value), []byte(token)) != 1 {
+		http.Error(w, "invalid CSRF token", http.StatusForbidden)
+		return "", false, false
+	}
+	return language, scoped, true
 }
 func (h *Handler) setSession(w http.ResponseWriter, token string) {
 	//nolint:gosec // plain HTTP is supported on the private tailnet; HttpOnly and SameSite remain enabled.

@@ -49,17 +49,20 @@ func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID s
 		return book, nil
 	}
 	if detail.Disposition == domain.BookDispositionToRead {
-		book.ReadingURL = readingBookOrLanguageHandoffURL(ctx, detail)
+		book.ReadingURL = readingBookURLInActiveLanguage(ctx, detail)
 	}
 	return book, nil
 }
 
-func readingBookOrLanguageHandoffURL(ctx context.Context, detail domain.MyBook) string {
+// readingBookURLInActiveLanguage links to a Book's Reading entry only while the
+// Book belongs to the active study language. Another language's Book has no
+// reachable Reading entry; the learner changes language deliberately instead.
+func readingBookURLInActiveLanguage(ctx context.Context, detail domain.MyBook) string {
 	if shellViewFromContext(ctx) != nil {
 		bookLanguage := canonicalization.NormalizeLanguage(bookStudyLanguage(detail))
 		activeLanguage, _ := activeStudyLanguageForContext(ctx)
 		if bookLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != bookLanguage {
-			return journeyLanguageHandoffURL(detail.Book.ID, bookLanguage)
+			return ""
 		}
 	}
 	return readingBookURL(detail.Book.ID)

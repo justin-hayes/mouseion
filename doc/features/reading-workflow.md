@@ -71,7 +71,7 @@ the superseded Goal/ordered-Journey model as historical context.
 
 Playwright browser smoke covers the catalog-to-My-Books path, disposition
 controls, current-reading selection and completion, Read history and rereading,
-language handoff, recovery states, keyboard/focus semantics, and compact/desktop
+language-change recovery, recovery states, keyboard/focus semantics, and compact/desktop
 layouts. PostgreSQL integration tests cover cutover migration invariants,
 including disposition contraction, active reservation snapshot contents,
 completion/history provenance, and prepared-deck provenance. See

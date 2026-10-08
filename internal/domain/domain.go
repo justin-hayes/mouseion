@@ -130,6 +130,7 @@ type VocabularyBrowseRow struct {
 }
 
 type VocabularyBrowsePage struct {
+	Language                     string
 	Rows                         []VocabularyBrowseRow
 	Books                        []VocabularyBrowseBook
 	CurrentBookID, ReadingBookID string
@@ -154,6 +155,7 @@ type VocabularyBrowsePage struct {
 }
 
 type VocabularyBrowseQuery struct {
+	Language       string
 	Prefix         string
 	CurrentBookID  string
 	ReadingBookID  string
@@ -448,6 +450,9 @@ type ConcordanceOccurrence struct {
 // names preserved analyzer evidence and is deliberately distinct from effective
 // vocabulary identity.
 type ConcordanceLookup struct {
+	// Language is the study language the request was issued for. Supported
+	// links and forms carry it so an old-language request is recognized.
+	Language         string
 	Mode, Term, UPOS string
 	BookIDs          []string
 	GrammarDirection string
