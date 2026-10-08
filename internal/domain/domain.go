@@ -446,19 +446,25 @@ type ConcordanceOccurrence struct {
 	UnitOrder, SentenceOrdinal, TokenOrdinal  int64
 }
 
-// ConcordanceLookup describes one exact learner-facing lookup. Analyzer mode
-// names preserved analyzer evidence and is deliberately distinct from effective
-// vocabulary identity.
+// Concordance lookup kinds. A fresh submission leaves the kind empty so the
+// store recognizes an evidenced lemma before falling back to a literal word
+// form; page and Browse links carry the applied kind so they never silently
+// rerun recognition.
+const (
+	ConcordanceKindLemma = "lemma"
+	ConcordanceKindForm  = "form"
+)
+
+// ConcordanceLookup describes one learner-facing lookup of a single typed term
+// across every eligible analyzed Book in the active language. UPOS is set only
+// by supported Browse identity links, which request one exact lemma/POS.
 type ConcordanceLookup struct {
 	// Language is the study language the request was issued for. Supported
 	// links and forms carry it so an old-language request is recognized.
-	Language         string
-	Mode, Term, UPOS string
-	BookIDs          []string
-	GrammarDirection string
-	Relation         string
-	Page             int
-	Revision         string
+	Language, Term, UPOS string
+	Kind                 string
+	Page                 int
+	Revision             string
 }
 
 type ConcordanceResult struct {
@@ -468,6 +474,8 @@ type ConcordanceResult struct {
 	HasNext     bool
 	Revision    string
 	Stale       bool
+	// Kind is the applied lookup kind: the recognized lemma or literal form.
+	Kind string
 }
 
 type ConcordanceResultOccurrence struct {
@@ -478,7 +486,7 @@ type ConcordanceResultOccurrence struct {
 
 type SentenceStudy struct {
 	BookID, BookTitle, ChapterTitle, SentenceText string
-	TargetSurface, GrammarDirection, Relation     string
+	TargetSurface                                 string
 	SentenceOrdinal, TargetOrdinal                int64
 	Tokens                                        []SentenceStudyToken
 }

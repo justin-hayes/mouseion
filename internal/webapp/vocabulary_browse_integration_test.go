@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -315,7 +316,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, response.Body.String(), "In a Book deck")
 	assert.Contains(t, response.Body.String(), "Current reading")
 	assert.Contains(t, response.Body.String(), "In this Book: 1; Across analyzed books: 2")
-	assert.Contains(t, response.Body.String(), `href="/vocabulary/concordance?book=`+aliceBook.ID+`&amp;language=de&amp;mode=effective&amp;term=haus&amp;upos=NOUN"`, "Browse hands exact identity and Current Book to Concordance")
+	assert.Contains(t, response.Body.String(), `href="/vocabulary/concordance?kind=lemma&amp;language=de&amp;term=haus&amp;upos=NOUN"`, "Browse hands one exact lemma/POS identity to Concordance")
 	assert.NotContains(t, response.Body.String(), "Book count")
 	assert.NotContains(t, response.Body.String(), "Correction")
 	assert.NotContains(t, response.Body.String(), "Bob German")
@@ -323,13 +324,11 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.NotContains(t, response.Body.String(), `action="/vocabulary/import"`)
 	assert.Contains(t, response.Body.String(), `href="/vocabulary/import"`)
 	handoff := perform(t, h, http.MethodGet, "/vocabulary/concordance?"+url.Values{
-		"mode": {"effective"}, "term": {"haus"}, "upos": {"NOUN"}, "book": {aliceBook.ID},
+		"kind": {"lemma"}, "term": {"haus"}, "upos": {"NOUN"},
 	}.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, handoff.Code)
-	assert.Contains(t, handoff.Body.String(), "Applied effective lemma + NOUN lookup for “haus”")
-	assert.Contains(t, handoff.Body.String(), "Applied effective lemma + NOUN lookup")
-	assert.Contains(t, handoff.Body.String(), "in Alice German with no grammar filter")
-	assert.Contains(t, handoff.Body.String(), "Results 1–1")
+	assert.Contains(t, handoff.Body.String(), "Forms of “haus” (NOUN) in all current Books")
+	assert.Contains(t, handoff.Body.String(), "Results 1–")
 	assert.NotContains(t, response.Body.String(), "Browse selection")
 	assert.NotContains(t, response.Body.String(), "Custom deck")
 	assert.NotContains(t, response.Body.String(), `name="lemma"`)
@@ -634,7 +633,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	assert.NotContains(t, unavailable.Body.String(), `href="/vocabulary/selection"`)
 }
 
-func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *testing.T) {
+func TestVocabularyConcordanceFindsLemmasAndLiteralFormsOverHTTP(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "concordance-http-secret-0123456789")
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -645,7 +644,7 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	alice := createAccount(t, ctx, store, "concordance-http-alice", "alice-password", false)
 	bob := createAccount(t, ctx, store, "concordance-http-bob", "bob-password", false)
 	aliceBook, aliceSource, aliceCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "concordance-http-alice", "Alice Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	secondAliceBook, secondAliceSource, secondAliceCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "concordance-http-alice-second", "Alice Second Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	_, secondAliceSource, secondAliceCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "concordance-http-alice-second", "Alice Second Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	_, bobSource, bobCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, bob.ID, "concordance-http-bob", "Bob Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	staleBook, staleSource, staleCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "concordance-http-stale", "Stale Concordance Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	seedBrowseHTTPToken(t, ctx, store, aliceSource, aliceCorpus)
@@ -671,59 +670,134 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "concordance-http-alice", "alice-password")
-	corrected := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=heim&upos=NOUN&book="+aliceBook.ID, nil, cookies)
+	// Extra evidence in the second Alice Book: a differently-cased lemma
+	// collision, an inflected form, and joined/split separable verb evidence.
+	var secondRun string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, secondAliceCorpus.ID).Scan(&secondRun))
+	secondUnit := domain.EPUBUnitID(0, strings.TrimPrefix(secondAliceSource.SourceIdentifier, "migration-"))
+	addSentence := func(ordinal int, text string, start int, tokens ...[]any) {
+		t.Helper()
+		_, err := store.Pool().Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, alice.ID, secondRun, secondAliceCorpus.ID, secondUnit, ordinal, text, start, start+len([]rune(text)))
+		require.NoError(t, err)
+		for index, token := range tokens {
+			// surface, raw lemma, canonical lemma, upos, dependency, start, end
+			_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,$5,$6,$7,$8,$9,$10,0,'{}',$11,$12)`, alice.ID, secondRun, secondAliceCorpus.ID, ordinal, index, token[0], token[1], token[2], token[3], token[4], token[5], token[6])
+			require.NoError(t, err)
+		}
+	}
+	addSentence(2, "Heim", 40, []any{"Heim", "haus", "haus", "NOUN", "root", 40, 44})
+	addSentence(3, "Häuser", 50, []any{"Häuser", "haus", "haus", "NOUN", "root", 50, 56})
+	addSentence(4, "macht auf", 60, []any{"macht", "aufmachen", "aufmachen", "VERB", "root", 60, 65}, []any{"auf", "auf", "auf", "PART", "compound:prt", 66, 69})
+	addSentence(5, "aufgemacht", 70, []any{"aufgemacht", "aufmachen", "aufmachen", "VERB", "root", 70, 80})
+
+	rowsIn := func(body string) int { return strings.Count(body, `class="concordance-row"`) }
+	resultsOf := func(body string) string { return strings.SplitN(body, `<section id="concordance-results"`, 2)[1] }
+	get := func(query string) *httptest.ResponseRecorder {
+		t.Helper()
+		return perform(t, h, http.MethodGet, "/vocabulary/concordance?"+query, nil, cookies)
+	}
+
+	// The supported Browse identity link is one exact effective lemma/POS.
+	corrected := get("kind=lemma&term=heim&upos=NOUN")
 	require.Equal(t, http.StatusOK, corrected.Code)
-	assert.Contains(t, corrected.Body.String(), "Alice Concordance Book")
-	assert.Contains(t, corrected.Body.String(), "Analyzer lemma (evidence)")
+	assert.Contains(t, corrected.Body.String(), "Forms of “heim” (NOUN) in all current Books")
+	assert.Equal(t, 1, rowsIn(corrected.Body.String()))
+	assert.Contains(t, resultsOf(corrected.Body.String()), "Alice Concordance Book")
 	assert.NotContains(t, corrected.Body.String(), "Bob Concordance Book")
-	correctedResults := strings.SplitN(corrected.Body.String(), `<section id="concordance-results"`, 2)[1]
-	assert.NotContains(t, correctedResults, "Stale Concordance Book")
-	assert.NotContains(t, correctedResults, "corrected for this occurrence")
-	assert.NotContains(t, correctedResults, "excluded from effective vocabulary")
-	invalidPartial := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=Haus&book="+aliceBook.ID, nil, cookies, "HX-Request-Type", "partial")
-	assert.Equal(t, http.StatusBadRequest, invalidPartial.Code)
-	assert.Contains(t, invalidPartial.Body.String(), `id="concordance-recovery"`)
-	assert.Contains(t, invalidPartial.Body.String(), "Part of speech is required")
-	assert.Contains(t, invalidPartial.Body.String(), "Retry Concordance lookup")
-	assert.Contains(t, invalidPartial.Body.String(), "book="+aliceBook.ID)
-	assert.NotContains(t, invalidPartial.Body.String(), `id="concordance-results"`)
-	excludedEffective := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN&book="+aliceBook.ID, nil, cookies)
-	require.Equal(t, http.StatusOK, excludedEffective.Code)
-	assert.Contains(t, excludedEffective.Body.String(), "No current analyzed occurrences match this exact lookup.")
+	assert.NotContains(t, resultsOf(corrected.Body.String()), "Stale Concordance Book")
+	assert.NotContains(t, resultsOf(corrected.Body.String()), "corrected for this occurrence")
+	assert.NotContains(t, corrected.Body.String(), `id="concordance-mode"`, "evidence modes are retired")
+	assert.NotContains(t, corrected.Body.String(), `name="book"`, "Book scope controls are retired")
+	assert.NotContains(t, corrected.Body.String(), `name="grammar"`, "Grammar controls are retired")
+	assert.NotContains(t, corrected.Body.String(), `id="concordance-upos"`, "ordinary POS control is retired")
+	assert.Contains(t, corrected.Body.String(), `<label for="concordance-term">Lemma or word form</label>`)
+	exactPOS := get("kind=lemma&term=heim&upos=VERB")
+	require.Equal(t, http.StatusOK, exactPOS.Code, "an unmatched supported identity is a successful no-match")
+	assert.Contains(t, exactPOS.Body.String(), "No current analyzed occurrences match this lookup")
+	assert.Equal(t, 0, rowsIn(exactPOS.Body.String()))
 
-	surface := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&book="+aliceBook.ID, nil, cookies)
+	// Fresh lookups recognize an evidenced lemma first and expand all its
+	// observed forms; the correction and exclusion in Alice's first Book govern
+	// occurrence by occurrence. A typed upos from an old link stays exact.
+	lemma := get("term=Haus")
+	require.Equal(t, http.StatusOK, lemma.Code)
+	assert.Contains(t, lemma.Body.String(), "Forms of “Haus” in all current Books")
+	assert.Equal(t, 4, rowsIn(lemma.Body.String()), "Haus x2, Heim, and Häuser share the haus lemma")
+	assert.NotContains(t, resultsOf(lemma.Body.String()), "Alice Concordance Book")
+	assert.Contains(t, resultsOf(lemma.Body.String()), "Alice Second Concordance Book")
+	assert.NotContains(t, lemma.Body.String(), "Bob Concordance Book")
+	assert.Contains(t, lemma.Body.String(), `value="Haus"`, "the editable input keeps the typed text")
+	// Lemma recognition takes precedence over a simultaneous surface match.
+	precedence := get("term=heim")
+	require.Equal(t, http.StatusOK, precedence.Code)
+	assert.Contains(t, precedence.Body.String(), "Forms of “heim” in all current Books")
+	assert.Equal(t, 1, rowsIn(precedence.Body.String()), "the Heim surface of lemma haus is not a lemma match")
+
+	// A non-lemma form matches only that observed surface, ignoring case and
+	// Unicode composition, never other forms of the same lemma.
+	form := get("term=H%C3%84USER")
+	require.Equal(t, http.StatusOK, form.Code)
+	assert.Contains(t, form.Body.String(), "Word form “HÄUSER” in all current Books")
+	assert.Equal(t, 1, rowsIn(form.Body.String()))
+	decomposed := get(url.Values{"term": {"Ha\u0308user"}}.Encode())
+	require.Equal(t, http.StatusOK, decomposed.Code)
+	assert.Contains(t, decomposed.Body.String(), "Word form")
+	assert.Equal(t, 1, rowsIn(decomposed.Body.String()))
+	// A retained form page link keeps matching the correction-independent
+	// source surface and still omits the excluded occurrence.
+	surface := get("kind=form&term=Haus")
 	require.Equal(t, http.StatusOK, surface.Code)
-	surfaceResults := strings.SplitN(surface.Body.String(), `<section id="concordance-results"`, 2)[1]
-	assert.NotContains(t, surfaceResults, "excluded from effective vocabulary")
-	assert.NotContains(t, surfaceResults, "retained as analyzer evidence")
+	assert.Contains(t, surface.Body.String(), "Word form “Haus” in all current Books")
+	assert.Equal(t, 3, rowsIn(surface.Body.String()), "corrected Haus stays, excluded Haus is omitted")
+	assert.Contains(t, resultsOf(surface.Body.String()), "Alice Concordance Book")
 
-	analyzer := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=analyzer&term=haus&upos=NOUN&book="+aliceBook.ID, nil, cookies)
-	require.Equal(t, http.StatusOK, analyzer.Code)
-	assert.Contains(t, analyzer.Body.String(), "Applied analyzer lemma evidence")
-	assert.Contains(t, analyzer.Body.String(), "Haus")
-	multiBook := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&book="+aliceBook.ID+"&book="+secondAliceBook.ID, nil, cookies)
-	require.Equal(t, http.StatusOK, multiBook.Code)
-	multiBookResults := strings.SplitN(multiBook.Body.String(), `<section id="concordance-results"`, 2)[1]
-	assert.Contains(t, multiBookResults, "Alice Concordance Book")
-	assert.Contains(t, multiBookResults, "Alice Second Concordance Book")
-	assert.Equal(t, 4, strings.Count(multiBookResults, `class="concordance-row"`))
-	booksPreserveGrammar := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN&book="+aliceBook.ID+"&book="+secondAliceBook.ID+"&grammar=own&relation=root", nil, cookies)
-	require.Equal(t, http.StatusOK, booksPreserveGrammar.Code)
-	assert.Contains(t, booksPreserveGrammar.Body.String(), "Alice Concordance Book, Alice Second Concordance Book")
-	assert.Contains(t, booksPreserveGrammar.Body.String(), "own relation: root")
-	assert.Contains(t, booksPreserveGrammar.Body.String(), `name="grammar" value="own"`)
-	assert.Contains(t, booksPreserveGrammar.Body.String(), `name="book" value="`+aliceBook.ID+`"`)
-	ownRelation := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN&book="+secondAliceBook.ID+"&grammar=own&relation=nsubj", nil, cookies)
-	require.Equal(t, http.StatusOK, ownRelation.Code)
-	assert.Contains(t, ownRelation.Body.String(), "own relation: nsubj")
-	assert.Equal(t, 1, strings.Count(ownRelation.Body.String(), `class="concordance-row"`))
-	governorRelation := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=das&upos=DET&book="+secondAliceBook.ID+"&grammar=governor&relation=nsubj", nil, cookies)
-	require.Equal(t, http.StatusOK, governorRelation.Code)
-	assert.Contains(t, governorRelation.Body.String(), "governor dependents, relation: nsubj")
-	assert.Equal(t, 1, strings.Count(governorRelation.Body.String(), `class="concordance-row"`))
-	governorResults := strings.SplitN(governorRelation.Body.String(), `<section id="concordance-results"`, 2)[1]
-	assert.Contains(t, governorResults, "Haus")
-	assert.Contains(t, governorResults, "Alice Second Concordance Book")
+	// German full separable lemmas match joined and split constructions at the
+	// existing target boundaries; the particle is not a lemma target.
+	separable := get("term=aufmachen")
+	require.Equal(t, http.StatusOK, separable.Code)
+	assert.Contains(t, separable.Body.String(), "Forms of “aufmachen”")
+	assert.Equal(t, 2, rowsIn(separable.Body.String()))
+	assert.Contains(t, separable.Body.String(), "Occurrence of macht")
+	assert.Contains(t, separable.Body.String(), "Occurrence of aufgemacht")
+	joined := get("term=aufgemacht")
+	require.Equal(t, http.StatusOK, joined.Code)
+	assert.Contains(t, joined.Body.String(), "Word form “aufgemacht”")
+	assert.Equal(t, 1, rowsIn(joined.Body.String()))
+
+	// Supported unmatched terms are a successful corpus no-match.
+	noMatch := get("term=Nirgendwo")
+	require.Equal(t, http.StatusOK, noMatch.Code)
+	assert.Contains(t, noMatch.Body.String(), "Word form “Nirgendwo”")
+	assert.Contains(t, noMatch.Body.String(), "No current analyzed occurrences match this lookup")
+
+	// Blank input invites a lookup; invalid input explains recovery.
+	blank := get("term=%20%20")
+	require.Equal(t, http.StatusOK, blank.Code)
+	assert.Contains(t, blank.Body.String(), "Enter one lemma or word form to see")
+	assert.NotContains(t, blank.Body.String(), `id="concordance-results"`)
+	multiword := get("term=Das+Haus")
+	require.Equal(t, http.StatusBadRequest, multiword.Code)
+	assert.Contains(t, multiword.Body.String(), "Enter one lemma or word form.")
+	assert.Contains(t, multiword.Body.String(), `value="Das Haus"`, "rejected input is retained")
+	assert.NotContains(t, multiword.Body.String(), `id="concordance-results"`)
+	multiwordPartial := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?term=Das+Haus", nil, cookies, "HX-Request-Type", "partial")
+	assert.Equal(t, http.StatusBadRequest, multiwordPartial.Code)
+	assert.Contains(t, multiwordPartial.Body.String(), `id="concordance-recovery"`)
+	for _, query := range []string{"term=Haus&page=0", "term=Haus&page=abc", "term=Haus&page=-2"} {
+		invalidPage := get(query)
+		assert.Equal(t, http.StatusBadRequest, invalidPage.Code, query)
+		assert.Contains(t, invalidPage.Body.String(), "Restart the lookup from page 1", query)
+		assert.NotContains(t, invalidPage.Body.String(), `id="concordance-results"`, query)
+	}
+	for _, query := range []string{"term=Haus&kind=mode", "term=Haus&upos=noun", "term=Haus&kind=form&upos=NOUN"} {
+		assert.Equal(t, http.StatusBadRequest, get(query).Code, query)
+	}
+	// Retired controls are ignored rather than translated into hidden modes.
+	retired := get("term=heim&mode=surface&book=" + aliceBook.ID + "&grammar=own&relation=root")
+	require.Equal(t, http.StatusOK, retired.Code)
+	assert.Contains(t, retired.Body.String(), "Forms of “heim” in all current Books")
+	assert.NotContains(t, retired.Body.String(), "grammar")
+
 	var aliceRun string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, alice.ID, aliceCorpus.ID).Scan(&aliceRun))
 	studyPage := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?book="+aliceBook.ID+"&run="+aliceRun+"&corpus="+aliceCorpus.ID+"&unit="+domain.EPUBUnitID(0, strings.TrimPrefix(aliceSource.SourceIdentifier, "migration-"))+"&sentence=0&target=0", nil, cookies)
@@ -742,37 +816,36 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 		_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,'de',$2,$3,$4,0,'Haus','haus','haus','NOUN','root',0,'{}',$5,$6)`, alice.ID, runID, aliceCorpus.ID, ordinal, start, start+4)
 		require.NoError(t, err)
 	}
-	firstPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, cookies)
+	firstPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?term=Haus", nil, cookies)
 	require.Equal(t, http.StatusOK, firstPage.Code)
 	assert.Contains(t, firstPage.Body.String(), "Results 1–25")
-	assert.Contains(t, firstPage.Body.String(), `href="/vocabulary/concordance?language=de&amp;mode=surface&amp;page=2&amp;rev=`)
-	pageRevision, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Mode: "surface", Term: "Haus", Page: 1})
+	assert.Contains(t, firstPage.Body.String(), `href="/vocabulary/concordance?kind=lemma&amp;language=de&amp;page=2&amp;rev=`)
+	pageRevision, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Kind: domain.ConcordanceKindLemma, Term: "Haus", Page: 1})
 	require.NoError(t, err)
 	require.NotEmpty(t, pageRevision.Revision)
 	_, err = store.Pool().Exec(ctx, `UPDATE occurrence_lemma_corrections SET canonical_lemma='heim-changed' WHERE owner_id=$1 AND book_id=$2 AND canonical_lemma='heim'`, alice.ID, aliceBook.ID)
 	require.NoError(t, err)
-	stalePage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&page=2&rev="+pageRevision.Revision, nil, cookies)
+	stalePage := perform(t, h, http.MethodGet, "/vocabulary/concordance?kind=lemma&term=Haus&page=2&rev="+pageRevision.Revision, nil, cookies)
 	assert.Equal(t, http.StatusConflict, stalePage.Code)
 	assert.Contains(t, stalePage.Body.String(), "Current evidence changed")
-	assert.Contains(t, stalePage.Body.String(), `href="/vocabulary/concordance?language=de&amp;mode=surface&amp;page=1&amp;term=Haus">Restart from results`)
-	partialStalePage := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&page=2&rev="+pageRevision.Revision, nil, cookies, "HX-Request-Type", "partial")
+	assert.Contains(t, stalePage.Body.String(), `href="/vocabulary/concordance?kind=lemma&amp;language=de&amp;page=1&amp;term=Haus">Restart from results`)
+	partialStalePage := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?kind=lemma&term=Haus&page=2&rev="+pageRevision.Revision, nil, cookies, "HX-Request-Type", "partial")
 	assert.Equal(t, http.StatusConflict, partialStalePage.Code)
 	assert.Contains(t, partialStalePage.Body.String(), `id="concordance-recovery"`)
 	assert.Contains(t, partialStalePage.Body.String(), "Restart from results")
 	assert.NotContains(t, partialStalePage.Body.String(), "<html")
 	assert.NotContains(t, partialStalePage.Body.String(), `id="concordance-results"`)
-	secondPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&page=2", nil, cookies)
+	secondPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?kind=lemma&term=Haus&page=2", nil, cookies)
 	require.Equal(t, http.StatusOK, secondPage.Code)
 	assert.Contains(t, secondPage.Body.String(), "Results 26–28")
-	assert.Contains(t, secondPage.Body.String(), `href="/vocabulary/concordance?language=de&amp;mode=surface&amp;page=1&amp;rev=`)
-	focusedQuery := url.Values{"mode": {"surface"}, "term": {"Haus"}, "book": {aliceBook.ID}, "grammar": {"own"}, "relation": {"root"}, "page": {"2"}, "focus": {"occurrence-" + aliceBook.ID + "-25-0"}}
+	assert.Contains(t, secondPage.Body.String(), `href="/vocabulary/concordance?kind=lemma&amp;language=de&amp;page=1&amp;rev=`)
+	focusedQuery := url.Values{"kind": {"lemma"}, "term": {"Haus"}, "page": {"1"}, "focus": {"occurrence-" + aliceBook.ID + "-25-0"}}
 	focusedPage := perform(t, h, http.MethodGet, "/vocabulary/concordance?"+focusedQuery.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, focusedPage.Code)
 	assert.Contains(t, focusedPage.Body.String(), `id="occurrence-`+aliceBook.ID+`-25-0" tabindex="-1" autofocus`)
 	for _, encodedTarget := range []string{
-		`return=%2Fvocabulary%2Fconcordance%3F`, `book%3D` + aliceBook.ID,
-		`focus%3Doccurrence-` + aliceBook.ID + `-25-0`, `grammar%3Down`, `mode%3Dsurface`,
-		`page%3D2`, `relation%3Droot`, `term%3DHaus`, `rev%3D`,
+		`return=%2Fvocabulary%2Fconcordance%3F`, `focus%3Doccurrence-` + aliceBook.ID + `-25-0`,
+		`kind%3Dlemma`, `page%3D1`, `term%3DHaus`, `rev%3D`,
 	} {
 		assert.Contains(t, focusedPage.Body.String(), encodedTarget)
 	}
@@ -780,17 +853,17 @@ func TestVocabularyConcordanceServesExactModesAndOccurrenceDecisionsOverHTTP(t *
 	focusedPage = perform(t, h, http.MethodGet, "/vocabulary/concordance?"+focusedQuery.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, focusedPage.Code)
 	assert.Contains(t, focusedPage.Body.String(), `<h2 id="concordance-summary" tabindex="-1" autofocus>Current results</h2>`)
-	outOfRangePage := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus&page=99", nil, cookies)
+	outOfRangePage := perform(t, h, http.MethodGet, "/vocabulary/concordance?kind=lemma&term=Haus&page=99", nil, cookies)
 	require.Equal(t, http.StatusOK, outOfRangePage.Code)
 	assert.Contains(t, outOfRangePage.Body.String(), "No results are available on this page")
-	assert.NotContains(t, outOfRangePage.Body.String(), "No current analyzed occurrences match this exact lookup.")
-	unchangedEffective := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=effective&term=haus&upos=NOUN", nil, cookies)
+	assert.NotContains(t, outOfRangePage.Body.String(), "No current analyzed occurrences match this lookup")
+	unchangedEffective := perform(t, h, http.MethodGet, "/vocabulary/concordance?kind=lemma&term=haus&upos=NOUN", nil, cookies)
 	require.Equal(t, http.StatusOK, unchangedEffective.Code)
 	assert.Equal(t, 25, strings.Count(unchangedEffective.Body.String(), `class="concordance-row"`))
 	assert.NotContains(t, unchangedEffective.Body.String(), "corrected for this occurrence")
 	assert.NotContains(t, unchangedEffective.Body.String(), "excluded from effective vocabulary")
 
-	noLeak := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, func() []*http.Cookie {
+	noLeak := perform(t, h, http.MethodGet, "/vocabulary/concordance?term=Haus", nil, func() []*http.Cookie {
 		cookies, _ := loginCookies(t, h, "concordance-http-bob", "bob-password")
 		return cookies
 	}())
@@ -827,12 +900,12 @@ func TestVocabularyConcordanceTimesOutWithRetryInsteadOfReportingNoMatches(t *te
 	_, err = lockTx.Exec(ctx, `LOCK TABLE corpus_tokens IN ACCESS EXCLUSIVE MODE`)
 	require.NoError(t, err)
 
-	response := perform(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, cookies)
+	response := perform(t, h, http.MethodGet, "/vocabulary/concordance?term=Haus", nil, cookies)
 	require.Equal(t, http.StatusGatewayTimeout, response.Code)
 	assert.Contains(t, response.Body.String(), "Concordance server timed out")
 	assert.Contains(t, response.Body.String(), "Retry Concordance lookup")
 	assert.NotContains(t, response.Body.String(), "No current analyzed occurrences match")
-	partialResponse := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?mode=surface&term=Haus", nil, cookies, "HX-Request-Type", "partial")
+	partialResponse := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?term=Haus", nil, cookies, "HX-Request-Type", "partial")
 	require.Equal(t, http.StatusGatewayTimeout, partialResponse.Code)
 	assert.Contains(t, partialResponse.Body.String(), `id="concordance-recovery"`)
 	assert.Contains(t, partialResponse.Body.String(), "Concordance server timed out")

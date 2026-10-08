@@ -9,6 +9,8 @@ import (
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lexical"
+	"golang.org/x/text/unicode/norm"
 )
 
 // ListBookOccurrencesByLemma returns occurrences in a Book's current analysis
@@ -141,9 +143,12 @@ func (s *PostgresStore) ListStudyLanguageDependentsByGovernorLemma(ctx context.C
 	return mapConcordanceRows(rows), nil
 }
 
-// ListVocabularyConcordance returns one page of exact effective, observed
-// surface, or analyzer-evidence matches from current analyses. Fetching one
-// extra row determines whether a next page exists without inventing a total.
+// ListVocabularyConcordance returns one page of occurrences of an evidenced
+// effective lemma or, failing that, of the literal typed word form across the
+// owner's current analyses in the language. A fresh lookup (empty Kind) lets an
+// evidenced lemma take precedence over a simultaneous form match; applied
+// lookups carry their kind and are never re-recognized. Fetching one extra row
+// determines whether a next page exists without inventing a total.
 func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (pageResult domain.ConcordanceResult, errResult error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if lookup.Page < 1 {
@@ -185,12 +190,31 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 		if err := tx.Commit(ctx); err != nil {
 			return domain.ConcordanceResult{}, err
 		}
-		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: true, Revision: revision}, nil
+		return domain.ConcordanceResult{Page: lookup.Page, HasPrevious: true, Revision: revision, Kind: lookup.Kind}, nil
 	}
-	rows, err := sqlcgen.New(tx).ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
-		Owner: owner, Language: language, Mode: lookup.Mode, Term: lookup.Term,
-		Upos: lookup.UPOS, BookIds: strings.Join(lookup.BookIDs, ","),
-		GrammarDirection: lookup.GrammarDirection, Relation: lookup.Relation,
+	queries := sqlcgen.New(tx)
+	lemmaKey, formKey := concordanceTermKeys(language, lookup.Term)
+	kind := lookup.Kind
+	switch {
+	case kind == "" && lookup.UPOS != "":
+		kind = domain.ConcordanceKindLemma
+	case kind == "":
+		kind = domain.ConcordanceKindForm
+		if lexical.IsLemma(lemmaKey) {
+			evidenced, err := queries.ConcordanceHasEvidencedLemma(ctx, sqlcgen.ConcordanceHasEvidencedLemmaParams{
+				Owner: owner, Language: language, LemmaKey: lemmaKey,
+			})
+			if err != nil {
+				return domain.ConcordanceResult{}, err
+			}
+			if evidenced {
+				kind = domain.ConcordanceKindLemma
+			}
+		}
+	}
+	rows, err := queries.ListVocabularyConcordance(ctx, sqlcgen.ListVocabularyConcordanceParams{
+		Owner: owner, Language: language, Kind: kind, LemmaKey: lemmaKey, FormKey: formKey,
+		Upos:   lookup.UPOS,
 		Offset: (int64(lookup.Page) - 1) * 25,
 	})
 	if err != nil {
@@ -199,7 +223,7 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 	if err := tx.Commit(ctx); err != nil {
 		return domain.ConcordanceResult{}, err
 	}
-	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision}
+	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Revision: revision, Kind: kind}
 	if len(rows) > 25 {
 		result.HasNext = true
 		rows = rows[:25]
@@ -253,6 +277,21 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 			Excluded: row.Excluded})
 	}
 	return study, nil
+}
+
+// concordanceTermKeys derives the lookup keys for one typed term without any
+// query-time analysis: the canonical lemma identity used by stored effective
+// lemmas, and a case-insensitive, accent-preserving surface key. Final sigma is
+// folded because lowercasing alone leaves word-final ς distinct from σ.
+func concordanceTermKeys(language, term string) (lemmaKey, formKey string) {
+	term = norm.NFC.String(term)
+	// A term the profile cannot normalize has no lemma identity; an empty key
+	// never matches, so it falls through to literal form matching.
+	if normalized, err := canonicalization.Normalize(language, term); err == nil {
+		lemmaKey = normalized.CanonicalLemma
+	}
+	formKey = strings.ReplaceAll(strings.ToLower(term), "ς", "σ")
+	return lemmaKey, formKey
 }
 
 func concordanceOccurrenceFromFields(

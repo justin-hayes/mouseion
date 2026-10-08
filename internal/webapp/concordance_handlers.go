@@ -6,83 +6,77 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// concordanceUPOS matches the Universal POS tags the analyzer emits.
+var concordanceUPOS = regexp.MustCompile(`^[A-Z]{1,8}$`)
+
 func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	queryCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
 	defer cancel()
+	query := r.URL.Query()
 	lookup := domain.ConcordanceLookup{
-		Mode: r.URL.Query().Get("mode"), Term: strings.TrimSpace(r.URL.Query().Get("term")),
-		UPOS: strings.TrimSpace(r.URL.Query().Get("upos")), BookIDs: r.URL.Query()["book"],
-		GrammarDirection: strings.TrimSpace(r.URL.Query().Get("grammar")),
-		Relation:         strings.TrimSpace(r.URL.Query().Get("relation")), Page: 1,
-		Revision: strings.TrimSpace(r.URL.Query().Get("rev")),
+		Term: strings.TrimSpace(query.Get("term")), UPOS: strings.TrimSpace(query.Get("upos")),
+		Kind: strings.TrimSpace(query.Get("kind")), Page: 1,
+		Revision: strings.TrimSpace(query.Get("rev")),
 	}
-	focusTarget := strings.TrimSpace(r.URL.Query().Get("focus"))
-	if lookup.Mode == "" {
-		lookup.Mode = "surface"
-	}
-	if page, parseErr := strconv.Atoi(r.URL.Query().Get("page")); parseErr == nil && page > 0 {
-		lookup.Page = page
-	}
+	focusTarget := strings.TrimSpace(query.Get("focus"))
 	requestedLanguage, _ := activeStudyLanguageForContext(r.Context())
 	lookup.Language = requestedLanguage
-	loadError := func(language string, books []domain.SourceMaterialSummary, err error) {
+	pageProblem := ""
+	if rawPage := query.Get("page"); rawPage != "" {
+		if page, parseErr := strconv.Atoi(rawPage); parseErr == nil && page > 0 {
+			lookup.Page = page
+		} else {
+			pageProblem = "That page is not valid. Restart the lookup from page 1."
+		}
+	}
+	loadError := func(language string, err error) {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
-			h.renderConcordanceFailure(w, r, http.StatusGatewayTimeout, u, language, books, lookup, false)
+			h.renderConcordanceFailure(w, r, http.StatusGatewayTimeout, u, language, lookup, false)
 			return
 		}
 		log.Printf("mouseion: load Concordance context: %v", err)
-		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, books, lookup, false)
+		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, lookup, false)
 	}
 	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(queryCtx, u.ID)
 	if err != nil {
-		loadError(requestedLanguage, nil, err)
+		loadError(requestedLanguage, err)
 		return
 	}
 	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(queryCtx, u.ID)
 	if err != nil {
-		loadError(requestedLanguage, nil, err)
+		loadError(requestedLanguage, err)
 		return
 	}
 	language := requestedLanguage
 	if !learnerLanguagePresent(languages, knownLanguages, language) {
 		language = ""
 	}
-	books, err := h.services.Store.Books.ListSourceMaterials(queryCtx, u.ID)
-	if err != nil {
-		loadError(language, nil, err)
+	invalid := func(message string) {
+		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, message, ""))
+	}
+	switch {
+	case lookup.Kind != "" && lookup.Kind != domain.ConcordanceKindLemma && lookup.Kind != domain.ConcordanceKindForm:
+		invalid("That lookup is not valid. Enter one lemma or word form.")
 		return
-	}
-	bookOptions := make([]domain.SourceMaterialSummary, 0, len(books))
-	for _, book := range books {
-		if book.Source.Language == language && book.BookID != "" {
-			bookOptions = append(bookOptions, book)
-		}
-	}
-	if lookup.Mode != "surface" && lookup.Mode != "effective" && lookup.Mode != "analyzer" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose observed surface, effective lemma, or analyzer lemma evidence.", ""))
+	case lookup.UPOS != "" && (!concordanceUPOS.MatchString(lookup.UPOS) || lookup.Kind == domain.ConcordanceKindForm):
+		invalid("That part of speech is not valid for this lookup. Enter one lemma or word form.")
 		return
-	}
-	if lookup.GrammarDirection != "" && lookup.GrammarDirection != "own" && lookup.GrammarDirection != "governor" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose queried occurrence relation or governor dependents.", ""))
+	case pageProblem != "":
+		invalid(pageProblem)
 		return
-	}
-	if lookup.GrammarDirection != "" && lookup.Relation == "" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Choose a dependency relation before applying grammar.", ""))
+	case language == "" || lookup.Term == "":
+		render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, "", ""))
 		return
-	}
-	if language == "" || lookup.Term == "" {
-		render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "", ""))
-		return
-	}
-	if lookup.Mode != "surface" && lookup.UPOS == "" {
-		renderStatus(w, r, http.StatusBadRequest, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, domain.ConcordanceResult{}, false, "Part of speech is required for lemma lookup.", ""))
+	case len(strings.Fields(lookup.Term)) > 1:
+		invalid("Enter one lemma or word form.")
 		return
 	}
 	result, err := h.services.Store.VocabularyConcordance.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
@@ -92,32 +86,33 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
 			status = http.StatusGatewayTimeout
 		}
-		h.renderConcordanceFailure(w, r, status, u, language, bookOptions, lookup, false)
+		h.renderConcordanceFailure(w, r, status, u, language, lookup, false)
 		return
 	}
 	if result.Stale {
-		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, bookOptions, lookup, true)
+		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, true)
 		return
 	}
 	lookup.Revision = result.Revision
-	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, bookOptions, lookup, result, true, "", focusTarget))
+	lookup.Kind = result.Kind
+	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, "", focusTarget))
 }
 
-func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, books []domain.SourceMaterialSummary, lookup domain.ConcordanceLookup, changed bool) {
+func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, lookup domain.ConcordanceLookup, changed bool) {
 	csrf := h.csrf(w, r)
 	if isPartialHTMXRequest(r) {
 		if changed {
-			renderStatus(w, r, status, VocabularyConcordanceChangedRecovery(books, lookup))
+			renderStatus(w, r, status, VocabularyConcordanceChangedRecovery(lookup))
 			return
 		}
-		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(books, lookup, status == http.StatusGatewayTimeout))
+		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(lookup, status == http.StatusGatewayTimeout))
 		return
 	}
 	if changed {
-		renderStatus(w, r, status, VocabularyConcordanceChangedPageView(u, csrf, language, books, lookup))
+		renderStatus(w, r, status, VocabularyConcordanceChangedPageView(u, csrf, language, lookup))
 		return
 	}
-	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, books, lookup, status == http.StatusGatewayTimeout))
+	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, lookup, status == http.StatusGatewayTimeout))
 }
 
 func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {
@@ -137,10 +132,6 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 	back := safeConcordanceReturnURL(query.Get("return"))
-	if direction := query.Get("grammar"); direction == "own" || direction == "governor" {
-		study.GrammarDirection = direction
-		study.Relation = query.Get("relation")
-	}
 	render(w, r, VocabularySentenceStudyPageView(u, h.csrf(w, r), study, back))
 }
 
@@ -159,7 +150,7 @@ func safeConcordanceReturnURL(candidate string) string {
 	}
 	for key := range values {
 		switch key {
-		case "language", "mode", "term", "upos", "book", "grammar", "relation", "rev", "page", "focus":
+		case "language", "term", "upos", "kind", "rev", "page", "focus":
 		default:
 			return "/vocabulary/concordance"
 		}
@@ -176,17 +167,12 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	if lookup.Language != "" {
 		values.Set("language", lookup.Language)
 	}
-	values.Set("mode", lookup.Mode)
 	values.Set("term", lookup.Term)
+	if lookup.Kind != "" {
+		values.Set("kind", lookup.Kind)
+	}
 	if lookup.UPOS != "" {
 		values.Set("upos", lookup.UPOS)
-	}
-	for _, bookID := range lookup.BookIDs {
-		values.Add("book", bookID)
-	}
-	if lookup.GrammarDirection != "" {
-		values.Set("grammar", lookup.GrammarDirection)
-		values.Set("relation", lookup.Relation)
 	}
 	if lookup.Revision != "" {
 		values.Set("rev", lookup.Revision)

@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -774,32 +773,46 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	case "fixture-server-timeout":
 		return domain.ConcordanceResult{}, context.DeadlineExceeded
 	}
-	fixtureRows := []domain.ConcordanceResultOccurrence{
-		fixtureConcordanceOccurrence("haus", "heim", true, false),
-		fixtureConcordanceOccurrence("haus", "haus", false, true),
-		fixtureConcordanceOccurrence("haus", "haus", false, false),
-	}
-	for i := 3; i < 26; i++ {
+	var fixtureRows []domain.ConcordanceResultOccurrence
+	for range 25 {
 		fixtureRows = append(fixtureRows, fixtureConcordanceOccurrence("haus", "haus", false, false))
 	}
+	// One inflected form is attributed to the same lemma so a literal form
+	// lookup ("Häusern") is distinguishable from the lemma expansion ("Haus").
+	inflected := fixtureConcordanceOccurrence("haus", "haus", false, false)
+	inflected.Surface, inflected.SentenceText = "Häusern", "Die Häusern sehen gut aus."
+	inflected.SentenceStartOffset, inflected.SentenceEndOffset = 4, 11
+	fixtureRows = append(fixtureRows, inflected,
+		fixtureConcordanceOccurrence("haus", "heim", true, false),
+		fixtureConcordanceOccurrence("haus", "haus", false, true))
+	lemmaKey := strings.ToLower(query.Term)
+	kind := query.Kind
+	if kind == "" {
+		kind = domain.ConcordanceKindForm
+		if query.UPOS != "" {
+			kind = domain.ConcordanceKindLemma
+		}
+		for _, occurrence := range fixtureRows {
+			if !occurrence.Excluded && occurrence.EffectiveLemma == lemmaKey {
+				kind = domain.ConcordanceKindLemma
+			}
+		}
+	}
+	result.Kind = kind
 	var matches []domain.ConcordanceResultOccurrence
 	for i, occurrence := range fixtureRows {
 		// Each synthetic row represents a distinct sentence occurrence; keep IDs
 		// unique just as the persisted corpus query does.
 		occurrence.SentenceOrdinal = int64(i)
-		occurrenceMatches := query.Mode == "surface" && query.Term == occurrence.Surface ||
-			query.Mode == "analyzer" && query.Term == occurrence.RawLemma && query.UPOS == occurrence.UPOS ||
-			query.Mode == "effective" && !occurrence.Excluded && query.Term == occurrence.EffectiveLemma && query.UPOS == occurrence.UPOS
-		if !occurrenceMatches {
+		if occurrence.Excluded {
 			continue
 		}
-		if len(query.BookIDs) > 0 && !slices.Contains(query.BookIDs, BookID) {
-			continue
+		occurrenceMatches := kind == domain.ConcordanceKindLemma && occurrence.EffectiveLemma == lemmaKey &&
+			(query.UPOS == "" || query.UPOS == occurrence.UPOS) ||
+			kind == domain.ConcordanceKindForm && strings.EqualFold(query.Term, occurrence.Surface)
+		if occurrenceMatches {
+			matches = append(matches, occurrence)
 		}
-		if query.GrammarDirection != "" && (query.GrammarDirection != "own" || query.Relation != occurrence.Dependency) {
-			continue
-		}
-		matches = append(matches, occurrence)
 	}
 	const pageSize = 25
 	start := (query.Page - 1) * pageSize
@@ -814,7 +827,7 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 }
 
 func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
-	if book != BookID || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 25 {
+	if book != BookID || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 40 {
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
 	return domain.SentenceStudy{BookID: book, BookTitle: "Der lange Weg nach Hause", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,

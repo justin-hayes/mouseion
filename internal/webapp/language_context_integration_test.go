@@ -61,7 +61,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, response.Code, path)
 		assert.Equal(t, languageChangedPath(), response.Header().Get("Location"), path)
 	}
-	for _, path := range []string{"/reading?language=de", "/vocabulary/concordance?language=de&mode=effective&term=haus&upos=NOUN", "/vocabulary?language=de&reading=" + book.ID} {
+	for _, path := range []string{"/reading?language=de", "/vocabulary/concordance?language=de&kind=lemma&term=haus&upos=NOUN", "/vocabulary?language=de&reading=" + book.ID} {
 		response := getAs(t, h, path, cookies)
 		assert.Equal(t, languageChangedPath(), response.Header().Get("Location"), path)
 	}

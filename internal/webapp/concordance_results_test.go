@@ -22,8 +22,8 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	otherBook := occurrence
 	otherBook.BookID = "book-2"
 	otherBook.BookTitle = "Zweiter Titel"
-	component := VocabularyConcordancePageView(domain.User{}, "", "de", nil,
-		domain.ConcordanceLookup{Mode: "surface", Term: "Haus", Page: 1},
+	component := VocabularyConcordancePageView(domain.User{}, "", "de",
+		domain.ConcordanceLookup{Kind: domain.ConcordanceKindLemma, Term: "haus", Page: 1},
 		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence, continued, otherBook}, Page: 1}, true, "", "")
 	var rendered bytes.Buffer
 	if err := component.Render(t.Context(), &rendered); err != nil {
@@ -63,10 +63,10 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	summaryStart := strings.Index(body, `<p class="concordance-results-summary">`)
 	summaryEnd := strings.Index(body[summaryStart:], `</p>`)
 	summary := body[summaryStart : summaryStart+summaryEnd]
-	if strings.Contains(summary, ` · `) || !strings.Contains(summary, `Applied exact observed surface lookup for “Haus” in all current Books with no grammar filter; showing Results 1–3 on page 1.`) {
-		t.Fatal("single-sentence results summary omitted lookup mode, scope, grammar, or result range")
+	if strings.Contains(summary, ` · `) || !strings.Contains(summary, `Forms of “haus” in all current Books; showing Results 1–3 on page 1.`) {
+		t.Fatal("single-sentence results summary omitted applied meaning, scope, or result range")
 	}
-	emptySummary := concordanceResultsSummary(domain.ConcordanceLookup{Mode: "surface", Term: "missing", Page: 1}, nil, domain.ConcordanceResult{Page: 1})
+	emptySummary := concordanceResultsSummary(domain.ConcordanceLookup{Kind: domain.ConcordanceKindForm, Term: "missing", Page: 1}, domain.ConcordanceResult{Page: 1})
 	if !strings.Contains(emptySummary, `; no results on page 1.`) || strings.Contains(emptySummary, `showing No results`) {
 		t.Fatalf("empty results summary is not concise and grammatical: %q", emptySummary)
 	}
@@ -95,10 +95,10 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
 		BookID: "book-1", SentenceOrdinal: 2, TokenOrdinal: 3, Surface: "Haus", SentenceText: "Ein Haus.",
 	}}
-	lookup := domain.ConcordanceLookup{Mode: "surface", Term: "Haus", Page: 1}
+	lookup := domain.ConcordanceLookup{Kind: domain.ConcordanceKindForm, Term: "Haus", Page: 1}
 	result := domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1}
 	render := func(target string, result domain.ConcordanceResult) string {
-		component := VocabularyConcordancePageView(domain.User{}, "", "de", nil, lookup, result, true, "", target)
+		component := VocabularyConcordancePageView(domain.User{}, "", "de", lookup, result, true, "", target)
 		var rendered bytes.Buffer
 		if err := component.Render(t.Context(), &rendered); err != nil {
 			t.Fatal(err)
@@ -118,7 +118,7 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 }
 
 func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.T) {
-	valid := "/vocabulary/concordance?mode=surface&term=Haus&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
+	valid := "/vocabulary/concordance?kind=form&term=Haus&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
 	if got := safeConcordanceReturnURL(valid); got != valid {
 		t.Fatalf("safe return URL = %q, want %q", got, valid)
 	}

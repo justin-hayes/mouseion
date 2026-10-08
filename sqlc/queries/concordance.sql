@@ -74,37 +74,30 @@ SELECT o.surface,
     AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
     AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
  WHERE o.owner_id=sqlc.arg('owner') AND o.language=sqlc.arg('language')
-   AND (sqlc.arg('grammar_direction')::text='governor' OR sqlc.arg('mode')::text <> 'surface' OR o.surface=sqlc.arg('term'))
-   AND (sqlc.arg('grammar_direction')::text='governor' OR sqlc.arg('mode')::text <> 'effective' OR
-        (NOT COALESCE(d.excluded, false)
-         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=sqlc.arg('term')
-         AND o.upos=sqlc.arg('upos')))
-   AND (sqlc.arg('grammar_direction')::text='governor' OR sqlc.arg('mode')::text <> 'analyzer' OR
-        (t.raw_lemma=sqlc.arg('term') AND o.upos=sqlc.arg('upos')))
-   AND (sqlc.arg('book_ids')::text = '' OR o.book_id::text = ANY(string_to_array(sqlc.arg('book_ids'), ',')))
-   AND (sqlc.arg('grammar_direction')::text = '' OR
-        (sqlc.arg('grammar_direction')::text = 'own' AND o.dependency=sqlc.arg('relation')) OR
-        (sqlc.arg('grammar_direction')::text = 'governor' AND o.dependency=sqlc.arg('relation') AND EXISTS (
-          SELECT 1
-            FROM corpus_tokens g
-            LEFT JOIN occurrence_lemma_corrections gd ON gd.owner_id=o.owner_id
-              AND gd.book_id=o.book_id::uuid AND gd.corpus_id=g.corpus_id
-              AND gd.analysis_run_id=g.analysis_run_id
-              AND gd.source_document_id=o.unit_id
-              AND gd.start_offset=g.start_offset AND gd.end_offset=g.end_offset
-           WHERE g.owner_id=o.owner_id AND g.language=o.language
-             AND g.analysis_run_id=o.analysis_run_id::uuid AND g.corpus_id=o.corpus_id::uuid
-             AND g.sentence_ordinal=o.sentence_ordinal AND g.token_ordinal=o.head_ordinal
-             AND NOT COALESCE(gd.excluded, false)
-             AND ((sqlc.arg('mode')::text='effective'
-                   AND COALESCE(gd.canonical_lemma, g.canonical_lemma)=sqlc.arg('term')
-                   AND g.upos=sqlc.arg('upos'))
-               OR (sqlc.arg('mode')::text='analyzer' AND g.raw_lemma=sqlc.arg('term') AND g.upos=sqlc.arg('upos'))
-               OR (sqlc.arg('mode')::text='surface' AND g.surface=sqlc.arg('term')))
-        )))
+   AND NOT COALESCE(d.excluded, false)
+   AND ((sqlc.arg('kind')::text='lemma'
+         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=sqlc.arg('lemma_key')::text
+         AND (sqlc.arg('upos')::text='' OR o.upos=sqlc.arg('upos')))
+     OR (sqlc.arg('kind')::text='form'
+         AND replace(lower(normalize(o.surface, NFC)), 'ς', 'σ')=sqlc.arg('form_key')::text))
  ORDER BY lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
  LIMIT 26 OFFSET sqlc.arg('offset')::bigint;
+
+-- name: ConcordanceHasEvidencedLemma :one
+-- Recognizes a lemma only from non-excluded effective identities in the
+-- eligible owner/language corpus, whatever their part of speech.
+SELECT EXISTS (
+  SELECT 1
+    FROM concordance_occurrences o
+    LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
+      AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
+      AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
+      AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
+   WHERE o.owner_id=sqlc.arg('owner') AND o.language=sqlc.arg('language')
+     AND NOT COALESCE(d.excluded, false)
+     AND COALESCE(d.canonical_lemma, o.canonical_lemma)=sqlc.arg('lemma_key')::text
+)::boolean AS evidenced;
 
 -- name: ListBookOccurrencesByLemma :many
 SELECT o.surface,

@@ -45,6 +45,9 @@ type Querier interface {
 	CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error)
 	CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error)
 	CompletePreparedDeckRun(ctx context.Context, arg CompletePreparedDeckRunParams) (DeckPreparationRun, error)
+	// Recognizes a lemma only from non-excluded effective identities in the
+	// eligible owner/language corpus, whatever their part of speech.
+	ConcordanceHasEvidencedLemma(ctx context.Context, arg ConcordanceHasEvidencedLemmaParams) (bool, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error)
 	CountHiddenMyBooksScope(ctx context.Context, arg CountHiddenMyBooksScopeParams) (int64, error)

@@ -85,7 +85,7 @@ func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *tes
 		"/reading?language=de",
 		"/library?language=de&q=Dampf&page=2",
 		"/vocabulary?language=de&q=ha&reading=fixture-book&page=2",
-		"/vocabulary/concordance?language=de&mode=effective&term=haus&upos=NOUN",
+		"/vocabulary/concordance?language=de&kind=lemma&term=haus&upos=NOUN",
 		"/vocabulary/concordance/sentence?language=de&book=fixture-book",
 		"/vocabulary/import?language=de",
 		"/reading/books/fixture-book/lemma-review?language=de",
@@ -183,9 +183,9 @@ func TestSubmissionsWithoutLanguageIdentityKeepWorking(t *testing.T) {
 }
 
 func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
-	lookup := domain.ConcordanceLookup{Language: "de", Mode: "effective", Term: "haus", UPOS: "NOUN"}
+	lookup := domain.ConcordanceLookup{Language: "de", Kind: domain.ConcordanceKindLemma, Term: "haus", UPOS: "NOUN"}
 	assert.Contains(t, vocabularyConcordancePageURL(2, lookup), "language=de")
-	assert.Contains(t, vocabularyConcordanceURL("de", "haus", "NOUN", "book-1"), "language=de")
+	assert.Contains(t, vocabularyConcordanceURL("de", "haus", "NOUN"), "language=de")
 	assert.Contains(t, vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"), "language=de")
-	assert.Equal(t, "/vocabulary/concordance?mode=surface&page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Mode: "surface", Term: "x"}))
+	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

@@ -119,37 +119,48 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	require.NoError(t, err)
 	require.Len(t, languageDependents, 1)
 
-	ownRelation, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "haus", UPOS: "NOUN", BookIDs: []string{bookA.ID, bookB.ID},
-		GrammarDirection: "own", Relation: "obj", Page: 1,
-	})
+	lemmaLookup, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, ownRelation.Occurrences, 1)
-	assert.Equal(t, bookA.ID, ownRelation.Occurrences[0].BookID)
+	assert.Equal(t, domain.ConcordanceKindLemma, lemmaLookup.Kind, "an evidenced lemma is recognized from a capitalized typed term")
+	bookIDs := map[string]bool{}
+	for _, occurrence := range lemmaLookup.Occurrences {
+		bookIDs[occurrence.BookID] = true
+	}
+	assert.True(t, bookIDs[bookA.ID] && bookIDs[bookB.ID], "lemma lookup spans all eligible Books")
+	exactPOS, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "haus", UPOS: "VERB", Page: 1})
+	require.NoError(t, err)
+	assert.Empty(t, exactPOS.Occurrences, "exact POS excludes other parts of speech")
+	assert.Equal(t, domain.ConcordanceKindLemma, exactPOS.Kind)
+	formLookup, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "HAUSES", Page: 1})
+	require.NoError(t, err)
+	assert.Equal(t, domain.ConcordanceKindForm, formLookup.Kind)
+	assert.Empty(t, formLookup.Occurrences)
 
-	governorDependents, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "das", UPOS: "DET", BookIDs: []string{bookA.ID},
-		GrammarDirection: "governor", Relation: "obj", Page: 1,
-	})
+	var governorDependents domain.ConcordanceResult
+	surfaceLookup, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Kind: domain.ConcordanceKindForm, Term: "Haus", Page: 1})
 	require.NoError(t, err)
+	for _, occurrence := range surfaceLookup.Occurrences {
+		if occurrence.BookID == bookA.ID && occurrence.SentenceText == "Das Haus" {
+			governorDependents.Occurrences = append(governorDependents.Occurrences, occurrence)
+		}
+	}
 	require.Len(t, governorDependents.Occurrences, 1)
 	assert.Equal(t, "Haus", governorDependents.Occurrences[0].Surface)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version) VALUES($1,$2,$3,$4,$5,2,5,'der','de','1')`,
 		alice.ID, bookA.ID, governorDependents.Occurrences[0].CorpusID,
 		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].UnitID)
 	require.NoError(t, err)
-	correctedGovernor, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "der", UPOS: "DET", BookIDs: []string{bookA.ID},
-		GrammarDirection: "governor", Relation: "obj", Page: 1,
-	})
+	correctedLemma, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "der", UPOS: "DET", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, correctedGovernor.Occurrences, 1)
-	uncorrectedGovernor, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{
-		Mode: "effective", Term: "das", UPOS: "DET", BookIDs: []string{bookA.ID},
-		GrammarDirection: "governor", Relation: "obj", Page: 1,
-	})
+	require.Len(t, correctedLemma.Occurrences, 1)
+	assert.Equal(t, "Das", correctedLemma.Occurrences[0].Surface)
+	assert.True(t, correctedLemma.Occurrences[0].Corrected)
+	uncorrectedLemma, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "das", UPOS: "DET", Page: 1})
 	require.NoError(t, err)
-	assert.Empty(t, uncorrectedGovernor.Occurrences)
+	assert.Empty(t, uncorrectedLemma.Occurrences)
+	correctedSurface, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Kind: domain.ConcordanceKindForm, Term: "das", Page: 1})
+	require.NoError(t, err)
+	assert.NotEmpty(t, correctedSurface.Occurrences, "surface lookup keeps unchanged source matching after correction")
 
 	study, err := store.GetVocabularySentenceStudy(ctx, alice.ID, bookA.ID,
 		governorDependents.Occurrences[0].AnalysisRunID, governorDependents.Occurrences[0].CorpusID,
