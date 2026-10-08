@@ -15,15 +15,10 @@
 .cp-result { display: grid; grid-template-columns: 14rem minmax(0, 1fr) auto; column-gap: 1rem; align-items: start; min-width: 0; }
 .cp-result:focus { outline: 2px solid var(--mouseion-color-focus); outline-offset: 2px; }
 .cp-result > * { min-width: 0; }
-.cp-source { border: 0; border-radius: 0; margin: 0; padding: 0; }
-.cp-source summary { min-height: 44px; display: grid; grid-template-columns: 1rem minmax(0, 1fr); grid-template-rows: auto auto; align-content: center; gap: 0 .25rem; list-style: none; padding: 0; cursor: pointer; }
-.cp-source summary::before { grid-column: 1; grid-row: 1; align-self: center; margin: 0; }
-.cp-source-title { grid-column: 2; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mouseion-font-reading); font-style: italic; font-size: 14px; line-height: 20px; color: var(--mouseion-color-text-muted); }
-.cp-source-count { grid-column: 2; grid-row: 2; white-space: nowrap; font-size: 13px; line-height: 18px; color: var(--mouseion-color-text-muted); font-variant-numeric: tabular-nums; }
+.cp-source { min-height: 44px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: center; margin: 0; padding: 0; }
+.cp-source-title { grid-column: 1; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mouseion-font-reading); font-style: italic; font-size: 14px; line-height: 20px; color: var(--mouseion-color-text-muted); }
+.cp-source-count { grid-column: 1; grid-row: 2; white-space: nowrap; font-size: 13px; line-height: 18px; color: var(--mouseion-color-text-muted); font-variant-numeric: tabular-nums; }
 .cp-count-compact { display: none; }
-.cp-source-full { padding: .5rem 0 .75rem; font-size: 13px; overflow-wrap: anywhere; }
-.cp-source-full p { margin: 0 0 .25rem; }
-.cp-source-full .bibliographic-title { font-size: 16px; color: var(--mouseion-color-text); }
 .cp-page .cp-sentence { margin: 0; padding: 0; grid-column: 2; }
 .cp-page .cp-sentence summary { min-height: 44px; grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, max-content) minmax(0, 1.25fr); }
 .cp-page .concordance-study-link { min-height: 44px; padding: 0 .25rem; grid-column: 3; }
@@ -47,7 +42,6 @@
 .cp-switcher a { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 @media (max-width: 40rem) {
   .cp-result { grid-template-columns: min(6.5rem, 26vw) minmax(0, 1fr) auto; column-gap: .5rem; }
-  .cp-source summary { grid-template-columns: .75rem minmax(0, 1fr); gap: 0 .125rem; }
   .cp-source-count { grid-column: 1 / -1; font-size: 13px; }
   .cp-count-desktop { display: none; }
   .cp-count-compact { display: inline; }
@@ -57,7 +51,6 @@
   .cp-page .cp-sentence .concordance-before { direction: rtl; text-align: right; }
   .cp-page .cp-sentence .concordance-surface { display: block; overflow-wrap: anywhere; line-height: 1.5; }
   .cp-page .concordance-context { padding-left: 0; grid-column: 1 / -1; }
-  .cp-page[data-variant="margin"] .cp-source-full { width: 100cqw; box-sizing: border-box; }
   .cp-page[data-variant="margin"] .concordance-context { width: 100cqw; max-width: none; box-sizing: border-box; margin-inline-start: calc(-1 * (min(6.5rem, 26vw) + .5rem)); padding-top: .5rem; }
   .cp-page .concordance-study-link { padding: 0; }
   .cp-page[data-variant="inline"] .cp-result { grid-template-columns: minmax(0, 1fr) auto 5rem; }

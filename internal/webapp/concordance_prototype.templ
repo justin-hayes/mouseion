@@ -77,7 +77,7 @@ templ ConcordancePrototypePage(v concordancePrototypeView) {
 											}
 										</div>
 									}
-									<details class="concordance-row cp-sentence" name="cp-disclosures">
+									<details class="concordance-row cp-sentence" name="cp-sentences">
 										<summary aria-label={ "Full sentence containing " + row.Target }>
 											<span class="concordance-before"><span>{ concordanceContextText(row.Before) }</span></span><strong class="concordance-surface">{ row.Target }</strong><span class="concordance-after">{ concordanceContextText(row.After) }</span>
 										</summary>
@@ -132,21 +132,8 @@ templ ConcordancePrototypePage(v concordancePrototypeView) {
 }
 
 templ ConcordancePrototypeSource(row concordancePrototypeRow) {
-	<details class="cp-source" name="cp-disclosures">
-		<summary aria-label={ "Source: " + row.Book }>
-			<span class="cp-source-title">{ row.Book }</span>
-			<span class="cp-source-count"><span class="cp-count-desktop">{ row.countText() }</span><span class="cp-count-compact">{ fmt.Sprint(row.Count) } on page</span></span>
-		</summary>
-		<div class="cp-source-full">
-			<p class="bibliographic-title">{ row.Book }</p>
-			<p>{ row.Author }</p>
-			if row.Priority {
-				<p>Applied priority book</p>
-			}
-			if row.Continued {
-				<p>Continued from the previous page</p>
-			}
-			<p>{ row.countText() }</p>
-		</div>
-	</details>
+	<div class="cp-source">
+		<span class="cp-source-title">{ row.Book }</span>
+		<span class="cp-source-count"><span class="cp-count-desktop">{ row.countText() }</span><span class="cp-count-compact">{ fmt.Sprint(row.Count) } on page</span></span>
+	</div>
 }
