@@ -47,8 +47,9 @@ type Querier interface {
 	CompletePreparedDeckRun(ctx context.Context, arg CompletePreparedDeckRunParams) (DeckPreparationRun, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error)
+	CountHiddenMyBooksScope(ctx context.Context, arg CountHiddenMyBooksScopeParams) (int64, error)
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
-	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
+	CountMyBooksByLanguage(ctx context.Context, arg CountMyBooksByLanguageParams) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
 	CountPendingBookCoverCandidates(ctx context.Context, arg CountPendingBookCoverCandidatesParams) (int, error)
 	CountPreparedDeckRunOutcomeStates(ctx context.Context, arg CountPreparedDeckRunOutcomeStatesParams) (CountPreparedDeckRunOutcomeStatesRow, error)
@@ -111,6 +112,10 @@ type Querier interface {
 	GetBookForUpdate(ctx context.Context, arg GetBookForUpdateParams) (string, error)
 	GetBookMembershipForUpdate(ctx context.Context, arg GetBookMembershipForUpdateParams) (string, error)
 	GetBookMetadata(ctx context.Context, arg GetBookMetadataParams) (GetBookMetadataRow, error)
+	// Hidden visibility is an owner-and-Book choice stored apart from the
+	// Inbox/To Read disposition. A missing row is a visible Book at revision 0.
+	GetBookVisibility(ctx context.Context, arg GetBookVisibilityParams) (GetBookVisibilityRow, error)
+	GetBookVisibilityForUpdate(ctx context.Context, arg GetBookVisibilityForUpdateParams) (GetBookVisibilityForUpdateRow, error)
 	GetCatalogueAliasBookForUpdate(ctx context.Context, arg GetCatalogueAliasBookForUpdateParams) (string, error)
 	GetCatalogueSyncStatus(ctx context.Context, arg GetCatalogueSyncStatusParams) (GetCatalogueSyncStatusRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
@@ -367,6 +372,7 @@ type Querier interface {
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
+	WriteBookVisibility(ctx context.Context, arg WriteBookVisibilityParams) error
 }
 
 var _ Querier = (*Queries)(nil)

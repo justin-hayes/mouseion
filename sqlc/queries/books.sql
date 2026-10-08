@@ -46,6 +46,8 @@ SELECT e.*
       , lower(e.book_title)::text AS sort_title
       , d.disposition::text AS disposition
      , d.revision AS disposition_revision
+     , COALESCE(v.hidden, false)::boolean AS hidden
+     , COALESCE(v.revision, 0)::bigint AS visibility_revision
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
       , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
@@ -58,6 +60,7 @@ SELECT e.*
        ) AS is_current_reading
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 LEFT JOIN LATERAL (
     SELECT count(*) AS completion_count,
            COALESCE((SELECT h.completed_at FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), 'epoch'::timestamptz) AS latest_completed_at,
@@ -93,6 +96,19 @@ LIMIT sqlc.arg('limit');
 -- name: CountMyBooksScope :one
 SELECT count(*) FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner')
+  AND (sqlc.arg('show_hidden')::boolean OR NOT COALESCE(v.hidden, false))
+  AND (
+    sqlc.arg('language')::text = ''
+    OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
+    OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
+  );
+
+-- name: CountHiddenMyBooksScope :one
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id AND v.hidden
 WHERE e.book_owner_id = sqlc.arg('owner')
   AND (
     sqlc.arg('language')::text = ''
@@ -107,8 +123,10 @@ WHERE book_owner_id = sqlc.arg('owner');
 -- name: CountMyBooksByLanguage :many
 SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_language_tag END)::text AS language_tag,
        count(*) AS book_count
-FROM my_books_evidence
+FROM my_books_evidence e
+LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 WHERE book_owner_id = sqlc.arg('owner') AND book_language_state IN ('chosen', 'unknown')
+  AND (sqlc.arg('show_hidden')::boolean OR NOT COALESCE(v.hidden, false))
 GROUP BY 1;
 
 -- name: GetMyBookDetail :one

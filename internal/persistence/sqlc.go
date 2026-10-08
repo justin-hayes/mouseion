@@ -290,6 +290,8 @@ func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
 		BookCoverState: row.BookCoverState, BookCoverWidth: row.BookCoverWidth, BookCoverHeight: row.BookCoverHeight,
 	})
 	book.IsCurrentReading = row.IsCurrentReading
+	book.Hidden = row.Hidden
+	book.VisibilityRevision = row.VisibilityRevision
 	book.CompletionCount = int(row.CompletionCount)
 	book.LatestCompletionAt = completionTime(row.LatestCompletedAt)
 	book.LatestCompletionSource = domain.ReadingCompletionSource(row.LatestCompletionSource)

@@ -416,7 +416,7 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-recovery a', { hasText: 'Retry My Books request' })).toHaveAttribute('href', /network-error-check/);
   });
 
-  test('reviews needs-language books without actions', async ({ page }) => {
+  test('reviews needs-language books with only the visibility action', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
     const strip = page.locator('aside.library-needs-language');
@@ -427,7 +427,8 @@ test.describe('My Books collection browsing', () => {
     if (await needsRow.count()) {
       await expect(needsRow).toBeVisible();
       await expect(needsRow.locator('a')).toHaveCount(0);
-      await expect(needsRow.locator('form')).toHaveCount(0);
+      await expect(needsRow.locator('form')).toHaveCount(1);
+      await expect(needsRow.locator('form')).toHaveAttribute('action', /\/hide$/);
 
       await page.goto('/catalogs');
       const sync = page.locator('#connection-fixture-browser-sync-connection').getByRole('button', { name: 'Sync now' });

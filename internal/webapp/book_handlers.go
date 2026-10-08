@@ -149,7 +149,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		render(w, r, MyBookRow(h.csrf(w, r), row, refreshEligible, message))
+		render(w, r, MyBookRow(h.csrf(w, r), row, refreshEligible, message, myBooksReturnFromRequest(r)))
 		return
 	}
 	redirect(w, r, "/library?message="+url.QueryEscape(message))
@@ -178,7 +178,7 @@ func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Reques
 			fail(w, err)
 			return
 		}
-		render(w, r, MyBookRow(h.csrf(w, r), book, false, message))
+		render(w, r, MyBookRow(h.csrf(w, r), book, false, message, myBooksReturnFromRequest(r)))
 		return
 	}
 	redirect(w, r, "/library?message="+url.QueryEscape(message))

@@ -135,6 +135,14 @@ type BookMembership struct {
 	RemovedAt   pgtype.Timestamptz
 }
 
+type BookVisibility struct {
+	OwnerID   string
+	BookID    string
+	Hidden    bool
+	Revision  int64
+	UpdatedAt time.Time
+}
+
 type Card struct {
 	ID             string
 	OwnerID        string

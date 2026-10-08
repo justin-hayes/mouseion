@@ -35,6 +35,7 @@ type MyBooksBrowseResult struct {
 	Counts            []LanguageCount
 	DispositionCounts []DispositionCount
 	AllCount          int
+	HiddenCount       int
 	ReadCount         int
 }
 
@@ -95,6 +96,16 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 // SQL supplies the facts (disposition, current-reading role, and history) but
 // does not independently classify a visible bucket.
 func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (MyBooksBrowseResult, error) {
+	return s.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, false, offset, limit)
+}
+
+// ListMyBooksBrowseWithVisibility is ListMyBooksBrowse with an explicit
+// visibility scope. Hidden Books are omitted unless showHidden is set, and
+// then bucket, language, and total counts describe the same scope. AllCount
+// stays the complete collection size and HiddenCount reports the Hidden Books
+// in the language scope regardless of the selected visibility, so empty views
+// can still offer recovery.
+func (s *PostgresStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (MyBooksBrowseResult, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
 	disposition = strings.TrimSpace(disposition)
@@ -123,6 +134,9 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 		book := myBookFromBrowseRow(row)
 		book.Disposition = domain.BookDisposition(row.Disposition)
 		book.DispositionRevision = row.DispositionRevision
+		if book.Hidden && !showHidden {
+			return nil
+		}
 		bucket := book.WorkflowBucket()
 		dispositionCounts[bucket]++
 		if bucket == domain.MyBookBucketCurrentReading {
@@ -165,13 +179,21 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	}
 	result.Total = filteredCount
 	q := s.queries()
-	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language})
+	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language, ShowHidden: showHidden})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
 	result.ScopeTotal, err = checked.IntFromInt64(scopeTotal)
 	if err != nil {
 		return MyBooksBrowseResult{}, fmt.Errorf("invalid scoped book count: %w", err)
+	}
+	hiddenCount, err := q.CountHiddenMyBooksScope(ctx, sqlcgen.CountHiddenMyBooksScopeParams{Owner: owner, Language: language})
+	if err != nil {
+		return MyBooksBrowseResult{}, err
+	}
+	result.HiddenCount, err = checked.IntFromInt64(hiddenCount)
+	if err != nil {
+		return MyBooksBrowseResult{}, fmt.Errorf("invalid hidden book count: %w", err)
 	}
 	allCount, err := q.CountMyBooksAll(ctx, owner)
 	if err != nil {
@@ -181,7 +203,7 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	if err != nil {
 		return MyBooksBrowseResult{}, fmt.Errorf("invalid total book count: %w", err)
 	}
-	counts, err := q.CountMyBooksByLanguage(ctx, owner)
+	counts, err := q.CountMyBooksByLanguage(ctx, sqlcgen.CountMyBooksByLanguageParams{Owner: owner, ShowHidden: showHidden})
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
@@ -254,6 +276,9 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	}
 	book.Disposition = state.disposition
 	book.DispositionRevision = state.revision
+	if book.Hidden, book.VisibilityRevision, err = s.GetBookVisibility(ctx, owner, book.Book.ID); err != nil {
+		return domain.MyBook{}, err
+	}
 	completion, err := s.queries().GetMyBookCompletionSummary(ctx, sqlcgen.GetMyBookCompletionSummaryParams{Owner: owner, Book: book.Book.ID})
 	if err != nil {
 		return domain.MyBook{}, err

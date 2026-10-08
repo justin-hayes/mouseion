@@ -42,6 +42,8 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
       , lower(e.book_title)::text AS sort_title
       , d.disposition::text AS disposition
      , d.revision AS disposition_revision
+     , COALESCE(v.hidden, false)::boolean AS hidden
+     , COALESCE(v.revision, 0)::bigint AS visibility_revision
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
       , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
@@ -54,6 +56,7 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
        ) AS is_current_reading
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 LEFT JOIN LATERAL (
     SELECT count(*) AS completion_count,
            COALESCE((SELECT h.completed_at FROM reading_history h WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), 'epoch'::timestamptz) AS latest_completed_at,
@@ -131,6 +134,8 @@ type BrowseMyBooksEvidenceRow struct {
 	SortTitle               string
 	Disposition             string
 	DispositionRevision     int64
+	Hidden                  bool
+	VisibilityRevision      int64
 	CompletionCount         int64
 	LatestCompletedAt       interface{}
 	LatestCompletionSource  string
@@ -191,6 +196,8 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.SortTitle,
 			&i.Disposition,
 			&i.DispositionRevision,
+			&i.Hidden,
+			&i.VisibilityRevision,
 			&i.CompletionCount,
 			&i.LatestCompletedAt,
 			&i.LatestCompletionSource,
@@ -209,6 +216,30 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 	return items, nil
 }
 
+const countHiddenMyBooksScope = `-- name: CountHiddenMyBooksScope :one
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id AND v.hidden
+WHERE e.book_owner_id = $1
+  AND (
+    $2::text = ''
+    OR ($2::text = 'unknown' AND book_language_state = 'unknown')
+    OR (book_language_state = 'chosen' AND book_language_tag = $2)
+  )
+`
+
+type CountHiddenMyBooksScopeParams struct {
+	Owner    string
+	Language string
+}
+
+func (q *Queries) CountHiddenMyBooksScope(ctx context.Context, arg CountHiddenMyBooksScopeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countHiddenMyBooksScope, arg.Owner, arg.Language)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMyBooksAll = `-- name: CountMyBooksAll :one
 SELECT count(*) FROM my_books_evidence
 WHERE book_owner_id = $1
@@ -224,18 +255,25 @@ func (q *Queries) CountMyBooksAll(ctx context.Context, owner string) (int64, err
 const countMyBooksByLanguage = `-- name: CountMyBooksByLanguage :many
 SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_language_tag END)::text AS language_tag,
        count(*) AS book_count
-FROM my_books_evidence
+FROM my_books_evidence e
+LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 WHERE book_owner_id = $1 AND book_language_state IN ('chosen', 'unknown')
+  AND ($2::boolean OR NOT COALESCE(v.hidden, false))
 GROUP BY 1
 `
+
+type CountMyBooksByLanguageParams struct {
+	Owner      string
+	ShowHidden bool
+}
 
 type CountMyBooksByLanguageRow struct {
 	LanguageTag string
 	BookCount   int64
 }
 
-func (q *Queries) CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error) {
-	rows, err := q.db.Query(ctx, countMyBooksByLanguage, owner)
+func (q *Queries) CountMyBooksByLanguage(ctx context.Context, arg CountMyBooksByLanguageParams) ([]CountMyBooksByLanguageRow, error) {
+	rows, err := q.db.Query(ctx, countMyBooksByLanguage, arg.Owner, arg.ShowHidden)
 	if err != nil {
 		return nil, err
 	}
@@ -257,21 +295,24 @@ func (q *Queries) CountMyBooksByLanguage(ctx context.Context, owner string) ([]C
 const countMyBooksScope = `-- name: CountMyBooksScope :one
 SELECT count(*) FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 WHERE e.book_owner_id = $1
+  AND ($2::boolean OR NOT COALESCE(v.hidden, false))
   AND (
-    $2::text = ''
-    OR ($2::text = 'unknown' AND book_language_state = 'unknown')
-    OR (book_language_state = 'chosen' AND book_language_tag = $2)
+    $3::text = ''
+    OR ($3::text = 'unknown' AND book_language_state = 'unknown')
+    OR (book_language_state = 'chosen' AND book_language_tag = $3)
   )
 `
 
 type CountMyBooksScopeParams struct {
-	Owner    string
-	Language string
+	Owner      string
+	ShowHidden bool
+	Language   string
 }
 
 func (q *Queries) CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countMyBooksScope, arg.Owner, arg.Language)
+	row := q.db.QueryRow(ctx, countMyBooksScope, arg.Owner, arg.ShowHidden, arg.Language)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
