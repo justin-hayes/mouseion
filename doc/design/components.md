@@ -165,6 +165,14 @@ is primary for the current Book and To Read Books. The disclosure owns **Set
 aside**, eligible metadata refresh, and confirmed My Books removal. Do not add
 analysis, acquired-content, or next-action status to this pattern.
 
+Reading's **Other To Read books** list reuses the same cover/identity/edged-margin
+composition, but not My Books' bucket note or action set. The section heading
+already supplies the To Read context, so rows do not repeat that badge. The
+margin carries current Known vocabulary coverage as a rounded percentage, or an
+analysis/content problem with its recovery action; it never ranks candidates or
+frames coverage as readiness. A quiet **Switch current reading** link remains
+under the identity when the Book is eligible. Keep the list unordered.
+
 Repeated items form one native unordered list at every width, not an ARIA grid.
 Keep cover, title, author, action, and note content in document and keyboard
 order, with long bibliographic text wrapping without truncation. Search-result

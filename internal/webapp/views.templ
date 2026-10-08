@@ -601,7 +601,7 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 				} else {
 					<h3>
 						if journeyEntryAvailable(item) {
-							<a href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+							<a class="journey-book__identity-link" href={ templ.SafeURL(readingBookURL(journeyBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 						} else {
 							{ canonicalBookTitle(item.Book) }
 						}
@@ -620,8 +620,6 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 							<p>Analysis evidence exists, but this Book has no deck-eligible vocabulary. Reading directly is the current path.</p>
 						}
 					}
-				} else {
-					<p>@StatusBadge("To Read", StatusNeutral)</p>
 				}
 			</div>
 		</div>
@@ -663,13 +661,15 @@ templ JourneyBookCard(item journeyBookView, primary bool, csrf string) {
 			}
 		</section>
 	} else {
-		@JourneyEvidence(item, csrf, false)
+		<section class="reading-note journey-book__margin" aria-labelledby={ journeyEvidenceHeadingID(item) }>
+			@JourneyEvidence(item, csrf, false)
+		</section>
 	}
 	</div>
 	if !primary {
 		<div class="journey-book__controls" role="group" aria-label={ "Actions for "+canonicalBookTitle(item.Book) }>
 			if item.CanChooseGoal {
-				<a class="button button--outline" href="/reading/switch">Switch current reading</a>
+				<a class="button button--outline journey-book__switch" href="/reading/switch">Switch current reading</a>
 			} else if item.GoalEligibilityReason != "" {
 				<p class="journey-book__goal-reason metadata">{ item.GoalEligibilityReason }</p>
 			}
@@ -728,9 +728,20 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 
 templ JourneyEvidence(item journeyBookView, csrf string, primary bool) {
 	if !primary && journeyEvidenceState(item) == "current" && item.Coverage != nil {
-		<p class="metadata"><strong>Known vocabulary coverage:</strong> { fmt.Sprintf("%d of %d analyzable tokens", item.Coverage.KnownTokenCount, item.Coverage.AnalyzableTokenCount) }</p>
+		<h4 id={ journeyEvidenceHeadingID(item) }>Known vocabulary coverage</h4>
+		if item.Coverage.AnalyzableTokenCount > 0 {
+			<p class="journey-book__coverage">{ journeyCurrentCoverage(item) }</p>
+			<p class="metadata">of analyzable tokens</p>
+		} else {
+			<p class="metadata">No analyzable tokens are available for comparison.</p>
+		}
 	} else if journeyEvidenceState(item) != "current" {
-		<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
+		if primary {
+			<p><strong>{ journeyEvidenceLabel(item) }:</strong> { journeyEvidenceDescription(item) }</p>
+		} else {
+			<h4 id={ journeyEvidenceHeadingID(item) }>{ journeyEvidenceLabel(item) }</h4>
+			<p>{ journeyEvidenceDescription(item) }</p>
+		}
 		{{ action := journeyAnalysisAction(item) }}
 		if action.Status != "" {
 			if action.Label != "" && action.Submit {

@@ -929,16 +929,57 @@ test.describe('responsive and theme regression coverage', () => {
     test.skip(!test.info().project.name.startsWith('desktop'), 'This contract applies to the standard desktop layout.');
     await signIn(page);
     await page.goto('/reading');
-    const rows = await page.locator('.journey-book:not(.journey-book--goal)').evaluateAll((nodes) => nodes.map((node) => {
+    const rows = await page.locator('#provisional-journey-content ul[aria-label="To Read books"] > li > article').evaluateAll((nodes) => nodes.map((node) => {
       const book = node.querySelector<HTMLElement>('.journey-book__identity')?.getBoundingClientRect();
       const controls = node.querySelector<HTMLElement>('.journey-book__controls')?.getBoundingClientRect();
-      return { bookWidth: book?.width ?? 0, controlsWidth: controls?.width ?? 0, rowWidth: node.getBoundingClientRect().width };
+      const margin = node.querySelector<HTMLElement>('.journey-book__evidence')?.getBoundingClientRect();
+      const switchLink = node.querySelector<HTMLElement>('a[href="/reading/switch"]');
+      const title = node.querySelector<HTMLElement>('h3 a, h3');
+      const accentProbe = document.createElement('span');
+      accentProbe.style.color = 'var(--mouseion-color-accent)';
+      document.body.append(accentProbe);
+      const accentColor = getComputedStyle(accentProbe).color;
+      accentProbe.remove();
+      return {
+        bookWidth: book?.width ?? 0,
+        controlsWidth: controls?.width ?? 0,
+        rowWidth: node.getBoundingClientRect().width,
+        marginLeft: margin?.left ?? 0,
+        marginHeight: margin?.height ?? 0,
+        identityRight: book?.right ?? 0,
+        controlsBottom: controls?.bottom ?? 0,
+        identityTop: book?.top ?? 0,
+        hasRepeatedBucket: node.textContent?.includes('To Read') ?? false,
+        titleColor: title ? getComputedStyle(title).color : '',
+        bodyColor: getComputedStyle(document.body).color,
+        switchBackground: switchLink ? getComputedStyle(switchLink).backgroundColor : '',
+        accentColor,
+      };
     }));
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.bookWidth).toBeGreaterThan(200);
       expect(row.controlsWidth).toBeLessThan(row.rowWidth * 0.6);
+      expect(row.marginLeft).toBeGreaterThan(row.identityRight);
+      expect(row.marginHeight).toBeGreaterThanOrEqual(row.controlsBottom - row.identityTop);
+      expect(row.hasRepeatedBucket).toBe(false);
+      expect(row.titleColor).toBe(row.bodyColor);
+      if (row.switchBackground) expect(row.switchBackground).not.toBe(row.accentColor);
     }
+    expect(rows.some((row) => row.switchBackground !== '')).toBe(true);
+  });
+
+  test('other To Read book margin reflows without overflow at 200 percent text', async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 320, height: 812 });
+    await page.goto('/reading');
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    const row = page.locator('#provisional-journey-content ul[aria-label="To Read books"] > li > article').first();
+    await expect(row).toBeVisible();
+    await expect(row.locator(':scope > div').nth(1)).toBeVisible();
+    const switchLinks = page.locator('#provisional-journey-content ul[aria-label="To Read books"] > li > article a[href="/reading/switch"]');
+    await expect(switchLinks.first()).toBeVisible();
+    await expectNoPageOverflow(page);
   });
 
   test('Journey thumbnails stay aligned, quiet, and outside the keyboard order', async ({ page }) => {
@@ -977,7 +1018,9 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('semantic status text, readable measures, and live theme tokens meet contrast targets', async ({ page }) => {
     await signIn(page);
-    await page.goto('/books/fixture-book/analyses/fixture-run');
+    // Completed-analysis result URLs redirect to the canonical Reading anchor;
+    // exercise the shared semantic status shapes on their current My Books surface.
+    await page.goto('/library');
     const semantics = await page.locator('.status-badge').evaluateAll((nodes) => nodes.map((node) => ({
       text: node.textContent?.trim(), color: getComputedStyle(node).color, border: getComputedStyle(node).borderTopColor,
     })));

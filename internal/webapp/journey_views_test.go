@@ -262,14 +262,29 @@ func TestJourneyPageUsesCanonicalJourneyEntryLink(t *testing.T) {
 }
 
 func TestJourneyCoverageLabelsConditionalVocabulary(t *testing.T) {
-	item := testJourneyBook("conditional", "Conditional book", "analyzed")
+	item := analyzedJourneyBookView("conditional")
+	item.Book.Source.Title = "Conditional book"
 	item.Coverage = &domain.AnalysisCoverage{
 		AnalyzableTokenCount: 100,
 		KnownTokenCount:      50,
 		ReservedTokenCount:   30,
 		Projections:          []domain.CoverageProjection{{TopLemmaCount: 2, ProjectedTokenCount: 75}},
 	}
-	assert.Equal(t, "50.0%", journeyCurrentCoverage(item))
+	assert.Equal(t, "50%", journeyCurrentCoverage(item))
+	item.Coverage.KnownTokenCount = 101
+	item.Coverage.AnalyzableTokenCount = 200
+	assert.Equal(t, "51%", journeyCurrentCoverage(item), "halfway coverage rounds up for learners")
+	item.Coverage.KnownTokenCount = 51
+	item.Coverage.AnalyzableTokenCount = 100
+	assert.Equal(t, "51%", journeyCurrentCoverage(item))
+	item.Coverage.KnownTokenCount = 0
+	item.Coverage.AnalyzableTokenCount = 0
+	assert.Equal(t, "No analyzable tokens", journeyCurrentCoverage(item))
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	assert.Contains(t, html, "No analyzable tokens are available for comparison.")
+	assert.NotContains(t, html, "of analyzable tokens</p>")
+	item.Coverage = nil
+	assert.Equal(t, "unavailable", journeyCurrentCoverage(item))
 }
 
 func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
@@ -286,9 +301,39 @@ func TestJourneyHealthyEvidenceStaysQuiet(t *testing.T) {
 	assert.NotContains(t, html, "Assessment:")
 	assert.NotContains(t, html, "Analysis result ready")
 	assert.NotContains(t, html, "Current coverage")
-	assert.Contains(t, html, "Known vocabulary coverage:")
-	assert.Contains(t, html, "0 of 10 analyzable tokens")
+	assert.Contains(t, html, "Known vocabulary coverage")
+	assert.Contains(t, html, "0%")
+	assert.Contains(t, html, "of analyzable tokens")
+	assert.NotContains(t, html, "To Read</span>")
+	assert.NotContains(t, html, "0 of 10 analyzable tokens")
 	assert.NotContains(t, html, "On arrival")
+}
+
+func TestOtherToReadBookUsesAnnotatedRowAndKeepsSwitchDestination(t *testing.T) {
+	item := testJourneyBook("other-to-read", "A long title that wraps without truncation", "analyzed")
+	item.Book.BookAuthor = "An author"
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	item.Book.Source.ContentSnapshotID = "snapshot"
+	item.Book.AnalysisState = "completed"
+	item.Book.AnalysisRunID = "run"
+	item.Book.CorpusID = "corpus"
+	item.CanChooseGoal = true
+	item.Coverage = &domain.AnalysisCoverage{KnownTokenCount: 12345, AnalyzableTokenCount: 23456}
+	html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
+	start := strings.Index(html, `id="journey-book-other-to-read"`)
+	require.GreaterOrEqual(t, start, 0)
+	end := strings.Index(html[start:], "</article>")
+	require.Greater(t, end, 0)
+	row := html[start : start+end]
+	assert.Contains(t, row, "By An author")
+	assert.Contains(t, row, "53%")
+	assert.NotContains(t, row, "To Read")
+	assert.Contains(t, row, `href="/reading/switch"`)
+	assert.Contains(t, row, "Switch current reading")
+	assert.Contains(t, row, "Known vocabulary coverage")
+	assert.NotContains(t, row, "12345")
+	assert.NotContains(t, row, "23456")
 }
 
 func TestJourneyExceptionalEvidenceNamesStateAndRecovery(t *testing.T) {
@@ -310,8 +355,20 @@ func TestJourneyExceptionalEvidenceNamesStateAndRecovery(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantState, journeyEvidenceState(item))
 			html := renderJourney(t, journeyPageView{Provisional: []journeyBookView{item}}, "", "")
-			assert.Contains(t, html, tt.wantLabel)
-			assert.Contains(t, html, tt.wantAction)
+			rowStart := strings.Index(html, `id="journey-book-`+tt.name+`"`)
+			require.GreaterOrEqual(t, rowStart, 0)
+			rowEnd := strings.Index(html[rowStart:], "</article>")
+			require.Greater(t, rowEnd, 0)
+			row := html[rowStart : rowStart+rowEnd]
+			headingID := strings.Index(row, `id="journey-evidence-heading-`+tt.name+`"`)
+			require.GreaterOrEqual(t, headingID, 0)
+			sectionStart := strings.LastIndex(row[:headingID], "<section")
+			require.GreaterOrEqual(t, sectionStart, 0)
+			sectionEnd := strings.Index(row[headingID:], "</section>")
+			require.Greater(t, sectionEnd, 0)
+			margin := row[sectionStart : headingID+sectionEnd]
+			assert.Contains(t, margin, tt.wantLabel)
+			assert.Contains(t, margin, tt.wantAction)
 		})
 	}
 }

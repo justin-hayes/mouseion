@@ -298,13 +298,13 @@ Use when peer content and actions no longer fit comfortably side by side.
 My Books uses one semantic unordered list at every width. Each Book follows the
 [`AnnotatedBookRow`](components.md#annotatedbookrow) pattern: a small reserved
 cover, full title and author in a text column, contextual actions beneath that
-identity, and canonical bucket status in a visibly edged right margin. On
-compact screens the cover stays beside title and author, then the margin note
+identity, and canonical bucket status in a visibly edged right margin. Reading's
+Other To Read list reuses that cover/identity/margin composition while the section
+provides bucket context and the margin carries coverage or its recovery state.
+On compact screens the cover stays beside title and author, then the margin note
 and actions follow below the text column. Rows separate through whitespace and
-the margin edge rather than boxes or heavy rules. It never introduces
-horizontal page scrolling or an ARIA-grid keyboard model. Reading keeps its
-semantic candidate-list structure and reserves a modest aligned thumbnail
-column.
+the margin edge rather than boxes or heavy rules. Neither list introduces
+horizontal page scrolling or an ARIA-grid keyboard model.
 
 ### Standard — above `40rem` and below `72rem`
 
