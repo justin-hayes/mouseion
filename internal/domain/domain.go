@@ -468,10 +468,25 @@ type ConcordanceLookup struct {
 	Match string
 	// UPOS restricts a lemma lookup to one exact part of speech. Only a
 	// supported Browse identity link supplies it.
-	UPOS     string
+	UPOS string
+	// Priority is the Book captured when the lookup was applied: a Book ID, or
+	// ConcordancePriorityNone for the explicit absence of a current reading.
+	// Empty means no priority has been captured yet (a fresh lookup).
+	Priority string
 	Page     int
 	Revision string
 }
+
+// ConcordancePriorityNone captures that no Book was being read when the
+// lookup was applied.
+const ConcordancePriorityNone = "none"
+
+// Priority-Book evidence states reported with a result that has a priority.
+const (
+	ConcordancePriorityMatches     = "matches"
+	ConcordancePriorityNoMatches   = "no-matches"
+	ConcordancePriorityUnavailable = "unavailable"
+)
 
 type ConcordanceResult struct {
 	Occurrences []ConcordanceResultOccurrence
@@ -484,6 +499,17 @@ type ConcordanceResult struct {
 	// for the language (the canonical lemma or the lowercased source form).
 	Match string
 	Term  string
+	// PriorityBookID and PriorityTitle name the validated captured priority
+	// Book; both are empty when no Book was captured. PriorityState says
+	// whether that Book contributed matches, had none, or has no current
+	// analysis to search.
+	PriorityBookID, PriorityTitle, PriorityState string
+	// InvalidPriority reports a captured Book that is not an owned Book in the
+	// study language.
+	InvalidPriority bool
+	// Continued is true when the first page-local Book group began on an
+	// earlier page.
+	Continued bool
 }
 
 type ConcordanceResultOccurrence struct {

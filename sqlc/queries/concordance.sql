@@ -63,7 +63,9 @@ SELECT o.surface,
        t.raw_lemma,
        COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
        (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
-       COALESCE(d.excluded, false)::boolean AS excluded
+       COALESCE(d.excluded, false)::boolean AS excluded,
+       -- Computed over the whole matched set, before paging.
+       COALESCE(bool_or(o.book_id=sqlc.arg('priority_book')::text) OVER (), false)::boolean AS priority_matched
   FROM concordance_occurrences o
   -- The view exposes these UUIDs as text; keep the indexed token keys uncast.
   JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
@@ -80,9 +82,22 @@ SELECT o.surface,
          AND (sqlc.arg('upos')::text='' OR o.upos=sqlc.arg('upos')))
      OR (sqlc.arg('match')::text='form'
          AND translate(lower(o.surface), 'ς', 'σ')=sqlc.arg('term')::text))
- ORDER BY lower(o.book_title), o.book_title, o.book_id,
+ ORDER BY (o.book_id=sqlc.arg('priority_book')::text) DESC,
+          lower(o.book_title), o.book_title, o.book_id,
           o.unit_order, o.sentence_ordinal, o.token_ordinal
- LIMIT 26 OFFSET sqlc.arg('offset')::bigint;
+ -- The caller starts one row early on later pages and reads one row past the
+ -- page: the first row decides "continued", the last decides "next".
+ LIMIT 27 OFFSET sqlc.arg('offset')::bigint;
+
+-- name: GetConcordancePriorityBook :one
+-- An owned Book in the study language, with whether it has a current analysis
+-- that can contribute occurrences.
+SELECT b.title,
+       EXISTS (SELECT 1 FROM current_analysis_identity ca
+                WHERE ca.owner_id=b.owner_id AND ca.book_id=b.id)::boolean AS analyzed
+  FROM books b
+ WHERE b.owner_id=sqlc.arg('owner') AND b.id=sqlc.arg('book')
+   AND b.language_state='chosen' AND b.language_tag=sqlc.arg('language');
 
 -- name: ConcordanceLemmaEvidenced :one
 -- A lemma is recognized only from non-excluded effective identities in the

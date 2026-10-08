@@ -24,7 +24,7 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	otherBook.BookTitle = "Zweiter Titel"
 	component := VocabularyConcordancePageView(domain.User{}, "", "de",
 		domain.ConcordanceLookup{Term: "Haus", Page: 1},
-		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence, continued, otherBook}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}, true, "", "")
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence, continued, otherBook}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}, true, false, "", "")
 	var rendered bytes.Buffer
 	if err := component.Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Term: "Haus", Page: 1}
 	result := domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}
 	render := func(target string, result domain.ConcordanceResult) string {
-		component := VocabularyConcordancePageView(domain.User{}, "", "de", lookup, result, true, "", target)
+		component := VocabularyConcordancePageView(domain.User{}, "", "de", lookup, result, true, false, "", target)
 		var rendered bytes.Buffer
 		if err := component.Render(t.Context(), &rendered); err != nil {
 			t.Fatal(err)

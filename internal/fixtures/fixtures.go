@@ -792,6 +792,11 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 		}
 	}
 	result.Match, result.Term = match, lemma
+	if query.Priority == BookID {
+		// The fixture corpus is a single Book, so a captured priority always matches.
+		result.PriorityBookID, result.PriorityTitle = BookID, "Der lange Weg nach Hause"
+		result.PriorityState = domain.ConcordancePriorityMatches
+	}
 	var matches []domain.ConcordanceResultOccurrence
 	for i, occurrence := range fixtureRows {
 		// Each synthetic row represents a distinct sentence occurrence; keep IDs

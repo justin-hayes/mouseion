@@ -151,7 +151,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	}
 
 	var concordance bytes.Buffer
-	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, "", "").Render(context.Background(), &concordance))
+	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, false, "", "").Render(context.Background(), &concordance))
 	assert.Contains(t, concordance.String(), `class="vocabulary-shell"`)
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
