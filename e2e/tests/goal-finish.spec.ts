@@ -33,7 +33,6 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
 
   for (const [label, button] of [
     ['End current reading', 'Confirm end current reading'],
-    ['Set aside this Book', 'Confirm set aside'],
   ]) {
     const disclosure = goal.locator('details').filter({ hasText: label }).first();
     await disclosure.locator('summary').click();

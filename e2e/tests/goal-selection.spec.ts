@@ -44,10 +44,9 @@ test.describe('Current reading selection', () => {
 
       const current = page.locator('#primary-goal-section');
       const stop = current.locator('details').filter({ hasText: 'End current reading' });
-      const setAside = current.locator('details').filter({ hasText: 'Set aside this Book' });
-      await expect(stop).toContainText('The Book remains To Read');
-      await expect(setAside).toContainText('moves the Book to Set Aside');
-      for (const [confirmation, button] of [[stop, 'Confirm end current reading'], [setAside, 'Confirm set aside']] as const) {
+      await expect(stop).toContainText('The Book stays in To Read');
+      await expect(current.locator('details').filter({ hasText: 'Set aside this Book' })).toHaveCount(0);
+      for (const [confirmation, button] of [[stop, 'Confirm end current reading']] as const) {
         await confirmation.locator('summary').focus();
         await expect(confirmation.locator('summary')).toBeFocused();
         await confirmation.locator('summary').press('Enter');
@@ -165,9 +164,9 @@ test.describe('Current reading selection', () => {
        await expect(provisional.getByRole('button', { name: 'Confirm removal' })).toHaveCount(0);
        await moreActions.locator(':scope > summary').click();
        await expect(moreActions.getByRole('link', { name: 'My Books' })).toHaveAttribute('href', '/library');
-       const currentSetAside = goal.locator('details').filter({ hasText: 'Set aside this Book' });
-       await currentSetAside.locator('summary').click();
-       await expect(currentSetAside.getByRole('button', { name: 'Confirm set aside' })).toBeVisible();
+       const currentEnd = goal.locator('details').filter({ hasText: 'End current reading' });
+       await currentEnd.locator('summary').click();
+       await expect(currentEnd.getByRole('button', { name: 'Confirm end current reading' })).toBeVisible();
 
       const ineligible = provisional.filter({ hasText: 'Route evidence pending' });
       await expect(ineligible).toContainText('cannot be started');
@@ -197,7 +196,7 @@ test.describe('Current reading selection', () => {
       await expect(page.locator('.library-books .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
    });
 
-   test('stop and set-aside mutations return to truthful Reading state', async ({ page }) => {
+   test('end mutations return to truthful Reading state', async ({ page }) => {
      await signIn(page);
      await page.getByLabel('Study language').selectOption('it');
      await expect(page).toHaveURL(/\/library$/);
@@ -236,16 +235,15 @@ test.describe('Current reading selection', () => {
      };
 
      await startBook(title);
-     const setAside = page.locator('.journey-book--goal details').filter({ hasText: 'Set aside this Book' });
-     await setAside.locator('summary').click();
-     await setAside.getByRole('button', { name: 'Confirm set aside' }).click();
+     const endAgain = page.locator('.journey-book--goal details').filter({ hasText: 'End current reading' });
+     await endAgain.locator('summary').click();
+     await endAgain.getByRole('button', { name: 'Confirm end current reading' }).click();
      await expect(page).toHaveURL(/\/reading\?message=/);
      await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 
      await page.goto('/library');
-     const setAsideBook = page.locator('.library-books .library-book').filter({ hasText: title });
-     await expect(setAsideBook.locator('.library-book__membership .status-badge')).toHaveText('Set Aside');
-     await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
+     const endedBook = page.locator('.library-books .library-book').filter({ hasText: title });
+     await expect(endedBook.locator('.library-book__membership .status-badge')).toHaveText('To Read');
      await startBook(title);
    });
 
