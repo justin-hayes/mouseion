@@ -105,7 +105,7 @@ one-pattern/one-Templ-component implementation.
 | `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Set Aside, Read; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present other To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading |
-| `ReadingChooser` | Group neutral To Read candidates by current Known-vocabulary coverage band; require explicit confirmation to start or switch. | Empty chooser, no comparison, in-progress analysis, attention required, start/switch confirmation | Between-Books Reading chooser |
+| `ReadingChooser` | Group neutral To Read candidates by current Known-vocabulary coverage band; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, start/switch confirmation | Between-Books Reading chooser |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. The Goal leads with Book identity, shows current and after-completion coverage only, and keeps deck actions snapshot-bound. | No evidence, analysis active/failed/complete, reading active, vocabulary work active/complete, deck missing/active/ready/failed/empty | Reading Journey |
 | `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, unavailable evidence, compact viewport | Reading Journey |
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
@@ -284,6 +284,13 @@ slice.
 - Every To Read candidate collection is unordered. The between-Books chooser
   groups candidates by truthful Known-vocabulary coverage bands; bands describe
   evidence, not learner intent, difficulty, or a recommended order.
+  Chooser candidates reuse the annotated Book row: cover beside full title and
+  author, start/switch confirmation and word review beneath the author, and
+  rounded coverage plus next-band distinct-word counts in a visibly edged
+  margin. Analysis progress and unavailable coverage occupy that margin while
+  their review/retry action stays under the identity. Retry is an outline
+  action. On compact screens the margin follows the identity and actions;
+  native disclosure, route, and stale-write safeguards remain unchanged.
 - Reading Journey exposes one learner order. Forecast stages explain that order
   and never become a second route or recommendation.
 - A status badge never replaces a heading, explanatory sentence, progress

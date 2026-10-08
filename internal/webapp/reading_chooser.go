@@ -13,6 +13,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 type readingChooserBookView struct {
@@ -493,7 +495,7 @@ func readingChooserStateLabel(state readingChooserState) string {
 	if state == readingChooserInProgress {
 		return "Analysis in progress"
 	}
-	return "Needs attention"
+	return "Not assessed"
 }
 
 func readingChooserTitle(view readingChooserPageView) string {
@@ -512,7 +514,7 @@ func readingChooserPageTitle(view readingChooserPageView) string {
 
 func readingChooserPageDescription(view readingChooserPageView) string {
 	if view.CurrentBookID != "" {
-		return "Choose another eligible To Read book in this study language. The switch replaces the current book and its active reservation atomically."
+		return "Choose another To Read Book. Your current Book will return to To Read, so you can come back to it later. Coverage groups describe your current vocabulary, not what you ought to read next."
 	}
 	return "Choose a To Read book when you are ready. Coverage groups describe current vocabulary evidence, not difficulty or reading recommendations."
 }
@@ -525,19 +527,19 @@ func readingChooserNextMarkerText(coverage domain.AnalysisCoverage, band domain.
 	marker, hasNextMarker := readingChooserNextMarkers[band]
 	if !hasNextMarker {
 		if band == domain.CoverageBand99Plus {
-			return "At least 99% of analyzable tokens are already Known."
+			return "At least 99% of the words in this Book are already Known."
 		}
 		if band == domain.CoverageBandNoComparison {
-			return "Coverage cannot be compared because there are no analyzable tokens."
+			return "No words to compare for coverage."
 		}
-		return "Next-marker investment is unavailable."
+		return "The number of words to the next band is unavailable."
 	}
 	for _, threshold := range coverage.Thresholds {
 		if threshold.TargetPercent == marker {
 			return readingChooserThresholdText(threshold)
 		}
 	}
-	return fmt.Sprintf("Investment to reach %d%% is unavailable.", marker)
+	return fmt.Sprintf("The number of words to reach %d%% is unavailable.", marker)
 }
 
 var readingChooserNextMarkers = map[domain.CoverageBand]int{
@@ -548,9 +550,9 @@ var readingChooserNextMarkers = map[domain.CoverageBand]int{
 
 func readingChooserThresholdText(threshold domain.CoverageThreshold) string {
 	if !threshold.Reachable {
-		return fmt.Sprintf("%d%%: not reachable from currently eligible vocabulary.", threshold.TargetPercent)
+		return fmt.Sprintf("To reach %d%%: not possible with the words available for review.", threshold.TargetPercent)
 	}
-	return fmt.Sprintf("%d%%: %d additional eligible vocabulary identities.", threshold.TargetPercent, threshold.LemmaCount)
+	return fmt.Sprintf("To reach %d%%: %s more distinct words marked Known.", threshold.TargetPercent, readingChooserCount(threshold.LemmaCount))
 }
 
 func readingChooserAnalysisJobURL(jobID int64) string {
@@ -562,7 +564,12 @@ func readingChooserAnalysisJobURL(jobID int64) string {
 
 func readingChooserCoverageDisplay(coverage domain.AnalysisCoverage) string {
 	if coverage.AnalyzableTokenCount <= 0 {
-		return "No analyzable tokens"
+		return "No words to compare"
 	}
 	return fmt.Sprintf("%.1f%%", min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100))
+}
+
+// The learner-facing interface is English; group evidence counts in that locale.
+func readingChooserCount(count int64) string {
+	return message.NewPrinter(language.English).Sprintf("%d", count)
 }

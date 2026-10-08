@@ -2774,42 +2774,63 @@
   }
   .reading-chooser-entry {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
-    align-items: start;
-    gap: var(--mouseion-space-5);
-    border-bottom: 1px solid var(--mouseion-color-border);
-    padding-block: var(--mouseion-space-4);
-  }
-  .reading-chooser-entry__identity {
-    display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 18rem);
     align-items: start;
     gap: var(--mouseion-space-4);
+    border-bottom: 1px solid var(--mouseion-color-border);
+    padding-block: var(--mouseion-space-5);
+  }
+  .reading-chooser-entry__identity {
+    min-width: 0;
   }
   .reading-chooser-entry__cover, .reading-chooser-entry__cover .book-cover-media {
     width: 4.5rem;
   }
+  .reading-chooser-entry__cover .book-cover-media__label {
+    display: none;
+  }
   .reading-chooser-entry__identity h3 {
     margin-bottom: var(--mouseion-space-1);
   }
+  .reading-chooser-entry__identity > p {
+    margin-bottom: var(--mouseion-space-3);
+    color: var(--mouseion-color-text-muted);
+  }
+  .reading-chooser-entry__actions {
+    display: grid;
+    justify-items: start;
+    gap: var(--mouseion-space-2);
+    min-width: 0;
+  }
+  .reading-chooser-entry__actions > p, .reading-chooser-entry__actions .confirmation {
+    margin: 0;
+  }
+  .reading-chooser-entry__actions .confirmation {
+    max-width: 100%;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .reading-chooser-entry__actions :is(button, a) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .reading-chooser-entry__evidence {
     min-width: 0;
+    border-left: 2px solid var(--mouseion-color-border);
+    padding: var(--mouseion-space-3);
+    background: var(--mouseion-color-surface-quiet);
     color: var(--mouseion-color-text-muted);
     font-size: 0.9375rem;
   }
   .reading-chooser-entry__evidence > :first-child {
     margin-top: 0;
   }
-  .reading-chooser-entry__evidence .confirmation {
-    margin-block: var(--mouseion-space-3);
-  }
   @media (max-width: 40rem) {
     .reading-chooser-entry {
-      grid-template-columns: minmax(0, 1fr);
-      gap: var(--mouseion-space-3);
+      grid-template-columns: 4.5rem minmax(0, 1fr);
     }
     .reading-chooser-entry__evidence {
-      margin-left: calc(4.5rem + var(--mouseion-space-4));
+      grid-column: 2;
     }
   }
 }
