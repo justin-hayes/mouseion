@@ -320,7 +320,8 @@ test.describe('authenticated learner smoke', () => {
       'Zwei Treffer',
     ];
     const compactCounts = ['3 on page', '1 on page', '1 on page', '2 on page'];
-    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
+    // The project's viewport stands in for the desktop/compact layout; 390 and 320 are named widths.
+    for (const viewport of [page.viewportSize()!, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
       await page.setViewportSize(viewport);
       await page.goto('/vocabulary/concordance?term=fixture-books');
       const list = page.locator('#concordance-native-results');
@@ -408,12 +409,13 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#sentence-study-heading')).toBeVisible();
   });
 
-  test('Concordance source counts are read once and occurrences are named by their sentences at 1280, 390, and 320 px', async ({ page }) => {
+  test('Concordance source counts are read once and occurrences are named by their sentences at the project width, 390 px, and 320 px', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const bookTitle = 'Die außerordentlich lange und ausführliche Geschichte vom Haus am Ende der Welt: Ein Roman in drei Büchern';
     const counts = ['3 occurrences on this page', '1 occurrence on this page', '1 occurrence on this page', '2 occurrences on this page'];
     const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
-    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
+    // The project's viewport stands in for the desktop/compact layout; 390 and 320 are named widths.
+    for (const viewport of [page.viewportSize()!, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
       await page.setViewportSize(viewport);
       await page.goto('/vocabulary/concordance?term=fixture-books');
       const where = `${viewport.width}px`;

@@ -9,33 +9,30 @@ async function signIn(page: Page) {
 }
 
 test.describe('My Books collection browsing', () => {
+  // Runs once per Playwright project: the desktop/compact viewport and the
+  // light/dark scheme come from playwright.config.ts, so the four projects
+  // together cover the four combinations without a sweep inside each one.
   test('keeps failed-analysis recovery beside its neutral evidence note at desktop and compact widths', async ({ page }) => {
     await signIn(page);
-    for (const colorScheme of ['light', 'dark'] as const) {
-      await page.emulateMedia({ colorScheme });
-      for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
-        await page.setViewportSize(viewport);
-        await page.goto('/library');
-        const failedRow = page.locator('#book-row-fixture-failed');
-        await expect(failedRow.locator('.library-book__evidence')).toHaveText('Analysis failed.');
-        const retryAnalysis = failedRow.getByRole('button', { name: 'Retry analysis' });
-        await expect(retryAnalysis).toBeVisible();
-        await expect(retryAnalysis.locator('xpath=..')).toHaveAttribute('action', '/reading/books/fixture-failed/reanalyze');
-        await expect(failedRow.locator('.library-book__evidence')).not.toContainText(/0%|coverage|ready/i);
-        const analyzedRow = page.locator('#book-row-fixture-book');
-        await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
-        await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
-        await expect(analyzedRow.locator('.library-book__evidence')).toContainText('Deck ready: 412 cards');
-        await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');
-        await expect(page.locator('#book-row-fixture-failed .library-book__evidence')).not.toContainText('Deck');
-        await expect(page.locator('#book-row-fixture-running .library-book__evidence')).toHaveText('Analysis running.');
-        const unavailableRow = page.locator('#book-row-fixture-route-unavailable');
-        await expect(unavailableRow.locator('.library-book__evidence')).toHaveText('Content unavailable.');
-        await expect(unavailableRow.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
-        await expect(page.locator('#book-row-fixture-not-analyzed .library-book__evidence')).toHaveText('Not analysed yet.');
-        await expect(page.locator('#book-row-fixture-read-history .library-book__evidence')).toHaveText('Finished 3 Jan 2026.');
-      }
-    }
+    await page.goto('/library');
+    const failedRow = page.locator('#book-row-fixture-failed');
+    await expect(failedRow.locator('.library-book__evidence')).toHaveText('Analysis failed.');
+    const retryAnalysis = failedRow.getByRole('button', { name: 'Retry analysis' });
+    await expect(retryAnalysis).toBeVisible();
+    await expect(retryAnalysis.locator('xpath=..')).toHaveAttribute('action', '/reading/books/fixture-failed/reanalyze');
+    await expect(failedRow.locator('.library-book__evidence')).not.toContainText(/0%|coverage|ready/i);
+    const analyzedRow = page.locator('#book-row-fixture-book');
+    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
+    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
+    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('Deck ready: 412 cards');
+    await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');
+    await expect(page.locator('#book-row-fixture-failed .library-book__evidence')).not.toContainText('Deck');
+    await expect(page.locator('#book-row-fixture-running .library-book__evidence')).toHaveText('Analysis running.');
+    const unavailableRow = page.locator('#book-row-fixture-route-unavailable');
+    await expect(unavailableRow.locator('.library-book__evidence')).toHaveText('Content unavailable.');
+    await expect(unavailableRow.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
+    await expect(page.locator('#book-row-fixture-not-analyzed .library-book__evidence')).toHaveText('Not analysed yet.');
+    await expect(page.locator('#book-row-fixture-read-history .library-book__evidence')).toHaveText('Finished 3 Jan 2026.');
   });
 
   test('wraps the recovery action without compact horizontal overflow at 200% text', async ({ page }) => {
@@ -154,35 +151,37 @@ test.describe('My Books collection browsing', () => {
 
   test('shows the first Book identity in the initial desktop and compact viewport', async ({ page }) => {
     await signIn(page);
-    for (const viewport of [{ width: 1280, height: 800 }, { width: 375, height: 667 }]) {
-      await page.setViewportSize(viewport);
-      await page.goto('/library');
-      const firstBook = page.locator('.library-books .library-book').first();
-      await expect(firstBook).toBeVisible();
-      const visibleIdentity = await firstBook.evaluate((item, height) => {
-        const title = item.querySelector('.bibliographic-title')!.getBoundingClientRect();
-        const cover = item.querySelector('.book-cover-media')!.getBoundingClientRect();
-        const intersects = (rect: DOMRect) => rect.top < height && rect.bottom > 0;
-        return { title: intersects(title), cover: intersects(cover) };
-      }, viewport.height);
-      expect(visibleIdentity.title, `Book title should intersect ${viewport.width}x${viewport.height}`).toBe(true);
-      expect(visibleIdentity.cover, `Book cover/placeholder should intersect ${viewport.width}x${viewport.height}`).toBe(true);
-      const notice = page.locator('aside.library-needs-language');
-      if (await notice.count()) {
-        await expect(notice.getByRole('link', { name: 'Review' })).toBeVisible();
-        expect(await notice.evaluate((node, height) => {
-          const rect = node.getBoundingClientRect();
-          return rect.top < height && rect.bottom > 0;
-        }, viewport.height)).toBe(true);
-        await notice.getByText('Why?', { exact: true }).click();
-        await expect(notice.getByRole('link', { name: 'Catalogs' })).toBeVisible();
-      }
+    // The project's own viewport (desktop or compact) is the one under test.
+    await page.goto('/library');
+    const viewport = page.viewportSize()!;
+    const firstBook = page.locator('.library-books .library-book').first();
+    await expect(firstBook).toBeVisible();
+    const visibleIdentity = await firstBook.evaluate((item, height) => {
+      const title = item.querySelector('.bibliographic-title')!.getBoundingClientRect();
+      const cover = item.querySelector('.book-cover-media')!.getBoundingClientRect();
+      const intersects = (rect: DOMRect) => rect.top < height && rect.bottom > 0;
+      return { title: intersects(title), cover: intersects(cover) };
+    }, viewport.height);
+    expect(visibleIdentity.title, `Book title should intersect ${viewport.width}x${viewport.height}`).toBe(true);
+    expect(visibleIdentity.cover, `Book cover/placeholder should intersect ${viewport.width}x${viewport.height}`).toBe(true);
+    const notice = page.locator('aside.library-needs-language');
+    if (await notice.count()) {
+      await expect(notice.getByRole('link', { name: 'Review' })).toBeVisible();
+      expect(await notice.evaluate((node, height) => {
+        const rect = node.getBoundingClientRect();
+        return rect.top < height && rect.bottom > 0;
+      }, viewport.height)).toBe(true);
+      await notice.getByText('Why?', { exact: true }).click();
+      await expect(notice.getByRole('link', { name: 'Catalogs' })).toBeVisible();
     }
   });
 
   test('aligns identity and actions in the text column with status in the margin', async ({ page }) => {
     await signIn(page);
-    for (const viewport of [{ width: 1280, height: 800 }, { width: 900, height: 900 }, { width: 375, height: 667 }]) {
+    // The project's viewport covers desktop or compact; 900px is the explicit
+    // mid-width breakpoint contract and is not provided by any project.
+    const projectViewport = page.viewportSize()!;
+    for (const viewport of [projectViewport, { width: 900, height: 900 }]) {
       await page.setViewportSize(viewport);
       await page.goto('/library');
       const row = page.locator('.library-books .library-book').filter({ has: page.locator('.library-book__author') }).first();

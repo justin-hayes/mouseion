@@ -235,8 +235,8 @@ test.describe('native WebKit smoke journey', () => {
     const context = await browser.newContext({
       baseURL,
       javaScriptEnabled: false,
-      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
-      viewport: test.info().project.name.includes('compact') ? { width: 375, height: 812 } : { width: 1280, height: 800 },
+      colorScheme: test.info().project.use.colorScheme,
+      viewport: test.info().project.use.viewport,
     });
     const page = await context.newPage();
     try {
@@ -276,7 +276,7 @@ test.describe('native WebKit smoke journey', () => {
     const page = await browser.newPage({
       baseURL,
       javaScriptEnabled: false,
-      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
+      colorScheme: test.info().project.use.colorScheme,
       viewport: { width: 320, height: 812 },
     });
     try {
@@ -453,8 +453,8 @@ test.describe('native WebKit smoke journey', () => {
     const context = await browser.newContext({
       baseURL,
       javaScriptEnabled: false,
-      viewport: test.info().project.name.includes('compact') ? { width: 375, height: 667 } : { width: 1280, height: 800 },
-      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
+      viewport: test.info().project.use.viewport,
+      colorScheme: test.info().project.use.colorScheme,
     });
     const page = await context.newPage();
     try {
@@ -524,8 +524,8 @@ test.describe('native WebKit smoke journey', () => {
     const context = await browser.newContext({
       baseURL,
       javaScriptEnabled: false,
-      viewport: test.info().project.name.includes('compact') ? { width: 375, height: 667 } : { width: 1280, height: 800 },
-      colorScheme: test.info().project.name.endsWith('-dark') ? 'dark' : 'light',
+      viewport: test.info().project.use.viewport,
+      colorScheme: test.info().project.use.colorScheme,
     });
     const page = await context.newPage();
     try {

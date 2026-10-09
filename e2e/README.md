@@ -14,6 +14,17 @@ same four viewport/appearance combinations, so the complete workflow suite is
 not multiplied by a second engine. Run only that focused matrix with
 `make browser-smoke-webkit` (or `cd e2e && npm run smoke:webkit`).
 
+The Playwright projects own the desktop/compact × light/dark matrix. An
+ordinary test reads its project's viewport (`page.viewportSize()`) and colour
+scheme instead of looping over them, so each combination runs once per project.
+A test keeps its own width only when that width is the contract: a named
+breakpoint or special width (for example 320px, 768px, or 900px), a 200% text
+check, or a transition between widths within one test. Tests that open their own
+WebKit browser context read the project's viewport and scheme from
+`test.info().project.use`. Tests that switch the OS colour scheme or the app's
+`data-theme` attribute within one page keep those in-test switches, because the
+projects do not drive those mechanisms.
+
 Playwright runs four workers locally and one per CPU core in CI. Each worker starts and owns an independent
 in-memory fixture server on a loopback port for its current spec file; it stops
 that server and starts a fresh one at the next file boundary. Tests in a file
