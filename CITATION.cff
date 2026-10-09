@@ -7,6 +7,8 @@ authors:
     given-names: Justin
 repository-code: "https://github.com/justin-hayes/mouseion"
 license: AGPL-3.0-only
+version: 1.0.0
+date-released: 2026-10-09
 abstract: >-
   Mouseion analyzes the ebooks in a learner's own library with Stanza, persists
   a normalized, dependency-parsed corpus, measures the learner's vocabulary
