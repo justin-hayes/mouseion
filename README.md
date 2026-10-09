@@ -70,16 +70,15 @@ one only when its recorded process is no longer running; unrecognized, other-use
 and active directories are left untouched. A reused PID is treated
 conservatively as active, so its directory may need manual inspection later.
 
-## CI dependency caching
+## CI
 
-CI runs on a persistent self-hosted runner. Runtime setup actions still select
-and reuse installed Go and Node distributions from the Actions runner tool
-cache, while Go, uv, npm, and golangci-lint reuse their dependency or analysis
-caches on the runner filesystem. Their GitHub Actions remote dependency caches
-are disabled: restoring archives over persistent directories caused extraction
-warnings and duplicate saves, and added no useful reuse. This distinction is
-intentional: tool caching keeps runtimes available, local filesystem caching
-keeps dependencies warm between jobs, and remote Actions caching is not used.
+CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
+from forks never execute on maintainer infrastructure. The build, lint,
+integration, and browser-smoke jobs run in parallel. Each job starts from a
+clean machine and restores Go, uv, npm, and golangci-lint dependencies from
+GitHub Actions caches keyed on the corresponding lock files. Integration tests
+start PostgreSQL through Testcontainers on the runner's Docker daemon, and
+Playwright installs its browser system dependencies itself.
 
 `make dev` starts the Go web server, which connects to PostgreSQL (required,
 `MOUSEION_DATABASE_URL`) and the Python NLP gRPC service (required for analysis,
