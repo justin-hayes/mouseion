@@ -138,6 +138,22 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 	return "/reading?" + values.Encode()
 }
 
+// readingBrowseRefreshURL re-checks count readiness for the same Current
+// reading, prefix, and page. It is a plain link: it never requeues work.
+func readingBrowseRefreshURL(view readingBrowseView) string {
+	return vocabularyBrowsePageURL(view.Query.Page, domain.VocabularyBrowsePage{
+		CurrentBookID: view.Query.CurrentBookID, IncludeAll: view.Query.IncludeAll, Language: view.Query.Language,
+	}, view.Prefix)
+}
+
+// readingBrowseClearPrefixURL drops only the prefix, keeping the accounting
+// reveal choice.
+func readingBrowseClearPrefixURL(view readingBrowseView) string {
+	return vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{
+		CurrentBookID: view.Query.CurrentBookID, IncludeAll: view.Query.IncludeAll, Language: view.Query.Language,
+	}, "")
+}
+
 // readingBrowseFirstPageURL restarts Browse at its first page for the exact
 // Current reading, dropping any stale revision or page.
 func readingBrowseFirstPageURL(view readingBrowseView) string {

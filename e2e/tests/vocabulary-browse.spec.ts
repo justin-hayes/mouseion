@@ -55,6 +55,8 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     await noScriptPage.goto('/reading?q=zznotfound');
     await expect(noScriptPage.getByText('No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.')).toBeVisible();
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('zznotfound');
+    await noScriptPage.getByRole('link', { name: 'Clear prefix' }).click();
+    await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('');
   } finally {
     await noScriptContext.close();
   }

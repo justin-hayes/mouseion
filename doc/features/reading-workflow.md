@@ -88,6 +88,16 @@ the superseded Goal/ordered-Journey model as historical context.
   focus and keyboard order follow document order.
 - Empty To Read, failed or stale analysis, unsupported-language, and recovery
   states retain a clear path back to My Books, Catalogs, or the relevant retry.
+- Working desk dependency states stay distinct and never become a successful
+  zero: missing or stale analysis withholds Browse and keeps identity, Finish,
+  Switch, End, and retained downloads; **Updating vocabulary counts** and
+  **Vocabulary counts unavailable** (bounded retries exhausted) both offer a
+  plain **Refresh status** link that only re-checks and never requeues work or
+  reruns analysis; **No eligible vocabulary in this analysis** differs from an
+  empty frozen selection; a no-match prefix is retained with **Clear prefix**;
+  all-accounted-for explains Known/Reserved/prepared inclusion without implying
+  mastery. Preparation failure stays preparation-specific with Retry bound to
+  the same frozen snapshot, and Finish depends only on frozen acceptance.
 - Compact and desktop layouts retain Book identity, status, and primary actions
   without page-level horizontal scrolling. Reduced-motion preferences are
   respected.
