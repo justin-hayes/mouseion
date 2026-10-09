@@ -282,7 +282,7 @@ test.describe('authenticated learner smoke', () => {
       await expect(highZoomResult.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
       const highZoomContent = await highZoomResult.evaluate(row => {
         const rowBox = row.getBoundingClientRect();
-        const book = row.querySelector('.concordance-book-label')!.getBoundingClientRect();
+        const book = row.querySelector('.concordance-source')!.getBoundingClientRect();
         const source = row.querySelector('.concordance-context')!.getBoundingClientRect();
         const study = row.querySelector('.concordance-study-link')!.getBoundingClientRect();
         return { rowLeft: rowBox.left, rowRight: rowBox.right, bookLeft: book.left, bookRight: book.right, sourceLeft: source.left, sourceRight: source.right, studyLeft: study.left, studyRight: study.right };
@@ -311,6 +311,103 @@ test.describe('authenticated learner smoke', () => {
     }
   });
 
+  test('Concordance scans uninterrupted across Books with quiet static source labels', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const fullTitles = [
+      'Die außerordentlich lange und ausführliche Geschichte vom Haus am Ende der Welt: Ein Roman in drei Büchern',
+      'Kurz',
+      'Noch ein sehr langer Titel für ein einziges Vorkommen im Korpus',
+      'Zwei Treffer',
+    ];
+    const compactCounts = ['3 on page', '1 on page', '1 on page', '2 on page'];
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/vocabulary/concordance?term=fixture-books');
+      const list = page.locator('#concordance-native-results');
+      const rows = list.locator('> li');
+      await expect(rows).toHaveCount(7);
+      const where = `${viewport.width}px`;
+
+      // One uninterrupted list: no Book headings, divider artifacts, or empty label cells.
+      await expect(list.locator('h2, h3, h4, [role="heading"], hr, [aria-hidden="true"]:not(.concordance-count-compact)')).toHaveCount(0);
+      const labels = list.locator('.concordance-source');
+      await expect(labels).toHaveCount(4);
+      await expect(list.locator('.concordance-source-title')).toHaveText(fullTitles);
+      await expect(list.locator('.concordance-count-compact')).toHaveText(compactCounts);
+      await expect(labels.nth(0)).toContainText('3 occurrences on this page');
+      await expect(labels.nth(1)).toContainText('1 occurrence on this page');
+      // Source labels are static text: no tab stop, control, or disclosure.
+      expect(await labels.evaluateAll(nodes => nodes.map(node => node.querySelectorAll('a, button, summary, details, input, [tabindex], [title]').length)), where).toEqual([0, 0, 0, 0]);
+      // Only the first occurrence of each page-local Book group carries a label.
+      expect(await rows.evaluateAll(items => items.map(item => item.querySelectorAll('.concordance-source').length)), where).toEqual([1, 0, 0, 1, 1, 1, 0]);
+
+      // Rows are uniform and gapless, so a label can never size a row or leave a gap after a one-hit Book.
+      const geometry = await rows.evaluateAll(items => items.map(item => {
+        const box = item.getBoundingClientRect();
+        const label = item.querySelector('.concordance-source');
+        const title = item.querySelector('.concordance-source-title');
+        const study = item.querySelector('.concordance-study-link')!.getBoundingClientRect();
+        return {
+          top: box.top, bottom: box.bottom, height: box.height, studyRight: study.right, studyWidth: study.width,
+          labelHeight: label?.getBoundingClientRect().height ?? 0,
+          titleNoWrap: title ? getComputedStyle(title).whiteSpace === 'nowrap' : true,
+          titleClipped: title ? title.scrollWidth > title.clientWidth : false,
+        };
+      }));
+      for (const [index, row] of geometry.entries()) {
+        expect(Math.abs(row.height - geometry[0].height), `${where} row ${index} height`).toBeLessThanOrEqual(1);
+        if (index > 0) expect(Math.abs(row.top - geometry[index - 1].bottom), `${where} gap before row ${index}`).toBeLessThanOrEqual(1);
+        expect(row.studyRight, `${where} Study stays inside the viewport`).toBeLessThanOrEqual(viewport.width);
+        expect(row.studyWidth).toBeGreaterThan(0);
+        expect(row.titleNoWrap).toBe(true);
+        expect(row.labelHeight, `${where} label fits within its row`).toBeLessThanOrEqual(row.height + 1);
+      }
+      // The long title is only visually ellipsized; its complete text remains in the DOM.
+      expect(geometry[0].titleClipped, `${where} long title is visually ellipsized`).toBe(true);
+      expect(geometry[3].titleClipped, `${where} short title is shown whole`).toBe(false);
+      expect(geometry[4].titleClipped, `${where} adjacent one-hit title is ellipsized, not wrapped`).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+      // Native single-open disclosure; Study stays a visible link whether open or closed.
+      const details = list.locator('details.concordance-row');
+      const study = list.getByRole('link', { name: 'Study this sentence and its syntax' });
+      await expect(study).toHaveCount(7);
+      await details.nth(0).locator('summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(details.nth(0)).toHaveAttribute('open', '');
+      await expect(study.nth(0)).toBeVisible();
+      await expect(details.nth(0).locator('.concordance-context p')).toHaveText('Das Haus sieht gut aus.');
+      await details.nth(4).locator('summary').focus();
+      await page.keyboard.press('Space');
+      await expect(details.nth(4)).toHaveAttribute('open', '');
+      await expect(details.nth(0)).not.toHaveAttribute('open', '');
+      await expect(study.nth(4)).toBeVisible();
+      const context = await details.nth(4).locator('.concordance-context').evaluate(element => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right, width: box.width };
+      });
+      expect(context.left, `${where} expanded sentence left edge`).toBeGreaterThanOrEqual(0);
+      expect(context.right, `${where} expanded sentence right edge`).toBeLessThanOrEqual(viewport.width);
+      if (viewport.width <= 390) expect(context.width, `${where} expanded sentence uses readable full width`).toBeGreaterThan(viewport.width * 0.7);
+
+      // 200% text enlargement reflows without clipping or horizontal page scrolling.
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${where} at 200% text`).toBe(true);
+      for (const index of [0, 4]) {
+        const box = await study.nth(index).boundingBox();
+        expect(box, `${where} Study visible at 200% text`).not.toBeNull();
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      }
+      await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    }
+
+    // Study provides the destination for a label that only shows a shortened title.
+    await page.goto('/vocabulary/concordance?term=fixture-books');
+    await page.getByRole('link', { name: 'Study this sentence and its syntax' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Study this sentence and its syntax' })).toBeVisible();
+    await expect(page.locator('#sentence-study-heading')).toBeVisible();
+  });
+
   test('Concordance enhancement keeps one server-rendered list and native disclosures', async ({ page }) => {
     const concordanceRequests: string[] = [];
     page.on('request', request => {
@@ -336,7 +433,7 @@ test.describe('authenticated learner smoke', () => {
     expect(occurrenceIDs).toEqual(Array.from({ length: 25 }, (_, index) => `occurrence-fixture-book-${index + 2}-1`));
     await expect(page.locator('#occurrence-fixture-book-2-1')).toBeVisible();
     const firstRow = rows.locator('.concordance-result').first();
-    await expect(firstRow.locator('.concordance-book-label')).toContainText('Der lange Weg nach Hause');
+    await expect(firstRow.locator('.concordance-source')).toContainText('Der lange Weg nach Hause');
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
     const accentUsesMouseionToken = await firstRow.locator('.concordance-surface').evaluate(element => {
       const probe = document.createElement('span');
@@ -383,7 +480,7 @@ test.describe('authenticated learner smoke', () => {
     await page.setViewportSize({ width: 320, height: 812 });
     const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(horizontalOverflow).toBe(false);
-    await expect(firstRow.locator('.concordance-book-label')).toBeVisible();
+    await expect(firstRow.locator('.concordance-source')).toBeVisible();
     await expect(firstRow.locator('.concordance-study-link')).toBeVisible();
     await expect(secondRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await firstRow.locator('.concordance-study-link').click();
@@ -516,7 +613,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe(pageTwoID);
     expect(returnedURL.searchParams.get('focus')).toBe(pageTwoID);
     await expect(page.locator('#concordance-summary').locator('..')).toContainText('page 2');
-    await expect(results.locator('.concordance-book-title')).toHaveText('Der lange Weg nach Hause');
+    await expect(results.locator('.concordance-source-title')).toHaveText('Der lange Weg nach Hause');
 
     await results.locator('.concordance-result').first().locator('.concordance-study-link').click();
     const returnLink = page.getByRole('link', { name: 'Return to Concordance results' });

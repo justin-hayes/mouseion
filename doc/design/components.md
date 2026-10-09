@@ -266,10 +266,17 @@ and occurrence decisions remain labeled native forms inside native disclosures.
 Disclosure state is visible without color alone, checkable labels retain a
 generous target around the native-size checkbox, and the result list remains one
 server-rendered ordered list (with an explicit list role when CSS removes native
-markers). Results read as a keyword-in-context list: each Book's title and
-occurrence count label its group, dividers separate groups rather than individual
-occurrences, and the matched form sits directly between its right-aligned left
-context and left-aligned right context. One sentence names the applied lookup,
+markers). Results read as one uninterrupted keyword-in-context list across Book
+boundaries: no Book headings, dividers, group gaps, numbered keys, or per-row
+titles. Only the first occurrence in each page-local Book group carries a quiet
+static source label (a single-line, visually ellipsized title plus an explicitly
+page-local count) in a margin column; the label is plain text with no
+disclosure, chevron, tooltip, or tab stop, keeps its complete text in the
+DOM, and cannot enlarge the row or leave a gap after a one-hit Book. The
+matched form sits directly between its right-aligned left context and
+left-aligned right context. On narrow screens closed rows stay compact and the
+expanded sentence takes the full row width; under severe enlargement the source
+label moves after the example. One sentence names the applied lookup,
 Book scope, grammar filter, and result range. Every occurrence has a visible
 “Study” link; sentence study remains a separate named link, and return navigation keeps
 its occurrence/results-summary focus contract. Playwright role/name assertions

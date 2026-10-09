@@ -402,14 +402,15 @@ test.describe('native WebKit smoke journey', () => {
     const secondRow = page.locator('#concordance-native-results details').nth(1);
     const firstSummary = firstRow.locator('summary');
     const closedOccurrenceCue = await firstSummary.evaluate(element => getComputedStyle(element, '::before').transform);
-    await expect(page.locator('.concordance-book-label').first()).toContainText('Der lange Weg nach Hause');
-    await expect(page.locator('.concordance-book-count').first()).toContainText('25 occurrences on this page');
+    await expect(page.locator('.concordance-source').first()).toContainText('Der lange Weg nach Hause');
+    await expect(page.locator('.concordance-source-count').first()).toContainText('25 occurrences on this page');
     await expect(firstSummary).toContainText('Haus');
 
     // Pointer activation opens native context; keyboard focus remains visible.
     await firstSummary.click();
     await expect(firstRow).toHaveAttribute('open', '');
-    expect(await firstSummary.evaluate(element => getComputedStyle(element, '::before').transform)).not.toBe(closedOccurrenceCue);
+    // The chevron rotates over a short transition, so poll for its settled state.
+    await expect.poll(() => firstSummary.evaluate(element => getComputedStyle(element, '::before').transform)).not.toBe(closedOccurrenceCue);
     await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
     await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
     await firstSummary.focus();

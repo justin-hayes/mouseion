@@ -61,14 +61,14 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 						if len(result.Occurrences) > 0 {
 							<ol id="concordance-native-results" class="concordance-results" role="list">
 								for index, occurrence := range result.Occurrences {
-									<li class={ "concordance-result" + concordanceBookGroupClass(result.Occurrences, index) }>
+									<li class="concordance-result">
 										if concordanceStartsBookGroup(result.Occurrences, index) {
-											<div class="concordance-book-label">
-												<span class="concordance-book-title">{ occurrence.BookTitle }</span>
-												<span class="concordance-book-count">{ concordanceBookGroupCountText(result.Occurrences, index) }</span>
-											</div>
-										} else {
-											<div class="concordance-book-label" aria-hidden="true"></div>
+											// A static label, not a control: the complete title stays in the text
+											// and CSS only ellipsizes it visually, so it never sets the row height.
+											<p class="concordance-source">
+												<span class="concordance-source-title">{ occurrence.BookTitle }</span>
+												<span class="concordance-source-count"><span class="concordance-count-full">{ concordanceBookGroupCountText(result.Occurrences, index) }</span><span class="concordance-count-compact" aria-hidden="true">{ concordanceBookGroupCompactCount(result.Occurrences, index) }</span></span>
+											</p>
 										}
 										<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
 											{{ before, target, after := concordanceSentenceParts(occurrence) }}
@@ -243,22 +243,25 @@ func concordanceStartsBookGroup(occurrences []domain.ConcordanceResultOccurrence
 	return index == 0 || occurrences[index-1].BookID != occurrences[index].BookID
 }
 
-func concordanceBookGroupClass(occurrences []domain.ConcordanceResultOccurrence, index int) string {
-	if index > 0 && concordanceStartsBookGroup(occurrences, index) {
-		return " concordance-result--book-start"
-	}
-	return ""
-}
-
-func concordanceBookGroupCountText(occurrences []domain.ConcordanceResultOccurrence, index int) string {
+func concordanceBookGroupSize(occurrences []domain.ConcordanceResultOccurrence, index int) int {
 	count := 1
 	for next := index + 1; next < len(occurrences) && occurrences[next].BookID == occurrences[index].BookID; next++ {
 		count++
 	}
-	if count == 1 {
-		return "1 occurrence on this page"
+	return count
+}
+
+func concordanceBookGroupCountText(occurrences []domain.ConcordanceResultOccurrence, index int) string {
+	if count := concordanceBookGroupSize(occurrences, index); count > 1 {
+		return fmt.Sprintf("%d occurrences on this page", count)
 	}
-	return fmt.Sprintf("%d occurrences on this page", count)
+	return "1 occurrence on this page"
+}
+
+// concordanceBookGroupCompactCount is the narrow-screen form of the count; it
+// stays explicitly page-local so a continued Book is never read as a total.
+func concordanceBookGroupCompactCount(occurrences []domain.ConcordanceResultOccurrence, index int) string {
+	return fmt.Sprintf("%d on page", concordanceBookGroupSize(occurrences, index))
 }
 
 func concordanceOccurrenceID(occurrence domain.ConcordanceResultOccurrence) string {

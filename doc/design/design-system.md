@@ -221,7 +221,13 @@ ordinary section headings use 20px; only a current Book title may reach
 39–49px. Reading passages use 17–19px Literata at approximately 1.65 line
 height and a 60–75-character measure. Metadata remains at least 13px, and
 normal controls and help remain comfortably readable. Do not truncate
-authoritative titles or require hover to reveal them.
+authoritative titles or require hover to reveal them. The one narrow exception
+is the secondary Concordance source label (ADR 0086): the first occurrence of
+each page-local Book group shows a quiet, static, single-line title that CSS
+visually ellipsizes (no manual shortening, tooltip, disclosure, chevron, or tab
+stop) while its complete text stays in the DOM for assistive technology. It
+must not size or gap the occurrence row, and Study visibly shows the complete
+title. Titles everywhere else wrap without truncation.
 
 Font faces use `font-display: swap`, generic sans-serif/serif fallback stacks, and
 local URLs through the embedded static handler. Preload only the Commissioner

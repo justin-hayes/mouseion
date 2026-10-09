@@ -773,6 +773,9 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	case "fixture-server-timeout":
 		return domain.ConcordanceResult{}, context.DeadlineExceeded
 	}
+	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-books") {
+		return fixtureMultiBookConcordance(result), nil
+	}
 	fixtureRows := []domain.ConcordanceResultOccurrence{
 		fixtureConcordanceOccurrence("haus", "heim", true, false),
 		fixtureConcordanceOccurrence("haus", "haus", false, true),
@@ -821,7 +824,7 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 }
 
 func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, unit string, sentence, target int64, targetSurface string) (domain.SentenceStudy, error) {
-	if book != BookID || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 27 {
+	if (book != BookID && !strings.HasPrefix(book, "fixture-kwic-")) || unit != "fixture-concordance-unit" || sentence < 0 || sentence > 27 {
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
 	return domain.SentenceStudy{BookID: book, BookTitle: "Der lange Weg nach Hause", ChapterTitle: "Kapitel 1", TargetSurface: targetSurface,
@@ -834,6 +837,34 @@ func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, uni
 			{Surface: "aus", RawLemma: "aus", EffectiveLemma: "aus", UPOS: "PART", Dependency: "compound:prt", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 4},
 			{Surface: ".", RawLemma: ".", EffectiveLemma: ".", UPOS: "PUNCT", Dependency: "punct", HeadOrdinal: 2, HeadSurface: "sieht", Ordinal: 5},
 		}}, nil
+}
+
+// fixtureMultiBookConcordance returns one page spanning several Books: a
+// long-title multi-hit Book, two adjacent one-hit Books, and a short-title
+// two-hit Book, so browser tests can check that quiet source labels never
+// size rows or leave gaps after a one-hit Book.
+func fixtureMultiBookConcordance(result domain.ConcordanceResult) domain.ConcordanceResult {
+	books := []struct {
+		id, title string
+		hits      int
+	}{
+		{"fixture-kwic-long", "Die außerordentlich lange und ausführliche Geschichte vom Haus am Ende der Welt: Ein Roman in drei Büchern", 3},
+		{"fixture-kwic-one-a", "Kurz", 1},
+		{"fixture-kwic-one-b", "Noch ein sehr langer Titel für ein einziges Vorkommen im Korpus", 1},
+		{"fixture-kwic-two", "Zwei Treffer", 2},
+	}
+	result.Match, result.Term = domain.ConcordanceMatchForm, "fixture-books"
+	ordinal := int64(0)
+	for _, book := range books {
+		for range book.hits {
+			occurrence := fixtureConcordanceOccurrence("haus", "haus", false, false)
+			occurrence.BookID, occurrence.BookTitle = book.id, book.title
+			occurrence.SentenceOrdinal = ordinal
+			ordinal++
+			result.Occurrences = append(result.Occurrences, occurrence)
+		}
+	}
+	return result
 }
 
 func fixtureConcordanceOccurrence(rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {

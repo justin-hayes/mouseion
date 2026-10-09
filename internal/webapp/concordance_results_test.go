@@ -35,10 +35,10 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 		`<details class="concordance-row" name="concordance-occurrences"`,
 		`<a class="concordance-study-link"`,
 		`>Study</a>`,
-		`class="concordance-book-label"`,
+		`class="concordance-source"`,
 		`2 occurrences on this page`,
 		`1 occurrence on this page`,
-		`class="concordance-result concordance-result--book-start"`,
+		`2 on page`,
 		`Zweiter Titel`,
 	} {
 		if !strings.Contains(body, want) {
@@ -51,11 +51,16 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	if !strings.Contains(body, `Title &lt;/script&gt;&lt;img src=x&gt;`) || strings.Contains(body, `</script><img src=x>`) {
 		t.Fatal("Book title was not escaped in the server-rendered list")
 	}
-	if got := strings.Count(body, `class="concordance-book-label"`); got != 3 {
-		t.Fatalf("rendered %d marginal book labels, want one per result row", got)
+	for _, retired := range []string{`concordance-book-label`, `concordance-result--book-start`, `aria-hidden="true"></div>`} {
+		if strings.Contains(body, retired) {
+			t.Errorf("rendered list still has retired grouping artifact %q", retired)
+		}
 	}
-	if got := strings.Count(body, `class="concordance-book-title"`); got != 2 {
-		t.Fatalf("rendered %d Book titles, want one at each Book group start", got)
+	if got := strings.Count(body, `class="concordance-source-title"`); got != 2 {
+		t.Fatalf("rendered %d source labels, want one at each page-local Book group start", got)
+	}
+	if got := strings.Count(body, `<li class="concordance-result">`); got != 3 {
+		t.Fatalf("rendered %d uniform result rows, want 3", got)
 	}
 	if got := strings.Count(body, `class="concordance-results-summary"`); got != 1 {
 		t.Fatalf("rendered %d results summaries, want exactly one", got)
