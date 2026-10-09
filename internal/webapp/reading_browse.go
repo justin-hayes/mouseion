@@ -37,6 +37,31 @@ type readingBrowseView struct {
 	Page          domain.VocabularyBrowsePage
 	Problem       readingBrowseProblem
 	RequestedPage string
+	// SnapshotID is the Current reading's commitment identity. Rows carry it in
+	// their Concordance origin; it is empty where no commitment is known.
+	SnapshotID string
+	// FocusRow is the row a Back to book vocabulary request asks to focus, and
+	// FocusRowFound reports whether the restored page still has it. A missing row
+	// gives focus to the results heading, never to a different row.
+	FocusRow      string
+	FocusRowFound bool
+}
+
+// FocusRowMissing is true only when a restore named a row the page lacks.
+func (v readingBrowseView) FocusRowMissing() bool {
+	return v.FocusRow != "" && !v.FocusRowFound
+}
+
+// rowOrigin is the Concordance origin for one Browse row. It is inactive when
+// Browse has no commitment identity to name.
+func (v readingBrowseView) rowOrigin(row domain.VocabularyBrowseRow) browseOrigin {
+	if v.SnapshotID == "" {
+		return browseOrigin{}
+	}
+	return browseOrigin{
+		BookID: v.Query.CurrentBookID, SnapshotID: v.SnapshotID, Prefix: v.Prefix, IncludeAll: v.Query.IncludeAll,
+		Page: v.Page.Page, Revision: v.Page.CorpusRevision, Row: browseRowKey(row.UPOS, row.CanonicalLemma),
+	}
 }
 
 func vocabularyBrowseDisplayLemma(language, lemma, upos string) string {
@@ -109,6 +134,12 @@ func (h *Handler) loadReadingBrowse(ctx context.Context, r *http.Request, owner,
 	if view.Query.Page > 1 && view.Query.Page > vocabularyBrowseLastPage(page.Total) && !page.BrowseCountsUpdating && !page.BrowseCountsUnavailable {
 		view.Problem = readingBrowsePageOutOfRange
 		return view, http.StatusNotFound
+	}
+	view.FocusRow = values.Get("row")
+	for _, row := range page.Rows {
+		if view.FocusRow != "" && browseRowKey(row.UPOS, row.CanonicalLemma) == view.FocusRow {
+			view.FocusRowFound = true
+		}
 	}
 	return view, http.StatusOK
 }

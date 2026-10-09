@@ -169,15 +169,15 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	}
 
 	var concordance bytes.Buffer
-	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, false, "", "").Render(context.Background(), &concordance))
+	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, false, "", "", browseOrigin{}).Render(context.Background(), &concordance))
 	assert.Contains(t, concordance.String(), `class="vocabulary-shell"`)
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
 	var sentenceStudy, lemmaReview, concordanceError, concordanceChanged bytes.Buffer
 	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/vocabulary/concordance").Render(context.Background(), &sentenceStudy))
 	require.NoError(t, LemmaReviewPage(domain.User{Username: "learner"}, "csrf", "book", "Book", "", "", true, nil, nil, lemmaReviewRecovery{}, nil).Render(context.Background(), &lemmaReview))
-	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false).Render(context.Background(), &concordanceError))
-	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}).Render(context.Background(), &concordanceChanged))
+	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false, browseOrigin{}).Render(context.Background(), &concordanceError))
+	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, browseOrigin{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), lemmaReview.String(), concordanceError.String(), concordanceChanged.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
 		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
@@ -633,7 +633,7 @@ func TestVocabularyBrowseChangedEvidenceOffersRestartInsteadOfStalePage(t *testi
 	assert.Equal(t, http.StatusConflict, status)
 	assert.Contains(t, html, `id="vocabulary-recovery"`)
 	assert.Contains(t, html, "Current evidence changed")
-	assert.Contains(t, html, "Restart in the Current reading")
+	assert.Contains(t, html, "Refresh vocabulary")
 	assert.Contains(t, html, "reading=book-1")
 	assert.NotContains(t, html, "obsolete-book")
 	assert.Contains(t, html, `q=Haus`)
@@ -646,7 +646,7 @@ func TestVocabularyBrowseRefusesToApplyARequestAfterCurrentBookChanges(t *testin
 	_, status, html := loadBrowseForTest(t, browseTestServices(changedVocabularyBrowseStore{}), "/reading?q=Haus&reading=book-1&page=2&rev=old-revision", "book-2")
 
 	assert.Equal(t, http.StatusConflict, status)
-	assert.Contains(t, html, "These results were not applied")
+	assert.Contains(t, html, "were not applied")
 	assert.Contains(t, html, "q=Haus")
 	assert.Contains(t, html, "reading=book-2")
 	assert.NotContains(t, html, "old-revision")

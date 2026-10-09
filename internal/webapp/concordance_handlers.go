@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 // concordanceNoticeTermRequired and the other notices below are the learner
@@ -32,6 +33,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		Priority: strings.TrimSpace(query.Get("priority")),
 	}
 	focusTarget := strings.TrimSpace(query.Get("focus"))
+	origin := parseBrowseOrigin(query)
 	pageValid := true
 	if raw := query.Get("page"); raw != "" {
 		if page, parseErr := strconv.Atoi(raw); parseErr == nil && page > 0 {
@@ -44,11 +46,11 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	lookup.Language = requestedLanguage
 	loadError := func(language string, err error) {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
-			h.renderConcordanceFailure(w, r, http.StatusGatewayTimeout, u, language, lookup, false)
+			h.renderConcordanceFailure(w, r, http.StatusGatewayTimeout, u, language, lookup, origin, false)
 			return
 		}
 		log.Printf("mouseion: load Concordance context: %v", err)
-		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, lookup, false)
+		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, lookup, origin, false)
 	}
 	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(queryCtx, u.ID)
 	if err != nil {
@@ -64,8 +66,23 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	if !learnerLanguagePresent(languages, knownLanguages, language) {
 		language = ""
 	}
+	// The origin is only a pointer back to a Browse excursion. It must name an
+	// owned Book in the study language, or it is dropped; it never exposes
+	// another owner's Book and authorizes nothing.
+	if origin.Active() && language != "" {
+		detail, detailErr := h.services.Store.Books.GetBookDetail(queryCtx, u.ID, origin.BookID)
+		switch {
+		case errors.Is(detailErr, persistence.ErrNotFound):
+			origin = browseOrigin{}
+		case detailErr != nil:
+			loadError(language, detailErr)
+			return
+		case detail.Book.LanguageTag != language:
+			origin = browseOrigin{}
+		}
+	}
 	invite := func(status int, message string) {
-		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, false, message, ""))
+		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, false, message, "", origin))
 	}
 	switch {
 	case !pageValid:
@@ -107,11 +124,11 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
 			status = http.StatusGatewayTimeout
 		}
-		h.renderConcordanceFailure(w, r, status, u, language, lookup, false)
+		h.renderConcordanceFailure(w, r, status, u, language, lookup, origin, false)
 		return
 	}
 	if result.Stale {
-		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, true)
+		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, origin, true)
 		return
 	}
 	if result.InvalidPriority {
@@ -121,24 +138,24 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	}
 	lookup = concordanceAppliedLookup(lookup, result)
 	readingChanged := lookup.Priority != currentPriority
-	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", focusTarget))
+	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", focusTarget, origin))
 }
 
-func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, lookup domain.ConcordanceLookup, changed bool) {
+func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Request, status int, u domain.User, language string, lookup domain.ConcordanceLookup, origin browseOrigin, changed bool) {
 	csrf := h.csrf(w, r)
 	if isPartialHTMXRequest(r) {
 		if changed {
-			renderStatus(w, r, status, VocabularyConcordanceChangedRecovery(lookup))
+			renderStatus(w, r, status, VocabularyConcordanceChangedRecovery(lookup, origin))
 			return
 		}
-		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(lookup, status == http.StatusGatewayTimeout))
+		renderStatus(w, r, status, VocabularyConcordanceErrorRecovery(lookup, status == http.StatusGatewayTimeout, origin))
 		return
 	}
 	if changed {
-		renderStatus(w, r, status, VocabularyConcordanceChangedPageView(u, csrf, language, lookup))
+		renderStatus(w, r, status, VocabularyConcordanceChangedPageView(u, csrf, language, lookup, origin))
 		return
 	}
-	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, lookup, status == http.StatusGatewayTimeout))
+	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, lookup, status == http.StatusGatewayTimeout, origin))
 }
 
 func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {
@@ -177,12 +194,16 @@ func safeConcordanceReturnURL(candidate string) string {
 	for key := range values {
 		switch key {
 		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
+		case originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
 		default:
 			return "/vocabulary/concordance"
 		}
 	}
 	page, err := strconv.Atoi(values.Get("page"))
 	if err != nil || page < 1 {
+		return "/vocabulary/concordance"
+	}
+	if hasOriginKeys(values) && !parseBrowseOrigin(values).Active() {
 		return "/vocabulary/concordance"
 	}
 	return parsed.String()
