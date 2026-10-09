@@ -122,23 +122,32 @@ Committed baselines belong under `e2e/tests/**/__snapshots__/`. Failed runs
 retain reviewable output in `playwright-report/` and `test-results/`; traces,
 screenshots, and videos are retained there according to the Playwright config.
 
-## Documentation screenshots of My Books and Reading
+## Documentation screenshots of My Books, Reading, Concordance, and Study
 
 `make screenshot-my-books` builds the documentation screenshots
-`doc/images/my-books.png` and `doc/images/reading.png` on an isolated Compose
-stack. It is separate from `make browser-smoke` and CI.
+`doc/images/my-books.png`, `doc/images/reading.png`,
+`doc/images/concordance.png`, and `doc/images/sentence-study.png` on an isolated
+Compose stack. It is separate from `make browser-smoke` and CI. Nothing is
+written unless every assertion passes.
 
 - The learner workflow moves every scenario Book except the one marked `inbox`
   to To Read, waits for each analysis through Reading's chooser, starts and
   finishes the `read` Book, starts the `current` Book, and asserts its title and
   a non-empty Book vocabulary table before capturing Reading. My Books is then
   captured with the Inbox, To Read, Currently reading, and Read buckets asserted.
+- The Concordance lookup types the lemma configured in the `concordance` block of
+  `screenshot/manifest.json` into the Concordance form. The capture fails unless
+  the analyzed corpus yields at least `minimumOccurrences` lines from at least
+  `minimumBooks` Books. The sentence Study opens the first result, within the
+  first page, whose identified token has the configured part of speech, and
+  checks its lemma and dependency evidence.
 - Before the `current` Book starts, the workflow derives a Known-vocabulary
   baseline from the analyzed Books other than it: their lemmas ranked by
   frequency, read-only from the stack's database, cut at the rank where the
-  `current` Book's Known coverage reaches about 96%. The list is imported through
-  Vocabulary, and the run fails unless the measured coverage is within 94–98%.
-  The cut-off and measured coverage are printed.
+  `current` Book's Known coverage reaches about 96%. If no rank reaches 96%, all
+  of them are used. The list is imported through Vocabulary, and the run fails
+  unless the measured coverage is within 94–98%. The cut-off and measured
+  coverage are printed.
 - Each wait is bounded and names the Book or step that stalled. Analysis of the
   full set is bounded at 30 minutes; the Playwright test budget is 75 minutes.
 - Source books are pinned Project Gutenberg editions in
