@@ -83,7 +83,7 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
     const badge = page.locator('.library-book__membership .status-badge').first();
     await expect(badge).toBeVisible();
-    await expect(badge).toContainText(/Currently reading|To Read|Read|Inbox|Set Aside/);
+    await expect(badge).toContainText(/Currently reading|To Read|Read|Inbox/);
     const shape = badge.locator('[aria-hidden="true"]');
     await expect(shape).toBeVisible();
     await expect(shape).toHaveAttribute('aria-hidden', 'true');
@@ -312,13 +312,9 @@ test.describe('My Books collection browsing', () => {
       await expect(book).toBeVisible();
       await book.getByText('More actions', { exact: true }).click();
       await expect(book.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
-      await book.getByText('Set aside', { exact: true }).click();
-      await book.getByRole('button', { name: 'Confirm set aside' }).click();
-      await expect(page).toHaveURL(/disposition=set_aside/);
-      const setAsideBook = page.locator('.library-books .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
-      await expect(setAsideBook).toBeVisible();
-      await setAsideBook.getByRole('button', { name: 'Move to To Read' }).click();
-      await expect(page).toHaveURL(/disposition=to_read/);
+      await expect(book.getByText('Set aside', { exact: true })).toHaveCount(0);
+      await expect(book.getByRole('button', { name: 'Confirm set aside' })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: /Set Aside/ })).toHaveCount(0);
       await expect(page.locator('.library-books').getByText('Fehlgeschlagene Analyse')).toBeVisible();
     } finally {
       await context.close();

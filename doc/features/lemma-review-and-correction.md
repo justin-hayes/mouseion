@@ -127,13 +127,13 @@ already-recorded unresolved flags still require a decision. Flags discovered
 after a snapshot freezes may be shown as non-blocking evidence but cannot
 silently alter an active reading.
 
-The first recovery path for an active reading is explicit: stop without
+The first recovery path for an active reading is explicit: end current reading without
 completion, review/correct, then start again with a new snapshot and
 re-prepare any affected deck. A ready artifact from before a correction
 remains historical and downloadable; its changed vocabulary cannot be fixed
 by a presentation-only re-render. If a deck is already ready without an active
 reading, accepting a later correction is coupled to explicit re-preparation;
-the old artifact remains available. If both a snapshot and deck exist, stop,
+the old artifact remains available. If both a snapshot and deck exist, end,
 correct, then restart and re-prepare. A completed reading and its
 Known-vocabulary facts are never silently rewritten:
 explicit reconciliation of historical Known vocabulary is separate work.

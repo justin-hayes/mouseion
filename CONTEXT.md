@@ -68,7 +68,7 @@ _Avoid_: recurring vocabulary (only one route into this pool), corpus words.
 **Reserved vocabulary**:
 The frozen Book-vocabulary-candidate snapshot held by a current reading in its
 study language, neither counted as Known nor available for selection while active.
-Stopping, switching, setting aside, or finishing releases the reservation.
+Ending, switching, or finishing releases the reservation.
 _Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
 
 **Unknown vocabulary**:
@@ -251,7 +251,7 @@ Book's title and author but is never its sole learner-facing identity.
 _Avoid_: cover art, thumbnail (a presentation size, not the Book metadata).
 
 **Book disposition**:
-A learner-and-Book-scoped triage relationship: Inbox, To Read, or Set Aside. It
+A learner-and-Book-scoped triage relationship: Inbox or To Read. It
 follows the Book across language corrections and is independent of analysis,
 deck state, and reading history; the current Book remains To Read underneath.
 _Avoid_: book status, reading state, workflow state.
@@ -267,7 +267,7 @@ _Avoid_: archived, deleted, set aside.
 
 **Book workflow bucket**:
 The one visible My Books placement of a Book, derived in precedence order from
-Current reading, To Read, Read when history exists, Inbox, then Set Aside.
+Current reading, To Read, Read when history exists, then Inbox.
 Current reading is included in the To Read tab while retaining its distinct
 Currently reading label.
 _Avoid_: Book disposition, shelf.
@@ -285,7 +285,7 @@ order or automatic next Book.
 _Avoid_: Reading Journey, Primary Goal, reading queue.
 
 **Inbox**:
-The disposition of a newly discovered Book not yet triaged by the learner.
+The disposition of a Book with no explicit future-reading intent. It is the default for a newly discovered Book, and it does not mean the Book was never triaged.
 Metadata changes or catalog reappearance do not recreate Inbox work. A Book
 marked previously read, and a Book whose reading was finished, leaves the
 visible Inbox for Read while Inbox remains its underlying disposition.
@@ -296,16 +296,24 @@ The disposition expressing that a Book is a possible future reading, with
 acquisition and analysis intent but no current-reading commitment.
 _Avoid_: Journey member, backlog, queue.
 
-**Set Aside**:
-The disposition of a Book removed from ordinary consideration without deletion
-or a claim that it was read.
-_Avoid_: archived, rejected, abandoned.
+**Set Aside** (retired):
+A former disposition for a Book removed from ordinary consideration. ADR 0086
+retired it as a value and action: requests are rejected, not translated into
+Hidden or End. Legacy rows map to Inbox in the pending maintenance cutover.
+_Avoid_: current disposition, archived, rejected, abandoned.
 
 **Current reading**:
 The analyzed To Read Book the learner has committed to reading in a study
 language, at most one per language. Its frozen snapshot remains distinct from
 the Book's later analysis evidence.
 _Avoid_: Primary Goal, reading status, current project.
+
+**End current reading**:
+Clears the Book's current-reading role and reservations without a completion or
+Known acceptance. The Book stays To Read, keeping its visibility, snapshots,
+history, and artifacts. It is not a pause: nothing is paused, and inactivity
+never ends a reading.
+_Avoid_: pause, stop, set aside.
 
 **Reading history**:
 Append-only, Book-anchored reading completions and previously-read assertions.

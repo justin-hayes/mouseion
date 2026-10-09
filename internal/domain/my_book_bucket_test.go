@@ -12,12 +12,10 @@ func TestMyBookWorkflowBucketUsesVisibleBucketPrecedence(t *testing.T) {
 		book MyBook
 		want MyBookBucket
 	}{
-		{name: "current reading takes precedence over every other role", book: MyBook{Disposition: BookDispositionSetAside, IsCurrentReading: true, CompletionCount: 1}, want: MyBookBucketCurrentReading},
+		{name: "current reading takes precedence over every other role", book: MyBook{Disposition: BookDispositionInbox, IsCurrentReading: true, CompletionCount: 1}, want: MyBookBucketCurrentReading},
 		{name: "current reading takes precedence over to read", book: MyBook{Disposition: BookDispositionToRead, IsCurrentReading: true, CompletionCount: 1}, want: MyBookBucketCurrentReading},
 		{name: "to read takes precedence over history", book: MyBook{Disposition: BookDispositionToRead, CompletionCount: 1}, want: MyBookBucketToRead},
 		{name: "previously read inbox book belongs in read", book: MyBook{Disposition: BookDispositionInbox, CompletionCount: 1}, want: MyBookBucketRead},
-		{name: "history takes precedence over set aside", book: MyBook{Disposition: BookDispositionSetAside, CompletionCount: 1}, want: MyBookBucketRead},
-		{name: "set aside without history", book: MyBook{Disposition: BookDispositionSetAside}, want: MyBookBucketSetAside},
 		{name: "inbox without history", book: MyBook{Disposition: BookDispositionInbox}, want: MyBookBucketInbox},
 	}
 	for _, tc := range tests {
@@ -28,14 +26,13 @@ func TestMyBookWorkflowBucketUsesVisibleBucketPrecedence(t *testing.T) {
 }
 
 func TestMyBookBucketBrowseFiltersAreMutuallyExclusive(t *testing.T) {
-	book := MyBook{Disposition: BookDispositionSetAside, CompletionCount: 1}
+	book := MyBook{Disposition: BookDispositionInbox, CompletionCount: 1}
 	bucket := book.WorkflowBucket()
 	assert.True(t, bucket.MatchesBrowseFilter("", false))
 	assert.True(t, bucket.MatchesBrowseFilter("", true))
-	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionSetAside, false))
 	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionInbox, false))
 	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionToRead, false))
-	assert.Equal(t, BookDispositionSetAside, book.Disposition, "deriving Read must not erase the persisted disposition")
+	assert.Equal(t, BookDispositionInbox, book.Disposition, "deriving Read must not erase the persisted disposition")
 }
 
 func TestCurrentReadingAppearsInToReadBrowse(t *testing.T) {
@@ -45,4 +42,10 @@ func TestCurrentReadingAppearsInToReadBrowse(t *testing.T) {
 	assert.True(t, bucket.MatchesBrowseFilter(BookDispositionToRead, false))
 	assert.False(t, bucket.MatchesBrowseFilter(BookDispositionInbox, false))
 	assert.False(t, bucket.MatchesBrowseFilter("", true))
+}
+
+func TestBookDispositionValidateAcceptsOnlyInboxAndToRead(t *testing.T) {
+	assert.NoError(t, BookDispositionInbox.Validate())
+	assert.NoError(t, BookDispositionToRead.Validate())
+	assert.Error(t, BookDisposition("set_aside").Validate(), "retired Set Aside disposition is unknown")
 }

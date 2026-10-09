@@ -2,6 +2,8 @@
 
 Status: **Accepted (not yet implemented)** · Date: 2026-09-28 · Author: Justin + OpenCode
 
+Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §9: "explicitly stopping without completion" now reads End current reading. Corrections still never rewrite active snapshots.
+
 Amends [ADR 0005](0005-vocabulary-identity-normalization-ranking.md) only in
 how a learner's effective identity for an analyzed occurrence is derived;
 the canonical normalization profile and immutable analyzer evidence remain

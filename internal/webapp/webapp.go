@@ -269,7 +269,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("POST /library/books/{id}/hide", h.user(http.HandlerFunc(h.hideBook)))
 	h.mux.Handle("POST /library/books/{id}/unhide", h.user(http.HandlerFunc(h.unhideBook)))
-	h.mux.Handle("POST /library/books/{id}/set-aside", h.user(http.HandlerFunc(h.setBookAside)))
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))

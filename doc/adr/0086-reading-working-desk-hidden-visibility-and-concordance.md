@@ -1,8 +1,8 @@
 # ADR 0086: Reading Working desk, independent Hidden visibility, and corpus-wide Concordance
 
-Status: **Accepted (implementation pending)** · Date: 2026-10-08 · Author: Justin + OpenCode
+Status: **Accepted; code implementation complete in the repository** · Production cutover and corpus-scale acceptance evidence pending · Date: 2026-10-08 · Author: Justin + OpenCode
 
-Specified by [issue #1580](https://github.com/justin-hayes/mouseion/issues/1580) and the planning decisions it cites (#1570–#1579); promoted by [issue #1581](https://github.com/justin-hayes/mouseion/issues/1581). This ADR records the **accepted target**, not shipped behavior. Until each implementation slice lands, the feature documents and code continue to describe the shipped contract, and ADRs 0078, 0050, 0043, 0081, 0084, and 0085 remain in force except where this record states otherwise. Accepted by Justin on 2026-10-08, this ADR permits dependent SQL work in the implementing slices; it does not authorize any production maintenance operation.
+Specified by [issue #1580](https://github.com/justin-hayes/mouseion/issues/1580) and the planning decisions it cites (#1570–#1579); promoted by [issue #1581](https://github.com/justin-hayes/mouseion/issues/1581). This ADR records the **accepted target**. Its code is complete in the repository; the production cutover (section 5) and corpus-scale acceptance evidence are pending, so production behavior is not yet claimed. Until that cutover is performed, ADRs 0078, 0050, 0043, 0081, 0084, and 0085 remain in force for deployed data except where this record states otherwise. Accepted by Justin on 2026-10-08, this ADR permits dependent SQL work in the implementing slices; it does not authorize any production maintenance operation.
 
 Supersedes the lifecycle and disposition clauses of [ADR 0078](0078-book-dispositions-and-current-reading.md) listed below. Reconciles [ADR 0050](0050-active-study-language.md) and [ADR 0043](0043-study-languages-derived-settings-removed.md). Amends the clauses of ADRs 0081, 0084, and 0085 listed below. Preserves [ADR 0083](0083-concordance-server-rendering-and-htmx-4.md).
 

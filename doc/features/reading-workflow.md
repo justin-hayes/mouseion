@@ -1,6 +1,6 @@
 # Reading workflow
 
-Status: **Implemented** · Date: 2026-09-26
+Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the production data cutover is pending.
 
 The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
 contract is being implemented in slices. New Book-deck preparation is now
@@ -56,9 +56,9 @@ language, or presents the learner with an unordered chooser between Books.
    finish a newer reading.
 5. My Books shows each Book in exactly one visible workflow bucket. In
    precedence order, that is **Currently reading**, **To Read**, **Read** when
-   completion history exists, **Inbox**, then **Set Aside**. The To Read tab
+   completion history exists, then **Inbox**. The To Read tab
    includes the current Book, labeled Currently reading, as well as other To
-   Read Books. A historical Inbox or Set Aside Book appears in Read without
+   Read Books. A historical Inbox Book appears in Read without
    changing its persisted disposition or completion provenance; a historical
    To Read Book remains To Read. A finished Book is Inbox underneath and
    projects as Read through its history. **Read again** moves a Read Book to To
@@ -67,7 +67,9 @@ language, or presents the learner with an unordered chooser between Books.
    retaining earlier completions. A previously-read assertion is an idempotent
    assertion-time fact that changes neither disposition nor visibility and
    accepts no vocabulary. Finishing claims no mastery.
-6. Set Aside keeps a Book visible in My Books and reversible to To Read. Read
+6. Hiding is a separate, reversible visibility choice: a Hidden Book is omitted
+   from default My Books and the default chooser, keeps its disposition, history,
+   and artifacts, and is recovered with **Show hidden books** and Unhide. Read
    history is append-only and does not imply Known vocabulary. There is no
    ordinary Remove from My Books action; the retired removal request cannot
    remove membership or erase the Book, its evidence, history, or artifacts.

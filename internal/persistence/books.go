@@ -168,7 +168,6 @@ func (s *PostgresStore) ListMyBooksBrowseWithVisibility(ctx context.Context, own
 	}{
 		{bucket: domain.MyBookBucketInbox},
 		{bucket: domain.MyBookBucketToRead},
-		{bucket: domain.MyBookBucketSetAside},
 	} {
 		if count := dispositionCounts[item.bucket]; count > 0 {
 			persistedDisposition, ok := item.bucket.PersistedDisposition()
@@ -511,9 +510,6 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 		return err
 	}
 	if err = sqlcgen.New(tx).RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: bookID}); err != nil {
-		return err
-	}
-	if err = upsertBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, domain.BookDispositionSetAside); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

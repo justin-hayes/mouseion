@@ -338,15 +338,15 @@ func TestMyBooksRowsShowCanonicalBucketStatusInSharedBadgeFormat(t *testing.T) {
 		{Book: domain.Book{ID: "current", OwnerID: "owner", Title: "Current"}, IsCurrentReading: true},
 		{Book: domain.Book{ID: "to-read", OwnerID: "owner", Title: "To Read"}, Disposition: domain.BookDispositionToRead},
 		{Book: domain.Book{ID: "inbox", OwnerID: "owner", Title: "Inbox"}, Disposition: domain.BookDispositionInbox},
-		{Book: domain.Book{ID: "set-aside", OwnerID: "owner", Title: "Set Aside"}, Disposition: domain.BookDispositionSetAside},
 		{Book: domain.Book{ID: "read", OwnerID: "owner", Title: "Read"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1},
 	}
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	for _, label := range []string{"Currently reading", "To Read", "Inbox", "Set Aside", "Read"} {
+	for _, label := range []string{"Currently reading", "To Read", "Inbox", "Read"} {
 		assert.Contains(t, html, ">"+label+"</span>")
 	}
+	assert.NotContains(t, html, "Set Aside")
 	assert.Contains(t, html, `status-badge__shape--dot`)
 	assert.Contains(t, html, `status-badge__shape--ring`)
 	assert.NotContains(t, html, "Disposition:")

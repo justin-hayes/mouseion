@@ -205,7 +205,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook, domain.BookDispositionInbox))
 	aliceToReadBook, aliceToReadSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse To Read", "browse-to-read", true, []domain.ExtractedUnit{
 		concordanceUnit(0, "browse-to-read", "Haus", 0, 4),
 	})
@@ -234,7 +234,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		UnitID: "epub-unit-v1:0:browse-old", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
 		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
 	}})
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, staleBook.ID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, staleBook.ID, domain.BookDispositionInbox))
 	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
 	require.NoError(t, err)
 	var corpusID, analysisRunID string
@@ -343,7 +343,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 
 	bookDetail, err := store.GetBookDetail(ctx, alice.ID, aliceBook)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, bookDetail.Disposition, "Browse and analysis promotion must preserve disposition")
+	assert.Equal(t, domain.BookDispositionInbox, bookDetail.Disposition, "Browse and analysis promotion must preserve disposition")
 
 	italian, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "it", domain.VocabularyBrowseQuery{Page: 1})
 	require.NoError(t, err)

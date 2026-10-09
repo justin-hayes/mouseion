@@ -132,7 +132,6 @@ type MyBooksBrowseState struct {
 	TextNoMatch        bool
 	InboxCount         int
 	ToReadCount        int
-	SetAsideCount      int
 	ReadCount          int
 	RefreshableBookIDs map[string]bool
 }
@@ -290,8 +289,6 @@ func myBookVisibleBucketURL(book domain.MyBook, page int) string {
 		return myBooksScopedURL("", page, false, domain.BookDispositionToRead, false, hidden)
 	case domain.MyBookBucketRead:
 		return myBooksScopedURL("", page, false, "", true, hidden)
-	case domain.MyBookBucketSetAside:
-		return myBooksScopedURL("", page, false, domain.BookDispositionSetAside, false, hidden)
 	}
 	return "/library"
 }
@@ -306,8 +303,6 @@ func myBooksDispositionCount(browse MyBooksBrowseState, disposition domain.BookD
 		return browse.InboxCount
 	case domain.BookDispositionToRead:
 		return browse.ToReadCount
-	case domain.BookDispositionSetAside:
-		return browse.SetAsideCount
 	default:
 		return browse.ScopeTotal
 	}
@@ -340,8 +335,6 @@ func myBooksDispositionLabel(disposition domain.BookDisposition) string {
 		return "Inbox"
 	case domain.BookDispositionToRead:
 		return "To Read"
-	case domain.BookDispositionSetAside:
-		return "Set Aside"
 	default:
 		return "All"
 	}
@@ -367,8 +360,6 @@ func myBookWorkflowLabel(book domain.MyBook) string {
 		return "Inbox"
 	case domain.MyBookBucketRead:
 		return "Read"
-	case domain.MyBookBucketSetAside:
-		return "Set Aside"
 	default:
 		return "Inbox"
 	}
@@ -379,14 +370,6 @@ func myBookWorkflowTone(book domain.MyBook) StatusTone {
 		return StatusInfo
 	}
 	return StatusNeutral
-}
-
-func myBookSetAsideConfirmationText(book domain.MyBook) string {
-	retained := " Acquired content, analysis, provenance, and reading history remain."
-	if myBookDisposition(book) == domain.BookDispositionToRead {
-		return "This removes the Book from Reading." + retained
-	}
-	return "This sets aside the Book without adding it to Reading." + retained
 }
 
 func myBooksAllDispositionCount(browse MyBooksBrowseState) int {

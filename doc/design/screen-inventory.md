@@ -78,7 +78,7 @@ or rank the next Book.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection, understand its one visible workflow bucket, and inspect completion history. | Move to To Read, set aside, record a prior completion, read again, View in Reading, Catalogs, or Refresh metadata; setting aside a historical Book returns to Read; there is no ordinary Remove from My Books action | All, Inbox, To Read, Set Aside, and Read filters follow one visible bucket per Book; latest completion and total count; imported history distinct from Mouseion completion; empty disposition/history; metadata-only Book, cover states, needs-language text list, scoped search, paging, long content, enhancement unavailable |
+| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalogs | Recognize and find a Book in the active language's cover-led collection, understand its one visible workflow bucket, and inspect completion history. | Move to To Read, Hide or Unhide, record a prior completion, read again, View in Reading, Catalogs, or Refresh metadata; there is no ordinary Remove from My Books action | All, Inbox, To Read, and Read filters follow one visible bucket per Book; latest completion and total count; imported history distinct from Mouseion completion; empty disposition/history; metadata-only Book, cover states, needs-language text list, scoped search, paging, long content, enhancement unavailable |
 | Reading Book anchor | Embedded in `GET /reading`; legacy `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, current evidence, preparation state, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Reading actions | Current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, current-reading state |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining Book context. | Reading when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Analysis history | Current `GET /jobs` | Inspect owner-scoped operational analysis history; this is not a learner result surface. | Individual analysis status or Reading | Empty history, mixed states, historical/legacy records |
@@ -95,7 +95,7 @@ metric-first sorting are not the default.
 The My Books model includes metadata-only and currently unassessable works.
 Each Book occupies exactly one visible workflow bucket, derived from current
 reading, persisted disposition, and completion history. Current reading, the
-persisted disposition, and history remain distinct facts; a historical Set Aside
+persisted disposition, and history remain distinct facts; a historical Inbox
 Book projects into Read without changing either underlying fact. Catalog sync
 creates metadata-only Inbox Books; moving a Book to To Read acquires and validates
 EPUB content when needed. Metadata-only rows retain refresh and disposition
@@ -133,10 +133,10 @@ metadata refresh never invalidates or re-triggers analysis.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| Current reading | Shipped `GET /reading` when a Book is active | Continue reading, inspect evidence and preparation, or explicitly stop, set aside, switch, or finish the Book. | My Books, current-reading action, or finish receipt | Current/stale/unavailable evidence, queued/running/failed analysis, preparation state, stale form, each consequential confirmation |
+| Current reading | Shipped `GET /reading` when a Book is active | Continue reading, inspect evidence and preparation, or explicitly end, switch, or finish the Book. | My Books, current-reading action, or finish receipt | Current/stale/unavailable evidence, queued/running/failed analysis, preparation state, stale form, each consequential confirmation |
 | Current Book vocabulary Browse | Embedded in shipped `GET /reading` when a Book is current (working desk) | Find the current Book's effective lemma + POS identities, most frequent first, and open one in Concordance. | Concordance for the identity, or Reading recovery | Prefix search, 25-result pages, include-all, Known/Reserved/Book-deck states, no current analysis, empty inventory, prefix zero, counts unavailable, malformed or out-of-range `?page` with an explanation and First page link (400/404) |
 | Between-Books chooser | Shipped `GET /reading` when no current Book exists | Choose among active-language To Read Books using current coverage bands without recommendations. | Start reading or My Books | Empty To Read collection, coverage bands, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
-| Occurrence lemma review | Shipped `GET /reading/books/{bookID}/lemma-review` | Find an exact observed form in the Book's current analysis, inspect each sentence and analyzer identity, and correct one occurrence without changing POS. | Return to the Reading Book anchor or follow explicit stop/restart and new-generation deck recovery | No match, stale occurrence, unsupported language, active snapshot stop-without-completion guidance, ready artifact download plus explicit re-preparation, completed-history/Known immutability and manual Anki cleanup guidance; server-rendered forms work without JavaScript |
+| Occurrence lemma review | Shipped `GET /reading/books/{bookID}/lemma-review` | Find an exact observed form in the Book's current analysis, inspect each sentence and analyzer identity, and correct one occurrence without changing POS. | Return to the Reading Book anchor or follow explicit end/restart and new-generation deck recovery | No match, stale occurrence, unsupported language, active snapshot end-without-completion guidance, ready artifact download plus explicit re-preparation, completed-history/Known immutability and manual Anki cleanup guidance; server-rendered forms work without JavaScript |
 | Reading completion receipt | `POST /goal/finish` full-page outcome or Reading fragment | Confirm the completed Book and exact newly-Known/already-Known counts without choosing a next Book. | Choose what to read next (`/reading`) | Non-empty and empty snapshots, zero counts, retry/idempotent completion, next-choice link |
 | Read history | Filter on `GET /library?history=read` | Inspect prior completion for Books whose visible bucket is Read and return one to To Read with Read again. | My Books disposition or Reading | Imported vs Mouseion completion, multiple completions, empty history, language scope; historical Inbox Books appear in Read, while historical To Read Books stay in To Read |
 | Historical artifact context | Supporting operational status and history surfaces | Inspect prepared-deck and legacy provenance without creating a separate learner workflow. | Reading anchor or focused preparation task | Empty history, preparing, ready, failed artifact, historical provenance |
@@ -147,7 +147,7 @@ listed while a Book is current. Candidate order is not a recommendation. Coverag
 current evidence only. The shipped Book Covers experience keeps title and author
 authoritative and does not change this hierarchy.
 
-Starting, switching, stopping, setting aside, and finishing use separate
+Starting, switching, ending, and finishing use separate
 confirmations and stale-write protection. Keyboard order follows Book identity,
 status, and actions; mutation feedback is announced. On narrow screens, identity
 and primary actions remain visible without horizontal page scrolling.

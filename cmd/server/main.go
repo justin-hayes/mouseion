@@ -71,6 +71,9 @@ func run() (err error) {
 		return err
 	}
 	defer closeIntoResult("PostgreSQL store", store.Close, &err)
+	if err := store.RequireNoLegacyDispositions(ctx); err != nil {
+		return err
+	}
 	addr := os.Getenv("MOUSEION_HTTP_ADDR")
 	if addr == "" {
 		addr = ":8080"

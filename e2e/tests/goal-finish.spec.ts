@@ -95,9 +95,6 @@ test('finishing current reading records Read history and supports reading again'
   await expect(reread.getByRole('link', { name: 'View in Reading' })).toBeVisible();
 
   await reread.getByText('More actions', { exact: true }).click();
-  await reread.getByText('Set aside', { exact: true }).click();
-  await reread.getByRole('button', { name: 'Confirm set aside' }).click();
-  await expect(page).toHaveURL(/\/library\?history=read&message=/);
-  const readAgainLater = page.locator('.library-books .library-book').filter({ hasText: title });
-  await expect(readAgainLater.locator('.library-book__membership .status-badge')).toHaveText('Read');
+  await expect(reread.getByText('Set aside', { exact: true })).toHaveCount(0);
+  await expect(reread.getByRole('button', { name: 'Confirm set aside' })).toHaveCount(0);
 });

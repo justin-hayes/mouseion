@@ -29,8 +29,8 @@ The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
 2. work in one active study language at a time;
-3. move Books between Inbox, To Read, and Set Aside;
-4. choose, stop, set aside, or switch the one current Book for the active language;
+3. move Books between Inbox and To Read, and hide or unhide them independently;
+4. choose, end, or switch the one current Book for the active language;
 5. review current evidence bands for To Read Books without a suggested order;
 6. finish a Book and retain its Read history independently from disposition;
 7. understand derived study languages and import known vocabulary;
@@ -69,7 +69,7 @@ learner. It can include:
 
 - acquired and metadata-only books;
 - assessed and unassessed books;
-- books in Inbox, To Read, or Set Aside;
+- books in Inbox or To Read, visible or hidden;
 - currently read and previously read books;
 - completed books;
 - books with stale, questionable, incomplete, or unavailable evidence.
@@ -96,7 +96,7 @@ current, the same page hosts its full vocabulary Browse (the working desk); othe
 To Read candidates are not listed. Coverage bands label
 current evidence and do not rank candidates or predict outcomes. Starting
 freezes a vocabulary snapshot; finishing records a completion without selecting
-the next Book. Stop, set-aside, and switch are explicit reversible actions.
+the next Book. End and switch are explicit reversible actions.
 
 There is at most one current Book per owner and study language. The Book's
 My Books disposition remains separate from current-reading state and Read
