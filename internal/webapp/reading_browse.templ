@@ -65,7 +65,7 @@ templ readingBrowseResults(view readingBrowseView) {
 	{{ query := view.Prefix }}
 	<p class="vocabulary-language">Viewing active study language <code>{ view.Language }</code>.</p>
 	if len(page.Books) == 0 || !page.Books[0].HasCurrentAnalysis {
-		<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.</p>
+		<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence. Your reading, frozen inputs, downloads, Finish, Switch, and End are unchanged; use any analysis recovery shown in this reading.</p>
 		<p><a class="vocabulary-action-link" href="/reading/switch">Switch current reading</a></p>
 	} else {
 		<p class="vocabulary-scope">This Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>
@@ -82,25 +82,30 @@ templ readingBrowseResults(view readingBrowseView) {
 				<p class="vocabulary-applied-query">Applied prefix: <code>{ query }</code></p>
 			}
 			if page.BrowseCountsUnavailable {
-				<p role="alert"><strong>Browse counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
+				<p id="vocabulary-counts-status" role="alert"><strong>Vocabulary counts unavailable.</strong> Counts could not be rebuilt after repeated attempts. Refresh status only re-checks; it does not requeue failed work or rerun analysis. Ask your server operator to restart Mouseion to requeue missing durable count work.</p>
+				<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseRefreshURL(view)) }>Refresh status</a></p>
 			} else if page.BrowseCountsUpdating {
-				<p role="status" aria-live="polite"><strong>Updating Browse counts.</strong> Results are withheld until every currently analyzed Book in this study language has exact, ready counts. Browse results are temporarily unavailable.</p>
+				<p id="vocabulary-counts-status" role="status" aria-live="polite"><strong>Updating vocabulary counts.</strong> Vocabulary is withheld until every currently analyzed Book in this study language has exact, ready counts. Refresh status to check again.</p>
+				<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseRefreshURL(view)) }>Refresh status</a></p>
 			} else {
 				<h3 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h3>
 				if page.Total == 0 && page.InventoryTotal == 0 {
-					<p>The current analysis has no eligible vocabulary identities.</p>
+					<p>No eligible vocabulary in this analysis.</p>
 				}
 				if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
 					<p>No eligible identities are in this Book.</p>
 				}
 				if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
-					<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. Show already accounted-for words to reveal them.</p>
+					<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. This does not mean they are mastered, and it is not a failed search. Show already accounted-for words to reveal them.</p>
 				}
 				if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
 					if query != "" && !page.IncludeAll {
 						<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>
 					} else {
 						<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+					}
+					if query != "" {
+						<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseClearPrefixURL(view)) }>Clear prefix</a></p>
 					}
 				}
 				if page.Total > 0 {

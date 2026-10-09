@@ -183,7 +183,7 @@ instead of claiming the Book is analyzed.
 While counts are rebuilt for existing Books, do not return local results,
 cross-Book totals, or a zero-result claim until every currently contributing
 Book in the language has ready counts. Show **Updating** while a rebuild is
-progressing and a distinct **Browse counts unavailable** state with a recovery
+progressing and a distinct **Vocabulary counts unavailable** state with a recovery
 path after bounded automatic retries fail. Keep Browse selection and saved-deck
 access available through either state. A confirmed occurrence correction or
 exclusion updates ready counts with the decision; if the Book has not yet been
