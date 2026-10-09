@@ -113,7 +113,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, prepareddeck.EnsureRecoveryJob(ctx, store, analysisClient))
 	require.NoError(t, catalogueSyncService.RegisterAll(ctx))
 	require.NoError(t, analysisClient.Start(ctx))
-	testutil.Cleanup(t, "analysis River client", func() error { return analysisClient.Stop(context.Background()) })
+	testutil.StopOnCleanup(t, "analysis River client", analysisClient.Stop)
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
@@ -157,7 +157,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 
 	syncResponse := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/sync", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, syncResponse.Code)
-	waitForCompleteLoop(t, ctx, func() (bool, string) {
+	waitForCompleteLoop(t, func() (bool, string) {
 		books, listErr := store.ListMyBooks(ctx, owner.ID)
 		if listErr != nil {
 			return false, listErr.Error()
@@ -184,7 +184,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, added.Code)
 
 	var detail domain.MyBook
-	waitForCompleteLoop(t, ctx, func() (bool, string) {
+	waitForCompleteLoop(t, func() (bool, string) {
 		var getErr error
 		detail, getErr = store.GetBookDetail(ctx, owner.ID, bookID)
 		if getErr != nil {
@@ -219,7 +219,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	submitted := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {goal.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
 	var preparation domain.DeckPreparation
-	waitForCompleteLoop(t, ctx, func() (bool, string) {
+	waitForCompleteLoop(t, func() (bool, string) {
 		preparations, listErr := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
 		if listErr != nil {
 			return false, listErr.Error()
@@ -350,23 +350,9 @@ func completeLoopSentence(documentID string, start uint64) analyzer.Sentence {
 	}
 }
 
-func waitForCompleteLoop(t *testing.T, ctx context.Context, condition func() (bool, string)) {
+func waitForCompleteLoop(t *testing.T, condition func() (bool, string)) {
 	t.Helper()
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-	var last string
-	for {
-		if done, reason := condition(); done {
-			return
-		} else {
-			last = reason
-		}
-		select {
-		case <-ctx.Done():
-			require.Failf(t, "complete learner loop timed out", "complete learner loop timed out: %s: %v", last, ctx.Err())
-		case <-ticker.C:
-		}
-	}
+	testutil.Eventually(t, 60*time.Second, "complete learner loop", condition)
 }
 
 var _ enrichment.TranslationProvider = completeLoopTranslationProvider{}

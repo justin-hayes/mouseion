@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -169,25 +170,20 @@ func TestPresentationChangeReachesExistingDeckWithoutTouchingStudy(t *testing.T)
 	var snooze *river.JobSnoozeError
 	require.ErrorAs(t, recovery.Work(ctx, nil), &snooze)
 	require.NoError(t, rerenderClient.Start(ctx))
-	testutil.Cleanup(t, "River client", func() error { return rerenderClient.Stop(context.Background()) })
+	testutil.StopOnCleanup(t, "River client", rerenderClient.Stop)
 
 	var updated, updatedOther, updatedGraduated domain.DeckPreparation
-	for {
+	testutil.Eventually(t, testutil.DefaultWait, "automatic deck rerender of three preparations", func() (bool, string) {
 		updated, err = store.GetDeckPreparation(ctx, owner.ID, preparation.ID)
 		require.NoError(t, err)
 		updatedOther, err = store.GetDeckPreparation(ctx, owner.ID, other.ID)
 		require.NoError(t, err)
 		updatedGraduated, err = store.GetDeckPreparation(ctx, owner.ID, graduated.ID)
 		require.NoError(t, err)
-		if updated.DeckRevision == 2 && updated.PresentationVersion == cardexport.PresentationVersion && updatedOther.DeckRevision == 2 && updatedOther.PresentationVersion == cardexport.PresentationVersion && updatedGraduated.DeckRevision == 2 && updatedGraduated.PresentationVersion == cardexport.PresentationVersion {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "timed out waiting for automatic deck rerender")
-		case <-time.After(20 * time.Millisecond):
-		}
-	}
+		pending := fmt.Sprintf("revisions %d/%d/%d, presentation %d/%d/%d", updated.DeckRevision, updatedOther.DeckRevision, updatedGraduated.DeckRevision, updated.PresentationVersion, updatedOther.PresentationVersion, updatedGraduated.PresentationVersion)
+		done := updated.DeckRevision == 2 && updated.PresentationVersion == cardexport.PresentationVersion && updatedOther.DeckRevision == 2 && updatedOther.PresentationVersion == cardexport.PresentationVersion && updatedGraduated.DeckRevision == 2 && updatedGraduated.PresentationVersion == cardexport.PresentationVersion
+		return done, pending
+	})
 	retiredAfter, err := store.GetDeckPreparation(ctx, owner.ID, retired.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, retiredAfter.DeckRevision)

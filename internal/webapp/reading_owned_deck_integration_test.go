@@ -56,6 +56,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	prepareddeck.AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), nil, nil, prepareddeck.BatchConfig{}, prepareddeck.PreparedDeckConfig{}, false)
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{prepareddeck.Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	deckService := prepareddeck.NewService(store, client)
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{

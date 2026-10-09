@@ -232,11 +232,7 @@ func newCoverFixture(t *testing.T) *coverFixture {
 	require.NoError(t, err)
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := client.Stop(context.Background()); err != nil {
-			t.Logf("stop river client: %v", err)
-		}
-	})
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	opdsService := opds.NewService(store, nil, catalog.server.Client())
 	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
 	return &coverFixture{

@@ -370,9 +370,7 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
 	require.NoError(t, err)
-	testutil.Cleanup(t, "catalogue sync client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "catalogue sync client", client.Stop)
 	service.client = client
 	first, err := service.Enqueue(ctx, owner.ID, connection.ID)
 	require.NoError(t, err)

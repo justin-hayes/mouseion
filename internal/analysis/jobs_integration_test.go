@@ -182,9 +182,7 @@ func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) 
 	client, err := NewClient(store.Pool(), fake, capabilities, selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 
 	service := NewService(store.Pool(), client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -254,9 +252,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	if err = client.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	testutil.Cleanup(t, "analysis client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(store.Pool(), client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	if err != nil {
@@ -391,9 +387,7 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(store.Pool(), client)
 
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, selectedSource.ID)
@@ -494,7 +488,7 @@ func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
 	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error { return client.Stop(context.Background()) })
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(pool, client)
 
 	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_analysis_publication() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated publication failure'; END $$;
@@ -769,7 +763,7 @@ func TestCompletedCorpusRetryRebuildsSelectionWithoutRerunningNLP(t *testing.T) 
 	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error { return client.Stop(context.Background()) })
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(pool, client)
 	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_selection_candidates() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated selection failure'; END $$;
 		CREATE TRIGGER reject_selection_candidates BEFORE INSERT ON selection_candidates FOR EACH ROW EXECUTE FUNCTION reject_selection_candidates()`)
@@ -883,9 +877,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(store.Pool(), client)
 	bobSource, err := putAnalysisSource(ctx, store, bob.ID, "bob-job-source", "Bob Job", "Haus.", "sha256:bob-job")
 	require.NoError(t, err)
@@ -1035,9 +1027,7 @@ func TestAnalysisCancellationKeepsDurableStateWhenRiverCleanupFails(t *testing.T
 		Workers: workers,
 	})
 	require.NoError(t, err)
-	testutil.Cleanup(t, "analysis River client", func() error {
-		return riverClient.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis River client", riverClient.Stop)
 	owner, err := store.CreateUser(ctx, "analysis-cancel-cleanup", false)
 	require.NoError(t, err)
 
@@ -1118,9 +1108,7 @@ func TestAnalysisRunSurvivesDispositionChanges(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(store.Pool(), client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	require.NoError(t, err)
