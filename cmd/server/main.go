@@ -23,7 +23,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -115,7 +114,6 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	enrichmentService := enrichment.NewService(enrichment.Config{ExternalEnabled: llmConfig.Enabled, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, translationProvider, store)
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	batchConfig, err := prepareddeck.BatchConfigFromEnv()
 	if err != nil {
@@ -141,7 +139,6 @@ func run() (err error) {
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
-	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
@@ -173,7 +170,6 @@ func run() (err error) {
 		return fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
 	}
 	knownVocabService := knownvocab.NewJobService(store.Pool(), riverClient)
-	externalEnrichmentService := enrichmentjob.NewService(store.Pool(), riverClient, enrichmentService)
 	var preparedDeckService *prepareddeck.Service
 	if batchProvider != nil {
 		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, riverClient, batchProvider)
@@ -186,7 +182,7 @@ func run() (err error) {
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
 	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: store, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularyConcordance: store}
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, Enrichment: externalEnrichmentService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, LemmaSuggestions: lemmaSuggestions, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, LemmaSuggestions: lemmaSuggestions, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
 		return fmt.Errorf("initialize web application: %w", err)
 	}

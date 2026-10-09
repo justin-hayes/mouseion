@@ -34,8 +34,9 @@ This path has correct exact-cache binding and atomic completion, but the
 manifest and progress disappear when the process exits. Reconciliation can
 re-enqueue a `queued` preparation, but deliberately fails an orphaned
 `preparing` preparation because no durable attempt lease exists. River metadata
-in `internal/enrichmentjob` demonstrates ordered progress, but its bulk args
-contain mutable work payloads and are not bound to a preparation manifest.
+in the former `internal/enrichmentjob` package demonstrated ordered progress, but
+its bulk args contained mutable work payloads and were not bound to a
+preparation manifest.
 
 The result is a mismatch: the APKG is durable after completion, but the slowest
 phase that produces it is not durable before completion.
@@ -801,7 +802,8 @@ Acceptance criteria:
 The accepted standard-first cutover removes the in-memory prepared-deck translation loop
 and keeps reconciliation durable. Keep
 `internal/enrichmentjob` available for non-prepared bulk enrichment unless a
-separate issue changes it.
+separate issue changes it. (The package was later removed: nothing submitted
+bulk enrichment work after prepared decks owned translation.)
 
 Acceptance criteria:
 
@@ -851,7 +853,7 @@ Acceptance criteria:
 - `internal/prepareddeck/jobs.go`
 - `internal/prepareddeck/jobs_integration_test.go`
 - `internal/enrichment/enrichment.go`
-- `internal/enrichmentjob/jobs.go`
+- `internal/enrichmentjob/jobs.go` (since removed)
 - `internal/cardexport/cardexport.go`
 - `internal/persistence/deck_preparations.go`
 - `migrations/000001_initialize.up.sql`

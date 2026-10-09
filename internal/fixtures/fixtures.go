@@ -17,8 +17,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -2286,18 +2284,6 @@ func (KnownVocab) Get(_ context.Context, _ string, id int64) (knownvocab.Status,
 		}, nil
 	}
 	return knownvocab.Status{ID: 7, State: rivertype.JobStateCompleted}, nil
-}
-
-type Enrichment struct{}
-
-func (Enrichment) SubmitEnrichment(context.Context, string, []enrichment.Candidate) (enrichmentjob.Handle, error) {
-	return enrichmentjob.Handle{ID: 8}, nil
-}
-func (Enrichment) Get(context.Context, string, int64) (enrichmentjob.Status, error) {
-	return enrichmentjob.Status{ID: 8, State: rivertype.JobStateCompleted}, nil
-}
-func (Enrichment) Cancel(context.Context, string, int64) (enrichmentjob.Status, error) {
-	return enrichmentjob.Status{ID: 8, State: rivertype.JobStateCancelled}, nil
 }
 
 type PreparedDeck struct{ Store *Store }

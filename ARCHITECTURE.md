@@ -271,7 +271,6 @@ flowchart TB
         analysis[analysis]
         cataloguesync[cataloguesync]
         prepareddeck[prepareddeck]
-        enrichmentjob[enrichmentjob]
         knownvocab[knownvocab]
     end
     subgraph lang[Language and text]
@@ -291,14 +290,13 @@ flowchart TB
         persistence[persistence]
         opds[opds]
     end
-    server --> webapp & analysis & cataloguesync & prepareddeck & knownvocab & enrichmentjob
+    server --> webapp & analysis & cataloguesync & prepareddeck & knownvocab
     fixture --> webapp
     webapp --> webauth --> auth
     webapp --> persistence & lemmarisk
     analysis --> epub & analyzer & selection & persistence
     cataloguesync --> opds --> epub
     prepareddeck --> cardexport & enrichment & persistence
-    enrichmentjob --> enrichment
     cardexport --> gdex & dictionary
     selection --> lexical
     analyzer --> canonicalization
@@ -318,7 +316,7 @@ flowchart TB
 | [`lemmarisk`](internal/lemmarisk) | Conservative detection of occurrences that merit learner review |
 | [`gdex`](internal/gdex) | GDEX-informed example-sentence scoring |
 | [`dictionary`](internal/dictionary) | Read-only access to the Wiktionary-derived index |
-| [`enrichment`](internal/enrichment), [`enrichmentjob`](internal/enrichmentjob) | Dictionary and LLM enrichment, caching, and the external-provider privacy boundary |
+| [`enrichment`](internal/enrichment) | Dictionary and LLM enrichment, caching, and the external-provider privacy boundary |
 | [`prepareddeck`](internal/prepareddeck) | Durable deck preparation: manifest, translation, finalization |
 | [`cardexport`](internal/cardexport) | Recognition-card rendering and `.apkg` packaging |
 | [`opds`](internal/opds), [`cataloguesync`](internal/cataloguesync), [`bookcover`](internal/bookcover) | OPDS client, metadata sync, and cover retrieval |

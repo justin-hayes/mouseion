@@ -8,13 +8,13 @@ phrasing below is historical. Moving a Book to To Read automatically ensures
 current analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
 with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
-The accepted, partially shipped [Reading-owned Book vocabulary contract](../../features/reading-owned-book-vocabulary.md)
+The implemented [Reading-owned Book vocabulary contract](../../features/reading-owned-book-vocabulary.md)
 supersedes the pre-reading/direct deck submission and independent-selection
 portions of the shipped workflow below. New Book preparations are currently
 gated on Current reading and use its exact snapshot; starting, switching, and
-finishing do not depend on preparation. The two-occurrence corpus exception and
-Custom-deck retirement remain pending. Older direct artifacts remain
-downloadable but cannot start new Book preparations.
+finishing do not depend on preparation. The two-occurrence corpus exception is
+frozen with the snapshot, and Custom decks are retired. Older direct artifacts
+remain downloadable but cannot start new Book preparations.
 
 ## Goal
 

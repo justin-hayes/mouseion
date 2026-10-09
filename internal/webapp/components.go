@@ -11,7 +11,6 @@ import (
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
@@ -583,23 +582,6 @@ func knownVocabImportSummary(status knownvocab.Status) string {
 	default:
 		return "Review the import result and choose the next action below."
 	}
-}
-
-func enrichmentJobAttributes(status enrichmentjob.Status) templ.Attributes {
-	attributes := templ.Attributes{"data-workflow": "contextual translation"}
-	if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-		attributes["hx-get"] = fmt.Sprintf("/enrichment-jobs/%d/status", status.ID)
-		attributes["hx-trigger"] = "every 2s"
-		attributes["hx-swap"] = "outerHTML"
-	}
-	return attributes
-}
-
-func enrichmentJobSummary(status enrichmentjob.Status) string {
-	if status.Total == 0 {
-		return "Contextual translation work is being processed."
-	}
-	return fmt.Sprintf("%d of %d translations complete. Attempt %d.", status.Completed, status.Total, maxOne(status.Attempt))
 }
 
 func maxOne(value int) int {
