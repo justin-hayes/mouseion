@@ -13,6 +13,8 @@ of document has one home:
 | --- | --- | --- |
 | Product summary | [`product.md`](product.md) | Lean present-state summary: pipeline, stack, and the ADR index. |
 | Domain glossary | [`CONTEXT.md`](../CONTEXT.md) | The ubiquitous language used in code, UI, and documentation. |
+| Architecture | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | How the system is built: processes, pipelines, jobs, data model, and code map. |
+| Linguistic design | [`linguistics.md`](linguistics.md) | The linguistic decisions behind analysis, selection, and evidence, with evaluation and limitations. |
 | Decisions | [`adr/`](adr/) | Accepted architecture and product-boundary decisions. |
 | Feature specifications | [`features/`](features/) | Behavior, motivation, and scope of individual features. |
 | Design | [`design/`](design/) | Principles, design system, and information architecture. |
