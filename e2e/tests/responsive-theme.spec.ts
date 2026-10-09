@@ -182,88 +182,84 @@ test.describe('responsive and theme regression coverage', () => {
   test('Jobs uses owned styling for history, recovery, and asynchronous status', async ({ page }) => {
     await signIn(page);
 
-    for (const width of [375, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/jobs');
-      await expect(page.locator('body')).toHaveClass('jobs-shell');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-      await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-      const analysisHistory = page.getByRole('region', { name: 'Analysis history' });
-      await expect(analysisHistory.getByRole('table')).toBeVisible();
-      await expect(analysisHistory).toContainText('Completed');
-      await expect(analysisHistory).toContainText('Failed');
-      await expect(page.getByRole('region', { name: 'Catalog sync history' })).toContainText('Running');
-      await expectNoPageOverflow(page);
-      await expect(analysisHistory).toHaveCSS('overflow-x', 'auto');
+    // Runs at the project's viewport; desktop and compact are separate projects.
+    await page.goto('/jobs');
+    await expect(page.locator('body')).toHaveClass('jobs-shell');
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    const analysisHistory = page.getByRole('region', { name: 'Analysis history' });
+    await expect(analysisHistory.getByRole('table')).toBeVisible();
+    await expect(analysisHistory).toContainText('Completed');
+    await expect(analysisHistory).toContainText('Failed');
+    await expect(page.getByRole('region', { name: 'Catalog sync history' })).toContainText('Running');
+    await expectNoPageOverflow(page);
+    await expect(analysisHistory).toHaveCSS('overflow-x', 'auto');
 
-      await page.goto('/jobs/43');
-      await expect(page.locator('body')).toHaveClass('jobs-shell');
-      const retry = page.getByRole('button', { name: 'Retry analysis' });
-      await expect(retry).toBeVisible();
-      await retry.focus();
-      await expect(retry).toBeFocused();
-      expect(await retry.evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
-      const retryBox = await retry.boundingBox();
-      expect(retryBox?.width).toBeGreaterThanOrEqual(44);
-      expect(retryBox?.height).toBeGreaterThanOrEqual(44);
-      expect(await textContrast(retry)).toBeGreaterThanOrEqual(4.5);
-      await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
-      expect(await textContrast(retry)).toBeGreaterThanOrEqual(4.5);
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-      const motion = await page.evaluate(() => ({
-        requested: matchMedia('(prefers-reduced-motion: reduce)').matches,
-        animations: Array.from(document.querySelectorAll('main h1, main h2, button, a[role="button"]')).map((node) => getComputedStyle(node).animationName),
-      }));
-      expect(motion.requested).toBe(true);
-      expect(motion.animations.every((name) => name === 'none')).toBe(true);
-      await expectNoPageOverflow(page);
-    }
+    await page.goto('/jobs/43');
+    await expect(page.locator('body')).toHaveClass('jobs-shell');
+    const retry = page.getByRole('button', { name: 'Retry analysis' });
+    await expect(retry).toBeVisible();
+    await retry.focus();
+    await expect(retry).toBeFocused();
+    expect(await retry.evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+    const retryBox = await retry.boundingBox();
+    expect(retryBox?.width).toBeGreaterThanOrEqual(44);
+    expect(retryBox?.height).toBeGreaterThanOrEqual(44);
+    expect(await textContrast(retry)).toBeGreaterThanOrEqual(4.5);
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    expect(await textContrast(retry)).toBeGreaterThanOrEqual(4.5);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const motion = await page.evaluate(() => ({
+      requested: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      animations: Array.from(document.querySelectorAll('main h1, main h2, button, a[role="button"]')).map((node) => getComputedStyle(node).animationName),
+    }));
+    expect(motion.requested).toBe(true);
+    expect(motion.animations.every((name) => name === 'none')).toBe(true);
+    await expectNoPageOverflow(page);
   });
 
   test('Catalogs owns its styling and preserves legible, recoverable controls', async ({ page, browser, baseURL }) => {
     await signIn(page);
 
-    for (const width of [375, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/catalogs');
-      await expect(page.locator('body')).toHaveClass('catalogs-shell');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-      await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-      await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible();
-      const addConnectionForm = page.locator('#catalog-connection-form');
-      await expect(addConnectionForm.getByLabel('Name', { exact: true })).toBeVisible();
-      await expect(addConnectionForm.getByLabel('Catalog URL', { exact: true })).toBeVisible();
-      await expect(addConnectionForm.getByLabel('Username (optional)')).toBeVisible();
-      await expect(addConnectionForm.getByLabel('Password (optional, encrypted at rest)')).toBeVisible();
-      await expect(page.getByRole('status').first()).toContainText('Last synced');
-      await expect(page.getByText('Authentication failed for this connection.')).toBeVisible();
-      const deletionConfirmations = page.locator('.confirmation');
-      await expect(deletionConfirmations).toHaveCount(5);
-      expect(await deletionConfirmations.evaluateAll((nodes) => nodes.every((node) => !(node as HTMLDetailsElement).open))).toBe(true);
-      await expect(deletionConfirmations.first().locator('summary')).toHaveText('Delete catalog connection');
-      await deletionConfirmations.first().locator('summary').click();
-      await expect(deletionConfirmations.first()).toContainText('Books already in My Books and their artifacts remain available.');
-      await expect(deletionConfirmations.first().getByRole('button', { name: 'Confirm deletion' })).toBeVisible();
-      await deletionConfirmations.first().locator('summary').click();
+    // Runs at the project's viewport; desktop and compact are separate projects.
+    await page.goto('/catalogs');
+    await expect(page.locator('body')).toHaveClass('catalogs-shell');
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible();
+    const addConnectionForm = page.locator('#catalog-connection-form');
+    await expect(addConnectionForm.getByLabel('Name', { exact: true })).toBeVisible();
+    await expect(addConnectionForm.getByLabel('Catalog URL', { exact: true })).toBeVisible();
+    await expect(addConnectionForm.getByLabel('Username (optional)')).toBeVisible();
+    await expect(addConnectionForm.getByLabel('Password (optional, encrypted at rest)')).toBeVisible();
+    await expect(page.getByRole('status').first()).toContainText('Last synced');
+    await expect(page.getByText('Authentication failed for this connection.')).toBeVisible();
+    const deletionConfirmations = page.locator('.confirmation');
+    await expect(deletionConfirmations).toHaveCount(5);
+    expect(await deletionConfirmations.evaluateAll((nodes) => nodes.every((node) => !(node as HTMLDetailsElement).open))).toBe(true);
+    await expect(deletionConfirmations.first().locator('summary')).toHaveText('Delete catalog connection');
+    await deletionConfirmations.first().locator('summary').click();
+    await expect(deletionConfirmations.first()).toContainText('Books already in My Books and their artifacts remain available.');
+    await expect(deletionConfirmations.first().getByRole('button', { name: 'Confirm deletion' })).toBeVisible();
+    await deletionConfirmations.first().locator('summary').click();
 
-      // Model an unusually long upstream status to ensure it wraps instead of
-      // widening the page or pushing controls beyond the viewport.
-      await page.locator('#connection-status-fixture-failed-connection').evaluate((node) => {
-        const message = document.createElement('p');
-        message.textContent = 'Status detail '.repeat(40);
-        node.append(message);
-      });
-      await expectNoPageOverflow(page);
+    // Model an unusually long upstream status to ensure it wraps instead of
+    // widening the page or pushing controls beyond the viewport.
+    await page.locator('#connection-status-fixture-failed-connection').evaluate((node) => {
+      const message = document.createElement('p');
+      message.textContent = 'Status detail '.repeat(40);
+      node.append(message);
+    });
+    await expectNoPageOverflow(page);
 
-      const controls = page.locator('#main-content :is(button, input:not([type="hidden"]), summary, a[role="button"]):visible');
-      await expect44pxTouchTargets(controls);
-      await addConnectionForm.getByLabel('Name', { exact: true }).focus();
-      expect(await addConnectionForm.getByLabel('Name', { exact: true }).evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
-      expect(await textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
-      await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
-      await expect.poll(() => textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
-      await expectNoPageOverflow(page);
-    }
+    const controls = page.locator('#main-content :is(button, input:not([type="hidden"]), summary, a[role="button"]):visible');
+    await expect44pxTouchTargets(controls);
+    await addConnectionForm.getByLabel('Name', { exact: true }).focus();
+    expect(await addConnectionForm.getByLabel('Name', { exact: true }).evaluate((node) => getComputedStyle(node).outlineStyle)).toBe('solid');
+    expect(await textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    await expect.poll(() => textContrast(page.getByRole('button', { name: 'Add catalog' }))).toBeGreaterThanOrEqual(4.5);
+    await expectNoPageOverflow(page);
 
     const noScriptContext = await browser.newContext({
       baseURL,
@@ -425,34 +421,33 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('Concordance and occurrence review use owned styles at compact, desktop, dark, and 200% text size', async ({ page }) => {
     await signIn(page);
-    for (const width of [375, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/vocabulary/concordance?term=Haus');
-      await expect(page.locator('body')).toHaveClass('vocabulary-shell');
-      await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
-      await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-      const row = page.locator('#concordance-native-results .concordance-result').first();
-      await row.locator('summary').focus();
-      await expect(row.locator('summary')).toBeFocused();
-      await page.keyboard.press('Enter');
-      await expect(row.locator('details')).toHaveAttribute('open', '');
-      const source = row.locator('.concordance-context p');
-      await source.evaluate((node) => {
-        node.textContent = 'Das Haus, das seit vielen Jahren am ruhigen Rand des kleinen Dorfes steht, sieht trotz des langen Winters überraschend gut aus. '.repeat(2);
-      });
-      await expect(source).toBeVisible();
-      await expectNoPageOverflow(page);
-      expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
-      expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
-      expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
-      await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
-      expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
-      expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
-      expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
-      await page.locator('html').evaluate((node) => node.removeAttribute('data-theme'));
-      await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-      await expectNoPageOverflow(page);
-    }
+    // Runs at the project's viewport and scheme; the 200% text pass below is the
+    // enlargement contract for this page.
+    await page.goto('/vocabulary/concordance?term=Haus');
+    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
+    const row = page.locator('#concordance-native-results .concordance-result').first();
+    await row.locator('summary').focus();
+    await expect(row.locator('summary')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(row.locator('details')).toHaveAttribute('open', '');
+    const source = row.locator('.concordance-context p');
+    await source.evaluate((node) => {
+      node.textContent = 'Das Haus, das seit vielen Jahren am ruhigen Rand des kleinen Dorfes steht, sieht trotz des langen Winters überraschend gut aus. '.repeat(2);
+    });
+    await expect(source).toBeVisible();
+    await expectNoPageOverflow(page);
+    expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
+    expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
+    await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'dark'));
+    expect(await textContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(4.5);
+    expect(await boundaryContrast(page.locator('.concordance-query input[name="term"]'))).toBeGreaterThanOrEqual(3);
+    expect(await boundaryContrast(page.getByRole('button', { name: 'Find', exact: true }))).toBeGreaterThanOrEqual(3);
+    await page.locator('html').evaluate((node) => node.removeAttribute('data-theme'));
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoPageOverflow(page);
 
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
