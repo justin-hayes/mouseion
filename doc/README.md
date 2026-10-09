@@ -3,9 +3,14 @@
 ## Start here
 
 1. [README](../README.md) — what Mouseion is and why it exists.
-2. [Product summary](product.md) — the current pipeline, stack, and the index of
+2. [Architecture](../ARCHITECTURE.md) — processes, the analysis and deck
+   pipelines, background jobs, the data model, and a code map, with diagrams.
+3. [Linguistic design notes](linguistics.md) — how the text is selected and
+   annotated, what counts as a word, how coverage, vocabulary, and example
+   sentences are chosen, and how the results are evaluated.
+4. [Product summary](product.md) — the current pipeline, stack, and the index of
    every architecture decision.
-3. [Domain glossary](../CONTEXT.md) — the vocabulary used consistently in code,
+5. [Domain glossary](../CONTEXT.md) — the vocabulary used consistently in code,
    interface, and documentation (Book, Analysis, Lemma, Known, Reserved,
    Concordance, and so on).
 

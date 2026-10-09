@@ -56,7 +56,9 @@ The language-specific work lives in a Go core
 [`internal/lexical`](internal/lexical),
 [`internal/gdex`](internal/gdex)) and a Python NLP producer
 ([`nlp/`](nlp/src/mouseion_nlp)). Each behavior is specified in a feature
-document and decided in an ADR:
+document and decided in an ADR. The
+[linguistic design notes](doc/linguistics.md) explain them together, with
+evaluation and known limitations:
 
 - **Main-text selection.** EPUB 3 landmark declarations identify body matter
   and exclude front matter, bibliographies, indexes, and colophons from
@@ -132,6 +134,9 @@ flowchart LR
 - **Web interface** is server-rendered with [templ](https://templ.guide/) and
   enhanced with [htmx](https://htmx.org/). Core workflows also work without
   JavaScript.
+
+[ARCHITECTURE.md](ARCHITECTURE.md) covers the analysis and deck pipelines,
+background jobs, the data model, and a map of the code.
 
 ## Engineering practices
 
