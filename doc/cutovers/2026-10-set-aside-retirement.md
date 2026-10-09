@@ -65,7 +65,22 @@ The work is split into separately reviewed, separately recoverable stages:
 ## Backup, then restore proof
 
 Use a protected location; the dump contains all learner data. Use PostgreSQL
-client tools matching the server's major version.
+client tools matching the server's major version. Supply the restore-check
+password with `PGPASSWORD` or `~/.pgpass`, never in a command line.
+
+Build the tool once from the reviewed commit and use that binary for every stage
+(replace `go run ./cmd/bookdispositioncutover` below with it), recording its
+checksum in the change record so the same code plans, applies, and verifies:
+
+```sh
+go build -o "$dir/bookdispositioncutover" ./cmd/bookdispositioncutover
+sha256sum "$dir/bookdispositioncutover" | tee "$dir/bookdispositioncutover.sha256"
+```
+
+The row-fingerprint inventory reads the full preserved tables twice (`plan`,
+then `apply` under lock). Before the window, run `plan` and `apply` once against
+the restored copy from the proof below and record the elapsed times, so the
+maintenance window and the lock duration are known rather than guessed.
 
 ```sh
 umask 077
@@ -79,8 +94,8 @@ pg_restore --list "$backup" > "${backup}.toc"
 
 createdb mouseion_cutover_restore_check
 pg_restore --no-owner --no-privileges --exit-on-error --single-transaction \
-  --dbname=postgres://USER:PASSWORD@HOST/mouseion_cutover_restore_check "$backup"
-psql --dbname=postgres://USER:PASSWORD@HOST/mouseion_cutover_restore_check \
+  --dbname=postgres://USER@HOST/mouseion_cutover_restore_check "$backup"
+psql --dbname=postgres://USER@HOST/mouseion_cutover_restore_check \
   --tuples-only --command='SELECT count(*) FROM public.book_dispositions'
 ```
 
@@ -93,9 +108,8 @@ stage below, so it and the manifest below are restored together or not at all.
 
 ```sh
 go run ./cmd/bookdispositioncutover migrate --apply
-psql "$MOUSEION_DATABASE_URL" --set=ON_ERROR_STOP=1 --command=\
- "SELECT conname, convalidated FROM pg_constraint
-  WHERE conname = 'book_dispositions_disposition_check'"
+psql "$MOUSEION_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+  --command="SELECT conname, convalidated FROM pg_constraint WHERE conname = 'book_dispositions_disposition_check'"
 ```
 
 `convalidated = false` is expected when legacy rows exist; `true` means there
@@ -134,6 +148,10 @@ Review it before continuing. Check at least:
 backup checksum, and the restore evidence into the protected change record.
 
 ## Stage 3: data conversion
+
+Immediately before `apply`, repeat the `pg_stat_activity` check from the
+preconditions: no application connection may have appeared since `plan` (the
+tool rejects a changed database but cannot stop an old binary from starting).
 
 ```sh
 set -o pipefail
@@ -200,12 +218,29 @@ except `book_visibility` and `book_dispositions.unchanged` must match exactly
 vocabulary, source evidence, and artifact provenance), `changes` must be empty,
 and `blockers` must be empty. The integration tests perform this comparison.
 
-Then, with the new release (which contains no Set Aside writer, route, or UI), do
-the release-readiness checks in `doc/cutovers/set-aside-retirement-readiness.md`.
-Start the application only after **every** check passes; then check, in a
-browser, that default My Books shows Inbox / To Read / Read, that a legacy Book
-appears where projected, that new catalogue-synced Books are visible Inbox, and
-that `POST /library/books/{id}/set-aside` returns 404.
+**Prove the retired routes and writers are gone before reopening.** The reviewed
+release's tests establish this for the commit (record the passing
+`go test ./internal/webapp/...` and `make test-integration` runs for the exact
+commit being deployed). Confirm it on the deployed binary against the converted
+database by starting it on a private loopback address only, probing, and
+stopping it, while the public listener stays closed:
+
+```sh
+MOUSEION_HTTP_ADDR=127.0.0.1:18080 ./mouseion-server &   # plus the usual MOUSEION_* settings
+# sign in with a throwaway session, then expect 404 for each retired route:
+for path in /library/books/00000000-0000-0000-0000-000000000000/set-aside /reading/set-aside; do
+  curl -s -o /dev/null -w "%{http_code} $path\n" -X POST "http://127.0.0.1:18080$path"
+done
+kill %1
+```
+
+(Unauthenticated requests may be redirected to sign-in before routing; with a
+signed-in session and CSRF token the expected status is 404. If that cannot be
+shown, treat the unit/integration evidence for the commit as the gate and note
+the gap in the change record.) Start the public application only after
+**every** check passes; then check, in a browser, that default My Books shows
+Inbox / To Read / Read, that a legacy Book appears where projected, that new
+catalogue-synced Books are visible Inbox, and that sync preserved dispositions.
 
 ## Ownership
 
@@ -234,7 +269,9 @@ change record. The agent that prepared this change performs none of these steps.
   disposition revision, visibility, history category, and Current reading status
   are exactly as the cutover left them; otherwise it refuses
   (`ErrDispositionCutoverStateChanged`) and never overwrites a later learner
-  choice or completion. Replaying the same correction is a no-op.
+  choice or completion. Replaying the same correction is a no-op, and a second,
+  different correction of an already-corrected Book is refused too (it needs a
+  deliberate manual decision, not the tool).
 - **Down migrations are not presumed safe.** `000033.down` drops the checkpoint
   and audit and restores the three-value constraint, but never maps Inbox back
   to Set Aside (the original values live only in the manifest and audit).

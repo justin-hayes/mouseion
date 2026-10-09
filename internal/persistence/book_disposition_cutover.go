@@ -45,7 +45,7 @@ var (
 var dispositionCutoverPreservedTables = []string{
 	"books", "book_aliases", "book_membership", "book_covers", "book_current_analyses",
 	"source_materials", "primary_goals", "primary_goal_snapshots", "primary_goal_snapshot_vocabulary",
-	"reading_history", "known_vocabulary", "deck_preparations", "custom_vocabulary_deck_preparations",
+	"reading_history", "known_vocabulary", "deck_preparations", "custom_vocabulary_deck_preparations", "custom_vocabulary_deck_preparation_identities",
 }
 
 // DispositionCutoverOwner is one learner's inventory. Nothing assumes a single
@@ -590,6 +590,9 @@ func buildDispositionCutoverManifest(ctx context.Context, q cutoverQuerier) (Dis
 		m.Owners = append(m.Owners, o)
 		m.Totals.Books += o.Books
 		m.Totals.InitializedVisibility += o.MissingVisibility
+		if o.WithoutDisposition > 0 {
+			m.Blockers = append(m.Blockers, fmt.Sprintf("owner %s has %d Books without a disposition row", o.OwnerID, o.WithoutDisposition))
+		}
 		if o.UnexpectedValues > 0 {
 			m.Blockers = append(m.Blockers, fmt.Sprintf("owner %s has %d dispositions outside inbox/to_read/set_aside", o.OwnerID, o.UnexpectedValues))
 		}
