@@ -299,7 +299,7 @@ _Avoid_: Journey member, backlog, queue.
 **Set Aside** (retired):
 A former disposition for a Book removed from ordinary consideration. ADR 0086
 retired it as a value and action: requests are rejected, not translated into
-Hidden or End. No Book was ever Set Aside in production, so nothing was converted.
+Hidden or End. The one production legacy row was mapped to Inbox by hand.
 _Avoid_: current disposition, archived, rejected, abandoned.
 
 **Current reading**:
