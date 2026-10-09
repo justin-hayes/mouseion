@@ -327,7 +327,7 @@ jobs:
   browser-smoke-shard:
     name: Browser smoke shard ${{ matrix.shard }}/4
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -371,6 +371,12 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         working-directory: e2e
         run: npm ci --ignore-scripts
+      - name: Cache Playwright browsers
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Install Chromium and WebKit
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         run: npx --prefix e2e playwright install --with-deps chromium webkit

@@ -3,7 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
-  workers: 4,
+  // CI runners vary in size (2 vCPUs for private repositories, 4 for public);
+  // each worker drives a browser and its own fixture server, so match cores.
+  workers: process.env.CI ? '100%' : 4,
   timeout: 15_000,
   expect: { timeout: 5_000 },
   retries: process.env.CI ? 1 : 0,

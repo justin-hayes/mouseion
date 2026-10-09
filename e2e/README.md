@@ -14,7 +14,7 @@ same four viewport/appearance combinations, so the complete workflow suite is
 not multiplied by a second engine. Run only that focused matrix with
 `make browser-smoke-webkit` (or `cd e2e && npm run smoke:webkit`).
 
-Playwright runs four workers. Each worker starts and owns an independent
+Playwright runs four workers locally and one per CPU core in CI. Each worker starts and owns an independent
 in-memory fixture server on a loopback port for its current spec file; it stops
 that server and starts a fresh one at the next file boundary. Tests in a file
 remain ordered and may share state; different files and projects start from a
