@@ -3,8 +3,8 @@
 // scenario Books to To Read and waits for each analysis, imports a Known
 // vocabulary baseline derived from the other Books (known-vocabulary.ts), reads
 // one Book to completion, starts the target Book, and then captures the Reading
-// view and My Books, then looks up the configured lemma and captures the
-// Concordance and one sentence Study. Every input comes from the environment set by run.mjs, and
+// view and My Books in light and dark schemes, then looks up the configured
+// lemma and captures the Concordance and one sentence Study. Every input comes from the environment set by run.mjs, and
 // every wait is bounded and reports the Book or step that stalled.
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -37,6 +37,7 @@ const password = requiredEnv('MOUSEION_SCREENSHOT_PASSWORD');
 const catalogName = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_NAME');
 const catalogURL = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_URL');
 const myBooksOutputPath = requiredEnv('MOUSEION_SCREENSHOT_OUTPUT');
+const myBooksDarkOutputPath = requiredEnv('MOUSEION_SCREENSHOT_DARK_OUTPUT');
 const readingOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READING_OUTPUT');
 const concordanceOutputPath = requiredEnv('MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT');
 const studyOutputPath = requiredEnv('MOUSEION_SCREENSHOT_STUDY_OUTPUT');
@@ -386,8 +387,16 @@ async function openSentenceStudy(page: Page): Promise<void> {
   );
 }
 
-async function settleAndCapture(page: Page, outputPath: string): Promise<void> {
-  await page.emulateMedia({ colorScheme: 'light' });
+type ColorScheme = 'light' | 'dark';
+
+async function settleAndCapture(page: Page, outputPath: string, colorScheme: ColorScheme = 'light'): Promise<void> {
+  await page.emulateMedia({ colorScheme });
+  // The app follows the operating-system scheme, so the capture must render the
+  // scheme it is named after: check the rendered surface token, not just the media query.
+  const surface = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--mouseion-color-surface').trim());
+  expect(surface, `the rendered surface follows the ${colorScheme} color scheme before ${outputPath} is captured`).toBe(
+    colorScheme === 'dark' ? '#111a22' : '#f3f6f7',
+  );
   await page.evaluate(() => document.fonts.ready);
   await page.waitForFunction(() => document.querySelectorAll('.htmx-request').length === 0, undefined, { timeout: 15_000 });
   // Covers below the fold are lazy-loaded, so scroll the whole page once to make
@@ -412,6 +421,16 @@ async function settleAndCapture(page: Page, outputPath: string): Promise<void> {
     clip: { x: 0, y: 0, width: 1280, height: Math.min(height, MAX_SCREENSHOT_HEIGHT) },
     type: 'png',
   });
+}
+
+// Captures My Books in one color scheme after the same bucket checks, so the
+// dark variant is held to the same standard as the light capture.
+async function captureMyBooks(page: Page, colorScheme: ColorScheme, outputPath: string): Promise<void> {
+  for (const book of manifest.books) {
+    expect(await workflowLabel(page, book), `${book.title} workflow bucket in My Books`).toBe(WORKFLOW_LABEL[book.journey]);
+  }
+  await page.goto('/library');
+  await settleAndCapture(page, outputPath, colorScheme);
 }
 
 test('the scenario Books are analyzed, one is read to completion, and Reading, My Books, Concordance, and Study are captured', async ({ page }) => {
@@ -442,11 +461,8 @@ test('the scenario Books are analyzed, one is read to completion, and Reading, M
   await page.goto('/reading');
   await settleAndCapture(page, readingOutputPath);
 
-  for (const book of manifest.books) {
-    expect(await workflowLabel(page, book), `${book.title} workflow bucket in My Books`).toBe(WORKFLOW_LABEL[book.journey]);
-  }
-  await page.goto('/library');
-  await settleAndCapture(page, myBooksOutputPath);
+  await captureMyBooks(page, 'light', myBooksOutputPath);
+  await captureMyBooks(page, 'dark', myBooksDarkOutputPath);
 
   await lookUpLemma(page);
   await assertConcordanceCorpus(page);

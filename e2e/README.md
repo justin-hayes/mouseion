@@ -165,16 +165,19 @@ screenshots, and videos are retained there according to the Playwright config.
 ## Documentation screenshots of My Books, Reading, Concordance, and Study
 
 `make screenshot-my-books` builds the documentation screenshots
-`doc/images/my-books.png`, `doc/images/reading.png`,
-`doc/images/concordance.png`, and `doc/images/sentence-study.png` on an isolated
-Compose stack. It is separate from `make browser-smoke` and CI. Nothing is
-written unless every assertion passes.
+`doc/images/my-books.png`, `doc/images/my-books-dark.png`,
+`doc/images/reading.png`, `doc/images/concordance.png`, and
+`doc/images/sentence-study.png` on an isolated Compose stack. It is separate from
+`make browser-smoke` and CI. Nothing is written unless every assertion passes.
+The procedure, durations, and clean-up are in the
+[development guide](../doc/development.md#regenerating-screenshots).
 
 - The learner workflow moves every scenario Book except the one marked `inbox`
   to To Read, waits for each analysis through Reading's chooser, starts and
   finishes the `read` Book, starts the `current` Book, and asserts its title and
   a non-empty Book vocabulary table before capturing Reading. My Books is then
-  captured with the Inbox, To Read, Currently reading, and Read buckets asserted.
+  captured twice, in the light and dark color schemes, and each capture asserts
+  the Inbox, To Read, Currently reading, and Read buckets first.
 - The Concordance lookup types the lemma configured in the `concordance` block of
   `screenshot/manifest.json` into the Concordance form. The capture fails unless
   the analyzed corpus yields at least `minimumOccurrences` lines from at least

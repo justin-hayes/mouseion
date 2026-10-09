@@ -8,9 +8,9 @@
 // 4. Runs the learner workflow in Playwright (e2e/screenshot/my-books.spec.ts),
 //    which analyzes the scenario Books, reads one to completion, and looks up
 //    the configured Concordance lemma and one sentence Study.
-// 5. Writes the optimized screenshots to doc/images (my-books, reading,
-//    concordance, sentence-study) and stops the stack, keeping the Stanza model
-//    volume.
+// 5. Writes the optimized screenshots to doc/images (my-books, my-books-dark,
+//    reading, concordance, sentence-study) and stops the stack, keeping the
+//    Stanza model volume.
 //
 // `--clean` removes the project's containers and volumes, then exits.
 import { spawn } from 'node:child_process';
@@ -47,6 +47,7 @@ const paths = {
 const envFile = join(paths.run, 'compose.env');
 const manifestPath = join(here, 'manifest.json');
 const myBooksOutput = join(repo, 'doc', 'images', 'my-books.png');
+const myBooksDarkOutput = join(repo, 'doc', 'images', 'my-books-dark.png');
 const readingOutput = join(repo, 'doc', 'images', 'reading.png');
 const concordanceOutput = join(repo, 'doc', 'images', 'concordance.png');
 const studyOutput = join(repo, 'doc', 'images', 'sentence-study.png');
@@ -199,6 +200,7 @@ async function runWorkflow({ baseURL, password }) {
     MOUSEION_SCREENSHOT_CATALOG_URL: CATALOG_URL,
     MOUSEION_SCREENSHOT_MANIFEST: manifestPath,
     MOUSEION_SCREENSHOT_OUTPUT: join(paths.out, 'my-books.raw.png'),
+    MOUSEION_SCREENSHOT_DARK_OUTPUT: join(paths.out, 'my-books-dark.raw.png'),
     MOUSEION_SCREENSHOT_READING_OUTPUT: join(paths.out, 'reading.raw.png'),
     MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT: join(paths.out, 'concordance.raw.png'),
     MOUSEION_SCREENSHOT_STUDY_OUTPUT: join(paths.out, 'sentence-study.raw.png'),
@@ -258,6 +260,7 @@ async function screenshot() {
     log('Driving My Books in Playwright');
     await runWorkflow({ baseURL, password });
     await writeScreenshot('my-books.raw.png', myBooksOutput);
+    await writeScreenshot('my-books-dark.raw.png', myBooksDarkOutput);
     await writeScreenshot('reading.raw.png', readingOutput);
     await writeScreenshot('concordance.raw.png', concordanceOutput);
     await writeScreenshot('sentence-study.raw.png', studyOutput);
