@@ -126,29 +126,6 @@ type BookDisposition struct {
 	Revision    int64
 }
 
-type BookDispositionCutover struct {
-	ID                    string
-	ManifestSha256        string
-	Manifest              []byte
-	ConvertedDispositions int
-	InitializedVisibility int
-	CompletedAt           time.Time
-}
-
-type BookDispositionCutoverChange struct {
-	CutoverID            string
-	OwnerID              string
-	BookID               string
-	OriginalDisposition  string
-	OriginalRevision     int64
-	OriginalUpdatedAt    time.Time
-	ConvertedDisposition string
-	ConvertedRevision    int64
-	HistoryCategory      string
-	CorrectedDisposition pgtype.Text
-	CorrectedAt          pgtype.Timestamptz
-}
-
 type BookMembership struct {
 	OwnerID     string
 	BookID      string

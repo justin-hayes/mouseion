@@ -62,6 +62,11 @@ func TestBookDispositionBackfillUsesDeterministicLegacyPrecedence(t *testing.T) 
 	moveApplicationMigrationsTo(t, databaseURL, 16)
 	assertMigrationDisposition(t, pool, owner.ID, inboxBook.ID, domain.BookDisposition("set_aside"))
 
+	// Set Aside is retired and no production Book ever held it; migration 33
+	// refuses legacy rows, so retire the ones this historical backfill created.
+	moveApplicationMigrationsTo(t, databaseURL, 32)
+	_, err = pool.Exec(ctx, `UPDATE book_dispositions SET disposition='inbox' WHERE disposition='set_aside'`)
+	require.NoError(t, err)
 	migrateApplicationMigrationsToLatest(t, databaseURL)
 	toRead, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)

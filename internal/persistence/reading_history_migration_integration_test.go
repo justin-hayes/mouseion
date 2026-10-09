@@ -59,6 +59,11 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	assert.True(t, completedAt.Equal(migratedAt), "completion timestamp changed: got %s want %s", migratedAt, completedAt)
 	// The historical assertions above stop at version 10. Restore the current
 	// schema before exercising the current persistence methods below.
+	// Set Aside is retired and no production Book ever held it; migration 33
+	// refuses legacy rows, so retire the ones this historical backfill created.
+	moveApplicationMigrationsTo(t, databaseURL, 32)
+	_, err = pool.Exec(ctx, `UPDATE book_dispositions SET disposition='inbox' WHERE disposition='set_aside'`)
+	require.NoError(t, err)
 	migrateApplicationMigrationsToLatest(t, databaseURL)
 	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -71,7 +76,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	assert.Equal(t, otherBook.ID, otherGoal.BookID, "owner-isolated active Goal was changed")
 	finishedDisposition, err := store.GetBookDisposition(ctx, owner.ID, finishedBook.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDisposition("set_aside"), finishedDisposition, "finished Book disposition changed during history backfill")
+	assert.Equal(t, domain.BookDispositionInbox, finishedDisposition, "finished Book disposition changed during history backfill")
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, known, 1, "backfill changed Known vocabulary")
