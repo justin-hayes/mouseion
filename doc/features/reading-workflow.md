@@ -1,6 +1,6 @@
 # Reading workflow
 
-Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the production data cutover is pending.
+Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the one production Set Aside row was converted to Inbox by hand before migration 000033 was re-run.
 
 The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
 contract is being implemented in slices. New Book-deck preparation is now
