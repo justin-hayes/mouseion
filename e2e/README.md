@@ -122,12 +122,19 @@ Committed baselines belong under `e2e/tests/**/__snapshots__/`. Failed runs
 retain reviewable output in `playwright-report/` and `test-results/`; traces,
 screenshots, and videos are retained there according to the Playwright config.
 
-## Documentation screenshot of My Books
+## Documentation screenshots of My Books and Reading
 
-`make screenshot-my-books` builds the documentation screenshot
-`doc/images/my-books.png` on an isolated Compose stack. It is separate from
-`make browser-smoke` and CI.
+`make screenshot-my-books` builds the documentation screenshots
+`doc/images/my-books.png` and `doc/images/reading.png` on an isolated Compose
+stack. It is separate from `make browser-smoke` and CI.
 
+- The learner workflow moves every scenario Book except the one marked `inbox`
+  to To Read, waits for each analysis through Reading's chooser, starts and
+  finishes the `read` Book, starts the `current` Book, and asserts its title and
+  a non-empty Book vocabulary table before capturing Reading. My Books is then
+  captured with the Inbox, To Read, Currently reading, and Read buckets asserted.
+- Each wait is bounded and names the Book or step that stalled. Analysis of the
+  full set is bounded at 30 minutes; the Playwright test budget is 75 minutes.
 - Source books are pinned Project Gutenberg editions in
   `screenshot/manifest.json`, cached under the ignored `.tmp/screenshot/`.
   A checksum mismatch stops the run; review the manifest before changing a pin.

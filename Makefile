@@ -165,8 +165,8 @@ gen:
 browser-smoke:
 	cd e2e && npm ci --ignore-scripts && npx playwright install chromium webkit && npx playwright test
 
-# Documentation screenshot of My Books on an isolated stack (not part of
-# browser-smoke or CI). See e2e/screenshot/run.mjs. `screenshot-my-books-clean`
+# Documentation screenshots of My Books and Reading on an isolated stack (not
+# part of browser-smoke or CI). See e2e/screenshot/run.mjs. `screenshot-my-books-clean`
 # removes the screenshot project's containers and volumes.
 # Checked before any install or download so a missing prerequisite fails fast.
 SCREENSHOT_PREFLIGHT = command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)' || { printf '%s\n' 'Node.js 20 or newer with npm is required for the screenshot; install it and rerun.' >&2; exit 1; }; \

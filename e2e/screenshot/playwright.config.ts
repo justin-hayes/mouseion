@@ -10,8 +10,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  // Covers arrive through River jobs after sync, so the workflow waits on them.
-  timeout: 20 * 60_000,
+  // Catalog sync, covers, and analysis arrive through River jobs, so the workflow
+  // waits on them. Each wait is bounded in my-books.spec.ts; this budget covers
+  // their sum (about 46 minutes worst case) plus the UI steps between them.
+  timeout: 75 * 60_000,
   expect: { timeout: 10_000 },
   reporter: [['list']],
   outputDir: process.env.MOUSEION_SCREENSHOT_RESULTS ?? '../../.tmp/screenshot/test-results',
