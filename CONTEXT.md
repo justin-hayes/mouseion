@@ -17,8 +17,7 @@ records the historical Goal and ordered-Journey model.
 [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
 implemented contextual Gloss vocabulary below.
 The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
-definitions below are accepted targets under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md);
-the shipped application has not completed the Reading-owned selection cutover.
+definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
 
 ## Language
 
