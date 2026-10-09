@@ -107,16 +107,12 @@ the separate sentence-quality (GDEX) scorer.
 
 ### Query layer
 
-- The four existing queries (`ListBookOccurrencesByLemma`, `BySurface`,
-  `ListStudyLanguageOccurrencesByLemma`, `BySurface`) each add the target
-  token's dependency context: its relation, its head ordinal, and the head's
-  surface form.
-- **Role filter (A)**: occurrences of a queried identity restricted to
-  `dependency = R` (e.g. every occurrence of *laufen* as `nsubj`), Book and
-  study-language scope.
-- **Dependents (B)**: given a governor identity (canonical lemma + UPOS) and a
-  relation R, return the governor's dependents in that role with full sentence
-  context (e.g. the `obj`s of *laufen*), Book and study-language scope.
+- The supported Concordance lookup (`ListVocabularyConcordance`) carries the
+  target token's dependency context: its relation, its head ordinal, and the
+  head's surface form.
+- The Book-scope and study-language occurrence queries, and the Role filter (A)
+  and Dependents (B) queries built on them, were retired with the Concordance
+  Book and Grammar modes (#1614). They are not part of the current query layer.
 - Result rows use the existing `ConcordanceOccurrence` shape; no context
   windows are computed (windowing remains a rendering concern).
 
@@ -125,9 +121,8 @@ the separate sentence-quality (GDEX) scorer.
 - Every persisted token in a completed analysis has non-null `dependency` and
   `head`; sentence roots are self-headed with `dependency = "root"`.
 - Analysis fails fast with a clear error when the NLP service lacks `depparse`.
-- Role-filter and dependents queries return deterministic, owner-scoped rows at
-  both Book and study-language scope.
-- The four existing occurrence queries carry dependency context.
+- Concordance lookup returns deterministic, owner-scoped rows that carry
+  dependency context. (Role-filter and dependents queries were retired in #1614.)
 - **GDEX-readiness**: the persisted data is sufficient to compute, without
   re-running NLP, (i) finite-verb-and-subject presence per sentence and (ii)
   subtree/hypotaxis membership of a target token — the two dependency-based

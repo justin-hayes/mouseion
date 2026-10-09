@@ -69,56 +69,6 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	assert.Equal(t, int64(0), headOrdinal)
 	assert.Equal(t, "Das", headSurface)
 
-	bookRows, err := store.ListBookOccurrencesByLemma(ctx, alice.ID, bookA.ID, "de-DE", "haus", "NOUN")
-	require.NoError(t, err)
-	require.Len(t, bookRows, 1)
-	assertOccurrence(t, bookRows[0], bookA.ID, "Book A", sourceA.ID, "epub-unit-v1:1:chapter-a", "Chapter 1", "Das Haus", 4, 8, 6, 10, 13, 17, 1, 1, "obj", 0, "Das")
-
-	surfaceRows, err := store.ListBookOccurrencesBySurface(ctx, alice.ID, bookA.ID, "de", "Haus")
-	require.NoError(t, err)
-	assert.Equal(t, bookRows, surfaceRows)
-
-	bookRoleRows, err := store.ListBookOccurrencesByLemmaAndDependency(ctx, alice.ID, bookA.ID, "de-DE", "haus", "NOUN", "obj")
-	require.NoError(t, err)
-	assert.Equal(t, bookRows, bookRoleRows)
-
-	bookSurfaceRoleRows, err := store.ListBookOccurrencesBySurfaceAndDependency(ctx, alice.ID, bookA.ID, "de", "Haus", "obj")
-	require.NoError(t, err)
-	assert.Equal(t, bookRoleRows, bookSurfaceRoleRows)
-
-	bookRootRows, err := store.ListBookOccurrencesByLemmaAndDependency(ctx, alice.ID, bookA.ID, "de", "haus", "NOUN", "root")
-	require.NoError(t, err)
-	assert.Empty(t, bookRootRows)
-
-	languageRows, err := store.ListStudyLanguageOccurrencesByLemma(ctx, alice.ID, "de", "haus", "NOUN")
-	require.NoError(t, err)
-	require.Len(t, languageRows, 2)
-	assertOccurrence(t, languageRows[0], bookA.ID, "Book A", sourceA.ID, "epub-unit-v1:1:chapter-a", "Chapter 1", "Das Haus", 4, 8, 6, 10, 13, 17, 1, 1, "obj", 0, "Das")
-	assertOccurrence(t, languageRows[1], bookB.ID, "Book B", sourceB.ID, "epub-unit-v1:0:chapter-b", "Chapter 1", "Haus", 0, 4, 0, 4, 0, 4, 0, 2, "root", 0, "Haus")
-
-	languageSurfaceRows, err := store.ListStudyLanguageOccurrencesBySurface(ctx, alice.ID, "de-DE", "Haus")
-	require.NoError(t, err)
-	assert.Equal(t, languageRows, languageSurfaceRows)
-
-	languageRoleRows, err := store.ListStudyLanguageOccurrencesByLemmaAndDependency(ctx, alice.ID, "de", "haus", "NOUN", "obj")
-	require.NoError(t, err)
-	require.Len(t, languageRoleRows, 1)
-	assert.Equal(t, languageRows[0], languageRoleRows[0])
-
-	languageSurfaceRoleRows, err := store.ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx, alice.ID, "de-DE", "Haus", "root")
-	require.NoError(t, err)
-	require.Len(t, languageSurfaceRoleRows, 1)
-	assert.Equal(t, languageRows[1], languageSurfaceRoleRows[0])
-
-	bookDependents, err := store.ListBookDependentsByGovernorLemma(ctx, alice.ID, bookA.ID, "de-DE", "das", "DET", "obj")
-	require.NoError(t, err)
-	require.Len(t, bookDependents, 1)
-	assert.Equal(t, bookRows[0], bookDependents[0])
-
-	languageDependents, err := store.ListStudyLanguageDependentsByGovernorLemma(ctx, alice.ID, "de", "das", "DET", "obj")
-	require.NoError(t, err)
-	require.Len(t, languageDependents, 1)
-
 	lemmaLookup, err := store.ListVocabularyConcordance(ctx, alice.ID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
 	require.NoError(t, err)
 	assert.Equal(t, domain.ConcordanceMatchLemma, lemmaLookup.Match)
@@ -163,20 +113,11 @@ func TestConcordanceOccurrencesAreCurrentOwnerScopedAndDeterministic(t *testing.
 	assert.Equal(t, "Das Haus", parseGap.SentenceText)
 	assert.Empty(t, parseGap.Tokens)
 	assert.Equal(t, "Haus", parseGap.TargetSurface)
-	assert.Equal(t, bookRows[0], languageDependents[0])
 
-	bobRows, err := store.ListStudyLanguageOccurrencesBySurface(ctx, bob.ID, "de", "Haus")
+	bobLookup, err := store.ListVocabularyConcordance(ctx, bob.ID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
 	require.NoError(t, err)
-	require.Len(t, bobRows, 1)
-	assert.Equal(t, bookBob.ID, bobRows[0].BookID, "owner scoping")
-
-	bobRoleRows, err := store.ListStudyLanguageOccurrencesBySurfaceAndDependency(ctx, bob.ID, "de", "Haus", "obj")
-	require.NoError(t, err)
-	assert.Empty(t, bobRoleRows, "role filter must remain owner-scoped")
-
-	bobDependents, err := store.ListStudyLanguageDependentsByGovernorLemma(ctx, bob.ID, "de", "das", "DET", "obj")
-	require.NoError(t, err)
-	assert.Empty(t, bobDependents, "dependents query must remain owner-scoped")
+	require.Len(t, bobLookup.Occurrences, 1)
+	assert.Equal(t, bookBob.ID, bobLookup.Occurrences[0].BookID, "owner scoping")
 }
 
 func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
@@ -538,27 +479,4 @@ func insertConcordanceAnalysis(t *testing.T, ctx context.Context, store *Postgre
 			require.NoError(t, err)
 		}
 	}
-}
-
-func assertOccurrence(t *testing.T, occurrence domain.ConcordanceOccurrence, bookID, bookTitle, sourceID, unitID, chapterTitle, sentenceText string, sentenceStart, sentenceEnd, unitStart, unitEnd, bookStart, bookEnd, unitOrder int64, _ int, dependency string, headOrdinal int64, headSurface string) {
-	t.Helper()
-	assert.Equal(t, bookID, occurrence.BookID)
-	assert.Equal(t, bookTitle, occurrence.BookTitle)
-	assert.Equal(t, sourceID, occurrence.SourceMaterialID)
-	assert.Equal(t, unitID, occurrence.UnitID)
-	assert.Equal(t, chapterTitle, occurrence.ChapterTitle)
-	assert.Equal(t, sentenceText, occurrence.SentenceText)
-	assert.Equal(t, "Haus", occurrence.Surface)
-	assert.Equal(t, "haus", occurrence.CanonicalLemma)
-	assert.Equal(t, "NOUN", occurrence.UPOS)
-	assert.Equal(t, dependency, occurrence.Dependency)
-	assert.Equal(t, headOrdinal, occurrence.HeadOrdinal)
-	assert.Equal(t, headSurface, occurrence.HeadSurface)
-	assert.Equal(t, sentenceStart, occurrence.SentenceStartOffset)
-	assert.Equal(t, sentenceEnd, occurrence.SentenceEndOffset)
-	assert.Equal(t, unitStart, occurrence.UnitStartOffset)
-	assert.Equal(t, unitEnd, occurrence.UnitEndOffset)
-	assert.Equal(t, bookStart, occurrence.BookStartOffset)
-	assert.Equal(t, bookEnd, occurrence.BookEndOffset)
-	assert.Equal(t, unitOrder, occurrence.UnitOrder)
 }
