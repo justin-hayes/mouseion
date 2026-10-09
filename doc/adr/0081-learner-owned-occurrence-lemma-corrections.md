@@ -1,6 +1,6 @@
 # ADR 0081: Learner-owned occurrence lemma corrections before vocabulary freeze
 
-Status: **Accepted (not yet implemented)** · Date: 2026-09-28 · Author: Justin + OpenCode
+Status: **Accepted (implemented)** · Date: 2026-09-28 · Author: Justin + OpenCode
 
 Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §9: "explicitly stopping without completion" now reads End current reading. Corrections still never rewrite active snapshots.
 

@@ -1,6 +1,6 @@
 # ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4
 
-Status: **Accepted; implementation complete in PR #1404, awaiting human review and merge** · Date: 2026-10-03 · Author: Justin + OpenCode
+Status: **Accepted (implemented in PR #1404)** · Date: 2026-10-03 · Author: Justin + OpenCode
 
 ## Context
 
