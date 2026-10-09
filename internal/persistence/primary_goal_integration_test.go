@@ -216,7 +216,7 @@ func TestCurrentReadingCanStartAnalyzedToReadBookWithoutOrdering(t *testing.T) {
 	require.ErrorIs(t, err, ErrGoalExists)
 }
 
-func TestCurrentReadingStopAndSetAsideReleaseOnlyActiveSnapshotIdempotently(t *testing.T) {
+func TestCurrentReadingEndReleasesOnlyActiveSnapshotIdempotently(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)

@@ -152,10 +152,10 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, alice.ID, retryBookID).Scan(&inboxDispositionRows)
 	require.NoError(t, err)
 	assert.Equal(t, 1, inboxDispositionRows, "retried first discovery created duplicate Inbox disposition rows")
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, retryBookID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, retryBookID, domain.BookDispositionToRead))
 	reader.feeds["11"] = opds.Feed{Entries: []opds.Entry{testEntry("greek-entry", "Refreshed Greek title")}}
 	require.NoError(t, worker.Work(ctx, job))
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, retryBookID), "metadata resync reset Set Aside")
+	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, retryBookID), "metadata resync reset To Read")
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Updated title", "Updated author")}}
 	require.NoError(t, worker.Work(ctx, job))
 	books, err = store.ListMyBooks(ctx, alice.ID)
@@ -191,8 +191,8 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, aliases)
 	assert.Equal(t, 3, memberships)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBookID, domain.BookDispositionSetAside))
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, toReadBookID))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBookID, domain.BookDispositionInbox))
+	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, toReadBookID))
 	_, err = store.ImportPreviouslyRead(ctx, alice.ID, toReadBookID)
 	require.NoError(t, err)
 	reader.feeds["7"] = opds.Feed{}
@@ -200,7 +200,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	books, err = store.ListMyBooks(ctx, alice.ID)
 	require.NoError(t, err)
 	assert.Len(t, books, 3)
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "upstream disappearance changed disposition")
+	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "upstream disappearance changed disposition")
 	var historyCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, toReadBookID).Scan(&historyCount)
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 			assert.Equal(t, "Reappeared author", book.Author)
 		}
 	}
-	assert.Equal(t, domain.BookDispositionSetAside, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "reappearing entry reset disposition")
+	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "reappearing entry reset disposition")
 	require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}))
 	bobBooks, listErr := store.ListMyBooks(ctx, bob.ID)
 	require.NoError(t, listErr)

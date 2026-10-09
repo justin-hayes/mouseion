@@ -403,7 +403,7 @@ overflow.
   flat readable-unit fallback, all checked initially, with explicit bulk
   check/uncheck controls and a selected-scope summary. It is not an evidence
   dashboard.
-- Starting, switching, stopping, setting aside, and finishing current reading
+- Starting, switching, ending, and finishing current reading
   retain distinct consequential confirmations; snapshot and completion behavior
   remains governed by the applicable ADRs.
 - Vocabulary is canonical for importing known vocabulary; study languages are

@@ -53,12 +53,7 @@ func (s *journeyIntentStore) SetBookDisposition(_ context.Context, _, _ string, 
 	return nil
 }
 
-func (s *journeyIntentStore) SetBookAside(_ context.Context, _, _, _ string) error {
-	s.detail.Disposition = domain.BookDispositionSetAside
-	return nil
-}
-
-func (s *journeyIntentStore) TransitionBookDisposition(_ context.Context, _, _, _ string, expected int64, disposition domain.BookDisposition) (bool, error) {
+func (s *journeyIntentStore) TransitionBookDisposition(_ context.Context, _, _ string, expected int64, disposition domain.BookDisposition) (bool, error) {
 	if s.detail.DispositionRevision != expected {
 		return false, persistence.ErrStaleBookDisposition
 	}

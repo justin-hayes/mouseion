@@ -20,16 +20,16 @@ language without a product reason.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
-| **Inbox / To Read / Set Aside** | Persisted Book dispositions: Inbox is untriaged, To Read expresses reading intent and ensures acquisition/analysis when needed, and Set Aside is not currently intended. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position |
+| **Inbox / To Read** | Persisted Book dispositions: Inbox means no explicit future-reading intent, and To Read expresses reading intent and ensures acquisition/analysis when needed. Hidden is separate visibility, not a disposition. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position, Set Aside (retired) |
 | **Reading** | The current Book with its vocabulary Browse, or, between Books, the unordered chooser of To Read candidates. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
-| **Read / Read again** | Read is the visible bucket for an Inbox or Set Aside Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
+| **Read / Read again** | Read is the visible bucket for an Inbox Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
 
 Reading intent is expressed through the To Read disposition. Current reading,
 disposition, and reading history are independent facts; My Books derives one
 visible bucket in precedence order: Currently reading, To Read, Read when
-history exists, Inbox, then Set Aside. Currently reading appears in the To Read
+history exists, then Inbox. Currently reading appears in the To Read
 tab with its own label; historical Inbox Books appear in Read, while historical
 To Read Books stay in To Read. A learner may have no current Book and no To Read
 Books; neither state implies failure or urgency.
@@ -177,7 +177,7 @@ learner's My Books collection.
 Use complete, factual labels where space permits:
 
 - current reading;
-- Inbox, To Read, Read, and Set Aside as mutually exclusive visible buckets;
+- Inbox, To Read, and Read as mutually exclusive visible buckets (Hidden does not change the bucket);
 - reading history, including prior completions on current or To Read Books;
 - reading in progress;
 - reading finished;

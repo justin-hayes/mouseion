@@ -102,7 +102,7 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Set Aside, Read; long title/author; compact reflow | My Books; reusable by Reading and chooser |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Read; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
 | `ReadingChooser` | Group neutral To Read candidates by current Known-vocabulary coverage band; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, start/switch confirmation | Between-Books Reading chooser |
@@ -153,16 +153,14 @@ Use a semantic list item with a reserved cover column on the left, full title
 and author directly beneath it in the text column, and contextual actions under
 that identity in the same column. Keep the right-hand margin visibly edged with
 a light rule or quiet surface; it carries one `StatusBadge` for the canonical
-visible bucket (**Currently reading**, **To Read**, **Inbox**, **Set Aside**, or
-**Read**) and any concise reading-history note. Do not use a “Disposition:”
+visible bucket (**Currently reading**, **To Read**, **Inbox**, or **Read**) and any concise reading-history note. Do not use a “Disposition:”
 label. Rows separate through whitespace and the margin edge, not an outer box
 or heavy list rule. On compact screens, keep the cover beside title and author,
 then place the margin note and actions below the text column.
 
 Use one labeled contextual action and a native **More actions** disclosure.
-**Move to To Read** is primary for Inbox or Set Aside Books; **View in Reading**
-is primary for the current Book and To Read Books. The disclosure owns **Set
-aside**, eligible metadata refresh, and confirmed My Books removal. Do not add
+**Move to To Read** is primary for Inbox Books; **View in Reading**
+is primary for the current Book and To Read Books. The disclosure owns **Hide** or **Unhide** and eligible metadata refresh. Do not add
 standalone analysis/acquisition controls or next-action recommendations. Its
 margin note may state concise current evidence: analysis running, failed,
 unavailable, not yet analysed, or current token-weighted Known coverage and its
@@ -299,7 +297,7 @@ slice.
   Literata, preceded by the real “Reading since” date; cover, author, and
   lifecycle confirmations remain with that identity. The linked title uses ink
   rather than the accent-link treatment and gains a visible hover/focus cue.
-  Finish, switch, stop, and set-aside controls stay together beneath the author.
+  Finish, switch, and end controls stay together beneath the author.
   Separate “Book deck”, “Reserved vocabulary”, and “Analysis” notes keep
   preparation, learner vocabulary, and analysis evidence distinct; their actions
   stay beside the relevant note. The cover is prominent beside the identity.

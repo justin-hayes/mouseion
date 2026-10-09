@@ -82,11 +82,11 @@ NLP service?
 
 My Books owns the active-language-scoped browse, search, and paging; there is no
 "All languages" default ([ADR 0050](../../adr/0050-active-study-language.md)).
-The **All**, **Inbox**, **To Read**, and **Set Aside** filters organize Books by
+The **All**, **Inbox**, **To Read**, and **Read** filters organize Books by
 disposition, with reading completion retained as independent history. A learner
-can move an Inbox or Set Aside Book to **To Read**, expressing reading intent and
-triggering acquisition plus ensure-once analysis, or set aside a non-current
-Book while retaining its content, analysis, provenance, and history. Metadata-only
+can move an Inbox Book to **To Read**, expressing reading intent and
+triggering acquisition plus ensure-once analysis, or hide a Book from default
+views while retaining its content, analysis, provenance, and history. Metadata-only
 Books remain operable from their My Books items. No metadata-only detail page or
 upstream browser is exposed.
 

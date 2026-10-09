@@ -259,8 +259,6 @@ func myBooksBrowseState(query string, page int, needsLanguage bool, disposition 
 			browse.InboxCount = count.Count
 		case domain.BookDispositionToRead:
 			browse.ToReadCount = count.Count
-		case domain.BookDispositionSetAside:
-			browse.SetAsideCount = count.Count
 		}
 	}
 	return browse
@@ -300,7 +298,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wasToRead := detail.Disposition == domain.BookDispositionToRead
-	applied, transitionErr := dispositions.TransitionBookDisposition(r.Context(), owner, strings.TrimSpace(detail.Book.LanguageTag), bookID, expectedRevision, domain.BookDispositionToRead)
+	applied, transitionErr := dispositions.TransitionBookDisposition(r.Context(), owner, bookID, expectedRevision, domain.BookDispositionToRead)
 	if transitionErr != nil {
 		err = transitionErr
 		if errors.Is(err, persistence.ErrStaleBookDisposition) {
@@ -320,53 +318,6 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&message="+url.QueryEscape(message))
-}
-
-func (h *Handler) setBookAside(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	owner := user(r).ID
-	bookID := r.PathValue("id")
-	expectedRevision, ok := expectedDispositionRevision(r)
-	if !ok {
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionSetAside)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
-		return
-	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	language := strings.TrimSpace(detail.Book.LanguageTag)
-	dispositions, ok := h.services.Store.Books.(persistence.BookDispositionStore)
-	if !ok {
-		fail(w, errors.New("book dispositions are unavailable"))
-		return
-	}
-	_, err = dispositions.TransitionBookDisposition(r.Context(), owner, language, detail.Book.ID, expectedRevision, domain.BookDispositionSetAside)
-	if err != nil {
-		switch {
-		case errors.Is(err, persistence.ErrStaleBookDisposition):
-			redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionSetAside, false, detail.Hidden)+"&error="+url.QueryEscape("This Book's decision changed in another tab. No changes were made; refresh My Books and try again."))
-		case errors.Is(err, persistence.ErrBookIsPrimaryGoal):
-			redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, detail.Hidden)+"&error="+url.QueryEscape("Current reading cannot be set aside. Finish or clear it first."))
-		case errors.Is(err, persistence.ErrNotFound):
-			http.NotFound(w, r)
-		default:
-			fail(w, err)
-		}
-		return
-	}
-	location := myBooksScopedURL("", 1, false, domain.BookDispositionSetAside, false, detail.Hidden)
-	if detail.CompletionCount > 0 {
-		location = myBooksScopedURL("", 1, false, "", true, detail.Hidden)
-	}
-	redirect(w, r, location+"&message="+url.QueryEscape("Book set aside. Acquired content and history remain."))
 }
 
 func expectedDispositionRevision(r *http.Request) (int64, bool) {

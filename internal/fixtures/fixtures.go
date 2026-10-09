@@ -197,7 +197,7 @@ func NewStore() *Store {
 			fixtureDispositionKey(OwnerID, "fixture-running"):      domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"): domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeMatchBookID):       domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, LemmaFlagBookID):        domain.BookDispositionSetAside,
+			fixtureDispositionKey(OwnerID, LemmaFlagBookID):        domain.BookDispositionInbox,
 			fixtureDispositionKey(OwnerID, routeDiffersBookID):     domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeTieABookID):        domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeTieBBookID):        domain.BookDispositionToRead,
@@ -1602,7 +1602,7 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 	return nil
 }
 
-func (s *Store) TransitionBookDisposition(_ context.Context, owner, language, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
+func (s *Store) TransitionBookDisposition(_ context.Context, owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
 	if err := disposition.Validate(); err != nil {
 		return false, err
 	}
@@ -1619,11 +1619,6 @@ func (s *Store) TransitionBookDisposition(_ context.Context, owner, language, bo
 	}
 	if revision != expectedRevision {
 		return false, persistence.ErrStaleBookDisposition
-	}
-	if disposition == domain.BookDispositionSetAside {
-		if goal := s.primaryGoals[fixtureGoalKey(owner, normalizeFixtureLanguage(language))]; goal.BookID == bookID {
-			return false, persistence.ErrBookIsPrimaryGoal
-		}
 	}
 	s.dispositions[key] = disposition
 	s.dispositionRevisions[key] = revision + 1
@@ -1656,24 +1651,6 @@ func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (d
 	return completion, nil
 }
 
-func (s *Store) SetBookAside(_ context.Context, owner, language, bookID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	goalKey := fixtureGoalKey(owner, language)
-	if goal := s.primaryGoals[goalKey]; goal.BookID == bookID {
-		return persistence.ErrBookIsPrimaryGoal
-	}
-	if !s.fixtureBookExists(owner, bookID) {
-		return errNotFound
-	}
-	key := fixtureDispositionKey(owner, bookID)
-	if s.bookDispositionLocked(owner, bookID) != domain.BookDispositionSetAside {
-		s.dispositionRevisions[key] = s.bookDispositionRevisionLocked(owner, bookID) + 1
-	}
-	s.dispositions[key] = domain.BookDispositionSetAside
-	return nil
-}
 func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1726,7 +1703,6 @@ func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) e
 	defer s.mu.Unlock()
 	for i := range s.myBooks {
 		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
-			s.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionSetAside
 			s.myBooks = append(s.myBooks[:i], s.myBooks[i+1:]...)
 			return nil
 		}

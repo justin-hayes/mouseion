@@ -43,23 +43,21 @@ func TestBookDispositionCatalogueLifecycle(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, bookID), "connection change reset disposition")
 
 	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, bookID))
-	assert.Equal(t, domain.BookDispositionSetAside, mustBookDisposition(t, store, alice.ID, bookID))
+	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, bookID), "removal from My Books rewrote disposition")
 	require.NoError(t, store.AddBookToMyBooks(ctx, alice.ID, bookID))
 	_, err = store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "disposition-entry", "Refreshed after reappearance", "New author", "de")
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, mustBookDisposition(t, store, alice.ID, bookID), "reappearance reset disposition")
+	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, bookID), "reappearance reset disposition")
 
 	toReadBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "To Read disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionToRead))
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, toReadBook.ID))
-	require.NoError(t, store.SetBookAside(ctx, alice.ID, "de", toReadBook.ID))
-	assert.Equal(t, domain.BookDispositionSetAside, mustBookDisposition(t, store, alice.ID, toReadBook.ID))
-	require.NoError(t, store.SetBookAside(ctx, alice.ID, "de", toReadBook.ID), "set-aside retries are idempotent")
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionInbox))
+	assert.Equal(t, domain.BookDispositionInbox, mustBookDisposition(t, store, alice.ID, toReadBook.ID))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionInbox), "disposition retries are idempotent")
 	inboxBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Inbox disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
-	require.NoError(t, store.SetBookAside(ctx, alice.ID, "de", inboxBook.ID))
-	assert.Equal(t, domain.BookDispositionSetAside, mustBookDisposition(t, store, alice.ID, inboxBook.ID))
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, inboxBook.ID, domain.BookDispositionInbox))
 	assert.Equal(t, domain.BookDispositionInbox, mustBookDisposition(t, store, alice.ID, inboxBook.ID))
 	retagged, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Retagged disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
@@ -105,7 +103,7 @@ func TestBookDispositionConcurrentWritesAreOwnerScoped(t *testing.T) {
 			defer wait.Done()
 			disposition := domain.BookDispositionToRead
 			if i%2 == 0 {
-				disposition = domain.BookDispositionSetAside
+				disposition = domain.BookDispositionInbox
 			}
 			results <- store.SetBookDisposition(ctx, alice.ID, aliceBook.ID, disposition)
 		}(i)
@@ -117,7 +115,7 @@ func TestBookDispositionConcurrentWritesAreOwnerScoped(t *testing.T) {
 	}
 
 	final := mustBookDisposition(t, store, alice.ID, aliceBook.ID)
-	assert.Contains(t, []domain.BookDisposition{domain.BookDispositionToRead, domain.BookDispositionSetAside}, final)
+	assert.Contains(t, []domain.BookDisposition{domain.BookDispositionToRead, domain.BookDispositionInbox}, final)
 	_, err = store.GetBookDisposition(ctx, alice.ID, bobBook.ID)
 	require.ErrorIs(t, err, ErrNotFound)
 	_, err = store.GetBookDisposition(ctx, bob.ID, aliceBook.ID)
@@ -138,23 +136,23 @@ func TestBookDispositionRevisionRejectsStaleDecisionsAndAllowsReplay(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, int64(1), initial.DispositionRevision)
 
-	applied, err := store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
+	applied, err := store.TransitionBookDisposition(ctx, owner.ID, book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err)
 	require.True(t, applied)
-	applied, err = store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
+	applied, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err, "replaying the immediately accepted decision is safe")
 	require.False(t, applied, "replay must not repeat downstream work")
-	_, err = store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, initial.DispositionRevision, domain.BookDispositionSetAside)
+	_, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, initial.DispositionRevision, domain.BookDispositionInbox)
 	require.ErrorIs(t, err, ErrStaleBookDisposition)
 
 	current, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), current.DispositionRevision, "retry must not advance the state revision")
-	_, err = store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, current.DispositionRevision, domain.BookDispositionSetAside)
+	_, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, current.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	current, err = store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
-	_, err = store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, current.DispositionRevision, domain.BookDispositionToRead)
+	_, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, current.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err)
 	beforeNoOp, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
@@ -162,9 +160,9 @@ func TestBookDispositionRevisionRejectsStaleDecisionsAndAllowsReplay(t *testing.
 	afterNoOp, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, beforeNoOp.DispositionRevision, afterNoOp.DispositionRevision, "an unchanged disposition does not invalidate open forms")
-	_, err = store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
+	_, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
 	require.ErrorIs(t, err, ErrStaleBookDisposition, "a change away and back must not make the old decision current")
-	_, err = store.TransitionBookDisposition(ctx, other.ID, "de", book.ID, current.DispositionRevision, domain.BookDispositionSetAside)
+	_, err = store.TransitionBookDisposition(ctx, other.ID, book.ID, current.DispositionRevision, domain.BookDispositionInbox)
 	require.ErrorIs(t, err, ErrNotFound)
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, owner.ID, book.ID))
 	var historyRows, knownRows int

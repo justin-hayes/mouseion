@@ -6,7 +6,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
@@ -15,8 +14,7 @@ import (
 type BookDispositionStore interface {
 	GetBookDisposition(context.Context, string, string) (domain.BookDisposition, error)
 	SetBookDisposition(context.Context, string, string, domain.BookDisposition) error
-	SetBookAside(context.Context, string, string, string) error
-	TransitionBookDisposition(context.Context, string, string, string, int64, domain.BookDisposition) (bool, error)
+	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 }
 
 var ErrStaleBookDisposition = errors.New("book disposition changed since this page was loaded")
@@ -50,41 +48,10 @@ func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID st
 	return tx.Commit(ctx)
 }
 
-// SetBookAside changes only the Book's disposition and refuses to change the
-// current reading. The Book lock serializes this transition with starting or
-// switching current reading.
-func (s *PostgresStore) SetBookAside(ctx context.Context, owner, language, bookID string) (err error) {
-	language = canonicalization.NormalizeLanguage(language)
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	q := sqlcgen.New(tx)
-	if _, err = q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
-	} else if err != nil {
-		return err
-	}
-	goal, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
-	if errors.Is(err, pgx.ErrNoRows) {
-		goal.GBookID = ""
-	} else if err != nil {
-		return err
-	}
-	if goal.GBookID == bookID {
-		return ErrBookIsPrimaryGoal
-	}
-	if err = upsertBookDisposition(ctx, q, owner, bookID, domain.BookDispositionSetAside); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
 // TransitionBookDisposition applies a My Books decision against the revision
 // rendered with its form. A single-step replay of the accepted action is safe;
 // an intervening decision (including a change away and back) is stale.
-func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, language, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error) {
+func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error) {
 	if err = disposition.Validate(); err != nil {
 		return false, err
 	}
@@ -110,17 +77,6 @@ func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, la
 	}
 	if state.Revision != expectedRevision {
 		return false, ErrStaleBookDisposition
-	}
-	if disposition == domain.BookDispositionSetAside {
-		goal, goalErr := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
-		if errors.Is(goalErr, pgx.ErrNoRows) {
-			goal.GBookID = ""
-		} else if goalErr != nil {
-			return false, goalErr
-		}
-		if goal.GBookID == bookID {
-			return false, ErrBookIsPrimaryGoal
-		}
 	}
 	rows, err := q.TransitionBookDisposition(ctx, sqlcgen.TransitionBookDispositionParams{
 		Owner: owner, Book: bookID, Disposition: string(disposition), ExpectedRevision: expectedRevision,

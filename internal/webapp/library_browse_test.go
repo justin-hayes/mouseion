@@ -96,7 +96,7 @@ func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
 	reader := &pagedBookBrowseReader{bookID: "historical-book", requestedAt: myBooksPageSize}
 	book := domain.MyBook{
 		Book:            domain.Book{ID: "historical-book"},
-		Disposition:     domain.BookDispositionSetAside,
+		Disposition:     domain.BookDispositionInbox,
 		CompletionCount: 1,
 	}
 
@@ -275,14 +275,17 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.False(t, strings.Contains(response.Body.String(), `href="/books/unknown-book"`), "needs-language browse exposed mutation actions: %s", response.Body.String())
 	assert.False(t, strings.Contains(response.Body.String(), "Move to To Read"), "needs-language browse exposed mutation actions: %s", response.Body.String())
 	assert.False(t, strings.Contains(response.Body.String(), "Remove from My Books"), "needs-language browse exposed mutation actions: %s", response.Body.String())
+	// The retired Set Aside filter is an unknown disposition: it is ignored like
+	// any other unknown value, so the page shows every disposition.
 	response = request("/library?disposition=set_aside")
 	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Equal(t, string(domain.BookDispositionSetAside), store.disposition)
+	assert.Empty(t, store.disposition, "retired disposition filter must not reach the store")
+	assert.NotContains(t, response.Body.String(), "Set Aside")
 	store.result.Total = 0
 	store.result.ScopeTotal = 26
 	response = request("/library?disposition=set_aside&page=2")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?disposition=set_aside", response.Header().Get("Location"), "empty filtered pages should clamp to page one")
+	assert.NotContains(t, response.Header().Get("Location"), "set_aside", "empty pages should clamp without preserving the retired filter")
 }
 
 func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.T) {
@@ -336,7 +339,7 @@ func TestMyBooksBrowseRequestDefaults(t *testing.T) {
 }
 
 func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
-	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 6, ScopeTotal: 6, Total: 2, Disposition: domain.BookDispositionToRead, InboxCount: 2, ToReadCount: 3, SetAsideCount: 1}
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 6, ScopeTotal: 6, Total: 2, Disposition: domain.BookDispositionToRead, InboxCount: 2, ToReadCount: 3}
 	var output bytes.Buffer
 	books := []domain.MyBook{
 		{Book: domain.Book{ID: "to-read", OwnerID: "owner", Title: "To read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionToRead},
@@ -346,14 +349,14 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 	html := output.String()
 	assert.Contains(t, html, `href="/library?disposition=inbox"`)
 	assert.Contains(t, html, `aria-current="page" href="/library?disposition=to_read"`)
-	assert.Contains(t, html, `href="/library?disposition=set_aside"`)
+	assert.NotContains(t, html, "set_aside")
+	assert.NotContains(t, html, "Set Aside")
 	assert.Contains(t, html, "Inbox (2)")
 	assert.Contains(t, html, "To Read (3)")
-	assert.Contains(t, html, "Set Aside (1)")
 	assert.Contains(t, html, "2 books found")
-	assert.Contains(t, html, `action="/library/books/to-read/set-aside"`)
-	assert.Contains(t, html, `action="/library/books/inbox-book/set-aside"`)
-	assert.Contains(t, html, "This sets aside the Book without adding it to Reading.")
+	assert.NotContains(t, html, "/set-aside")
+	assert.NotContains(t, html, "Confirm set aside")
+	assert.Contains(t, html, `action="/library/books/inbox-book/to-read"`)
 	filtersStart := strings.Index(html, `<nav class="library-filters"`)
 	require.GreaterOrEqual(t, filtersStart, 0)
 	filtersEnd := strings.Index(html[filtersStart:], `</nav>`)
@@ -400,31 +403,23 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	requireHandler(t, h).services.Analysis = analysisService
 	bookState, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
 	require.NoError(t, err)
-	currentGoal := goalRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
+	retiredCurrent := goalRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, currentGoal.Code)
-	assert.Contains(t, currentGoal.Header().Get("Location"), "cannot+be+set+aside")
+	assert.Equal(t, http.StatusNotFound, retiredCurrent.Code, "retired Set Aside route is not served, even for the current reading")
 	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, fixtures.BookID))
 
 	bookState, err = store.GetBookDetail(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
-	setAside := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
+	retired := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, setAside.Code)
-	assert.Contains(t, setAside.Header().Get("Location"), "disposition=set_aside")
-	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	assert.Equal(t, http.StatusNotFound, retired.Code)
+	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"), "retired route changed disposition")
+	inbox, err := store.TransitionBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", bookState.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, disposition)
-
-	repeated := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, repeated.Code)
-	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionSetAside, disposition)
+	require.True(t, inbox)
+	assert.Equal(t, domain.BookDispositionInbox, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"))
 
 	toRead := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
@@ -433,18 +428,15 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	assert.NotContains(t, toRead.Header().Get("Location"), "error=")
 	assert.Contains(t, toRead.Header().Get("Location"), "disposition=to_read")
 	assert.Equal(t, 1, analysisService.calls, "moving to To Read should ensure analysis once")
-	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
+	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
 
-	repeated = goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
+	repeated := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	assert.Equal(t, 1, analysisService.calls, "idempotent move should not submit duplicate analysis")
-	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionToRead, disposition)
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition, "repeated disposition write changed state")

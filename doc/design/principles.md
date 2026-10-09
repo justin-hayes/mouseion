@@ -38,7 +38,7 @@ Mouseion supports a reading life; it does not plan one.
 ## Commitment and continuation
 
 Reading is one current Book or an unordered set of To Read candidates. Starting,
-switching, stopping, setting aside, and finishing are distinct and reversible
+switching, ending, and finishing are distinct and reversible
 where appropriate. Completion is a durable history fact, not a workflow bucket
 or claim of vocabulary mastery. **Read again** preserves earlier completion
 history while returning the Book to To Read.

@@ -1129,7 +1129,7 @@ func TestAnalysisRunSurvivesDispositionChanges(t *testing.T) {
 	case <-ctx.Done():
 		require.Fail(t, "analysis did not reach running state")
 	}
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionInbox))
 	var state string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&state))
 	assert.Equal(t, "running", state, "analysis state after disposition change")
@@ -1142,7 +1142,7 @@ func TestAnalysisRunSurvivesDispositionChanges(t *testing.T) {
 	status, err := service.Wait(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, status.State)
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionInbox))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	reusedCompleted, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	require.NoError(t, err)

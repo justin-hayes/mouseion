@@ -61,15 +61,13 @@ const (
 	MyBookBucketToRead         MyBookBucket = "to_read"
 	MyBookBucketInbox          MyBookBucket = "inbox"
 	MyBookBucketRead           MyBookBucket = "read"
-	MyBookBucketSetAside       MyBookBucket = "set_aside"
 )
 
 type ReadingCompletionSource string
 
 const (
-	BookDispositionInbox    BookDisposition = "inbox"
-	BookDispositionToRead   BookDisposition = "to_read"
-	BookDispositionSetAside BookDisposition = "set_aside"
+	BookDispositionInbox  BookDisposition = "inbox"
+	BookDispositionToRead BookDisposition = "to_read"
 )
 
 const (
@@ -164,11 +162,6 @@ func (m MyBook) WorkflowBucket() MyBookBucket {
 			return MyBookBucketRead
 		}
 		return MyBookBucketInbox
-	case BookDispositionSetAside:
-		if m.CompletionCount > 0 {
-			return MyBookBucketRead
-		}
-		return MyBookBucketSetAside
 	default:
 		return MyBookBucketInbox
 	}
@@ -188,8 +181,6 @@ func (b MyBookBucket) MatchesBrowseFilter(disposition BookDisposition, readHisto
 		return b == MyBookBucketInbox
 	case BookDispositionToRead:
 		return b == MyBookBucketToRead || b == MyBookBucketCurrentReading
-	case BookDispositionSetAside:
-		return b == MyBookBucketSetAside
 	default:
 		return false
 	}
@@ -203,8 +194,6 @@ func (b MyBookBucket) PersistedDisposition() (BookDisposition, bool) {
 		return BookDispositionInbox, true
 	case MyBookBucketToRead:
 		return BookDispositionToRead, true
-	case MyBookBucketSetAside:
-		return BookDispositionSetAside, true
 	case MyBookBucketCurrentReading, MyBookBucketRead:
 		return "", false
 	default:
@@ -222,7 +211,7 @@ func (m MyBook) EvidenceState() BookEvidenceState {
 
 func (d BookDisposition) Validate() error {
 	switch d {
-	case BookDispositionInbox, BookDispositionToRead, BookDispositionSetAside:
+	case BookDispositionInbox, BookDispositionToRead:
 		return nil
 	default:
 		return errors.New("domain: invalid book disposition")

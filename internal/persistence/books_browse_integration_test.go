@@ -64,14 +64,14 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	assert.Equal(t, 27, filtered.Total, "new catalogue books start in Inbox")
 	assert.Equal(t, 27, filtered.ScopeTotal, "language scope count should include all dispositions")
 	assert.Len(t, filtered.DispositionCounts, 1, "workflow counts should include every populated bucket")
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, authorBook.ID, domain.BookDispositionSetAside))
-	filtered, err = store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionSetAside), false, 0, 25)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, authorBook.ID, domain.BookDispositionToRead))
+	filtered, err = store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 27, filtered.ScopeTotal)
 	require.Len(t, filtered.Items, 1)
 	assert.Equal(t, authorBook.ID, filtered.Items[0].Book.ID)
-	assert.Equal(t, domain.BookDispositionSetAside, filtered.Items[0].Disposition)
-	search, err := store.ListMyBooksBrowse(ctx, alice.ID, "lost", "it", string(domain.BookDispositionSetAside), false, 0, 25)
+	assert.Equal(t, domain.BookDispositionToRead, filtered.Items[0].Disposition)
+	search, err := store.ListMyBooksBrowse(ctx, alice.ID, "lost", "it", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, search.Items, 1, "search should compose with disposition filtering")
 	assert.Equal(t, authorBook.ID, search.Items[0].Book.ID)
@@ -79,7 +79,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 26, inboxPage.Total)
 	assert.Len(t, inboxPage.Items, 1, "paging should compose with disposition filtering")
-	otherOwner, err := store.ListMyBooksBrowse(ctx, bob.ID, "", "it", string(domain.BookDispositionSetAside), false, 0, 25)
+	otherOwner, err := store.ListMyBooksBrowse(ctx, bob.ID, "", "it", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	assert.Zero(t, otherOwner.Total, "another owner's disposition results leaked")
 
@@ -196,7 +196,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	assert.Equal(t, read.Items[0].LatestCompletionSource, detail.LatestCompletionSource)
 
 	// Reconsideration retains append-only history but moves the visible Book to
-	// To Read. Setting it aside again projects that same Book back into Read.
+	// To Read. Returning it to Inbox projects that same Book back into Read.
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	read, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", true, 0, 25)
 	require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.Len(t, toRead.Items, 1)
 	assert.Equal(t, domain.MyBookBucketToRead, toRead.Items[0].WorkflowBucket())
 	assert.Equal(t, 1, toRead.Items[0].CompletionCount, "reconsideration retains history")
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionSetAside))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionInbox))
 	read, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", true, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, read.Items, 1)

@@ -2,6 +2,8 @@
 
 Status: **Accepted; Vocabulary presentation amended by issue #1183** · Date: 2026-09-04 · Author: Justin + opencode
 
+Reconciled by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §8: the Vocabulary landing means Concordance, and the retired known-vocabulary alias has no redirect.
+
 ## Context
 
 Settings is the only home of two things: saved study-language preferences and

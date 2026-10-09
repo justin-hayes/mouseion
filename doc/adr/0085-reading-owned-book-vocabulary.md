@@ -2,6 +2,8 @@
 
 Status: **Accepted (implementation pending)** · Date: 2026-10-06 · Author: Justin + OpenCode
 
+Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §9: Browse lives in Reading and Concordance in Vocabulary, and "any Book disposition" counts Inbox and To Read, Hidden or not.
+
 Supersedes the active product boundary of [ADR 0082](0082-independent-custom-vocabulary-decks.md), amends the Book-selection rule in [ADR 0048](0048-frequency-floor-deck-selection.md), and narrows deck submission under [ADR 0078](0078-book-dispositions-and-current-reading.md). Existing artifacts and snapshots retain their provenance. The [feature contract](../features/reading-owned-book-vocabulary.md) owns the cutover and acceptance details.
 
 ## Context
