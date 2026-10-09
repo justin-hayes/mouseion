@@ -74,7 +74,8 @@ conservatively as active, so its directory may need manual inspection later.
 
 CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
 from forks never execute on maintainer infrastructure. The build, lint,
-integration, and browser-smoke jobs run in parallel. Each job starts from a
+integration, and browser-smoke jobs run in parallel, with browser smoke split
+across four Playwright shards that a single `Browser smoke` check gates. Each job starts from a
 clean machine and restores Go, uv, npm, and golangci-lint dependencies from
 GitHub Actions caches keyed on the corresponding lock files. Integration tests
 start PostgreSQL through Testcontainers on the runner's Docker daemon, and
