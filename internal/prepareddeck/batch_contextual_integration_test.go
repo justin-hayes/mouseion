@@ -210,6 +210,7 @@ func TestDurableBatchRendersStructuredEnglishTargetsAndPreservesOptionalTranslat
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, TranslationQueue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	submitter.Client = client
 	poller.Client = client
 	coordinator := NewDurableCoordinator(store, client, planner)

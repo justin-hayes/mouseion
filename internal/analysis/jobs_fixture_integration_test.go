@@ -56,9 +56,7 @@ func TestImportedMainTextFixtureAnalysisExcludesAncillaryText(t *testing.T) {
 	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "analysis client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 
 	handle, err := NewService(store.Pool(), client).SubmitAnalysis(ctx, owner.ID, imported.Source.ID)
 	require.NoError(t, err)

@@ -33,6 +33,7 @@ func TestRecoveryWorkerEnqueuesEachStaleDeckOnce(t *testing.T) {
 	AddRerenderWorker(workers, nil)
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	worker := &RecoveryWorker{Store: store, Client: client, Interval: time.Hour, Limit: 100}
 
 	err = worker.Work(ctx, nil)

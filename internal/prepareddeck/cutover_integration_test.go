@@ -140,6 +140,7 @@ func TestPlannersAssembleEquivalentStandardAndBatchPlans(t *testing.T) {
 	river.AddWorker(workers, &integrationFinalizeWorker{})
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	AddStandardTranslationWorkerWithDependencies(workers, store, client, nil, PreparedDeckConfig{}, time.Second)
 	coordinator := NewDurableCoordinator(store, client, counted)
 	frozen, err := coordinator.Freeze(ctx, DurableFreezeRequest{OwnerID: owner.ID, PreparationID: preparation.ID})

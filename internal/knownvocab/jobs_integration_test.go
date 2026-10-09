@@ -4,6 +4,7 @@ package knownvocab
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,9 +38,7 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
-	testutil.Cleanup(t, "known vocabulary client", func() error {
-		return client.Stop(context.Background())
-	})
+	testutil.StopOnCleanup(t, "known vocabulary client", client.Stop)
 	service := NewJobService(store.Pool(), client)
 	handle, err := service.Submit(ctx, alice.ID, "de", "Daß\nHaus\nbad\tNOPE\n")
 	require.NoError(t, err)
@@ -78,16 +77,13 @@ func TestRiverImportLifecycleResultsRetrySafetyAndOwnership(t *testing.T) {
 
 func waitKnownVocabJob(t *testing.T, ctx context.Context, service *JobService, owner string, id int64) Status {
 	t.Helper()
-	for {
-		status, err := service.Get(ctx, owner, id)
+	var status Status
+	testutil.Eventually(t, testutil.DefaultWait, fmt.Sprintf("known vocabulary job %d", id), func() (bool, string) {
+		current, err := service.Get(ctx, owner, id)
 		require.NoError(t, err)
-		if status.State == rivertype.JobStateCompleted || status.State == rivertype.JobStateDiscarded {
-			return status
-		}
-		select {
-		case <-ctx.Done():
-			require.Fail(t, ctx.Err().Error())
-		case <-time.After(20 * time.Millisecond):
-		}
-	}
+		status = current
+		done := current.State == rivertype.JobStateCompleted || current.State == rivertype.JobStateDiscarded
+		return done, fmt.Sprintf("state %s", current.State)
+	})
+	return status
 }
