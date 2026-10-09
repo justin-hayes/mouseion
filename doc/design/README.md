@@ -73,9 +73,6 @@ feature specification.
 - [`corpus-campaign-horizon-discovery.md`](corpus-campaign-horizon-discovery.md)
   preserves the discovery reasoning that preceded the frozen architecture. Its
   Corpus / Campaign / Reading Horizon learner model is superseded.
-- [`../../prototypes/stitch/reading-horizon/`](../../prototypes/stitch/reading-horizon/)
-  preserves prompts, reassessments, and view synthesis from visual exploration.
-  These artifacts explain why decisions were made; they are not specifications.
 
 Historical evidence is not rewritten to resemble the accepted answer. Add a
 short status note and a link to the canonical document when an assumption is

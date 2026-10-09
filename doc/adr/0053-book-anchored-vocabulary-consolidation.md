@@ -26,7 +26,7 @@ The **learning campaign** (`learning_campaigns`, `learning_campaign_vocabulary`)
 was introduced (ADR 0027) to bind one book to one prepared deck and reserve that
 deck's snapshotted vocabulary during study, graduating it to known on confirmed
 review. Later decisions ([ADR 0036](0036-primary-goal-justified-graduation.md),
-[#470/#472](../.github/../../issues)) demoted the campaign to an internal,
+[#470](https://github.com/justin-hayes/mouseion/issues/470)/[#472](https://github.com/justin-hayes/mouseion/issues/472)) demoted the campaign to an internal,
 never-learner-facing reservation/graduation mechanism behind the Primary Goal.
 
 Two independent problems followed from keeping the campaign as a separate

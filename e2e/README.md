@@ -45,11 +45,11 @@ WebKit requires its browser binary and Linux runtime libraries. On a supported
 Linux runner image, provision the system libraries as an image/setup step with
 `cd e2e && npx playwright install-deps webkit` (this system-package command
 requires administrator privileges); then `npx playwright install webkit` can
-download the browser as the unprivileged test user. The repository CI runner is
-intentionally not granted `sudo`: its host image must have the WebKit
-dependencies installed in advance. CI installs the pinned browser binaries and
-executes the same bounded smoke command; missing libraries fail the job rather
-than silently skipping WebKit.
+download the browser as the unprivileged test user. CI runs on GitHub-hosted
+runners and installs the pinned browsers with their system dependencies
+(`playwright install --with-deps chromium webkit`), then splits the suite into
+four shards with `--shard=n/4`. Missing libraries fail the job rather than
+silently skipping WebKit.
 
 The WebKit journey covers server-rendered sign-in and invalid-credential
 recovery, the authenticated shell and native language/navigation forms,

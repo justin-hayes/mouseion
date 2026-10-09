@@ -1,231 +1,206 @@
-# mouseion
+# Mouseion
 
-A self-hosted reading environment for learning foreign languages at an advanced reading level. It turns books from your own Calibre-Web/OPDS library into vocabulary you can actually study — analyzing texts, surfacing the words worth learning with example sentences, and exporting an Anki deck.
+**A self-hosted reading environment for learning a foreign language through the
+books you actually want to read.**
 
-Built around a Go core with a Python NLP service for analysis.
+Mouseion connects to a personal ebook library, analyzes each book
+linguistically, tells a learner how much of its vocabulary they already know,
+and prepares the words worth learning, each with an example sentence from the
+book itself, as an Anki deck. It supports German, Italian, and Modern Greek.
 
-Mouseion uses local learner accounts. On a fresh installation, the sign-in page
-creates the first account; after that, existing accounts use the normal login
-form. There is no in-application administrator role or public registration
-setting. Each learner owns their books, vocabulary state, generated decks, and
-OPDS catalog connections, including catalog credentials encrypted at rest.
+The name recalls the Mouseion of Alexandria, the scholarly community that housed
+the Library.
 
-The running NLP service is authoritative for analysis-language availability.
-Mouseion discovers the languages and features it currently advertises instead
-of maintaining a separate web-app language allowlist. If discovery is
-temporarily unavailable, previously discovered language display names remain
-available while operations requiring a newly available analysis language are blocked.
+## Why
 
-See [the product specification](doc/product.md) and [documentation governance](doc/documentation-governance.md).
+Reading literature in a foreign language becomes comfortable at roughly 95–98%
+coverage of a text's running words. Below that, a learner either stops to look
+words up constantly or reads graded material instead of the books they care
+about. Generic frequency lists don't close that gap for a *specific* book, and
+generic flashcard sentences say little about how a word is used in the text
+being read.
 
-## Development
+Mouseion treats each book as a small corpus. It lemmatizes and parses the text,
+measures coverage against the learner's known vocabulary, and selects the
+recurring unknown lemmas that most improve coverage. It then builds recognition
+cards from the book's own sentences, so studying a word means meeting it in the
+context where it will be read.
 
-The workspace supports Go 1.24 and Python 3.11. It also requires Protobuf
-29.x for regenerating the shared contract. Go dependencies are pinned in
-`go.mod`/`go.sum`; Python development dependencies are pinned in
-`nlp/requirements-dev.txt`.
+## What it does
 
-```sh
-GO_BIN_DIR="$(go env GOBIN 2>/dev/null)"
-[ -n "$GO_BIN_DIR" ] || GO_BIN_DIR="$(go env GOPATH)/bin"
-export PATH="$PATH:$GO_BIN_DIR:/usr/local/go/bin"
-curl -sSfL https://golangci-lint.run/install.sh | sh -s -- \
-  -b "$GO_BIN_DIR" v2.13.2
-make setup
-make gen
-make build
-make test
-make lint
-make check-frontend-css
+1. **Catalog sync.** Connects to a learner-owned [OPDS](https://opds.io/)
+   catalog (for example Calibre-Web) and syncs book metadata into *My Books*.
+   Catalog credentials are encrypted at rest.
+2. **Reading intent.** Moving a book to *To Read* acquires its EPUB and queues
+   one durable analysis.
+3. **Analysis.** Selects the book's main text, lemmatizes, tags, and parses it
+   with [Stanza](https://stanfordnlp.github.io/stanza/), and persists the
+   normalized sentence and token stream with dependency relations.
+4. **Evidence.** Reports coverage of running words and the vocabulary needed to
+   reach 95%, 97%, and 99%. Learners can review and correct suspicious lemmas
+   before vocabulary is frozen.
+5. **Concordance.** A keyword-in-context view of every occurrence of a lemma
+   across the learner's analyzed books, with full-sentence study.
+6. **Deck preparation.** Selects eligible unknown lemmas and the best example
+   sentence for each, adds dictionary morphology and a contextual English gloss,
+   and builds an Anki package named `Mouseion::<language>::<book title>`.
+7. **Reading progress.** Starting a book reserves its vocabulary; finishing it
+   moves that vocabulary into the learner's modeled known set. Generating
+   cards never marks a word as known
+   ([ADR 0036](doc/adr/0036-primary-goal-justified-graduation.md)).
+
+## Language and text processing
+
+The language-specific work lives in a Go core
+([`internal/canonicalization`](internal/canonicalization),
+[`internal/lexical`](internal/lexical),
+[`internal/gdex`](internal/gdex)) and a Python NLP producer
+([`nlp/`](nlp/src/mouseion_nlp)). Each behavior is specified in a feature
+document and decided in an ADR:
+
+- **Main-text selection.** EPUB 3 landmark declarations identify body matter
+  and exclude front matter, bibliographies, indexes, and colophons from
+  analysis. Notes and appendices are kept on purpose, and the selector falls
+  back to the whole book rather than guessing
+  ([spec](doc/features/main-text-selection.md),
+  [ADR 0066](doc/adr/0066-main-text-selection-from-epub-structure.md)).
+- **German separable verbs.** Detached particles are reattached to their verbs
+  from dependency data, so *fängt … an* is counted as *anfangen*. A closed list
+  of separable prefixes guards the reattachment, and its precision is
+  [measured on Goethe's *Werther*](doc/evidence/german-separable-verb-precision.md)
+  ([spec](doc/features/separable-verb-lemmatization.md),
+  [ADR 0061](doc/adr/0061-german-separable-verb-lemmatization.md)).
+- **Historical orthography.** Documented pre-1996 German ß spellings
+  (*daß* → *dass*) map to their reformed lemmas without merging distinct lexemes
+  ([ADR 0065](doc/adr/0065-german-pre-1996-sharp-s-canonicalization.md)).
+- **Modern Greek.** The Greek Dependency Treebank models with a Greek-BERT
+  parser, final-sigma canonicalization, expansion of contractions such as
+  *στο*/*στην*, and noun gender
+  ([research](doc/research/modern-greek-nlp.md),
+  [ADR 0073](doc/adr/0073-modern-greek-language-support.md)).
+- **Example-sentence quality.** A deterministic rubric informed by
+  [GDEX](https://github.com/zentrum-lexikographie/gdex) runs over the persisted
+  parses. It rejects fragments without a finite verb and subject, then ranks
+  candidates by clause position, deixis, named-entity density, and length
+  ([spec](doc/features/sentence-quality-scoring.md),
+  [ADR 0062](doc/adr/0062-derived-sentence-quality-scoring.md)).
+- **Persisted corpus.** Analysis output is immutable, so concordance and
+  grammar-aware queries never re-run NLP
+  ([spec](doc/features/concordance-foundation.md),
+  [ADR 0059](doc/adr/0059-persisted-normalized-corpus-for-concordance.md),
+  [ADR 0060](doc/adr/0060-persist-dependency-parses.md)).
+- **Dictionary evidence with provenance.** Glosses, gender, plurals, IPA, and
+  principal parts come from a Wiktionary-derived
+  [Kaikki](https://kaikki.org/) index. The index records its dump date,
+  extractor commit, and license. LLM glosses are grounded in that evidence and
+  the source sentence
+  ([spec](doc/features/dictionary-gloss-enrichment.md),
+  [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md)).
+- **Learner corrections.** Corrections to analyzer lemmas are stored as an
+  owner-scoped layer over the immutable analysis rather than edits to it
+  ([spec](doc/features/lemma-review-and-correction.md),
+  [ADR 0081](doc/adr/0081-learner-owned-occurrence-lemma-corrections.md)).
+
+## Architecture
+
+```mermaid
+flowchart LR
+    browser[Browser] -->|HTML over HTTP| web
+    subgraph go[Go web server]
+        web[templ + htmx views] --> core[Domain core]
+        river[River workers] --> core
+    end
+    core <-->|SQL| pg[(PostgreSQL<br/>learner state, corpus, jobs)]
+    river -->|gRPC / Protobuf| nlp[Python NLP service<br/>Stanza]
+    river -->|OPDS| opds[Calibre-Web / OPDS catalog]
+    core --> dict[(Kaikki dictionary<br/>SQLite index)]
+    river -.->|optional| llm[OpenAI-compatible LLM]
 ```
 
-All pages load one committed, compiled stylesheet at `/static/app.css`. Tailwind
-scans only authored `internal/webapp/*.templ` files, the explicit Go class
-mappings, and the owned enhancement script; generated templates, tests, vendor
-assets, and temporary files are excluded. When changing these inputs or CSS
-sources under `internal/webapp/styles/`, regenerate with `make frontend-css` and
-verify the bounded source set and freshness with `make check-frontend-css`. Go
-builds and fixture-server startup use the committed output and do not require
-Node.js or a CSS compiler.
+- **Go core** owns the product logic: domain model, persistence, vocabulary
+  selection, sentence scoring, and Anki export. Python is used only where the
+  NLP libraries require it
+  ([ADR 0001](doc/adr/0001-go-core-python-nlp-service.md)).
+- **Python NLP service** is a long-lived Stanza producer behind a versioned
+  Protobuf contract ([`proto/`](proto/),
+  [ADR 0011](doc/adr/0011-grpc-go-python-transport.md)). It also decides which
+  languages are available ([ADR 0023](doc/adr/0023-nlp-capabilities.md)).
+- **PostgreSQL** stores per-learner state, the normalized corpus, and the
+  [River](https://riverqueue.com/) job queue, which runs analysis, enrichment,
+  catalog sync, and deck preparation without a separate broker
+  ([ADR 0010](doc/adr/0010-river-job-queue.md)).
+- **Web interface** is server-rendered with [templ](https://templ.guide/) and
+  enhanced with [htmx](https://htmx.org/). Core workflows also work without
+  JavaScript.
 
-Concordance occurrences are rendered once by the server as native disclosures
-and ordinary paging and study links. The existing lookup request/history
-enhancement remains temporarily; no Concordance-specific client rendering bundle
-is required. Browser smoke tests exercise both enhanced requests and
-JavaScript-disabled navigation.
+## Engineering practices
 
-Database-backed integration tests always execute rather than using Go's test
-result cache. Use either `make test-integration` for the full internal package
-scope or `make test-integration-shared` for the shared-database runner. Ordinary
-unit-test commands such as `go test ./...` retain Go's normal caching behavior.
+- **86 architecture decision records**, indexed with their current status in
+  [`doc/product.md`](doc/product.md#architecture-decision-records). Superseded
+  decisions are kept and linked to the decisions that replaced them.
+- **A domain glossary** ([`CONTEXT.md`](CONTEXT.md)) used consistently in code,
+  interface, and documentation.
+- **Tests at every boundary.** Go unit tests; PostgreSQL integration tests on
+  per-test cloned databases with Testcontainers; pytest for the NLP producer;
+  and a Playwright suite over a deterministic in-memory server, run in Chromium
+  and WebKit across desktop and compact viewports in light and dark schemes.
+- **Generated code checked in CI.** Protobuf and [sqlc](https://sqlc.dev/)
+  output and the compiled stylesheet are regenerated in CI and must match the
+  committed files. Toolchains and dependencies are pinned.
+- **Schema governance.** An immutable baseline migration, with explicit review
+  for consequential schema changes
+  ([ADR 0038](doc/adr/0038-schema-change-governance.md),
+  [ADR 0070](doc/adr/0070-migration-and-documentation-reboot.md)).
 
-For targeted Go runs, use `make test-go PACKAGES='./internal/webapp ./internal/foo'`
-or `make test-go-integration PACKAGES='./internal/persistence ./internal/webapp'`.
-Both commands put Go build temporary files in a per-run directory under
-`.tmp/go-test`; unit runs keep normal test caching, while integration runs keep
-`-count=1 -tags=integration`. If a process is forcibly terminated and leaves a
-directory behind, inspect `.tmp/go-test` and run `make go-test-clean`. Cleanup is
-limited to this user's `run.*` directories with a valid owner marker and removes
-one only when its recorded process is no longer running; unrecognized, other-user,
-and active directories are left untouched. A reused PID is treated
-conservatively as active, so its directory may need manual inspection later.
+## How this project is built
 
-## CI
+Mouseion is also an experiment in agent-driven software development, and
+part of its purpose was to learn how to do that well. I own the product
+direction, the domain model, and the architecture decisions. Coding agents
+implement against them through issues and pull requests, under explicit review
+gates:
 
-CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
-from forks never execute on maintainer infrastructure. The build, lint,
-integration, and browser-smoke jobs run in parallel, with browser smoke split
-across four Playwright shards that a single `Browser smoke` check gates. Each job starts from a
-clean machine and restores Go, uv, npm, and golangci-lint dependencies from
-GitHub Actions caches keyed on the corresponding lock files. Integration tests
-start PostgreSQL through Testcontainers on the runner's Docker daemon, and
-Playwright installs its browser system dependencies itself.
+- Accepted ADRs and feature documents set the scope for each change, and
+  [`CONTEXT.md`](CONTEXT.md) fixes the vocabulary.
+- Every change goes through a pull request with required CI checks.
+- `CODEOWNERS` requires human review for anything touching security, data
+  integrity, build trust, or deployment: workflows, migrations, authentication,
+  dependency manifests, and containers
+  ([autonomous change policy](doc/autonomous-change-policy.md)).
+- Agent-facing conventions are kept in the repository
+  ([`AGENTS.md`](AGENTS.md), [`doc/agents/`](doc/agents/)).
 
-`make dev` starts the Go web server, which connects to PostgreSQL (required,
-`MOUSEION_DATABASE_URL`) and the Python NLP gRPC service (required for analysis,
-`MOUSEION_NLP_ADDR`, default `localhost:50051`). PostgreSQL schema changes live
-in `migrations/` as paired golang-migrate SQL files.
+Many commits are therefore authored by an agent account. The decision records
+and their revision history show how the design evolved and why.
 
-## Running the complete stack
+## Getting started
 
-The full app is **three processes**: PostgreSQL, the Python NLP gRPC service
-(Stanza), and the Go web server. Two ways to run it.
-
-### Option A — Docker Compose (recommended for the home lab)
-
-The one-time database recreation required after the migration baseline is
-recorded in the [2026-09-15 cutover note](doc/cutover-2026-09-15.md).
+Mouseion runs as three processes: PostgreSQL, the NLP service, and the web
+server. The quickest path is Docker Compose:
 
 ```sh
 cp .env.example .env   # set a strong MOUSEION_DB_PASSWORD and MOUSEION_SECRET
 docker compose up -d --build
 ```
 
-- `db` — PostgreSQL 17 with a named volume
-- `nlp-init` — a one-shot provisioner that downloads the configured Stanza
-  models into the named `stanza-data` volume
-- `nlp` — the Stanza gRPC service on `:50051`, started only after provisioning
-  succeeds and its configured pipelines are warmed
-- `web` — the Go server on `http://localhost:8080`
+Then open `http://localhost:8080`. A fresh installation creates the first
+account at sign-in. The first start downloads the Stanza models for German,
+Italian, and Greek into a Docker volume.
 
-Compose configures `MOUSEION_NLP_WARM_LANGUAGES=de,it,el` by default. The init
-container provisions each language's configured Stanza package and processor
-set into `stanza-data`, mounted at
-`STANZA_RESOURCES_DIR=/opt/stanza_resources`. GreekBERT is provisioned into the
-`huggingface-data` volume at `HF_HOME=/opt/huggingface`. The Stanza marker
-makes unchanged restarts a no-op, downloads only a newly added language, and
-re-provisions everything automatically when the Stanza version or an effective
-language model configuration changes; the Hugging Face cache is checked on each
-run and repaired if an external model is missing.
+- [Operations guide](doc/operations.md): configuration, language models, the
+  dictionary index, and maintenance.
+- [Development guide](doc/development.md): toolchain, tests, generated code, and
+  conventions.
+- [Documentation index](doc/README.md): where to start reading.
 
-To add a language, set the comma-separated `MOUSEION_NLP_WARM_LANGUAGES` value
-in `.env` and run `docker compose up -d`; no image rebuild is needed. The init
-container must be able to reach Stanza's model source. If provisioning fails,
-Compose does not start the NLP service and a language whose resources are not
-available is not offered to learners.
+## Status
 
-Open `http://<host>:8080`. A fresh installation presents first-account
-onboarding; otherwise, sign in with an existing account. The app is meant to be
-reachable only over your tailnet (plain HTTP over WireGuard); do not expose
-`:8080` publicly.
-
-### Option B — run the three processes manually
-
-```sh
-# 1. PostgreSQL (any running instance; create a db)
-createdb mouseion
-export MOUSEION_DATABASE_URL="postgres://postgres@localhost:5432/mouseion?sslmode=disable"
-
-# 2. Python NLP gRPC service (separate terminal)
-export PYTHONPATH=nlp/src:gen/python
-# Provision the configured languages and full processor set into a persistent
-# local directory. The marker makes reruns idempotent and refreshes on upgrades.
-export STANZA_RESOURCES_DIR="$PWD/.stanza_resources"
-export HF_HOME="$PWD/.huggingface"
-export MOUSEION_NLP_WARM_LANGUAGES=de,it,el
-.venv/bin/python -m mouseion_nlp.provision
-# Start only after provisioning succeeds.
-.venv/bin/python -m mouseion_nlp.server
-
-# 3. Go web server (separate terminal) — runs migrations, starts River
-GO_BIN_DIR="$(go env GOBIN 2>/dev/null)"
-[ -n "$GO_BIN_DIR" ] || GO_BIN_DIR="$(go env GOPATH)/bin"
-export PATH="$PATH:$GO_BIN_DIR:/usr/local/go/bin"
-make dev
-```
-
-Then open `http://localhost:8080`.
-
-## Refreshing the dictionary index
-
-The optional dictionary index is a build artifact, not Postgres state and not a
-service. After running `make setup`, derive the combined German, Italian, and
-Modern Greek index from the current Kaikki raw Wiktextract dump with:
-
-```sh
-make dictionary-index \
-  DICTIONARY_DUMP_DATE=YYYY-MM-DD \
-  DICTIONARY_WIKTEXTRACT_COMMIT=<wiktextract-commit> \
-  DICTIONARY_REFRESH=1
-```
-
-`DICTIONARY_REFRESH=1` forces the downloader to fetch the weekly dump again;
-omit it when rebuilding from the cached dump. `KAIKKI_INPUT` can instead point
-at an already downloaded raw JSONL or JSONL.GZ dump for an offline rebuild. The
-input is the raw Wiktextract dump; the script filters it to the German,
-Italian, and Modern Greek entries needed by Mouseion. Do not combine `KAIKKI_INPUT` with
-`DICTIONARY_REFRESH=1`.
-
-The command writes `dictionary/dictionary-index.sqlite` atomically, mode `0644`.
-The web container runs as an unprivileged user, so the artifact must be
-world-readable; an index built before this was fixed needs a one-time
-`chmod 644 dictionary/dictionary-index.sqlite`. The `dictionary/` directory is
-tracked (via `dictionary/.gitkeep`) so a fresh clone has it operator-owned; if
-Compose ever created it as root, run `sudo chown "$(id -u):$(id -g)" dictionary`
-once before rebuilding. Set `DICTIONARY_OUTPUT` (or `DICTIONARY_HOST_DIR`) to
-choose another output path.
-
-For Compose deployment, `MOUSEION_DICTIONARY_HOST_DIR` is the host directory
-bind-mounted read-only at `/opt/mouseion/dictionary`; it is a directory rather
-than a single-file mount so a missing index remains missing. Set
-`MOUSEION_DICTIONARY_INDEX` to the corresponding path inside that mount, then
-restart the web process after replacing the artifact. With no index, the server
-falls back to the morphology heuristic with a warning. A configured index that
-exists but is unreadable is a fatal startup error. Refreshing the index changes
-only this build artifact: it requires no database migration and no additional
-service. Its SQLite metadata records the dump date, UTC extraction date,
-Wiktextract commit, source, license, and attribution.
-
-The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
-and is licensed under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve the
-generated metadata and attribution when shipping or sharing the index; derived
-dictionary data remains subject to the applicable share-alike requirements.
-
-## Re-normalizing German vocabulary
-
-Stop the web server and other vocabulary writers, then run the owner-
-transactional backfill with the same database environment:
-
-```sh
-go run ./cmd/vocabularybackfill
-```
-
-The command is idempotent and exits non-zero for curated-sentence conflicts.
-Resolve reported conflicts before starting the v6 server; immutable
-normalized-corpus runs and prepared-deck manifests are not rewritten.
-
-## Language validation
-
-German, Italian, and Modern Greek are the deployment-supported analysis
-languages. The Italian and Greek verticals are covered deterministically from
-capability discovery and learner selection through normalized-corpus fixture
-consumption, content-word filtering, coverage thresholds, language-scoped
-vocabulary exclusions, and generated `Mouseion::<lang>::<book title>` APKGs.
-Greek additionally locks `στο`/`στην` expansion, final-sigma canonicalization,
-noun gender, and the generic sentence-quality path. These tests also assert
-account isolation and keep the German regression suite intact. See the
-[language-support feature contract](doc/features/language-support.md) for the
-supported path and model cache requirements.
+Mouseion is a personal project in active use. It is built for a small,
+trusted, self-hosted deployment reachable only over a private network such as
+a Tailscale tailnet ([ADR 0009](doc/adr/0009-home-lab-auth-corpus-isolation.md)).
+It is not hardened for public internet exposure; see [SECURITY.md](SECURITY.md).
+German, Italian, and Modern Greek are the supported analysis languages. This is
+a personal project and is not seeking outside contributions.
 
 ## License
 
@@ -239,6 +214,6 @@ requires you to offer its users the corresponding source.
 Bundled third-party assets keep their own licenses, recorded beside them in
 [`internal/webapp/static/vendor/`](internal/webapp/static/vendor/) (htmx under
 0BSD; Tailwind CSS and daisyUI under MIT; Literata and Commissioner under the SIL
-Open Font License). The optional dictionary index is not distributed
-with the source; when built, it is Wiktionary-derived data under CC BY-SA 3.0 /
-GFDL as described in [Refreshing the dictionary index](#refreshing-the-dictionary-index).
+Open Font License). The optional dictionary index is not distributed with the
+source; when built, it is Wiktionary-derived data under CC BY-SA 3.0 / GFDL, as
+described in the [operations guide](doc/operations.md#dictionary-index).

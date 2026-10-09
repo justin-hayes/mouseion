@@ -176,7 +176,7 @@ amendments.
 79. [ADR 0079: Contextual glosses require LLM-assisted deck preparation](adr/0079-contextual-glosses-require-llm.md) — replaces the consented, dictionary-default gloss path with mandatory contextual LLM glosses informed by Wiktionary evidence and sentence context; preserves existing decks and Reading independence. The proposed FreeDict/PanLex expansion was canceled.
 80. [ADR 0080: LLM-proposed English target alignment on recognition cards](adr/0080-llm-proposed-english-target-alignment.md) — accepts validated multi-span English alignments from new provider responses while leaving existing cached translations and ready decks unchanged until explicit re-preparation.
 81. [ADR 0081: Learner-owned occurrence lemma corrections before vocabulary freeze](adr/0081-learner-owned-occurrence-lemma-corrections.md) — derives owner-scoped effective vocabulary from immutable analysis plus learner-confirmed occurrence decisions; gates only high-risk unresolved review before Reading or deck freeze.
-83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted; implementation complete in PR #1404, awaiting human review and merge**: removes duplicate Lit results and migrates the app to HTMX 4 without Alpine.
+83. [ADR 0083: Keep Concordance server-rendered and consolidate on HTMX 4](adr/0083-concordance-server-rendering-and-htmx-4.md) — **accepted; implemented in PR #1404**: removes duplicate Lit results and migrates the app to HTMX 4 without Alpine.
 84. [ADR 0084: Project effective vocabulary counts for Browse](adr/0084-browse-effective-count-projection.md) — **accepted; partially implemented**: Browse gates on exact per-Book projections and durable rebuilds; the 500-Book/50-million-token acceptance measurement remains pending.
 85. [ADR 0085: Reading owns Book vocabulary and deck preparation](adr/0085-reading-owned-book-vocabulary.md) — **accepted; implementation pending**: adds corpus-qualified two-occurrence candidates, freezes Reading once before Book-deck preparation, and retires independent custom-deck selection and UI without prematurely deleting stored artifacts.
 86. [ADR 0086: Reading Working desk, independent Hidden visibility, and corpus-wide Concordance](adr/0086-reading-working-desk-hidden-visibility-and-concordance.md) — **accepted; code implementation complete in the repository (one production Set Aside row was converted to Inbox by hand)**: contracts disposition to Inbox/To Read, adds independent Hidden visibility and End current reading with commitment-bound expected-state protection, contracts the disposition constraint without a data conversion, and reconciles ADR 0050/0043 navigation and the ADR 0078/0081/0084/0085 clauses it amends while preserving ADR 0083.
@@ -200,77 +200,16 @@ amendments.
 
 ## Deployment and operations
 
-Run PostgreSQL, the Python NLP gRPC service, and the Go web/River worker process. Key environment variables include:
+Mouseion runs as three processes: PostgreSQL, the Python NLP gRPC service, and
+the Go web application with River workers. The [operations guide](operations.md)
+covers Compose and manual setup, configuration, NLP model provisioning, the
+dictionary index, and maintenance commands; the
+[development guide](development.md) covers building and testing.
 
-- `MOUSEION_DATABASE_URL` — PostgreSQL connection string.
-- `MOUSEION_NLP_ADDR` — address of the Python gRPC service.
-- `MOUSEION_NLP_WARM_LANGUAGES` — comma-separated language pipelines to preload and
-  advertise from the NLP service and provision into its model cache. Compose
-  defaults to `de,it,el` and provisions the full Stanza processor bundle into
-  the named `stanza-data` volume before starting NLP. GreekBERT is provisioned
-  into the named `huggingface-data` volume at `HF_HOME=/opt/huggingface`.
-  Manually launched services retain the application default of `de`, should set
-  persistent `STANZA_RESOURCES_DIR` and `HF_HOME` locations, and should run the
-  provisioner first. Models are stored under `STANZA_RESOURCES_DIR`. Changing
-  this value adds languages without an image rebuild, while a Stanza version or
-  effective model configuration change causes the marker-driven provisioner to
-  refresh the bundle. Serving loads only local artifacts and does not download
-  models. The singular
-  `MOUSEION_NLP_WARM_LANGUAGE` remains supported for backward compatibility.
-- `MOUSEION_ANALYSIS_JOB_TIMEOUT` — maximum duration allowed for an analysis job.
-- `MOUSEION_LLM_ENABLED` — set to `true` to enable optional external translation;
-  also requires `MOUSEION_LLM_API_KEY` and `MOUSEION_LLM_MODEL`.
-- `MOUSEION_LLM_BASE_URL` — optional OpenAI-compatible API root; defaults to
-  `https://api.openai.com/v1`.
-- `MOUSEION_LLM_TIMEOUT` — optional positive Go duration; defaults to `30s`.
-- `MOUSEION_LLM_REASONING_EFFORT` — optional `low`, `medium`, or `high` value;
-  defaults to `low`.
-- `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT` — set to `true` only when a custom
-  OpenAI-compatible endpoint/model supports `reasoning_effort`.
-- `MOUSEION_DICTIONARY_INDEX` — optional read-only SQLite artifact generated by
-  `make dictionary-index`; the artifact contains the full German and Italian
-  Kaikki-derived index and is not imported into Postgres.
-- `MOUSEION_DICTIONARY_HOST_DIR` — Compose-only host directory containing the
-  index; it is bind-mounted read-only into the web container. The host path is
-  a directory rather than a single-file mount so a missing artifact remains
-  missing. This is the deployment host-path setting; the application reads the
-  mounted file named by `MOUSEION_DICTIONARY_INDEX`.
-- `MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS` — maximum requests in one
-  prepared-deck Batch input file; defaults to `5000` and is capped at `50000`.
-- `MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL` — provider Batch polling
-  interval; defaults to `30s` and is capped at `24h`.
-- Prepared-deck Batch files are temporary: Mouseion requests seven-day
-  provider expiration and deletes input/output/error files after reconciliation
-  or cancellation. Failed deletion is retried a bounded number of times and
-  does not invalidate a reconciled deck.
-
-The dictionary index is refreshed separately from application state. After
-`make setup`, run `make dictionary-index DICTIONARY_DUMP_DATE=YYYY-MM-DD
-DICTIONARY_WIKTEXTRACT_COMMIT=<commit> DICTIONARY_REFRESH=1` to download the
-current weekly raw Kaikki Wiktextract dump and derive the combined German and
-Italian SQLite index. Use `KAIKKI_INPUT=/path/to/dump.jsonl.gz` instead for an
-offline rebuild from an existing raw dump. The generated
-`provider_version` records the dump date, UTC extraction date, and Wiktextract
-commit. Replace the read-only artifact under `MOUSEION_DICTIONARY_HOST_DIR`
-and restart the web process; no migration or new service is needed. The index
-records its source, license, and attribution; see the [refresh
-instructions](../README.md#refreshing-the-dictionary-index).
-
-The index contains Wiktionary-derived data from [Kaikki.org](https://kaikki.org/)
-under the source's dual CC BY-SA 3.0 / GFDL terms. Preserve its generated
-metadata and attribution when shipping or sharing it; see the [refresh
-instructions](../README.md#refreshing-the-dictionary-index) for the full notice.
-
-Prepared-deck translation uses durable standard execution by default when
-external translation is enabled. Batch remains available for explicit
-offline/economy work; those preparations can remain in `preparing` while
-OpenAI processes a Batch for up to the provider's 24-hour completion window.
-The status endpoint reports the current phase, durable counts, retrying items,
-and cancellation control. Cancellation stops local publication first, while
-provider file cleanup remains best effort.
-
-The v1 service is intended for a private home-lab deployment reachable only over Tailscale. See the [README](../README.md) for current setup commands and [documentation governance](documentation-governance.md) for the boundary between this present-state summary, repository ADRs, and planning material.
-
-Mouseion does not currently expose open registration or an open/closed
-registration setting. Language availability is discovered from the running NLP
-service; it is not configured as a separate application-managed resource.
+The v1 service is intended for a private deployment reachable only over
+Tailscale ([ADR 0009](adr/0009-home-lab-auth-corpus-isolation.md)). Mouseion
+does not expose open registration or an open/closed registration setting.
+Language availability is discovered from the running NLP service; it is not
+configured as a separate application-managed resource. See
+[documentation governance](documentation-governance.md) for the boundary
+between this present-state summary, ADRs, and feature documents.

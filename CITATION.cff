@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use or refer to this software, please cite it as below."
+title: "Mouseion: a self-hosted reading environment for foreign-language learning"
+type: software
+authors:
+  - family-names: Hayes
+    given-names: Justin
+repository-code: "https://github.com/justin-hayes/mouseion"
+license: AGPL-3.0-only
+abstract: >-
+  Mouseion analyzes the ebooks in a learner's own library with Stanza, persists
+  a normalized, dependency-parsed corpus, measures the learner's vocabulary
+  coverage of each book, and prepares Anki recognition cards for the recurring
+  unknown lemmas, using example sentences from the book itself. It supports
+  German, Italian, and Modern Greek, with language-specific lemmatization
+  (German separable verbs, pre-1996 orthography, Greek contractions), EPUB
+  main-text selection, GDEX-informed example-sentence scoring, and a
+  Wiktionary-derived dictionary index with recorded provenance.
+keywords:
+  - digital humanities
+  - natural language processing
+  - corpus linguistics
+  - lemmatization
+  - concordance
+  - second language acquisition
+  - vocabulary
+  - German
+  - Italian
+  - Modern Greek

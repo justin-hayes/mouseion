@@ -24,7 +24,7 @@ func run() (err error) {
 	apply := flag.Bool("apply", false, "apply the destructive data-only cutover (requires a verified pre-cutover backup)")
 	flag.Parse()
 	if !*apply {
-		return errors.New("refusing to run without --apply; first capture and verify a pre-cutover backup (see doc/cutovers/2026-10-06-vocabulary-browse-selections.md)")
+		return errors.New("refusing to run without --apply; first capture and verify a pre-cutover backup (see doc/archive/operations/2026-10-06-vocabulary-browse-selections.md)")
 	}
 	databaseURL := os.Getenv("MOUSEION_DATABASE_URL")
 	if databaseURL == "" {

@@ -5,7 +5,12 @@ A learner connects their own OPDS catalog, syncs books into a personal
 library, analyzes each Book according to its declared EPUB structure, and prepares
 Anki recognition decks from unknown vocabulary.
 
-The current disposition and current-reading contract is recorded in
+This glossary is the project's ubiquitous language: each term below names one
+concept and is used with that meaning in code, interface text, and
+documentation. Each entry gives the definition and, under _Avoid_, the
+synonyms that are deliberately not used.
+
+**Status notes.** The current disposition and current-reading contract is recorded in
 [ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md).
 [ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
 records the historical Goal and ordered-Journey model.

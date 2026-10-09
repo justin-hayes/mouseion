@@ -14,12 +14,14 @@ through the normal workflow:
 4. required CI checks;
 5. merge when repository review policy is satisfied.
 
-The required CI jobs currently are:
+The required CI checks currently are:
 
-- **Go build and test**
-- **Go lint**
-- **Python build and test**
-- **Protobuf generated code**
+- **Build and test** — Go and Python build, unit tests, Python lint, and
+  generated protobuf, sqlc, and stylesheet freshness
+- **Integration tests** — PostgreSQL-backed Go integration tests
+- **Browser smoke** — the Playwright suite, gated over four parallel shards
+
+**Go lint** also runs on every pull request.
 
 ## Human-review paths
 

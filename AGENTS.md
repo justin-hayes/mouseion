@@ -9,7 +9,7 @@ Mouseion is a self-hosted reading environment for learning foreign languages. Go
 - Feature documents: `doc/features/` — product behavior, motivation, scope.
 - ADRs: `doc/adr/` — accepted architecture/product decisions; indexed in `doc/product.md`. Add a new ADR to that index when creating one.
 - Design docs: `doc/design/` — read `README.md`, `principles.md`, `design-system.md` before substantial frontend/UX work; don't introduce new UI patterns when an established one exists.
-- `doc/documentation-governance.md` — repo is authoritative for stable decisions; Obsidian vault is planning material and must not be synced back.
+- `doc/documentation-governance.md` — where each kind of document lives; the repo is authoritative for stable decisions, and exploration notes kept outside it are never synced back.
 - When docs conflict, executable truth wins; read README + Makefile + CI before assuming anything.
 
 ## Commands
