@@ -129,8 +129,68 @@ browsers ([e2e/README.md](../e2e/README.md) describes the pin and its coupling
 to the locked `@playwright/test` version). Each job
 starts from a clean machine and restores Go, uv, npm, and golangci-lint
 dependencies from GitHub Actions caches keyed on the corresponding lock files.
-Path filters skip work a change cannot affect. Integration tests start
-PostgreSQL through Testcontainers on the runner's Docker daemon.
+A `changes` job classifies each pull request once and gates the other jobs on
+the result, so a job a change cannot affect is skipped before any runner,
+container, or browser is provisioned. Integration tests start PostgreSQL
+through Testcontainers on the runner's Docker daemon.
+
+### CI change classes
+
+`tools/ci-changes.sh` maps each changed path to the checks it affects; its
+`case` table is the only definition. The first matching rule wins, so order
+matters. A path no rule matches runs every check, and manual dispatch does too.
+Build tooling (`Makefile`, `tools/**`, `.github/workflows/**`) also runs every
+check. "Build and test" runs the Go steps for `go`, the Python steps for
+`python`, and the regeneration checks for `generated`; `frontend` adds the
+stylesheet check.
+
+| Change | Build and test | Go lint and integration | Browser smoke |
+| --- | --- | --- | --- |
+| Documentation (`doc/**`, `*.md`, `CITATION.cff`, `LICENSE`, `SECURITY.md`) | skipped | skipped | skipped |
+| Screenshot project (`e2e/screenshot/**`) | skipped | skipped | skipped |
+| NLP code (`nlp/**`) | Python | skipped | skipped |
+| NLP expectations read by Go tests (`nlp/tests/testdata/**`, `nlp/testdata/**`) | Go and Python | run | skipped |
+| Shared npm dependencies and Playwright configuration (`e2e/package*.json`, `e2e/playwright.config.ts`, `e2e/support/**`) | skipped | skipped | run |
+| Browser tests (`e2e/tests/**`) | skipped | skipped | run |
+| Stylesheet source (`internal/webapp/styles/**`) | stylesheet check | skipped | skipped |
+| Templates, stylesheet classes, and embedded assets (`*.templ`, `internal/webapp/components.go`, `internal/webapp/static/**`) | Go and stylesheet | run | run |
+| Fixture server and packages it compiles (`cmd/fixtureserver/**`, `internal/**` non-test code) | Go | run | run |
+| Other Go code and Go test inputs (`cmd/**`, `*_test.go`, `testdata/**`, test helpers) | Go | run | skipped |
+| Embedded Go data (`internal/canonicalization/german_post1996.json`, `internal/cardexport/templates/**`) | Go | run | run |
+| Protobuf and sqlc inputs (`proto/**`, `sqlc/**`, `sqlc.yaml`) | Go and regeneration (Python for `proto/**`) | run | skipped |
+| Committed generated Go and sqlc (`gen/go/**`, `gen/sqlc/**`) | Go and regeneration | run | run |
+| Committed generated Python (`gen/python/**`) | Python and regeneration | skipped | skipped |
+| Migrations (`migrations/**`) | Go and regeneration | run | run |
+| Go dependencies (`go.mod`, `go.sum`) | Go and regeneration | run | run |
+| Python dependencies (`nlp/requirements*.txt`, `nlp/pyproject.toml`) | Python and regeneration | skipped | skipped |
+| Build tooling, workflow, unmatched paths, manual dispatch | every check | run | run |
+
+Browser smoke is a single required check. It passes when its four shards
+succeed, or when they are skipped because the classification did not require
+browser checks. A failed, cancelled, or unexpectedly skipped shard fails it,
+and so does a failed change detection. `tools/ci-gate.sh` holds that rule.
+Gated jobs that a change does not require are skipped as a whole, which GitHub
+reports as passing for required checks; a failed change detection makes the
+gated jobs run and fail instead.
+
+When a build or embedding dependency changes, update the rules and the
+expectations together:
+
+- New `//go:embed` input: add its path to the matching rule in
+  `tools/ci-changes.sh`. Find them with
+  `grep -rn 'go:embed' --include=*.go internal cmd migrations`.
+- New runtime file read by a Go test from outside its package (for example
+  `../../nlp/testdata/`): add it to the Go rule. Find them with
+  `grep -rn 'ReadFile("\.\./' --include=*_test.go internal cmd`.
+- Browser inputs: the fixture server's compiled packages are
+  `go list -deps ./cmd/fixtureserver`. Packages under `internal/` are covered
+  by the browser rule except test helpers, and a new fixture dependency outside
+  `internal/` or `cmd/fixtureserver/` needs its own rule.
+- Add a case to `tools/ci-changes_test.sh` for each new class, with the job
+  selection it must produce. The test also checks that each gated job's `if:`
+  tests the expected class and that the change-detection guards are present.
+  The `changes` job runs it before it classifies a pull request; run it locally
+  with `tools/ci-changes_test.sh`.
 
 ### Browser fixture contract
 
@@ -147,11 +207,11 @@ still starts an independent fixture process per worker and spec file.
 
 Re-running only failed jobs reuses the artifact from the earlier attempt, which
 the job output still names; it stays bound to the same commit. Failure of the
-fixture build skips the shards, and the `Browser smoke` check
-requires the fixture job and every shard to succeed. Runs without browser inputs
-skip the build, upload, and download, and the shards run no browser steps, so
-the required check still reports success. Local `make browser-smoke` is
-unchanged and still runs `go run` through Playwright.
+fixture build skips the shards, and the `Browser smoke` check fails for that
+skip. Runs whose change classification does not require browser checks skip the
+fixture job, the upload and download, and the shards; the required check still
+reports success. Local `make browser-smoke` is unchanged and still runs
+`go run` through Playwright.
 
 ## Conventions
 

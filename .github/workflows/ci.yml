@@ -12,76 +12,67 @@ permissions:
   contents: read
   pull-requests: read
 
+# The changes job classifies the pull request once (tools/ci-changes.sh); every
+# gated job reads that result. A gated job still runs when classification did
+# not succeed, and its first step fails, so a broken classification can skip
+# nothing. Cancelled runs are never reported as success.
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.classify.outputs.build }}
+      go: ${{ steps.classify.outputs.go }}
+      python: ${{ steps.classify.outputs.python }}
+      generated: ${{ steps.classify.outputs.generated }}
+      frontend: ${{ steps.classify.outputs.frontend }}
+      browser: ${{ steps.classify.outputs.browser }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The pull request's base and head commits must be present to diff them.
+          fetch-depth: 0
+
+      - name: Test change classification
+        run: tools/ci-changes_test.sh
+
+      - name: Classify changes
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed-files.txt"
+            tools/ci-changes.sh < "$RUNNER_TEMP/changed-files.txt" >> "$GITHUB_OUTPUT"
+          else
+            tools/ci-changes.sh --all >> "$GITHUB_OUTPUT"
+          fi
+
   ci:
     name: Build and test
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.build == 'true') }}
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
       # ------------------------------------------------------------------
-      # Checkout and change detection
+      # Checkout and frontend
       # ------------------------------------------------------------------
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Detect changed files
-        id: changes
-        if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3; latest release uses Node 20, no Node 24 release available
-        with:
-          filters: |
-            go:
-              - '**/*.go'
-              - '**/*.templ'
-              - 'go.mod'
-              - 'go.sum'
-              - 'proto/**'
-              - 'gen/go/**'
-              - 'gen/sqlc/**'
-              - 'sqlc/**'
-              - 'migrations/**'
-              - 'Makefile'
-              - '.golangci.yml'
-              - '.github/workflows/ci.yml'
-
-            python:
-              - 'nlp/**'
-              - 'gen/python/**'
-              - 'proto/**'
-              - 'pyproject.toml'
-              - 'nlp/requirements-dev.txt'
-              - 'Makefile'
-              - '.github/workflows/ci.yml'
-              - 'sqlc/**'
-              - 'gen/sqlc/**'
-              - 'migrations/**'
-
-            generated:
-              - 'proto/**'
-              - 'sqlc/**'
-              - 'gen/sqlc/**'
-              - 'migrations/**'
-              - 'go.mod'
-              - 'go.sum'
-              - 'pyproject.toml'
-              - 'nlp/requirements-dev.txt'
-              - 'Makefile'
-              - '.github/workflows/ci.yml'
-
-            frontend:
-              - 'internal/webapp/*.templ'
-              - 'internal/webapp/components.go'
-              - 'internal/webapp/static/app.css'
-              - 'internal/webapp/static/my-books.js'
-              - 'internal/webapp/styles/**'
-              - 'tools/build-frontend-css.sh'
-              - 'tools/verify-frontend-css-sources.py'
-              - 'Makefile'
-              - '.github/workflows/ci.yml'
-
       - name: Verify generated frontend stylesheets
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.frontend == 'true'
+        if: needs.changes.outputs.frontend == 'true'
         run: make check-frontend-css
 
       # ------------------------------------------------------------------
@@ -89,33 +80,25 @@ jobs:
       # ------------------------------------------------------------------
 
       - name: Set up Go
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.go == 'true' || needs.changes.outputs.generated == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
+      # make sqlc and make gen build through templ, so generated changes need it too.
       - name: Generate templ views
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
+        if: needs.changes.outputs.go == 'true' || needs.changes.outputs.generated == 'true'
         run: |
           make templ-install
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           PATH="$(go env GOPATH)/bin:$PATH" make templ
 
       - name: Go build
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
+        if: needs.changes.outputs.go == 'true'
         run: go build ./...
 
       - name: Go test
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
+        if: needs.changes.outputs.go == 'true'
         run: go test ./...
 
       # ------------------------------------------------------------------
@@ -123,33 +106,23 @@ jobs:
       # ------------------------------------------------------------------
 
       - name: Set up uv
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
         with:
           enable-cache: true
           cache-dependency-glob: nlp/requirements-dev.txt
 
       - name: Set up Python 3.13
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         run: uv python install 3.13
 
       - name: Create Python environment
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         run: uv venv --python 3.13 .venv
 
+      # Generation runs grpcio-tools from these requirements, so generated changes need them too.
       - name: Install Python dev dependencies
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
         run: |
           uv pip install --python .venv/bin/python \
             --disable-pip-version-check \
@@ -159,9 +132,7 @@ jobs:
       # This prevents Stanza from pulling in the much larger CUDA-enabled
       # Linux dependency stack on CI runners.
       - name: Install CPU-only PyTorch
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: |
           uv pip install --python .venv/bin/python \
             --disable-pip-version-check \
@@ -169,90 +140,76 @@ jobs:
             --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install Mouseion NLP
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: |
           uv pip install --python .venv/bin/python \
             --disable-pip-version-check \
             -e nlp
 
       - name: Python build
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: >
           PYTHONPATH=nlp/src:gen/python
           .venv/bin/python -m compileall -q nlp/src gen/python
 
       - name: Python test
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: >
           PYTHONPATH=nlp/src:gen/python
           .venv/bin/pytest -q nlp/tests
 
       - name: Python lint
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.python == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: .venv/bin/ruff check nlp/src nlp/tests
 
       # ------------------------------------------------------------------
-      # Generated protobuf code
+      # Generated protobuf and sqlc code
       # ------------------------------------------------------------------
 
       - name: Set up protoc
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.generated == 'true'
         uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0; latest release uses Node 20, no Node 24 release available
         with:
           version: '29.3'
 
       - name: Install protoc-gen-go
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.generated == 'true'
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Generate protobuf code
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.generated == 'true'
         run: make gen
 
       - name: Set up sqlc
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.generated == 'true'
         uses: sqlc-dev/setup-sqlc@bac53b7fb28c039a6c7f5736fd1e89744021bdd6 # v5.0.0
         with:
           sqlc-version: '1.31.1'
 
       - name: Generate sqlc code
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.generated == 'true'
         run: make sqlc
 
       - name: Verify generated code is current
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.generated == 'true'
+        if: needs.changes.outputs.generated == 'true'
         run: git diff --exit-code
 
   golangci:
     name: Go lint
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
 
     steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -274,43 +231,24 @@ jobs:
 
   integration:
     name: Integration tests
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true') }}
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Detect changed files
-        id: changes
-        if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3; latest release uses Node 20, no Node 24 release available
-        with:
-          filters: |
-            go:
-              - '**/*.go'
-              - '**/*.templ'
-              - 'go.mod'
-              - 'go.sum'
-              - 'proto/**'
-              - 'gen/go/**'
-              - 'gen/sqlc/**'
-              - 'sqlc/**'
-              - 'migrations/**'
-              - 'Makefile'
-              - '.github/workflows/ci.yml'
-
       - name: Set up Go
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
       - name: Generate templ views
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
         run: |
           make templ-install
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
@@ -319,73 +257,40 @@ jobs:
       # Every package with integration tests runs; each test gets its own
       # database cloned from a migrated template, so packages run in parallel.
       - name: Go integration test
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          steps.changes.outputs.go == 'true'
         run: make test-integration
 
   # Builds the commit-matched fixture server once per run attempt for the browser
   # shards. It needs only the checkout, so shards never wait for the Go, Python,
-  # lint, or integration jobs, and it does no work unless browser inputs changed.
+  # lint, or integration jobs, and it does no work unless browser checks are required.
   browser-fixture:
     name: Browser fixture
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.browser == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
-      required: ${{ steps.required.outputs.required }}
       artifact: ${{ steps.artifact.outputs.name }}
     steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Detect changed files
-        id: changes
-        if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3; latest release uses Node 20, no Node 24 release available
-        with:
-          # Everything the fixture server binary is built or embeds from, plus
-          # the suite itself; docs- and NLP-only changes skip the browsers.
-          filters: |
-            browser:
-              - '**/*.go'
-              - '**/*.templ'
-              - 'internal/**'
-              - 'cmd/**'
-              - 'e2e/**'
-              - 'migrations/**'
-              - 'go.mod'
-              - 'go.sum'
-              - 'Makefile'
-              - '.github/workflows/ci.yml'
-
-      - name: Decide whether browser smoke runs
-        id: required
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BROWSER_CHANGED: ${{ steps.changes.outputs.browser }}
-        run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ] || [ "$BROWSER_CHANGED" = true ]; then
-            echo "required=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "required=false" >> "$GITHUB_OUTPUT"
-          fi
 
       # The name binds the artifact to this commit and this run attempt, so a
       # shard can never download a binary from another commit, an older attempt,
       # or an overlapping workflow run.
       - name: Name browser fixture artifact
         id: artifact
-        if: steps.required.outputs.required == 'true'
         run: echo "name=browser-fixture-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Go
-        if: steps.required.outputs.required == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
       - name: Generate templ views
-        if: steps.required.outputs.required == 'true'
         run: |
           make templ-install
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
@@ -394,7 +299,6 @@ jobs:
       # Artifact upload does not preserve the executable bit, so shards restore
       # it. The commit and platform files let shards reject a mismatched binary.
       - name: Build fixture server
-        if: steps.required.outputs.required == 'true'
         run: |
           mkdir -p .tmp/browser-fixture
           go build -o .tmp/browser-fixture/fixtureserver ./cmd/fixtureserver
@@ -402,7 +306,6 @@ jobs:
           uname -sm > .tmp/browser-fixture/platform
 
       - name: Upload browser fixture
-        if: steps.required.outputs.required == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.artifact.outputs.name }}
@@ -412,7 +315,10 @@ jobs:
 
   browser-smoke-shard:
     name: Browser smoke shard ${{ matrix.shard }}/4
-    needs: browser-fixture
+    needs: [changes, browser-fixture]
+    # Skipped when browser checks are not required; a failed fixture build or
+    # change detection also skips the shards, and tools/ci-gate.sh fails on that.
+    if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -433,13 +339,11 @@ jobs:
       # artifact fails fast. An unset artifact name or a failed download fails
       # the step rather than falling back to building locally.
       - name: Download browser fixture
-        if: needs.browser-fixture.outputs.required == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.browser-fixture.outputs.artifact }}
           path: .tmp/browser-fixture
       - name: Verify browser fixture
-        if: needs.browser-fixture.outputs.required == 'true'
         env:
           EXPECTED_SHA: ${{ github.sha }}
         run: |
@@ -450,18 +354,15 @@ jobs:
           test -x .tmp/browser-fixture/fixtureserver
 
       - name: Set up Node
-        if: needs.browser-fixture.outputs.required == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - name: Install Playwright dependency
-        if: needs.browser-fixture.outputs.required == 'true'
         working-directory: e2e
         run: npm ci --ignore-scripts
       - name: Verify Playwright image matches locked version
-        if: needs.browser-fixture.outputs.required == 'true'
         run: |
           locked=$(node -p "require('./e2e/package-lock.json').packages['node_modules/@playwright/test'].version")
           case "$PLAYWRIGHT_IMAGE" in
@@ -476,7 +377,6 @@ jobs:
       # Chromium the shared memory it needs; --init reaps child processes. Files
       # are written as the runner user so the failure-artifact upload works.
       - name: Run browser smoke
-        if: needs.browser-fixture.outputs.required == 'true'
         env:
           CI: true
         run: |
@@ -498,21 +398,22 @@ jobs:
             e2e/test-results/
           if-no-files-found: ignore
 
-  # The required status check is named "Browser smoke"; it passes only when the
-  # fixture build and every shard succeeded. A failed fixture build skips the
-  # shards, which this check treats as a failure.
+  # The required status check is named "Browser smoke". It passes only when the
+  # shards succeeded because browser checks were required, or were skipped
+  # because they were not; tools/ci-gate.sh holds the rule.
   browser-smoke:
     name: Browser smoke
-    needs: [browser-fixture, browser-smoke-shard]
+    needs: [changes, browser-smoke-shard]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require the fixture build and every shard to pass
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require the browser outcome the changes call for
         env:
-          FIXTURE_RESULT: ${{ needs.browser-fixture.result }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BROWSER_REQUIRED: ${{ needs.changes.outputs.browser }}
           SHARDS_RESULT: ${{ needs.browser-smoke-shard.result }}
-        run: |
-          echo "Browser fixture: $FIXTURE_RESULT; browser smoke shards: $SHARDS_RESULT"
-          test "$FIXTURE_RESULT" = success
-          test "$SHARDS_RESULT" = success
+        run: tools/ci-gate.sh "$CHANGES_RESULT" "$BROWSER_REQUIRED" "$SHARDS_RESULT"
