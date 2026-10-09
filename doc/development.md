@@ -6,7 +6,8 @@ How to build, test, and change Mouseion. For running an installation, see the
 ## Toolchain
 
 - Go 1.24
-- Python 3.11, the version pinned in `nlp/pyproject.toml`, the NLP image, and CI
+- Python 3.13, pinned in `nlp/pyproject.toml`, the NLP image, and CI (3.14 needs
+  a grpcio upgrade: the pinned grpcio 1.71.2 has no 3.14 wheels)
 - Protobuf compiler 29.x and `protoc-gen-go` for regenerating the shared
   contract
 - templ `v0.3.977` (installed by `make templ-install`)

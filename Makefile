@@ -31,7 +31,7 @@ go-tmp: templ
 	mkdir -p $(GOTMPDIR)
 
 setup:
-	$(UV) venv --clear --python 3.11 $(VENV)
+	$(UV) venv --clear --python 3.13 $(VENV)
 	$(UV) pip install --python $(VENV_BIN)/python -r nlp/requirements-dev.txt
 	$(UV) pip install --python $(VENV_BIN)/python torch --index-url https://download.pytorch.org/whl/cpu
 	$(UV) pip install --python $(VENV_BIN)/python -e nlp

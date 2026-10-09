@@ -7,7 +7,7 @@ name = "mouseion-nlp"
 version = "0.0.0"
 description = "Mouseion ingest-time NLP producer"
 license = "AGPL-3.0-only"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "grpcio==1.71.2",
     "huggingface-hub==0.27.1",
@@ -23,5 +23,5 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 line-length = 100
