@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	priorityGroupPattern = regexp.MustCompile(`concordance-book-title">([^<]*)</span>\s*<span class="concordance-book-count">([^<]*)</span>`)
+	priorityGroupPattern = regexp.MustCompile(`concordance-source-title">([^<]*)</span>\s*<span class="concordance-source-count"><span class="concordance-count-full">([^<]*)</span>`)
 	priorityRowPattern   = regexp.MustCompile(`id="occurrence-([0-9a-f-]{36})-`)
 	priorityHrefPattern  = regexp.MustCompile(`<a class="button button--outline" href="([^"]+)"[^>]*>(Previous|Next)</a>`)
 )

@@ -91,7 +91,7 @@ test('loads self-hosted Literata italic only for italic Book labels', async ({ p
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.goto('/vocabulary/concordance?term=Haus');
-  const label = page.locator('.concordance-book-title').first();
+  const label = page.locator('.concordance-source-title').first();
   await expect(label).toBeVisible();
   const face = await label.evaluate(async element => {
     const style = getComputedStyle(element);
