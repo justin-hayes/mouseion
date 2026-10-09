@@ -133,6 +133,12 @@ stack. It is separate from `make browser-smoke` and CI.
   finishes the `read` Book, starts the `current` Book, and asserts its title and
   a non-empty Book vocabulary table before capturing Reading. My Books is then
   captured with the Inbox, To Read, Currently reading, and Read buckets asserted.
+- Before the `current` Book starts, the workflow derives a Known-vocabulary
+  baseline from the analyzed Books other than it: their lemmas ranked by
+  frequency, read-only from the stack's database, cut at the rank where the
+  `current` Book's Known coverage reaches about 96%. The list is imported through
+  Vocabulary, and the run fails unless the measured coverage is within 94–98%.
+  The cut-off and measured coverage are printed.
 - Each wait is bounded and names the Book or step that stalled. Analysis of the
   full set is bounded at 30 minutes; the Playwright test budget is 75 minutes.
 - Source books are pinned Project Gutenberg editions in
