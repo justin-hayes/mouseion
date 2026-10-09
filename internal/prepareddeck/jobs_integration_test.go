@@ -66,6 +66,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
 	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, GoalSnapshotID: firstGoal.SnapshotID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
@@ -350,6 +351,7 @@ func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
 	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "River client", client.Stop)
 	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := NewService(store, client)
 	queued, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "queued.apkg", DeckName: "queued", ContentHash: "queued-hash"})
