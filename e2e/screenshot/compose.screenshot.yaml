@@ -1,0 +1,49 @@
+# Compose override used only by `make screenshot-my-books` (see e2e/screenshot/run.mjs).
+# It is never applied to the default stack. Run it with an explicit project name
+# and env file so the maintainer's .env is not read:
+#   docker compose -p mouseion-screenshot --env-file <run env> \
+#     -f compose.yaml -f e2e/screenshot/compose.screenshot.yaml up -d --wait
+#
+# Adds a static OPDS catalog, provisions only German, disables the LLM provider,
+# and binds the web port to localhost on a per-run port. The Stanza and Hugging
+# Face volumes are external so `down --volumes` keeps the model cache.
+services:
+  nlp-init:
+    environment:
+      MOUSEION_NLP_WARM_LANGUAGES: de
+
+  nlp:
+    environment:
+      MOUSEION_NLP_WARM_LANGUAGES: de
+
+  web:
+    ports: !override
+      - "127.0.0.1:${MOUSEION_SCREENSHOT_PORT:?set by run.mjs}:8080"
+    environment:
+      MOUSEION_LLM_ENABLED: "false"
+      # Unset the optional local dictionary so the isolated stack needs no index file.
+      MOUSEION_DICTIONARY_INDEX: ""
+    depends_on:
+      catalog:
+        condition: service_started
+
+  catalog:
+    image: node:22-alpine
+    restart: "no"
+    command: ["node", "/srv/serve-catalog.mjs"]
+    environment:
+      CATALOG_ROOT: /srv/catalog
+      PORT: "8080"
+    volumes:
+      - ${MOUSEION_SCREENSHOT_CATALOG_DIR:?set by run.mjs}:/srv/catalog:ro
+      - ./e2e/screenshot/serve-catalog.mjs:/srv/serve-catalog.mjs:ro
+    expose:
+      - "8080"
+
+volumes:
+  stanza-data:
+    external: true
+    name: mouseion-screenshot-stanza-data
+  huggingface-data:
+    external: true
+    name: mouseion-screenshot-huggingface-data
