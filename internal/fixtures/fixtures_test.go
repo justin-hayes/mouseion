@@ -458,3 +458,53 @@ func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
 	}
 	assert.True(t, found, "re-synced metadata book missing from German page=%+v", afterGerman.Items)
 }
+
+func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	query := domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: BookID, ReadingBookID: BookID, Page: 1}
+	browse := func(t *testing.T, query domain.VocabularyBrowseQuery) domain.VocabularyBrowsePage {
+		t.Helper()
+		page, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
+		require.NoError(t, err)
+		return page
+	}
+
+	page := browse(t, query)
+	assert.Equal(t, int64(1), page.Total, "the default fixture still hides accounted-for identities")
+
+	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioAccounted))
+	page = browse(t, query)
+	assert.Zero(t, page.Total)
+	assert.Equal(t, int64(2), page.ScopedInventoryTotal, "accounted-for identities are scoped, not absent")
+	assert.Empty(t, page.Rows)
+	query.IncludeAll = true
+	page = browse(t, query)
+	require.Len(t, page.Rows, 2)
+	assert.True(t, page.Rows[0].Known && page.Rows[0].InBookDeck, "haus is Known and in a Book deck")
+	assert.True(t, page.Rows[1].Known && page.Rows[1].Reserved, "lesen is Known and Reserved")
+	query.IncludeAll = false
+
+	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioNoAnalysis))
+	page = browse(t, query)
+	require.Len(t, page.Books, 1)
+	assert.False(t, page.Books[0].HasCurrentAnalysis)
+	assert.Empty(t, page.Rows)
+
+	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioNoVocabulary))
+	page = browse(t, query)
+	assert.True(t, page.Books[0].HasCurrentAnalysis)
+	assert.Zero(t, page.InventoryTotal)
+
+	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioCountsUpdating))
+	assert.True(t, browse(t, query).BrowseCountsUpdating)
+
+	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioCountsUnavailable))
+	page = browse(t, query)
+	assert.True(t, page.BrowseCountsUnavailable)
+	assert.Empty(t, page.Rows, "unavailable counts must not leak rows")
+
+	require.Error(t, store.SetVocabularyBrowseScenario("unlisted"))
+	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioDefault))
+	assert.Equal(t, int64(1), browse(t, query).Total, "the empty scenario restores the default fixture")
+}

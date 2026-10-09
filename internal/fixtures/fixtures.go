@@ -128,6 +128,7 @@ type Store struct {
 	vocabularySelections   map[string]map[string]domain.VocabularyIdentity
 	customVocabularyDecks  map[string]domain.CustomVocabularyDeck
 	customDeckActions      map[string]string
+	browseScenario         string
 }
 
 func NewStore() *Store {
@@ -482,6 +483,42 @@ func (s *Store) ListStudyLanguages(_ context.Context, owner string) ([]domain.St
 	return out, nil
 }
 
+// Vocabulary Browse scenarios put the Working desk into the degraded and
+// fully-accounted states that the in-memory store cannot reach on its own. They
+// are set only by the fixture server, for browser acceptance.
+const (
+	VocabularyBrowseScenarioDefault           = ""
+	VocabularyBrowseScenarioNoAnalysis        = "no-analysis"
+	VocabularyBrowseScenarioNoVocabulary      = "no-vocabulary"
+	VocabularyBrowseScenarioCountsUpdating    = "counts-updating"
+	VocabularyBrowseScenarioCountsUnavailable = "counts-unavailable"
+	// VocabularyBrowseScenarioAccounted holds only Known, Reserved, or Book-deck
+	// identities, so the default view says everything is already accounted for
+	// and revealing them shows the annotated rows.
+	VocabularyBrowseScenarioAccounted = "accounted"
+)
+
+// SetVocabularyBrowseScenario selects the Browse scenario for every later Browse
+// read. The empty name restores the default fixture.
+func (s *Store) SetVocabularyBrowseScenario(name string) error {
+	switch name {
+	case VocabularyBrowseScenarioDefault, VocabularyBrowseScenarioNoAnalysis, VocabularyBrowseScenarioNoVocabulary,
+		VocabularyBrowseScenarioCountsUpdating, VocabularyBrowseScenarioCountsUnavailable, VocabularyBrowseScenarioAccounted:
+	default:
+		return fmt.Errorf("unknown vocabulary Browse scenario %q", name)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.browseScenario = name
+	return nil
+}
+
+func (s *Store) vocabularyBrowseScenario() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.browseScenario
+}
+
 // ListVocabularyBrowsePage provides representative browser-smoke rows for the
 // default Current reading. It is fixture content, not simulated NLP output.
 func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
@@ -499,6 +536,21 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	}
 	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
 	page.CorpusRevision = "fixture-current-reading-vocabulary-v1"
+	switch s.vocabularyBrowseScenario() {
+	case VocabularyBrowseScenarioNoAnalysis:
+		page.Books[0].HasCurrentAnalysis, page.Books[0].HasVocabularyEvidence = false, false
+		page.BooksWithoutCurrentAnalysis = 1
+		return page, nil
+	case VocabularyBrowseScenarioNoVocabulary:
+		page.Books[0].HasVocabularyEvidence = false
+		return page, nil
+	case VocabularyBrowseScenarioCountsUpdating:
+		page.BrowseCountsUpdating = true
+		return page, nil
+	case VocabularyBrowseScenarioCountsUnavailable:
+		page.BrowseCountsUnavailable = true
+		return page, nil
+	}
 	if query.Prefix == "paging" {
 		// A deliberately paged fixture for browser interaction checks; the ordinary
 		// two-row fixture remains small and representative on every other query.
@@ -524,6 +576,13 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, Generated: true},
 		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
 	}
+	if s.vocabularyBrowseScenario() == VocabularyBrowseScenarioAccounted {
+		rows = []domain.VocabularyBrowseRow{
+			{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
+			{CanonicalLemma: "lesen", UPOS: "VERB", OccurrenceCount: 3, AcrossBooksOccurrenceCount: 3, Known: true, Reserved: true},
+		}
+	}
+	inventoryTotal := int64(len(rows))
 	if !query.IncludeAll {
 		filtered := rows[:0]
 		for _, row := range rows {
@@ -544,8 +603,8 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 		rows = filtered
 	}
 	page.Total = int64(len(rows))
-	page.InventoryTotal = 2
-	page.ScopedInventoryTotal = 2
+	page.InventoryTotal = inventoryTotal
+	page.ScopedInventoryTotal = inventoryTotal
 	lastPage := max(1, int((page.Total+24)/25))
 	if page.Page > lastPage {
 		page.Page = lastPage
