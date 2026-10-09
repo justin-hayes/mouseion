@@ -408,6 +408,58 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('#sentence-study-heading')).toBeVisible();
   });
 
+  test('Concordance source counts are read once and occurrences are named by their sentences at 1280, 390, and 320 px', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const bookTitle = 'Die außerordentlich lange und ausführliche Geschichte vom Haus am Ende der Welt: Ein Roman in drei Büchern';
+    const counts = ['3 occurrences on this page', '1 occurrence on this page', '1 occurrence on this page', '2 occurrences on this page'];
+    const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/vocabulary/concordance?term=fixture-books');
+      const where = `${viewport.width}px`;
+      const list = page.locator('#concordance-native-results');
+      const labels = list.locator('.concordance-source');
+      const rows = list.locator('details.concordance-row');
+      await expect(rows).toHaveCount(7);
+
+      // Each page-local group is read once, with its full "on this page" wording; the compact form is hidden from AT.
+      await expect(labels).toHaveCount(4);
+      for (const [index, count] of counts.entries()) {
+        const snapshot = await labels.nth(index).ariaSnapshot();
+        expect(snapshot.split(count).length - 1, `${where} label ${index} count is read once`).toBe(1);
+        expect(snapshot, `${where} label ${index} has no compact count in the accessibility tree`).not.toMatch(/\d+ on page/);
+      }
+
+      // Each disclosure is named by its own sentence, never by the complete Book title.
+      const sentences = await rows.locator('.concordance-context p').allTextContents();
+      expect(sentences).toHaveLength(7);
+      for (const [index, sentence] of sentences.entries()) {
+        const summary = rows.nth(index).locator('summary');
+        await expect(summary, `${where} occurrence ${index} is named by its sentence`).toHaveAccessibleName(normalize(sentence));
+        await expect(summary).not.toHaveAccessibleName(new RegExp(bookTitle.slice(0, 20)));
+      }
+      await expect(list.locator('.concordance-source-title').first()).toHaveText(bookTitle);
+
+      // Keyboard order is unchanged: disclosure, then Study; source labels add no tab stop.
+      await rows.nth(0).locator('summary').focus();
+      await page.keyboard.press('Tab');
+      await expect(list.getByRole('link', { name: 'Study this sentence and its syntax' }).first()).toBeFocused();
+
+      // Reflow at 320 CSS px, the repo's 400% zoom stand-in: no horizontal overflow and no clipped target.
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${where} has no horizontal page overflow`).toBe(true);
+      const targets = await list.locator('summary, .concordance-study-link').evaluateAll(nodes => nodes.map(node => {
+        const box = node.getBoundingClientRect();
+        return { left: box.left, right: box.right, height: box.height, clipped: node.scrollWidth > node.clientWidth + 1 };
+      }));
+      for (const [index, target] of targets.entries()) {
+        expect(target.left, `${where} target ${index} starts inside the viewport`).toBeGreaterThanOrEqual(0);
+        expect(target.right, `${where} target ${index} ends inside the viewport`).toBeLessThanOrEqual(viewport.width);
+        expect(target.height, `${where} target ${index} keeps a 44px hit area`).toBeGreaterThanOrEqual(44);
+        expect(target.clipped, `${where} target ${index} is not clipped`).toBe(false);
+      }
+    }
+  });
+
   test('Concordance enhancement keeps one server-rendered list and native disclosures', async ({ page }) => {
     const concordanceRequests: string[] = [];
     page.on('request', request => {
