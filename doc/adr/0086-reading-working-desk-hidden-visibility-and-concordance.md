@@ -2,7 +2,7 @@
 
 Status: **Accepted; code implementation complete in the repository** · Date: 2026-10-08 · Author: Justin + OpenCode
 
-Specified by [issue #1580](https://github.com/justin-hayes/mouseion/issues/1580) and the planning decisions it cites (#1570–#1579); promoted by [issue #1581](https://github.com/justin-hayes/mouseion/issues/1581). This ADR records the **accepted target**. Its code is complete in the repository. Justin confirmed no production Book was ever Set Aside, so no data conversion, maintenance window, or corpus-scale acceptance evidence is required: migration `000033` only tightens the disposition constraint and fails loudly if a legacy row ever exists. Accepted by Justin on 2026-10-08.
+Specified by [issue #1580](https://github.com/justin-hayes/mouseion/issues/1580) and the planning decisions it cites (#1570–#1579); promoted by [issue #1581](https://github.com/justin-hayes/mouseion/issues/1581). This ADR records the **accepted target**. Its code is complete in the repository. Justin decided no maintenance window, manifest tooling, or corpus-scale acceptance evidence is required: migration `000033` only tightens the disposition constraint and fails loudly if a legacy row exists. The assumption that no production Book was ever Set Aside was wrong: the first deploy failed on one legacy row, which was converted to Inbox by hand (revision bumped, history intact) after a backup, and the migration was then re-run. Accepted by Justin on 2026-10-08.
 
 Supersedes the lifecycle and disposition clauses of [ADR 0078](0078-book-dispositions-and-current-reading.md) listed below. Reconciles [ADR 0050](0050-active-study-language.md) and [ADR 0043](0043-study-languages-derived-settings-removed.md). Amends the clauses of ADRs 0081, 0084, and 0085 listed below. Preserves [ADR 0083](0083-concordance-server-rendering-and-htmx-4.md).
 
@@ -47,7 +47,7 @@ The current Book, its vocabulary inventory, and corpus investigation are split a
 ### 5. Disposition contraction
 
 - `migrations/000001_initialize` and shipped migrations are immutable. Disposition contraction is a structural successor migration (`000033`) that restricts the persisted value to Inbox/To Read.
-- No production Book was ever Set Aside, so there is **no data conversion, maintenance window, manifest, or recovery procedure**. If a legacy row ever exists, the migration fails loudly rather than converting or repairing it. A missing visibility row already means visible.
+- There is **no automated data conversion, maintenance window, manifest, or recovery procedure**. If a legacy row exists, the migration fails loudly rather than converting or repairing it; the one such production row was mapped to Inbox by hand, as below. A database that fails this way is left dirty and must be fixed by converting the row and resetting the migration version before restart. A missing visibility row already means visible.
 - Retired mutations and routes are rejected, never translated into Hide or End. No mixed-version operating requirement and no compatibility shelf is introduced.
 
 ### 6. Concordance contract (reconciles ADR 0083 and Browse ownership)
