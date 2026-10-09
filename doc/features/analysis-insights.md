@@ -146,7 +146,7 @@ The structural metric contract is recorded in [ADR 0026](../adr/0026-structural-
 
 ## Documentation and delivery
 
-The repository feature document is the product source of truth. Stable metric decisions may be recorded in a dedicated ADR. GitHub issues track implementation slices and PRs provide delivery/verification history. No GitHub Project or GitHub Milestone is required for this feature. The Obsidian vault records the broader milestone and links back to this document and issues.
+The repository feature document is the product source of truth. Stable metric decisions may be recorded in a dedicated ADR. GitHub issues track implementation slices and PRs provide delivery/verification history. No GitHub Project or GitHub Milestone is required for this feature.
 
 The lexical contract is recorded in [ADR 0025](../adr/0025-analysis-coverage-threshold-metrics.md),
 and the structural contract in [ADR 0026](../adr/0026-structural-text-profile.md).

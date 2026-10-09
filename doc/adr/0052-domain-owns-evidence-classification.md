@@ -66,4 +66,4 @@ Reading Journey, and the corpus/route insights all call the same method.
 ## Related
 
 - [ADR 0049: Reading intent triggers analysis](0049-reading-intent-triggers-analysis.md)
-- [CONTEXT.md: Analysis evidence](../CONTEXT.md)
+- [CONTEXT.md: Analysis evidence](../../CONTEXT.md)

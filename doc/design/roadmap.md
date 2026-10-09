@@ -6,7 +6,7 @@ Library / Learning / Campaign experience. They are preserved rather than
 rewritten. This file does not plan implementation of the frozen My Books /
 Reading Journey / Primary Goal architecture; that work requires the explicit
 planner/ADR reconciliation listed in
-[`information-architecture.md`](information-architecture.md#contract-changes-requiring-planneradr-work).
+[`information-architecture.md`](information-architecture.md#architecture-decisions-and-target-reconciliation).
 
 This document was the implementation plan for the first Mouseion design-system
 rollout. It is now retained to explain delivered scope and sequencing.
