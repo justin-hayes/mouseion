@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -155,6 +155,15 @@ gen:
 
 browser-smoke:
 	cd e2e && npm ci --ignore-scripts && npx playwright install chromium webkit && npx playwright test
+
+# Documentation screenshot of My Books on an isolated stack (not part of
+# browser-smoke or CI). See e2e/screenshot/run.mjs. `screenshot-my-books-clean`
+# removes the screenshot project's containers and volumes.
+screenshot-my-books:
+	cd e2e && npm ci --ignore-scripts && npx playwright install chromium && node screenshot/run.mjs
+
+screenshot-my-books-clean:
+	cd e2e && npm ci --ignore-scripts && node screenshot/run.mjs --clean
 
 browser-smoke-webkit:
 	cd e2e && npm ci --ignore-scripts && npx playwright install webkit && npx playwright test --project='webkit-*'

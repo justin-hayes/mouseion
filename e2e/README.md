@@ -121,3 +121,21 @@ From `e2e/`, update reviewed baselines explicitly with
 Committed baselines belong under `e2e/tests/**/__snapshots__/`. Failed runs
 retain reviewable output in `playwright-report/` and `test-results/`; traces,
 screenshots, and videos are retained there according to the Playwright config.
+
+## Documentation screenshot of My Books
+
+`make screenshot-my-books` builds the documentation screenshot
+`doc/images/my-books.png` on an isolated Compose stack. It is separate from
+`make browser-smoke` and CI.
+
+- Source books are pinned Project Gutenberg editions in
+  `screenshot/manifest.json`, cached under the ignored `.tmp/screenshot/`.
+  A checksum mismatch stops the run; review the manifest before changing a pin.
+- The stack uses its own Compose project (`mouseion-screenshot`), binds the web
+  port to `127.0.0.1`, generates secrets per run, provisions German only, and
+  never reads the maintainer's `.env`.
+- The Stanza and Hugging Face model volumes are reused across runs. Run
+  `make screenshot-my-books-clean` to remove the project's containers and
+  volumes, including those model caches.
+- Requires Docker with Compose v2.24.4 or newer, Node.js 20 or newer, and
+  network access to www.gutenberg.org on the first run.

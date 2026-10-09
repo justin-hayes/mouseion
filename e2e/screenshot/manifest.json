@@ -1,0 +1,62 @@
+{
+  "$comment": "Pinned public-domain scenario books for the My Books screenshot. Each source is a Project Gutenberg plain-text edition whose SHA-256 is pinned. A checksum mismatch means Project Gutenberg changed the file: review the new edition and update the entry deliberately. Every author died before 1956.",
+  "language": "de",
+  "books": [
+    {
+      "gutenberg": 22367,
+      "title": "Die Verwandlung",
+      "author": "Franz Kafka",
+      "authorDied": 1924,
+      "role": "lead",
+      "sha256": "359d3f5983c812393f4bd7ee49a350ffffc7d476015e58d6b84b6c848dd2b0e9"
+    },
+    {
+      "gutenberg": 69327,
+      "title": "Der Prozess",
+      "author": "Franz Kafka",
+      "authorDied": 1924,
+      "role": "long-novel",
+      "sha256": "0254e2e361fca684887374ed3e4e4c32f03ac5b7022f54e9a128d1bff6b35b80"
+    },
+    {
+      "gutenberg": 12108,
+      "title": "Der Tod in Venedig",
+      "author": "Thomas Mann",
+      "authorDied": 1955,
+      "role": "novella",
+      "sha256": "511b1a94e82b65d16f037bf4ceb3e85a8c0cc6f311ef2ecb5a41a9503ecce98d"
+    },
+    {
+      "gutenberg": 5323,
+      "title": "Effi Briest",
+      "author": "Theodor Fontane",
+      "authorDied": 1898,
+      "role": "novel",
+      "sha256": "15a93db448403b07093042b6aa251ab22474ad9c05918e69f7ead5c62c0b2e8e"
+    },
+    {
+      "gutenberg": 17362,
+      "title": "Der Goldene Topf",
+      "author": "E. T. A. Hoffmann",
+      "authorDied": 1822,
+      "role": "tale",
+      "sha256": "b3298f3e1204ecc4d1bc849d0ddf046d26bcacab7dca563fd1c78cb54f770e14"
+    },
+    {
+      "gutenberg": 34717,
+      "title": "Die Verwirrungen des Zöglings Törleß",
+      "author": "Robert Musil",
+      "authorDied": 1942,
+      "role": "long-title",
+      "sha256": "a42a951c3f191a16f482409ccfa21dd02ea1674ef892d852e97fda39abefcf61"
+    },
+    {
+      "gutenberg": 26686,
+      "title": "Unterm Birnbaum",
+      "author": "Theodor Fontane",
+      "authorDied": 1898,
+      "role": "same-author",
+      "sha256": "9985a53294b52143f37167b56b73bb793ea76ead6f140c0c4724529e85e4fabe"
+    }
+  ]
+}
