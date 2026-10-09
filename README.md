@@ -235,6 +235,14 @@ It is not hardened for public internet exposure; see [SECURITY.md](SECURITY.md).
 German, Italian, and Modern Greek are the supported analysis languages. This is
 a personal project and is not seeking outside contributions.
 
+## Citation
+
+Version 1.0.0 is archived on Zenodo with the DOI
+[10.5281/zenodo.23268985](https://doi.org/10.5281/zenodo.23268985). To cite
+Mouseion in general, use the concept DOI
+[10.5281/zenodo.23268984](https://doi.org/10.5281/zenodo.23268984), which always
+resolves to the latest version. [CITATION.cff](CITATION.cff) has the metadata.
+
 ## License
 
 Copyright © 2026 Justin Hayes.
