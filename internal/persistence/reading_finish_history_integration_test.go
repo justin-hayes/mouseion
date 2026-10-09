@@ -66,7 +66,7 @@ func TestFinishProjectsReadHistoryWithoutHidingAndReadAgainOnlySetsToRead(t *tes
 
 	// Read again requests To Read only: no reading starts, history and
 	// visibility stay, and the released snapshot is not adopted.
-	applied, err = store.TransitionBookDisposition(ctx, owner.ID, "de", book.ID, state.DispositionRevision, domain.BookDispositionToRead)
+	applied, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, state.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err)
 	assert.True(t, applied)
 	again := finishedBookState(t, ctx, store, owner.ID, book.ID)

@@ -60,7 +60,7 @@ func TestBookVisibilityIsIndependentAndRevisionProtected(t *testing.T) {
 	require.NoError(t, err)
 	detail, err := store.GetBookDetail(ctx, alice.ID, bookID)
 	require.NoError(t, err)
-	applied, err = store.TransitionBookDisposition(ctx, alice.ID, "de", bookID, detail.DispositionRevision, domain.BookDispositionToRead)
+	applied, err = store.TransitionBookDisposition(ctx, alice.ID, bookID, detail.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err)
 	require.True(t, applied)
 	_, err = store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "visibility-entry", "Refreshed", "Other", "it")

@@ -1,6 +1,6 @@
 # ADR 0084: Project effective vocabulary counts for Browse
 
-Status: **Accepted (partially implemented; corpus-scale acceptance measurement pending)** · Date: 2026-10-03 · Author: Justin + OpenCode
+Status: **Accepted (partially implemented)** · Date: 2026-10-03 · Author: Justin + OpenCode
 
 Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §7: Browse is hosted by Reading rather than Vocabulary. Projection and readiness guarantees are unchanged.
 

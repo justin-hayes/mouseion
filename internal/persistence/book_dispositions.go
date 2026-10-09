@@ -14,7 +14,7 @@ import (
 type BookDispositionStore interface {
 	GetBookDisposition(context.Context, string, string) (domain.BookDisposition, error)
 	SetBookDisposition(context.Context, string, string, domain.BookDisposition) error
-	TransitionBookDisposition(context.Context, string, string, string, int64, domain.BookDisposition) (bool, error)
+	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 }
 
 var ErrStaleBookDisposition = errors.New("book disposition changed since this page was loaded")
@@ -51,7 +51,7 @@ func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID st
 // TransitionBookDisposition applies a My Books decision against the revision
 // rendered with its form. A single-step replay of the accepted action is safe;
 // an intervening decision (including a change away and back) is stale.
-func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, language, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error) {
+func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error) {
 	if err = disposition.Validate(); err != nil {
 		return false, err
 	}

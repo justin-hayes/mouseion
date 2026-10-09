@@ -133,7 +133,7 @@ func TestAuthenticatedMyBooksStaleDispositionFormsConflictAcrossTabs(t *testing.
 	require.Equal(t, initial.DispositionRevision+1, afterFirst.DispositionRevision)
 
 	// My Books has no Inbox control, so the competing decision comes from the store.
-	applied, err := store.TransitionBookDisposition(ctx, alice.ID, "de", book.ID, afterFirst.DispositionRevision, domain.BookDispositionInbox)
+	applied, err := store.TransitionBookDisposition(ctx, alice.ID, book.ID, afterFirst.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	require.True(t, applied)
 	afterInbox, err := store.GetBookDetail(ctx, alice.ID, book.ID)

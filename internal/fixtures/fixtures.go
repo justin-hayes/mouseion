@@ -1602,7 +1602,7 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 	return nil
 }
 
-func (s *Store) TransitionBookDisposition(_ context.Context, owner, language, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
+func (s *Store) TransitionBookDisposition(_ context.Context, owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
 	if err := disposition.Validate(); err != nil {
 		return false, err
 	}

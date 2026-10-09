@@ -376,7 +376,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	removed := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/set-aside", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
 	assert.Equal(t, http.StatusNotFound, removed.Code, "retired Set Aside route is not served")
 	assert.Equal(t, 1, recorder.calls)
-	applied, err := store.TransitionBookDisposition(ctx, owner.ID, "de", bookResult.Book.ID, bookState.DispositionRevision, domain.BookDispositionInbox)
+	applied, err := store.TransitionBookDisposition(ctx, owner.ID, bookResult.Book.ID, bookState.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	require.True(t, applied)
 	bookState, err = store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)

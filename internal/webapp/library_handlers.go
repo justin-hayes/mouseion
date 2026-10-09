@@ -298,7 +298,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wasToRead := detail.Disposition == domain.BookDispositionToRead
-	applied, transitionErr := dispositions.TransitionBookDisposition(r.Context(), owner, strings.TrimSpace(detail.Book.LanguageTag), bookID, expectedRevision, domain.BookDispositionToRead)
+	applied, transitionErr := dispositions.TransitionBookDisposition(r.Context(), owner, bookID, expectedRevision, domain.BookDispositionToRead)
 	if transitionErr != nil {
 		err = transitionErr
 		if errors.Is(err, persistence.ErrStaleBookDisposition) {

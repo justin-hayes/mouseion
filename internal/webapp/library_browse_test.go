@@ -416,7 +416,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusNotFound, retired.Code)
 	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"), "retired route changed disposition")
-	inbox, err := store.TransitionBookDisposition(context.Background(), fixtures.OwnerID, "de", "fixture-failed", bookState.DispositionRevision, domain.BookDispositionInbox)
+	inbox, err := store.TransitionBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", bookState.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	require.True(t, inbox)
 	assert.Equal(t, domain.BookDispositionInbox, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"))
