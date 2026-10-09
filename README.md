@@ -225,3 +225,19 @@ noun gender, and the generic sentence-quality path. These tests also assert
 account isolation and keep the German regression suite intact. See the
 [language-support feature contract](doc/features/language-support.md) for the
 supported path and model cache requirements.
+
+## License
+
+Copyright © 2026 Justin Hayes.
+
+Mouseion is free software: you can redistribute it and/or modify it under the
+terms of the [GNU Affero General Public License, version 3](LICENSE)
+(`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL
+requires you to offer its users the corresponding source.
+
+Bundled third-party assets keep their own licenses, recorded beside them in
+[`internal/webapp/static/vendor/`](internal/webapp/static/vendor/) (htmx under
+0BSD; Tailwind CSS and daisyUI under MIT; Literata and Commissioner under the SIL
+Open Font License). The optional dictionary index is not distributed
+with the source; when built, it is Wiktionary-derived data under CC BY-SA 3.0 /
+GFDL as described in [Refreshing the dictionary index](#refreshing-the-dictionary-index).

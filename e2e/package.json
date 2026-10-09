@@ -1,6 +1,7 @@
 {
   "name": "mouseion-browser-acceptance",
   "private": true,
+  "license": "AGPL-3.0-only",
   "scripts": {
     "smoke": "playwright test",
     "smoke:webkit": "playwright test --project=webkit-*"
