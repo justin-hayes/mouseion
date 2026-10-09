@@ -8,7 +8,7 @@ ADR 0001 chose a core-first Go architecture and, in its shared-data-layer scope,
 
 Since then the product has changed shape in ways that matter for the persistence layer:
 
-1. **Multi-user, per-user learning state** ([ADR 0002](0002-multi-user-accounts.md)): two real users (author + spouse) with cleanly separated corpora, known vocabulary, and decks. Concurrency and ownership become real.
+1. **Multi-user, per-user learning state** ([ADR 0002](0002-multi-user-accounts.md)): two real users with cleanly separated corpora, known vocabulary, and decks. Concurrency and ownership become real.
 2. **Admin-managed global reference resources** ([ADR 0002](0002-multi-user-accounts.md)): language-scoped reference data (e.g. DWDS frequency) shared across all users — a second class of data with different ownership semantics.
 3. **An async-capable job API** ([ADR 0001](0001-go-core-python-nlp-service.md)): analysis runs as background jobs with IDs and status. v1 uses a synchronous local runner, but the abstraction is deliberately queue-ready, and **background-job coordination is where PostgreSQL's advantages are strongest**.
 4. A **web application** as the second client over the same Go core, serving multiple concurrent users.

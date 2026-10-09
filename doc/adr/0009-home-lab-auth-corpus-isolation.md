@@ -9,7 +9,7 @@ ADR 0002 established a multi-user account model with an admin role and per-user 
 1. **Authentication mechanism** and where credentials live in a self-hosted home-lab deployment (local accounts vs. an external identity provider).
 2. **Whether normalized corpus artifacts are shareable across users**, accounting for the licensing and privacy of a user's private EPUBs.
 
-These are Open Questions 8 and 10 in `product.md` and consolidated as issue #29. The deployment context is a **self-hosted home lab** used by two people (the author and his wife), and — critically for the security posture — the application is reachable **only over a private Tailscale tailnet for the first pass**, with no public-internet exposure planned unless that proves insufficient.
+These are Open Questions 8 and 10 in `product.md` and consolidated as issue #29. The deployment context is a **self-hosted home lab** used by two people, and — critically for the security posture — the application is reachable **only over a private Tailscale tailnet for the first pass**, with no public-internet exposure planned unless that proves insufficient.
 
 ## Decision
 
