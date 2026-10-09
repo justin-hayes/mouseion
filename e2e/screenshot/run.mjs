@@ -5,9 +5,10 @@
 // 2. Prepares EPUB 3 files, typographic covers, and a static OPDS catalog.
 // 3. Starts the existing Compose definition under its own project name with a
 //    localhost-only port, generated secrets, German only, and the LLM disabled.
-// 4. Runs the learner workflow in Playwright (e2e/screenshot/my-books.spec.ts).
-// 5. Writes the optimized screenshot to doc/images/my-books.png and stops the
-//    stack, keeping the Stanza model volume.
+// 4. Runs the learner workflow in Playwright (e2e/screenshot/my-books.spec.ts),
+//    which analyzes the scenario Books and reads one to completion.
+// 5. Writes the optimized screenshots to doc/images/my-books.png and
+//    doc/images/reading.png and stops the stack, keeping the Stanza model volume.
 //
 // `--clean` removes the project's containers and volumes, then exits.
 import { spawn } from 'node:child_process';
@@ -43,7 +44,8 @@ const paths = {
 };
 const envFile = join(paths.run, 'compose.env');
 const manifestPath = join(here, 'manifest.json');
-const output = join(repo, 'doc', 'images', 'my-books.png');
+const myBooksOutput = join(repo, 'doc', 'images', 'my-books.png');
+const readingOutput = join(repo, 'doc', 'images', 'reading.png');
 const composeFiles = ['-f', join(repo, 'compose.yaml'), '-f', join(here, 'compose.screenshot.yaml')];
 const log = message => console.log(message);
 
@@ -193,6 +195,7 @@ async function runWorkflow({ baseURL, password }) {
     MOUSEION_SCREENSHOT_CATALOG_URL: CATALOG_URL,
     MOUSEION_SCREENSHOT_MANIFEST: manifestPath,
     MOUSEION_SCREENSHOT_OUTPUT: join(paths.out, 'my-books.raw.png'),
+    MOUSEION_SCREENSHOT_READING_OUTPUT: join(paths.out, 'reading.raw.png'),
     MOUSEION_SCREENSHOT_RESULTS: paths.results,
   };
   const result = await run('npx', ['playwright', 'test', '-c', 'screenshot/playwright.config.ts'], { cwd: e2eDir, env });
@@ -201,8 +204,8 @@ async function runWorkflow({ baseURL, password }) {
   }
 }
 
-async function writeScreenshot() {
-  const raw = await readFile(join(paths.out, 'my-books.raw.png'));
+async function writeScreenshot(rawName, output) {
+  const raw = await readFile(join(paths.out, rawName));
   const optimized = optimizePng(raw);
   await mkdir(dirname(output), { recursive: true });
   const temporary = `${output}.partial`;
@@ -245,7 +248,8 @@ async function screenshot() {
     await waitForLogin(baseURL, 180_000);
     log('Driving My Books in Playwright');
     await runWorkflow({ baseURL, password });
-    await writeScreenshot();
+    await writeScreenshot('my-books.raw.png', myBooksOutput);
+    await writeScreenshot('reading.raw.png', readingOutput);
   } finally {
     // Stop containers and networks only; the model volumes and the database are
     // kept until the next run recreates the database or `--clean` is used.
