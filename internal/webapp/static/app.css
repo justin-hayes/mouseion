@@ -3425,34 +3425,11 @@
   body.vocabulary-shell #main-content > .page-header h1 {
     overflow-wrap: anywhere;
   }
-  body.vocabulary-shell .concordance-query :is(input, select) {
+  body.vocabulary-shell .concordance-query input {
     width: 100%;
   }
   body.vocabulary-shell .concordance-query label {
     font-weight: 600;
-  }
-  body.vocabulary-shell .concordance-scopes form {
-    max-width: min(100%, var(--mouseion-width-reading));
-    margin-block: var(--mouseion-space-3);
-  }
-  body.vocabulary-shell .concordance-scopes .input {
-    width: 100%;
-  }
-  body.vocabulary-shell .concordance-scopes fieldset, body.vocabulary-shell #concordance-recovery fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 1px solid var(--mouseion-color-control-border);
-    padding: var(--mouseion-space-3);
-  }
-  body.vocabulary-shell .concordance-scopes fieldset label, body.vocabulary-shell #concordance-recovery fieldset label {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    gap: var(--mouseion-space-2);
-    overflow-wrap: anywhere;
-  }
-  body.vocabulary-shell .concordance-scopes input[type="checkbox"], body.vocabulary-shell #concordance-recovery input[type="checkbox"] {
-    flex: 0 0 auto;
   }
   body.vocabulary-shell .concordance-row summary {
     min-height: 44px;
@@ -3495,19 +3472,16 @@
     align-items: end;
     gap: var(--mouseion-space-2) var(--mouseion-space-3);
   }
-  .concordance-query:has(#concordance-mode option[value="surface"]:checked) {
-    grid-template-columns: minmax(0, 14rem) minmax(0, 22rem);
-  }
-  .concordance-query-field, .concordance-query-term, .concordance-pos-field {
+  .concordance-query-term {
     min-width: 0;
     display: grid;
     align-content: end;
     gap: var(--mouseion-space-1);
   }
-  .concordance-query-field label, .concordance-query-term label, .concordance-pos-field label {
+  .concordance-query-term label {
     margin-bottom: 0;
   }
-  .concordance-query-field select, .concordance-query-term input, .concordance-query .concordance-pos-field select, .concordance-query-term-controls > button {
+  .concordance-query-term input, .concordance-query-term-controls > button {
     margin-bottom: 0;
   }
   .concordance-query-term-controls {
@@ -3515,35 +3489,6 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
     gap: var(--mouseion-space-2);
-  }
-  .concordance-query .concordance-pos-field {
-    grid-column: 3;
-  }
-  .concordance-query:has(#concordance-mode option[value="surface"]:checked) .concordance-pos-field {
-    display: none;
-  }
-  .concordance-scopes {
-    min-width: 0;
-    max-width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--mouseion-space-2) var(--mouseion-space-4);
-    margin-block: 0 var(--mouseion-space-2);
-  }
-  .concordance-scopes details {
-    min-width: 0;
-    max-width: 100%;
-    margin: 0;
-  }
-  .concordance-scopes summary {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    list-style: none;
-    overflow-wrap: anywhere;
-    margin: 0;
-    cursor: pointer;
   }
   .concordance-results {
     list-style: none;
@@ -3674,12 +3619,6 @@
       grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
       align-items: end;
     }
-    .concordance-query:has(#concordance-mode option[value="surface"]:checked) {
-      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-    }
-    .concordance-query-term, .concordance-query .concordance-pos-field {
-      grid-column: 1;
-    }
     .concordance-query-term {
       grid-column: 2;
     }
@@ -3748,9 +3687,6 @@
     border-radius: var(--mouseion-radius);
     color: var(--mouseion-color-text);
     background-color: var(--mouseion-color-surface-raised);
-  }
-  #concordance-workflow select.input {
-    appearance: auto;
   }
   .btn {
     min-height: 44px;

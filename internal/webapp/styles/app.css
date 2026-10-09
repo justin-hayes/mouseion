@@ -51,12 +51,6 @@
     background-color: var(--mouseion-color-surface-raised);
   }
 
-  /* daisyUI removes the platform select indicator. Concordance filters are
-   * native controls and must retain a visible dropdown affordance without JS. */
-  #concordance-workflow select.input {
-    appearance: auto;
-  }
-
   .btn {
     min-height: 44px;
     border-radius: var(--mouseion-radius);
