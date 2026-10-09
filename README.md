@@ -11,6 +11,10 @@ book itself, as an Anki deck. It supports German, Italian, and Modern Greek.
 The name recalls the Mouseion of Alexandria, the scholarly community that housed
 the Library.
 
+![My Books listing twelve German public-domain novels, each with its cover, its workflow stage (Inbox, To Read, Currently reading, or Read), and its known-vocabulary coverage.](doc/images/my-books.png)
+
+*My Books: the library grouped by workflow stage, with each Book's known-vocabulary coverage.*
+
 ## Why
 
 Reading literature in a foreign language becomes comfortable at roughly 95–98%
@@ -48,6 +52,30 @@ context where it will be read.
    moves that vocabulary into the learner's modeled known set. Generating
    cards never marks a word as known
    ([ADR 0036](doc/adr/0036-primary-goal-justified-graduation.md)).
+
+## Screenshots
+
+The screenshots below come from a real run of Mouseion's analysis on public-domain
+German novels, not from mock data. The novels are pinned Project Gutenberg
+editions, and every author died before 1956. The run is reproducible with
+`make screenshot-my-books`
+([how to regenerate](doc/development.md#regenerating-screenshots)).
+
+![Reading view for Die Verwandlung, the current reading, showing the share of its running words the learner already knows, the vocabulary reserved for later, and a table of the vocabulary still to learn.](doc/images/reading.png)
+
+*Reading: the book being read, its known-vocabulary coverage, and the vocabulary still to learn.*
+
+![Concordance of the forms of the German verb aufstehen across two analyzed books, each occurrence shown in its sentence with a link to study it.](doc/images/concordance.png)
+
+*Concordance: every analyzed occurrence of a lemma's forms across the learner's books, in context.*
+
+![Sentence study of "Vorläufig allerdings muß ich aufstehen, denn mein Zug fährt um fünf.", with each token's part of speech, lemma evidence, and dependency relation.](doc/images/sentence-study.png)
+
+*Sentence study: one sentence parsed token by token, with its lemma and dependency evidence.*
+
+![My Books in the dark color scheme, showing the same library and workflow stages as the light view.](doc/images/my-books-dark.png)
+
+*My Books in the dark color scheme, from the same run.*
 
 ## Language and text processing
 

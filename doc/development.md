@@ -87,6 +87,64 @@ Regenerate rather than hand-edit:
   model provisioning, dictionary-index derivation, and the precision
   measurement script.
 
+## Regenerating screenshots
+
+`make screenshot-my-books` regenerates the README screenshots in `doc/images/`:
+`my-books.png`, `my-books-dark.png`, `reading.png`, `concordance.png`, and
+`sentence-study.png`. They come from a real run of Mouseion's analysis on pinned
+public-domain German novels from Project Gutenberg, on an isolated Compose stack
+(project `mouseion-screenshot`, web port bound to `127.0.0.1`). Nothing is
+written unless every assertion passes. The tool is run by hand. It is **not part
+of CI**: no CI job runs it, and changes under `e2e/screenshot/**` and `doc/**`
+skip the build, test, and browser checks (see the CI change classes above).
+
+Prerequisites:
+
+- Docker with Compose v2.24.4 or newer, and a running daemon that your user can
+  reach.
+- Node.js 20 or newer with npm. The target installs Playwright's Chromium.
+- Network access to `www.gutenberg.org` on the first run, to fetch the pinned
+  sources. Later runs use the cache in `.tmp/screenshot/sources`. The first run
+  also downloads the Stanza and Hugging Face models into Docker volumes.
+
+Run it from the repository root:
+
+```sh
+make screenshot-my-books
+```
+
+The run prints the Known-vocabulary cut-off and the coverage it measured. Record
+that output in any pull request that changes the committed images.
+
+Duration, measured on the maintainer's workstation (16 cores, 31 GB RAM):
+
+- First run, after `make screenshot-my-books-clean`, with the sources cache and
+  built images removed (Docker's build cache kept): about 15 minutes. It
+  re-downloads the pinned sources and the models.
+- Repeat run, with the models and sources cached: about 15 minutes. The browser
+  workflow itself took 13.8 minutes in both runs.
+
+The Playwright test budget is 75 minutes. A run on unchanged code reproduces the
+committed PNGs byte for byte.
+
+Disk usage, measured on the same runs:
+
+- Stanza model volume about 330 MB and Hugging Face model volume about 330 MB.
+  Both are kept between runs.
+- Database volume about 860 MB. It is recreated on the next run.
+- Built images: the `nlp` image is about 1.7 GB and the `web` image about 70 MB.
+- Scratch files under `.tmp/screenshot/`, about 8 MB, including the cached
+  sources.
+
+Clean-up:
+
+- `make screenshot-my-books-clean` removes the project's containers and volumes,
+  including the model caches, so the next run downloads them again. It does not
+  remove built images or `.tmp/screenshot/`.
+- Built images can be removed with `docker image rm` for the
+  `mouseion-screenshot-*` images, and `rm -rf .tmp/screenshot` drops the cached
+  sources.
+
 ## Frontend
 
 The web application is server-rendered with [templ](https://templ.guide/) and
