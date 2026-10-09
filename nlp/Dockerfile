@@ -1,5 +1,5 @@
 # Dockerfile for the mouseion Python NLP gRPC service (Stanza).
-FROM python:3.11-slim
+FROM python:3.13-slim
 WORKDIR /src
 ENV STANZA_RESOURCES_DIR=/opt/stanza_resources
 ENV HF_HOME=/opt/huggingface

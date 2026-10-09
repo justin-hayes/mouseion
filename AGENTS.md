@@ -14,7 +14,7 @@ Mouseion is a self-hosted reading environment for learning foreign languages. Go
 
 ## Commands
 
-Go 1.24, Python 3.11 (pin `3.11`, not newer — Stanza requires `<3.12`), protoc 29.x, templ pinned to `v0.3.977` (newer templ requires Go >= 1.25).
+Go 1.24, Python 3.13 (pin `3.13`; 3.14 needs a grpcio upgrade, since the pinned grpcio 1.71.2 has no 3.14 wheels), protoc 29.x, templ pinned to `v0.3.977` (newer templ requires Go >= 1.25).
 
 ```sh
 make setup            # .venv + nlp/requirements-dev.txt + CPU-only torch
@@ -31,7 +31,7 @@ make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```
 
 Non-obvious setup:
-- Create the Python environment with `uv venv --clear --python 3.11 .venv` before
+- Create the Python environment with `uv venv --clear --python 3.13 .venv` before
   running Python tests. Then install the pinned requirements with
   `uv pip install --python .venv/bin/python -r nlp/requirements-dev.txt`,
   `uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu`,
