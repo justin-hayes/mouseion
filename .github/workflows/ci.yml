@@ -15,7 +15,7 @@ permissions:
 jobs:
   ci:
     name: Build and test
-    runs-on: [self-hosted, linux, x64, docker]
+    runs-on: ubuntu-24.04
 
     steps:
       # ------------------------------------------------------------------
@@ -96,8 +96,6 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          # The self-hosted runner retains Go's module and build caches.
-          cache: false
 
       - name: Generate templ views
         if: |
@@ -131,10 +129,8 @@ jobs:
           steps.changes.outputs.generated == 'true'
         uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
         with:
-          # uv's cache persists on the self-hosted runner; do not use an
-          # additional GitHub Actions dependency archive.
-          enable-cache: false
-          cache-local-path: ~/.cache/uv
+          enable-cache: true
+          cache-dependency-glob: nlp/requirements-dev.txt
 
       - name: Set up Python 3.11
         if: |
@@ -251,7 +247,7 @@ jobs:
 
   golangci:
     name: Go lint
-    runs-on: [self-hosted, linux, x64, docker]
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -264,8 +260,6 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          # The self-hosted runner retains Go's module and build caches.
-          cache: false
 
       - name: Generate templ views
         run: |
@@ -277,13 +271,10 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.13.2
-          # Reuse the runner's local golangci-lint cache instead of GitHub's
-          # remote dependency cache.
-          skip-cache: true
 
   integration:
     name: Integration tests
-    runs-on: [self-hosted, linux, x64, docker]
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -315,7 +306,6 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache: false
 
       - name: Generate templ views
         if: |
@@ -334,13 +324,14 @@ jobs:
           steps.changes.outputs.go == 'true'
         run: make test-integration
 
-  browser-smoke:
-    name: Browser smoke
-    # The suite is the most expensive job on the single runner; spend it only
-    # after the cheap build, test, and lint checks pass.
-    needs: [ci, golangci]
-    runs-on: [self-hosted, linux, x64, docker]
-    timeout-minutes: 10
+  browser-smoke-shard:
+    name: Browser smoke shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -369,21 +360,20 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache: false
       - name: Set up Node
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
       - name: Install Playwright dependency
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         working-directory: e2e
         run: npm ci --ignore-scripts
       - name: Install Chromium and WebKit
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
-        # Browser system dependencies are provisioned on ci01; runner jobs
-        # intentionally do not have sudo access.
-        run: npx --prefix e2e playwright install chromium webkit
+        run: npx --prefix e2e playwright install --with-deps chromium webkit
       - name: Generate templ views
         if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
         run: |
@@ -400,13 +390,29 @@ jobs:
         env:
           CI: true
           MOUSEION_FIXTURE_BIN: ../.tmp/fixtureserver
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/4
       - name: Upload browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-failure-artifacts
+          name: playwright-failure-artifacts-${{ matrix.shard }}
           path: |
             e2e/playwright-report/
             e2e/test-results/
           if-no-files-found: ignore
+
+  # The required status check is named "Browser smoke"; it passes only when
+  # every shard succeeded.
+  browser-smoke:
+    name: Browser smoke
+    needs: browser-smoke-shard
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every shard to pass
+        env:
+          SHARDS_RESULT: ${{ needs.browser-smoke-shard.result }}
+        run: |
+          echo "Browser smoke shards: $SHARDS_RESULT"
+          test "$SHARDS_RESULT" = success

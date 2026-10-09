@@ -8,7 +8,7 @@ ADR 0001 assumed the product could start with a "profile-based, not account-base
 
 Two decisions from the 2026-08-20 session change that assumption:
 
-1. **Real multiple users are imminent.** The app will be used by two people in short order (the author and his wife). Language features must be cleanly separated **per user**: corpus, known vocabulary, curated/generated vocabulary, Anki decks, and so on. Because user separation is required this soon, it should be designed in from the start rather than retrofitted.
+1. **Real multiple users are imminent.** The app will be used by two people in short order. Language features must be cleanly separated **per user**: corpus, known vocabulary, curated/generated vocabulary, Anki decks, and so on. Because user separation is required this soon, it should be designed in from the start rather than retrofitted.
 2. **Word frequency data is a global, admin-managed resource.** The app should support adding language frequency data (concrete example: DWDS publishes frequency data over its German corpus). This is an *administrative* feature, independent of individual users, applied **globally across all users** of that language. From the most frequent words we understand a language's core vocabulary; users can see how much core vocabulary they already know and how much a given book would expose them to.
 
 The second decision only makes sense in a multi-user world: a single frequency dataset is shared reference data for every user of a language, not per-user state. That is the key architectural distinction this ADR captures.
@@ -54,7 +54,7 @@ The account model is foundational to persistence, so it lands with the shared da
 
 ## Alternatives considered
 
-- **Keep the ADR 0001 profile-based model (status quo).** Rejected: with two real users, nameless profiles cannot cleanly separate "author" from "spouse" or attribute learning state; per-user corpora, known words, and decks are indistinguishable. Multi-user is imminent, not speculative.
+- **Keep the ADR 0001 profile-based model (status quo).** Rejected: with two real users, nameless profiles cannot cleanly separate one learner from another or attribute learning state; per-user corpora, known words, and decks are indistinguishable. Multi-user is imminent, not speculative.
 - **Multi-user accounts without an admin role / global resources.** Rejected: DWDS frequency data is shared across all users of a language. Duplicating it as per-user state is wasteful and misrepresents it as learner-owned data rather than a global reference.
 - **Defer frequency data to post-v1.** Rejected: frequency/priority lists are already a core ranking input in the spec, and a high-frequency-card capability is cheap and high-value. Designing its global scoping now avoids a later data-model migration.
 

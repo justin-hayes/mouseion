@@ -70,16 +70,16 @@ one only when its recorded process is no longer running; unrecognized, other-use
 and active directories are left untouched. A reused PID is treated
 conservatively as active, so its directory may need manual inspection later.
 
-## CI dependency caching
+## CI
 
-CI runs on a persistent self-hosted runner. Runtime setup actions still select
-and reuse installed Go and Node distributions from the Actions runner tool
-cache, while Go, uv, npm, and golangci-lint reuse their dependency or analysis
-caches on the runner filesystem. Their GitHub Actions remote dependency caches
-are disabled: restoring archives over persistent directories caused extraction
-warnings and duplicate saves, and added no useful reuse. This distinction is
-intentional: tool caching keeps runtimes available, local filesystem caching
-keeps dependencies warm between jobs, and remote Actions caching is not used.
+CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
+from forks never execute on maintainer infrastructure. The build, lint,
+integration, and browser-smoke jobs run in parallel, with browser smoke split
+across four Playwright shards that a single `Browser smoke` check gates. Each job starts from a
+clean machine and restores Go, uv, npm, and golangci-lint dependencies from
+GitHub Actions caches keyed on the corresponding lock files. Integration tests
+start PostgreSQL through Testcontainers on the runner's Docker daemon, and
+Playwright installs its browser system dependencies itself.
 
 `make dev` starts the Go web server, which connects to PostgreSQL (required,
 `MOUSEION_DATABASE_URL`) and the Python NLP gRPC service (required for analysis,
@@ -226,3 +226,19 @@ noun gender, and the generic sentence-quality path. These tests also assert
 account isolation and keep the German regression suite intact. See the
 [language-support feature contract](doc/features/language-support.md) for the
 supported path and model cache requirements.
+
+## License
+
+Copyright © 2026 Justin Hayes.
+
+Mouseion is free software: you can redistribute it and/or modify it under the
+terms of the [GNU Affero General Public License, version 3](LICENSE)
+(`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL
+requires you to offer its users the corresponding source.
+
+Bundled third-party assets keep their own licenses, recorded beside them in
+[`internal/webapp/static/vendor/`](internal/webapp/static/vendor/) (htmx under
+0BSD; Tailwind CSS and daisyUI under MIT; Literata and Commissioner under the SIL
+Open Font License). The optional dictionary index is not distributed
+with the source; when built, it is Wiktionary-derived data under CC BY-SA 3.0 /
+GFDL as described in [Refreshing the dictionary index](#refreshing-the-dictionary-index).
