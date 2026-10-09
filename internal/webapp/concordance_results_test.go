@@ -2,6 +2,8 @@ package webapp
 
 import (
 	"bytes"
+	"maps"
+	"net/url"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -24,7 +26,7 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	otherBook.BookTitle = "Zweiter Titel"
 	component := VocabularyConcordancePageView(domain.User{}, "", "de",
 		domain.ConcordanceLookup{Term: "Haus", Page: 1},
-		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence, continued, otherBook}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}, true, false, "", "")
+		domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence, continued, otherBook}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}, true, false, "", "", browseOrigin{})
 	var rendered bytes.Buffer
 	if err := component.Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
@@ -103,7 +105,7 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Term: "Haus", Page: 1}
 	result := domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}
 	render := func(target string, result domain.ConcordanceResult) string {
-		component := VocabularyConcordancePageView(domain.User{}, "", "de", lookup, result, true, false, "", target)
+		component := VocabularyConcordancePageView(domain.User{}, "", "de", lookup, result, true, false, "", target, browseOrigin{})
 		var rendered bytes.Buffer
 		if err := component.Render(t.Context(), &rendered); err != nil {
 			t.Fatal(err)
@@ -133,10 +135,46 @@ func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.
 		"/vocabulary/concordance?term=Haus&page=not-a-page&focus=x#x",
 		"/vocabulary/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
 		"/vocabulary/concordance?term=Haus&mode=surface&book=x&page=2&focus=x#x",
+		"/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b&from_snap=s&from_page=0#x",
+		"/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b#x",
 	} {
 		if got := safeConcordanceReturnURL(invalid); got != "/vocabulary/concordance" {
 			t.Errorf("unsafe return URL %q accepted as %q", invalid, got)
 		}
+	}
+}
+
+func TestSafeConcordanceReturnURLKeepsAValidBrowseOrigin(t *testing.T) {
+	origin := browseOrigin{BookID: "book-1", SnapshotID: "snap-1", Prefix: "ha", IncludeAll: true, Page: 2, Row: "NOUN:haus", Revision: "rev-1"}
+	valid := origin.Apply("/vocabulary/concordance?page=1&term=haus&focus=occurrence-book-1-0-0") + "#occurrence-book-1-0-0"
+	if got := safeConcordanceReturnURL(valid); got != valid {
+		t.Fatalf("return URL with origin = %q, want %q", got, valid)
+	}
+}
+
+func TestBrowseOriginParsingDropsMalformedOrPartialState(t *testing.T) {
+	complete := url.Values{originKeyBook: {"b"}, originKeySnapshot: {"s"}, originKeyPage: {"3"}, originKeyAll: {"1"}, originKeyRow: {"NOUN:haus"}}
+	origin := parseBrowseOrigin(complete)
+	if !origin.Active() || origin.Page != 3 || !origin.IncludeAll || origin.Row != "NOUN:haus" {
+		t.Fatalf("complete origin parsed as %+v", origin)
+	}
+	for name, mutate := range map[string]func(url.Values){
+		"no snapshot":   func(v url.Values) { v.Del(originKeySnapshot) },
+		"no book":       func(v url.Values) { v.Del(originKeyBook) },
+		"page zero":     func(v url.Values) { v.Set(originKeyPage, "0") },
+		"page text":     func(v url.Values) { v.Set(originKeyPage, "x") },
+		"all not 1":     func(v url.Values) { v.Set(originKeyAll, "true") },
+		"oversized row": func(v url.Values) { v.Set(originKeyRow, strings.Repeat("x", maxOriginValueLength+1)) },
+	} {
+		values := url.Values{}
+		maps.Copy(values, complete)
+		mutate(values)
+		if parseBrowseOrigin(values).Active() {
+			t.Errorf("%s: malformed origin was honored", name)
+		}
+	}
+	if (browseOrigin{}).Apply("/x?a=1") != "/x?a=1" {
+		t.Error("an inactive origin must not change a URL")
 	}
 }
 
@@ -192,10 +230,10 @@ func TestConcordanceSentencePartsRejectOffsetsOutsideTheSentence(t *testing.T) {
 func TestConcordanceContextTextKeepsOnlyBoundarySpaces(t *testing.T) {
 	for input, want := range map[string]string{
 		"Wie er  tatsächlich\n verstand ": "Wie er tatsächlich verstand ",
-		" , falls  er":                   " , falls er",
-		", falls er":                     ", falls er",
-		" ":                              " ",
-		"":                               "",
+		" , falls  er":                    " , falls er",
+		", falls er":                      ", falls er",
+		" ":                               " ",
+		"":                                "",
 	} {
 		if got := concordanceContextText(input); got != want {
 			t.Errorf("concordanceContextText(%q) = %q, want %q", input, got, want)

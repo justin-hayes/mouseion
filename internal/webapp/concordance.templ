@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 	"unicode"
@@ -10,7 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied, readingChanged bool, message, focusTarget string) {
+templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied, readingChanged bool, message, focusTarget string, origin browseOrigin) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("concordance")
 		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied lookup.</p>
@@ -21,8 +22,10 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 				}
 			}
 			if language != "" {
+				@concordanceOriginReturn(origin, language)
 				<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
 					<input type="hidden" name="language" value={ lookup.Language }/>
+					@concordanceOriginFields(origin)
 					<div class="concordance-query-term">
 						<label for="concordance-term">Lemma or word form</label>
 						<div class="concordance-query-term-controls"><input class="input" id="concordance-term" type="search" name="term" value={ lookup.Term } autocomplete="off" autocapitalize="off" spellcheck="false" required aria-describedby="concordance-term-help"/><button class="button" type="submit">Find</button></div>
@@ -33,7 +36,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 					<div id="concordance-recovery" aria-live="polite">
 						<p role="alert">{ message }</p>
 						if lookup.Term != "" {
-							<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordanceRestartURL(lookup)) }>Retry Concordance lookup</a>
+							<a class="button button--outline" href={ templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(lookup))) }>Retry Concordance lookup</a>
 						}
 					</div>
 				} else {
@@ -43,20 +46,23 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 					<section id="concordance-results" aria-labelledby="concordance-summary">
 						<h2 id="concordance-summary" tabindex="-1" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>{ concordanceAppliedSummary(lookup, result) }</h2>
 						<p class="concordance-results-summary">{ concordanceResultsSummary(result) }</p>
+						if concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) {
+							<p id="concordance-focus-missing" role="status">The sentence you came from is no longer on this page of results. Nothing else was substituted; these are the current results for the same lookup.</p>
+						}
 						if note := concordancePriorityNote(result); note != "" && (len(result.Occurrences) > 0 || lookup.Page == 1) {
 							<p id="concordance-priority" class="concordance-priority">{ note }</p>
 						}
 						if readingChanged {
 							<p id="concordance-reading-changed" class="concordance-priority" role="status">
 								Your reading changed after this lookup, so these results keep their original order.
-								<a href={ templ.SafeURL(vocabularyConcordanceRestartURL(concordanceAppliedLookup(lookup, result))) }>Refresh results</a>
+								<a href={ templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(concordanceAppliedLookup(lookup, result)))) }>Refresh results</a>
 							</p>
 						}
 						if len(result.Occurrences) == 0 && lookup.Page == 1 {
 							<p>No analyzed occurrences of this { concordanceMatchNoun(result) } in your { language } Books. This is a corpus result, not a lookup failure.</p>
 						}
 						if len(result.Occurrences) == 0 && lookup.Page > 1 {
-							<p>No results on this page. <a href={ templ.SafeURL(vocabularyConcordancePageURL(1, concordanceAppliedLookup(lookup, result))) }>Go to page 1</a></p>
+							<p>No results on this page. <a href={ templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(1, concordanceAppliedLookup(lookup, result)))) }>Go to page 1</a></p>
 						}
 						if len(result.Occurrences) > 0 {
 							<ol id="concordance-native-results" class="concordance-results" role="list">
@@ -90,7 +96,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 												</p>
 											</div>
 										</details>
-										<a class="concordance-study-link" aria-label="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result))) }>Study</a>
+										<a class="concordance-study-link" aria-label="Study this sentence and its syntax" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
 									</li>
 								}
 							</ol>
@@ -98,10 +104,10 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 						if result.HasPrevious || result.HasNext {
 							<nav aria-label="Concordance pages">
 								if result.HasPrevious {
-									<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, concordanceAppliedLookup(lookup, result))) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page-1, concordanceAppliedLookup(lookup, result))) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
+									<a class="button button--outline" href={ templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page-1, concordanceAppliedLookup(lookup, result)))) } hx-get={ templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page-1, concordanceAppliedLookup(lookup, result)))) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Previous</a>
 								}
 								if result.HasNext {
-									<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, concordanceAppliedLookup(lookup, result))) } hx-get={ templ.SafeURL(vocabularyConcordancePageURL(result.Page+1, concordanceAppliedLookup(lookup, result))) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
+									<a class="button button--outline" href={ templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page+1, concordanceAppliedLookup(lookup, result)))) } hx-get={ templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(result.Page+1, concordanceAppliedLookup(lookup, result)))) } hx-target="#concordance-results" hx-select="#concordance-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false">Next</a>
 								}
 							</nav>
 						}
@@ -284,7 +290,7 @@ func concordanceFocusFallsBackToSummary(occurrences []domain.ConcordanceResultOc
 	return true
 }
 
-func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, lookup domain.ConcordanceLookup) string {
+func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, lookup domain.ConcordanceLookup, origin browseOrigin) string {
 	values := url.Values{
 		"book": {occurrence.BookID}, "run": {occurrence.AnalysisRunID}, "corpus": {occurrence.CorpusID},
 		"unit": {occurrence.UnitID}, "sentence": {fmt.Sprintf("%d", occurrence.SentenceOrdinal)},
@@ -297,6 +303,7 @@ func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, l
 	backValues, _ := url.Parse(vocabularyConcordancePageURL(lookup.Page, lookup))
 	backQuery := backValues.Query()
 	backQuery.Set("focus", focusTarget)
+	maps.Copy(backQuery, origin.Values())
 	backValues.RawQuery = backQuery.Encode()
 	back := backValues.String() + "#" + url.PathEscape(focusTarget)
 	values.Set("return", back)
@@ -409,15 +416,16 @@ func codePointByteOffset(text string, offset int64) (int, bool) {
 	return 0, false
 }
 
-templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, timeout bool) {
+templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, timeout bool, origin browseOrigin) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@VocabularyConcordanceErrorRecovery(lookup, timeout)
+		@concordanceOriginReturn(origin, language)
+		@VocabularyConcordanceErrorRecovery(lookup, timeout, origin)
 	}
 }
 
-templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout bool) {
+templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeout bool, origin browseOrigin) {
 	<div id="concordance-recovery" aria-live="polite">
 		if timeout {
 			@Feedback(FeedbackError, "Concordance server timed out", "The server could not complete this lookup in time. Your current results, if shown, remain under their old applied label. A timeout is not a zero-result claim.")
@@ -426,6 +434,7 @@ templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeou
 		}
 		<form method="get" action="/vocabulary/concordance">
 			<input type="hidden" name="language" value={ lookup.Language }/>
+			@concordanceOriginFields(origin)
 			<input type="hidden" name="term" value={ lookup.Term }/>
 			if lookup.Match != "" {
 				<input type="hidden" name="as" value={ lookup.Match }/>
@@ -447,17 +456,38 @@ templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeou
 	</div>
 }
 
-templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup) {
+templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, origin browseOrigin) {
 	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@VocabularyPageHeader("concordance")
 		<p>Active study language: <code>{ language }</code>.</p>
-		@VocabularyConcordanceChangedRecovery(lookup)
+		@concordanceOriginReturn(origin, language)
+		@VocabularyConcordanceChangedRecovery(lookup, origin)
 	}
 }
 
-templ VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup) {
+templ VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup, origin browseOrigin) {
 	<div id="concordance-recovery" aria-live="polite">
 		@Feedback(FeedbackWarning, "Current evidence changed", "This page was not applied because analyses or occurrence corrections changed after the previous result page. Refresh results to start from page 1 with current evidence.")
-		<a class="button button--outline" href={ templ.SafeURL(vocabularyConcordanceRestartURL(lookup)) }>Refresh results</a>
+		<a class="button button--outline" href={ templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(lookup))) }>Refresh results</a>
 	</div>
+}
+
+// concordanceOriginReturn offers the way back to the Browse excursion this
+// lookup came from. Reading decides whether that excursion is still valid.
+templ concordanceOriginReturn(origin browseOrigin, language string) {
+	if origin.Active() {
+		<p class="concordance-origin"><a id="concordance-origin-return" href={ templ.SafeURL(origin.ReturnURL(language)) }>Back to book vocabulary</a></p>
+	}
+}
+
+// concordanceOriginFields keeps the Browse origin through a new search or a
+// retry, separately from the lookup the learner typed.
+templ concordanceOriginFields(origin browseOrigin) {
+	if origin.Active() {
+		for _, key := range originKeys {
+			if value := origin.Values().Get(key); value != "" {
+				<input type="hidden" name={ key } value={ value }/>
+			}
+		}
+	}
 }

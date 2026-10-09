@@ -34,8 +34,8 @@ templ ReadingBrowse(view readingBrowseView) {
 				}
 			case readingBrowseChanged:
 				@readingBrowseRecovery(view) {
-					@Feedback(FeedbackWarning, "Current evidence changed", "These results were not applied because the current Book or corpus changed since this page was requested. Restart in the Current reading to avoid silently switching Books or skipping identities.")
-					<a role="button" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>Restart in the Current reading</a>
+					@Feedback(FeedbackWarning, "Current evidence changed", "These vocabulary results were not applied because this Book's words, order, counts, or accounted-for words changed since the page was shown. Refresh vocabulary keeps your prefix and accounting setting, starts at page 1, and reads current evidence.")
+					<a role="button" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>Refresh vocabulary</a>
 				}
 			case readingBrowsePageMalformed:
 				@readingBrowseRecovery(view) {
@@ -88,7 +88,10 @@ templ readingBrowseResults(view readingBrowseView) {
 				<p id="vocabulary-counts-status" role="status" aria-live="polite"><strong>Updating vocabulary counts.</strong> Vocabulary is withheld until every currently analyzed Book in this study language has exact, ready counts. Refresh status to check again.</p>
 				<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseRefreshURL(view)) }>Refresh status</a></p>
 			} else {
-				<h3 id="vocabulary-results-heading" tabindex="-1" autofocus?={ query != "" || page.Page > 1 || page.IncludeAll }>Browse results</h3>
+				<h3 id="vocabulary-results-heading" tabindex="-1" autofocus?={ readingBrowseHeadingFocused(view) }>Browse results</h3>
+				if view.FocusRowMissing() {
+					<p id="vocabulary-focus-row-missing" role="status">The word you came from is no longer on this page. Your prefix, accounting setting, and page are restored; no other word was substituted.</p>
+				}
 				if page.Total == 0 && page.InventoryTotal == 0 {
 					<p>No eligible vocabulary in this analysis.</p>
 				}
@@ -113,7 +116,7 @@ templ readingBrowseResults(view readingBrowseView) {
 					@ResponsiveTable("Current effective vocabulary") {
 						<caption>Current effective vocabulary</caption><thead><tr><th scope="col">Lemma</th><th scope="col">Part of speech</th><th scope="col">Occurrence counts</th><th scope="col">Learner state</th></tr></thead><tbody>
 						for _, row := range page.Rows {
-							<tr><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(vocabularyConcordanceURL(view.Language, row.CanonicalLemma, row.UPOS)) }>{ vocabularyBrowseDisplayLemma(view.Language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
+							<tr id={ browseRowElementID(browseRowKey(row.UPOS, row.CanonicalLemma)) } tabindex="-1" autofocus?={ view.FocusRowFound && view.FocusRow == browseRowKey(row.UPOS, row.CanonicalLemma) }><th scope="row"><a class="vocabulary-lemma-link" href={ templ.SafeURL(view.rowOrigin(row).Apply(vocabularyConcordanceURL(view.Language, row.CanonicalLemma, row.UPOS))) }>{ vocabularyBrowseDisplayLemma(view.Language, row.CanonicalLemma, row.UPOS) }</a></th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
 								if row.InBookDeck {
 									<small>In a Book deck</small>
 								}
@@ -142,4 +145,37 @@ templ VocabularyBrowsePager(page domain.VocabularyBrowsePage, query string) {
 
 func readingBrowseLastPage(page domain.VocabularyBrowsePage) int {
 	return vocabularyBrowseLastPage(page.Total)
+}
+
+// readingBrowseHeadingFocused gives the results heading focus on a refined
+// view, or on a restore whose row is gone. A restore that found its row focuses
+// that row instead.
+func readingBrowseHeadingFocused(view readingBrowseView) bool {
+	if view.FocusRow != "" {
+		return !view.FocusRowFound
+	}
+	return view.Prefix != "" || view.Page.Page > 1 || view.Page.IncludeAll
+}
+
+// ReadingBrowseOriginExpiredPage explains that Back to book vocabulary named a
+// commitment that is no longer the Current reading. It opens no reading
+// context itself: the learner chooses the current Reading with default controls,
+// or recovers the original Book in My Books where authorized.
+templ ReadingBrowseOriginExpiredPage(user domain.User, csrf string, hasCurrent bool, myBooksURL string) {
+	@ShellLayout("Book vocabulary changed", &user, csrf, NavigationReadingJourney, shellStyleReading) {
+		@PageHeader("Book vocabulary changed", "The reading you came from is no longer your Current reading.", nil)
+		<section id="reading-origin-expired" aria-labelledby="reading-origin-expired-heading">
+			<h2 id="reading-origin-expired-heading" tabindex="-1" autofocus>That book vocabulary was not restored</h2>
+			<p role="status">Your reading changed after you left it (switched, ended, finished, or restarted), so the prefix, page, and word were not moved into a different reading. Nothing was changed.</p>
+			if hasCurrent {
+				<p><a class="button" href="/reading">Open current Reading</a></p>
+			} else {
+				<p>You have no Current reading right now.</p>
+				<p><a class="button" href="/reading">Choose a book to read</a></p>
+			}
+			if myBooksURL != "" {
+				<p><a class="button button--outline" href={ templ.SafeURL(myBooksURL) }>Find the original Book in My Books</a></p>
+			}
+		</section>
+	}
 }

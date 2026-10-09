@@ -49,6 +49,13 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	// Back to book vocabulary names the commitment it left. Only that exact
+	// snapshot may restore controls; anything else is explained before any
+	// other reading context opens, and nothing is transferred to it.
+	if snapshot := strings.TrimSpace(r.URL.Query().Get("snapshot")); snapshot != "" && (!goal.IsActive() || goal.SnapshotID != snapshot || r.URL.Query().Get("reading") != goal.BookID) {
+		h.renderReadingBrowseOriginExpired(w, r, owner, language, goal.IsActive())
+		return
+	}
 	if goal.IsActive() {
 		journey, buildErr := h.buildJourneyView(r.Context(), owner.ID, language)
 		if buildErr != nil {
@@ -60,6 +67,7 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		status := http.StatusOK
 		if journey.Goal != nil {
 			journey.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, goal.BookID)
+			journey.Browse.SnapshotID = goal.SnapshotID
 		}
 		renderStatus(w, r, status, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 		return
@@ -70,6 +78,25 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render(w, r, ReadingChooserPage(owner, h.csrf(w, r), view, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+}
+
+// renderReadingBrowseOriginExpired explains a Back to book vocabulary request
+// whose commitment ended or was restarted. The My Books recovery is offered
+// only for a Book the owner has in the active study language.
+func (h *Handler) renderReadingBrowseOriginExpired(w http.ResponseWriter, r *http.Request, owner domain.User, language string, hasCurrent bool) {
+	myBooksURL := ""
+	if bookID := strings.TrimSpace(r.URL.Query().Get("reading")); bookID != "" {
+		detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+		switch {
+		case errors.Is(err, persistence.ErrNotFound):
+		case err != nil:
+			fail(w, err)
+			return
+		case detail.Book.LanguageTag == language:
+			myBooksURL = "/library?" + url.Values{"q": {detail.Book.Title}}.Encode()
+		}
+	}
+	renderStatus(w, r, http.StatusConflict, ReadingBrowseOriginExpiredPage(owner, h.csrf(w, r), hasCurrent, myBooksURL))
 }
 
 func (h *Handler) switchReadingPage(w http.ResponseWriter, r *http.Request) {
