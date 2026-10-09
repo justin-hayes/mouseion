@@ -324,14 +324,16 @@ jobs:
           steps.changes.outputs.go == 'true'
         run: make test-integration
 
-  browser-smoke-shard:
-    name: Browser smoke shard ${{ matrix.shard }}/4
+  # Builds the commit-matched fixture server once per run attempt for the browser
+  # shards. It needs only the checkout, so shards never wait for the Go, Python,
+  # lint, or integration jobs, and it does no work unless browser inputs changed.
+  browser-fixture:
+    name: Browser fixture
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
+    timeout-minutes: 15
+    outputs:
+      required: ${{ steps.required.outputs.required }}
+      artifact: ${{ steps.artifact.outputs.name }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -353,49 +355,120 @@ jobs:
               - 'migrations/**'
               - 'go.mod'
               - 'go.sum'
+              - 'Makefile'
               - '.github/workflows/ci.yml'
 
+      - name: Decide whether browser smoke runs
+        id: required
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BROWSER_CHANGED: ${{ steps.changes.outputs.browser }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ] || [ "$BROWSER_CHANGED" = true ]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The name binds the artifact to this commit and this run attempt, so a
+      # shard can never download a binary from another commit, an older attempt,
+      # or an overlapping workflow run.
+      - name: Name browser fixture artifact
+        id: artifact
+        if: steps.required.outputs.required == 'true'
+        run: echo "name=browser-fixture-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Go
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        if: steps.required.outputs.required == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+
+      - name: Generate templ views
+        if: steps.required.outputs.required == 'true'
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
+
+      # Artifact upload does not preserve the executable bit, so shards restore
+      # it. The commit and platform files let shards reject a mismatched binary.
+      - name: Build fixture server
+        if: steps.required.outputs.required == 'true'
+        run: |
+          mkdir -p .tmp/browser-fixture
+          go build -o .tmp/browser-fixture/fixtureserver ./cmd/fixtureserver
+          printf '%s\n' "$GITHUB_SHA" > .tmp/browser-fixture/commit
+          uname -sm > .tmp/browser-fixture/platform
+
+      - name: Upload browser fixture
+        if: steps.required.outputs.required == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: .tmp/browser-fixture/
+          if-no-files-found: error
+          retention-days: 1
+
+  browser-smoke-shard:
+    name: Browser smoke shard ${{ matrix.shard }}/4
+    needs: browser-fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Restore the commit-matched fixture before any browser setup, so a bad
+      # artifact fails fast. An unset artifact name or a failed download fails
+      # the step rather than falling back to building locally.
+      - name: Download browser fixture
+        if: needs.browser-fixture.outputs.required == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.browser-fixture.outputs.artifact }}
+          path: .tmp/browser-fixture
+      - name: Verify browser fixture
+        if: needs.browser-fixture.outputs.required == 'true'
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          test "$(cat .tmp/browser-fixture/commit)" = "$EXPECTED_SHA"
+          test "$(cat .tmp/browser-fixture/platform)" = "$(uname -sm)"
+          chmod 0755 .tmp/browser-fixture/fixtureserver
+          test -x .tmp/browser-fixture/fixtureserver
+
       - name: Set up Node
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        if: needs.browser-fixture.outputs.required == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - name: Install Playwright dependency
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        if: needs.browser-fixture.outputs.required == 'true'
         working-directory: e2e
         run: npm ci --ignore-scripts
       - name: Cache Playwright browsers
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        if: needs.browser-fixture.outputs.required == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Install Chromium and WebKit
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        if: needs.browser-fixture.outputs.required == 'true'
         run: npx --prefix e2e playwright install --with-deps chromium webkit
-      - name: Generate templ views
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
-
-      - name: Build fixture server
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
-        run: mkdir -p .tmp && go build -o .tmp/fixtureserver ./cmd/fixtureserver
       - name: Run browser smoke
-        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.browser == 'true'
+        if: needs.browser-fixture.outputs.required == 'true'
         working-directory: e2e
         env:
           CI: true
-          MOUSEION_FIXTURE_BIN: ../.tmp/fixtureserver
+          MOUSEION_FIXTURE_BIN: ../.tmp/browser-fixture/fixtureserver
         run: npx playwright test --shard=${{ matrix.shard }}/4
       - name: Upload browser failure artifacts
         if: failure()
@@ -407,18 +480,21 @@ jobs:
             e2e/test-results/
           if-no-files-found: ignore
 
-  # The required status check is named "Browser smoke"; it passes only when
-  # every shard succeeded.
+  # The required status check is named "Browser smoke"; it passes only when the
+  # fixture build and every shard succeeded. A failed fixture build skips the
+  # shards, which this check treats as a failure.
   browser-smoke:
     name: Browser smoke
-    needs: browser-smoke-shard
+    needs: [browser-fixture, browser-smoke-shard]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require every shard to pass
+      - name: Require the fixture build and every shard to pass
         env:
+          FIXTURE_RESULT: ${{ needs.browser-fixture.result }}
           SHARDS_RESULT: ${{ needs.browser-smoke-shard.result }}
         run: |
-          echo "Browser smoke shards: $SHARDS_RESULT"
+          echo "Browser fixture: $FIXTURE_RESULT; browser smoke shards: $SHARDS_RESULT"
+          test "$FIXTURE_RESULT" = success
           test "$SHARDS_RESULT" = success

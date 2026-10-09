@@ -128,6 +128,27 @@ dependencies from GitHub Actions caches keyed on the corresponding lock files.
 Path filters skip work a change cannot affect. Integration tests start
 PostgreSQL through Testcontainers on the runner's Docker daemon.
 
+### Browser fixture contract
+
+The `Browser fixture` job generates templ views and builds
+`cmd/fixtureserver` once per run attempt, only when browser inputs change or the
+run is a manual dispatch. It uploads the binary, a `commit` file holding
+`GITHUB_SHA`, and a `platform` file holding `uname -sm`, as the artifact
+`browser-fixture-<sha>-<run id>-<run attempt>`. The artifact name is exposed as
+a job output. The four `Browser smoke shard` jobs depend only on this job, not on
+the build, lint, Python, or integration jobs. Each shard downloads that artifact
+before any browser setup, verifies the commit and platform, restores the
+executable bit, and runs Playwright with `MOUSEION_FIXTURE_BIN`. Playwright
+still starts an independent fixture process per worker and spec file.
+
+Re-running only failed jobs reuses the artifact from the earlier attempt, which
+the job output still names; it stays bound to the same commit. Failure of the
+fixture build skips the shards, and the `Browser smoke` check
+requires the fixture job and every shard to succeed. Runs without browser inputs
+skip the build, upload, and download, and the shards run no browser steps, so
+the required check still reports success. Local `make browser-smoke` is
+unchanged and still runs `go run` through Playwright.
+
 ## Conventions
 
 - [Conventional Commits](https://www.conventionalcommits.org/):
