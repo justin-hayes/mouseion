@@ -2,8 +2,9 @@
 // the analyzed corpus of the Books other than the target. The lemmas are read
 // read-only from the screenshot stack's own PostgreSQL through Compose, ranked
 // by frequency, and cut at the smallest rank whose estimated Known coverage of
-// the target Book reaches TARGET_COVERAGE_PERCENT. The spec imports the result
-// through the normal vocabulary interface and checks the coverage the app shows.
+// the target Book reaches TARGET_COVERAGE_PERCENT, or all of them when that
+// target is unreachable. The spec imports the result through the normal
+// vocabulary interface and checks the coverage the app shows against the band.
 import { spawn } from 'node:child_process';
 
 export const COVERAGE_MIN_PERCENT = 94;
@@ -67,9 +68,16 @@ export function chooseBaseline(
       };
     }
   }
-  throw new Error(
-    `the ${ranked.length} lemmas from the other Books reach only ${((known * 100) / denominator).toFixed(1)}% of the target Book`,
-  );
+  // The target is not reachable from the other Books, so every lemma is used and
+  // the spec's coverage band decides whether the result is acceptable.
+  const coverage = (Math.min(known, denominator) * 100) / denominator;
+  return {
+    lemmas: ranked.map(([value]) => value),
+    rank: ranked.length,
+    frequency: ranked.length > 0 ? ranked[ranked.length - 1][1] : 0,
+    estimatedCoverage: coverage,
+    text: ranked.map(([value]) => value).join('\n') + '\n',
+  };
 }
 
 function quoteLiteral(value: string): string {

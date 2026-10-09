@@ -6,9 +6,11 @@
 // 3. Starts the existing Compose definition under its own project name with a
 //    localhost-only port, generated secrets, German only, and the LLM disabled.
 // 4. Runs the learner workflow in Playwright (e2e/screenshot/my-books.spec.ts),
-//    which analyzes the scenario Books and reads one to completion.
-// 5. Writes the optimized screenshots to doc/images/my-books.png and
-//    doc/images/reading.png and stops the stack, keeping the Stanza model volume.
+//    which analyzes the scenario Books, reads one to completion, and looks up
+//    the configured Concordance lemma and one sentence Study.
+// 5. Writes the optimized screenshots to doc/images (my-books, reading,
+//    concordance, sentence-study) and stops the stack, keeping the Stanza model
+//    volume.
 //
 // `--clean` removes the project's containers and volumes, then exits.
 import { spawn } from 'node:child_process';
@@ -46,6 +48,8 @@ const envFile = join(paths.run, 'compose.env');
 const manifestPath = join(here, 'manifest.json');
 const myBooksOutput = join(repo, 'doc', 'images', 'my-books.png');
 const readingOutput = join(repo, 'doc', 'images', 'reading.png');
+const concordanceOutput = join(repo, 'doc', 'images', 'concordance.png');
+const studyOutput = join(repo, 'doc', 'images', 'sentence-study.png');
 const composeFiles = ['-f', join(repo, 'compose.yaml'), '-f', join(here, 'compose.screenshot.yaml')];
 const log = message => console.log(message);
 
@@ -196,6 +200,8 @@ async function runWorkflow({ baseURL, password }) {
     MOUSEION_SCREENSHOT_MANIFEST: manifestPath,
     MOUSEION_SCREENSHOT_OUTPUT: join(paths.out, 'my-books.raw.png'),
     MOUSEION_SCREENSHOT_READING_OUTPUT: join(paths.out, 'reading.raw.png'),
+    MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT: join(paths.out, 'concordance.raw.png'),
+    MOUSEION_SCREENSHOT_STUDY_OUTPUT: join(paths.out, 'sentence-study.raw.png'),
     MOUSEION_SCREENSHOT_RESULTS: paths.results,
     // The workflow reads the other Books' lemmas from the stack's database
     // through the same Compose project, so it needs the arguments that address it.
@@ -253,6 +259,8 @@ async function screenshot() {
     await runWorkflow({ baseURL, password });
     await writeScreenshot('my-books.raw.png', myBooksOutput);
     await writeScreenshot('reading.raw.png', readingOutput);
+    await writeScreenshot('concordance.raw.png', concordanceOutput);
+    await writeScreenshot('sentence-study.raw.png', studyOutput);
   } finally {
     // Stop containers and networks only; the model volumes and the database are
     // kept until the next run recreates the database or `--clean` is used.

@@ -3,7 +3,8 @@
 // scenario Books to To Read and waits for each analysis, imports a Known
 // vocabulary baseline derived from the other Books (known-vocabulary.ts), reads
 // one Book to completion, starts the target Book, and then captures the Reading
-// view and My Books. Every input comes from the environment set by run.mjs, and
+// view and My Books, then looks up the configured lemma and captures the
+// Concordance and one sentence Study. Every input comes from the environment set by run.mjs, and
 // every wait is bounded and reports the Book or step that stalled.
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -18,6 +19,13 @@ interface ManifestBook {
   journey: Journey;
 }
 
+interface ManifestConcordance {
+  lemma: string;
+  upos: string;
+  minimumOccurrences: number;
+  minimumBooks: number;
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required; run this spec through make screenshot-my-books`);
@@ -30,11 +38,15 @@ const catalogName = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_NAME');
 const catalogURL = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_URL');
 const myBooksOutputPath = requiredEnv('MOUSEION_SCREENSHOT_OUTPUT');
 const readingOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READING_OUTPUT');
+const concordanceOutputPath = requiredEnv('MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT');
+const studyOutputPath = requiredEnv('MOUSEION_SCREENSHOT_STUDY_OUTPUT');
 // The docker compose arguments that address the isolated stack, as a JSON array.
 const composeArgs = JSON.parse(requiredEnv('MOUSEION_SCREENSHOT_COMPOSE_ARGS')) as string[];
 const manifest = JSON.parse(readFileSync(requiredEnv('MOUSEION_SCREENSHOT_MANIFEST'), 'utf8')) as {
   books: ManifestBook[];
+  concordance: ManifestConcordance;
 };
+const { concordance } = manifest;
 
 const SYNC_TIMEOUT_MS = 5 * 60_000;
 const COVER_TIMEOUT_MS = 6 * 60_000;
@@ -46,6 +58,8 @@ const IMPORT_TIMEOUT_MS = 5 * 60_000;
 const MOVE_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_SCREENSHOT_HEIGHT = 1600;
+// One Concordance page holds 25 results; the Study capture searches only these.
+const STUDY_CANDIDATE_LIMIT = 25;
 
 const WORKFLOW_LABEL: Record<Journey, string> = {
   inbox: 'Inbox',
@@ -305,8 +319,74 @@ async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<voi
   });
 }
 
-async function settleAndCapture(page: Page, path: string, outputPath: string): Promise<void> {
-  await page.goto(path);
+// Looks up the configured lemma as a learner would: type it into the
+// Concordance form and submit. The applied lookup must be a lemma lookup.
+async function lookUpLemma(page: Page): Promise<void> {
+  await page.goto('/vocabulary/concordance');
+  await page.getByLabel('Lemma or word form').fill(concordance.lemma);
+  await page.getByRole('button', { name: 'Find', exact: true }).click();
+  await expect(
+    page.locator('#concordance-summary'),
+    `the Concordance did not apply "${concordance.lemma}" as a lemma; the analyzed corpus has no evidenced lemma of that form`,
+  ).toHaveText(`Forms of ${concordance.lemma}`, { timeout: 30_000 });
+}
+
+// The Concordance must show enough lines from enough Books to be a credible
+// example. Fewer means the corpus, the analysis, or the configured lemma changed.
+async function assertConcordanceCorpus(page: Page): Promise<void> {
+  const lines = await page.locator('li.concordance-result').count();
+  const books = new Set(
+    (await page.locator('.concordance-source-title').allTextContents()).map(title => title.trim()).filter(Boolean),
+  );
+  if (lines < concordance.minimumOccurrences || books.size < concordance.minimumBooks) {
+    throw new Error(
+      `The analyzed corpus yields ${lines} Concordance line(s) from ${books.size} Book(s) for lemma "${concordance.lemma}"; ` +
+        `the screenshot needs at least ${concordance.minimumOccurrences} lines from ${concordance.minimumBooks} Books. ` +
+        'Check the concordance lemma in e2e/screenshot/manifest.json and the analysis results.',
+    );
+  }
+}
+
+// The Concordance has no part-of-speech control, so the lemma's occurrences
+// include nominalised and other forms. Opens the first result, within the first
+// page, whose identified token is the configured part of speech, then checks
+// that the token shows lemma and dependency evidence and resolves to the lemma.
+// Each result is opened in turn and the browser goes back between them.
+async function openSentenceStudy(page: Page): Promise<void> {
+  const concordanceSummary = page.locator('#concordance-summary');
+  const links = page.getByRole('link', { name: 'Study this sentence and its syntax' });
+  const candidates = Math.min(await links.count(), STUDY_CANDIDATE_LIMIT);
+  expect(candidates, `the Concordance for "${concordance.lemma}" has no results to study`).toBeGreaterThan(0);
+
+  const skipped: string[] = [];
+  for (let index = 0; index < candidates; index++) {
+    await links.nth(index).click();
+    await expect(page.locator('#sentence-study-heading'), 'the sentence Study view opened').toBeVisible({ timeout: 30_000 });
+    const target = page.locator('ol.sentence-study-tokens li', { has: page.getByText('identified target') });
+    await expect(target, 'the sentence Study does not identify the target token').toHaveCount(1);
+    const upos = (await target.locator('code').first().innerText()).trim();
+    if (upos !== concordance.upos) {
+      skipped.push(upos);
+      await page.goBack();
+      await expect(concordanceSummary, 'returned to the Concordance results').toBeVisible({ timeout: 30_000 });
+      continue;
+    }
+
+    const evidence = (await target.innerText()).replace(/\s+/g, ' ').trim();
+    expect(evidence, 'the target token lacks lemma evidence').toContain('lemma evidence');
+    expect(evidence, `the target token does not resolve to the lemma "${concordance.lemma}"`).toContain(
+      `effective lemma ${concordance.lemma}`,
+    );
+    expect(evidence, 'the target token lacks dependency evidence').toContain('dependency');
+    return;
+  }
+  throw new Error(
+    `None of the first ${candidates} Concordance results for "${concordance.lemma}" identifies a ${concordance.upos} token ` +
+      `(found: ${skipped.join(', ')}). Check the concordance lemma in e2e/screenshot/manifest.json.`,
+  );
+}
+
+async function settleAndCapture(page: Page, outputPath: string): Promise<void> {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForFunction(() => document.querySelectorAll('.htmx-request').length === 0, undefined, { timeout: 15_000 });
@@ -334,7 +414,7 @@ async function settleAndCapture(page: Page, path: string, outputPath: string): P
   });
 }
 
-test('the scenario Books are analyzed, one is read to completion, and My Books and Reading are captured', async ({ page }) => {
+test('the scenario Books are analyzed, one is read to completion, and Reading, My Books, Concordance, and Study are captured', async ({ page }) => {
   const [readBook] = booksWithJourney('read');
   const [currentBook] = booksWithJourney('current');
   expect(booksWithJourney('read'), 'manifest has exactly one read Book').toHaveLength(1);
@@ -359,14 +439,19 @@ test('the scenario Books are analyzed, one is read to completion, and My Books a
   await startReading(page, currentBook);
   await assertBookVocabulary(page, currentBook);
   await expect(page.locator('#primary-goal-section').getByRole('heading', { level: 1 })).toContainText(currentBook.title);
-  await expect(
-    page.locator('p.numeric', { hasText: 'Known vocabulary coverage:' }).first(),
-    'a numeric Known coverage figure is shown in Reading before the capture',
-  ).toContainText(/\d+(?:\.\d+)?%/);
-  await settleAndCapture(page, '/reading', readingOutputPath);
+  await page.goto('/reading');
+  await settleAndCapture(page, readingOutputPath);
 
   for (const book of manifest.books) {
     expect(await workflowLabel(page, book), `${book.title} workflow bucket in My Books`).toBe(WORKFLOW_LABEL[book.journey]);
   }
-  await settleAndCapture(page, '/library', myBooksOutputPath);
+  await page.goto('/library');
+  await settleAndCapture(page, myBooksOutputPath);
+
+  await lookUpLemma(page);
+  await assertConcordanceCorpus(page);
+  await settleAndCapture(page, concordanceOutputPath);
+
+  await openSentenceStudy(page);
+  await settleAndCapture(page, studyOutputPath);
 });

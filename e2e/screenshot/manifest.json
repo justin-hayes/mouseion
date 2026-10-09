@@ -1,6 +1,13 @@
 {
   "$comment": "Pinned public-domain scenario books for the My Books screenshot. Each source is a Project Gutenberg plain-text edition whose SHA-256 is pinned. A checksum mismatch means Project Gutenberg changed the file: review the new edition and update the entry deliberately. Every author died before 1956. `journey` is the workflow state the screenshot run leaves each Book in: inbox (never moved), read (started and finished), current (the Current reading when captured), or to-read (moved to To Read and left there).",
   "language": "de",
+  "concordance": {
+    "$comment": "The lemma the Concordance and sentence Study captures look up. aufstehen is a German separable verb whose particle is usually detached in the texts (\"stand ... auf\"). Change it here only; the driver fails if the analyzed corpus yields fewer occurrences than the minimums.",
+    "lemma": "aufstehen",
+    "upos": "VERB",
+    "minimumOccurrences": 5,
+    "minimumBooks": 2
+  },
   "books": [
     {
       "gutenberg": 22367,
@@ -64,6 +71,51 @@
       "role": "same-author",
       "journey": "to-read",
       "sha256": "9985a53294b52143f37167b56b73bb793ea76ead6f140c0c4724529e85e4fabe"
+    },
+    {
+      "gutenberg": 25204,
+      "title": "Der Mörder",
+      "author": "Arthur Schnitzler",
+      "authorDied": 1931,
+      "role": "novella",
+      "journey": "to-read",
+      "sha256": "3ead2574b1d823aa355512850a3d4abdb5ffd59fe9d7594b72a05f5ece339547"
+    },
+    {
+      "gutenberg": 57850,
+      "title": "Amok: Novellen einer Leidenschaft",
+      "author": "Stefan Zweig",
+      "authorDied": 1942,
+      "role": "stories",
+      "journey": "to-read",
+      "sha256": "e4b1c03e56953e2ee49a82787fee303626caa7b1878216796a724b963b32092a"
+    },
+    {
+      "gutenberg": 28042,
+      "title": "Die Leute von Seldwyla — Band 2",
+      "author": "Gottfried Keller",
+      "authorDied": 1890,
+      "role": "tales",
+      "journey": "to-read",
+      "sha256": "d2bcf015f1dfa76f71bd4781d7295f12a94637ad387f01e39bd0bf40b6ac0031"
+    },
+    {
+      "gutenberg": 23313,
+      "title": "Tonio Kröger",
+      "author": "Thomas Mann",
+      "authorDied": 1955,
+      "role": "novella",
+      "journey": "to-read",
+      "sha256": "8b7d217008179487fc8fd73db23da5cf4d1fa6e8aa431477fec1c6568212148e"
+    },
+    {
+      "gutenberg": 6651,
+      "title": "Immensee",
+      "author": "Theodor Storm",
+      "authorDied": 1888,
+      "role": "novella",
+      "journey": "to-read",
+      "sha256": "3768a9071c15dcd3435c22106922e59a35ecb4ae356644303948346b61edc179"
     }
   ]
 }
