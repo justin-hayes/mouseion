@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -40,7 +40,16 @@ build: go-tmp
 	go build ./...
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/python -m compileall -q nlp/src gen/python
 
-test: go-tmp
+# Fails before any Go test runs when the Python test environment is missing, so
+# a fresh checkout does not spend a full Go run discovering it. Never installs.
+python-test-preflight:
+	@$(VENV_BIN)/python -c 'import pytest' >/dev/null 2>&1 || { \
+		printf '%s\n' "Python test environment is missing pytest ($(VENV_BIN)/python)." \
+			"Run 'make setup' to create .venv with the pinned test requirements, then retry." >&2; \
+		exit 1; \
+	}
+
+test: python-test-preflight go-tmp
 	go test ./...
 	PYTHONPATH=nlp/src:gen/python $(VENV_BIN)/pytest -q nlp/tests
 
