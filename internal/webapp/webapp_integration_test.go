@@ -444,6 +444,8 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 		CatalogueSync: catalogueLanguageCorrectionRefresher{store: store, connectionID: connection.ID}, SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
+	hidden := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/hide", url.Values{"csrf_token": {csrf}, "expected_visibility_revision": {"0"}}, cookies)
+	require.Equal(t, http.StatusSeeOther, hidden.Code)
 	refreshed := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/refresh", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, refreshed.Code)
 
@@ -453,6 +455,9 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	disposition, err := store.GetBookDisposition(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	visibilityHidden, _, err := store.GetBookVisibility(ctx, owner.ID, book.ID)
+	require.NoError(t, err)
+	assert.True(t, visibilityHidden, "language correction changed the Book's visibility")
 	for _, language := range []string{"de", "it"} {
 		current, getErr := store.GetCurrentReading(ctx, owner.ID, language)
 		require.NoError(t, getErr)
@@ -462,10 +467,12 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	err = store.Pool().QueryRow(ctx, `SELECT released_at FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2`, owner.ID, reading.SnapshotID).Scan(&releasedAt)
 	require.NoError(t, err)
 	assert.NotNil(t, releasedAt)
-	italian, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "it", "", false, 0, 20)
+	// The Book stays Hidden through the correction, so collection placement is
+	// read with Show hidden books; the default scope would omit it.
+	italian, err := store.ListMyBooksBrowseWithVisibility(ctx, owner.ID, "", "it", "", false, true, 0, 20)
 	require.NoError(t, err)
 	assert.Len(t, italian.Items, 1, "corrected Book was not placed in its new language collection")
-	german, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
+	german, err := store.ListMyBooksBrowseWithVisibility(ctx, owner.ID, "", "de", "", false, true, 0, 20)
 	require.NoError(t, err)
 	assert.Empty(t, german.Items, "corrected Book remained in its old language collection")
 	deleted := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/delete", url.Values{"csrf_token": {csrf}}, cookies)
