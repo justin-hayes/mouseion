@@ -157,8 +157,8 @@ flowchart LR
 Mouseion is also an experiment in agent-driven software development, and
 part of its purpose was to learn how to do that well. I own the product
 direction, the domain model, and the architecture decisions. Coding agents
-implement against them through issues and pull requests, under the same gates
-as any contributor:
+implement against them through issues and pull requests, under explicit review
+gates:
 
 - Accepted ADRs and feature documents set the scope for each change, and
   [`CONTEXT.md`](CONTEXT.md) fixes the vocabulary.
@@ -199,7 +199,8 @@ Mouseion is a personal project in active use. It is built for a small,
 trusted, self-hosted deployment reachable only over a private network such as
 a Tailscale tailnet ([ADR 0009](doc/adr/0009-home-lab-auth-corpus-isolation.md)).
 It is not hardened for public internet exposure; see [SECURITY.md](SECURITY.md).
-German, Italian, and Modern Greek are the supported analysis languages.
+German, Italian, and Modern Greek are the supported analysis languages. This is
+a personal project and is not seeking outside contributions.
 
 ## License
 

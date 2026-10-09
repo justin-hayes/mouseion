@@ -230,5 +230,5 @@ this intermediate slice; a follow-up moves it to HTMX.
   supporting asynchronous resources, not global destinations.
 - HTMX fragments and JSON responses must have a coherent parent screen and must
   not be treated as complete pages.
-- Historical discovery and Stitch artifacts are evidence, not additional screen
+- Historical discovery documents are evidence, not additional screen
   contracts.
