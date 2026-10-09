@@ -78,7 +78,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 										}
 										<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
 											{{ before, target, after := concordanceSentenceParts(occurrence) }}
-											<summary aria-label={ "Occurrence of " + occurrence.Surface + " in " + occurrence.BookTitle }>
+											<summary>
 												if target != "" {
 													// One line: inline whitespace between these parts would add spaces to the sentence.
 													<span class="concordance-before"><span>{ concordanceContextText(before) }</span></span><strong class="concordance-surface">{ target }</strong><span class="concordance-after">{ concordanceContextText(after) }</span>

@@ -552,6 +552,7 @@ body.vocabulary-shell #concordance-results nav a {
 }
 
 .concordance-source-count {
+  position: relative;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -670,8 +671,15 @@ body.vocabulary-shell #concordance-results nav a {
     column-gap: var(--mouseion-space-2);
   }
 
+  /* Visually hidden, not display: none, so a screen reader still reads the
+     full page-local count once; the compact form is aria-hidden. */
   .concordance-count-full {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .concordance-count-compact {

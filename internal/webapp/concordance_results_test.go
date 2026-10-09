@@ -53,6 +53,11 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	if !strings.Contains(body, `Title &lt;/script&gt;&lt;img src=x&gt;`) || strings.Contains(body, `</script><img src=x>`) {
 		t.Fatal("Book title was not escaped in the server-rendered list")
 	}
+	// A sentence disclosure is named by its own KWIC text; repeating the Book
+	// title on every occurrence would bury the sentence for a screen reader.
+	if strings.Contains(body, `aria-label="Occurrence of`) {
+		t.Fatal("occurrence disclosures must be named by their sentence, not the Book title")
+	}
 	for _, retired := range []string{`concordance-book-label`, `concordance-result--book-start`, `aria-hidden="true"></div>`} {
 		if strings.Contains(body, retired) {
 			t.Errorf("rendered list still has retired grouping artifact %q", retired)
@@ -95,6 +100,28 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 		if strings.Contains(body, retired) {
 			t.Errorf("rendered page still includes handwritten Concordance request/history code %q", retired)
 		}
+	}
+}
+
+func TestConcordanceContinuedBookKeepsItsPageLocalCount(t *testing.T) {
+	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
+		BookID: "book-1", BookTitle: "Der lange Weg nach Hause", SentenceText: "Ein Haus.", Surface: "Haus",
+	}}
+	result := domain.ConcordanceResult{
+		Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 2, Continued: true, Match: domain.ConcordanceMatchForm, Term: "haus",
+	}
+	component := VocabularyConcordancePageView(domain.User{}, "", "de",
+		domain.ConcordanceLookup{Term: "Haus", Page: 2}, result, true, false, "", "", browseOrigin{})
+	var rendered bytes.Buffer
+	if err := component.Render(t.Context(), &rendered); err != nil {
+		t.Fatal(err)
+	}
+	body := rendered.String()
+	if !strings.Contains(body, `<span class="concordance-count-full">1 occurrence on this page</span>`) {
+		t.Fatal("continued Book group lost its page-local count")
+	}
+	if !strings.Contains(body, `continues Der lange Weg nach Hause from the previous page`) {
+		t.Fatal("continued Book group is not announced in the results summary")
 	}
 }
 
