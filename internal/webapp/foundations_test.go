@@ -13,7 +13,6 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -332,17 +331,15 @@ func TestEnhancedUploadAndProgressKeepAccessibleNativeContracts(t *testing.T) {
 	}
 
 	var progress bytes.Buffer
-	status := enrichmentjob.Status{ID: 7, Completed: 2, Total: 5, State: rivertype.JobStateRunning}
-	require.NoError(t, EnrichmentJobStatus(status, "csrf").Render(context.Background(), &progress))
+	status := knownvocab.Status{ID: 7, Processed: 2, Total: 5, State: rivertype.JobStateRunning, Language: "de"}
+	require.NoError(t, KnownVocabImportStatus(status).Render(context.Background(), &progress))
 	for _, want := range []string{
-		`aria-label="Contextual translations: Running progress"`,
-		`data-workflow="contextual translation"`,
+		`data-workflow="known-vocabulary import"`,
+		`hx-get="/vocabulary/imports/7/status"`,
 		`hx-trigger="every 2s"`,
-		`method="post"`,
-		`action="/enrichment-jobs/7/cancel"`,
-		`hx-post="/enrichment-jobs/7/cancel"`,
+		`2 of 5 rows processed.`,
 	} {
-		assert.True(t, strings.Contains(progress.String(), want), "enrichment status missing %q: %s", want, progress.String())
+		assert.True(t, strings.Contains(progress.String(), want), "import status missing %q: %s", want, progress.String())
 	}
 }
 
@@ -427,9 +424,9 @@ func TestVocabularyPageEmptyLibraryPointsToCatalogsAndHidesImport(t *testing.T) 
 
 func TestOperationalStatusStopsPollingAtTerminalStates(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, EnrichmentJobStatus(enrichmentjob.Status{ID: 7, State: rivertype.JobStateCompleted, Completed: 5, Total: 5}, "csrf").Render(context.Background(), &output))
-	assert.False(t, strings.Contains(output.String(), "hx-trigger"), "completed enrichment status still polls: %s", output.String())
-	assert.False(t, strings.Contains(output.String(), "hx-get"), "completed enrichment status still polls: %s", output.String())
+	require.NoError(t, KnownVocabImportStatus(knownvocab.Status{ID: 12, State: rivertype.JobStateCompleted, Language: "de", Imported: 5}).Render(context.Background(), &output))
+	assert.False(t, strings.Contains(output.String(), "hx-trigger"), "completed vocabulary import still polls: %s", output.String())
+	assert.False(t, strings.Contains(output.String(), "hx-get"), "completed vocabulary import still polls: %s", output.String())
 
 	output.Reset()
 	require.NoError(t, KnownVocabImportStatus(knownvocab.Status{ID: 12, State: rivertype.JobStateCancelled, Language: "de"}).Render(context.Background(), &output))

@@ -21,7 +21,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -81,11 +80,6 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 
 	capabilities := readyGerman()
 	translator := completeLoopTranslationProvider{}
-	enrichmentService := enrichment.NewService(enrichment.Config{
-		ExternalEnabled: true,
-		UserOptIn:       true,
-		ContextMode:     enrichment.SentenceContext,
-	}, nil, nil, nil, translator, store)
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "complete-loop-model", BaseURL: "http://example.invalid/v1"})
 	require.NoError(t, err)
 	preparedConfig := prepareddeck.PreparedDeckConfig{
@@ -99,7 +93,6 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 
 	workers := river.NewWorkers()
 	knownvocab.AddWorker(workers, store.Pool())
-	enrichmentjob.AddWorker(workers, store.Pool(), enrichmentService)
 	epPubService := epub.NewService(store)
 	opdsService := opds.NewService(store, epPubService, nil)
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Aliases: store, Statuses: store, Pool: store.Pool()}
@@ -131,7 +124,6 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 		Analysis:         analysis.NewService(store.Pool(), analysisClient),
 		AnalysisInsights: analysisinsights.NewService(store),
 		KnownVocab:       knownvocab.NewJobService(store.Pool(), analysisClient),
-		Enrichment:       enrichmentjob.NewService(store.Pool(), analysisClient, enrichmentService),
 		PreparedDeck:     prepareddeck.NewService(store, analysisClient),
 		Capabilities:     capabilities,
 		CatalogueSync:    catalogueSyncService,

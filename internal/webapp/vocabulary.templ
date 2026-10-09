@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 )
 
@@ -92,17 +91,6 @@ templ KnownVocabImportStatusPage(user domain.User, csrf string, status knownvoca
 		@KnownVocabImportStatus(status)
 		if knownVocabJobBusy(string(status.State)) {
 			<p><a class="vocabulary-action-link" href="/vocabulary/import">Return to Vocabulary</a></p>
-		}
-	}
-}
-
-templ EnrichmentJobStatus(status enrichmentjob.Status, csrf string) {
-	@AsyncStatus(enrichmentJobAttributes(status), "enrichment-job-status", "Contextual translations: "+enrichmentJobLabel(string(status.State)), enrichmentJobSummary(status), int(status.Completed), int(status.Total), status.State != "completed" && status.State != "cancelled" && status.State != "discarded", nil) {
-		if status.Error != "" {
-			@Feedback(FeedbackError, "Translation needs attention", status.Error+" Review the affected book and try again when the provider is available.")
-		}
-		if status.State != "completed" && status.State != "cancelled" && status.State != "discarded" {
-			<form method="post" action={ templ.SafeURL(fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID)) } hx-post={ fmt.Sprintf("/enrichment-jobs/%d/cancel", status.ID) } hx-target="#enrichment-job-status" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Cancel translations</button></form>
 		}
 	}
 }

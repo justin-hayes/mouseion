@@ -21,7 +21,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
@@ -169,11 +168,6 @@ type KnownVocabulary interface {
 	Submit(context.Context, string, string, string) (knownvocab.Handle, error)
 	Get(context.Context, string, int64) (knownvocab.Status, error)
 }
-type ExternalEnrichment interface {
-	SubmitEnrichment(context.Context, string, []enrichment.Candidate) (enrichmentjob.Handle, error)
-	Get(context.Context, string, int64) (enrichmentjob.Status, error)
-	Cancel(context.Context, string, int64) (enrichmentjob.Status, error)
-}
 type PreparedDeck interface {
 	Submit(context.Context, string, string) (prepareddeck.Handle, error)
 	SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
@@ -200,7 +194,6 @@ type Services struct {
 	Analysis         Analysis
 	AnalysisInsights AnalysisInsights
 	KnownVocab       KnownVocabulary
-	Enrichment       ExternalEnrichment
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
 	LemmaRiskIndex   lemmarisk.AlternativeIndex
@@ -281,8 +274,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /deck-preparations/{id}/reprepare", h.user(http.HandlerFunc(h.reprepareDeckPreparation)))
 	h.mux.Handle("POST /deck-preparations/{id}/rerender", h.user(http.HandlerFunc(h.rerenderDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadDeckPreparation)))
-	h.mux.Handle("GET /enrichment-jobs/{id}/status", h.user(http.HandlerFunc(h.enrichmentJobStatus)))
-	h.mux.Handle("POST /enrichment-jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelEnrichmentJob)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/library")

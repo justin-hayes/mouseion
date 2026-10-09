@@ -14,7 +14,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichmentjob"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
@@ -681,61 +680,5 @@ func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, "Resolve the flagged lemma occurrences before preparing a direct deck.", http.StatusConflict)
 	default:
 		fail(w, err)
-	}
-}
-
-func (h *Handler) enrichmentJobStatus(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || h.services.Enrichment == nil {
-		http.NotFound(w, r)
-		return
-	}
-	status, err := h.services.Enrichment.Get(r.Context(), user(r).ID, id)
-	if errors.Is(err, enrichmentjob.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, EnrichmentJobStatus(status, h.csrf(w, r)))
-}
-
-func (h *Handler) cancelEnrichmentJob(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || h.services.Enrichment == nil {
-		http.NotFound(w, r)
-		return
-	}
-	status, err := h.services.Enrichment.Cancel(r.Context(), user(r).ID, id)
-	if errors.Is(err, enrichmentjob.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, EnrichmentJobStatus(status, h.csrf(w, r)))
-}
-
-func enrichmentJobLabel(status string) string {
-	switch status {
-	case "available", "scheduled", "retryable", "pending":
-		return "Queued"
-	case "running":
-		return "Running"
-	case "completed":
-		return "Completed"
-	case "cancelled":
-		return "Cancelled"
-	case "discarded":
-		return "Discarded"
-	default:
-		return status
 	}
 }
