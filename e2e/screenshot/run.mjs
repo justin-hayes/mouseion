@@ -78,12 +78,12 @@ function run(command, args, { cwd = repo, env, capture = false } = {}) {
   });
 }
 
+function composeBaseArgs() {
+  return ['compose', '-p', PROJECT, '--project-directory', repo, '--env-file', envFile, ...composeFiles];
+}
+
 function compose(args, options = {}) {
-  return run(
-    'docker',
-    ['compose', '-p', PROJECT, '--project-directory', repo, '--env-file', envFile, ...composeFiles, ...args],
-    options,
-  );
+  return run('docker', [...composeBaseArgs(), ...args], options);
 }
 
 async function writeRunEnvironment(port) {
@@ -197,6 +197,9 @@ async function runWorkflow({ baseURL, password }) {
     MOUSEION_SCREENSHOT_OUTPUT: join(paths.out, 'my-books.raw.png'),
     MOUSEION_SCREENSHOT_READING_OUTPUT: join(paths.out, 'reading.raw.png'),
     MOUSEION_SCREENSHOT_RESULTS: paths.results,
+    // The workflow reads the other Books' lemmas from the stack's database
+    // through the same Compose project, so it needs the arguments that address it.
+    MOUSEION_SCREENSHOT_COMPOSE_ARGS: JSON.stringify(composeBaseArgs()),
   };
   const result = await run('npx', ['playwright', 'test', '-c', 'screenshot/playwright.config.ts'], { cwd: e2eDir, env });
   if (result.code !== 0) {

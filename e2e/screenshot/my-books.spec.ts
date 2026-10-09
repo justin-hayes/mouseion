@@ -1,11 +1,13 @@
 // Learner workflow for the documentation screenshots. It creates the first
 // account, adds the static catalog, waits for catalog sync and covers, moves the
-// scenario Books to To Read and waits for each analysis, reads one Book to
-// completion, starts the target Book, and then captures the Reading view and
-// My Books. Every input comes from the environment set by run.mjs, and every
-// wait is bounded and reports the Book or step that stalled.
+// scenario Books to To Read and waits for each analysis, imports a Known
+// vocabulary baseline derived from the other Books (known-vocabulary.ts), reads
+// one Book to completion, starts the target Book, and then captures the Reading
+// view and My Books. Every input comes from the environment set by run.mjs, and
+// every wait is bounded and reports the Book or step that stalled.
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { COVERAGE_MAX_PERCENT, COVERAGE_MIN_PERCENT, deriveBaseline, type Baseline } from './known-vocabulary';
 
 type Journey = 'inbox' | 'to-read' | 'read' | 'current';
 
@@ -28,6 +30,8 @@ const catalogName = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_NAME');
 const catalogURL = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_URL');
 const myBooksOutputPath = requiredEnv('MOUSEION_SCREENSHOT_OUTPUT');
 const readingOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READING_OUTPUT');
+// The docker compose arguments that address the isolated stack, as a JSON array.
+const composeArgs = JSON.parse(requiredEnv('MOUSEION_SCREENSHOT_COMPOSE_ARGS')) as string[];
 const manifest = JSON.parse(readFileSync(requiredEnv('MOUSEION_SCREENSHOT_MANIFEST'), 'utf8')) as {
   books: ManifestBook[];
 };
@@ -38,6 +42,7 @@ const COVER_TIMEOUT_MS = 6 * 60_000;
 // in parallel, so this bounds the whole To Read analysis set.
 const ANALYSIS_TIMEOUT_MS = 30 * 60_000;
 const COUNTS_TIMEOUT_MS = 5 * 60_000;
+const IMPORT_TIMEOUT_MS = 5 * 60_000;
 const MOVE_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_SCREENSHOT_HEIGHT = 1600;
@@ -194,6 +199,60 @@ async function waitForAnalyses(page: Page, books: ManifestBook[]): Promise<void>
   expect(stalled, 'To Read scenario books whose analysis did not complete').toEqual([]);
 }
 
+// Imports the lemma list through the vocabulary interface and waits for the
+// River job to report its result on the page.
+async function importKnownVocabulary(page: Page, text: string): Promise<void> {
+  await page.goto('/vocabulary/import');
+  await page.locator('#known-vocabulary-file').setInputFiles({
+    name: 'known-vocabulary.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(text, 'utf8'),
+  });
+  await page.getByRole('button', { name: 'Import known vocabulary' }).click();
+  await expect(page.locator('#vocabulary-results'), 'the Known-vocabulary import completes').toContainText(
+    /Import complete\.|partial rejection/,
+    { timeout: IMPORT_TIMEOUT_MS },
+  );
+}
+
+// The chooser shows each To Read Book's Known coverage. The Current reading is
+// measured here, before it is started, because the app stops showing coverage
+// for the Book once it is the Current reading.
+async function measureCoverage(page: Page, book: ManifestBook): Promise<number> {
+  let percent = Number.NaN;
+  await pollUntil(
+    async () => {
+      await page.goto('/reading');
+      const item = chooserItem(page, book);
+      if ((await item.count()) === 0) return false;
+      const status = page.locator('#vocabulary-counts-status');
+      if ((await status.count()) > 0 && (await status.innerText()).includes('Updating')) return false;
+      const match = /Known vocabulary coverage:\s*(\d+(?:\.\d+)?)%/.exec((await item.innerText()).replace(/\s+/g, ' '));
+      if (!match) return false;
+      percent = Number(match[1]);
+      return true;
+    },
+    COUNTS_TIMEOUT_MS,
+    `Known vocabulary coverage for ${book.title} to appear in Reading`,
+  );
+  return percent;
+}
+
+// Derives the baseline from the other analyzed Books, imports it, and fails the
+// run unless the target's measured coverage is inside the 94–98% band.
+async function establishKnownVocabulary(page: Page, target: ManifestBook): Promise<void> {
+  const baseline: Baseline = await deriveBaseline(composeArgs, target.title);
+  await importKnownVocabulary(page, baseline.text);
+  const measured = await measureCoverage(page, target);
+  const summary =
+    `cut-off: ${baseline.lemmas.length} lemmas (rank ${baseline.rank}, frequency ≥ ${baseline.frequency}); ` +
+    `${target.title} Known coverage ${measured.toFixed(1)}% (estimated ${baseline.estimatedCoverage.toFixed(1)}%)`;
+  console.log(`Known vocabulary baseline: ${summary}`);
+  if (measured < COVERAGE_MIN_PERCENT || measured > COVERAGE_MAX_PERCENT) {
+    throw new Error(`Known coverage of ${target.title} is outside ${COVERAGE_MIN_PERCENT}–${COVERAGE_MAX_PERCENT}%: ${summary}`);
+  }
+}
+
 async function startReading(page: Page, book: ManifestBook): Promise<void> {
   await page.goto('/reading');
   const start = chooserItem(page, book).locator('details').filter({ hasText: 'Start reading' });
@@ -293,11 +352,17 @@ test('the scenario Books are analyzed, one is read to completion, and My Books a
   }
   await waitForAnalyses(page, toRead);
 
+  await establishKnownVocabulary(page, currentBook);
+
   await startReading(page, readBook);
   await finishReading(page, readBook);
   await startReading(page, currentBook);
   await assertBookVocabulary(page, currentBook);
   await expect(page.locator('#primary-goal-section').getByRole('heading', { level: 1 })).toContainText(currentBook.title);
+  await expect(
+    page.locator('p.numeric', { hasText: 'Known vocabulary coverage:' }).first(),
+    'a numeric Known coverage figure is shown in Reading before the capture',
+  ).toContainText(/\d+(?:\.\d+)?%/);
   await settleAndCapture(page, '/reading', readingOutputPath);
 
   for (const book of manifest.books) {
