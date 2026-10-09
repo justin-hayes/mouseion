@@ -419,6 +419,12 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+    env:
+      # Official Playwright image: Chromium, WebKit, and their Linux runtime
+      # libraries. Pinned by digest. Its tag must match @playwright/test in
+      # e2e/package-lock.json (checked below), so bump both together; see
+      # e2e/README.md "Dependency and update policy".
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -454,22 +460,34 @@ jobs:
         if: needs.browser-fixture.outputs.required == 'true'
         working-directory: e2e
         run: npm ci --ignore-scripts
-      - name: Cache Playwright browsers
+      - name: Verify Playwright image matches locked version
         if: needs.browser-fixture.outputs.required == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
-      - name: Install Chromium and WebKit
-        if: needs.browser-fixture.outputs.required == 'true'
-        run: npx --prefix e2e playwright install --with-deps chromium webkit
+        run: |
+          locked=$(node -p "require('./e2e/package-lock.json').packages['node_modules/@playwright/test'].version")
+          case "$PLAYWRIGHT_IMAGE" in
+            *":v${locked}-"*) echo "Playwright image matches locked @playwright/test $locked" ;;
+            *)
+              echo "::error::PLAYWRIGHT_IMAGE must be tagged v${locked}-* to match e2e/package-lock.json" >&2
+              exit 1
+              ;;
+          esac
+      # Runs in the pinned image, so no APT or browser download happens here.
+      # --network=host reaches the loopback fixture server; --ipc=host gives
+      # Chromium the shared memory it needs; --init reaps child processes. Files
+      # are written as the runner user so the failure-artifact upload works.
       - name: Run browser smoke
         if: needs.browser-fixture.outputs.required == 'true'
-        working-directory: e2e
         env:
           CI: true
-          MOUSEION_FIXTURE_BIN: ../.tmp/browser-fixture/fixtureserver
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+        run: |
+          docker run --rm --init --ipc=host --network=host \
+            --user "$(id -u):$(id -g)" \
+            -e CI -e HOME=/tmp \
+            -e MOUSEION_FIXTURE_BIN=/work/.tmp/browser-fixture/fixtureserver \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work/e2e \
+            "$PLAYWRIGHT_IMAGE" \
+            npx playwright test --shard=${{ matrix.shard }}/4
       - name: Upload browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

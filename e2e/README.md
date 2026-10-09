@@ -41,15 +41,44 @@ that server has one mutable store. Use one spec file per invocation and restart
 the external server between invocations. If source or embedded assets change,
 rebuild and restart the external server before capturing the updated UI.
 
-WebKit requires its browser binary and Linux runtime libraries. On a supported
-Linux runner image, provision the system libraries as an image/setup step with
-`cd e2e && npx playwright install-deps webkit` (this system-package command
-requires administrator privileges); then `npx playwright install webkit` can
-download the browser as the unprivileged test user. CI runs on GitHub-hosted
-runners and installs the pinned browsers with their system dependencies
-(`playwright install --with-deps chromium webkit`), then splits the suite into
-four shards with `--shard=n/4`. Missing libraries fail the job rather than
-silently skipping WebKit.
+WebKit requires its browser binary and Linux runtime libraries. Locally,
+`make browser-smoke` downloads the browsers with `npx playwright install chromium
+webkit`; the system libraries for WebKit on a supported Linux host come from
+`cd e2e && npx playwright install-deps webkit`, which needs administrator
+privileges.
+
+CI does not install browsers or system packages per shard. A `browser-fixture`
+job builds the commit-matched fixture server once per run, and each of the four
+`--shard=n/4` jobs downloads it and installs the locked npm dependencies on the
+runner. The shard then runs `npx playwright test` inside the official Playwright
+image pinned by digest in `.github/workflows/ci.yml` (`PLAYWRIGHT_IMAGE`). That image
+provides Chromium, WebKit, and their Linux runtime libraries. The run passes
+`--network=host` for the loopback fixture server, `--ipc=host` for Chromium
+shared memory, `--init` for process cleanup, and the runner's own UID so
+reports, traces, and screenshots stay writable for the failure-artifact upload.
+To reproduce a shard locally, run `make templ`, build `.tmp/fixtureserver` with
+`go build -o .tmp/fixtureserver ./cmd/fixtureserver`, and run `npm ci
+--ignore-scripts` in `e2e/`. Then run the same command from the repository root,
+with `PLAYWRIGHT_IMAGE` set to the workflow's value:
+
+```sh
+docker run --rm --init --ipc=host --network=host --user "$(id -u):$(id -g)" \
+  -e CI=true -e HOME=/tmp -e MOUSEION_FIXTURE_BIN=/work/.tmp/fixtureserver \
+  -v "$PWD:/work" -w /work/e2e "$PLAYWRIGHT_IMAGE" \
+  npx playwright test --shard=1/4
+```
+
+A missing browser or library makes the job fail, because Playwright stops at
+launch rather than skipping the project. The `Browser smoke` aggregate check
+still requires every shard to pass.
+
+Dependency and update policy: the image tag must equal the locked
+`@playwright/test` version. The `Verify Playwright image matches locked version`
+step fails CI if they differ. Bump `e2e/package.json`, `e2e/package-lock.json`,
+and the image tag and digest in the same change, and confirm the new image
+contains the browser builds that version expects. Image provisioning and pull
+time are part of the CI cost; compare end-to-end shard timings against the
+previous run before claiming a speedup.
 
 The WebKit journey covers server-rendered sign-in and invalid-credential
 recovery, the authenticated shell and native language/navigation forms,

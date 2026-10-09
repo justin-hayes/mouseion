@@ -122,7 +122,11 @@ writing SQL, and keep data-only backfills separate from structural DDL
 CI runs on ephemeral GitHub-hosted `ubuntu-24.04` runners, so pull requests
 from forks never execute on maintainer infrastructure. The build, lint,
 integration, and browser-smoke jobs run in parallel; browser smoke is split
-across four Playwright shards behind a single `Browser smoke` check. Each job
+across four Playwright shards behind a single `Browser smoke` check. Shards run
+the suite in a digest-pinned Playwright image that already contains the browsers
+and their system libraries, so they do not install APT packages or download
+browsers ([e2e/README.md](../e2e/README.md) describes the pin and its coupling
+to the locked `@playwright/test` version). Each job
 starts from a clean machine and restores Go, uv, npm, and golangci-lint
 dependencies from GitHub Actions caches keyed on the corresponding lock files.
 Path filters skip work a change cannot affect. Integration tests start
