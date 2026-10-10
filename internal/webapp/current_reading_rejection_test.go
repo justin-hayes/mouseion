@@ -24,6 +24,10 @@ func (r rejectingReading) StartCurrentReading(context.Context, string, string, s
 	return domain.CurrentReading{}, r.err
 }
 
+func (r rejectingReading) StartCurrentReadingResult(context.Context, string, string, string) (persistence.StartResult, error) {
+	return persistence.StartResult{}, r.err
+}
+
 func (r rejectingReading) SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error) {
 	return domain.CurrentReading{}, r.err
 }
@@ -111,7 +115,19 @@ func TestSwitchShowsTheMessageForEachPersistenceRejection(t *testing.T) {
 func TestStartOfTheCurrentBookIsIdempotent(t *testing.T) {
 	code, location := rejectionLocation(t, func(*Handler) {}, "/reading/books/"+fixtures.BookID+"/start", func(domain.CurrentReading) url.Values { return url.Values{} })
 	assert.Equal(t, 303, code)
-	assert.Contains(t, location, "is now your current reading")
+	assert.Contains(t, location, "is already your current reading")
+	assert.NotContains(t, location, "error=", "a repeat Start is not a conflict")
+}
+
+func TestStartOfTheCurrentBookReplaysWithoutChangingIt(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSession(t)
+	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	response := readingTestRequest(t, h, "/reading/books/"+current.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, 303, response.Code)
+	after, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, current, after, "replaying the current Start must not refreeze or rewrite the reading")
 }
 
 func TestSwitchToTheCurrentBookChangesNothing(t *testing.T) {
@@ -126,4 +142,3 @@ func TestSwitchToTheCurrentBookChangesNothing(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, current.SnapshotID, after.SnapshotID, "switching to the current Book must not refreeze its snapshot")
 }
-

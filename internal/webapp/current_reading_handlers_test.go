@@ -189,7 +189,7 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 		"csrf_token": {csrf},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, idempotent.Code)
-	assert.Contains(t, idempotent.Header().Get("Location"), "is+now+your+current+reading")
+	assert.Contains(t, idempotent.Header().Get("Location"), "is+already+your+current+reading")
 
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)

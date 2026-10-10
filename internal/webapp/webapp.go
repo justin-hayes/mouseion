@@ -71,6 +71,7 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
+	StartCurrentReadingResult(context.Context, string, string, string) (persistence.StartResult, error)
 	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
 	EndCurrentReading(context.Context, string, string, string, string) error
 	FinishCurrentReading(context.Context, string, string, string, string) (domain.CurrentReadingFinishResult, error)

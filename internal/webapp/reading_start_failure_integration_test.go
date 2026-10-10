@@ -232,7 +232,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	setEnqueueFailure(true)
 	duplicateStart := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, duplicateStart.Code)
-	assert.Contains(t, duplicateStart.Header().Get("Location"), "is+now+your+current+reading")
+	assert.Contains(t, duplicateStart.Header().Get("Location"), "is+already+your+current+reading")
 	queuedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code)
 	assert.Contains(t, queuedPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)

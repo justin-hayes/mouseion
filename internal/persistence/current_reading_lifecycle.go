@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -411,53 +412,82 @@ func snapshotSizeForGoal(ctx context.Context, q *sqlcgen.Queries, snapshotID, ow
 	return len(rows), nil
 }
 
+// StartResult is the outcome of a Start. Replayed reports that the requested
+// Book was already the current reading, so the Start wrote nothing and Reading
+// is that existing reading.
+type StartResult struct {
+	Reading  domain.CurrentReading
+	Replayed bool
+}
+
 // StartCurrentReading creates the owner's current reading for an eligible To Read
 // Book in language.
-func (s *PostgresStore) StartCurrentReading(ctx context.Context, owner, language, bookID string) (goal domain.CurrentReading, err error) {
-	return s.StartCurrentReadingWith(ctx, owner, language, bookID, nil)
+func (s *PostgresStore) StartCurrentReading(ctx context.Context, owner, language, bookID string) (domain.CurrentReading, error) {
+	start, err := s.StartCurrentReadingResult(ctx, owner, language, bookID)
+	return start.Reading, err
+}
+
+// StartCurrentReadingResult is StartCurrentReading that also reports whether the
+// Start replayed the current reading.
+func (s *PostgresStore) StartCurrentReadingResult(ctx context.Context, owner, language, bookID string) (StartResult, error) {
+	return s.startCurrentReading(ctx, owner, language, bookID, nil)
 }
 
 // StartCurrentReadingWith creates the current reading and runs beforeCommit in
 // the same transaction after its immutable snapshot has been populated. The
 // callback can atomically attach durable work that depends on that snapshot.
-func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, language, bookID string, beforeCommit func(context.Context, pgx.Tx, domain.CurrentReading) error) (goal domain.CurrentReading, err error) {
+// A replayed Start writes nothing, so beforeCommit does not run for it.
+func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, language, bookID string, beforeCommit func(context.Context, pgx.Tx, domain.CurrentReading) error) (domain.CurrentReading, error) {
+	start, err := s.startCurrentReading(ctx, owner, language, bookID, beforeCommit)
+	return start.Reading, err
+}
+
+func (s *PostgresStore) startCurrentReading(ctx context.Context, owner, language, bookID string, beforeCommit func(context.Context, pgx.Tx, domain.CurrentReading) error) (start StartResult, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	goalInput := domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}
 	if err := goalInput.Validate(); err != nil {
-		return domain.CurrentReading{}, err
+		return StartResult{}, err
 	}
 	// An identity Postgres cannot read as a uuid names no Book, so it is the
 	// same not-found a well-formed unknown Book gets.
 	if !validUUID(owner) || !validUUID(bookID) {
-		return domain.CurrentReading{}, ErrNotFound
+		return StartResult{}, ErrNotFound
 	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return domain.CurrentReading{}, err
+		return StartResult{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	q := sqlcgen.New(tx)
 	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
-		return domain.CurrentReading{}, err
+		return StartResult{}, err
 	}
 	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
-		return domain.CurrentReading{}, err
+		return StartResult{}, err
 	}
 	facts, identity, err := loadStartFacts(ctx, tx, q, owner, language, bookID)
 	if err != nil {
-		return domain.CurrentReading{}, err
+		return StartResult{}, err
 	}
-	if err = StartDecisionError(domain.DecideStart(facts)); err != nil {
-		return domain.CurrentReading{}, err
+	decision := domain.DecideStart(facts)
+	if err = StartDecisionError(decision); err != nil {
+		return StartResult{}, err
+	}
+	if decision.Outcome == domain.StartReplayed {
+		current, readErr := readCurrentReadingLocked(ctx, q, owner, language)
+		if readErr != nil {
+			return StartResult{}, readErr
+		}
+		return StartResult{Reading: current, Replayed: true}, nil
 	}
 	snapshot, candidates, snapshotErr := createCurrentReadingSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if snapshotErr != nil {
-		return domain.CurrentReading{}, snapshotErr
+		return StartResult{}, snapshotErr
 	}
-	goal, err = insertCurrentReading(ctx, q, owner, language, bookID, snapshot.ID)
+	goal, err := insertCurrentReading(ctx, q, owner, language, bookID, snapshot.ID)
 	if err != nil {
-		return domain.CurrentReading{}, err
+		return StartResult{}, err
 	}
 	goal.SourceMaterialID = identity.CaSourceMaterialID
 	goal.AnalysisRunID = identity.CaAnalysisRunID
@@ -467,13 +497,27 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	goal.SnapshotSize = len(candidates)
 	if beforeCommit != nil {
 		if err = beforeCommit(ctx, tx, goal); err != nil {
-			return domain.CurrentReading{}, err
+			return StartResult{}, err
 		}
 	}
 	if err = tx.Commit(ctx); err != nil {
+		return StartResult{}, err
+	}
+	return StartResult{Reading: goal}, nil
+}
+
+// readCurrentReadingLocked reads the owner's current reading in language inside
+// a transaction whose learner-state lock is already held.
+func readCurrentReadingLocked(ctx context.Context, q *sqlcgen.Queries, owner, language string) (domain.CurrentReading, error) {
+	row, err := q.GetCurrentReading(ctx, sqlcgen.GetCurrentReadingParams{Owner: owner, Language: language})
+	if err != nil {
 		return domain.CurrentReading{}, err
 	}
-	return goal, nil
+	snapshotSize, err := snapshotSizeForGoal(ctx, q, row.SnapshotID, row.GOwnerID)
+	if err != nil {
+		return domain.CurrentReading{}, err
+	}
+	return currentReadingFromRow(row, snapshotSize), nil
 }
 
 // CurrentReadingIneligibleError rejects a Book that the domain classifier does
@@ -492,10 +536,11 @@ func (e CurrentReadingIneligibleError) Is(target error) bool {
 }
 
 // StartDecisionError maps a domain Start decision to the error every store
-// returns for it, so adapters reject a Start the same way. An accepted decision maps to nil.
+// returns for it, so adapters reject a Start the same way. Accepted and replayed
+// decisions map to nil.
 func StartDecisionError(decision domain.StartDecision) error {
 	switch decision.Outcome {
-	case domain.StartAccepted:
+	case domain.StartAccepted, domain.StartReplayed:
 		return nil
 	case domain.StartRejectedAlreadyCurrent:
 		return ErrCurrentReadingExists
@@ -514,10 +559,11 @@ func StartDecisionError(decision domain.StartDecision) error {
 func loadStartFacts(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string) (domain.StartFacts, sqlcgen.GetCurrentReadingCandidateIdentityRow, error) {
 	facts := domain.StartFacts{Language: language}
 	var identity sqlcgen.GetCurrentReadingCandidateIdentityRow
-	_, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
+	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
 	switch {
 	case err == nil:
 		facts.AlreadyCurrent = true
+		facts.CurrentIsBook = strings.EqualFold(current.GBookID, bookID)
 	case !errors.Is(err, pgx.ErrNoRows):
 		return facts, identity, err
 	}
