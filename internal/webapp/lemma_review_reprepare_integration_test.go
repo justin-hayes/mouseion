@@ -104,6 +104,8 @@ func TestReadyDeckIsOfferedAndRepreparedOnIdentityChangeWithProductionWiring(t *
 
 	preview := perform(t, h, http.MethodPost, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Drachen"}, "target": {"0"}, "decision": {"correct"}, "lemma": {"drache"}}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code)
+	assert.Contains(t, preview.Body.String(), "drach (NOUN):</strong> recurrence 2 → 1", "the preview renders the impact from the count projection")
+	assert.Contains(t, preview.Body.String(), "Reading snapshot/deck eligible no → no")
 	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(preview.Body.String())
 	require.Len(t, fingerprint, 2)
 	assert.Contains(t, preview.Body.String(), `name="reprepare_ready_deck"`, "an identity-changing preview asks for explicit re-preparation consent")
