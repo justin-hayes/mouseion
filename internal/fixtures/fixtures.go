@@ -196,7 +196,7 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
 		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
+			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
 		deckVocabulary: []domain.DeckPreparationVocabulary{
@@ -2213,26 +2213,92 @@ func (KnownVocab) Get(_ context.Context, _ string, id int64) (knownvocab.Status,
 
 type PreparedDeck struct{ Store *Store }
 
-func (p PreparedDeck) SubmitForCurrentReading(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
-	sourceMaterialID := SourceID
-	if analysisID == "fixture-route-match-run" {
-		sourceMaterialID = routeMatchBookID
+// fixtureCurrentReadingFor returns the owner's active current reading for a Book
+// and the Book's analysis identity. The fixture analysis is the reading's own
+// identity, so an active reading always pins its analysis. The caller holds mu.
+func (s *Store) fixtureCurrentReadingFor(owner, bookID string) (domain.CurrentReading, domain.CurrentAnalysis) {
+	if bookID == "" {
+		return domain.CurrentReading{}, domain.CurrentAnalysis{}
 	}
-	preparation := domain.DeckPreparation{ID: "fixture-goal-preparation-" + snapshotID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, SnapshotID: snapshotID, State: domain.DeckPreparationQueued}
-	if p.Store != nil {
-		p.Store.mu.Lock()
-		defer p.Store.mu.Unlock()
-		for _, existing := range p.Store.preps {
-			if existing.OwnerID == owner && existing.SnapshotID == snapshotID && existing.RetiredAt == nil {
-				return prepareddeck.Handle{Preparation: existing, JobID: 9}, nil
-			}
+	for _, current := range s.currentReadings {
+		if current.OwnerID == owner && current.BookID == bookID {
+			return current, domain.CurrentAnalysis{SourceMaterialID: current.SourceMaterialID, AnalysisRunID: current.AnalysisRunID, ContentRevisionID: current.ContentRevisionID, ContentSnapshotID: current.ContentSnapshotID, CorpusID: current.CorpusID}
 		}
-		p.Store.preps = append(p.Store.preps, preparation)
 	}
+	return domain.CurrentReading{}, domain.CurrentAnalysis{}
+}
+
+// fixtureLivePreparation returns a copy of the non-retired preparation bound to
+// the snapshot, or nil. The caller holds mu.
+func (s *Store) fixtureLivePreparation(owner, snapshotID string) *domain.DeckPreparation {
+	if snapshotID == "" {
+		return nil
+	}
+	for i := range s.preps {
+		if s.preps[i].OwnerID == owner && s.preps[i].SnapshotID == snapshotID && s.preps[i].RetiredAt == nil {
+			live := s.preps[i]
+			return &live
+		}
+	}
+	return nil
+}
+
+// PrepareCurrentReadingDeck applies the same admission rule as the service to the
+// fixture store, then creates or returns the live preparation of the snapshot.
+func (p PreparedDeck) PrepareCurrentReadingDeck(_ context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error) {
+	if p.Store == nil {
+		return prepareddeck.Handle{JobID: 9}, nil
+	}
+	p.Store.mu.Lock()
+	defer p.Store.mu.Unlock()
+	current, analysis := p.Store.fixtureCurrentReadingFor(owner, bookID)
+	live := p.Store.fixtureLivePreparation(owner, current.SnapshotID)
+	admission := domain.DecideDeckAdmission(domain.DeckAdmissionFacts{Action: domain.DeckActionSubmit, BookID: bookID, Current: current, Analysis: analysis, ExpectedSnapshotID: expectedSnapshotID, Preparation: live})
+	if err := admission.Err(); err != nil {
+		return prepareddeck.Handle{}, err
+	}
+	if live != nil {
+		return prepareddeck.Handle{Preparation: *live, JobID: 9}, nil
+	}
+	preparation := domain.DeckPreparation{ID: "fixture-goal-preparation-" + current.SnapshotID, OwnerID: owner, BookID: bookID, SourceMaterialID: current.SourceMaterialID, AnalysisRunID: current.AnalysisRunID, SnapshotID: current.SnapshotID, State: domain.DeckPreparationQueued}
+	p.Store.preps = append(p.Store.preps, preparation)
 	return prepareddeck.Handle{Preparation: preparation, JobID: 9}, nil
 }
+
+// CurrentReadingDeck reports the Book's current reading deck state and its
+// Submit admission, as the service does.
+func (p PreparedDeck) CurrentReadingDeck(_ context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error) {
+	if p.Store == nil {
+		return prepareddeck.CurrentDeck{}, nil
+	}
+	p.Store.mu.Lock()
+	defer p.Store.mu.Unlock()
+	current, analysis := p.Store.fixtureCurrentReadingFor(owner, bookID)
+	live := p.Store.fixtureLivePreparation(owner, current.SnapshotID)
+	admission := domain.DecideDeckAdmission(domain.DeckAdmissionFacts{Action: domain.DeckActionSubmit, BookID: bookID, Current: current, Analysis: analysis, ExpectedSnapshotID: current.SnapshotID, Preparation: live})
+	return prepareddeck.CurrentDeck{Current: current, Preparation: live, Admission: admission}, nil
+}
+
+// PreparationAdmissions reports which generation actions the preparation admits.
+func (p PreparedDeck) PreparationAdmissions(ctx context.Context, owner, id string) (prepareddeck.PreparationAdmissions, error) {
+	preparation, err := p.Get(ctx, owner, id)
+	if err != nil {
+		return prepareddeck.PreparationAdmissions{}, err
+	}
+	current, analysis := domain.CurrentReading{}, domain.CurrentAnalysis{}
+	if p.Store != nil {
+		p.Store.mu.Lock()
+		current, analysis = p.Store.fixtureCurrentReadingFor(owner, preparation.BookID)
+		p.Store.mu.Unlock()
+	}
+	facts := domain.DeckAdmissionFacts{BookID: preparation.BookID, Current: current, Analysis: analysis, ExpectedSnapshotID: preparation.SnapshotID, Preparation: &preparation}
+	facts.Action = domain.DeckActionSubmit
+	retry := domain.DecideDeckAdmission(facts)
+	facts.Action = domain.DeckActionReprepare
+	return prepareddeck.PreparationAdmissions{Retry: retry, Reprepare: domain.DecideDeckAdmission(facts)}, nil
+}
 func fixturePreparationFor(owner, id string) domain.DeckPreparation {
-	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
+	preparation := domain.DeckPreparation{ID: id, OwnerID: owner, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3}
 	switch id {
 	case JourneyPrepID:
 		preparation.SourceMaterialID = "fixture-empty"
@@ -2274,14 +2340,37 @@ func (p PreparedDeck) GetForCurrentReadingSnapshot(ctx context.Context, owner, s
 func (PreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparation, error) {
 	return domain.DeckPreparation{ID: PrepID, State: domain.DeckPreparationCancelled}, nil
 }
-func (PreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle, error) {
-	return prepareddeck.Handle{JobID: 9}, nil
-}
-func (PreparedDeck) Reprepare(context.Context, string, string) (prepareddeck.Handle, error) {
+
+// Reprepare admits a ready preparation of the exact current snapshot, as the
+// service does, then reports the fixture generation.
+func (p PreparedDeck) Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error) {
+	if err := p.admitGeneration(ctx, owner, id, expectedSnapshotID, domain.DeckActionReprepare); err != nil {
+		return prepareddeck.Handle{}, err
+	}
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "fixture-reprepared-deck", State: domain.DeckPreparationQueued}, JobID: 11}, nil
 }
-func (PreparedDeck) Rerender(context.Context, string, string) (prepareddeck.Handle, error) {
+
+// Rerender admits a ready preparation of the exact current snapshot, as the
+// service does, then reports the fixture job.
+func (p PreparedDeck) Rerender(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error) {
+	if err := p.admitGeneration(ctx, owner, id, expectedSnapshotID, domain.DeckActionRerender); err != nil {
+		return prepareddeck.Handle{}, err
+	}
 	return prepareddeck.Handle{JobID: 10}, nil
+}
+
+func (p PreparedDeck) admitGeneration(ctx context.Context, owner, id, expectedSnapshotID string, action domain.DeckAction) error {
+	preparation, err := p.Get(ctx, owner, id)
+	if err != nil {
+		return err
+	}
+	if p.Store == nil {
+		return nil
+	}
+	p.Store.mu.Lock()
+	current, analysis := p.Store.fixtureCurrentReadingFor(owner, preparation.BookID)
+	p.Store.mu.Unlock()
+	return domain.DecideDeckAdmission(domain.DeckAdmissionFacts{Action: action, BookID: preparation.BookID, Current: current, Analysis: analysis, ExpectedSnapshotID: expectedSnapshotID, Preparation: &preparation}).Err()
 }
 func (p PreparedDeck) Download(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
 	preparation, err := p.Get(ctx, owner, id)

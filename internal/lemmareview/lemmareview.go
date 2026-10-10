@@ -45,8 +45,8 @@ type Store interface {
 
 // Preparer submits the deck preparations that follow a confirmed identity change.
 type Preparer interface {
-	SubmitForCurrentReading(context.Context, string, string, string) (prepareddeck.Handle, error)
-	Reprepare(context.Context, string, string) (prepareddeck.Handle, error)
+	PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error)
+	Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
 }
 
 // BrowseCounts schedules the vocabulary count rebuild a committed decision needs.
@@ -366,7 +366,7 @@ func (s *Service) Confirm(ctx context.Context, owner, bookID string, p Proposal,
 		return s.restart(ctx, owner, bookID, proposal.Language)
 	case domain.LemmaRepreparationDirect:
 		return s.prepare(func() (prepareddeck.Handle, error) {
-			return s.preparer.Reprepare(ctx, owner, recovery.ReadyPreparationID)
+			return s.preparer.Reprepare(ctx, owner, recovery.ReadyPreparationID, recovery.ReadyDeckSnapshotID)
 		}), nil
 	case domain.LemmaRepreparationNone, domain.LemmaRepreparationUnconfirmed, domain.LemmaRepreparationBlockedByReading, domain.LemmaRepreparationNotToRead:
 		// Nothing to re-prepare. The rejected actions returned above.
@@ -390,12 +390,16 @@ func (s *Service) restart(ctx context.Context, owner, bookID, language string) (
 		return Outcome{Kind: OutcomeRestartFailed}, nil //nolint:nilerr // The committed decision must not be reported as failed.
 	}
 	return s.prepare(func() (prepareddeck.Handle, error) {
-		return s.preparer.SubmitForCurrentReading(ctx, owner, reading.AnalysisRunID, reading.SnapshotID)
+		return s.preparer.PrepareCurrentReadingDeck(ctx, owner, bookID, reading.SnapshotID)
 	}), nil
 }
 
 func (s *Service) prepare(submit func() (prepareddeck.Handle, error)) Outcome {
 	handle, err := submit()
+	if errors.Is(err, domain.ErrDeckPreparationNotRequired) {
+		// An empty snapshot has no vocabulary to prepare, so there is nothing to queue.
+		return Outcome{Kind: OutcomeSaved}
+	}
 	if err != nil {
 		return Outcome{Kind: OutcomeQueueingFailed}
 	}

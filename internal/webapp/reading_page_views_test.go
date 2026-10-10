@@ -51,6 +51,7 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 	currentReading.CurrentReadingSnapshotID = "snapshot"
 	currentReading.CurrentReadingVocabularyEligible = 1
 	currentReading.CurrentReadingPreparation = &domain.DeckPreparation{ID: "goal-preparation", SnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
+	currentReading.CurrentReadingActions = deckPreparationActions{BookID: "goal", OnCurrentReading: true, Submit: true}
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")

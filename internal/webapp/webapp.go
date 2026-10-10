@@ -155,13 +155,13 @@ type KnownVocabulary interface {
 	Get(context.Context, string, int64) (knownvocab.Status, error)
 }
 type PreparedDeck interface {
-	SubmitForCurrentReading(context.Context, string, string, string) (prepareddeck.Handle, error)
+	PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error)
+	CurrentReadingDeck(ctx context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error)
+	PreparationAdmissions(ctx context.Context, owner, id string) (prepareddeck.PreparationAdmissions, error)
 	Get(context.Context, string, string) (domain.DeckPreparation, error)
-	GetForCurrentReadingSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
-	Retry(context.Context, string, string) (prepareddeck.Handle, error)
-	Reprepare(context.Context, string, string) (prepareddeck.Handle, error)
-	Rerender(context.Context, string, string) (prepareddeck.Handle, error)
+	Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
+	Rerender(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
 }
 

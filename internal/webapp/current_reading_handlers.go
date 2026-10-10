@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 // currentReadingSectionView is the server-truth fragment returned after an HTMX Current reading
@@ -80,104 +78,82 @@ func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, 
 	redirect(w, r, location)
 }
 
-// expectedCommitmentMatches reports whether the request names the exact
-// commitment snapshot; a missing identity never matches.
-func expectedCommitmentMatches(r *http.Request, snapshotID string) bool {
-	expected := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-	return expected != "" && snapshotID != "" && expected == snapshotID
+// expectedCurrentSnapshotID is the Current reading snapshot the request names.
+// An empty value names no snapshot, which admission refuses as stale.
+func expectedCurrentSnapshotID(r *http.Request) string {
+	return strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
 }
 
+// retryCurrentReadingDeck is the Reading-page entry for preparing or retrying the
+// Book deck. The service admits or refuses the exact snapshot the request names.
 func (h *Handler) retryCurrentReadingDeck(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
-	currentReading, ok := h.currentReadingForDeckAction(w, r, owner)
-	if !ok {
-		return
-	}
-	if currentReading.SnapshotSize == 0 {
-		h.respondCurrentReading(w, r, "No deck is required for this empty Current reading snapshot.", "", currentReading.BookID)
+	bookID := strings.TrimSpace(r.PathValue("id"))
+	if !h.requireStudyLanguage(w, r) {
 		return
 	}
 	if h.services.PreparedDeck == nil {
-		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
+		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, bookID)
 		return
 	}
-	_, err := h.submitOrRetryCurrentReadingDeck(r.Context(), owner, currentReading)
-	if err != nil {
-		log.Printf("current reading deck retry owner=%s book=%s: %v", owner, currentReading.BookID, err)
-		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
-		return
+	_, err := h.services.PreparedDeck.PrepareCurrentReadingDeck(r.Context(), owner, bookID, expectedCurrentSnapshotID(r))
+	switch {
+	case err == nil:
+		h.respondCurrentReading(w, r, currentReadingDeckRetryMessage, "", bookID)
+	case errors.Is(err, domain.ErrDeckPreparationNotRequired):
+		h.respondCurrentReading(w, r, "No deck is required for this empty Current reading snapshot.", "", bookID)
+	case errors.Is(err, domain.ErrDeckPreparationStale), errors.Is(err, domain.ErrDeckPreparationNotCurrentReading):
+		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, bookID)
+	default:
+		log.Printf("current reading deck retry: %v", err)
+		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, bookID)
 	}
-	h.respondCurrentReading(w, r, currentReadingDeckRetryMessage, "", currentReading.BookID)
 }
 
+// cancelCurrentReadingDeck cancels the live preparation of the Current reading.
+// Cancellation checks only ownership and the preparation's active state, so the
+// live preparation is resolved by ID rather than by the expected snapshot.
 func (h *Handler) cancelCurrentReadingDeck(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
-	currentReading, ok := h.currentReadingForDeckAction(w, r, owner)
-	if !ok {
+	bookID := strings.TrimSpace(r.PathValue("id"))
+	if !h.requireStudyLanguage(w, r) {
 		return
 	}
-	preparation, err := h.services.PreparedDeck.GetForCurrentReadingSnapshot(r.Context(), owner, currentReading.SnapshotID)
-	if err != nil || !currentReadingPreparationMatches(preparation, owner, currentReading) {
-		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
-			log.Printf("current reading deck cancel lookup owner=%s book=%s: %v", owner, currentReading.BookID, err)
-		}
-		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
+	deck, err := h.services.PreparedDeck.CurrentReadingDeck(r.Context(), owner, bookID)
+	if err != nil {
+		log.Printf("current reading deck cancel lookup: %v", err)
+		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, bookID)
 		return
 	}
-	if _, err = h.services.PreparedDeck.Cancel(r.Context(), owner, preparation.ID); err != nil {
-		log.Printf("current reading deck cancel owner=%s book=%s: %v", owner, currentReading.BookID, err)
-		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
+	if deck.Admission == domain.DeckAdmissionNotCurrentReading {
+		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, bookID)
 		return
 	}
-	h.respondCurrentReading(w, r, currentReadingDeckCancelledMessage, "", currentReading.BookID)
+	if deck.Preparation == nil {
+		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, bookID)
+		return
+	}
+	if _, err = h.services.PreparedDeck.Cancel(r.Context(), owner, deck.Preparation.ID); err != nil {
+		log.Printf("current reading deck cancel: %v", err)
+		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, bookID)
+		return
+	}
+	h.respondCurrentReading(w, r, currentReadingDeckCancelledMessage, "", bookID)
 }
 
-func (h *Handler) currentReadingForDeckAction(w http.ResponseWriter, r *http.Request, owner string) (domain.CurrentReading, bool) {
+// requireStudyLanguage answers the request and reports false when no study
+// language is active.
+func (h *Handler) requireStudyLanguage(w http.ResponseWriter, r *http.Request) bool {
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
 		h.respondCurrentReading(w, r, "", currentReadingLanguageRequiredMessage, "")
-		return domain.CurrentReading{}, false
+		return false
 	}
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
-	if err != nil {
-		fail(w, err)
-		return domain.CurrentReading{}, false
-	}
-	if !currentReading.IsActive() || currentReading.BookID != strings.TrimSpace(r.PathValue("id")) {
-		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, currentReading.BookID)
-		return domain.CurrentReading{}, false
-	}
-	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-	if expectedSnapshotID == "" || currentReading.SnapshotID != expectedSnapshotID {
-		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, currentReading.BookID)
-		return domain.CurrentReading{}, false
-	}
-	return currentReading, true
-}
-
-func (h *Handler) submitOrRetryCurrentReadingDeck(ctx context.Context, owner string, currentReading domain.CurrentReading) (prepareddeck.Handle, error) {
-	preparation, err := h.services.PreparedDeck.GetForCurrentReadingSnapshot(ctx, owner, currentReading.SnapshotID)
-	switch {
-	case err == nil:
-		if !currentReadingPreparationMatches(preparation, owner, currentReading) {
-			return prepareddeck.Handle{}, persistence.ErrInvalidTransition
-		}
-		return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID)
-	case !errors.Is(err, persistence.ErrNotFound):
-		return prepareddeck.Handle{}, err
-	}
-	return h.services.PreparedDeck.SubmitForCurrentReading(ctx, owner, currentReading.AnalysisRunID, currentReading.SnapshotID)
-}
-
-func currentReadingPreparationMatches(preparation domain.DeckPreparation, owner string, currentReading domain.CurrentReading) bool {
-	return (preparation.OwnerID == "" || preparation.OwnerID == owner) &&
-		preparation.SourceMaterialID == currentReading.SourceMaterialID &&
-		preparation.AnalysisRunID == currentReading.AnalysisRunID &&
-		preparation.SnapshotID == currentReading.SnapshotID
+	return true
 }

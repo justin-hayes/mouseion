@@ -35,7 +35,7 @@ func TestReadingDeckPreparationPageShowsRequiredProviderAndNoConsentControl(t *t
 
 func TestReadingDeckPreparationPageKeepsCurrentReadingRetrySnapshotBound(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-1126", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
-	task := readingDeckPreparationView{Book: book, BookID: "book-goal-1126", AnalysisRunID: "run-goal-1126", CurrentReading: true, CurrentReadingSnapshotID: "goal-snapshot-1126", CurrentReadingSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-1126", SourceMaterialID: "source-goal-1126", AnalysisRunID: "run-goal-1126", SnapshotID: "goal-snapshot-1126", State: domain.DeckPreparationFailed}}
+	task := readingDeckPreparationView{Book: book, BookID: "book-goal-1126", AnalysisRunID: "run-goal-1126", CurrentReading: true, CurrentReadingSnapshotID: "goal-snapshot-1126", CurrentReadingSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-1126", SourceMaterialID: "source-goal-1126", AnalysisRunID: "run-goal-1126", SnapshotID: "goal-snapshot-1126", State: domain.DeckPreparationFailed}, Actions: deckPreparationActions{BookID: "book-goal-1126", OnCurrentReading: true, Submit: true}}
 	var output bytes.Buffer
 	require.NoError(t, ReadingDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-1126").Render(context.Background(), &output))
 	html := output.String()
@@ -47,7 +47,7 @@ func TestReadingDeckPreparationPageKeepsCurrentReadingRetrySnapshotBound(t *test
 
 func TestReadingDeckPreparationPageRepreparesReadyCurrentReadingDeckBySnapshot(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-reprepare", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
-	task := readingDeckPreparationView{Book: book, BookID: "book-goal-reprepare", AnalysisRunID: "run-goal-reprepare", CurrentReading: true, CurrentReadingSnapshotID: "goal-snapshot-reprepare", CurrentReadingSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-reprepare", SourceMaterialID: "source-goal-reprepare", AnalysisRunID: "run-goal-reprepare", SnapshotID: "goal-snapshot-reprepare", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError}}
+	task := readingDeckPreparationView{Book: book, BookID: "book-goal-reprepare", AnalysisRunID: "run-goal-reprepare", CurrentReading: true, CurrentReadingSnapshotID: "goal-snapshot-reprepare", CurrentReadingSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-reprepare", SourceMaterialID: "source-goal-reprepare", AnalysisRunID: "run-goal-reprepare", SnapshotID: "goal-snapshot-reprepare", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError}, Actions: deckPreparationActions{BookID: "book-goal-reprepare", OnCurrentReading: true, Submit: true}}
 	var output bytes.Buffer
 	require.NoError(t, ReadingDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-reprepare").Render(context.Background(), &output))
 	html := output.String()
@@ -61,7 +61,7 @@ func TestReadingDeckPreparationPageRepreparesReadyCurrentReadingDeckBySnapshot(t
 func TestCurrentReadingDeckPreparationStatusRetriesBySnapshot(t *testing.T) {
 	var output bytes.Buffer
 	preparation := domain.DeckPreparation{ID: "goal-prep-failed", State: domain.DeckPreparationFailed}
-	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
+	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation, deckPreparationActions{BookID: "book-goal", OnCurrentReading: true, Submit: true, Reprepare: true}).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `action="/reading/books/book-goal/deck/retry"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot-goal"`)
@@ -71,7 +71,7 @@ func TestCurrentReadingDeckPreparationStatusRetriesBySnapshot(t *testing.T) {
 func TestCurrentReadingDeckPreparationStatusCancelsBySnapshot(t *testing.T) {
 	var output bytes.Buffer
 	preparation := domain.DeckPreparation{ID: "goal-prep-active", State: domain.DeckPreparationPreparing}
-	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
+	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation, deckPreparationActions{BookID: "book-goal", OnCurrentReading: true, Submit: true, Reprepare: true}).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `action="/reading/books/book-goal/deck/cancel"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot-goal"`)

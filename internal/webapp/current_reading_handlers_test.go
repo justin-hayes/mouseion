@@ -25,8 +25,9 @@ type unavailableCurrentReadingPreparedDeck struct {
 	fixtures.PreparedDeck
 }
 
-func (unavailableCurrentReadingPreparedDeck) GetForCurrentReadingSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
-	return domain.DeckPreparation{}, persistence.ErrNotFound
+// CurrentReadingDeck reports no preparation for a non-empty snapshot: the deck is missing.
+func (unavailableCurrentReadingPreparedDeck) CurrentReadingDeck(context.Context, string, string) (prepareddeck.CurrentDeck, error) {
+	return prepareddeck.CurrentDeck{Admission: domain.DeckAdmit}, nil
 }
 
 type existingCurrentReadingPreparedDeck struct {
@@ -37,17 +38,19 @@ type existingCurrentReadingPreparedDeck struct {
 	cancellations             int
 }
 
-func (p *existingCurrentReadingPreparedDeck) GetForCurrentReadingSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
-	return p.preparation, nil
+func (p *existingCurrentReadingPreparedDeck) CurrentReadingDeck(context.Context, string, string) (prepareddeck.CurrentDeck, error) {
+	preparation := p.preparation
+	return prepareddeck.CurrentDeck{Preparation: &preparation, Admission: domain.DeckAdmit}, nil
 }
 
-func (p *existingCurrentReadingPreparedDeck) Retry(_ context.Context, _, _ string) (prepareddeck.Handle, error) {
+func (p *existingCurrentReadingPreparedDeck) PreparationAdmissions(context.Context, string, string) (prepareddeck.PreparationAdmissions, error) {
+	return prepareddeck.PreparationAdmissions{Retry: domain.DeckAdmit, Reprepare: domain.DeckAdmit}, nil
+}
+
+// PrepareCurrentReadingDeck is the Reading-page retry entry; the create route
+// reaches the same operation, and the frozen snapshot is reused, not resubmitted.
+func (p *existingCurrentReadingPreparedDeck) PrepareCurrentReadingDeck(context.Context, string, string, string) (prepareddeck.Handle, error) {
 	p.retries++
-	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
-}
-
-func (p *existingCurrentReadingPreparedDeck) SubmitForCurrentReading(context.Context, string, string, string) (prepareddeck.Handle, error) {
-	p.currentReadingSubmissions++
 	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
 }
 
@@ -319,7 +322,7 @@ func TestCurrentReadingDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T
 	assert.Zero(t, preparedDeck.currentReadingSubmissions, "repeated recovery must not retire the current Book preparation")
 }
 
-func TestCurrentReadingDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
+func TestCurrentReadingDeckCancelChecksOnlyOwnershipAndLiveState(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
@@ -334,16 +337,12 @@ func TestCurrentReadingDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T)
 	handler := requireHandler(t, h)
 	handler.services.PreparedDeck = preparedDeck
 
-	stale := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/cancel", url.Values{
+	// Cancel checks only ownership and the live state, so the named snapshot does
+	// not gate it: the live preparation of the Current reading is cancelled.
+	cancel := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/cancel", url.Values{
 		"csrf_token": {csrf}, "expected_current_snapshot_id": {"stale-snapshot"},
 	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, stale.Code)
-	assert.Zero(t, preparedDeck.cancellations)
-
-	current := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/cancel", url.Values{
-		"csrf_token": {csrf}, "expected_current_snapshot_id": {currentReading.SnapshotID},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, current.Code)
+	assert.Equal(t, http.StatusSeeOther, cancel.Code)
 	assert.Equal(t, 1, preparedDeck.cancellations)
 }
 

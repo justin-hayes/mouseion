@@ -140,17 +140,35 @@ type recordingPreparedDeck struct {
 	downloads    int
 }
 
-func (r *recordingPreparedDeck) GetForCurrentReadingSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+// CurrentReadingDeck reports the stored live preparation of the Book, admitted.
+func (r *recordingPreparedDeck) CurrentReadingDeck(_ context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error) {
 	for _, p := range r.preparations {
-		if p.OwnerID == owner && p.SnapshotID == snapshotID {
-			return p, nil
+		if p.OwnerID == owner && p.BookID == bookID && p.RetiredAt == nil {
+			preparation := p
+			return prepareddeck.CurrentDeck{Preparation: &preparation, Admission: domain.DeckAdmit}, nil
 		}
 	}
-	return domain.DeckPreparation{}, persistence.ErrNotFound
+	return prepareddeck.CurrentDeck{Admission: domain.DeckAdmit}, nil
 }
 
-func (r *recordingPreparedDeck) SubmitForCurrentReading(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
-	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, SnapshotID: snapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+func (r *recordingPreparedDeck) PreparationAdmissions(_ context.Context, owner, id string) (prepareddeck.PreparationAdmissions, error) {
+	p, err := r.Get(context.Background(), owner, id)
+	if err != nil {
+		return prepareddeck.PreparationAdmissions{}, err
+	}
+	retry := domain.DeckAdmit
+	if p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError {
+		retry = domain.DeckAdmissionInvalidTransition
+	}
+	reprepare := domain.DeckAdmissionInvalidTransition
+	if p.State == domain.DeckPreparationReady && p.RetiredAt == nil {
+		reprepare = domain.DeckAdmit
+	}
+	return prepareddeck.PreparationAdmissions{Retry: retry, Reprepare: reprepare}, nil
+}
+
+func (r *recordingPreparedDeck) PrepareCurrentReadingDeck(_ context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error) {
+	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, BookID: bookID, SourceMaterialID: "00000000-0000-0000-0000-000000000001", SnapshotID: expectedSnapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 94}, nil
 }
@@ -173,22 +191,13 @@ func (r *recordingPreparedDeck) Cancel(ctx context.Context, owner, id string) (d
 	r.preparations[id] = p
 	return p, nil
 }
-func (r *recordingPreparedDeck) Retry(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
+func (r *recordingPreparedDeck) Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error) {
 	p, err := r.Get(ctx, owner, id)
 	if err != nil {
 		return prepareddeck.Handle{}, err
 	}
-	if p.State != domain.DeckPreparationFailed && p.State != domain.DeckPreparationCancelled {
-		return prepareddeck.Handle{}, persistence.ErrInvalidTransition
-	}
-	p.State, p.Error = domain.DeckPreparationQueued, ""
-	r.preparations[id] = p
-	return prepareddeck.Handle{Preparation: p, JobID: 92}, nil
-}
-func (r *recordingPreparedDeck) Reprepare(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
-	p, err := r.Get(ctx, owner, id)
-	if err != nil {
-		return prepareddeck.Handle{}, err
+	if expectedSnapshotID != p.SnapshotID {
+		return prepareddeck.Handle{}, domain.ErrDeckPreparationStale
 	}
 	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil {
 		return prepareddeck.Handle{}, persistence.ErrInvalidTransition
@@ -201,10 +210,13 @@ func (r *recordingPreparedDeck) Reprepare(ctx context.Context, owner, id string)
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 95}, nil
 }
-func (r *recordingPreparedDeck) Rerender(ctx context.Context, owner, id string) (prepareddeck.Handle, error) {
+func (r *recordingPreparedDeck) Rerender(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error) {
 	p, err := r.Get(ctx, owner, id)
 	if err != nil {
 		return prepareddeck.Handle{}, err
+	}
+	if expectedSnapshotID != p.SnapshotID {
+		return prepareddeck.Handle{}, domain.ErrDeckPreparationStale
 	}
 	return prepareddeck.Handle{Preparation: p, JobID: 93}, nil
 }

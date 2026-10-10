@@ -182,11 +182,14 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]}, "reprepare_ready_deck": {"yes"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, confirmed.Code)
-	assert.Contains(t, confirmed.Header().Get("Location"), "/deck-preparations/fixture-goal-preparation-")
+	// The restarted snapshot holds no fixture vocabulary, so the service needs no
+	// deck for it and the confirmation returns to the review page as saved.
+	assert.Contains(t, confirmed.Header().Get("Location"), "/reading/books/"+fixtures.BookID+"/lemma-review")
 	newReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, fixtures.BookID, newReading.BookID)
 	assert.NotEqual(t, oldSnapshotID, newReading.SnapshotID)
+	assert.Zero(t, newReading.SnapshotSize)
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
 	require.NoError(t, err)
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)

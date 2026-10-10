@@ -23,43 +23,25 @@ func (h *Handler) createReadingEntryDeckPreparation(w http.ResponseWriter, r *ht
 		return
 	}
 	u := user(r)
-	detail, result, ok := h.validReadingDeckBook(w, r, u.ID, r.PathValue("id"))
+	detail, _, ok := h.validReadingDeckBook(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), u.ID, bookStudyLanguage(detail))
+	handle, err := h.services.PreparedDeck.PrepareCurrentReadingDeck(r.Context(), u.ID, detail.Book.ID, expectedCurrentSnapshotID(r))
 	if err != nil {
-		fail(w, err)
-		return
-	}
-	if !currentReading.IsActive() || currentReading.BookID != detail.Book.ID || currentReading.SnapshotSize == 0 || currentReading.SourceMaterialID != result.SourceMaterialID || currentReading.AnalysisRunID != result.RunID || currentReading.CorpusID != result.Corpus.ID {
-		http.NotFound(w, r)
-		return
-	}
-	if !expectedCommitmentMatches(r, currentReading.SnapshotID) {
-		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, currentReading.BookID)
-		return
-	}
-	handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, currentReading)
-	if submitErr != nil {
-		handlePreparationError(w, r, submitErr)
+		h.respondDeckAdmissionError(w, r, err, deckAdmissionCreate, detail.Book.ID)
 		return
 	}
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 }
 
+// validReadingDeckBook checks what is independent of the Current reading: the
+// Book is acquired, analysed, and a To Read choice in its study language. Whether
+// the Book is the current reading and whether a snapshot is admitted is decided
+// by the prepared-deck service.
 func (h *Handler) validReadingDeckBook(w http.ResponseWriter, r *http.Request, owner, bookID string) (domain.MyBook, analysis.CompletedAnalysis, bool) {
 	detail, ok := h.bookDetail(w, r, owner, bookID)
 	if !ok || detail.Acquired == nil {
-		http.NotFound(w, r)
-		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
-	}
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
-	if err != nil {
-		fail(w, err)
-		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
-	}
-	if !currentReading.IsActive() || currentReading.BookID != detail.Book.ID {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -100,7 +82,9 @@ type readingDeckPreparationView struct {
 	CurrentReadingSnapshotSize int
 	CurrentReading             bool
 	Preparation                *domain.DeckPreparation
-	Missing                    bool
+	// Actions are the admitted actions for Preparation, decided by the service.
+	Actions deckPreparationActions
+	Missing bool
 }
 
 func (h *Handler) newReadingDeckPreparation(w http.ResponseWriter, r *http.Request) {
@@ -113,31 +97,28 @@ func (h *Handler) newReadingDeckPreparation(w http.ResponseWriter, r *http.Reque
 	book.BookID = detail.Book.ID
 	book.BookTitle = detail.Book.Title
 	task := readingDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
+	deck, err := h.services.PreparedDeck.CurrentReadingDeck(r.Context(), owner, detail.Book.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	if !currentReading.IsActive() || currentReading.BookID != detail.Book.ID || currentReading.SourceMaterialID != result.SourceMaterialID || currentReading.AnalysisRunID != result.RunID || currentReading.CorpusID != result.Corpus.ID || currentReading.ContentRevisionID != book.Source.ContentRevisionID || currentReading.ContentSnapshotID != book.Source.ContentSnapshotID {
+	if deck.Admission == domain.DeckAdmissionNotCurrentReading {
 		http.NotFound(w, r)
 		return
 	}
 	task.CurrentReading = true
-	task.CurrentReadingSnapshotID = currentReading.SnapshotID
-	task.CurrentReadingSnapshotSize = currentReading.SnapshotSize
-	if currentReading.SnapshotSize > 0 {
-		if preparation, preparationErr := h.services.PreparedDeck.GetForCurrentReadingSnapshot(r.Context(), owner, currentReading.SnapshotID); preparationErr == nil {
-			if !currentReadingPreparationMatches(preparation, owner, currentReading) {
-				http.NotFound(w, r)
-				return
-			}
-			task.Preparation = &preparation
-		} else if errors.Is(preparationErr, persistence.ErrNotFound) {
-			task.Missing = true
-		} else {
-			fail(w, preparationErr)
+	task.CurrentReadingSnapshotID = deck.Current.SnapshotID
+	task.CurrentReadingSnapshotSize = deck.Current.SnapshotSize
+	if deck.Preparation != nil {
+		task.Preparation = deck.Preparation
+		admissions, admissionErr := h.services.PreparedDeck.PreparationAdmissions(r.Context(), owner, deck.Preparation.ID)
+		if admissionErr != nil {
+			fail(w, admissionErr)
 			return
 		}
+		task.Actions = deckActionsFor(task.BookID, admissions)
+	} else if deck.Current.SnapshotSize > 0 {
+		task.Missing = true
 	}
 	render(w, r, ReadingDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookURLInActiveLanguage(r.Context(), detail)))
 }
@@ -310,6 +291,12 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
+	actions, err := h.preparationActions(r.Context(), user(r).ID, p)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	readingAction.Actions = actions
 	if isPartialHTMXRequest(r) {
 		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, readingAction))
 		return
@@ -368,21 +355,19 @@ func (h *Handler) runPreparationGeneration(w http.ResponseWriter, r *http.Reques
 		handlePreparationError(w, r, err)
 		return
 	}
-	if !h.allowPreparationGeneration(w, r, owner, preparation) {
-		return
-	}
+	expected := expectedCurrentSnapshotID(r)
 	var handle prepareddeck.Handle
 	switch action {
 	case preparationReprepare:
-		handle, err = h.services.PreparedDeck.Reprepare(r.Context(), owner, id)
+		handle, err = h.services.PreparedDeck.Reprepare(r.Context(), owner, id, expected)
 	case preparationRerender:
-		handle, err = h.services.PreparedDeck.Rerender(r.Context(), owner, id)
+		handle, err = h.services.PreparedDeck.Rerender(r.Context(), owner, id, expected)
 	default:
 		fail(w, errors.New("unknown deck preparation generation action"))
 		return
 	}
 	if err != nil {
-		handlePreparationError(w, r, err)
+		h.respondDeckAdmissionError(w, r, err, deckAdmissionGenerate, preparation.BookID)
 		return
 	}
 	if wantsPreparationJSON(r) {
@@ -392,43 +377,42 @@ func (h *Handler) runPreparationGeneration(w http.ResponseWriter, r *http.Reques
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 }
 
-// allowPreparationGeneration lets only the exact active Reading snapshot create
-// another generation, and the request must name that snapshot. Preparations
-// without a snapshot are legacy rows that remain available for status and
-// download only.
-func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Request, owner string, preparation domain.DeckPreparation) bool {
-	bookID := preparation.BookID
-	if preparation.SnapshotID == "" {
-		http.NotFound(w, r)
-		return false
-	}
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
-	if err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
-			http.NotFound(w, r)
-		} else {
-			fail(w, err)
-		}
-		return false
-	}
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
-	if err != nil {
-		fail(w, err)
-		return false
-	}
-	if !currentReading.IsActive() || currentReading.BookID != bookID || currentReading.SnapshotID != preparation.SnapshotID || currentReading.SourceMaterialID != preparation.SourceMaterialID || currentReading.AnalysisRunID != preparation.AnalysisRunID {
-		http.NotFound(w, r)
-		return false
-	}
-	if !expectedCommitmentMatches(r, preparation.SnapshotID) {
-		if wantsPreparationJSON(r) {
+// deckAdmissionSurface names the learner request whose admission was refused.
+// Each surface keeps its own response: the create route, and the generation
+// routes that re-prepare or re-render a ready deck.
+type deckAdmissionSurface uint8
+
+const (
+	deckAdmissionCreate deckAdmissionSurface = iota
+	deckAdmissionGenerate
+)
+
+// respondDeckAdmissionError is the one place a refused Book deck admission
+// becomes a response. Messages and status codes match the pre-admission
+// behaviour on each surface.
+func (h *Handler) respondDeckAdmissionError(w http.ResponseWriter, r *http.Request, err error, surface deckAdmissionSurface, bookID string) {
+	switch {
+	case errors.Is(err, domain.ErrDeckPreparationStale):
+		if surface == deckAdmissionGenerate && wantsPreparationJSON(r) {
 			http.Error(w, currentReadingStaleMessage, http.StatusConflict)
-		} else {
-			h.respondCurrentReading(w, r, "", currentReadingStaleMessage, bookID)
+			return
 		}
-		return false
+		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, bookID)
+	case errors.Is(err, domain.ErrDeckPreparationNotCurrentReading), errors.Is(err, domain.ErrDeckPreparationNotRequired):
+		http.NotFound(w, r)
+	default:
+		handlePreparationError(w, r, err)
 	}
-	return true
+}
+
+// preparationActions asks the service which actions the preparation admits and
+// returns them as flags for the templates.
+func (h *Handler) preparationActions(ctx context.Context, owner string, p domain.DeckPreparation) (deckPreparationActions, error) {
+	admissions, err := h.services.PreparedDeck.PreparationAdmissions(ctx, owner, p.ID)
+	if err != nil {
+		return deckPreparationActions{}, err
+	}
+	return deckActionsFor(p.BookID, admissions), nil
 }
 
 func wantsPreparationJSON(r *http.Request) bool {
@@ -497,7 +481,7 @@ func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, persistence.ErrNotFound):
 		http.NotFound(w, r)
-	case errors.Is(err, persistence.ErrInvalidTransition):
+	case errors.Is(err, persistence.ErrInvalidTransition), errors.Is(err, domain.ErrDeckPreparationInvalidTransition):
 		http.Error(w, "invalid deck preparation state", http.StatusConflict)
 	default:
 		fail(w, err)

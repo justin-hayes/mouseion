@@ -28,11 +28,11 @@ func (repreparingPreparedDeck) Get(_ context.Context, owner, id string) (domain.
 	}, nil
 }
 
-func (repreparingPreparedDeck) Retry(context.Context, string, string) (prepareddeck.Handle, error) {
-	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
+func (repreparingPreparedDeck) PreparationAdmissions(context.Context, string, string) (prepareddeck.PreparationAdmissions, error) {
+	return prepareddeck.PreparationAdmissions{Retry: domain.DeckAdmit, Reprepare: domain.DeckAdmit}, nil
 }
 
-func (repreparingPreparedDeck) Reprepare(context.Context, string, string) (prepareddeck.Handle, error) {
+func (repreparingPreparedDeck) Reprepare(context.Context, string, string, string) (prepareddeck.Handle, error) {
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation", State: domain.DeckPreparationQueued}, JobID: 9}, nil
 }
 
