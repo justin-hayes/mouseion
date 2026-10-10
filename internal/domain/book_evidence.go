@@ -75,6 +75,7 @@ const (
 // disposition, and language. Presentation reads these results rather than
 // re-deriving them from signals.
 type BookEvidenceClassification struct {
+	Content     ContentSignal
 	Evidence    BookEvidenceState
 	Phase       AnalysisPhase
 	Run         LatestRunSignal
@@ -87,6 +88,13 @@ type BookEvidenceClassification struct {
 func (c BookEvidenceClassification) PublicationPending() bool {
 	return (c.Run == RunPublicationPending || c.Run == RunPublicationFailed) &&
 		(c.Phase == PhaseAnalyzing || c.Phase == PhaseNotAnalyzed)
+}
+
+// CompletedAnalysis reports a published analysis of the Book's current content
+// whose latest run completed. Coverage statistics are a separate concern and
+// are not part of the classification.
+func (c BookEvidenceClassification) CompletedAnalysis() bool {
+	return c.Evidence == BookAnalyzed && c.Run == RunCompleted
 }
 
 // RunFinished reports that the latest run reached its completed state, whether
@@ -106,6 +114,7 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 	}
 	phase := analysisPhase(signals)
 	return BookEvidenceClassification{
+		Content:     content,
 		Evidence:    evidenceState(content, phase),
 		Phase:       phase,
 		Run:         runOrNone(signals.LatestRun),

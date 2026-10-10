@@ -45,7 +45,7 @@ func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID s
 	if book.Title == "" && detail.Acquired != nil {
 		book.Title = canonicalBookTitle(*detail.Acquired)
 	}
-	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
+	if detail.Acquired == nil || !analysisReadyForReading(*detail.Acquired) {
 		return book, nil
 	}
 	if detail.Disposition == domain.BookDispositionToRead {

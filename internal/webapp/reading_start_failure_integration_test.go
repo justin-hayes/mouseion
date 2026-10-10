@@ -160,7 +160,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	require.NoError(t, err)
 	publishedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, publishedPage.Code)
-	assert.NotContains(t, publishedPage.Body.String(), "This Book is not shown as analyzed until its result is published")
+	assert.NotContains(t, publishedPage.Body.String(), "This Book is not shown as analyzed until publication completes")
 	assert.Contains(t, readingPage.Body.String(), "Confirm end current reading", "End current reading is explicit and confirmed")
 	assert.NotContains(t, readingPage.Body.String(), "Set aside this Book")
 	assert.Contains(t, readingPage.Body.String(), `href="/library"`, "Reading directs disposition decisions to My Books")

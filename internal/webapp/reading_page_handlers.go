@@ -13,11 +13,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
-
-const analysisPublicationPendingDescription = "Analysis completed, but publication is pending or failed. This Book is not shown as analyzed until its result is published; retry analysis to finish publication."
 
 type readingBookView struct {
 	Book                             domain.SourceMaterialSummary
@@ -37,7 +34,6 @@ type readingBookView struct {
 	CanMoveEarlier                   bool
 	CanMoveLater                     bool
 	CanChooseCurrentReading          bool
-	CurrentReadingEligibilityReason  string
 	Coverage                         *domain.AnalysisCoverage
 	StatisticsUnavailable            bool
 }
@@ -91,38 +87,26 @@ func currentReadingSectionFocusID(bookID string) string {
 	return readingBookAnchorID(bookID)
 }
 
-func readingEvidenceState(item readingBookView) string {
-	classification := item.Book.EvidenceClassification()
-	if classification.Phase == domain.PhaseFailed {
-		return "failed"
-	}
-	switch classification.Evidence {
-	case domain.BookStale:
-		return "stale"
-	case domain.BookAcquiredUnassessed:
-		return "incomplete"
-	case domain.BookNotAcquired, domain.BookUnavailable:
-		return "unavailable"
-	case domain.BookAnalyzed:
-		if item.StatisticsUnavailable || item.Coverage == nil {
-			return "incomplete"
-		}
-		return "current"
-	default: // Unknown evidence states are not treated as current.
-		return "unavailable"
-	}
+// readingEvidenceState combines the Book's Analysis evidence classification with
+// whether its coverage statistics are available to present.
+func readingEvidenceState(item readingBookView) readingEvidenceStatus {
+	return readingEvidenceStatusFor(item.Book.EvidenceClassification(), item.Coverage != nil && !item.StatisticsUnavailable)
 }
 
 func readingEvidenceLabel(item readingBookView) string {
 	switch readingEvidenceState(item) {
-	case "stale":
+	case readingEvidenceStale:
 		return "Stale evidence"
-	case "incomplete":
+	case readingEvidenceIncomplete:
 		return "Incomplete evidence"
-	case "failed":
+	case readingEvidenceFailed:
 		return "Analysis failed"
-	case "unavailable":
+	case readingEvidenceUnavailable:
 		return "Evidence unavailable"
+	case readingEvidencePublishing:
+		return analysisPublicationPendingLabel
+	case readingEvidenceCurrent:
+		return ""
 	default:
 		return ""
 	}
@@ -130,17 +114,21 @@ func readingEvidenceLabel(item readingBookView) string {
 
 func readingEvidenceDescription(item readingBookView) string {
 	switch readingEvidenceState(item) {
-	case "stale":
+	case readingEvidenceStale:
 		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
-	case "incomplete":
+	case readingEvidenceIncomplete:
 		if item.Book.EvidenceClassification().RunFinished() {
 			return analysisPublicationPendingDescription
 		}
 		return "A completed analysis has not produced usable coverage for this book yet."
-	case "failed":
+	case readingEvidenceFailed:
 		return "The last analysis failed. Retry analysis to produce current evidence."
-	case "unavailable":
+	case readingEvidenceUnavailable:
 		return "Current book content is unavailable, so coverage cannot be calculated."
+	case readingEvidencePublishing:
+		return analysisPublicationPendingDescription
+	case readingEvidenceCurrent:
+		return ""
 	default:
 		return ""
 	}
@@ -155,7 +143,8 @@ func reservedVocabularySummary(count int) string {
 
 func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 	bookID := readingBookID(item)
-	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" || strings.TrimSpace(item.Book.Source.ContentSnapshotID) == "" {
+	classification := item.Book.EvidenceClassification()
+	if classification.Content != domain.ContentCurrentEPUB {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
 			Description: "No current EPUB content is available for this book in Reading. Retry acquisition when the catalog can provide it.",
@@ -166,52 +155,40 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		}
 	}
 	action := bookLifecycleActionFor(item.Book)
-	evidenceState := readingEvidenceState(item)
-	if evidenceState == "failed" || (evidenceState == "incomplete" && action.Status != "Analysis queued" && action.Status != "Analysis running") {
-		action.Status = "Analysis incomplete"
+	switch readingEvidenceState(item) {
+	case readingEvidencePublishing:
+		// A finished run awaiting publication has no recovery action; retrying
+		// would only rerun analysis the publisher is already completing.
+		return bookLifecycleAction{Status: analysisPublicationPendingLabel, Description: analysisPublicationPendingDescription, Tone: StatusInfo}
+	case readingEvidenceFailed:
+		action.Status = "Analysis failed"
 		action.Description = readingEvidenceDescription(item)
 		action.Label = "Retry analysis"
 		action.URL = readingReanalyzeURL(bookID)
 		action.Submit = true
-		action.Tone = StatusWarning
-		if readingEvidenceState(item) == "failed" {
-			action.Status = "Analysis failed"
-			action.Tone = StatusDanger
+		action.Tone = StatusDanger
+		return action
+	case readingEvidenceIncomplete:
+		if action.Status != "Analysis queued" && action.Status != "Analysis running" {
+			action.Status = "Analysis incomplete"
+			action.Description = readingEvidenceDescription(item)
+			action.Label = "Retry analysis"
+			action.URL = readingReanalyzeURL(bookID)
+			action.Submit = true
+			action.Tone = StatusWarning
+			return action
 		}
-	} else if action.Status == "Analysis not started" {
+	case readingEvidenceCurrent, readingEvidenceStale, readingEvidenceUnavailable:
+	}
+	if action.Status == "Analysis not started" {
 		action.Label = "Retry analysis"
 		action.URL = readingReanalyzeURL(bookID)
 		action.Submit = true
-	} else if action.Status == "Analysis result ready" && bookHasCompletedAnalysis(item.Book) {
+	} else if action.Status == "Analysis result ready" && analysisReadyForReading(item.Book) {
 		action.URL = readingBookURL(bookID)
 		action.Label = "View in Reading"
 	}
 	return action
-}
-
-func readingCurrentReadingEligibility(book domain.SourceMaterialSummary) (bool, string) {
-	switch book.EvidenceClassification().Eligibility {
-	case domain.CurrentReadingNotToRead:
-		return false, "This book cannot be started until it is in To Read."
-	case domain.CurrentReadingNoChosenLanguage:
-		return false, "This book cannot be started until its language is chosen."
-	case domain.CurrentReadingNeedsCurrentContent:
-		return false, "This book cannot be started until current EPUB content is available."
-	case domain.CurrentReadingAnalysisInProgress:
-		return false, "This book cannot be started while its current analysis is still in progress."
-	case domain.CurrentReadingFailed:
-		return false, "This book cannot be started until its failed analysis is retried successfully."
-	case domain.CurrentReadingCancelled:
-		return false, "This book cannot be started until its cancelled analysis is retried successfully."
-	case domain.CurrentReadingStale:
-		return false, "This book cannot be started until its analysis matches the current content."
-	case domain.CurrentReadingNoCompletedAnalysis:
-		return false, "This book needs a successfully completed current analysis before it can be started."
-	case domain.CurrentReadingEligible:
-		return true, ""
-	default:
-		return false, "This book's Goal eligibility is unavailable."
-	}
 }
 
 type readingPageView struct {

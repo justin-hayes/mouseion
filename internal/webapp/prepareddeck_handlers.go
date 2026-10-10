@@ -68,7 +68,7 @@ func (h *Handler) validReadingDeckBook(w http.ResponseWriter, r *http.Request, o
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
 	book := *detail.Acquired
-	if book.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(book) {
+	if !analysisReadyForReading(book) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -611,7 +611,7 @@ func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner strin
 		}
 		return "", err
 	}
-	if detail.Acquired == nil || detail.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*detail.Acquired) {
+	if detail.Acquired == nil || !analysisReadyForReading(*detail.Acquired) {
 		return "", nil
 	}
 	if err := h.annotateBookToReadLanguage(ctx, owner, bookStudyLanguage(detail), &detail); err != nil {

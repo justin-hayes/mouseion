@@ -220,3 +220,16 @@ func TestMyBookClassificationUsesDispositionAndChosenLanguage(t *testing.T) {
 	assert.Equal(t, CurrentReadingNoChosenLanguage, MyBook{Book: Book{LanguageTag: "de"}, Disposition: BookDispositionToRead, Acquired: acquired}.Classification().Eligibility)
 	assert.Equal(t, CurrentReadingNotToRead, MyBook{Book: book.Book, Disposition: BookDispositionInbox, Acquired: acquired}.Classification().Eligibility)
 }
+
+func TestClassificationCarriesContentAndCompletedAnalysis(t *testing.T) {
+	completed := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCompleted}, BookDispositionToRead, "de")
+	assert.Equal(t, ContentCurrentEPUB, completed.Content)
+	assert.True(t, completed.CompletedAnalysis())
+
+	pending := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, LatestRun: RunPublicationPending}, BookDispositionToRead, "de")
+	assert.False(t, pending.CompletedAnalysis(), "a run awaiting publication is not a completed analysis")
+
+	noContent := ClassifyBookEvidence(AnalysisSignals{Content: ContentNoCurrentRevision, Published: PublishedCurrent, LatestRun: RunCompleted}, BookDispositionToRead, "de")
+	assert.False(t, noContent.CompletedAnalysis(), "analysis without current content is unavailable evidence")
+	assert.Equal(t, ContentNoCurrentRevision, noContent.Content)
+}
