@@ -122,12 +122,7 @@ func (h *Handler) cancelCurrentReadingDeck(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
-	if !ok {
-		h.respondGoal(w, r, "", goalDeckUnavailableMessage, goal.BookID)
-		return
-	}
-	preparation, err := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID)
+	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID)
 	if err != nil || !currentReadingPreparationMatches(preparation, owner, goal) {
 		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 			log.Printf("primary goal deck cancel lookup owner=%s book=%s: %v", owner, goal.BookID, err)
@@ -172,17 +167,15 @@ func (h *Handler) currentReadingForDeckAction(w http.ResponseWriter, r *http.Req
 }
 
 func (h *Handler) submitOrRetryCurrentReadingDeck(ctx context.Context, owner string, goal domain.CurrentReading) (prepareddeck.Handle, error) {
-	if reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot); ok {
-		preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
-		switch {
-		case err == nil:
-			if !currentReadingPreparationMatches(preparation, owner, goal) {
-				return prepareddeck.Handle{}, persistence.ErrInvalidTransition
-			}
-			return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID)
-		case !errors.Is(err, persistence.ErrNotFound):
-			return prepareddeck.Handle{}, err
+	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
+	switch {
+	case err == nil:
+		if !currentReadingPreparationMatches(preparation, owner, goal) {
+			return prepareddeck.Handle{}, persistence.ErrInvalidTransition
 		}
+		return h.services.PreparedDeck.Retry(ctx, owner, preparation.ID)
+	case !errors.Is(err, persistence.ErrNotFound):
+		return prepareddeck.Handle{}, err
 	}
 	return h.services.PreparedDeck.SubmitForGoal(ctx, owner, goal.AnalysisRunID, goal.SnapshotID)
 }

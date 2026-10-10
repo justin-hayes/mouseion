@@ -841,7 +841,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/jobs');
-    await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(18);
+    await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(19);
     await page.goto('/reading#journey-book-fixture-book');
     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
     await page.goto('/jobs/43');

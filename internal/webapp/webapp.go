@@ -138,26 +138,30 @@ type Analysis interface {
 	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
 	SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
+	Reconcile(context.Context, string, int64) (analysis.Status, error)
+	Retry(context.Context, string, int64) (analysis.Handle, error)
+	Cancel(context.Context, string, int64) (analysis.Status, error)
+	EnqueueBrowseCountRebuild(context.Context, string, string) error
+	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
 }
 
-// CatalogueSyncScheduler lets connection CRUD maintain the River periodic
-// schedule without coupling handlers to River or exposing job credentials.
-// The learner-facing Sync now action belongs to the follow-up connection UI.
-type CatalogueSyncScheduler interface {
+// CatalogueSync is the catalogue sync seam. Connection CRUD maintains the River
+// periodic schedule through it without coupling handlers to River or exposing
+// job credentials; the Jobs surface and Library refresh act on sync runs through
+// the same seam.
+type CatalogueSync interface {
 	RegisterConnection(context.Context, string, string) error
 	UnregisterConnection(string, string) error
 	// ListCatalogueSyncStatuses overlays durable sync status with River's live
 	// state, so the store alone cannot report a stale Syncing row accurately.
 	ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
-}
-type CatalogueMetadataRefresher interface {
+	List(context.Context, string) ([]cataloguesync.Status, error)
+	Get(context.Context, string, int64) (cataloguesync.Status, error)
+	Enqueue(context.Context, string, string) (cataloguesync.Handle, error)
+	Retry(context.Context, string, int64) (cataloguesync.Handle, error)
+	Cancel(context.Context, string, int64) (cataloguesync.Status, error)
 	RefreshEntry(context.Context, string, string) (cataloguesync.RefreshResult, error)
-}
-type CatalogueAcquisitionTargetProvider interface {
 	FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
-}
-type CompletedAnalysisReader interface {
-	GetCompletedAnalysis(context.Context, string, string, string) (analysis.CompletedAnalysis, error)
 }
 type AnalysisInsights interface {
 	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
@@ -170,14 +174,12 @@ type PreparedDeck interface {
 	Submit(context.Context, string, string) (prepareddeck.Handle, error)
 	SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
 	Get(context.Context, string, string) (domain.DeckPreparation, error)
+	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
 	Retry(context.Context, string, string) (prepareddeck.Handle, error)
 	Reprepare(context.Context, string, string) (prepareddeck.Handle, error)
 	Rerender(context.Context, string, string) (prepareddeck.Handle, error)
 	Download(context.Context, string, string) (domain.DeckPreparation, error)
-}
-type PreparedDeckForGoalSnapshot interface {
-	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 }
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
@@ -193,7 +195,7 @@ type Services struct {
 	Capabilities     analyzer.CapabilityProvider
 	LemmaRiskIndex   lemmarisk.AlternativeIndex
 	LemmaSuggestions enrichment.LemmaSuggestionProvider
-	CatalogueSync    CatalogueSyncScheduler
+	CatalogueSync    CatalogueSync
 	SecureCookies    bool
 	SessionLifetime  time.Duration
 	// InteractiveReadTimeout bounds Browse and Concordance reads; zero uses

@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -45,7 +46,7 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 	require.NoError(t, err)
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "retired-vocabulary-owner", "owner-password")
 	otherCookies, _ := loginCookies(t, h, "retired-vocabulary-other", "other-password")
 	paths := []struct{ method, path string }{
@@ -299,7 +300,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1`, alice.ID).Scan(&readingCountBefore))
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "browse-http-alice", "alice-password")
 	defaultBrowse := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, defaultBrowse.Code)
@@ -605,7 +606,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	require.NoError(t, tx.Commit(ctx))
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "browse-projection-http", "projection-password")
 	noMatch := perform(t, h, http.MethodGet, "/reading?q=zzz&all=1", nil, cookies)
 	require.Equal(t, http.StatusOK, noMatch.Code)
@@ -660,7 +661,7 @@ func TestVocabularyConcordanceTimesOutWithRetryInsteadOfReportingNoMatches(t *te
 	seedMigrationAnalyzedBook(t, ctx, store, account.ID, "concordance-timeout", "Timeout Book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour, InteractiveReadTimeout: 500 * time.Millisecond})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour, InteractiveReadTimeout: 500 * time.Millisecond})
 	cookies, _ := loginCookies(t, h, "concordance-timeout", "timeout-password")
 	lockConn, err := store.Pool().Acquire(ctx)
 	require.NoError(t, err)

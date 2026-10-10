@@ -28,18 +28,12 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if service, ok := h.services.CatalogueSync.(interface {
-		List(context.Context, string) ([]cataloguesync.Status, error)
-	}); ok {
-		syncJobs, syncErr := service.List(r.Context(), u.ID)
-		if syncErr != nil {
-			fail(w, syncErr)
-			return
-		}
-		render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), jobBookContexts))
+	syncJobs, syncErr := h.services.CatalogueSync.List(r.Context(), u.ID)
+	if syncErr != nil {
+		fail(w, syncErr)
 		return
 	}
-	render(w, r, JobsPage(u, h.csrf(w, r), jobs, r.URL.Query().Get("message"), jobBookContexts))
+	render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, r.URL.Query().Get("message"), jobBookContexts))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -84,12 +78,8 @@ func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) 
 		http.NotFound(w, r)
 		return analysis.Status{}, false
 	}
-	if lifecycle, ok := h.services.Analysis.(interface {
-		Reconcile(context.Context, string, int64) (analysis.Status, error)
-	}); ok {
-		if _, reconcileErr := lifecycle.Reconcile(r.Context(), owner, id); reconcileErr != nil && !errors.Is(reconcileErr, analysis.ErrNotFound) {
-			log.Printf("mouseion: reconcile analysis job status: %v", reconcileErr)
-		}
+	if _, reconcileErr := h.services.Analysis.Reconcile(r.Context(), owner, id); reconcileErr != nil && !errors.Is(reconcileErr, analysis.ErrNotFound) {
+		log.Printf("mouseion: reconcile analysis job status: %v", reconcileErr)
 	}
 	status, err := h.services.Analysis.Get(r.Context(), owner, id)
 	if errors.Is(err, analysis.ErrNotFound) {
@@ -112,32 +102,20 @@ func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if service, ok := h.services.CatalogueSync.(interface {
-		Get(context.Context, string, int64) (cataloguesync.Status, error)
-		Retry(context.Context, string, int64) (cataloguesync.Handle, error)
-	}); ok {
-		if _, getErr := service.Get(r.Context(), user(r).ID, id); getErr == nil {
-			handle, retryErr := service.Retry(r.Context(), user(r).ID, id)
-			if retryErr != nil {
-				if errors.Is(retryErr, cataloguesync.ErrNotFound) {
-					http.NotFound(w, r)
-					return
-				}
-				redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalog sync is not available for retry."))
+	if _, getErr := h.services.CatalogueSync.Get(r.Context(), user(r).ID, id); getErr == nil {
+		handle, retryErr := h.services.CatalogueSync.Retry(r.Context(), user(r).ID, id)
+		if retryErr != nil {
+			if errors.Is(retryErr, cataloguesync.ErrNotFound) {
+				http.NotFound(w, r)
 				return
 			}
-			redirect(w, r, fmt.Sprintf("/jobs/%d?message=%s", handle.ID, url.QueryEscape("Catalog sync retry submitted.")))
+			redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalog sync is not available for retry."))
 			return
 		}
-	}
-	lifecycle, ok := h.services.Analysis.(interface {
-		Retry(context.Context, string, int64) (analysis.Handle, error)
-	})
-	if !ok {
-		http.NotFound(w, r)
+		redirect(w, r, fmt.Sprintf("/jobs/%d?message=%s", handle.ID, url.QueryEscape("Catalog sync retry submitted.")))
 		return
 	}
-	if _, err = lifecycle.Retry(r.Context(), user(r).ID, id); err != nil {
+	if _, err = h.services.Analysis.Retry(r.Context(), user(r).ID, id); err != nil {
 		if errors.Is(err, analysis.ErrNotFound) {
 			http.NotFound(w, r)
 			return
@@ -157,31 +135,19 @@ func (h *Handler) cancelJob(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if service, ok := h.services.CatalogueSync.(interface {
-		Get(context.Context, string, int64) (cataloguesync.Status, error)
-		Cancel(context.Context, string, int64) (cataloguesync.Status, error)
-	}); ok {
-		if _, getErr := service.Get(r.Context(), user(r).ID, id); getErr == nil {
-			if _, cancelErr := service.Cancel(r.Context(), user(r).ID, id); cancelErr != nil {
-				if errors.Is(cancelErr, cataloguesync.ErrNotFound) {
-					http.NotFound(w, r)
-					return
-				}
-				redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalog sync could not be cancelled."))
+	if _, getErr := h.services.CatalogueSync.Get(r.Context(), user(r).ID, id); getErr == nil {
+		if _, cancelErr := h.services.CatalogueSync.Cancel(r.Context(), user(r).ID, id); cancelErr != nil {
+			if errors.Is(cancelErr, cataloguesync.ErrNotFound) {
+				http.NotFound(w, r)
 				return
 			}
-			redirect(w, r, "/jobs/"+r.PathValue("id")+"?message="+url.QueryEscape("Catalog sync cancelled."))
+			redirect(w, r, "/jobs/"+r.PathValue("id")+"?error="+url.QueryEscape("This catalog sync could not be cancelled."))
 			return
 		}
-	}
-	lifecycle, ok := h.services.Analysis.(interface {
-		Cancel(context.Context, string, int64) (analysis.Status, error)
-	})
-	if !ok {
-		http.NotFound(w, r)
+		redirect(w, r, "/jobs/"+r.PathValue("id")+"?message="+url.QueryEscape("Catalog sync cancelled."))
 		return
 	}
-	if _, err = lifecycle.Cancel(r.Context(), user(r).ID, id); err != nil {
+	if _, err = h.services.Analysis.Cancel(r.Context(), user(r).ID, id); err != nil {
 		if errors.Is(err, analysis.ErrNotFound) {
 			http.NotFound(w, r)
 			return
@@ -193,20 +159,11 @@ func (h *Handler) cancelJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) loadCatalogueJob(ctx context.Context, owner, rawID string) (cataloguesync.Status, bool, bool) {
-	service, ok := h.services.CatalogueSync.(interface {
-		Get(context.Context, string, int64) (cataloguesync.Status, error)
-	})
-	if !ok {
-		return cataloguesync.Status{}, false, false
-	}
 	id, err := strconv.ParseInt(rawID, 10, 64)
 	if err != nil {
 		return cataloguesync.Status{}, false, false
 	}
-	status, err := service.Get(ctx, owner, id)
-	if errors.Is(err, cataloguesync.ErrNotFound) {
-		return cataloguesync.Status{}, false, false
-	}
+	status, err := h.services.CatalogueSync.Get(ctx, owner, id)
 	if err != nil {
 		return cataloguesync.Status{}, false, false
 	}

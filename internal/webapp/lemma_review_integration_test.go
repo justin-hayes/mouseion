@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -233,7 +234,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(ctx, rebuildTx, owner.ID, book.ID, source.ID, analysisRun, corpus.ID, "de"))
 	require.NoError(t, rebuildTx.Commit(ctx))
 	myBooksAuth := auth.New(store, time.Hour)
-	myBooksHandler := New(Services{Auth: myBooksAuth, WebAuth: webauth.New(myBooksAuth, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	myBooksHandler := New(Services{Auth: myBooksAuth, WebAuth: webauth.New(myBooksAuth, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, myBooksHandler, "lemma-review-owner", "learner-password")
 	myBooksPage := perform(t, myBooksHandler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, myBooksPage.Code)

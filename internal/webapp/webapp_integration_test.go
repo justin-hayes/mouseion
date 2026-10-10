@@ -24,6 +24,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -38,6 +39,7 @@ import (
 )
 
 type recordingAnalysis struct {
+	fixtures.Analysis
 	owner, source, scope string
 	calls                int
 }
@@ -55,10 +57,12 @@ func readyGerman() staticCapabilities {
 }
 
 type metadataBookAcquisitionStub struct {
+	fixtures.CatalogueSync
 	target cataloguesync.AcquisitionTarget
 }
 
 type catalogueLanguageCorrectionRefresher struct {
+	fixtures.CatalogueSync
 	store        *persistence.PostgresStore
 	connectionID string
 }
@@ -134,6 +138,15 @@ type recordingKnownVocab struct {
 type recordingPreparedDeck struct {
 	preparations map[string]domain.DeckPreparation
 	downloads    int
+}
+
+func (r *recordingPreparedDeck) GetForGoalSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+	for _, p := range r.preparations {
+		if p.OwnerID == owner && p.GoalSnapshotID == snapshotID {
+			return p, nil
+		}
+	}
+	return domain.DeckPreparation{}, persistence.ErrNotFound
 }
 
 func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID string) (prepareddeck.Handle, error) {
@@ -258,7 +271,7 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 
 	page := perform(t, h, "GET", "/login", nil, nil)
 	assert.Equal(t, http.StatusOK, page.Code)
@@ -364,7 +377,7 @@ func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		OPDS:     opds.NewService(store, epub.NewService(store), catalog.Client()),
-		Analysis: recorder, CatalogueSync: metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
+		Analysis: recorder, CatalogueSync: &metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
 	bookState, err := store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
@@ -449,7 +462,7 @@ func TestAuthenticatedMetadataRefreshCorrectsCurrentReadingLanguage(t *testing.T
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
-		CatalogueSync: catalogueLanguageCorrectionRefresher{store: store, connectionID: connection.ID}, SessionLifetime: time.Hour,
+		CatalogueSync: &catalogueLanguageCorrectionRefresher{store: store, connectionID: connection.ID}, SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
 	hidden := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/hide", url.Values{"csrf_token": {csrf}, "expected_visibility_revision": {"0"}}, cookies)
@@ -516,7 +529,7 @@ func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Awaiting a language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, owner.Username, "owner-password")
 	page := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
 	assert.Equal(t, http.StatusOK, page.Code)

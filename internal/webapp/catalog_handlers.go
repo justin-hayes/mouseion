@@ -1,7 +1,6 @@
 package webapp
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -51,14 +50,7 @@ func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
 		return
 	}
-	service, ok := h.services.CatalogueSync.(interface {
-		Enqueue(context.Context, string, string) (cataloguesync.Handle, error)
-	})
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	_, err := service.Enqueue(r.Context(), user(r).ID, r.PathValue("id"))
+	_, err := h.services.CatalogueSync.Enqueue(r.Context(), user(r).ID, r.PathValue("id"))
 	if errors.Is(err, cataloguesync.ErrNotFound) {
 		http.NotFound(w, r)
 		return

@@ -882,6 +882,15 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.locator('a[href="/reading#journey-book-fixture-book"]').first()).toBeVisible();
   });
 
+  test('a running analysis job can be cancelled in the fixture server', async ({ page }) => {
+    await page.goto('/jobs/59');
+    await expect(page.getByRole('heading', { name: 'Analysis job #19' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel analysis' }).click();
+    await expect(page.getByRole('button', { name: 'Cancel analysis' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
+    await expect(page.getByText('Analysis cancelled. Retry the EPUB snapshot when you are ready.')).toBeVisible();
+  });
+
   test('asserts initial HTML before HTMX enhancement and observes status', async ({ page }) => {
     // The import form and its results region are server-rendered only once a
     // study language is selected on the Vocabulary page.

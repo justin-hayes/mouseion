@@ -62,7 +62,10 @@ func (s *journeyIntentStore) TransitionBookDisposition(_ context.Context, _, _ s
 	return true, nil
 }
 
-type journeyIntentAnalysis struct{ calls int }
+type journeyIntentAnalysis struct {
+	fixtures.Analysis
+	calls int
+}
 
 func (a *journeyIntentAnalysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
 	a.calls++

@@ -48,7 +48,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		Analysis: fixtures.Analysis{}, AnalysisInsights: analysisinsights.NewService(store), Capabilities: capabilities,
-		PreparedDeck:    &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)},
+		CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()),
+		PreparedDeck:  &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)},
 		SessionLifetime: time.Hour,
 	})
 	aliceCookies, csrf := loginCookies(t, h, "migration-alice", "alice-password")

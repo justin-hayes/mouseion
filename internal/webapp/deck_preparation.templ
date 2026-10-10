@@ -175,9 +175,7 @@ templ JourneyDeckPreparationPage(user domain.User, csrf string, task journeyDeck
 				<dt>Frozen reading snapshot</dt><dd><code>{ task.GoalSnapshotID }</code> · { fmt.Sprintf("%d frozen identities", task.GoalSnapshotSize) }</dd>
 			}
 		</dl>
-		if task.Unavailable {
-			@Feedback(FeedbackWarning, "Deck preparation unavailable", "The preparation service could not verify this exact source. No deck action was started.")
-		} else if task.Goal {
+		if task.Goal {
 			if task.GoalSnapshotSize == 0 {
 				@EmptyState("No deck needed", "This frozen reading snapshot contains no vocabulary identities, so no cards will be created.")
 			} else if task.Preparation != nil {

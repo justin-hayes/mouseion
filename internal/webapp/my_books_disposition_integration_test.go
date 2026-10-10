@@ -12,7 +12,9 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +30,7 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "alice", "alice-password", false)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 
 	create := func(title string) domain.Book {
 		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
@@ -115,7 +117,7 @@ func TestAuthenticatedMyBooksStaleDispositionFormsConflictAcrossTabs(t *testing.
 	assert.NotEqual(t, alice.ID, bob.ID)
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Concurrent decisions", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "stale-alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "stale-bob", "bob-password")
 	initial, err := store.GetBookDetail(ctx, alice.ID, book.ID)
@@ -184,7 +186,7 @@ func TestRetiredRemoveRequestCannotChangeMyBooksData(t *testing.T) {
 	_, err = store.ImportPreviouslyRead(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, csrf := loginCookies(t, h, "retired-remove-owner", "owner-password")
 
 	response := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
@@ -222,7 +224,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
 	alice := createAccount(t, ctx, store, "previously-read-alice", "alice-password", false)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Previously read book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	cookies, csrf := loginCookies(t, h, "previously-read-alice", "alice-password")

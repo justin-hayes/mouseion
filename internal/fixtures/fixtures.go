@@ -1424,6 +1424,30 @@ func (s *Store) IsMetadataOnlyMyBook(_ context.Context, owner, bookID string) (b
 func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
 	return append([]domain.AnalysisJob(nil), s.jobs...), nil
 }
+
+func (s *Store) analysisJobState(id int64) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, job := range s.jobs {
+		if job.ID == id {
+			return job.AnalysisState, true
+		}
+	}
+	return "", false
+}
+
+// cancelFixtureAnalysisJob reports whether a running fixture job was cancelled.
+func (s *Store) cancelFixtureAnalysisJob(id int64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.jobs {
+		if s.jobs[i].ID == id && s.jobs[i].AnalysisState == "running" {
+			s.jobs[i].AnalysisState = "cancelled"
+			return true
+		}
+	}
+	return false
+}
 func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -2173,12 +2197,16 @@ func (s *Store) fixtureBookID(owner, id string) string {
 	return ""
 }
 
+// fixtureCancellableJobID is the only fixture analysis job that starts running,
+// so the browser smoke can cancel it without changing the fixed jobs.
+const fixtureCancellableJobID int64 = 59
+
 func fixtureJobs() []domain.AnalysisJob {
 	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
 	for i := int64(3); i <= 18; i++ {
 		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-history-" + strconv.FormatInt(i, 10), CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100})
 	}
-	return jobs
+	return append(jobs, domain.AnalysisJob{ID: fixtureCancellableJobID, DisplayNumber: 19, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-cancellable-run", CorpusID: "fixture-corpus", AnalysisState: "running", Progress: 35})
 }
 
 func fixtureKnown(known []domain.KnownVocabulary, language, lemma, upos string) bool {
@@ -2232,7 +2260,9 @@ func (s *AuthStore) GetSession(_ context.Context, token string) (domain.User, ti
 func (s *AuthStore) DeleteSession(context.Context, string) error      { return nil }
 func (s *AuthStore) DeleteUserSessions(context.Context, string) error { return nil }
 
-type Analysis struct{}
+// Analysis serves the fixed analysis projections. Only the running fixture job
+// in fixtureCancellableJobID changes state, and only in Store memory.
+type Analysis struct{ Store *Store }
 
 func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
 	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
@@ -2240,7 +2270,10 @@ func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle
 func (Analysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
 	return (Analysis{}).SubmitAnalysis(ctx, owner, sourceID)
 }
-func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, error) {
+func (a Analysis) Get(ctx context.Context, owner string, id int64) (analysis.Status, error) {
+	if state, ok := a.cancellableJobState(id); ok {
+		return analysis.Status{ID: id, DisplayNumber: 19, State: rivertype.JobState(state), Progress: 35, SourceMaterialID: SourceID, RunID: "fixture-cancellable-run", LogicalState: state}, nil
+	}
 	if id == 43 {
 		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", LogicalState: "failed", Progress: 42}, nil
 	}
@@ -2248,6 +2281,30 @@ func (Analysis) Get(_ context.Context, _ string, id int64) (analysis.Status, err
 }
 func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {
 	return analysis.Handle{ID: 43, DisplayNumber: 2}, nil
+}
+
+// Reconcile has nothing to reconcile without River; it reports the fixed status.
+func (a Analysis) Reconcile(ctx context.Context, owner string, id int64) (analysis.Status, error) {
+	return a.Get(ctx, owner, id)
+}
+
+// Cancel moves the running fixture job to cancelled in memory. Nothing is queued
+// or stopped, and every other fixture job stays in its fixed state.
+func (a Analysis) Cancel(ctx context.Context, owner string, id int64) (analysis.Status, error) {
+	if a.Store == nil || !a.Store.cancelFixtureAnalysisJob(id) {
+		return analysis.Status{}, analysis.ErrNotFound
+	}
+	return a.Get(ctx, owner, id)
+}
+
+// EnqueueBrowseCountRebuild is a deliberate no-op: the fixture has no count projection.
+func (Analysis) EnqueueBrowseCountRebuild(context.Context, string, string) error { return nil }
+
+func (a Analysis) cancellableJobState(id int64) (string, bool) {
+	if a.Store == nil || id != fixtureCancellableJobID {
+		return "", false
+	}
+	return a.Store.analysisJobState(id)
 }
 func (Analysis) GetCompletedAnalysis(_ context.Context, _ string, sourceMaterialID, runID string) (analysis.CompletedAnalysis, error) {
 	result := analysis.CompletedAnalysis{RunID: ResultRunID, OwnerID: OwnerID, SourceMaterialID: SourceID, SnapshotID: "fixture-snapshot", JobID: 42, DisplayNumber: 1, Source: domain.SourceMaterial{ID: SourceID, OwnerID: OwnerID, Language: "de", Title: "Der lange Weg nach Hause"}, Corpus: domain.Corpus{ID: "fixture-corpus", OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: 123456, DistinctLemmaCount: 45678, TextProfile: &domain.TextProfile{SentenceCount: 2048, NormalizedTokenCount: 130000, EmptySentenceCount: 3, MedianSentenceTokenCount: 12.5, P90SentenceTokenCount: 38, LongSentenceCount: 117}}}}
