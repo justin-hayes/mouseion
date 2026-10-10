@@ -326,9 +326,10 @@ _Avoid_: Read disposition, completed list, Journey history.
 A listing of a word's (or lemma's) occurrences with their surrounding context,
 at the scope of a Book or of a study language's analyzed library. Context
 covers both the linear text around each occurrence and the occurrence's
-syntactic role from dependency parsing. A future
-learner-facing surface; its persistence foundation is the per-analysis
-normalized corpus.
+syntactic role from dependency parsing. It lists every occurrence, including
+ones that are not vocabulary, such as proper nouns and separable particles. A
+lemma query applies confirmed Lemma corrections, and excluded occurrences are
+hidden from every query.
 _Avoid_: KWIC (a rendering style, not the feature), occurrence list.
 
 **Dependency relation**:
