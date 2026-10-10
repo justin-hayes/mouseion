@@ -54,37 +54,6 @@ func (q *Queries) ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurren
 	return i, err
 }
 
-const countCurrentReadingSnapshotVocabulary = `-- name: CountCurrentReadingSnapshotVocabulary :one
-SELECT count(*)::int AS snapshot_count,
-       count(*) FILTER (WHERE NOT EXISTS (
-           SELECT 1 FROM known_vocabulary kv
-           WHERE kv.owner_id = pv.owner_id
-             AND kv.language = pv.language
-             AND kv.canonical_lemma = pv.canonical_lemma
-             AND (kv.upos = pv.upos OR kv.upos = '')
-       ))::int AS eligible_count
-FROM primary_goal_snapshot_vocabulary pv
-WHERE pv.owner_id = $1
-  AND pv.snapshot_id = $2
-`
-
-type CountCurrentReadingSnapshotVocabularyParams struct {
-	Owner    string
-	Snapshot string
-}
-
-type CountCurrentReadingSnapshotVocabularyRow struct {
-	SnapshotCount int
-	EligibleCount int
-}
-
-func (q *Queries) CountCurrentReadingSnapshotVocabulary(ctx context.Context, arg CountCurrentReadingSnapshotVocabularyParams) (CountCurrentReadingSnapshotVocabularyRow, error) {
-	row := q.db.QueryRow(ctx, countCurrentReadingSnapshotVocabulary, arg.Owner, arg.Snapshot)
-	var i CountCurrentReadingSnapshotVocabularyRow
-	err := row.Scan(&i.SnapshotCount, &i.EligibleCount)
-	return i, err
-}
-
 const createCurrentReadingSnapshot = `-- name: CreateCurrentReadingSnapshot :one
 INSERT INTO primary_goal_snapshots(
     owner_id, language, book_id, source_material_id, analysis_run_id,
@@ -607,83 +576,6 @@ func (q *Queries) GetReadingCompletion(ctx context.Context, arg GetReadingComple
 	return i, err
 }
 
-const graduateCurrentReadingSnapshotVocabulary = `-- name: GraduateCurrentReadingSnapshotVocabulary :one
-WITH eligible AS (
-    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos,
-           s.book_id, s.source_material_id, s.analysis_run_id,
-           s.content_revision_id, s.content_snapshot_id, s.corpus_id,
-           s.id AS snapshot_id, $1::timestamptz AS completed_at,
-           preparation.id AS deck_preparation_id,
-           generated.first_deck_id, generated.first_source_material_id,
-           generated.first_generated_at
-    FROM primary_goal_snapshot_vocabulary pv
-    JOIN primary_goal_snapshots s
-      ON s.owner_id = pv.owner_id AND s.id = pv.snapshot_id
-    LEFT JOIN LATERAL (
-        SELECT p.id
-        FROM deck_preparations p
-        WHERE p.owner_id = s.owner_id
-          AND p.book_id = s.book_id
-          AND (p.goal_snapshot_id = s.id OR (
-               p.source_material_id = s.source_material_id
-               AND (p.analysis_run_id = s.analysis_run_id OR p.analysis_run_id IS NULL)
-          ))
-        ORDER BY p.created_at DESC, p.id DESC
-        LIMIT 1
-    ) preparation ON true
-    LEFT JOIN LATERAL (
-        SELECT gv.first_deck_id, gv.first_source_material_id, gv.first_generated_at
-        FROM generated_vocabulary gv
-        WHERE gv.owner_id = pv.owner_id
-          AND gv.language = pv.language
-          AND gv.canonical_lemma = pv.canonical_lemma
-          AND gv.upos = pv.upos
-        ORDER BY gv.first_generated_at, gv.first_deck_id
-        LIMIT 1
-    ) generated ON true
-    WHERE pv.owner_id = $2
-      AND pv.snapshot_id = $3
-      AND NOT EXISTS (
-          SELECT 1 FROM known_vocabulary kv
-          WHERE kv.owner_id = pv.owner_id
-            AND kv.language = pv.language
-            AND kv.canonical_lemma = pv.canonical_lemma
-            AND (kv.upos = pv.upos OR kv.upos = '')
-      )
-), inserted AS (
-    INSERT INTO known_vocabulary(
-        owner_id, language, canonical_lemma, upos,
-        completion_book_id, completion_at, completion_goal_snapshot_id,
-        completion_source_material_id, completion_analysis_run_id,
-        completion_content_revision_id, completion_content_snapshot_id,
-        completion_corpus_id, completion_deck_preparation_id,
-        generated_first_deck_id, generated_first_source_material_id,
-        generated_first_at
-    )
-    SELECT owner_id, language, canonical_lemma, upos,
-           book_id, completed_at, snapshot_id, source_material_id, analysis_run_id,
-           content_revision_id, content_snapshot_id, corpus_id, deck_preparation_id,
-           first_deck_id, first_source_material_id, first_generated_at
-    FROM eligible
-    ON CONFLICT DO NOTHING
-    RETURNING owner_id
-)
-SELECT count(*)::int AS graduated_count FROM inserted
-`
-
-type GraduateCurrentReadingSnapshotVocabularyParams struct {
-	CompletedAt time.Time
-	Owner       string
-	Snapshot    string
-}
-
-func (q *Queries) GraduateCurrentReadingSnapshotVocabulary(ctx context.Context, arg GraduateCurrentReadingSnapshotVocabularyParams) (int, error) {
-	row := q.db.QueryRow(ctx, graduateCurrentReadingSnapshotVocabulary, arg.CompletedAt, arg.Owner, arg.Snapshot)
-	var graduated_count int
-	err := row.Scan(&graduated_count)
-	return graduated_count, err
-}
-
 const insertCurrentReading = `-- name: InsertCurrentReading :one
 INSERT INTO primary_goals(owner_id, language, book_id, snapshot_id)
 VALUES ($1, $2, $3, $4)
@@ -724,6 +616,94 @@ func (q *Queries) InsertCurrentReading(ctx context.Context, arg InsertCurrentRea
 		&i.SnapshotID,
 	)
 	return i, err
+}
+
+const insertCurrentReadingKnownVocabulary = `-- name: InsertCurrentReadingKnownVocabulary :one
+WITH eligible AS (
+    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos,
+           s.book_id, s.source_material_id, s.analysis_run_id,
+           s.content_revision_id, s.content_snapshot_id, s.corpus_id,
+           s.id AS snapshot_id, $1::timestamptz AS completed_at,
+           preparation.id AS deck_preparation_id,
+           generated.first_deck_id, generated.first_source_material_id,
+           generated.first_generated_at
+    FROM primary_goal_snapshot_vocabulary pv
+    JOIN primary_goal_snapshots s
+      ON s.owner_id = pv.owner_id AND s.id = pv.snapshot_id
+    LEFT JOIN LATERAL (
+        SELECT p.id
+        FROM deck_preparations p
+        WHERE p.owner_id = s.owner_id
+          AND p.book_id = s.book_id
+          AND (p.goal_snapshot_id = s.id OR (
+               p.source_material_id = s.source_material_id
+               AND (p.analysis_run_id = s.analysis_run_id OR p.analysis_run_id IS NULL)
+          ))
+        ORDER BY p.created_at DESC, p.id DESC
+        LIMIT 1
+    ) preparation ON true
+    LEFT JOIN LATERAL (
+        SELECT gv.first_deck_id, gv.first_source_material_id, gv.first_generated_at
+        FROM generated_vocabulary gv
+        WHERE gv.owner_id = pv.owner_id
+          AND gv.language = pv.language
+          AND gv.canonical_lemma = pv.canonical_lemma
+          AND gv.upos = pv.upos
+        ORDER BY gv.first_generated_at, gv.first_deck_id
+        LIMIT 1
+    ) generated ON true
+    WHERE pv.owner_id = $2
+      AND pv.snapshot_id = $3
+      AND (pv.language, pv.canonical_lemma, pv.upos) IN (
+          SELECT l.value, c.value, u.value
+          FROM unnest($4::text[]) WITH ORDINALITY AS l(value, position)
+          JOIN unnest($5::text[]) WITH ORDINALITY AS c(value, position) USING (position)
+          JOIN unnest($6::text[]) WITH ORDINALITY AS u(value, position) USING (position)
+      )
+), inserted AS (
+    INSERT INTO known_vocabulary(
+        owner_id, language, canonical_lemma, upos,
+        completion_book_id, completion_at, completion_goal_snapshot_id,
+        completion_source_material_id, completion_analysis_run_id,
+        completion_content_revision_id, completion_content_snapshot_id,
+        completion_corpus_id, completion_deck_preparation_id,
+        generated_first_deck_id, generated_first_source_material_id,
+        generated_first_at
+    )
+    SELECT owner_id, language, canonical_lemma, upos,
+           book_id, completed_at, snapshot_id, source_material_id, analysis_run_id,
+           content_revision_id, content_snapshot_id, corpus_id, deck_preparation_id,
+           first_deck_id, first_source_material_id, first_generated_at
+    FROM eligible
+    ON CONFLICT DO NOTHING
+    RETURNING owner_id
+)
+SELECT count(*)::int AS graduated_count FROM inserted
+`
+
+type InsertCurrentReadingKnownVocabularyParams struct {
+	CompletedAt time.Time
+	Owner       string
+	Snapshot    string
+	Languages   []string
+	Lemmas      []string
+	Uposes      []string
+}
+
+// Inserts the identities the domain decided to accept, only where absent.
+// Which identities become Known is never decided here.
+func (q *Queries) InsertCurrentReadingKnownVocabulary(ctx context.Context, arg InsertCurrentReadingKnownVocabularyParams) (int, error) {
+	row := q.db.QueryRow(ctx, insertCurrentReadingKnownVocabulary,
+		arg.CompletedAt,
+		arg.Owner,
+		arg.Snapshot,
+		arg.Languages,
+		arg.Lemmas,
+		arg.Uposes,
+	)
+	var graduated_count int
+	err := row.Scan(&graduated_count)
+	return graduated_count, err
 }
 
 const insertCurrentReadingSnapshotVocabulary = `-- name: InsertCurrentReadingSnapshotVocabulary :exec
@@ -1011,6 +991,45 @@ func (q *Queries) ListCurrentReadingSnapshotCandidates(ctx context.Context, arg 
 	return items, nil
 }
 
+const listCurrentReadingSnapshotIdentities = `-- name: ListCurrentReadingSnapshotIdentities :many
+SELECT pv.language, pv.canonical_lemma, pv.upos
+FROM primary_goal_snapshot_vocabulary pv
+WHERE pv.owner_id = $1
+  AND pv.snapshot_id = $2
+ORDER BY pv.language, pv.canonical_lemma, pv.upos
+`
+
+type ListCurrentReadingSnapshotIdentitiesParams struct {
+	Owner    string
+	Snapshot string
+}
+
+type ListCurrentReadingSnapshotIdentitiesRow struct {
+	Language       string
+	CanonicalLemma string
+	Upos           string
+}
+
+func (q *Queries) ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error) {
+	rows, err := q.db.Query(ctx, listCurrentReadingSnapshotIdentities, arg.Owner, arg.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCurrentReadingSnapshotIdentitiesRow{}
+	for rows.Next() {
+		var i ListCurrentReadingSnapshotIdentitiesRow
+		if err := rows.Scan(&i.Language, &i.CanonicalLemma, &i.Upos); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCurrentReadingSnapshotVocabulary = `-- name: ListCurrentReadingSnapshotVocabulary :many
 SELECT owner_id::text, snapshot_id::text, corpus_id, language, canonical_lemma, upos,
        occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
@@ -1062,6 +1081,52 @@ func (q *Queries) ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg 
 			&i.FirstEncounter,
 			&i.SelectedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKnownVocabularyForCurrentReadingSnapshot = `-- name: ListKnownVocabularyForCurrentReadingSnapshot :many
+SELECT kv.language, kv.canonical_lemma, kv.upos
+FROM known_vocabulary kv
+WHERE kv.owner_id = $1
+  AND EXISTS (
+      SELECT 1 FROM primary_goal_snapshot_vocabulary pv
+      WHERE pv.owner_id = kv.owner_id
+        AND pv.snapshot_id = $2
+        AND pv.language = kv.language
+        AND pv.canonical_lemma = kv.canonical_lemma
+  )
+`
+
+type ListKnownVocabularyForCurrentReadingSnapshotParams struct {
+	Owner    string
+	Snapshot string
+}
+
+type ListKnownVocabularyForCurrentReadingSnapshotRow struct {
+	Language       string
+	CanonicalLemma string
+	Upos           string
+}
+
+// Known rows that can match a frozen identity (same language and lemma, any
+// POS). The domain decides which identities they cover.
+func (q *Queries) ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error) {
+	rows, err := q.db.Query(ctx, listKnownVocabularyForCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListKnownVocabularyForCurrentReadingSnapshotRow{}
+	for rows.Next() {
+		var i ListKnownVocabularyForCurrentReadingSnapshotRow
+		if err := rows.Scan(&i.Language, &i.CanonicalLemma, &i.Upos); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1202,33 +1267,5 @@ type ReleaseCurrentReadingSnapshotParams struct {
 
 func (q *Queries) ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error {
 	_, err := q.db.Exec(ctx, releaseCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
-	return err
-}
-
-const updateReadingCompletionOutcome = `-- name: UpdateReadingCompletionOutcome :exec
-UPDATE reading_history
-SET graduated_vocabulary_count = $1,
-    already_known_vocabulary_count = $2
-WHERE owner_id = $3
-  AND language = $4
-  AND goal_snapshot_id = NULLIF($5, '')::uuid
-`
-
-type UpdateReadingCompletionOutcomeParams struct {
-	GraduatedVocabularyCount    int
-	AlreadyKnownVocabularyCount int
-	Owner                       string
-	Language                    string
-	Snapshot                    interface{}
-}
-
-func (q *Queries) UpdateReadingCompletionOutcome(ctx context.Context, arg UpdateReadingCompletionOutcomeParams) error {
-	_, err := q.db.Exec(ctx, updateReadingCompletionOutcome,
-		arg.GraduatedVocabularyCount,
-		arg.AlreadyKnownVocabularyCount,
-		arg.Owner,
-		arg.Language,
-		arg.Snapshot,
-	)
 	return err
 }

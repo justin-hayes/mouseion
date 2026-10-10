@@ -363,11 +363,11 @@ func (s *PostgresStore) CountCurrentReadingVocabularyToAccept(ctx context.Contex
 	if !goal.IsActive() || goal.SnapshotID == "" {
 		return 0, nil
 	}
-	counts, err := s.queries().CountCurrentReadingSnapshotVocabulary(ctx, sqlcgen.CountCurrentReadingSnapshotVocabularyParams{Owner: owner, Snapshot: goal.SnapshotID})
+	snapshot, known, err := loadCurrentReadingSnapshotFacts(ctx, s.queries(), owner, goal.SnapshotID)
 	if err != nil {
 		return 0, err
 	}
-	return counts.EligibleCount, nil
+	return domain.PlanSnapshotAcceptance(snapshot, known).EligibleCount, nil
 }
 
 // GetCurrentReading returns the owner's current reading in one study language.
