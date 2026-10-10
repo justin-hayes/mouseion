@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
 // SaveLemmaReviewFlags records new detector evidence without reopening a
@@ -97,10 +98,27 @@ func unresolvedLemmaReviewFlags(ctx context.Context, tx pgx.Tx, owner, book, ana
 	return exists, err
 }
 
+// listEligibleLemmaReviewRows fetches candidate occurrences and keeps only
+// those selection counts as vocabulary (ADR 0087).
+func listEligibleLemmaReviewRows(ctx context.Context, q *sqlcgen.Queries, owner, bookID, surface string) ([]sqlcgen.ListLemmaReviewOccurrencesRow, error) {
+	rows, err := q.ListLemmaReviewOccurrences(ctx, sqlcgen.ListLemmaReviewOccurrencesParams{Owner: owner, Book: bookID, Surface: surface})
+	if err != nil {
+		return nil, err
+	}
+	cfg := selection.DefaultConfig("")
+	eligible := rows[:0]
+	for _, row := range rows {
+		if selection.OccurrenceEligible(cfg, row.CanonicalLemma, row.Upos, row.Dependency) {
+			eligible = append(eligible, row)
+		}
+	}
+	return eligible, nil
+}
+
 // ListLemmaReviewOccurrences resolves an exact observed form only in the
 // owner's current completed analysis for the given Book.
 func (s *PostgresStore) ListLemmaReviewOccurrences(ctx context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
-	rows, err := s.queries().ListLemmaReviewOccurrences(ctx, sqlcgen.ListLemmaReviewOccurrencesParams{Owner: owner, Book: bookID, Surface: surface})
+	rows, err := listEligibleLemmaReviewRows(ctx, s.queries(), owner, bookID, surface)
 	if err != nil {
 		return nil, err
 	}
@@ -268,6 +286,19 @@ func lockLemmaReviewLearnerState(ctx context.Context, tx pgx.Tx, owner string) e
 
 func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, error) {
 	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
+	evidence, err := q.GetCurrentAnalysisOccurrenceEvidence(ctx, sqlcgen.GetCurrentAnalysisOccurrenceEvidenceParams{
+		Owner: occurrence.OwnerID, Book: occurrence.BookID, AnalysisRun: occurrence.AnalysisRunID,
+		SourceDocumentID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	if !selection.OccurrenceEligible(selection.DefaultConfig(""), evidence.CanonicalLemma, evidence.Upos, evidence.Dependency) {
+		return false, ErrNotFound
+	}
 	current, err := q.ListOccurrenceLemmaCorrections(ctx, sqlcgen.ListOccurrenceLemmaCorrectionsParams{
 		Owner: occurrence.OwnerID, Book: occurrence.BookID, Corpus: occurrence.CorpusID, AnalysisRun: occurrence.AnalysisRunID,
 	})
@@ -306,7 +337,7 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 			return false, deleteErr
 		}
 		if deleted == 0 {
-			rows, lookupErr := q.ListLemmaReviewOccurrences(ctx, sqlcgen.ListLemmaReviewOccurrencesParams{Owner: occurrence.OwnerID, Book: occurrence.BookID, Surface: occurrence.Surface})
+			rows, lookupErr := listEligibleLemmaReviewRows(ctx, q, occurrence.OwnerID, occurrence.BookID, occurrence.Surface)
 			if lookupErr != nil {
 				return false, lookupErr
 			}
