@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -62,10 +63,14 @@ func startSessionOver(t *testing.T, reading threeWegReading, index lemmarisk.Alt
 	t.Helper()
 	t.Setenv("MOUSEION_SECRET", "reading-start-lemma-risk-secret-0123456789")
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
+	deps := storeDependencies(reading)
+	analysis := fixtures.Analysis{Store: reading.Store}
+	preparedDeck := fixtures.PreparedDeck{Store: reading.Store}
 	h := New(Services{
-		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(reading),
-		Analysis: fixtures.Analysis{Store: reading.Store}, CatalogueSync: fixtures.NewCatalogueSync(reading.Store),
-		PreparedDeck: fixtures.PreparedDeck{Store: reading.Store}, SessionLifetime: time.Hour, LemmaRiskIndex: index,
+		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: deps,
+		Analysis: analysis, CatalogueSync: fixtures.NewCatalogueSync(reading.Store),
+		PreparedDeck: preparedDeck, SessionLifetime: time.Hour,
+		LemmaReview: lemmareview.New(lemmareview.Config{Store: deps.Reading, RiskIndex: index, Preparer: preparedDeck, BrowseCounts: analysis}),
 	})
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
@@ -107,14 +112,15 @@ func TestConfirmedIdentityRestartRunsLemmaRiskDetectionBeforeFreezing(t *testing
 
 	// The preview runs without an index, so detection cannot flag anything
 	// before the confirmed restart does.
+	weg := lemmaOccurrenceIDs(t, reading, "fixture-route-match", "Weg")
 	previewHandler, cookies, csrf := startSessionOver(t, reading, nil)
-	preview := readingTestRequest(t, previewHandler, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {"0"}, "decision": {"correct"}, "lemma": {"pfad"}}, cookies)
+	preview := readingTestRequest(t, previewHandler, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {weg[0]}, "decision": {"correct"}, "lemma": {"pfad"}}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code)
 	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(preview.Body.String())
 	require.Len(t, fingerprint, 2)
 
 	confirmHandler, cookies, csrf := startSessionOver(t, reading, competingLemmaIndex{})
-	confirm := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0"}, "reprepare_ready_deck": {"yes"}}
+	confirm := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]}, "reprepare_ready_deck": {"yes"}}
 	confirmed := readingTestRequest(t, confirmHandler, lemmaPath, confirm, cookies)
 	require.Equal(t, http.StatusSeeOther, confirmed.Code)
 	assert.Equal(t, lemmaPath+"?form=Weg", confirmed.Header().Get("Location"), "unresolved flags from the restart's own detection pause the restart")

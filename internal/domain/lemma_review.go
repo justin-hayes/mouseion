@@ -3,10 +3,36 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
 )
+
+// Rejections of a lemma review request. Each message is the learner-facing text
+// the web application shows, so handlers map the sentinel to a status and print
+// it unchanged.
+var (
+	ErrLemmaReviewCurrentReading        = errors.New("Stop this Book's current reading before changing its vocabulary.")
+	ErrLemmaReviewStale                 = errors.New("Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.")
+	ErrLemmaReviewCountsRefreshing      = errors.New("Vocabulary counts are being refreshed. No decision was saved; review it again shortly.")
+	ErrLemmaReviewRepreparationRequired = errors.New("Explicitly confirm re-preparation of the existing ready deck before accepting this identity change.")
+	ErrLemmaReviewBlockedByReading      = errors.New("Stop the other current reading before accepting this change; then Mouseion can start this Book again and prepare its new snapshot.")
+	ErrLemmaReviewNotToRead             = errors.New("Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot.")
+	ErrLemmaReviewOccurrenceUnavailable = errors.New("The selected occurrence changed. Find it again before reviewing.")
+	ErrLemmaReviewOccurrenceMissing     = errors.New("That occurrence is no longer available in this analysis.")
+	ErrLemmaReviewNoSelection           = errors.New("The preview contains no selected occurrences.")
+	ErrLemmaReviewDecision              = errors.New("Choose a decision to preview.")
+	ErrLemmaReviewLemma                 = errors.New("Enter one valid canonical lemma without spaces.")
+	ErrLemmaReviewUnsupportedLanguage   = errors.New("Choose a supported study language before correcting a lemma.")
+)
+
+// ID is the stable identity of an occurrence within its Book: the analysis run,
+// source document, and character span. Unlike a list position it does not shift
+// when another occurrence of the same form is reviewed.
+func (o LemmaReviewOccurrence) ID() string {
+	return o.AnalysisRunID + ":" + o.SourceDocumentID + ":" + strconv.FormatInt(o.StartOffset, 10) + ":" + strconv.FormatInt(o.EndOffset, 10)
+}
 
 type LemmaReviewIdentity struct {
 	Language, CanonicalLemma, UPOS string

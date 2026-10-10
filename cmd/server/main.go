@@ -25,6 +25,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
+	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -182,7 +184,14 @@ func run() (err error) {
 	}
 	mux.Handle("/static/", webapp.StaticHandler())
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaRiskIndex: dictionaryIndex, LemmaSuggestions: lemmaSuggestions, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
+	// The dictionary index is optional; a nil *dictionary.Index must not become a
+	// non-nil interface, or detection would call into a missing index.
+	var riskIndex lemmarisk.AlternativeIndex
+	if dictionaryIndex != nil {
+		riskIndex = dictionaryIndex
+	}
+	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: opdsService, Analysis: analysisService, AnalysisInsights: analysisinsights.NewService(store), KnownVocab: knownVocabService, PreparedDeck: preparedDeckService, Capabilities: capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: secureCookies, SessionLifetime: lifetime})
 	if err != nil {
 		return fmt.Errorf("initialize web application: %w", err)
 	}

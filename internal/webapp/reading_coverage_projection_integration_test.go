@@ -45,11 +45,11 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	tisch, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "tisch")
 	require.NoError(t, err)
 	require.Len(t, tisch, 1)
-	require.NoError(t, store.PutLemmaCorrection(ctx, tisch[0], "haus", "german-post-1996", "6"))
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: tisch[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
 	baum, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "baum")
 	require.NoError(t, err)
 	require.Len(t, baum, 2)
-	require.NoError(t, store.PutLemmaDecision(ctx, baum[0], "", true, "", ""))
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: baum[0], CanonicalLemma: "", Excluded: true, NormalizationProfile: "", NormalizationVersion: ""}}))
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{

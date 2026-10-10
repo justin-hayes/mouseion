@@ -20,10 +20,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -76,7 +75,7 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	EndCurrentReading(context.Context, string, string, string, string) error
 	FinishCurrentReading(context.Context, string, string, string, string) (domain.CurrentReadingFinishResult, error)
 	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
-	LemmaReviewStore
+	lemmareview.Store
 }
 
 // VocabularyStore provides the Vocabulary (/vocabulary/**) concordance and
@@ -102,18 +101,6 @@ type CatalogsStore interface {
 // JobsStore provides the analysis job list shown by the jobs surface.
 type JobsStore interface {
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
-}
-
-// LemmaReviewStore provides the lemma review seam used by the Reading surface.
-type LemmaReviewStore interface {
-	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
-	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
-	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
-	PutLemmaDecisions(context.Context, []domain.LemmaReviewDecision) error
-	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
-	ReadLemmaReviewProposal(context.Context, domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
-	PutLemmaDecisionProposal(context.Context, domain.LemmaReviewProposal, string) error
-	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }
 
 // StoreDependencies groups the persistence capabilities consumed by the web
@@ -191,11 +178,12 @@ type Services struct {
 	KnownVocab       KnownVocabulary
 	PreparedDeck     PreparedDeck
 	Capabilities     analyzer.CapabilityProvider
-	LemmaRiskIndex   lemmarisk.AlternativeIndex
-	LemmaSuggestions enrichment.LemmaSuggestionProvider
-	CatalogueSync    CatalogueSync
-	SecureCookies    bool
-	SessionLifetime  time.Duration
+	// LemmaReview is the lemma review workflow. NewWithError derives one from
+	// the Reading store, PreparedDeck, and Analysis when it is nil.
+	LemmaReview     *lemmareview.Service
+	CatalogueSync   CatalogueSync
+	SecureCookies   bool
+	SessionLifetime time.Duration
 	// InteractiveReadTimeout bounds Browse and Concordance reads; zero uses
 	// defaultInteractiveReadTimeout.
 	InteractiveReadTimeout time.Duration
@@ -228,6 +216,9 @@ func New(s Services) *Handler {
 func NewWithError(s Services) (*Handler, error) {
 	if err := persistence.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return nil, fmt.Errorf("webapp: initialize web key: %w", err)
+	}
+	if s.LemmaReview == nil {
+		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
 	}
 	h := &Handler{services: s, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.loginPage)

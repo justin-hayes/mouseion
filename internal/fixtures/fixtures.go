@@ -310,10 +310,6 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 	return result, nil
 }
 
-func (s *Store) PutLemmaDecision(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma string, excluded bool, profile, version string) error {
-	return s.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrence, CanonicalLemma: lemma, Excluded: excluded, NormalizationProfile: profile, NormalizationVersion: version}})
-}
-
 func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -377,17 +373,6 @@ func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaRev
 func (s *Store) lemmaDecisionBlockedByCurrentReadingLocked(owner, bookID string) bool {
 	goal, ok := s.currentReadings[fixtureGoalKey(owner, "de")]
 	return ok && goal.IsActive() && goal.BookID == bookID
-}
-
-func (s *Store) HasCurrentLemmaCorrections(_ context.Context, owner, bookID string) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for key := range s.lemmaCorrections {
-		if strings.HasPrefix(key, owner+"\x00"+bookID+"\x00") {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // SetGoalSnapshotVocabulary lets acceptance tests add a deterministic frozen

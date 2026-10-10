@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,9 +34,9 @@ func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
 	provider := &lemmaSuggestionFixture{}
 	webHandler, ok := h.(*Handler)
 	require.True(t, ok)
-	webHandler.services.LemmaSuggestions = provider
+	webHandler.services.LemmaReview = lemmaReviewWithSuggestions(webHandler, provider)
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
-		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"0"},
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {lemmaOccurrenceIDs(t, store, "fixture-route-match", "Weg")[0]},
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "LLM lemma suggestion — not applied")
@@ -54,9 +55,9 @@ func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
 	endGermanFixtureReading(t, store)
 	webHandler, ok := h.(*Handler)
 	require.True(t, ok)
-	webHandler.services.LemmaSuggestions = &lemmaSuggestionFixture{err: context.DeadlineExceeded}
+	webHandler.services.LemmaReview = lemmaReviewWithSuggestions(webHandler, &lemmaSuggestionFixture{err: context.DeadlineExceeded})
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
-		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"0"},
+		"csrf_token": {csrf}, "form": {"Weg"}, "target": {lemmaOccurrenceIDs(t, store, "fixture-route-match", "Weg")[0]},
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "A lemma suggestion is unavailable right now.")
@@ -75,6 +76,7 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	assert.Contains(t, activePage.Body.String(), "A ready deck is a historical artifact")
 	endGermanFixtureReading(t, store)
 	reviewBookID := "fixture-route-match"
+	weg := lemmaOccurrenceIDs(t, store, reviewBookID, "Weg")
 	path := "/reading/books/" + reviewBookID + "/lemma-review?form=Weg"
 	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 	for _, cookie := range cookies {
@@ -100,40 +102,40 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 		values := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {lemma}, "fingerprint": {match[1]}, "selected": indices}
 		return readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", values, cookies)
 	}
-	proposal := preview("0", "correct", "Pfad")
+	proposal := preview(weg[0], "correct", "Pfad")
 	require.Equal(t, http.StatusOK, proposal.Code)
 	assert.Contains(t, proposal.Body.String(), "This is a preview only")
 	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(proposal.Body.String())
 	require.Len(t, fingerprint, 2)
-	tampered := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0", "1"}}, cookies)
+	tampered := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0], weg[1]}}, cookies)
 	assert.Equal(t, http.StatusConflict, tampered.Code, "the confirmed selection must match the reviewed proposal")
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, reviewBookID, "Weg")
 	require.NoError(t, err)
 	require.Len(t, occurrences, 2)
 	assert.Empty(t, occurrences[0].CorrectedLemma, "preview is not a decision")
-	require.Equal(t, http.StatusSeeOther, confirm(proposal, "Pfad", "0").Code)
+	require.Equal(t, http.StatusSeeOther, confirm(proposal, "Pfad", weg[0]).Code)
 	occurrences, err = store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, reviewBookID, "Weg")
 	require.NoError(t, err)
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
 	assert.Empty(t, occurrences[1].CorrectedLemma, "same-surface occurrence must remain untouched")
-	multi := preview("0", "correct", "Pfad", "1")
-	require.Contains(t, multi.Body.String(), `value="0"`)
-	assert.Contains(t, multi.Body.String(), `value="1"`)
-	require.Equal(t, http.StatusSeeOther, confirm(multi, "Pfad", "0", "1").Code)
+	multi := preview(weg[0], "correct", "Pfad", weg[1])
+	require.Contains(t, multi.Body.String(), `value="`+weg[0]+`"`)
+	assert.Contains(t, multi.Body.String(), `value="`+weg[1]+`"`)
+	require.Equal(t, http.StatusSeeOther, confirm(multi, "Pfad", weg[0], weg[1]).Code)
 	occurrences, err = store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, reviewBookID, "Weg")
 	require.NoError(t, err)
 	assert.Equal(t, "pfad", occurrences[1].CorrectedLemma, "explicit multi-occurrence selection applies the reviewed decision to the selected peer")
-	stalePreview := preview("0", "correct", "Wand")
+	stalePreview := preview(weg[0], "correct", "Wand")
 	require.Equal(t, http.StatusOK, stalePreview.Code)
-	updated := preview("0", "correct", "Wand")
-	require.Equal(t, http.StatusSeeOther, confirm(updated, "Wand", "0").Code)
+	updated := preview(weg[0], "correct", "Wand")
+	require.Equal(t, http.StatusSeeOther, confirm(updated, "Wand", weg[0]).Code)
 	staleFingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(stalePreview.Body.String())
-	stale := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Wand"}, "fingerprint": {staleFingerprint[1]}, "selected": {"0"}}, cookies)
+	stale := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Wand"}, "fingerprint": {staleFingerprint[1]}, "selected": {weg[0]}}, cookies)
 	assert.Equal(t, http.StatusConflict, stale.Code, "a changed learner decision invalidates its preview")
-	exclusion := preview("1", "exclude", "")
+	exclusion := preview(weg[1], "exclude", "")
 	exclusionConfirm := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(exclusion.Body.String())
 	require.Len(t, exclusionConfirm, 2)
-	exclude := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"exclude"}, "fingerprint": {exclusionConfirm[1]}, "selected": {"1"}}, cookies)
+	exclude := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"exclude"}, "fingerprint": {exclusionConfirm[1]}, "selected": {weg[1]}}, cookies)
 	require.Equal(t, http.StatusSeeOther, exclude.Code)
 	occurrences, err = store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, reviewBookID, "Weg")
 	require.NoError(t, err)
@@ -158,9 +160,10 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	require.NoError(t, err)
 	oldSnapshotID := oldReading.SnapshotID
 	endGermanFixtureReading(t, store)
+	weg := lemmaOccurrenceIDs(t, store, fixtures.BookID, "Weg")
 
 	preview := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {"0"}, "decision": {"correct"}, "lemma": {"Pfad"},
+		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {weg[0]}, "decision": {"correct"}, "lemma": {"Pfad"},
 	}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code)
 	assert.Contains(t, preview.Body.String(), "Start this Book again with a new snapshot and prepare a new deck")
@@ -168,7 +171,7 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	require.Len(t, fingerprint, 2)
 
 	withoutConsent := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0"},
+		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]},
 	}, cookies)
 	assert.Equal(t, http.StatusBadRequest, withoutConsent.Code)
 	stillStopped, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
@@ -176,7 +179,7 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	assert.False(t, stillStopped.IsActive(), "missing restart/re-preparation consent cannot start a new reading")
 
 	confirmed := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0"}, "reprepare_ready_deck": {"yes"},
+		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]}, "reprepare_ready_deck": {"yes"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, confirmed.Code)
 	assert.Contains(t, confirmed.Header().Get("Location"), "/deck-preparations/fixture-goal-preparation-")
@@ -187,4 +190,23 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
 	require.NoError(t, err)
 	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
+}
+
+// lemmaOccurrenceIDs lists one form's occurrence IDs in review order. Review
+// forms address occurrences by these stable IDs, not by list position.
+func lemmaOccurrenceIDs(t *testing.T, store lemmareview.Store, bookID, form string) []string {
+	t.Helper()
+	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, bookID, form)
+	require.NoError(t, err)
+	ids := make([]string, 0, len(occurrences))
+	for _, occurrence := range occurrences {
+		ids = append(ids, occurrence.ID())
+	}
+	return ids
+}
+
+// lemmaReviewWithSuggestions rebuilds the handler's lemma review workflow over
+// the same Reading store, with the given suggestion provider.
+func lemmaReviewWithSuggestions(h *Handler, provider enrichment.LemmaSuggestionProvider) *lemmareview.Service {
+	return lemmareview.New(lemmareview.Config{Store: h.services.Store.Reading, Suggestions: provider, Preparer: h.services.PreparedDeck, BrowseCounts: h.services.Analysis})
 }

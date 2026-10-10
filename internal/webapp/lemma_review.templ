@@ -3,10 +3,11 @@ package webapp
 import (
 	"fmt"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"net/url"
 )
 
-templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmaDecisionProposal, recovery lemmaReviewRecovery, suggestion *lemmaReviewSuggestion) {
+templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmareview.Preview, recovery lemmareview.Recovery, suggestion *lemmaReviewSuggestion) {
 	@ShellLayout("Review a word", &user, csrf, NavigationReading, shellStyleReading, shellStyleVocabulary) {
 		<main class="page-container data-width lemma-review">
 			<p><a href="/reading">Back to Reading</a></p>
@@ -58,7 +59,8 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			if form != "" && len(occurrences) == 0 {
 				<p role="status">No matching content-word occurrence was found in the current analysis. Check the exact spelling and try again.</p>
 			}
-			for i, occurrence := range occurrences {
+			for _, occurrence := range occurrences {
+				{{ id := occurrence.ID() }}
 				<article>
 					<p class="reading-text">{ occurrence.SentenceText }</p>
 					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
@@ -68,7 +70,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						} else {
 							<p role="status"><strong>Previously reviewed:</strong> { occurrence.ReviewFlagResolution }. New reference evidence does not reopen this decision.</p>
 						}
-						{{ evidence := evidenceForLemmaReview(occurrence) }}
+						{{ evidence := lemmareview.EvidenceOf(occurrence) }}
 						if evidence.Alternative != "" {
 							<p><strong>Local-index alternative:</strong> { evidence.Alternative } · <strong>Source:</strong> { evidence.Source } · <strong>Version:</strong> { evidence.Version }</p>
 							if evidence.EvidenceID != "" {
@@ -76,7 +78,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							}
 						}
 					}
-					if suggestion != nil && form != "" && i == suggestion.Target {
+					if suggestion != nil && form != "" && id == suggestion.Target {
 						if suggestion.Message != "" {
 							<p role="status">{ suggestion.Message }</p>
 						} else {
@@ -96,7 +98,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						<form method="post" action={ templ.SafeURL("/reading/books/" + bookID + "/lemma-suggestion") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<input type="hidden" name="form" value={ form }/>
-							<input type="hidden" name="target" value={ fmt.Sprint(i) }/>
+							<input type="hidden" name="target" value={ id }/>
 							<button class="button button--outline" type="submit">Ask for an optional LLM lemma suggestion</button>
 						</form>
 						if canCorrect {
@@ -104,14 +106,14 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 								<input type="hidden" name="csrf_token" value={ csrf }/>
 								<input type="hidden" name="stage" value="preview"/>
 								<input type="hidden" name="form" value={ form }/>
-								<input type="hidden" name="target" value={ fmt.Sprint(i) }/>
+								<input type="hidden" name="target" value={ id }/>
 								<label>Corrected canonical lemma<input class="input" name="lemma" value={ occurrence.CorrectedLemma } required/></label>
 								<fieldset>
 									<legend>Also include reviewed occurrences of “{ occurrence.Surface }” in this Book</legend>
 									<p>Only the occurrence shown above is selected by default. Review each context before selecting another.</p>
-									for j, other := range occurrences {
-										if j != i {
-											<label><input type="checkbox" name="also" value={ fmt.Sprint(j) }/> <span>Include “{ other.Surface }” in: <span class="reading-text">{ other.SentenceText }</span></span></label>
+									for _, other := range occurrences {
+										if other.ID() != id {
+											<label><input type="checkbox" name="also" value={ other.ID() }/> <span>Include “{ other.Surface }” in: <span class="reading-text">{ other.SentenceText }</span></span></label>
 										}
 									}
 								</fieldset>
@@ -131,7 +133,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 				<article aria-labelledby="lemma-preview-heading">
 					<h2 id="lemma-preview-heading">Review the proposed change</h2>
 					<p>This is a preview only. Nothing changes until you confirm.</p>
-					<p><strong>Selected occurrences:</strong> { fmt.Sprint(len(proposal.Occurrences)) } · <strong>Decision:</strong> { proposal.Action }</p>
+					<p><strong>Selected occurrences:</strong> { fmt.Sprint(len(proposal.OccurrenceIDs)) } · <strong>Decision:</strong> { proposal.Action }</p>
 					<ul>
 						for _, change := range proposal.Changes {
 							<li><span class="reading-text">{ change.Sentence }</span> — effective identity { change.Before } → { change.After }</li>
@@ -153,8 +155,8 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						<input type="hidden" name="decision" value={ proposal.Action }/>
 						<input type="hidden" name="lemma" value={ proposal.Lemma }/>
 						<input type="hidden" name="fingerprint" value={ proposal.Fingerprint }/>
-						for _, i := range proposal.Indices {
-							<input type="hidden" name="selected" value={ fmt.Sprint(i) }/>
+						for _, selectedID := range proposal.OccurrenceIDs {
+							<input type="hidden" name="selected" value={ selectedID }/>
 						}
 						if recovery.ReadyPreparationID != "" && proposal.IdentityChanged {
 							if recovery.ReadyDeckSnapshotID != "" {

@@ -66,32 +66,6 @@ func (s *PostgresStore) SaveLemmaReviewFlags(ctx context.Context, flags []domain
 	})
 }
 
-func (s *PostgresStore) ListLemmaReviewFlags(ctx context.Context, owner, bookID, analysisRunID string) ([]domain.LemmaReviewFlag, error) {
-	rows, err := s.pool.Query(ctx, `SELECT source_document_id,start_offset,end_offset,reason,evidence_provenance,resolution FROM occurrence_lemma_review_flags WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 ORDER BY source_document_id,start_offset,end_offset`, owner, bookID, analysisRunID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	flags := make([]domain.LemmaReviewFlag, 0)
-	for rows.Next() {
-		var flag domain.LemmaReviewFlag
-		var provenance []byte
-		var resolution *string
-		if err := rows.Scan(&flag.Occurrence.SourceDocumentID, &flag.Occurrence.StartOffset, &flag.Occurrence.EndOffset, &flag.Reason, &provenance, &resolution); err != nil {
-			return nil, err
-		}
-		flag.Occurrence.OwnerID, flag.Occurrence.BookID, flag.Occurrence.AnalysisRunID = owner, bookID, analysisRunID
-		if resolution != nil {
-			flag.Resolution = *resolution
-		}
-		if err := json.Unmarshal(provenance, &flag.Provenance); err != nil {
-			return nil, err
-		}
-		flags = append(flags, flag)
-	}
-	return flags, rows.Err()
-}
-
 func unresolvedLemmaReviewFlags(ctx context.Context, tx pgx.Tx, owner, book, analysisRun string) (bool, error) {
 	var exists bool
 	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM occurrence_lemma_review_flags WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND resolution IS NULL)`, owner, book, analysisRun).Scan(&exists)
@@ -144,18 +118,10 @@ func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, 
 	return result, nil
 }
 
-// PutLemmaCorrection changes exactly the occurrence shown to the learner and
-// rejects stale spans, altered analyzer evidence, other owners, and old analyses.
-func (s *PostgresStore) PutLemmaCorrection(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma, profile, version string) error {
-	return s.PutLemmaDecision(ctx, occurrence, lemma, false, profile, version)
-}
-
-func (s *PostgresStore) PutLemmaDecision(ctx context.Context, occurrence domain.LemmaReviewOccurrence, lemma string, excluded bool, profile, version string) error {
-	return s.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrence, CanonicalLemma: lemma, Excluded: excluded, NormalizationProfile: profile, NormalizationVersion: version}})
-}
-
 // PutLemmaDecisions applies an explicitly reviewed set atomically. Every row
 // retains its own expected prior state, and one stale member rolls back the set.
+// Learner decisions reach it only through PutLemmaDecisionProposal; the set form
+// remains for integration-test setup.
 func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domain.LemmaReviewDecision) error {
 	if len(decisions) == 0 {
 		return nil
@@ -351,8 +317,4 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 		return false, ErrNotFound
 	}
 	return changed && err == nil, err
-}
-
-func (s *PostgresStore) HasCurrentLemmaCorrections(ctx context.Context, owner, bookID string) (bool, error) {
-	return s.queries().HasCurrentLemmaCorrections(ctx, sqlcgen.HasCurrentLemmaCorrectionsParams{Owner: owner, Book: bookID})
 }
