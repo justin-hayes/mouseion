@@ -1,6 +1,6 @@
 # ADR 0087: Vocabulary counts come only from selection
 
-Status: **Accepted (implementation pending)** · Date: 2026-10-10 · Author: Justin + OpenCode
+Status: **Accepted (implemented)** · Date: 2026-10-10 · Author: Justin + OpenCode
 
 Tracked by [issue #1682](https://github.com/justin-hayes/mouseion/issues/1682). Amends [ADR 0084](0084-browse-effective-count-projection.md).
 

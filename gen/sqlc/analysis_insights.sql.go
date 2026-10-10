@@ -9,61 +9,8 @@ import (
 	"context"
 )
 
-const listAnalysisCorpusVocabulary = `-- name: ListAnalysisCorpusVocabulary :many
-
-SELECT sl.language,
-       sl.canonical_lemma,
-       sl.upos,
-       SUM(sl.frequency)::bigint AS occurrence_count
-FROM corpora co
-JOIN shared_lemmas sl ON sl.content_hash = co.artifact_hash
-WHERE co.owner_id = $1
-  AND co.id = $2
-  AND upper(sl.upos) IN ('NOUN', 'VERB', 'ADJ', 'ADV')
-  AND btrim(sl.canonical_lemma) <> ''
-GROUP BY sl.language, sl.canonical_lemma, sl.upos
-ORDER BY sl.language, sl.canonical_lemma, sl.upos
-`
-
-type ListAnalysisCorpusVocabularyParams struct {
-	OwnerID string
-	ID      string
-}
-
-type ListAnalysisCorpusVocabularyRow struct {
-	Language        string
-	CanonicalLemma  string
-	Upos            string
-	OccurrenceCount int64
-}
-
-// Analysis-insight vocabulary aggregation.
-func (q *Queries) ListAnalysisCorpusVocabulary(ctx context.Context, arg ListAnalysisCorpusVocabularyParams) ([]ListAnalysisCorpusVocabularyRow, error) {
-	rows, err := q.db.Query(ctx, listAnalysisCorpusVocabulary, arg.OwnerID, arg.ID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListAnalysisCorpusVocabularyRow{}
-	for rows.Next() {
-		var i ListAnalysisCorpusVocabularyRow
-		if err := rows.Scan(
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.OccurrenceCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listProjectedCorpusVocabulary = `-- name: ListProjectedCorpusVocabulary :many
+
 SELECT COALESCE(c.language, '')::text AS language,
        COALESCE(c.canonical_lemma, '')::text AS canonical_lemma,
        COALESCE(c.upos, '')::text AS upos,
@@ -95,6 +42,7 @@ type ListProjectedCorpusVocabularyRow struct {
 	OccurrenceCount int64
 }
 
+// Analysis-insight vocabulary aggregation.
 // Per-Book effective vocabulary counts for one corpus, read from the Browse
 // count projection. A corpus whose current analysis has no ready projection
 // produces no row. A ready projection with no counts produces one row with an
