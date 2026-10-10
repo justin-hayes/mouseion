@@ -50,8 +50,10 @@ func readingEvidenceStatusFor(c domain.BookEvidenceClassification, coverageAvail
 }
 
 // analysisReadyForReading reports whether a Book's published analysis can be
-// opened in Reading. Coverage is read from the corpus, so a Book without one
-// stays out even when its classification is complete.
+// opened in Reading. A newer run that is queued, running, failed, or cancelled
+// does not withdraw the published analysis while it still matches the content.
+// Coverage is read from the corpus, so a Book without one stays out even when
+// its classification is complete.
 func analysisReadyForReading(book domain.SourceMaterialSummary) bool {
-	return book.EvidenceClassification().CompletedAnalysis() && book.AnalysisRunID != "" && book.CorpusID != ""
+	return book.EvidenceClassification().AnalysisInEffect() && book.AnalysisRunID != "" && book.CorpusID != ""
 }

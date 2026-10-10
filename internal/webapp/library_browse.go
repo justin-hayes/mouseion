@@ -25,6 +25,9 @@ func myBookMarginEvidence(book domain.MyBook) string {
 	}
 	var notes []string
 	classification := book.Classification()
+	if note := reanalysisMarginNote(classification); note != "" {
+		notes = append(notes, note)
+	}
 	switch {
 	case classification.PublicationPending():
 		notes = append(notes, analysisPublicationPendingNote)
@@ -68,6 +71,26 @@ func myBookMarginEvidence(book domain.MyBook) string {
 		notes = append(notes, "Deck preparation cancelled.")
 	}
 	return strings.Join(notes, " ")
+}
+
+// reanalysisMarginNote names a newer run that a published analysis outlives.
+// The published analysis stays the evidence, so the note is secondary.
+func reanalysisMarginNote(classification domain.BookEvidenceClassification) string {
+	if !classification.ReAnalysisShadowed() {
+		return ""
+	}
+	switch classification.Run {
+	case domain.RunQueued:
+		return "Re-analysis queued."
+	case domain.RunRunning:
+		return "Re-analysis running."
+	case domain.RunFailed, domain.RunJobFailed:
+		return "Re-analysis failed."
+	case domain.RunCancelled:
+		return "Re-analysis cancelled."
+	case domain.RunNone, domain.RunPublicationPending, domain.RunPublicationFailed, domain.RunCompleted:
+	}
+	return ""
 }
 
 func myBookEvidenceRecovery(book domain.MyBook) string {

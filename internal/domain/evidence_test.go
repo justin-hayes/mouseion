@@ -102,16 +102,40 @@ func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingNoCompletedAnalysis, recovery: RecoveryNone,
 		},
 		{
-			name:        "published analysis under a failed newer run",
+			name:        "published analysis under a failed newer run stays in effect",
 			signals:     with(PublishedCurrent, RunFailed),
 			disposition: BookDispositionToRead, language: "de",
-			evidence: BookAcquiredUnassessed, phase: PhaseFailed, eligibility: CurrentReadingFailed, recovery: RecoveryRetryAnalysis,
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryRetryAnalysis,
 		},
 		{
-			name:        "published analysis under a queued newer run",
+			name:        "published analysis under a job-failed newer run stays in effect",
+			signals:     with(PublishedCurrent, RunJobFailed),
+			disposition: BookDispositionToRead, language: "de",
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryRetryAnalysis,
+		},
+		{
+			name:        "published analysis under a cancelled newer run stays in effect",
+			signals:     with(PublishedCurrent, RunCancelled),
+			disposition: BookDispositionToRead, language: "de",
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryRetryAnalysis,
+		},
+		{
+			name:        "published analysis under a queued newer run stays in effect",
 			signals:     with(PublishedCurrent, RunQueued),
 			disposition: BookDispositionToRead, language: "de",
-			evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, eligibility: CurrentReadingAnalysisInProgress, recovery: RecoveryNone,
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryNone,
+		},
+		{
+			name:        "published analysis under a running newer run stays in effect",
+			signals:     with(PublishedCurrent, RunRunning),
+			disposition: BookDispositionToRead, language: "de",
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryNone,
+		},
+		{
+			name:        "published analysis under a newer run awaiting publication is not yet eligible",
+			signals:     with(PublishedCurrent, RunPublicationPending),
+			disposition: BookDispositionToRead, language: "de",
+			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingNoCompletedAnalysis, recovery: RecoveryNone,
 		},
 		{
 			name:        "eligible",
@@ -159,7 +183,11 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 						signals := AnalysisSignals{Content: content, Published: published, LatestRun: run}
 						got := ClassifyBookEvidence(signals, disposition, language)
 
-						analyzed := got.Phase == PhaseAnalyzed && run == RunCompleted
+						// A published analysis stays in effect under a newer run that is
+						// queued, running, failed, or cancelled; only a completed run or
+						// such a shadowed run makes the analysis usable for Reading.
+						newerShadowed := published == PublishedCurrent && (run == RunQueued || run == RunRunning || run == RunFailed || run == RunJobFailed || run == RunCancelled)
+						analyzed := got.Phase == PhaseAnalyzed && (run == RunCompleted || newerShadowed)
 						ready := content == ContentCurrentEPUB && analyzed && disposition == BookDispositionToRead && language != ""
 						assert.Equal(t, ready, got.Eligibility == CurrentReadingEligible, "eligibility for %+v %v %q", signals, disposition, language)
 
@@ -172,7 +200,7 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 						case ContentNonEPUB, ContentCurrentEPUB:
 						}
 
-						retryAnalysis := got.Phase == PhaseFailed || got.Phase == PhaseCancelled || got.Phase == PhaseStale
+						retryAnalysis := got.Phase == PhaseFailed || got.Phase == PhaseCancelled || got.Phase == PhaseStale || (published == PublishedCurrent && (run == RunFailed || run == RunJobFailed || run == RunCancelled))
 						if content != ContentNotAcquired {
 							assert.Equal(t, retryAnalysis, got.Recovery == RecoveryRetryAnalysis, "recovery for %+v", signals)
 						}
@@ -184,6 +212,25 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestBookEvidenceClassificationReAnalysisShadowedByPublishedAnalysis(t *testing.T) {
+	shadowed := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunRunning}, BookDispositionToRead, "de")
+	assert.True(t, shadowed.ReAnalysisShadowed())
+	assert.True(t, shadowed.AnalysisInEffect())
+	assert.False(t, shadowed.RunFinished(), "the newer run is still in progress")
+
+	failed := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunFailed}, BookDispositionToRead, "de")
+	assert.True(t, failed.ReAnalysisShadowed())
+	assert.True(t, failed.AnalysisInEffect())
+
+	completed := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCompleted}, BookDispositionToRead, "de")
+	assert.False(t, completed.ReAnalysisShadowed(), "a completed run is the analysis, not a shadowed attempt")
+	assert.True(t, completed.AnalysisInEffect())
+
+	unpublished := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, LatestRun: RunFailed}, BookDispositionToRead, "de")
+	assert.False(t, unpublished.ReAnalysisShadowed())
+	assert.False(t, unpublished.AnalysisInEffect())
 }
 
 func TestBookEvidenceClassificationPublicationPending(t *testing.T) {

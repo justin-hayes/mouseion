@@ -169,7 +169,9 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		action.Tone = StatusDanger
 		return action
 	case readingEvidenceIncomplete:
-		if action.Status != "Analysis queued" && action.Status != "Analysis running" {
+		// A newer run shadowed by a published analysis is secondary information;
+		// it keeps its own status and Retry rather than the coverage message.
+		if action.Status != "Analysis queued" && action.Status != "Analysis running" && !classification.ReAnalysisShadowed() {
 			action.Status = "Analysis incomplete"
 			action.Description = readingEvidenceDescription(item)
 			action.Label = "Retry analysis"

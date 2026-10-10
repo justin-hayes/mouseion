@@ -183,7 +183,9 @@ rather than stored by hand or persisted as learner state. It is the single
 state every surface presents: not acquired, unavailable (content present but no
 current revision), stale (a prior analysis no longer matches the current
 content), analyzed, or acquired-but-unassessed (current content present,
-analysis not yet complete).
+analysis not yet complete). It reflects the Book's published analysis: a newer
+analysis run that is still in progress, failed, or was cancelled does not
+change it while the published analysis still matches the current content.
 _Avoid_: book status, analysis state (the raw signal the classification reads,
 not the classification itself), deck readiness, evidence status.
 
