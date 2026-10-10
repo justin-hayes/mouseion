@@ -28,13 +28,13 @@ func (p *lemmaSuggestionFixture) SuggestLemma(_ context.Context, request enrichm
 }
 
 func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
 	provider := &lemmaSuggestionFixture{}
 	webHandler, ok := h.(*Handler)
 	require.True(t, ok)
 	webHandler.services.LemmaSuggestions = provider
-	response := goalRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
+	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
 		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"0"},
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
@@ -50,12 +50,12 @@ func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
 }
 
 func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
 	webHandler, ok := h.(*Handler)
 	require.True(t, ok)
 	webHandler.services.LemmaSuggestions = &lemmaSuggestionFixture{err: context.DeadlineExceeded}
-	response := goalRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
+	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/lemma-suggestion", url.Values{
 		"csrf_token": {csrf}, "form": {"Weg"}, "target": {"0"},
 	}, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
@@ -64,7 +64,7 @@ func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
 }
 
 func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	activeRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading/books/"+fixtures.BookID+"/lemma-review?form=Weg", nil)
 	for _, cookie := range cookies {
 		activeRequest.AddCookie(cookie)
@@ -92,20 +92,20 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 		if len(additional) > 0 {
 			values["also"] = additional
 		}
-		return goalRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", values, cookies)
+		return readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", values, cookies)
 	}
 	confirm := func(response *httptest.ResponseRecorder, lemma string, indices ...string) *httptest.ResponseRecorder {
 		match := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(response.Body.String())
 		require.Len(t, match, 2, "preview includes its stale-state fingerprint")
 		values := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {lemma}, "fingerprint": {match[1]}, "selected": indices}
-		return goalRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", values, cookies)
+		return readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", values, cookies)
 	}
 	proposal := preview("0", "correct", "Pfad")
 	require.Equal(t, http.StatusOK, proposal.Code)
 	assert.Contains(t, proposal.Body.String(), "This is a preview only")
 	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(proposal.Body.String())
 	require.Len(t, fingerprint, 2)
-	tampered := goalRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0", "1"}}, cookies)
+	tampered := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0", "1"}}, cookies)
 	assert.Equal(t, http.StatusConflict, tampered.Code, "the confirmed selection must match the reviewed proposal")
 	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, reviewBookID, "Weg")
 	require.NoError(t, err)
@@ -128,12 +128,12 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	updated := preview("0", "correct", "Wand")
 	require.Equal(t, http.StatusSeeOther, confirm(updated, "Wand", "0").Code)
 	staleFingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(stalePreview.Body.String())
-	stale := goalRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Wand"}, "fingerprint": {staleFingerprint[1]}, "selected": {"0"}}, cookies)
+	stale := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"Wand"}, "fingerprint": {staleFingerprint[1]}, "selected": {"0"}}, cookies)
 	assert.Equal(t, http.StatusConflict, stale.Code, "a changed learner decision invalidates its preview")
 	exclusion := preview("1", "exclude", "")
 	exclusionConfirm := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(exclusion.Body.String())
 	require.Len(t, exclusionConfirm, 2)
-	exclude := goalRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"exclude"}, "fingerprint": {exclusionConfirm[1]}, "selected": {"1"}}, cookies)
+	exclude := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/lemma-review", url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"exclude"}, "fingerprint": {exclusionConfirm[1]}, "selected": {"1"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, exclude.Code)
 	occurrences, err = store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, reviewBookID, "Weg")
 	require.NoError(t, err)
@@ -147,19 +147,19 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 		h.ServeHTTP(page, get)
 		return page.Body.String()
 	}(), "excluded for this occurrence.")
-	start := goalRequest(t, h, "/reading/books/"+reviewBookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	start := readingTestRequest(t, h, "/reading/books/"+reviewBookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, start.Code)
 	assert.Contains(t, start.Header().Get("Location"), "is+now+your+current+reading")
 }
 
 func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	oldReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	oldSnapshotID := oldReading.SnapshotID
 	endGermanFixtureReading(t, store)
 
-	preview := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
+	preview := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
 		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {"0"}, "decision": {"correct"}, "lemma": {"Pfad"},
 	}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code)
@@ -167,7 +167,7 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(preview.Body.String())
 	require.Len(t, fingerprint, 2)
 
-	withoutConsent := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
+	withoutConsent := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
 		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0"},
 	}, cookies)
 	assert.Equal(t, http.StatusBadRequest, withoutConsent.Code)
@@ -175,7 +175,7 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	require.NoError(t, err)
 	assert.False(t, stillStopped.IsActive(), "missing restart/re-preparation consent cannot start a new reading")
 
-	confirmed := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
+	confirmed := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
 		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {"0"}, "reprepare_ready_deck": {"yes"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, confirmed.Code)

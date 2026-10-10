@@ -12,23 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func renderJourney(t *testing.T, view journeyPageView, message, pageError string) string {
+func renderReading(t *testing.T, view readingPageView, message, pageError string) string {
 	t.Helper()
 	var output bytes.Buffer
-	require.NoError(t, JourneyPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, message, pageError).Render(context.Background(), &output))
+	require.NoError(t, ReadingPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, message, pageError).Render(context.Background(), &output))
 	return output.String()
 }
 
-func testJourneyBook(id, title, status string) journeyBookView {
-	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, AnalysisStatus: status}}
+func testReadingBook(id, title, status string) readingBookView {
+	return readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, AnalysisStatus: status}}
 }
 
-func TestJourneyPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBook(t *testing.T) {
-	goal := testJourneyBook("current", "Der lange Weg nach Hause", "ready")
-	goal.Book.BookAuthor = "A. Reader"
-	goal.Cover = domain.BookCover{State: domain.BookCoverUnavailable}
-	goal.ReadingSince = time.Date(2026, time.January, 3, 12, 0, 0, 0, time.UTC)
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBook(t *testing.T) {
+	currentReading := testReadingBook("current", "Der lange Weg nach Hause", "ready")
+	currentReading.Book.BookAuthor = "A. Reader"
+	currentReading.Cover = domain.BookCover{State: domain.BookCoverUnavailable}
+	currentReading.ReadingSince = time.Date(2026, time.January, 3, 12, 0, 0, 0, time.UTC)
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 
 	assert.Contains(t, html, "Reading since")
 	assert.Contains(t, html, `<time datetime="2026-01-03">January 3, 2026</time>`)
@@ -46,12 +46,12 @@ func TestJourneyPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 }
 
 func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
-	goal := testJourneyBook("goal", "Goal book", "analyzed")
-	goal.GoalSnapshotSize = 2
-	goal.GoalSnapshotID = "snapshot"
-	goal.GoalVocabularyEligible = 1
-	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", SnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	currentReading := testReadingBook("goal", "Goal book", "analyzed")
+	currentReading.CurrentReadingSnapshotSize = 2
+	currentReading.CurrentReadingSnapshotID = "snapshot"
+	currentReading.CurrentReadingVocabularyEligible = 1
+	currentReading.CurrentReadingPreparation = &domain.DeckPreparation{ID: "goal-preparation", SnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
 	assert.Contains(t, html, "Book deck")
@@ -59,37 +59,37 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 	assert.Contains(t, html, `action="/reading/books/goal/deck/retry"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot"`)
 	assert.NotContains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
-	goalCardStart := strings.Index(html, `id="journey-book-goal"`)
-	goalCardEnd := strings.Index(html[goalCardStart:], "</article>")
-	require.GreaterOrEqual(t, goalCardStart, 0)
-	require.Greater(t, goalCardEnd, 0)
-	assert.NotContains(t, html[goalCardStart:goalCardStart+goalCardEnd], "external_translation_consent")
+	currentReadingCardStart := strings.Index(html, `id="journey-book-goal"`)
+	currentReadingCardEnd := strings.Index(html[currentReadingCardStart:], "</article>")
+	require.GreaterOrEqual(t, currentReadingCardStart, 0)
+	require.Greater(t, currentReadingCardEnd, 0)
+	assert.NotContains(t, html[currentReadingCardStart:currentReadingCardStart+currentReadingCardEnd], "external_translation_consent")
 }
 
 func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
-	goal := testJourneyBook("empty-goal", "Empty Goal book", "analyzed")
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	currentReading := testReadingBook("empty-goal", "Empty Goal book", "analyzed")
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "0 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.NotContains(t, html, "Deck preparation unavailable")
 	assert.NotContains(t, html, "Retry deck preparation")
 }
 
 func TestIsCurrentReadingShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
-	goal := testJourneyBook("unavailable-goal", "Unavailable Goal book", "analyzed")
-	goal.GoalSnapshotSize = 2
-	goal.GoalDeckUnavailable = true
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	currentReading := testReadingBook("unavailable-goal", "Unavailable Goal book", "analyzed")
+	currentReading.CurrentReadingSnapshotSize = 2
+	currentReading.CurrentReadingDeckUnavailable = true
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.Contains(t, html, "Deck unavailable.")
 	assert.Contains(t, html, "Retry deck preparation")
 }
 
-func TestIsCurrentReadingShowsMissingDeckWithoutChangingGoalFacts(t *testing.T) {
-	goal := testJourneyBook("missing-goal", "Missing Goal deck", "analyzed")
-	goal.GoalSnapshotSize = 2
-	goal.GoalSnapshotID = "missing-snapshot"
-	goal.GoalDeckMissing = true
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+func TestIsCurrentReadingShowsMissingDeckWithoutChangingCurrentReadingFacts(t *testing.T) {
+	currentReading := testReadingBook("missing-goal", "Missing Goal deck", "analyzed")
+	currentReading.CurrentReadingSnapshotSize = 2
+	currentReading.CurrentReadingSnapshotID = "missing-snapshot"
+	currentReading.CurrentReadingDeckMissing = true
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "Deck missing.")
 	assert.Contains(t, html, "Prepare a deck for the vocabulary reserved for this reading.")
 	assert.Contains(t, html, "Prepare deck")
@@ -102,41 +102,41 @@ func TestReservedVocabularySummaryPluralizesLearnerCopy(t *testing.T) {
 }
 
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
-	goal := testJourneyBook("goal-state", "Goal state book", "analyzed")
-	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
+	currentReading := testReadingBook("goal-state", "Goal state book", "analyzed")
+	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "Reserved vocabulary</h2>")
 	assert.Contains(t, html, "Analysis</h2>")
 	assert.Contains(t, html, "Book deck</h2>")
 	assert.Contains(t, html, `href="/library">Add books from My Books</a>`)
 }
 
-func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
-	stale := testJourneyBook("stale", "Stale book", "stale")
+func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
+	stale := testReadingBook("stale", "Stale book", "stale")
 	stale.Book.Source.MediaType = "application/epub+zip"
 	stale.Book.Source.ContentRevisionID = "current-revision"
 	stale.Book.Source.ContentSnapshotID = "current-snapshot"
 	stale.Book.AnalysisState = "completed"
 	stale.Book.AnalysisRunID = "old-run"
 	stale.Book.CorpusID = "old-corpus"
-	action := journeyAnalysisAction(stale)
+	action := readingAnalysisAction(stale)
 	assert.Equal(t, "Stale analysis", action.Status)
 	assert.Equal(t, "Re-analyze", action.Label)
 	assert.Equal(t, "/reading/books/stale/reanalyze", action.URL)
 	assert.True(t, action.Submit)
-	unassessed := testJourneyBook("unassessed", "Unassessed book", "not analyzed")
+	unassessed := testReadingBook("unassessed", "Unassessed book", "not analyzed")
 	unassessed.Book.Source.MediaType = "application/epub+zip"
 	unassessed.Book.Source.ContentRevisionID = "revision"
 	unassessed.Book.Source.ContentSnapshotID = "snapshot"
-	action = journeyAnalysisAction(unassessed)
+	action = readingAnalysisAction(unassessed)
 	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
 	assert.Equal(t, "/reading/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 
-	missingSnapshot := testJourneyBook("missing-snapshot", "Missing snapshot", "analyzed")
+	missingSnapshot := testReadingBook("missing-snapshot", "Missing snapshot", "analyzed")
 	missingSnapshot.Book.Source.MediaType = "application/epub+zip"
 	missingSnapshot.Book.Source.ContentRevisionID = "current-revision"
-	action = journeyAnalysisAction(missingSnapshot)
+	action = readingAnalysisAction(missingSnapshot)
 	assert.Equal(t, "Assessment unavailable", action.Status)
 	assert.Equal(t, "Retry acquisition", action.Label)
 
@@ -146,20 +146,20 @@ func TestJourneyEvidenceActionsRemainAvailable(t *testing.T) {
 		{status: "analysis queued", wantStatus: "Analysis queued"},
 		{status: "analysis running", wantStatus: "Analysis running"},
 	} {
-		item := testJourneyBook(test.status, test.status, test.status)
+		item := testReadingBook(test.status, test.status, test.status)
 		item.Book.Source.MediaType = "application/epub+zip"
 		item.Book.Source.ContentRevisionID = "revision"
 		item.Book.Source.ContentSnapshotID = "snapshot"
 		item.Book.AnalysisJobID = 42
-		queuedAction := journeyAnalysisAction(item)
+		queuedAction := readingAnalysisAction(item)
 		assert.Equal(t, test.wantStatus, queuedAction.Status)
 		assert.Equal(t, "View analysis status", queuedAction.Label)
 		assert.False(t, queuedAction.Submit)
 	}
 }
 
-func TestJourneyIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
-	item := testJourneyBook("incomplete", "Incomplete analyzed book", "analyzed")
+func TestReadingIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
+	item := testReadingBook("incomplete", "Incomplete analyzed book", "analyzed")
 	item.Book.Source.MediaType = "application/epub+zip"
 	item.Book.Source.ContentRevisionID = "revision"
 	item.Book.Source.ContentSnapshotID = "snapshot"
@@ -168,15 +168,15 @@ func TestJourneyIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
 	item.Book.CorpusID = "corpus"
 	item.StatisticsUnavailable = true
 
-	action := journeyAnalysisAction(item)
+	action := readingAnalysisAction(item)
 	assert.Equal(t, "Analysis incomplete", action.Status)
 	assert.Equal(t, "Retry analysis", action.Label)
 	assert.Equal(t, "/reading/books/incomplete/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 }
 
-func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
-	item := testJourneyBook("analyzed", "Analyzed book", "analyzed")
+func TestReadingTreatsAnalyzedEvidenceAndEligibleCurrentReadingsAsCurrent(t *testing.T) {
+	item := testReadingBook("analyzed", "Analyzed book", "analyzed")
 	item.Book.Source.MediaType = "application/epub+zip"
 	item.Book.Source.ContentRevisionID = "revision"
 	item.Book.Source.ContentSnapshotID = "snapshot"
@@ -185,8 +185,8 @@ func TestJourneyTreatsAnalyzedEvidenceAndEligibleGoalsAsCurrent(t *testing.T) {
 	item.Book.CorpusID = "corpus"
 	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
 
-	assert.Equal(t, "current", journeyEvidenceState(item))
-	eligible, message := journeyGoalEligibility(item.Book)
+	assert.Equal(t, "current", readingEvidenceState(item))
+	eligible, message := readingCurrentReadingEligibility(item.Book)
 	assert.True(t, eligible)
 	assert.Empty(t, message)
 }

@@ -56,7 +56,7 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 }
 
 func TestReconciliation_KnownVocabAliasIsRetiredWithoutRedirect(t *testing.T) {
-	h, cookies, _, _ := goalFixtureSession(t)
+	h, cookies, _, _ := readingFixtureSession(t)
 	for _, path := range []string{"/known-vocab", "/known-vocab?language=de"} {
 		t.Run(path, func(t *testing.T) {
 			response := performReadingRequest(t, h, http.MethodGet, path, nil, cookies, false)

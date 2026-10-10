@@ -52,7 +52,7 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			require.NoError(t, DeckPreparationStatus("csrf-372", test.prep, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			require.NoError(t, DeckPreparationStatus("csrf-372", test.prep, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 			statusHTML := output.String()
 			for _, want := range test.want {
 				assert.True(t, strings.Contains(statusHTML, want), "status missing %q: %s", want, statusHTML)

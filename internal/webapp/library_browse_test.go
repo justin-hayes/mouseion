@@ -151,7 +151,7 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 		{name: "partial", partial: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			h, cookies, _, fixtureStore := goalFixtureSession(t)
+			h, cookies, _, fixtureStore := readingFixtureSession(t)
 			handler := requireHandler(t, h)
 			store := &browseRecordingStore{Store: fixtureStore, err: errors.New("read failed")}
 			handler.services.Store = storeDependencies(store)
@@ -185,7 +185,7 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 }
 
 func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
-	h, cookies, _, fixtureStore := goalFixtureSession(t)
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
 	handler := requireHandler(t, h)
 	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
@@ -286,7 +286,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 }
 
 func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.T) {
-	h, cookies, _, fixtureStore := goalFixtureSession(t)
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
 	handler := requireHandler(t, h)
 	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{
@@ -363,7 +363,7 @@ func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
 }
 
 func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
-	h, cookies, _, store := goalFixtureSession(t)
+	h, cookies, _, store := readingFixtureSession(t)
 	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	_, err = store.FinishCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID, current.SnapshotID)
@@ -395,12 +395,12 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 }
 
 func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
-	analysisService := &journeyIntentAnalysis{}
+	h, cookies, csrf, store := readingFixtureSession(t)
+	analysisService := &readingIntentAnalysis{}
 	requireHandler(t, h).services.Analysis = analysisService
 	bookState, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
 	require.NoError(t, err)
-	retiredCurrent := goalRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
+	retiredCurrent := readingTestRequest(t, h, "/library/books/"+fixtures.BookID+"/set-aside", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusNotFound, retiredCurrent.Code, "retired Set Aside route is not served, even for the current reading")
@@ -408,7 +408,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 
 	bookState, err = store.GetBookDetail(context.Background(), fixtures.OwnerID, "fixture-failed")
 	require.NoError(t, err)
-	retired := goalRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
+	retired := readingTestRequest(t, h, "/library/books/fixture-failed/set-aside", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusNotFound, retired.Code)
@@ -418,7 +418,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	require.True(t, inbox)
 	assert.Equal(t, domain.BookDispositionInbox, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"))
 
-	toRead := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
+	toRead := readingTestRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
@@ -429,7 +429,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
 
-	repeated := goalRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
+	repeated := readingTestRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
@@ -456,7 +456,7 @@ func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
 }
 
 func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
-	h, cookies, _, _ := goalFixtureSession(t)
+	h, cookies, _, _ := readingFixtureSession(t)
 	handler := requireHandler(t, h)
 	request := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)

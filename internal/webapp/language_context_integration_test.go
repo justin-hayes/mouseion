@@ -49,7 +49,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 	oldToken := csrf + ".de"
 	post := func(path string, form url.Values) *httptest.ResponseRecorder {
 		t.Helper()
-		return goalRequest(t, h, path, form, cookies)
+		return readingTestRequest(t, h, path, form, cookies)
 	}
 
 	switched := post("/active-study-language", url.Values{"csrf_token": {oldToken}, "language": {"it"}, "return_to": {"/reading?language=de"}})
@@ -88,7 +88,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 	// Another owner's session is unaffected by, and cannot reuse, this state.
 	other := createAccount(t, ctx, store, "language-context-other", "other-learner-password", false)
 	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "other-learner-password")
-	response := goalRequest(t, h, "/reading/finish", url.Values{"csrf_token": {otherCSRF}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {reading.SnapshotID}}, otherCookies)
+	response := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {otherCSRF}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {reading.SnapshotID}}, otherCookies)
 	assert.NotEqual(t, http.StatusOK, response.Code)
 	current, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)

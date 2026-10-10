@@ -69,7 +69,7 @@ func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	var myBooks, reading bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &myBooks))
-	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
+	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "").Render(context.Background(), &reading))
 
 	assert.Contains(t, myBooks.String(), `href="/static/app.css"`)
 	assert.Contains(t, myBooks.String(), `class="site-nav__link site-nav__link--current"`)
@@ -83,7 +83,7 @@ func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T)
 	var catalogs, jobs, reading bytes.Buffer
 	require.NoError(t, ConnectionsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &catalogs))
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &jobs))
-	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "").Render(context.Background(), &reading))
+	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "").Render(context.Background(), &reading))
 
 	for _, html := range []string{catalogs.String(), jobs.String(), reading.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
@@ -96,9 +96,9 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 		name      string
 		component templ.Component
 	}{
-		{name: "current reading", component: JourneyPage(domain.User{Username: "learner"}, "csrf", journeyPageView{}, "", "")},
+		{name: "current reading", component: ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "")},
 		{name: "chooser", component: ReadingChooserPage(domain.User{Username: "learner"}, "csrf", readingChooserPageView{}, "", "")},
-		{name: "completion receipt", component: PrimaryGoalFinishPage(domain.User{Username: "learner"}, "csrf", primaryGoalFinishView{BookTitle: "A finished Book"})},
+		{name: "completion receipt", component: CurrentReadingFinishPage(domain.User{Username: "learner"}, "csrf", currentReadingFinishView{BookTitle: "A finished Book"})},
 	}
 	for _, page := range pages {
 		t.Run(page.name, func(t *testing.T) {
@@ -113,8 +113,8 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 	}
 
 	var current, chooser bytes.Buffer
-	goal := testJourneyBook("book-1", "Current book", "ready")
-	require.NoError(t, JourneyPage(domain.User{}, "csrf", journeyPageView{Goal: &goal}, "", "").Render(context.Background(), &current))
+	currentReading := testReadingBook("book-1", "Current book", "ready")
+	require.NoError(t, ReadingPage(domain.User{}, "csrf", readingPageView{CurrentReading: &currentReading}, "", "").Render(context.Background(), &current))
 	candidate := readingChooserBookView{
 		Book:     domain.MyBook{Book: domain.Book{ID: "candidate-1", Title: "Candidate book"}},
 		Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 1},
@@ -128,7 +128,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 	assert.NotContains(t, chooser.String(), `role="button"`)
 
 	var fragment bytes.Buffer
-	require.NoError(t, PrimaryGoalFinish(primaryGoalFinishView{BookTitle: "A finished Book"}).Render(context.Background(), &fragment))
+	require.NoError(t, CurrentReadingFinish(currentReadingFinishView{BookTitle: "A finished Book"}).Render(context.Background(), &fragment))
 	assert.Contains(t, fragment.String(), `class="journey-goal journey-finish-outcome"`)
 	assert.NotContains(t, fragment.String(), `<html`)
 }
@@ -154,10 +154,10 @@ func loadBrowseForTest(t *testing.T, services Services, target, bookID string) (
 }
 
 func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
-	goal := testJourneyBook("book-1", "Current Book", "ready")
+	currentReading := testReadingBook("book-1", "Current Book", "ready")
 	var reading bytes.Buffer
-	view := journeyPageView{Goal: &goal, Browse: readingBrowseView{Language: "de", Query: domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: "book-1"}, Page: domain.VocabularyBrowsePage{CurrentBookID: "book-1"}}}
-	require.NoError(t, JourneyPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &reading))
+	view := readingPageView{CurrentReading: &currentReading, Browse: readingBrowseView{Language: "de", Query: domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: "book-1"}, Page: domain.VocabularyBrowsePage{CurrentBookID: "book-1"}}}
+	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &reading))
 	html := reading.String()
 	assert.Contains(t, html, `href="/static/app.css"`)
 	assert.NotContains(t, html, `href="/static/vocabulary.css"`)

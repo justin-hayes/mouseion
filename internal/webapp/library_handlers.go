@@ -27,8 +27,8 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "HX-Request-Type")
 	u := user(r)
 	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
-	goal, goalErr := h.services.Store.MyBooks.GetCurrentReading(r.Context(), u.ID, activeLanguage)
-	if goalErr != nil {
+	currentReading, currentReadingErr := h.services.Store.MyBooks.GetCurrentReading(r.Context(), u.ID, activeLanguage)
+	if currentReadingErr != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
@@ -88,15 +88,15 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
-	goalBookID := ""
-	if goal.IsActive() {
-		goalBookID = goal.BookID
+	currentReadingBookID := ""
+	if currentReading.IsActive() {
+		currentReadingBookID = currentReading.BookID
 	}
 	if isPartialHTMXRequest(r) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
 		return
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), goalBookID, len(connections) > 0, browse))
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, len(connections) > 0, browse))
 }
 
 // redirectMyBooksBrowse preserves ordinary browser redirects while asking

@@ -116,9 +116,9 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, aliceCookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)
 	assert.Contains(t, started.Header().Get("Location"), "/reading?message=")
-	goal, err := store.GetCurrentReading(ctx, alice.ID, "de")
+	currentReading, err := store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, book.ID, goal.BookID)
+	assert.Equal(t, book.ID, currentReading.BookID)
 	queuedDecks, ok := h.services.PreparedDeck.(*recordingPreparedDeck)
 	require.True(t, ok)
 	require.Empty(t, queuedDecks.preparations, "starting a Reading must not auto-submit deck preparation")
@@ -141,16 +141,16 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	// Stale writes, missing CSRF, cross-owner references, and invalid progress
 	// are rejected without changing the accepted state.
-	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book", goal.SnapshotID)
+	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book", currentReading.SnapshotID)
 	assert.ErrorIs(t, err, persistence.ErrCurrentReadingStale) //nolint:testifylint // Stale goal rejection is independently asserted before HTTP checks.
 	bobCookies, bobCSRF := loginCookies(t, h, "migration-bob", "bob-password")
 	foreign := perform(t, h, http.MethodPost, "/goal/books/"+book.ID, url.Values{"csrf_token": {bobCSRF}, "expected_goal_book_id": {""}}, bobCookies)
 	assert.Equal(t, http.StatusNotFound, foreign.Code)
-	bobGoal, goalErr := store.GetCurrentReading(ctx, bob.ID, "de")
-	require.NoError(t, goalErr)
-	assert.Empty(t, bobGoal.BookID)
+	bobCurrentReading, currentReadingErr := store.GetCurrentReading(ctx, bob.ID, "de")
+	require.NoError(t, currentReadingErr)
+	assert.Empty(t, bobCurrentReading.BookID)
 
-	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {goal.SnapshotID}}, aliceCookies)
+	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/reading">Choose a To Read book</a>`} {
 		assert.True(t, strings.Contains(finished.Body.String(), want), "finish receipt missing %q: %s", want, finished.Body.String())
@@ -184,7 +184,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(7), afterCoverage.KnownTokenCount)
 	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
-	completion, err := store.FinishCurrentReading(ctx, alice.ID, "de", book.ID, goal.SnapshotID)
+	completion, err := store.FinishCurrentReading(ctx, alice.ID, "de", book.ID, currentReading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 3, completion.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
@@ -195,20 +195,20 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.NotNil(t, legacyPreparation.StudyingAt, "legacy preparation was silently graduated")
 	assert.Nil(t, legacyPreparation.ReleasedAt, "legacy preparation was silently released")
 	assert.Nil(t, legacyPreparation.GraduatedAt, "legacy preparation was silently graduated")
-	goal, err = store.GetCurrentReading(ctx, alice.ID, "de")
+	currentReading, err = store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Empty(t, goal.BookID)
-	laterGoal := perform(t, h, http.MethodPost, "/reading/books/"+secondBook.ID+"/start", url.Values{
+	assert.Empty(t, currentReading.BookID)
+	laterCurrentReading := perform(t, h, http.MethodPost, "/reading/books/"+secondBook.ID+"/start", url.Values{
 		"csrf_token": {csrf},
 	}, aliceCookies)
-	assert.Equal(t, http.StatusSeeOther, laterGoal.Code)
-	assert.NotContains(t, laterGoal.Header().Get("Location"), "error=")
+	assert.Equal(t, http.StatusSeeOther, laterCurrentReading.Code)
+	assert.NotContains(t, laterCurrentReading.Header().Get("Location"), "error=")
 	finishedDisposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionInbox, finishedDisposition, "choosing a later current reading changed the finished Book disposition")
-	goal, err = store.GetCurrentReading(ctx, alice.ID, "de")
+	currentReading, err = store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, secondBook.ID, goal.BookID)
+	assert.Equal(t, secondBook.ID, currentReading.BookID)
 
 	// Failed analysis retry and prepared-deck retry remain explicit operations.
 	failedJob := perform(t, h, http.MethodPost, "/jobs/43/retry", url.Values{"csrf_token": {csrf}}, aliceCookies)

@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGoalInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *testing.T) {
+func TestCurrentReadingInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBoundaries(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "goal-interaction-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

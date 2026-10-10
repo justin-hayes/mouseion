@@ -199,7 +199,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, target)
 }
 
-func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
+func (h *Handler) acquireBookForReadingContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
 	target, err := h.services.CatalogueSync.FindAcquisitionTarget(ctx, owner, bookID)
 	if err != nil {
 		return target, err
@@ -211,7 +211,7 @@ func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookI
 	return target, err
 }
 
-func journeyAcquisitionError(ctx context.Context, catalog CatalogsStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
+func readingAcquisitionError(ctx context.Context, catalog CatalogsStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
 	connectionName, entryTitle := "catalog connection", "this book"
 	if strings.TrimSpace(target.Entry.Title) != "" {
 		entryTitle = target.Entry.Title
