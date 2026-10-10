@@ -286,7 +286,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NoError(t, err)
 	index.advance("fixture-v2", enrichment.LexicalSense{EvidenceID: "wikt:umhauen-v2", Gloss: "to knock over", Source: "wiktionary", Kind: "meaning", Origin: "fixture"})
 	service := NewService(store, client)
-	refreshed, err := service.Reprepare(ctx, owner.ID, first.ID)
+	refreshed, err := service.Reprepare(ctx, owner.ID, first.ID, first.SnapshotID)
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ID, refreshed.Preparation.ID)
 	require.Equal(t, domain.DeckPreparationQueued, refreshed.Preparation.State)

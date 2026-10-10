@@ -36,7 +36,7 @@ type repreparingSpy struct {
 	reprepared []string
 }
 
-func (s *repreparingSpy) Reprepare(_ context.Context, _, id string) (prepareddeck.Handle, error) {
+func (s *repreparingSpy) Reprepare(_ context.Context, _, id, _ string) (prepareddeck.Handle, error) {
 	s.reprepared = append(s.reprepared, id)
 	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "new-preparation"}}, nil
 }

@@ -95,10 +95,12 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 					<p>No Book deck is needed because no vocabulary was reserved for this reading.</p>
 				} else if item.CurrentReadingPreparation != nil {
 					<p class="metadata"><strong>Deck status</strong>: { deckPreparationTitle(*item.CurrentReadingPreparation) }.</p>
-					@CurrentReadingDeckPreparationStatus(csrf, readingBookID(item), item.CurrentReadingSnapshotID, *item.CurrentReadingPreparation)
+					@CurrentReadingDeckPreparationStatus(csrf, readingBookID(item), item.CurrentReadingSnapshotID, *item.CurrentReadingPreparation, item.CurrentReadingActions)
 				} else if item.CurrentReadingDeckMissing {
 					<p role="note" aria-live="polite"><strong>Deck missing.</strong> Prepare a deck for the vocabulary reserved for this reading.</p>
-					<form method="post" action={ templ.SafeURL("/reading/books/"+readingBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.CurrentReadingSnapshotID }/><button class="button" type="submit">Prepare deck</button></form>
+					if item.CurrentReadingActions.Submit {
+						<form method="post" action={ templ.SafeURL("/reading/books/"+readingBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.CurrentReadingSnapshotID }/><button class="button" type="submit">Prepare deck</button></form>
+					}
 				} else if item.CurrentReadingDeckUnavailable {
 					<p role="note" aria-live="polite"><strong>Deck unavailable.</strong> Retry preparation when it is available.</p>
 					<form method="post" action={ templ.SafeURL("/reading/books/"+readingBookID(item)+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ item.CurrentReadingSnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
@@ -143,21 +145,25 @@ templ CurrentReadingLifecycleActions(item readingBookView, csrf string) {
 	</div>
 }
 
-templ CurrentReadingDeckPreparationStatus(csrf, bookID, snapshotID string, preparation domain.DeckPreparation) {
+templ CurrentReadingDeckPreparationStatus(csrf, bookID, snapshotID string, preparation domain.DeckPreparation, actions deckPreparationActions) {
 	<p><strong>{ deckPreparationTitle(preparation) }.</strong> { deckPreparationSummary(preparation) }</p>
 		if preparation.State == domain.DeckPreparationReady {
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-				<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
+				if actions.Submit {
+					<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
+				}
 			} else if deckPreparationEmpty(preparation) {
 				<p>No cards were created from this snapshot.</p>
 			} else {
-			<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
-		}
-	} else if deckPreparationActive(preparation) {
+				<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
+				if actions.Reprepare {
+					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
+				}
+			}
+		} else if deckPreparationActive(preparation) {
 		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button button--outline">Cancel preparation</button></form>
-		if preparation.State == domain.DeckPreparationQueued {
+		if preparation.State == domain.DeckPreparationQueued && actions.Submit {
 			<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
 		}
 	} else {
@@ -166,7 +172,9 @@ templ CurrentReadingDeckPreparationStatus(csrf, bookID, snapshotID string, prepa
 		} else if preparation.State == domain.DeckPreparationCancelled {
 			@Feedback(FeedbackError, "Action needed", "Preparation was cancelled. Retry this exact reading snapshot when ready.")
 		}
-		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
+		if actions.Submit {
+			<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
+		}
 	}
 }
 

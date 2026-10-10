@@ -14,6 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 type readingBookView struct {
@@ -29,6 +30,7 @@ type readingBookView struct {
 	CurrentReadingSnapshotID         string
 	CurrentReadingSnapshotSize       int
 	CurrentReadingPreparation        *domain.DeckPreparation
+	CurrentReadingActions            deckPreparationActions
 	CurrentReadingDeckMissing        bool
 	CurrentReadingDeckUnavailable    bool
 	CanMoveEarlier                   bool
@@ -222,6 +224,30 @@ type deckReadingActionView struct {
 	State   deckReadingState
 	Message string
 	Error   string
+	// Actions are decided by the prepared-deck admission. Templates render them
+	// and never compare Current reading fields themselves.
+	Actions deckPreparationActions
+}
+
+// deckPreparationActions are the Book deck actions a surface may offer.
+type deckPreparationActions struct {
+	BookID string
+	// OnCurrentReading reports that the Book is the current reading, so the
+	// deck is still Reading's to act on, even if no action is admitted now.
+	OnCurrentReading bool
+	// Submit prepares, or retries, the deck for the current snapshot.
+	Submit bool
+	// Reprepare rolls a ready deck forward to a new generation.
+	Reprepare bool
+}
+
+func deckActionsFor(bookID string, admissions prepareddeck.PreparationAdmissions) deckPreparationActions {
+	return deckPreparationActions{
+		BookID:           bookID,
+		OnCurrentReading: admissions.Retry != domain.DeckAdmissionNotCurrentReading,
+		Submit:           admissions.Retry.Admitted(),
+		Reprepare:        admissions.Reprepare.Admitted(),
+	}
 }
 
 func emptyDeckReadingAction() deckReadingActionView {
@@ -417,22 +443,30 @@ func (h *Handler) addCurrentReadingDeckPreparation(ctx context.Context, owner st
 		return
 	}
 	book.CurrentReadingDeckUnavailable = true
-	preparation, err := h.services.PreparedDeck.GetForCurrentReadingSnapshot(ctx, owner, currentReading.SnapshotID)
-	switch {
-	case err == nil:
-		if !currentReadingPreparationMatches(preparation, owner, currentReading) {
-			log.Printf("mouseion: Current reading deck provenance mismatch for owner %s snapshot %s", owner, currentReading.SnapshotID)
-			return
-		}
-		book.CurrentReadingPreparation = &preparation
-		book.CurrentReadingDeckUnavailable = false
-	case errors.Is(err, persistence.ErrNotFound):
-		// The Current reading remains visible while an unavailable artifact is retried through
-		// the exact snapshot identity.
-		book.CurrentReadingDeckMissing = true
-	default:
+	deck, err := h.services.PreparedDeck.CurrentReadingDeck(ctx, owner, currentReading.BookID)
+	if err != nil {
+		// The Current reading remains visible; the retry form re-decides on submit.
 		log.Printf("mouseion: Current reading deck unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
+		return
 	}
+	if deck.Admission == domain.DeckAdmissionNotCurrentReading {
+		log.Printf("mouseion: Current reading deck provenance mismatch for owner %s snapshot %s", owner, currentReading.SnapshotID)
+		return
+	}
+	book.CurrentReadingDeckUnavailable = false
+	if deck.Preparation == nil {
+		book.CurrentReadingDeckMissing = true
+		book.CurrentReadingActions = deckPreparationActions{BookID: currentReading.BookID, OnCurrentReading: true, Submit: deck.Admission.Admitted()}
+		return
+	}
+	admissions, err := h.services.PreparedDeck.PreparationAdmissions(ctx, owner, deck.Preparation.ID)
+	if err != nil {
+		log.Printf("mouseion: Current reading deck admissions unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
+		book.CurrentReadingDeckUnavailable = true
+		return
+	}
+	book.CurrentReadingPreparation = deck.Preparation
+	book.CurrentReadingActions = deckActionsFor(currentReading.BookID, admissions)
 }
 
 func (h *Handler) readingBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (readingBookView, error) {
