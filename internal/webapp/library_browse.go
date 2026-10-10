@@ -24,25 +24,16 @@ func myBookMarginEvidence(book domain.MyBook) string {
 		return ""
 	}
 	var notes []string
-	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
-	switch status {
-	case "analyzing":
+	switch book.Classification().Phase {
+	case domain.PhaseAnalyzing:
 		notes = append(notes, "Analysis running.")
-	case "analysis failed", "failed":
+	case domain.PhaseFailed:
 		notes = append(notes, "Analysis failed.")
-	case "analysis cancelled", "cancelled":
+	case domain.PhaseCancelled:
 		notes = append(notes, "Analysis cancelled.")
-	case "stale":
+	case domain.PhaseStale:
 		notes = append(notes, "Analysis out of date.")
-	case "content unavailable":
-		notes = append(notes, "Content unavailable.")
-	case "not analyzed":
-		if !myBookHasCurrentContent(book) {
-			notes = append(notes, "Content unavailable.")
-		} else {
-			notes = append(notes, "Not analysed yet.")
-		}
-	case "analyzed":
+	case domain.PhaseAnalyzed:
 		if book.CoverageTotalTokens > 0 {
 			known := max(min(book.CoverageKnownTokens, book.CoverageTotalTokens), 0)
 			percent := float64(known) * 100 / float64(book.CoverageTotalTokens)
@@ -53,7 +44,7 @@ func myBookMarginEvidence(book domain.MyBook) string {
 				notes = append(notes, fmt.Sprintf("%.1f%% of running words Known.", percent))
 			}
 		}
-	default:
+	case domain.PhaseNotAnalyzed:
 		if !myBookHasCurrentContent(book) {
 			notes = append(notes, "Content unavailable.")
 		} else {
@@ -80,12 +71,13 @@ func myBookEvidenceRecovery(book domain.MyBook) string {
 	if book.Acquired == nil || book.IsCurrentReading {
 		return ""
 	}
-	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
 	action := ""
-	if status == "analysis failed" || status == "failed" || status == "analysis cancelled" || status == "cancelled" || status == "stale" {
+	switch book.Classification().Recovery {
+	case domain.RecoveryRetryAnalysis:
 		action = "Retry analysis"
-	} else if status == "content unavailable" || !myBookHasCurrentContent(book) {
+	case domain.RecoveryRetryAcquisition:
 		action = "Retry acquisition"
+	case domain.RecoveryNone:
 	}
 	if action == "" || book.Disposition == domain.BookDispositionToRead {
 		return action

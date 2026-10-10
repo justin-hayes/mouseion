@@ -67,9 +67,9 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 		if books[i].Acquired != nil {
 			switch books[i].Acquired.Source.ID {
 			case "fixture-route-match":
-				books[i].Acquired.AnalysisStatus = "analyzing"
+				books[i].Acquired.Signals = testPending
 			case "fixture-route-differs":
-				books[i].Acquired.AnalysisStatus = "stale"
+				books[i].Acquired.Signals = testStale
 			}
 		}
 	}
@@ -357,7 +357,7 @@ func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	require.NoError(t, err)
 	for i := range books {
 		if books[i].Disposition == domain.BookDispositionToRead && books[i].Acquired != nil {
-			books[i].Acquired.AnalysisStatus = "analysis queued"
+			books[i].Acquired.Signals = testQueued
 		}
 	}
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})

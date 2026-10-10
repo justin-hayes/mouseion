@@ -201,12 +201,24 @@ func (b MyBookBucket) PersistedDisposition() (BookDisposition, bool) {
 	}
 }
 
+// Classification classifies this Book's Analysis evidence with its disposition
+// and chosen language, so eligibility reflects the learner's Book. A Book with
+// no acquired source has no signals.
+func (m MyBook) Classification() BookEvidenceClassification {
+	var signals AnalysisSignals
+	if m.Acquired != nil {
+		signals = m.Acquired.Signals
+	}
+	language := ""
+	if m.Book.LanguageState == LanguageChosen {
+		language = m.Book.LanguageTag
+	}
+	return ClassifyBookEvidence(signals, m.Disposition, language)
+}
+
 // EvidenceState classifies the acquired evidence shown in My Books.
 func (m MyBook) EvidenceState() BookEvidenceState {
-	if m.Acquired == nil {
-		return BookNotAcquired
-	}
-	return m.Acquired.EvidenceState()
+	return m.Classification().Evidence
 }
 
 func (d BookDisposition) Validate() error {

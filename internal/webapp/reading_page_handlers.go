@@ -92,11 +92,11 @@ func currentReadingSectionFocusID(bookID string) string {
 }
 
 func readingEvidenceState(item readingBookView) string {
-	status := strings.ToLower(strings.TrimSpace(item.Book.AnalysisStatus))
-	if strings.Contains(status, "failed") {
+	classification := item.Book.EvidenceClassification()
+	if classification.Phase == domain.PhaseFailed {
 		return "failed"
 	}
-	switch item.Book.EvidenceState() {
+	switch classification.Evidence {
 	case domain.BookStale:
 		return "stale"
 	case domain.BookAcquiredUnassessed:
@@ -133,7 +133,7 @@ func readingEvidenceDescription(item readingBookView) string {
 	case "stale":
 		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
 	case "incomplete":
-		if strings.EqualFold(strings.TrimSpace(item.Book.AnalysisState), "completed") {
+		if item.Book.EvidenceClassification().RunFinished() {
 			return analysisPublicationPendingDescription
 		}
 		return "A completed analysis has not produced usable coverage for this book yet."
@@ -190,7 +190,11 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 }
 
 func readingCurrentReadingEligibility(book domain.SourceMaterialSummary) (bool, string) {
-	switch book.CurrentReadingEligibility() {
+	switch book.EvidenceClassification().Eligibility {
+	case domain.CurrentReadingNotToRead:
+		return false, "This book cannot be started until it is in To Read."
+	case domain.CurrentReadingNoChosenLanguage:
+		return false, "This book cannot be started until its language is chosen."
 	case domain.CurrentReadingNeedsCurrentContent:
 		return false, "This book cannot be started until current EPUB content is available."
 	case domain.CurrentReadingAnalysisInProgress:

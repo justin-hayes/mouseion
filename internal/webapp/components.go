@@ -323,26 +323,22 @@ type bookLifecycleAction struct {
 
 func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleAction {
 	runID := book.AnalysisRunID
+	classification := book.EvidenceClassification()
 
-	state := strings.ToLower(strings.TrimSpace(book.AnalysisState))
-	status := strings.ToLower(strings.TrimSpace(book.AnalysisStatus))
-	if status == "stale" || status == "stale analysis" {
+	var state string
+	switch {
+	case classification.Phase == domain.PhaseStale:
 		state = "stale"
-	} else if state == "" {
-		switch {
-		case (status == "analyzed" || status == "analysis result ready" || status == "completed") && runID != "" && book.CorpusID != "":
-			state = "completed"
-		case status == "analysis failed" || status == "analysis failed — action required" || status == "failed":
-			state = "failed"
-		case status == "analysis cancelled" || status == "cancelled":
-			state = "cancelled"
-		case status == "stale" || status == "stale analysis":
-			state = "stale"
-		case status == "analysis queued" || status == "queued":
-			state = "queued"
-		case status == "analysis running" || status == "analyzing" || status == "running":
-			state = "running"
-		}
+	case classification.Run == domain.RunQueued:
+		state = "queued"
+	case classification.Run == domain.RunRunning:
+		state = "running"
+	case classification.Run == domain.RunFailed, classification.Run == domain.RunJobFailed:
+		state = "failed"
+	case classification.Run == domain.RunCancelled:
+		state = "cancelled"
+	case classification.RunFinished():
+		state = "completed"
 	}
 
 	jobURL := ""

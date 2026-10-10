@@ -113,7 +113,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 	}
 
 	var current, chooser bytes.Buffer
-	currentReading := testReadingBook("book-1", "Current book", "ready")
+	currentReading := testReadingBook("book-1", "Current book", testNoContent)
 	require.NoError(t, ReadingPage(domain.User{}, "csrf", readingPageView{CurrentReading: &currentReading}, "", "").Render(context.Background(), &current))
 	candidate := readingChooserBookView{
 		Book:     domain.MyBook{Book: domain.Book{ID: "candidate-1", Title: "Candidate book"}},
@@ -154,7 +154,7 @@ func loadBrowseForTest(t *testing.T, services Services, target, bookID string) (
 }
 
 func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
-	currentReading := testReadingBook("book-1", "Current Book", "ready")
+	currentReading := testReadingBook("book-1", "Current Book", testNoContent)
 	var reading bytes.Buffer
 	view := readingPageView{CurrentReading: &currentReading, Browse: readingBrowseView{Language: "de", Query: domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: "book-1"}, Page: domain.VocabularyBrowsePage{CurrentBookID: "book-1"}}}
 	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &reading))
@@ -290,7 +290,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 			Language:  "de",
 			CreatedAt: time.Date(2026, time.August, 28, 0, 0, 0, 0, time.UTC),
 		},
-		AnalysisStatus: "ready",
+		Signals: testNoContent,
 	}
 	require.NoError(t, LibraryPage(domain.User{Username: "learner"}, "csrf", []domain.SourceMaterialSummary{book}, "", "", false).Render(context.Background(), &output))
 

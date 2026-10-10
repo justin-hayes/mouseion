@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -262,17 +263,81 @@ func myBookFromEvidence(e sqlcgen.MyBooksEvidence) domain.MyBook {
 				ContentDigestVersion: e.SourceDigestVersion,
 				CreatedAt:            createdAt,
 			},
-			BookTitle:      e.BookTitle,
-			BookAuthor:     e.BookAuthor,
-			BookID:         e.BookID,
-			AnalysisStatus: e.AnalysisStatus,
-			AnalysisState:  e.AnalysisState,
-			AnalysisRunID:  e.AnalysisRunID,
-			CorpusID:       e.CorpusID,
-			AnalysisJobID:  e.AnalysisJobID,
+			BookTitle:     e.BookTitle,
+			BookAuthor:    e.BookAuthor,
+			BookID:        e.BookID,
+			Signals:       analysisSignalsFromView(e.SourceID, e.SourceMediaType, e.SourceContentRevisionID, e.SourceContentSnapshotID, e.AnalysisStatus, e.AnalysisState, e.AnalysisRunID),
+			AnalysisRunID: e.AnalysisRunID,
+			CorpusID:      e.CorpusID,
+			AnalysisJobID: e.AnalysisJobID,
 		}
 	}
 	return item
+}
+
+// analysisSignalsFromView maps source_material_evidence columns to the typed
+// analysis signals. It is the only place that reads the view's status and state
+// strings; the domain classifier never sees them.
+func analysisSignalsFromView(sourceID, mediaType, revisionID, snapshotID, status, state, runID string) domain.AnalysisSignals {
+	return domain.AnalysisSignals{
+		Content:   contentSignalFromView(sourceID, mediaType, revisionID, snapshotID),
+		Published: publishedSignalFromView(status, runID),
+		LatestRun: latestRunSignalFromView(status, state),
+	}
+}
+
+func contentSignalFromView(sourceID, mediaType, revisionID, snapshotID string) domain.ContentSignal {
+	switch {
+	case sourceID == "":
+		return domain.ContentNotAcquired
+	case revisionID == "" || snapshotID == "":
+		return domain.ContentNoCurrentRevision
+	case !strings.EqualFold(strings.TrimSpace(mediaType), "application/epub+zip"):
+		return domain.ContentNonEPUB
+	default:
+		return domain.ContentCurrentEPUB
+	}
+}
+
+// publishedSignalFromView reads the current-analysis identity: a run identifier
+// means a published analysis exists; the view's stale status marks a publication
+// that no longer matches the content.
+func publishedSignalFromView(status, runID string) domain.PublishedAnalysisSignal {
+	switch {
+	case runID != "":
+		return domain.PublishedCurrent
+	case status == "stale":
+		return domain.PublishedStale
+	default:
+		return domain.PublishedNone
+	}
+}
+
+func latestRunSignalFromView(status, state string) domain.LatestRunSignal {
+	switch state {
+	case "queued":
+		return domain.RunQueued
+	case "running":
+		return domain.RunRunning
+	case "failed":
+		if status == "analysis failed" {
+			return domain.RunFailed
+		}
+		return domain.RunJobFailed
+	case "cancelled":
+		return domain.RunCancelled
+	case "completed":
+		switch status {
+		case "analyzed":
+			return domain.RunCompleted
+		case "not analyzed":
+			return domain.RunPublicationFailed
+		default:
+			return domain.RunPublicationPending
+		}
+	default:
+		return domain.RunNone
+	}
 }
 
 func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
@@ -331,14 +396,13 @@ func sourceMaterialSummaryFromRow(row sqlcgen.ListSourceMaterialsRow) domain.Sou
 			ContentDigestVersion: row.DigestVersion,
 			CreatedAt:            row.SourceCreatedAt,
 		},
-		BookID:         row.BookID,
-		BookTitle:      row.BookTitle,
-		BookAuthor:     row.BookAuthor,
-		AnalysisStatus: row.AnalysisStatus,
-		AnalysisState:  row.AnalysisState,
-		AnalysisRunID:  row.AnalysisRunID,
-		CorpusID:       row.CorpusID,
-		AnalysisJobID:  row.AnalysisJobID,
+		BookID:        row.BookID,
+		BookTitle:     row.BookTitle,
+		BookAuthor:    row.BookAuthor,
+		Signals:       analysisSignalsFromView(row.SourceID, row.SourceMediaType, row.ContentRevisionID, row.ContentSnapshotID, row.AnalysisStatus, row.AnalysisState, row.AnalysisRunID),
+		AnalysisRunID: row.AnalysisRunID,
+		CorpusID:      row.CorpusID,
+		AnalysisJobID: row.AnalysisJobID,
 	}
 }
 
