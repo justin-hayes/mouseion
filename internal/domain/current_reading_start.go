@@ -53,11 +53,8 @@ func DecideStart(facts StartFacts) StartDecision {
 		return StartDecision{Outcome: StartRejectedAlreadyCurrent, Reason: CurrentReadingEligible}
 	}
 	classification := ClassifyBookEvidence(facts.Signals, facts.Disposition, facts.BookLanguage)
-	if classification.Eligibility != CurrentReadingEligible {
-		return StartDecision{Outcome: StartRejectedIneligible, Reason: classification.Eligibility}
-	}
-	if facts.BookLanguage != facts.Language {
-		return StartDecision{Outcome: StartRejectedIneligible, Reason: CurrentReadingOtherLanguage}
+	if reason := CurrentReadingEligibilityIn(classification, facts.BookLanguage, facts.Language); reason != CurrentReadingEligible {
+		return StartDecision{Outcome: StartRejectedIneligible, Reason: reason}
 	}
 	if !facts.IdentityPublished {
 		return StartDecision{Outcome: StartRejectedIneligible, Reason: CurrentReadingNoCompletedAnalysis}
