@@ -44,7 +44,7 @@ type readingChooserPageView struct {
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
-	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner.ID, language)
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner.ID, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -52,24 +52,24 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	// Back to book vocabulary names the commitment it left. Only that exact
 	// snapshot may restore controls; anything else is explained before any
 	// other reading context opens, and nothing is transferred to it.
-	if snapshot := strings.TrimSpace(r.URL.Query().Get("snapshot")); snapshot != "" && (!goal.IsActive() || goal.SnapshotID != snapshot || r.URL.Query().Get("reading") != goal.BookID) {
-		h.renderReadingBrowseOriginExpired(w, r, owner, language, goal.IsActive())
+	if snapshot := strings.TrimSpace(r.URL.Query().Get("snapshot")); snapshot != "" && (!currentReading.IsActive() || currentReading.SnapshotID != snapshot || r.URL.Query().Get("reading") != currentReading.BookID) {
+		h.renderReadingBrowseOriginExpired(w, r, owner, language, currentReading.IsActive())
 		return
 	}
-	if goal.IsActive() {
-		journey, buildErr := h.buildJourneyView(r.Context(), owner.ID, language)
+	if currentReading.IsActive() {
+		readingView, buildErr := h.buildReadingView(r.Context(), owner.ID, language)
 		if buildErr != nil {
 			fail(w, buildErr)
 			return
 		}
-		journey.Language = language
-		journey.LanguageLabel = languageLabel
+		readingView.Language = language
+		readingView.LanguageLabel = languageLabel
 		status := http.StatusOK
-		if journey.Goal != nil {
-			journey.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, goal.BookID)
-			journey.Browse.SnapshotID = goal.SnapshotID
+		if readingView.CurrentReading != nil {
+			readingView.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, currentReading.BookID)
+			readingView.Browse.SnapshotID = currentReading.SnapshotID
 		}
-		renderStatus(w, r, status, JourneyPage(owner, h.csrf(w, r), journey, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
+		renderStatus(w, r, status, ReadingPage(owner, h.csrf(w, r), readingView, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 		return
 	}
 	view, err := h.buildReadingChooser(r.Context(), owner.ID, language, languageLabel)
@@ -174,7 +174,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if current.BookID == bookID {
-		redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
+		redirect(w, r, "/reading?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
 		return
 	}
 	if current.BookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
@@ -206,7 +206,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
+	redirect(w, r, "/reading?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 }
 
 // endCurrentReading ends the exact expected commitment. It needs no live
@@ -237,7 +237,7 @@ func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, "/reading?message="+url.QueryEscape("Reading ended. "+h.goalBookTitle(r.Context(), owner, expectedBookID)+" stays in To Read; its analysis, decks, and history are preserved. Choose a Book when you are ready."))
+	redirect(w, r, "/reading?message="+url.QueryEscape("Reading ended. "+h.currentReadingBookTitle(r.Context(), owner, expectedBookID)+" stays in To Read; its analysis, decks, and history are preserved. Choose a Book when you are ready."))
 }
 
 const endCurrentReadingStaleMessage = "The current reading changed before this action. No changes were made; review Reading and try again."
@@ -350,7 +350,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	redirect(w, r, "/reading?message="+url.QueryEscape(h.goalBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
+	redirect(w, r, "/reading?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 }
 
 func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, languageLabel string) (readingChooserPageView, error) {

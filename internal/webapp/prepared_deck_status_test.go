@@ -135,10 +135,10 @@ func TestPreparationResponseSurfacesUnrecoverableRenderInputs(t *testing.T) {
 }
 
 func TestExplicitReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
-	h, cookies, csrf, _ := goalFixtureSession(t)
+	h, cookies, csrf, _ := readingFixtureSession(t)
 	requireHandler(t, h).services.PreparedDeck = repreparingPreparedDeck{}
 
-	response := goalRequest(t, h, "/deck-preparations/old-preparation/reprepare", url.Values{
+	response := readingTestRequest(t, h, "/deck-preparations/old-preparation/reprepare", url.Values{
 		"csrf_token":                   {csrf},
 		"expected_current_snapshot_id": {"fixture-de-goal-snapshot"},
 	}, cookies)
@@ -147,13 +147,13 @@ func TestExplicitReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
 	assert.Equal(t, "/deck-preparations/new-preparation/status", response.Header().Get("Location"))
 }
 
-func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJourney(t *testing.T) {
-	store := &journeyIntentStore{
-		deckJourneyActionStore: &deckJourneyActionStore{},
+func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageReading(t *testing.T) {
+	store := &readingIntentStore{
+		deckReadingActionStore: &deckReadingActionStore{},
 		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", LanguageTag: "de"}, Disposition: domain.BookDispositionToRead, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: "application/epub+zip", ContentRevisionID: "revision-1", ContentSnapshotID: "snapshot-1"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"}},
 	}
 	h := &Handler{services: Services{Store: storeDependencies(store)}}
-	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyNotMember}
+	action := deckReadingActionView{BookID: "book-1", State: deckReadingNotMember}
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)
 	assert.Equal(t, "/reading#journey-book-book-1", got)

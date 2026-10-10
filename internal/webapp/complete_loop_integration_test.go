@@ -50,7 +50,7 @@ func (completeLoopTranslationProvider) Translate(context.Context, enrichment.Tra
 	}, nil
 }
 
-func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
+func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "complete-learner-loop-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -204,9 +204,9 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, chosen.Code)
 	assert.Contains(t, chosen.Header().Get("Location"), "/reading")
-	goal, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	currentReading, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	require.NotEmpty(t, goal.SnapshotID)
+	require.NotEmpty(t, currentReading.SnapshotID)
 	myBooks := perform(t, h, http.MethodGet, "/library", nil, cookies)
 	assert.Contains(t, myBooks.Body.String(), "Currently reading")
 	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
@@ -216,7 +216,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	beforePreparation, err := store.ListDeckPreparationsForSourceMaterial(ctx, owner.ID, detail.Acquired.Source.ID)
 	require.NoError(t, err)
 	require.Empty(t, beforePreparation, "starting Reading does not automatically prepare a deck")
-	submitted := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {goal.SnapshotID}}, cookies)
+	submitted := perform(t, h, http.MethodPost, "/reading/books/"+bookID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
 	var preparation domain.DeckPreparation
 	waitForCompleteLoop(t, func() (bool, string) {
@@ -239,7 +239,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	if preparation.TotalCards != 1 || preparation.CurrentRunID == "" {
 		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error)
 	}
-	assert.Equal(t, goal.SnapshotID, preparation.SnapshotID)
+	assert.Equal(t, currentReading.SnapshotID, preparation.SnapshotID)
 	run, err := store.GetPreparedDeckRun(ctx, owner.ID, preparation.ID, preparation.CurrentRunID)
 	require.NoError(t, err)
 	assert.True(t, run.ExternalTranslationConfigured, "new Goal preparation requires contextual translation")
@@ -255,7 +255,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{
 		"csrf_token":                   {csrf},
 		"expected_current_book_id":     {bookID},
-		"expected_current_snapshot_id": {goal.SnapshotID},
+		"expected_current_snapshot_id": {currentReading.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
@@ -285,9 +285,9 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
 	assert.Contains(t, toReadPage.Body.String(), "Complete Loop Book")
 	assert.Contains(t, toReadPage.Body.String(), "Currently reading")
-	newGoal, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	newCurrentReading, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.NotEqual(t, goal.SnapshotID, newGoal.SnapshotID, "starting the reread must freeze a fresh snapshot")
+	assert.NotEqual(t, currentReading.SnapshotID, newCurrentReading.SnapshotID, "starting the reread must freeze a fresh snapshot")
 
 	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -304,12 +304,12 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, historyCount)
 	assert.Equal(t, bookID, historyBookID)
-	goal, err = store.GetCurrentReading(ctx, owner.ID, "de")
+	currentReading, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, bookID, goal.BookID)
-	assert.NotEqual(t, "", goal.SnapshotID)
+	assert.Equal(t, bookID, currentReading.BookID)
+	assert.NotEqual(t, "", currentReading.SnapshotID)
 	stopped := perform(t, h, http.MethodPost, "/reading/end", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {bookID}, "expected_current_snapshot_id": {goal.SnapshotID},
+		"csrf_token": {csrf}, "expected_current_book_id": {bookID}, "expected_current_snapshot_id": {currentReading.SnapshotID},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, stopped.Code)
 	toReadPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)

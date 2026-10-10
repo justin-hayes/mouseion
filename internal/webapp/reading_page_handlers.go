@@ -19,37 +19,37 @@ import (
 
 const analysisPublicationPendingDescription = "Analysis completed, but publication is pending or failed. This Book is not shown as analyzed until its result is published; retry analysis to finish publication."
 
-type journeyBookView struct {
-	Book                   domain.SourceMaterialSummary
-	BookID                 string
-	Cover                  domain.BookCover
-	ReadingSince           time.Time
-	Position               int
-	CurrentReading         bool
-	GoalReadingOnly        bool
-	GoalUnassessed         bool
-	GoalVocabularyEligible int
-	GoalSnapshotID         string
-	GoalSnapshotSize       int
-	GoalPreparation        *domain.DeckPreparation
-	GoalDeckMissing        bool
-	GoalDeckUnavailable    bool
-	CanMoveEarlier         bool
-	CanMoveLater           bool
-	CanChooseGoal          bool
-	GoalEligibilityReason  string
-	Coverage               *domain.AnalysisCoverage
-	StatisticsUnavailable  bool
+type readingBookView struct {
+	Book                             domain.SourceMaterialSummary
+	BookID                           string
+	Cover                            domain.BookCover
+	ReadingSince                     time.Time
+	Position                         int
+	CurrentReading                   bool
+	ReadingOnly                      bool
+	CurrentReadingUnassessed         bool
+	CurrentReadingVocabularyEligible int
+	CurrentReadingSnapshotID         string
+	CurrentReadingSnapshotSize       int
+	CurrentReadingPreparation        *domain.DeckPreparation
+	CurrentReadingDeckMissing        bool
+	CurrentReadingDeckUnavailable    bool
+	CanMoveEarlier                   bool
+	CanMoveLater                     bool
+	CanChooseCurrentReading          bool
+	CurrentReadingEligibilityReason  string
+	Coverage                         *domain.AnalysisCoverage
+	StatisticsUnavailable            bool
 }
 
-func journeyBookAnchorID(bookID string) string {
+func readingBookAnchorID(bookID string) string {
 	if bookID == "" {
 		return ""
 	}
 	return "journey-book-" + bookID
 }
 
-func journeyBookID(item journeyBookView) string {
+func readingBookID(item readingBookView) string {
 	if item.BookID != "" {
 		return item.BookID
 	}
@@ -61,7 +61,7 @@ func readingReanalyzeURL(bookID string) string {
 }
 
 func readingBookURL(bookID string) string {
-	return "/reading#" + url.PathEscape(journeyBookAnchorID(bookID))
+	return "/reading#" + url.PathEscape(readingBookAnchorID(bookID))
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -81,17 +81,17 @@ func canonicalBookAuthor(book domain.SourceMaterialSummary) string {
 	return strings.TrimSpace(book.BookAuthor)
 }
 
-func goalSectionFocusID(bookID string) string {
+func currentReadingSectionFocusID(bookID string) string {
 	// On full-page renders no HTMX swap will run, so an empty focus target keeps
 	// the section free of a stale data-focus-id that could redirect attention
 	// during a later provisional-list swap. Only HTMX responses name a target.
 	if bookID == "" {
 		return ""
 	}
-	return journeyBookAnchorID(bookID)
+	return readingBookAnchorID(bookID)
 }
 
-func journeyEvidenceState(item journeyBookView) string {
+func readingEvidenceState(item readingBookView) string {
 	status := strings.ToLower(strings.TrimSpace(item.Book.AnalysisStatus))
 	if strings.Contains(status, "failed") {
 		return "failed"
@@ -113,8 +113,8 @@ func journeyEvidenceState(item journeyBookView) string {
 	}
 }
 
-func journeyEvidenceLabel(item journeyBookView) string {
-	switch journeyEvidenceState(item) {
+func readingEvidenceLabel(item readingBookView) string {
+	switch readingEvidenceState(item) {
 	case "stale":
 		return "Stale evidence"
 	case "incomplete":
@@ -128,8 +128,8 @@ func journeyEvidenceLabel(item journeyBookView) string {
 	}
 }
 
-func journeyEvidenceDescription(item journeyBookView) string {
-	switch journeyEvidenceState(item) {
+func readingEvidenceDescription(item readingBookView) string {
+	switch readingEvidenceState(item) {
 	case "stale":
 		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
 	case "incomplete":
@@ -153,8 +153,8 @@ func reservedVocabularySummary(count int) string {
 	return fmt.Sprintf("%d lemmas are set aside from vocabulary selection while you read this Book.", count)
 }
 
-func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
-	bookID := journeyBookID(item)
+func readingAnalysisAction(item readingBookView) bookLifecycleAction {
+	bookID := readingBookID(item)
 	if !strings.EqualFold(strings.TrimSpace(item.Book.Source.MediaType), opds.EPUBMediaType) || strings.TrimSpace(item.Book.Source.ContentRevisionID) == "" || strings.TrimSpace(item.Book.Source.ContentSnapshotID) == "" {
 		return bookLifecycleAction{
 			Status:      "Assessment unavailable",
@@ -166,15 +166,15 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 		}
 	}
 	action := bookLifecycleActionFor(item.Book)
-	evidenceState := journeyEvidenceState(item)
+	evidenceState := readingEvidenceState(item)
 	if evidenceState == "failed" || (evidenceState == "incomplete" && action.Status != "Analysis queued" && action.Status != "Analysis running") {
 		action.Status = "Analysis incomplete"
-		action.Description = journeyEvidenceDescription(item)
+		action.Description = readingEvidenceDescription(item)
 		action.Label = "Retry analysis"
 		action.URL = readingReanalyzeURL(bookID)
 		action.Submit = true
 		action.Tone = StatusWarning
-		if journeyEvidenceState(item) == "failed" {
+		if readingEvidenceState(item) == "failed" {
 			action.Status = "Analysis failed"
 			action.Tone = StatusDanger
 		}
@@ -189,7 +189,7 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 	return action
 }
 
-func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
+func readingCurrentReadingEligibility(book domain.SourceMaterialSummary) (bool, string) {
 	switch book.CurrentReadingEligibility() {
 	case domain.CurrentReadingNeedsCurrentContent:
 		return false, "This book cannot be started until current EPUB content is available."
@@ -210,63 +210,63 @@ func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
 	}
 }
 
-type journeyPageView struct {
-	Language      string
-	LanguageLabel string
-	Goal          *journeyBookView
-	Browse        readingBrowseView
+type readingPageView struct {
+	Language       string
+	LanguageLabel  string
+	CurrentReading *readingBookView
+	Browse         readingBrowseView
 }
 
-type deckJourneyState string
+type deckReadingState string
 
 const (
-	deckJourneyUnknown   deckJourneyState = ""
-	deckJourneyNotMember deckJourneyState = "not-member"
-	deckIsToRead         deckJourneyState = "member"
-	deckIsCurrentReading deckJourneyState = "primary-goal"
+	deckReadingUnknown   deckReadingState = ""
+	deckReadingNotMember deckReadingState = "not-member"
+	deckIsToRead         deckReadingState = "member"
+	deckIsCurrentReading deckReadingState = "primary-goal"
 )
 
-type deckJourneyActionView struct {
+type deckReadingActionView struct {
 	BookID  string
-	State   deckJourneyState
+	State   deckReadingState
 	Message string
 	Error   string
 }
 
-func emptyDeckJourneyAction() deckJourneyActionView {
-	return deckJourneyActionView{State: deckJourneyUnknown}
+func emptyDeckReadingAction() deckReadingActionView {
+	return deckReadingActionView{State: deckReadingUnknown}
 }
 
-func deckJourneyActionID(bookID string) string {
+func deckReadingActionID(bookID string) string {
 	return "deck-preparation-journey-action-" + bookID
 }
 
-func (h *Handler) deckJourneyStatus(ctx context.Context, owner, bookID string) (deckJourneyActionView, error) {
-	// Deck preparation surfaces are keyed by source_materials.id while Journey
+func (h *Handler) deckReadingStatus(ctx context.Context, owner, bookID string) (deckReadingActionView, error) {
+	// Deck preparation surfaces are keyed by source_materials.id while Reading
 	// membership and the current reading are keyed by books.id, so every action
 	// identity is resolved to its canonical book first. A source material with
-	// no book identity cannot join the Journey, so no action is offered.
+	// no book identity cannot join Reading, so no action is offered.
 	resolved, ok, err := h.resolveBookID(ctx, owner, bookID)
 	if err != nil {
-		return deckJourneyActionView{}, err
+		return deckReadingActionView{}, err
 	}
 	if !ok {
-		return deckJourneyActionView{}, nil
+		return deckReadingActionView{}, nil
 	}
 	bookID = resolved
 	language, _ := activeStudyLanguageForContext(ctx)
-	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
-		return deckJourneyActionView{}, err
+		return deckReadingActionView{}, err
 	}
-	action := deckJourneyActionView{BookID: bookID, State: deckJourneyNotMember}
-	if goal.IsActive() && goal.BookID == bookID {
+	action := deckReadingActionView{BookID: bookID, State: deckReadingNotMember}
+	if currentReading.IsActive() && currentReading.BookID == bookID {
 		action.State = deckIsCurrentReading
 		return action, nil
 	}
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
 	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
-		return deckJourneyActionView{}, err
+		return deckReadingActionView{}, err
 	}
 	if err == nil && detail.Disposition == domain.BookDispositionToRead {
 		action.State = deckIsToRead
@@ -291,7 +291,7 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 		// during acquisition; the guarded submission below serializes analyzable
 		// books against a concurrent start.
 		acquisitionAttempted = true
-		target, err = h.acquireBookForJourneyContext(ctx, owner, bookID)
+		target, err = h.acquireBookForReadingContext(ctx, owner, bookID)
 		if err != nil {
 			return analysis.Handle{}, target, detail.Book.Title, true, err
 		}
@@ -309,7 +309,7 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 
 func toReadAnalysisError(ctx context.Context, catalog CatalogsStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
-		return "Book moved to To Read, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
+		return "Book moved to To Read, but " + readingAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
 	}
 	if errors.Is(err, domain.ErrExtractedUnitsUnavailable) || errors.Is(err, analysis.ErrEPUBRequired) {
 		return "Book moved to To Read, but the current source has no usable EPUB units. The To Read status is retained; analysis is unavailable."
@@ -319,17 +319,17 @@ func toReadAnalysisError(ctx context.Context, catalog CatalogsStore, owner, book
 
 func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
-	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return err
 	}
-	goalBookID := ""
-	if goal.IsActive() {
-		goalBookID = goal.BookID
+	currentReadingBookID := ""
+	if currentReading.IsActive() {
+		currentReadingBookID = currentReading.BookID
 	}
 	for i := range books {
 		books[i].IsToRead = books[i].Disposition == domain.BookDispositionToRead
-		books[i].IsCurrentReading = books[i].Book.ID == goalBookID
+		books[i].IsCurrentReading = books[i].Book.ID == currentReadingBookID
 		if books[i].Acquired != nil {
 			books[i].Acquired.IsToRead = books[i].IsToRead
 			books[i].Acquired.IsCurrentReading = books[i].IsCurrentReading
@@ -344,12 +344,12 @@ func (h *Handler) annotateBookToRead(ctx context.Context, owner string, book *do
 }
 
 func (h *Handler) annotateBookToReadLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
-	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return err
 	}
 	book.IsToRead = book.Disposition == domain.BookDispositionToRead
-	book.IsCurrentReading = goal.IsActive() && goal.BookID == book.Book.ID
+	book.IsCurrentReading = currentReading.IsActive() && currentReading.BookID == book.Book.ID
 	if book.Acquired != nil {
 		book.Acquired.IsToRead = book.IsToRead
 		book.Acquired.IsCurrentReading = book.IsCurrentReading
@@ -357,14 +357,14 @@ func (h *Handler) annotateBookToReadLanguage(ctx context.Context, owner, languag
 	return nil
 }
 
-func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {
-	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
+func (h *Handler) buildReadingView(ctx context.Context, owner, language string) (readingPageView, error) {
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
-		return journeyPageView{}, err
+		return readingPageView{}, err
 	}
 	books, err := h.services.Store.Reading.ListSourceMaterials(ctx, owner)
 	if err != nil {
-		return journeyPageView{}, err
+		return readingPageView{}, err
 	}
 	bookByID := make(map[string]domain.SourceMaterialSummary, len(books))
 	coverByBookID := make(map[string]domain.BookCover)
@@ -373,7 +373,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	}
 	myBooks, readErr := h.services.Store.Reading.ListMyBooksWithEvidence(ctx, owner)
 	if readErr != nil {
-		return journeyPageView{}, readErr
+		return readingPageView{}, readErr
 	}
 	for _, myBook := range myBooks {
 		coverByBookID[myBook.Book.ID] = myBook.Cover
@@ -394,72 +394,72 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		}
 	}
 
-	view := journeyPageView{}
-	if goal.IsActive() {
-		book, bookErr := h.journeyBook(ctx, owner, goal.BookID, bookByID)
+	view := readingPageView{}
+	if currentReading.IsActive() {
+		book, bookErr := h.readingBook(ctx, owner, currentReading.BookID, bookByID)
 		if bookErr != nil {
-			return journeyPageView{}, bookErr
+			return readingPageView{}, bookErr
 		}
 		book.CurrentReading = true
-		book.Cover = coverByBookID[goal.BookID]
-		book.ReadingSince = goal.CreatedAt
-		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
-			return journeyPageView{}, err
+		book.Cover = coverByBookID[currentReading.BookID]
+		book.ReadingSince = currentReading.CreatedAt
+		if err = h.addReadingEvidence(ctx, owner, &book); err != nil {
+			return readingPageView{}, err
 		}
-		book.GoalUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
-		book.GoalVocabularyEligible, err = h.services.Store.Reading.CountCurrentReadingVocabularyToAccept(ctx, owner, language)
+		book.CurrentReadingUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
+		book.CurrentReadingVocabularyEligible, err = h.services.Store.Reading.CountCurrentReadingVocabularyToAccept(ctx, owner, language)
 		if err != nil {
-			return journeyPageView{}, err
+			return readingPageView{}, err
 		}
-		book.GoalReadingOnly = book.GoalVocabularyEligible == 0
-		book.GoalSnapshotID = goal.SnapshotID
-		book.GoalSnapshotSize = goal.SnapshotSize
-		h.addGoalDeckPreparation(ctx, owner, &book, goal)
-		view.Goal = &book
+		book.ReadingOnly = book.CurrentReadingVocabularyEligible == 0
+		book.CurrentReadingSnapshotID = currentReading.SnapshotID
+		book.CurrentReadingSnapshotSize = currentReading.SnapshotSize
+		h.addCurrentReadingDeckPreparation(ctx, owner, &book, currentReading)
+		view.CurrentReading = &book
 	}
 	return view, nil
 }
 
-func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book *journeyBookView, goal domain.CurrentReading) {
-	if goal.SnapshotSize == 0 {
+func (h *Handler) addCurrentReadingDeckPreparation(ctx context.Context, owner string, book *readingBookView, currentReading domain.CurrentReading) {
+	if currentReading.SnapshotSize == 0 {
 		return
 	}
-	book.GoalDeckUnavailable = true
-	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
+	book.CurrentReadingDeckUnavailable = true
+	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(ctx, owner, currentReading.SnapshotID)
 	switch {
 	case err == nil:
-		if !currentReadingPreparationMatches(preparation, owner, goal) {
-			log.Printf("mouseion: Goal deck provenance mismatch for owner %s snapshot %s", owner, goal.SnapshotID)
+		if !currentReadingPreparationMatches(preparation, owner, currentReading) {
+			log.Printf("mouseion: Goal deck provenance mismatch for owner %s snapshot %s", owner, currentReading.SnapshotID)
 			return
 		}
-		book.GoalPreparation = &preparation
-		book.GoalDeckUnavailable = false
+		book.CurrentReadingPreparation = &preparation
+		book.CurrentReadingDeckUnavailable = false
 	case errors.Is(err, persistence.ErrNotFound):
-		// The Goal remains visible while an unavailable artifact is retried through
+		// The Current reading remains visible while an unavailable artifact is retried through
 		// the exact snapshot identity.
-		book.GoalDeckMissing = true
+		book.CurrentReadingDeckMissing = true
 	default:
-		log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, goal.SnapshotID, err)
+		log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
 	}
 }
 
-func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (journeyBookView, error) {
+func (h *Handler) readingBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (readingBookView, error) {
 	if book, ok := bookByID[bookID]; ok {
-		return journeyBookView{Book: book, BookID: bookID}, nil
+		return readingBookView{Book: book, BookID: bookID}, nil
 	}
-	// Goal and To Read status are allowed to exist before acquisition. Keep
+	// Current reading and To Read status are allowed to exist before acquisition. Keep
 	// that identity visible instead of silently dropping it from the surface.
 	book, err := h.services.Store.Reading.GetBook(ctx, owner, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
-			return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}, BookID: bookID}, nil
+			return readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}, BookID: bookID}, nil
 		}
-		return journeyBookView{}, err
+		return readingBookView{}, err
 	}
-	return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}, BookTitle: book.Title, BookAuthor: book.Author}, BookID: book.ID}, nil
+	return readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: book.ID, OwnerID: owner, Title: book.Title, Language: book.LanguageTag}, BookTitle: book.Title, BookAuthor: book.Author}, BookID: book.ID}, nil
 }
 
-func (h *Handler) addJourneyEvidence(ctx context.Context, owner string, book *journeyBookView) error {
+func (h *Handler) addReadingEvidence(ctx context.Context, owner string, book *readingBookView) error {
 	state := book.Book.EvidenceState()
 	if state == domain.BookStale {
 		return nil

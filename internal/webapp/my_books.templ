@@ -8,13 +8,13 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, goalBookID string, hasCatalogueConnections bool) {
-	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", goalBookID, hasCatalogueConnections, MyBooksBrowseState{})
+templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, currentReadingBookID string, hasCatalogueConnections bool) {
+	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", currentReadingBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
 templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
-			if myBookInJourney(book) {
+			if myBookInReading(book) {
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
 					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
 					<div class="library-book__text">
@@ -59,7 +59,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 			}
 		</div>
 		<div class="library-book__actions">
-			if myBookInJourney(book) {
+			if myBookInReading(book) {
 				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>View in Reading</a>
 			}
 			if book.Disposition != "" {
@@ -73,7 +73,7 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 						<p class="metadata">Choose a language in the catalog before moving this Book to To Read.</p>
 					}
 				}
-			} else if !myBookInJourney(book) {
+			} else if !myBookInReading(book) {
 				<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/to-read") }>
 				<input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 					<button type="submit" class="btn btn-outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
@@ -255,7 +255,7 @@ templ NeedsLanguageStrip(count int) {
 	</aside>
 }
 
-templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, goalBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
+templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, currentReadingBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		<section class="library-masthead" aria-labelledby="library-page-title">
 			<h1 id="library-page-title">My Books</h1>

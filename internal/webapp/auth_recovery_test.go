@@ -10,7 +10,7 @@ import (
 )
 
 func TestUnauthenticatedEnhancedMutationStaysUnauthorized(t *testing.T) {
-	h, _, _, _ := goalFixtureSession(t)
+	h, _, _, _ := readingFixtureSession(t)
 	for _, enhanced := range []bool{false, true} {
 		name := "ordinary form"
 		if enhanced {

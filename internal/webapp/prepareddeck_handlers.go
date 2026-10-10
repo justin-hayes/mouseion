@@ -22,29 +22,29 @@ func (h *Handler) createDeckPreparation(w http.ResponseWriter, r *http.Request) 
 	h.createDeckPreparationForAnalysis(w, r, r.PathValue("id"), "")
 }
 
-func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createReadingEntryDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	u := user(r)
-	detail, result, ok := h.validJourneyDeckBook(w, r, u.ID, r.PathValue("id"))
+	detail, result, ok := h.validReadingDeckBook(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
-	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), u.ID, bookStudyLanguage(detail))
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), u.ID, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	if !goal.IsActive() || goal.BookID != detail.Book.ID || goal.SnapshotSize == 0 || goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID {
+	if !currentReading.IsActive() || currentReading.BookID != detail.Book.ID || currentReading.SnapshotSize == 0 || currentReading.SourceMaterialID != result.SourceMaterialID || currentReading.AnalysisRunID != result.RunID || currentReading.CorpusID != result.Corpus.ID {
 		http.NotFound(w, r)
 		return
 	}
-	if !expectedCommitmentMatches(r, goal.SnapshotID) {
-		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+	if !expectedCommitmentMatches(r, currentReading.SnapshotID) {
+		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, currentReading.BookID)
 		return
 	}
-	handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, goal)
+	handle, submitErr := h.submitOrRetryCurrentReadingDeck(r.Context(), u.ID, currentReading)
 	if submitErr != nil {
 		handlePreparationError(w, r, submitErr)
 		return
@@ -52,18 +52,18 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(handle.Preparation.ID)+"/status", http.StatusSeeOther)
 }
 
-func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, owner, bookID string) (domain.MyBook, analysis.CompletedAnalysis, bool) {
+func (h *Handler) validReadingDeckBook(w http.ResponseWriter, r *http.Request, owner, bookID string) (domain.MyBook, analysis.CompletedAnalysis, bool) {
 	detail, ok := h.bookDetail(w, r, owner, bookID)
 	if !ok || detail.Acquired == nil {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	if !goal.IsActive() || goal.BookID != detail.Book.ID {
+	if !currentReading.IsActive() || currentReading.BookID != detail.Book.ID {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -100,42 +100,42 @@ func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, o
 	return detail, result, true
 }
 
-type journeyDeckPreparationView struct {
-	Book             domain.SourceMaterialSummary
-	BookID           string
-	AnalysisRunID    string
-	GoalSnapshotID   string
-	GoalSnapshotSize int
-	Goal             bool
-	Preparation      *domain.DeckPreparation
-	Missing          bool
+type readingDeckPreparationView struct {
+	Book                       domain.SourceMaterialSummary
+	BookID                     string
+	AnalysisRunID              string
+	CurrentReadingSnapshotID   string
+	CurrentReadingSnapshotSize int
+	CurrentReading             bool
+	Preparation                *domain.DeckPreparation
+	Missing                    bool
 }
 
-func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) newReadingDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	owner := user(r).ID
-	detail, result, ok := h.validJourneyDeckBook(w, r, owner, r.PathValue("bookID"))
+	detail, result, ok := h.validReadingDeckBook(w, r, owner, r.PathValue("bookID"))
 	if !ok {
 		return
 	}
 	book := *detail.Acquired
 	book.BookID = detail.Book.ID
 	book.BookTitle = detail.Book.Title
-	task := journeyDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
-	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
+	task := readingDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	if !goal.IsActive() || goal.BookID != detail.Book.ID || goal.SourceMaterialID != result.SourceMaterialID || goal.AnalysisRunID != result.RunID || goal.CorpusID != result.Corpus.ID || goal.ContentRevisionID != book.Source.ContentRevisionID || goal.ContentSnapshotID != book.Source.ContentSnapshotID {
+	if !currentReading.IsActive() || currentReading.BookID != detail.Book.ID || currentReading.SourceMaterialID != result.SourceMaterialID || currentReading.AnalysisRunID != result.RunID || currentReading.CorpusID != result.Corpus.ID || currentReading.ContentRevisionID != book.Source.ContentRevisionID || currentReading.ContentSnapshotID != book.Source.ContentSnapshotID {
 		http.NotFound(w, r)
 		return
 	}
-	task.Goal = true
-	task.GoalSnapshotID = goal.SnapshotID
-	task.GoalSnapshotSize = goal.SnapshotSize
-	if goal.SnapshotSize > 0 {
-		if preparation, preparationErr := h.services.PreparedDeck.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
-			if !currentReadingPreparationMatches(preparation, owner, goal) {
+	task.CurrentReading = true
+	task.CurrentReadingSnapshotID = currentReading.SnapshotID
+	task.CurrentReadingSnapshotSize = currentReading.SnapshotSize
+	if currentReading.SnapshotSize > 0 {
+		if preparation, preparationErr := h.services.PreparedDeck.GetForGoalSnapshot(r.Context(), owner, currentReading.SnapshotID); preparationErr == nil {
+			if !currentReadingPreparationMatches(preparation, owner, currentReading) {
 				http.NotFound(w, r)
 				return
 			}
@@ -147,7 +147,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	render(w, r, JourneyDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookURLInActiveLanguage(r.Context(), detail)))
+	render(w, r, ReadingDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookURLInActiveLanguage(r.Context(), detail)))
 }
 
 func (h *Handler) createDeckPreparationForAnalysis(w http.ResponseWriter, r *http.Request, analysisID, sourceMaterialID string) {
@@ -201,24 +201,24 @@ func (h *Handler) submitCurrentBookDeckPreparation(w http.ResponseWriter, r *htt
 		}
 		return true
 	}
-	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), user(r).ID, bookStudyLanguage(detail))
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), user(r).ID, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return true
 	}
-	if !goal.IsActive() || goal.BookID != bookID || goal.SourceMaterialID != status.SourceMaterialID || goal.AnalysisRunID != status.RunID {
+	if !currentReading.IsActive() || currentReading.BookID != bookID || currentReading.SourceMaterialID != status.SourceMaterialID || currentReading.AnalysisRunID != status.RunID {
 		http.NotFound(w, r)
 		return true
 	}
-	if h.services.PreparedDeck == nil || goal.SnapshotSize == 0 {
+	if h.services.PreparedDeck == nil || currentReading.SnapshotSize == 0 {
 		http.NotFound(w, r)
 		return true
 	}
-	if !expectedCommitmentMatches(r, goal.SnapshotID) {
-		h.respondGoal(w, r, "", goalStaleMessage, goal.BookID)
+	if !expectedCommitmentMatches(r, currentReading.SnapshotID) {
+		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, currentReading.BookID)
 		return true
 	}
-	handle, err := h.services.PreparedDeck.SubmitForGoal(r.Context(), user(r).ID, goal.AnalysisRunID, goal.SnapshotID)
+	handle, err := h.services.PreparedDeck.SubmitForGoal(r.Context(), user(r).ID, currentReading.AnalysisRunID, currentReading.SnapshotID)
 	if err != nil {
 		handlePreparationError(w, r, err)
 		return true
@@ -443,20 +443,20 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		writePreparationStatus(w, p)
 		return
 	}
-	journeyAction := emptyDeckJourneyAction()
+	readingAction := emptyDeckReadingAction()
 	if p.SourceMaterialID != "" {
-		journeyAction, err = h.deckJourneyStatus(r.Context(), user(r).ID, p.SourceMaterialID)
+		readingAction, err = h.deckReadingStatus(r.Context(), user(r).ID, p.SourceMaterialID)
 		if err != nil {
 			fail(w, err)
 			return
 		}
 	}
 	resultURL := ""
-	if journeyAction.BookID != "" {
-		resultURL, err = h.reachablePreparationReturnURL(r.Context(), user(r).ID, journeyAction)
+	if readingAction.BookID != "" {
+		resultURL, err = h.reachablePreparationReturnURL(r.Context(), user(r).ID, readingAction)
 		if errors.Is(err, errPreparationOtherLanguage) {
 			err = nil
-			journeyAction = emptyDeckJourneyAction()
+			readingAction = emptyDeckReadingAction()
 		}
 		if err != nil {
 			fail(w, err)
@@ -464,10 +464,10 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if isPartialHTMXRequest(r) {
-		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, journeyAction))
+		render(w, r, DeckPreparationStatus(h.csrf(w, r), p, resultURL, readingAction))
 		return
 	}
-	render(w, r, DeckPreparationStatusPage(user(r), h.csrf(w, r), p, resultURL, journeyAction))
+	render(w, r, DeckPreparationStatusPage(user(r), h.csrf(w, r), p, resultURL, readingAction))
 }
 
 func (h *Handler) cancelDeckPreparation(w http.ResponseWriter, r *http.Request) {
@@ -575,20 +575,20 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 		}
 		return false
 	}
-	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
+	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return false
 	}
-	if !goal.IsActive() || goal.BookID != bookID || goal.SnapshotID != preparation.SnapshotID || goal.SourceMaterialID != preparation.SourceMaterialID || goal.AnalysisRunID != preparation.AnalysisRunID {
+	if !currentReading.IsActive() || currentReading.BookID != bookID || currentReading.SnapshotID != preparation.SnapshotID || currentReading.SourceMaterialID != preparation.SourceMaterialID || currentReading.AnalysisRunID != preparation.AnalysisRunID {
 		http.NotFound(w, r)
 		return false
 	}
 	if !expectedCommitmentMatches(r, preparation.SnapshotID) {
 		if wantsPreparationJSON(r) {
-			http.Error(w, goalStaleMessage, http.StatusConflict)
+			http.Error(w, currentReadingStaleMessage, http.StatusConflict)
 		} else {
-			h.respondGoal(w, r, "", goalStaleMessage, bookID)
+			h.respondCurrentReading(w, r, "", currentReadingStaleMessage, bookID)
 		}
 		return false
 	}
@@ -603,7 +603,7 @@ func (h *Handler) redirectToPreparationStatus(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/deck-preparations/"+url.PathEscape(r.PathValue("id"))+"/status", http.StatusSeeOther)
 }
 
-func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckJourneyActionView) (string, error) {
+func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckReadingActionView) (string, error) {
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, action.BookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {

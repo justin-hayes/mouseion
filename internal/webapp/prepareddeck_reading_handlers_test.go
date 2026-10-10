@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t *testing.T) {
+func TestValidReadingDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t *testing.T) {
 	store := fixtures.NewStore()
 	h := &Handler{services: Services{
 		Store:    storeDependencies(store),
@@ -19,7 +19,7 @@ func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t 
 	}}
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/reading/books/fixture-route-match/deck/preparations/new", nil)
 	beforeStart := httptest.NewRecorder()
-	_, _, ok := h.validJourneyDeckBook(beforeStart, r, fixtures.OwnerID, "fixture-route-match")
+	_, _, ok := h.validReadingDeckBook(beforeStart, r, fixtures.OwnerID, "fixture-route-match")
 	assert.False(t, ok)
 	assert.Equal(t, http.StatusNotFound, beforeStart.Code, "To Read Books cannot open a preparation task")
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
@@ -27,7 +27,7 @@ func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t 
 	_, err = store.SwitchCurrentReading(context.Background(), fixtures.OwnerID, "de", "fixture-route-match", current.BookID, current.SnapshotID)
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
-	detail, result, ok := h.validJourneyDeckBook(recorder, r, fixtures.OwnerID, "fixture-route-match")
+	detail, result, ok := h.validReadingDeckBook(recorder, r, fixtures.OwnerID, "fixture-route-match")
 	require.True(t, ok)
 	assert.Equal(t, fixtures.OwnerID, detail.Book.OwnerID)
 	assert.True(t, detail.IsToRead)
@@ -35,7 +35,7 @@ func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t 
 	assert.Equal(t, "fixture-route-match", result.SourceMaterialID)
 
 	wrongOwnerRecorder := httptest.NewRecorder()
-	_, _, ok = h.validJourneyDeckBook(wrongOwnerRecorder, r, "another-owner", "fixture-route-match")
+	_, _, ok = h.validReadingDeckBook(wrongOwnerRecorder, r, "another-owner", "fixture-route-match")
 	assert.False(t, ok)
 	assert.Equal(t, http.StatusNotFound, wrongOwnerRecorder.Code)
 }

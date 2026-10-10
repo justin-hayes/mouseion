@@ -344,7 +344,7 @@ func myBookDisposition(book domain.MyBook) domain.BookDisposition {
 	if book.Disposition != "" {
 		return book.Disposition
 	}
-	if myBookInJourney(book) {
+	if myBookInReading(book) {
 		return domain.BookDispositionToRead
 	}
 	return domain.BookDispositionInbox

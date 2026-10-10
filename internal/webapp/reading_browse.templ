@@ -162,7 +162,7 @@ func readingBrowseHeadingFocused(view readingBrowseView) bool {
 // context itself: the learner chooses the current Reading with default controls,
 // or recovers the original Book in My Books where authorized.
 templ ReadingBrowseOriginExpiredPage(user domain.User, csrf string, hasCurrent bool, myBooksURL string) {
-	@ShellLayout("Book vocabulary changed", &user, csrf, NavigationReadingJourney, shellStyleReading) {
+	@ShellLayout("Book vocabulary changed", &user, csrf, NavigationReading, shellStyleReading) {
 		@PageHeader("Book vocabulary changed", "The reading you came from is no longer your Current reading.", nil)
 		<section id="reading-origin-expired" aria-labelledby="reading-origin-expired-heading">
 			<h2 id="reading-origin-expired-heading" tabindex="-1" autofocus>That book vocabulary was not restored</h2>

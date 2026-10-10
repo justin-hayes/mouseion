@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testing.T) {
+func TestReadingEntryURLForSourceRequiresCurrentOwnerScopedReadingEntry(t *testing.T) {
 	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
 	tests := []struct {
 		name     string
@@ -35,7 +35,7 @@ func TestJourneyEntryURLForSourceRequiresCurrentOwnerScopedJourneyEntry(t *testi
 	}
 }
 
-func TestLegacyResultSurfacesUseJourneyEntryURLsOrNoBookLink(t *testing.T) {
+func TestLegacyResultSurfacesUseReadingEntryURLsOrNoBookLink(t *testing.T) {
 	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
 	bookContexts, err := h.jobBookContexts(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
 	require.NoError(t, err)

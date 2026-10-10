@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJourneyDeckPreparationPageShowsRequiredProviderAndNoConsentControl(t *testing.T) {
+func TestReadingDeckPreparationPageShowsRequiredProviderAndNoConsentControl(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1126", Title: "The Exact Journey Book", Language: "de", ContentSnapshotID: "snapshot-1126"}}
-	task := journeyDeckPreparationView{Book: book, BookID: "book-1126", AnalysisRunID: "run-1126"}
+	task := readingDeckPreparationView{Book: book, BookID: "book-1126", AnalysisRunID: "run-1126"}
 	var output bytes.Buffer
-	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-1126").Render(context.Background(), &output))
+	require.NoError(t, ReadingDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-1126").Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		"The Exact Journey Book",
@@ -33,11 +33,11 @@ func TestJourneyDeckPreparationPageShowsRequiredProviderAndNoConsentControl(t *t
 	assert.NotContains(t, html, "Declining still permits local preparation")
 }
 
-func TestJourneyDeckPreparationPageKeepsGoalRetrySnapshotBound(t *testing.T) {
+func TestReadingDeckPreparationPageKeepsCurrentReadingRetrySnapshotBound(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-1126", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
-	task := journeyDeckPreparationView{Book: book, BookID: "book-goal-1126", AnalysisRunID: "run-goal-1126", Goal: true, GoalSnapshotID: "goal-snapshot-1126", GoalSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-1126", SourceMaterialID: "source-goal-1126", AnalysisRunID: "run-goal-1126", SnapshotID: "goal-snapshot-1126", State: domain.DeckPreparationFailed}}
+	task := readingDeckPreparationView{Book: book, BookID: "book-goal-1126", AnalysisRunID: "run-goal-1126", CurrentReading: true, CurrentReadingSnapshotID: "goal-snapshot-1126", CurrentReadingSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-1126", SourceMaterialID: "source-goal-1126", AnalysisRunID: "run-goal-1126", SnapshotID: "goal-snapshot-1126", State: domain.DeckPreparationFailed}}
 	var output bytes.Buffer
-	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-1126").Render(context.Background(), &output))
+	require.NoError(t, ReadingDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-1126").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, "goal-snapshot-1126")
 	assert.Contains(t, html, `action="/reading/books/book-goal-1126/deck/retry"`)
@@ -45,11 +45,11 @@ func TestJourneyDeckPreparationPageKeepsGoalRetrySnapshotBound(t *testing.T) {
 	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-1126/retry"`)
 }
 
-func TestJourneyDeckPreparationPageRepreparesReadyGoalDeckBySnapshot(t *testing.T) {
+func TestReadingDeckPreparationPageRepreparesReadyCurrentReadingDeckBySnapshot(t *testing.T) {
 	book := domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-goal-reprepare", Title: "Goal Book", Language: "de", ContentSnapshotID: "snapshot-goal"}}
-	task := journeyDeckPreparationView{Book: book, BookID: "book-goal-reprepare", AnalysisRunID: "run-goal-reprepare", Goal: true, GoalSnapshotID: "goal-snapshot-reprepare", GoalSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-reprepare", SourceMaterialID: "source-goal-reprepare", AnalysisRunID: "run-goal-reprepare", SnapshotID: "goal-snapshot-reprepare", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError}}
+	task := readingDeckPreparationView{Book: book, BookID: "book-goal-reprepare", AnalysisRunID: "run-goal-reprepare", CurrentReading: true, CurrentReadingSnapshotID: "goal-snapshot-reprepare", CurrentReadingSnapshotSize: 2, Preparation: &domain.DeckPreparation{ID: "goal-prep-reprepare", SourceMaterialID: "source-goal-reprepare", AnalysisRunID: "run-goal-reprepare", SnapshotID: "goal-snapshot-reprepare", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError}}
 	var output bytes.Buffer
-	require.NoError(t, JourneyDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-reprepare").Render(context.Background(), &output))
+	require.NoError(t, ReadingDeckPreparationPage(domain.User{Username: "learner"}, "csrf", task, "/reading#journey-book-book-goal-reprepare").Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, "Re-preparation required")
 	assert.Contains(t, html, `action="/reading/books/book-goal-reprepare/deck/retry"`)
@@ -58,20 +58,20 @@ func TestJourneyDeckPreparationPageRepreparesReadyGoalDeckBySnapshot(t *testing.
 	assert.NotContains(t, html, "external_translation_consent")
 }
 
-func TestGoalDeckPreparationStatusRetriesBySnapshot(t *testing.T) {
+func TestCurrentReadingDeckPreparationStatusRetriesBySnapshot(t *testing.T) {
 	var output bytes.Buffer
 	preparation := domain.DeckPreparation{ID: "goal-prep-failed", State: domain.DeckPreparationFailed}
-	require.NoError(t, GoalDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
+	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `action="/reading/books/book-goal/deck/retry"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot-goal"`)
 	assert.NotContains(t, html, `action="/deck-preparations/goal-prep-failed/retry"`)
 }
 
-func TestGoalDeckPreparationStatusCancelsBySnapshot(t *testing.T) {
+func TestCurrentReadingDeckPreparationStatusCancelsBySnapshot(t *testing.T) {
 	var output bytes.Buffer
 	preparation := domain.DeckPreparation{ID: "goal-prep-active", State: domain.DeckPreparationPreparing}
-	require.NoError(t, GoalDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
+	require.NoError(t, CurrentReadingDeckPreparationStatus("csrf", "book-goal", "snapshot-goal", preparation).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `action="/reading/books/book-goal/deck/cancel"`)
 	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot-goal"`)
@@ -126,7 +126,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: test.state, FailureClass: "provider", TotalCards: 10, CardsWithEnglish: 8, CardsWithContextualSentenceTranslations: 6, CardsWithFallbackGloss: 2, QualityOmissions: 1}
-			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/reading#journey-book-book-372", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "/reading#journey-book-book-372", emptyDeckReadingAction()).Render(context.Background(), &output))
 			html := output.String()
 			assert.True(t, strings.Contains(html, "Return to book") || test.name != "queued", "status missing return-to-book link: %s", html)
 			for _, want := range test.want {
@@ -151,7 +151,7 @@ func TestDeckPreparationStatusIndicatesUpdatedRevision(t *testing.T) {
 		DeckRevision: 2, TotalCards: 1,
 	}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatus("csrf", updated, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatus("csrf", updated, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	assert.Contains(t, output.String(), "Updated deck revision available")
 	assert.Contains(t, output.String(), "revision 2")
 }
@@ -179,7 +179,7 @@ func TestDeckPreparationStatusReportsEvidenceCoverageAndMissingIndex(t *testing.
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
 			preparation := domain.DeckPreparation{ID: "preparation-evidence", State: domain.DeckPreparationReady, TotalCards: 1, EvidenceCoverage: []domain.DeckPreparationEvidenceCoverage{test.coverage}}
-			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 			assert.Contains(t, output.String(), test.want)
 		})
 	}
@@ -194,14 +194,14 @@ func TestDeckPreparationStatusOmitsUpdatedRevisionIndicatorForCurrentDeck(t *tes
 		{ID: "unrecoverable", State: domain.DeckPreparationReady, DeckRevision: 2, TotalCards: 1, Error: domain.DeckPreparationRequiresRepreparationError},
 	} {
 		var output bytes.Buffer
-		require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+		require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 		assert.NotContains(t, output.String(), "Updated deck revision available", preparation.ID)
 	}
 }
 
-func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T) {
+func TestDeckPreparationStatusPageUsesReadingEntryForBothBackLinks(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationReady, TotalCards: 1}
-	action := deckJourneyActionView{BookID: "book-1", State: deckIsToRead}
+	action := deckReadingActionView{BookID: "book-1", State: deckIsToRead}
 	var output bytes.Buffer
 	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "/reading#journey-book-book-1", action).Render(context.Background(), &output))
 	html := output.String()
@@ -209,10 +209,10 @@ func TestDeckPreparationStatusPageUsesJourneyEntryForBothBackLinks(t *testing.T)
 	assert.False(t, strings.Contains(html, "/books/source-1"), "status page contains retired book link: %s", html)
 }
 
-func TestDeckPreparationStatusPageOmitsBackLinksWithoutJourneyEntry(t *testing.T) {
+func TestDeckPreparationStatusPageOmitsBackLinksWithoutReadingEntry(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "prep-1", SourceMaterialID: "source-1", State: domain.DeckPreparationFailed}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatusPage(domain.User{Username: "learner"}, "csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	html := output.String()
 	assert.False(t, strings.Contains(html, "Return to book") || strings.Contains(html, `href="/books/source-1"`), "unreachable deck status page contains back link: %s", html)
 }
@@ -223,7 +223,7 @@ func TestEmptyReadyDeckShowsRecurringVocabularyEmptyState(t *testing.T) {
 		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg",
 	}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		"No recurring vocabulary",
@@ -242,7 +242,7 @@ func TestZeroCardReadyDeckWithQualityOmissionsKeepsCompleteness(t *testing.T) {
 		DeckName: "Mouseion::de::A Book", Filename: "A Book.apkg", QualityOmissions: 1,
 	}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	html := output.String()
 	assert.False(t, strings.Contains(html, "No recurring vocabulary"), "quality omissions were presented as missing vocabulary: %s", html)
 	for _, want := range []string{"Completeness", "0 cards", "Download deck"} {
@@ -257,7 +257,7 @@ func TestReadyDeckShowsFallbackGlossCountInCompleteness(t *testing.T) {
 		CardsWithEnglish: 3, CardsWithFallbackGloss: 1,
 	}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	assert.Contains(t, output.String(), "1 with fallback gloss")
 }
 
@@ -268,29 +268,29 @@ func TestReadyDeckReportsContextualGlossesAndContextOnlyInference(t *testing.T) 
 		CardsWithEnglish: 3, ContextualGlossesReported: true, ContextualGlosses: 3, ContextOnlyGlosses: 1,
 	}
 	var output bytes.Buffer
-	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckJourneyAction()).Render(context.Background(), &output))
+	require.NoError(t, DeckPreparationStatus("csrf", preparation, "", emptyDeckReadingAction()).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, "3 with contextual Gloss")
 	assert.Contains(t, html, "1 inferred from sentence context")
 	assert.NotContains(t, html, "fallback gloss")
 }
 
-func TestReadyDeckRendersTruthfulJourneyStates(t *testing.T) {
+func TestReadyDeckRendersTruthfulReadingStates(t *testing.T) {
 	preparation := domain.DeckPreparation{ID: "preparation-372", SourceMaterialID: "book-372", AnalysisRunID: "run-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 10}
 	tests := []struct {
 		name  string
-		state deckJourneyState
+		state deckReadingState
 		want  []string
 		omit  []string
 	}{
-		{name: "not in To Read", state: deckJourneyNotMember, want: []string{"Not in To Read", "disposition in", `href="/library"`}, omit: []string{"Move to To Read", `method="post" action="/reading/books/`, "View this book in Reading", "current reading"}},
+		{name: "not in To Read", state: deckReadingNotMember, want: []string{"Not in To Read", "disposition in", `href="/library"`}, omit: []string{"Move to To Read", `method="post" action="/reading/books/`, "View this book in Reading", "current reading"}},
 		{name: "already in Journey", state: deckIsToRead, want: []string{"To Read", "This book is already in To Read", `href="/reading#journey-book-book-372"`}, omit: []string{"Move to To Read", "current reading"}},
 		{name: "current reading", state: deckIsCurrentReading, want: []string{"Current Book", "This deck is preparation for the Book you are reading now", "View current book in Reading"}, omit: []string{"Move to To Read", "View in Reading"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			action := deckJourneyActionView{BookID: preparation.SourceMaterialID, State: test.state}
+			action := deckReadingActionView{BookID: preparation.SourceMaterialID, State: test.state}
 			require.NoError(t, DeckPreparationStatus("csrf", preparation, "", action).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range test.want {

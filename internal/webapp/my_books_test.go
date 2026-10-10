@@ -149,7 +149,7 @@ func TestMyBooksMetadataOnlyRowHidesRefreshWhenIneligible(t *testing.T) {
 	assert.False(t, strings.Contains(output.String(), "Refresh metadata"), "ineligible metadata-only My Books row exposed refresh: %s", output.String())
 }
 
-func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
+func TestMyBooksReadingActionHidesAddForExistingMember(t *testing.T) {
 	book := domain.MyBook{
 		Book:     domain.Book{ID: "journey-book", OwnerID: "owner", Title: "Journey book"},
 		IsToRead: true,
@@ -165,7 +165,7 @@ func TestMyBooksJourneyActionHidesAddForExistingMember(t *testing.T) {
 	assert.Contains(t, html, `href="/reading#journey-book-journey-book"`)
 }
 
-func TestMyBooksJourneyActionHidesAddForPrimaryGoal(t *testing.T) {
+func TestMyBooksReadingActionHidesAddForCurrentReading(t *testing.T) {
 	book := domain.MyBook{
 		Book:             domain.Book{ID: "goal-book", OwnerID: "owner", Title: "Goal book"},
 		IsCurrentReading: true,
@@ -199,7 +199,7 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	assert.NotContains(t, html, "Analysis evidence")
 }
 
-func TestAnalyzedNonJourneyMyBookKeepsEvidenceWithoutLink(t *testing.T) {
+func TestAnalyzedNonReadingMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 	book := domain.MyBook{
 		Book: domain.Book{ID: "analyzed-outside-journey", OwnerID: "owner", Title: "Analyzed outside Journey"},
 		Acquired: &domain.SourceMaterialSummary{
@@ -370,7 +370,7 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 }
 
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
-	h, cookies, csrf, _ := goalFixtureSession(t)
+	h, cookies, csrf, _ := readingFixtureSession(t)
 	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search", "/library/books/book-id"} {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, route, nil)
 		for _, cookie := range cookies {
@@ -387,11 +387,11 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusNotFound, response.Code)
-	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/library/books/fixture-book/remove", url.Values{"csrf_token": {csrf}}, cookies).Code)
+	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/library/books/fixture-book/remove", url.Values{"csrf_token": {csrf}}, cookies).Code)
 }
 
 func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
-	h, cookies, csrf, _ := goalFixtureSession(t)
+	h, cookies, csrf, _ := readingFixtureSession(t)
 	for _, path := range []string{"/books/fixture-empty", "/books/fixture-book", "/books/fixture-failed"} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		for _, cookie := range cookies {
@@ -401,13 +401,13 @@ func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T)
 		h.ServeHTTP(response, request)
 		assert.Equal(t, http.StatusNotFound, response.Code, path)
 	}
-	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies).Code)
-	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies).Code)
-	assert.Equal(t, http.StatusNotFound, goalRequest(t, h, "/books/fixture-book/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies).Code)
+	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies).Code)
+	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies).Code)
+	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/books/fixture-book/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies).Code)
 }
 
-func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T) {
-	h, cookies, _, _ := goalFixtureSession(t)
+func TestCompletedAnalysisCompatibilityRouteRedirectsToReadingEntry(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/fixture-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
@@ -444,18 +444,18 @@ func (s *bookRefreshStub) RefreshEntry(_ context.Context, owner, _ string) (cata
 }
 
 func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
-	h, cookies, csrf, _ := goalFixtureSession(t)
+	h, cookies, csrf, _ := readingFixtureSession(t)
 	stub := &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Updated: true}}
 	requireHandler(t, h).services.CatalogueSync = stub
-	missingCSRF := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{}, cookies)
+	missingCSRF := readingTestRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{}, cookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	assert.Equal(t, 0, stub.calls)
-	native := goalRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
+	native := readingTestRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, native.Code)
 	assert.True(t, strings.Contains(native.Header().Get("Location"), "Metadata+refreshed"), "native refresh location=%q", native.Header().Get("Location"))
 	assert.Equal(t, "fixture-learner", stub.owner)
 
-	h, cookies, csrf, _ = goalFixtureSession(t)
+	h, cookies, csrf, _ = readingFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
 	requireHandler(t, h).services.CatalogueSync = stub
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
@@ -470,7 +470,7 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	assert.True(t, strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`), "HTMX refresh body=%s", response.Body.String())
 	assert.True(t, strings.Contains(response.Body.String(), "catalog entry is no longer available"), "HTMX refresh body=%s", response.Body.String())
 
-	h, cookies, csrf, _ = goalFixtureSession(t)
+	h, cookies, csrf, _ = readingFixtureSession(t)
 	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated row title"}, Updated: true}}
 	requireHandler(t, h).services.CatalogueSync = stub
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))

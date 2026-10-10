@@ -17,7 +17,7 @@ import (
 )
 
 func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing.T) {
-	h, cookies, _, store := goalFixtureSession(t)
+	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""))
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
@@ -45,8 +45,8 @@ func getAs(t *testing.T, h http.Handler, path string, cookies []*http.Cookie) *h
 }
 
 func TestDeliberateLanguageChangeLandsAtMyBooksAndResetsReturnState(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
-	response := goalRequest(t, h, "/active-study-language", url.Values{
+	h, cookies, csrf, store := readingFixtureSession(t)
+	response := readingTestRequest(t, h, "/active-study-language", url.Values{
 		"csrf_token": {csrf + ".de"}, "language": {"it"}, "return_to": {"/vocabulary/concordance?term=haus&page=3"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -57,9 +57,9 @@ func TestDeliberateLanguageChangeLandsAtMyBooksAndResetsReturnState(t *testing.T
 }
 
 func TestLanguageChangeFromStaleTabStillTakesEffect(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := goalRequest(t, h, "/active-study-language", url.Values{"csrf_token": {csrf + ".de"}, "language": {"de"}}, cookies)
+	response := readingTestRequest(t, h, "/active-study-language", url.Values{"csrf_token": {csrf + ".de"}, "language": {"de"}}, cookies)
 	assert.Equal(t, "/library", response.Header().Get("Location"))
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
@@ -67,8 +67,8 @@ func TestLanguageChangeFromStaleTabStillTakesEffect(t *testing.T) {
 }
 
 func TestActiveStudyLanguageEmptySubmissionIsNoOpAtMyBooks(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
-	response := goalRequest(t, h, "/active-study-language", url.Values{
+	h, cookies, csrf, store := readingFixtureSession(t)
+	response := readingTestRequest(t, h, "/active-study-language", url.Values{
 		"csrf_token": {csrf}, "language": {""}, "return_to": {"/reading"},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -79,7 +79,7 @@ func TestActiveStudyLanguageEmptySubmissionIsNoOpAtMyBooks(t *testing.T) {
 }
 
 func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *testing.T) {
-	h, cookies, _, store := goalFixtureSession(t)
+	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 	for _, path := range []string{
 		"/reading?language=de",
@@ -106,7 +106,7 @@ func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *tes
 }
 
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
-	h, cookies, _, store := goalFixtureSession(t)
+	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 	response := getAs(t, h, "/reading?language=it", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
@@ -114,7 +114,7 @@ func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 }
 
 func TestRenderedFormsCarryTheActiveLanguage(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	body := getAs(t, h, "/library", cookies).Body.String()
 	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`.de"`)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
@@ -123,7 +123,7 @@ func TestRenderedFormsCarryTheActiveLanguage(t *testing.T) {
 }
 
 func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	before, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	require.NotEmpty(t, before.BookID)
@@ -135,7 +135,7 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 		"/library/books/" + fixtures.BookID + "/previously-read",
 	} {
 		t.Run(path, func(t *testing.T) {
-			response := goalRequest(t, h, path, url.Values{
+			response := readingTestRequest(t, h, path, url.Values{
 				"csrf_token":                   {csrf + ".de"},
 				"expected_current_book_id":     {before.BookID},
 				"expected_current_snapshot_id": {before.SnapshotID},
@@ -153,7 +153,7 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 }
 
 func TestStaleLanguageImportRecoversWithoutImporting(t *testing.T) {
-	h, cookies, csrf, store := goalFixtureSession(t)
+	h, cookies, csrf, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
@@ -175,10 +175,10 @@ func TestStaleLanguageImportRecoversWithoutImporting(t *testing.T) {
 }
 
 func TestSubmissionsWithoutLanguageIdentityKeepWorking(t *testing.T) {
-	h, cookies, csrf, _ := goalFixtureSession(t)
-	response := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
+	h, cookies, csrf, _ := readingFixtureSession(t)
+	response := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.NotEqual(t, languageChangedPath(), response.Header().Get("Location"))
-	forged := goalRequest(t, h, "/reading/end", url.Values{"csrf_token": {"forged.de"}}, cookies)
+	forged := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {"forged.de"}}, cookies)
 	assert.Equal(t, http.StatusForbidden, forged.Code, "the language suffix never replaces the CSRF secret")
 }
 

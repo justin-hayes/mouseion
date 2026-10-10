@@ -84,7 +84,7 @@ func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(boo
 
 func bookCoverURL(bookID string) string { return "/books/" + url.PathEscape(bookID) + "/cover" }
 
-func myBookInJourney(book domain.MyBook) bool {
+func myBookInReading(book domain.MyBook) bool {
 	return book.IsToRead || book.IsCurrentReading
 }
 
@@ -217,12 +217,12 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 type NavigationContext string
 
 const (
-	NavigationNone           NavigationContext = ""
-	NavigationLibrary        NavigationContext = "library"
-	NavigationReadingJourney NavigationContext = "reading"
-	NavigationLearning       NavigationContext = NavigationReadingJourney
-	NavigationVocabulary     NavigationContext = "vocabulary"
-	NavigationCatalogs       NavigationContext = "catalogs"
+	NavigationNone       NavigationContext = ""
+	NavigationLibrary    NavigationContext = "library"
+	NavigationReading    NavigationContext = "reading"
+	NavigationLearning   NavigationContext = NavigationReading
+	NavigationVocabulary NavigationContext = "vocabulary"
+	NavigationCatalogs   NavigationContext = "catalogs"
 )
 
 func navigationContextForTitle(title string) NavigationContext {
@@ -230,7 +230,7 @@ func navigationContextForTitle(title string) NavigationContext {
 	case title == "My Books", title == "My Library":
 		return NavigationLibrary
 	case title == "Reading", title == "Learning":
-		return NavigationReadingJourney
+		return NavigationReading
 	case title == "Vocabulary", title == "Known vocabulary":
 		return NavigationVocabulary
 	case title == "Catalogs":
