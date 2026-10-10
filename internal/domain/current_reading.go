@@ -14,6 +14,7 @@ type CurrentReadingEligibilityReason string
 const (
 	CurrentReadingNotToRead           CurrentReadingEligibilityReason = "not-to-read"
 	CurrentReadingNoChosenLanguage    CurrentReadingEligibilityReason = "no-chosen-language"
+	CurrentReadingOtherLanguage       CurrentReadingEligibilityReason = "other-language"
 	CurrentReadingNeedsCurrentContent CurrentReadingEligibilityReason = "needs-current-content"
 	CurrentReadingAnalysisInProgress  CurrentReadingEligibilityReason = "analysis-in-progress"
 	CurrentReadingFailed              CurrentReadingEligibilityReason = "failed"
