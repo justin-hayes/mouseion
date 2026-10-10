@@ -116,6 +116,7 @@ type SwitchCurrentReadingFacts struct {
 // commitment to an eligible target without unresolved flags. A replay is
 // proven only when the current reading is the target's snapshot created by
 // the same transition that released the expected, uncompleted snapshot.
+// Switching to the exact current Book changes nothing, so it is a replay.
 func DecideSwitchCurrentReading(f SwitchCurrentReadingFacts) CurrentReadingDecision {
 	if !f.Expected.IsComplete() {
 		return CurrentReadingDecision{Verdict: CurrentReadingRejectStale}
@@ -128,6 +129,9 @@ func DecideSwitchCurrentReading(f SwitchCurrentReadingFacts) CurrentReadingDecis
 			return CurrentReadingDecision{Verdict: CurrentReadingReplay}
 		}
 		return CurrentReadingDecision{Verdict: CurrentReadingRejectStale}
+	}
+	if f.TargetBookID == f.Current.BookID {
+		return CurrentReadingDecision{Verdict: CurrentReadingReplay}
 	}
 	if f.TargetEligibility != CurrentReadingEligible {
 		return CurrentReadingDecision{Verdict: CurrentReadingRejectIneligible, Ineligible: f.TargetEligibility}

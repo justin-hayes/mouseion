@@ -86,6 +86,7 @@ func TestDecideSwitchCurrentReading(t *testing.T) {
 		{"ineligible target", SwitchCurrentReadingFacts{TargetBookID: "target", Expected: expected, Current: current, TargetEligibility: CurrentReadingNotToRead}, CurrentReadingDecision{Verdict: CurrentReadingRejectIneligible, Ineligible: CurrentReadingNotToRead}},
 		{"unresolved flags", SwitchCurrentReadingFacts{TargetBookID: "target", Expected: expected, Current: current, TargetEligibility: CurrentReadingEligible, UnresolvedFlags: true}, CurrentReadingDecision{Verdict: CurrentReadingRejectUnresolvedFlags}},
 		{"ineligibility outranks flags", SwitchCurrentReadingFacts{TargetBookID: "target", Expected: expected, Current: current, TargetEligibility: CurrentReadingFailed, UnresolvedFlags: true}, CurrentReadingDecision{Verdict: CurrentReadingRejectIneligible, Ineligible: CurrentReadingFailed}},
+		{"switch to the current book changes nothing", SwitchCurrentReadingFacts{TargetBookID: "book", Expected: expected, Current: current, TargetEligibility: CurrentReadingEligible}, CurrentReadingDecision{Verdict: CurrentReadingReplay}},
 		{"stale outranks ineligible", SwitchCurrentReadingFacts{TargetBookID: "target", Expected: CurrentReadingCommitment{BookID: "other", SnapshotID: "snap"}, Current: current, TargetEligibility: CurrentReadingNotToRead}, stale},
 	}
 	for _, test := range tests {
