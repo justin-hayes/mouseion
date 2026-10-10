@@ -275,7 +275,7 @@ func (s *Service) advanceTx(ctx context.Context, tx pgx.Tx, owner, id string, fo
 		id = p.ID
 	} else if p.State == domain.DeckPreparationFailed || p.State == domain.DeckPreparationCancelled {
 		previousState := p.State
-		p, err = scanPreparation(tx.QueryRow(ctx, `UPDATE deck_preparations SET state='queued',error='',current_run_id=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING `+preparationColumns, owner, id))
+		p, err = scanPreparation(tx.QueryRow(ctx, requeueFailedPreparationSQL, owner, id))
 		if err != nil {
 			return Handle{}, err
 		}
@@ -305,13 +305,20 @@ func lockBookForUpdate(ctx context.Context, tx pgx.Tx, owner, bookID string) err
 	return err
 }
 
+// The statements are package constants; the column list is a constant too, so
+// no request value is ever spliced into SQL text.
+const (
+	requeueFailedPreparationSQL   = "UPDATE deck_preparations SET state='queued',error='',current_run_id=NULL,started_at=NULL,completed_at=NULL,updated_at=now() WHERE owner_id=$1 AND id=$2 RETURNING " + preparationColumns
+	livePreparationForSnapshotSQL = "SELECT " + preparationColumns + " FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE"
+)
+
 // lockLivePreparationForSnapshot returns the non-retired preparation bound to
 // the snapshot, locked for update. found is false when none exists.
 func lockLivePreparationForSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID string) (p domain.DeckPreparation, found bool, err error) {
 	if snapshotID == "" {
 		return domain.DeckPreparation{}, false, nil
 	}
-	p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE`, owner, snapshotID))
+	p, err = scanPreparation(tx.QueryRow(ctx, livePreparationForSnapshotSQL, owner, snapshotID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DeckPreparation{}, false, nil
 	}

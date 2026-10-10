@@ -13,7 +13,8 @@ import (
 // The admission facts for one Book are read from the same rows the Current
 // reading and Book lock protect. Locked reads take the Current reading and its
 // snapshot in the order every Current reading writer uses.
-const currentReadingForBookSQL = `SELECT g.owner_id::text, g.language, g.book_id::text,
+const (
+	currentReadingForBookSQL = `SELECT g.owner_id::text, g.language, g.book_id::text,
        COALESCE(s.id::text,'')::text, COALESCE(s.source_material_id::text,'')::text,
        COALESCE(s.analysis_run_id::text,'')::text, COALESCE(s.content_revision_id::text,'')::text,
        COALESCE(s.content_snapshot_id::text,'')::text, COALESCE(s.corpus_id::text,'')::text,
@@ -21,6 +22,16 @@ const currentReadingForBookSQL = `SELECT g.owner_id::text, g.language, g.book_id
 FROM primary_goals g
 JOIN primary_goal_snapshots s ON s.owner_id=g.owner_id AND s.id=g.snapshot_id AND s.book_id=g.book_id AND s.language=g.language
 WHERE g.owner_id=$1 AND g.book_id=$2::uuid AND s.released_at IS NULL`
+	// currentReadingForBookLockedSQL is currentReadingForBookSQL under row locks.
+	currentReadingForBookLockedSQL = `SELECT g.owner_id::text, g.language, g.book_id::text,
+       COALESCE(s.id::text,'')::text, COALESCE(s.source_material_id::text,'')::text,
+       COALESCE(s.analysis_run_id::text,'')::text, COALESCE(s.content_revision_id::text,'')::text,
+       COALESCE(s.content_snapshot_id::text,'')::text, COALESCE(s.corpus_id::text,'')::text,
+       g.created_at, g.updated_at
+FROM primary_goals g
+JOIN primary_goal_snapshots s ON s.owner_id=g.owner_id AND s.id=g.snapshot_id AND s.book_id=g.book_id AND s.language=g.language
+WHERE g.owner_id=$1 AND g.book_id=$2::uuid AND s.released_at IS NULL FOR UPDATE OF g, s`
+)
 
 const currentAnalysisForBookSQL = `SELECT COALESCE(source_material_id::text,'')::text, COALESCE(analysis_run_id::text,'')::text,
        COALESCE(content_revision_id::text,'')::text, COALESCE(snapshot_id::text,'')::text, COALESCE(corpus_id::text,'')::text
@@ -47,7 +58,7 @@ func loadCurrentReadingDeckFacts(ctx context.Context, db sqlcgen.DBTX, owner, bo
 	}
 	query := currentReadingForBookSQL
 	if lock {
-		query += ` FOR UPDATE OF g, s`
+		query = currentReadingForBookLockedSQL
 	}
 	var current domain.CurrentReading
 	err := db.QueryRow(ctx, query, owner, bookID).Scan(&current.OwnerID, &current.Language, &current.BookID,
