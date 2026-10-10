@@ -429,15 +429,12 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return domain.CurrentReading{}, err
 	}
-	if err = ensureCurrentReadingCandidate(ctx, tx, owner, language, bookID); err != nil {
+	if err = requireCurrentReadingEligible(ctx, q, owner, language, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	identity, identityErr := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Language: language, Book: bookID})
-	if errors.Is(identityErr, pgx.ErrNoRows) {
-		return domain.CurrentReading{}, ErrCurrentReadingIneligible
-	}
-	if identityErr != nil {
-		return domain.CurrentReading{}, identityErr
+	identity, err := lookupCurrentReadingIdentity(ctx, q, owner, bookID)
+	if err != nil {
+		return domain.CurrentReading{}, err
 	}
 	blocked, err := unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
 	if err != nil {
@@ -471,17 +468,57 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	return goal, nil
 }
 
-func ensureCurrentReadingCandidate(ctx context.Context, tx pgx.Tx, owner, language, bookID string) error {
-	eligible, err := sqlcgen.New(tx).CurrentReadingCandidateEligible(ctx, sqlcgen.CurrentReadingCandidateEligibleParams{
-		Owner: owner, Language: language, Book: bookID,
-	})
-	if err != nil {
+// CurrentReadingIneligibleError rejects a Book that the domain classifier does
+// not allow to become the current reading. It matches ErrCurrentReadingIneligible
+// and carries the classifier's reason for callers that report it.
+type CurrentReadingIneligibleError struct {
+	Reason domain.CurrentReadingEligibilityReason
+}
+
+func (e CurrentReadingIneligibleError) Error() string {
+	return ErrCurrentReadingIneligible.Error() + " (" + string(e.Reason) + ")"
+}
+
+func (e CurrentReadingIneligibleError) Is(target error) bool {
+	return target == ErrCurrentReadingIneligible
+}
+
+// requireCurrentReadingEligible asks the domain classifier whether the Book may
+// become the owner's current reading in language. The caller holds the
+// learner-state and Book locks, so the evidence, disposition, and language it
+// reads cannot change before the transition commits.
+func requireCurrentReadingEligible(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) error {
+	evidence, err := q.GetCurrentReadingEvidence(ctx, sqlcgen.GetCurrentReadingEvidenceParams{Owner: owner, Book: bookID})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if !eligible {
-		return ErrCurrentReadingIneligible
+	// A Book without an evidence row has no acquired content, no analysis, and
+	// no disposition, so the zero row reads as exactly that.
+	signals := analysisSignalsFromView(evidence.SourceID, evidence.SourceMediaType, evidence.SourceContentRevisionID, evidence.SourceContentSnapshotID, evidence.AnalysisStatus, evidence.AnalysisState, evidence.AnalysisRunID)
+	bookLanguage := ""
+	if evidence.BookLanguageState == domain.LanguageChosen {
+		bookLanguage = evidence.BookLanguageTag
+	}
+	classification := domain.ClassifyBookEvidence(signals, domain.BookDisposition(evidence.Disposition), bookLanguage)
+	if classification.Eligibility != domain.CurrentReadingEligible {
+		return CurrentReadingIneligibleError{Reason: classification.Eligibility}
+	}
+	if bookLanguage != language {
+		return CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}
 	}
 	return nil
+}
+
+// lookupCurrentReadingIdentity reads the published analysis identity that a
+// Book the classifier made eligible must have. A missing identity would mean
+// the classifier and the identity view disagree, so it is reported as the
+// missing completed analysis.
+func lookupCurrentReadingIdentity(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) (sqlcgen.GetCurrentReadingCandidateIdentityRow, error) {
+	identity, err := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Book: bookID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity, CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}
+	}
+	return identity, err
 }
 
 func lockCurrentReadingBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {

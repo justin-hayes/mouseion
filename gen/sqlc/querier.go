@@ -66,7 +66,6 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
-	CurrentReadingCandidateEligible(ctx context.Context, arg CurrentReadingCandidateEligibleParams) (bool, error)
 	DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error)
 	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
@@ -138,7 +137,12 @@ type Querier interface {
 	// from the current_analysis_identity view so the identity chain is not
 	// duplicated in application SQL.
 	GetCurrentReadingBookID(ctx context.Context, arg GetCurrentReadingBookIDParams) (string, error)
+	// Identity lookup only: eligibility is decided by the domain classifier before
+	// this runs, so this query carries no disposition, language, or media rules.
 	GetCurrentReadingCandidateIdentity(ctx context.Context, arg GetCurrentReadingCandidateIdentityParams) (GetCurrentReadingCandidateIdentityRow, error)
+	// The evidence the Current reading classifier reads under the Book lock: the
+	// same my_books_evidence row the surfaces read, plus the Book's disposition.
+	GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentReadingEvidenceParams) (GetCurrentReadingEvidenceRow, error)
 	GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrentReadingForUpdateParams) (GetCurrentReadingForUpdateRow, error)
 	// Durable facts that prove a lifecycle replay: who the commitment belonged to,
 	// when it was frozen and released, and whether it was completed.

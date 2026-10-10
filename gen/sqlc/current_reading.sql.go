@@ -152,40 +152,6 @@ func (q *Queries) CreateCurrentReadingSnapshot(ctx context.Context, arg CreateCu
 	return i, err
 }
 
-const currentReadingCandidateEligible = `-- name: CurrentReadingCandidateEligible :one
-SELECT EXISTS(
-  SELECT 1
-  FROM books b
-  JOIN book_dispositions bd
-    ON bd.owner_id = b.owner_id AND bd.book_id = b.id
-  JOIN source_materials s
-    ON s.owner_id = b.owner_id AND s.book_id = b.id
-  JOIN current_analysis_identity ca
-    ON ca.owner_id = b.owner_id
-   AND ca.book_id = b.id
-   AND ca.source_material_id = s.id
-  WHERE b.owner_id = $1
-    AND b.id = $2
-    AND bd.disposition = 'to_read'
-    AND b.language_state = 'chosen'
-    AND b.language_tag = $3::text
-    AND lower(s.media_type) = 'application/epub+zip'
-)
-`
-
-type CurrentReadingCandidateEligibleParams struct {
-	Owner    string
-	Book     string
-	Language string
-}
-
-func (q *Queries) CurrentReadingCandidateEligible(ctx context.Context, arg CurrentReadingCandidateEligibleParams) (bool, error) {
-	row := q.db.QueryRow(ctx, currentReadingCandidateEligible, arg.Owner, arg.Book, arg.Language)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const deleteCurrentReading = `-- name: DeleteCurrentReading :exec
 DELETE FROM primary_goals
 WHERE owner_id = $1 AND language = $2
@@ -327,24 +293,14 @@ func (q *Queries) GetCurrentReadingBookID(ctx context.Context, arg GetCurrentRea
 const getCurrentReadingCandidateIdentity = `-- name: GetCurrentReadingCandidateIdentity :one
 SELECT ca.source_material_id::text, ca.analysis_run_id::text,
        ca.content_revision_id::text, ca.snapshot_id::text, ca.corpus_id::text
-FROM books b
-JOIN book_dispositions bd ON bd.owner_id = b.owner_id AND bd.book_id = b.id
-JOIN source_materials s ON s.owner_id = b.owner_id AND s.book_id = b.id
-JOIN current_analysis_identity ca
-  ON ca.owner_id = b.owner_id AND ca.book_id = b.id
- AND ca.source_material_id = s.id
-WHERE b.owner_id = $1
-  AND b.id = $2
-  AND bd.disposition = 'to_read'
-  AND b.language_state = 'chosen'
-  AND b.language_tag = $3::text
-  AND lower(s.media_type) = 'application/epub+zip'
+FROM current_analysis_identity ca
+WHERE ca.owner_id = $1
+  AND ca.book_id = $2
 `
 
 type GetCurrentReadingCandidateIdentityParams struct {
-	Owner    string
-	Book     string
-	Language string
+	Owner string
+	Book  string
 }
 
 type GetCurrentReadingCandidateIdentityRow struct {
@@ -355,8 +311,10 @@ type GetCurrentReadingCandidateIdentityRow struct {
 	CaCorpusID          string
 }
 
+// Identity lookup only: eligibility is decided by the domain classifier before
+// this runs, so this query carries no disposition, language, or media rules.
 func (q *Queries) GetCurrentReadingCandidateIdentity(ctx context.Context, arg GetCurrentReadingCandidateIdentityParams) (GetCurrentReadingCandidateIdentityRow, error) {
-	row := q.db.QueryRow(ctx, getCurrentReadingCandidateIdentity, arg.Owner, arg.Book, arg.Language)
+	row := q.db.QueryRow(ctx, getCurrentReadingCandidateIdentity, arg.Owner, arg.Book)
 	var i GetCurrentReadingCandidateIdentityRow
 	err := row.Scan(
 		&i.CaSourceMaterialID,
@@ -364,6 +322,93 @@ func (q *Queries) GetCurrentReadingCandidateIdentity(ctx context.Context, arg Ge
 		&i.CaContentRevisionID,
 		&i.CaSnapshotID,
 		&i.CaCorpusID,
+	)
+	return i, err
+}
+
+const getCurrentReadingEvidence = `-- name: GetCurrentReadingEvidence :one
+SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height, COALESCE(d.disposition::text, '')::text AS disposition
+FROM my_books_evidence e
+LEFT JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1 AND e.book_id = $2
+`
+
+type GetCurrentReadingEvidenceParams struct {
+	Owner string
+	Book  string
+}
+
+type GetCurrentReadingEvidenceRow struct {
+	BookID                  string
+	BookOwnerID             string
+	BookTitle               string
+	BookMetadataProvenance  string
+	BookLanguageState       string
+	BookLanguageTag         string
+	BookCreatedAt           time.Time
+	BookUpdatedAt           time.Time
+	SourceID                string
+	SourceOwnerID           string
+	SourceLanguage          string
+	SourceIdentifier        string
+	SourceTitle             string
+	SourceMediaType         string
+	SourceContentHash       string
+	SourceContentDigest     string
+	SourceContentRevisionID string
+	SourceContentSnapshotID string
+	SourceDigestVersion     int
+	SourceCreatedAt         *time.Time
+	Acquired                bool
+	AnalysisStatus          string
+	AnalysisState           string
+	AnalysisRunID           string
+	CorpusID                string
+	AnalysisJobID           int64
+	BookAuthor              string
+	BookCoverState          string
+	BookCoverWidth          int
+	BookCoverHeight         int
+	Disposition             string
+}
+
+// The evidence the Current reading classifier reads under the Book lock: the
+// same my_books_evidence row the surfaces read, plus the Book's disposition.
+func (q *Queries) GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentReadingEvidenceParams) (GetCurrentReadingEvidenceRow, error) {
+	row := q.db.QueryRow(ctx, getCurrentReadingEvidence, arg.Owner, arg.Book)
+	var i GetCurrentReadingEvidenceRow
+	err := row.Scan(
+		&i.BookID,
+		&i.BookOwnerID,
+		&i.BookTitle,
+		&i.BookMetadataProvenance,
+		&i.BookLanguageState,
+		&i.BookLanguageTag,
+		&i.BookCreatedAt,
+		&i.BookUpdatedAt,
+		&i.SourceID,
+		&i.SourceOwnerID,
+		&i.SourceLanguage,
+		&i.SourceIdentifier,
+		&i.SourceTitle,
+		&i.SourceMediaType,
+		&i.SourceContentHash,
+		&i.SourceContentDigest,
+		&i.SourceContentRevisionID,
+		&i.SourceContentSnapshotID,
+		&i.SourceDigestVersion,
+		&i.SourceCreatedAt,
+		&i.Acquired,
+		&i.AnalysisStatus,
+		&i.AnalysisState,
+		&i.AnalysisRunID,
+		&i.CorpusID,
+		&i.AnalysisJobID,
+		&i.BookAuthor,
+		&i.BookCoverState,
+		&i.BookCoverWidth,
+		&i.BookCoverHeight,
+		&i.Disposition,
 	)
 	return i, err
 }

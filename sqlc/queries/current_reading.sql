@@ -32,21 +32,22 @@ LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snaps
 WHERE g.owner_id = sqlc.arg('owner') AND g.language = sqlc.arg('language')
 FOR UPDATE OF g;
 
+-- name: GetCurrentReadingEvidence :one
+-- The evidence the Current reading classifier reads under the Book lock: the
+-- same my_books_evidence row the surfaces read, plus the Book's disposition.
+SELECT e.*, COALESCE(d.disposition::text, '')::text AS disposition
+FROM my_books_evidence e
+LEFT JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner') AND e.book_id = sqlc.arg('book');
+
 -- name: GetCurrentReadingCandidateIdentity :one
+-- Identity lookup only: eligibility is decided by the domain classifier before
+-- this runs, so this query carries no disposition, language, or media rules.
 SELECT ca.source_material_id::text, ca.analysis_run_id::text,
        ca.content_revision_id::text, ca.snapshot_id::text, ca.corpus_id::text
-FROM books b
-JOIN book_dispositions bd ON bd.owner_id = b.owner_id AND bd.book_id = b.id
-JOIN source_materials s ON s.owner_id = b.owner_id AND s.book_id = b.id
-JOIN current_analysis_identity ca
-  ON ca.owner_id = b.owner_id AND ca.book_id = b.id
- AND ca.source_material_id = s.id
-WHERE b.owner_id = sqlc.arg('owner')
-  AND b.id = sqlc.arg('book')
-  AND bd.disposition = 'to_read'
-  AND b.language_state = 'chosen'
-  AND b.language_tag = sqlc.arg('language')::text
-  AND lower(s.media_type) = 'application/epub+zip';
+FROM current_analysis_identity ca
+WHERE ca.owner_id = sqlc.arg('owner')
+  AND ca.book_id = sqlc.arg('book');
 
 -- name: CreateCurrentReadingSnapshot :one
 INSERT INTO primary_goal_snapshots(
@@ -330,22 +331,3 @@ WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
   AND goal_snapshot_id = NULLIF(sqlc.arg('snapshot'), '')::uuid;
 
--- name: CurrentReadingCandidateEligible :one
-SELECT EXISTS(
-  SELECT 1
-  FROM books b
-  JOIN book_dispositions bd
-    ON bd.owner_id = b.owner_id AND bd.book_id = b.id
-  JOIN source_materials s
-    ON s.owner_id = b.owner_id AND s.book_id = b.id
-  JOIN current_analysis_identity ca
-    ON ca.owner_id = b.owner_id
-   AND ca.book_id = b.id
-   AND ca.source_material_id = s.id
-  WHERE b.owner_id = sqlc.arg('owner')
-    AND b.id = sqlc.arg('book')
-    AND bd.disposition = 'to_read'
-    AND b.language_state = 'chosen'
-    AND b.language_tag = sqlc.arg('language')::text
-    AND lower(s.media_type) = 'application/epub+zip'
-);

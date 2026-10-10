@@ -73,16 +73,13 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 		}
 		return domain.CurrentReading{}, ErrCurrentReadingStale
 	}
-	if err = ensureCurrentReadingCandidate(ctx, tx, owner, language, bookID); err != nil {
+	if err = requireCurrentReadingEligible(ctx, q, owner, language, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
 	if err = releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	identity, err := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Language: language, Book: bookID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.CurrentReading{}, ErrCurrentReadingIneligible
-	}
+	identity, err := lookupCurrentReadingIdentity(ctx, q, owner, bookID)
 	if err != nil {
 		return domain.CurrentReading{}, err
 	}
