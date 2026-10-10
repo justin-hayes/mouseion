@@ -172,7 +172,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Equal(t, http.StatusSeeOther, prepare.Code)
 	assert.Contains(t, prepare.Header().Get("Location"), "/deck-preparations/")
 
-	preparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	preparation, err := deckService.GetForCurrentReadingSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, reading.SourceMaterialID, preparation.SourceMaterialID)
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
@@ -203,7 +203,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 		PreparationID: preparation.ID, OwnerID: owner.ID, SourceMaterialID: reading.SourceMaterialID,
 		ContentHash: source.ContentHash, AnalysisRunID: reading.AnalysisRunID,
 	}}))
-	failed, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	failed, err := deckService.GetForCurrentReadingSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationFailed, failed.State)
 	assert.Contains(t, failed.Error, "configured translation provider")
@@ -211,7 +211,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	failedVocabulary, err := store.ListDeckPreparationVocabulary(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.Empty(t, failedVocabulary, "a failed preparation cannot reserve card vocabulary")
-	_, err = deckService.GetForGoalSnapshot(ctx, otherOwner.ID, reading.SnapshotID)
+	_, err = deckService.GetForCurrentReadingSnapshot(ctx, otherOwner.ID, reading.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "a failed preparation remains owner-scoped")
 
 	focusedTask := perform(t, h, http.MethodGet, "/reading/books/"+book.ID+"/deck/preparations/new", nil, cookies)
@@ -243,7 +243,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, retryExisting.Code)
 	assert.Contains(t, retryExisting.Header().Get("Location"), "Deck+preparation+retry+queued")
-	retriedPreparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	retriedPreparation, err := deckService.GetForCurrentReadingSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, preparation.ID, retriedPreparation.ID, "retry must remain attached to this exact reading snapshot")
 	assert.Equal(t, domain.DeckPreparationQueued, retriedPreparation.State)

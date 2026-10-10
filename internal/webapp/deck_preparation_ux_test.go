@@ -33,20 +33,20 @@ func TestDeckPreparationStatusRendersLifecycleAndRecoveryForms(t *testing.T) {
 		{
 			name: "failed",
 			prep: domain.DeckPreparation{ID: "prep-failed", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationFailed, FailureClass: "provider"},
-			want: []string{"Deck preparation failed", "temporarily unavailable", `action="/deck-preparations/prep-failed/retry"`, "configured translation provider"},
-			omit: []string{"Cancel preparation", "Download deck"},
+			want: []string{"Deck preparation failed", "temporarily unavailable", "no retry can be submitted"},
+			omit: []string{"Cancel preparation", "Download deck", `action="/deck-preparations/prep-failed/retry"`},
 		},
 		{
 			name: "ready",
 			prep: domain.DeckPreparation{ID: "prep-ready", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationReady, DeckName: "Mouseion::de::The Exact Book", Filename: "The Exact Book.apkg", TotalCards: 12, CardsWithEnglish: 11, CardsWithContextualSentenceTranslations: 9, QualityOmissions: 1},
-			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`, "Re-prepare with current Meaning evidence", `action="/deck-preparations/prep-ready/reprepare"`, "existing deck remains available"},
-			omit: []string{"Cancel preparation", "Retry preparation"},
+			want: []string{"Deck ready", "12 cards", "Download deck", `href="/deck-preparations/prep-ready/download"`, "no new preparation can be submitted"},
+			omit: []string{"Cancel preparation", "Retry preparation", "Re-prepare with current Meaning evidence", `action="/deck-preparations/prep-ready/reprepare"`},
 		},
 		{
 			name: "re-preparation required",
 			prep: domain.DeckPreparation{ID: "prep-reprepare", SourceMaterialID: "book-deck-372", AnalysisRunID: "run-deck-372", State: domain.DeckPreparationReady, Error: domain.DeckPreparationRequiresRepreparationError},
-			want: []string{"Re-preparation required", "Re-prepare deck", `action="/deck-preparations/prep-reprepare/retry"`},
-			omit: []string{"Download deck", "Deck ready"},
+			want: []string{"Re-preparation required", "cannot be submitted again"},
+			omit: []string{"Download deck", "Deck ready", "Re-prepare deck", `action="/deck-preparations/prep-reprepare/retry"`},
 		},
 	}
 	for _, test := range tests {

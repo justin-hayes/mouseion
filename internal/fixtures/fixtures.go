@@ -2128,11 +2128,8 @@ func (s *AuthStore) DeleteUserSessions(context.Context, string) error { return n
 // in fixtureCancellableJobID changes state, and only in Store memory.
 type Analysis struct{ Store *Store }
 
-func (Analysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
+func (Analysis) SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
 	return analysis.Handle{ID: 42, DisplayNumber: 1, RunID: ResultRunID}, nil
-}
-func (Analysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
-	return (Analysis{}).SubmitAnalysis(ctx, owner, sourceID)
 }
 func (a Analysis) Get(ctx context.Context, owner string, id int64) (analysis.Status, error) {
 	if state, ok := a.cancellableJobState(id); ok {
@@ -2216,14 +2213,7 @@ func (KnownVocab) Get(_ context.Context, _ string, id int64) (knownvocab.Status,
 
 type PreparedDeck struct{ Store *Store }
 
-func (PreparedDeck) Submit(_ context.Context, owner, analysisID string) (prepareddeck.Handle, error) {
-	sourceMaterialID := SourceID
-	if analysisID == "fixture-route-match-run" {
-		sourceMaterialID = routeMatchBookID
-	}
-	return prepareddeck.Handle{Preparation: domain.DeckPreparation{ID: "fixture-submitted-" + analysisID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, JobID: 9}, nil
-}
-func (p PreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
+func (p PreparedDeck) SubmitForCurrentReading(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
 	sourceMaterialID := SourceID
 	if analysisID == "fixture-route-match-run" {
 		sourceMaterialID = routeMatchBookID
@@ -2267,13 +2257,6 @@ func (p PreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPrepa
 			}
 		}
 	}
-	if analysisID, ok := strings.CutPrefix(id, "fixture-submitted-"); ok {
-		sourceMaterialID := SourceID
-		if analysisID == "fixture-route-match-run" {
-			sourceMaterialID = routeMatchBookID
-		}
-		return domain.DeckPreparation{ID: id, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, State: domain.DeckPreparationQueued}, nil
-	}
 	return fixturePreparationFor(owner, id), nil
 }
 func (p PreparedDeck) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, analysisRunID string) (domain.DeckPreparation, error) {
@@ -2282,7 +2265,7 @@ func (p PreparedDeck) GetForAnalysis(ctx context.Context, owner, sourceMaterialI
 	}
 	return fixturePreparationFor(owner, PrepID), nil
 }
-func (p PreparedDeck) GetForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+func (p PreparedDeck) GetForCurrentReadingSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	if p.Store != nil {
 		return p.Store.GetDeckPreparationForSnapshot(ctx, owner, snapshotID)
 	}

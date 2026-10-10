@@ -120,7 +120,6 @@ type OPDS interface {
 	AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
 }
 type Analysis interface {
-	SubmitAnalysis(context.Context, string, string) (analysis.Handle, error)
 	SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 	Get(context.Context, string, int64) (analysis.Status, error)
 	Reconcile(context.Context, string, int64) (analysis.Status, error)
@@ -156,10 +155,9 @@ type KnownVocabulary interface {
 	Get(context.Context, string, int64) (knownvocab.Status, error)
 }
 type PreparedDeck interface {
-	Submit(context.Context, string, string) (prepareddeck.Handle, error)
-	SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
+	SubmitForCurrentReading(context.Context, string, string, string) (prepareddeck.Handle, error)
 	Get(context.Context, string, string) (domain.DeckPreparation, error)
-	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
+	GetForCurrentReadingSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
 	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
 	Retry(context.Context, string, string) (prepareddeck.Handle, error)
 	Reprepare(context.Context, string, string) (prepareddeck.Handle, error)
@@ -253,10 +251,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
 	h.mux.Handle("GET /reading/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.newReadingDeckPreparation)))
 	h.mux.Handle("POST /reading/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createReadingEntryDeckPreparation)))
-	h.mux.Handle("POST /jobs/{id}/deck/preparations", h.user(http.HandlerFunc(h.createDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
 	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
-	h.mux.Handle("POST /deck-preparations/{id}/retry", h.user(http.HandlerFunc(h.retryDeckPreparation)))
 	h.mux.Handle("POST /deck-preparations/{id}/reprepare", h.user(http.HandlerFunc(h.reprepareDeckPreparation)))
 	h.mux.Handle("POST /deck-preparations/{id}/rerender", h.user(http.HandlerFunc(h.rerenderDeckPreparation)))
 	h.mux.Handle("GET /deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadDeckPreparation)))

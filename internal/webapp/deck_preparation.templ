@@ -41,14 +41,8 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
 				if preparation.SnapshotID != "" && readingAction.State == deckIsCurrentReading && readingAction.BookID != "" {
 					<form method="post" action={ templ.SafeURL("/reading/books/"+readingAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
-				} else if readingAction.BookID == "" {
-					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<p>Re-preparation uses the configured translation provider to create contextual Glosses. If the provider is unavailable, the deck will remain failed and can be retried after configuration.</p>
-						<button class="button" type="submit">Re-prepare deck</button>
-					</form>
 				} else {
-					<p role="note">This Book is no longer Current reading. The preparation remains historical and cannot be submitted again.</p>
+					<p role="note">This deck is no longer for the Current reading. The preparation remains historical and cannot be submitted again.</p>
 				}
 			} else if deckPreparationEmpty(preparation) {
 				@EmptyState("No recurring vocabulary", "This book has no recurring vocabulary to study, so no cards were created.")
@@ -66,7 +60,7 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				}
 				@ActionGroup() {
 					<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-					if preparation.SnapshotID != "" && readingAction.State == deckIsCurrentReading || readingAction.BookID == "" {
+					if preparation.SnapshotID != "" && readingAction.State == deckIsCurrentReading {
 						<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/>
@@ -74,12 +68,10 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 						</form>
 					}
 				}
-				if preparation.SnapshotID != "" && readingAction.State == deckIsCurrentReading || readingAction.BookID == "" {
+				if preparation.SnapshotID != "" && readingAction.State == deckIsCurrentReading {
 					<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
-				} else if readingAction.BookID == "" {
-					<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
 				} else {
-					<p role="note">This Book is no longer Current reading. Its ready artifact remains available for download, but no new preparation can be submitted.</p>
+					<p role="note">This deck is no longer for the Current reading. Its ready artifact remains available for download, but no new preparation can be submitted.</p>
 				}
 				@DeckReadingAction(readingAction)
 			}
@@ -91,14 +83,8 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			}
 			if preparation.SnapshotID != "" && readingAction.State == deckIsCurrentReading && readingAction.BookID != "" {
 				<form method="post" action={ templ.SafeURL("/reading/books/"+readingAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
-			} else if readingAction.BookID == "" {
-				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
-					<input type="hidden" name="csrf_token" value={ csrf }/>
-					<p>Preparation requires the configured translation provider to create contextual Glosses. If it is unavailable, configure it and retry.</p>
-					<button class="button" type="submit">Retry preparation</button>
-				</form>
 			} else {
-				<p role="note">This Book is no longer Current reading. The submitted job may finish, but no retry can be submitted.</p>
+				<p role="note">This deck is no longer for the Current reading. The submitted job may finish, but no retry can be submitted.</p>
 			}
 		}
 	}

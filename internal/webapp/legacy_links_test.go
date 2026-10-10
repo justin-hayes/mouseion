@@ -51,9 +51,10 @@ func TestLegacyResultSurfacesUseReadingEntryURLsOrNoBookLink(t *testing.T) {
 
 }
 
-func TestJobStatusPreservesLegacyDeckPreparationWithoutBookIdentity(t *testing.T) {
+func TestJobStatusOffersNoDeckPreparationForLegacyResult(t *testing.T) {
 	status := analysis.Status{ID: 7, CorpusID: "legacy-corpus", LogicalState: "completed"}
 	var output bytes.Buffer
 	require.NoError(t, JobStatus("csrf", status, "", "").Render(context.Background(), &output))
-	assert.True(t, strings.Contains(output.String(), `action="/jobs/7/deck/preparations"`) && strings.Contains(output.String(), "Prepare a deck"), "legacy completed result lost deck preparation action: %s", output.String())
+	assert.NotContains(t, output.String(), `action="/jobs/7/deck/preparations"`)
+	assert.Contains(t, output.String(), "Book decks are prepared from the Book in Reading")
 }

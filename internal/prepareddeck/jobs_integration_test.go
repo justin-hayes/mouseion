@@ -37,31 +37,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	other, err := store.CreateUser(ctx, "prepared-service-other", false)
 	require.NoError(t, err)
-	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "service-book", Title: "A Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
-	require.NoError(t, err)
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
-	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
-	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
-	require.NoError(t, err)
-	analysisService := analysis.NewService(store.Pool(), analysisRiver)
-	analysisHandle, err := analysisService.SubmitAnalysis(ctx, owner.ID, source.ID)
-	require.NoError(t, err)
-	artifactHash := "sha256:prepared-analysis-artifact"
-	_, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','casefold','1','fake','1')`, artifactHash)
-	require.NoError(t, err)
-	var corpusID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner.ID, source.ID, artifactHash, analysisHandle.RunID).Scan(&corpusID))
-	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner.ID, corpusID, analysisHandle.RunID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, analysisHandle.RunID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner.ID, corpusID, analysisHandle.RunID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisHandle.RunID)
-	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
-	firstGoal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	source, book, analysisHandle, firstReading := seedAnalyzedReading(t, ctx, store, owner, "service-book")
 	require.NoError(t, err)
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
@@ -69,7 +45,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	testutil.StopOnCleanup(t, "River client", client.Stop)
 	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
-	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, SnapshotID: firstGoal.SnapshotID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
+	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, SnapshotID: firstReading.SnapshotID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
 	require.NoError(t, err)
 	unconfiguredWorker := &Worker{Store: store, Coordinator: NewDurableCoordinator(store, client, NewPreparedDeckPlanner(NewInputAssembler(store), cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{}))}
 	unconfiguredArgs := JobArgs{PreparationID: unconfiguredPreparation.ID, OwnerID: owner.ID, SourceMaterialID: source.ID, ContentHash: source.ContentHash, AnalysisRunID: analysisHandle.RunID}
@@ -86,7 +62,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.NotContains(t, string(retryJob.EncodedArgs), "external_translation_consent", "new retry jobs carry no per-submission consent choice")
 	analysisID := strconv.FormatInt(analysisHandle.ID, 10)
-	handle, err := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
+	handle, err := service.SubmitForCurrentReading(ctx, owner.ID, analysisID, firstReading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationQueued, handle.Preparation.State)
 	assert.Equal(t, source.ContentHash, handle.Preparation.ContentHash)
@@ -100,7 +76,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	assert.Equal(t, source.ContentHash, args.ContentHash)
 	assert.Equal(t, analysisHandle.RunID, args.AnalysisRunID)
 	assert.NotContains(t, string(job.EncodedArgs), "external_translation_consent", "new submission jobs carry no per-submission consent choice")
-	repeated, err := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
+	repeated, err := service.SubmitForCurrentReading(ctx, owner.ID, analysisID, firstReading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, handle.Preparation.ID, repeated.Preparation.ID)
 	assert.Equal(t, handle.JobID, repeated.JobID)
@@ -119,7 +95,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 		submissions.Add(1)
 		go func() {
 			defer submissions.Done()
-			result, submitErr := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
+			result, submitErr := service.SubmitForCurrentReading(ctx, owner.ID, analysisID, firstReading.SnapshotID)
 			if submitErr != nil {
 				errorsCh <- submitErr
 				return
@@ -202,7 +178,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.NotEqual(t, reprepared.Preparation.ID, refreshed.Preparation.ID, "explicit re-preparation creates a distinct generation")
 	assert.Equal(t, analysisHandle.RunID, refreshed.Preparation.AnalysisRunID, "re-preparation preserves exact analysis identity")
-	assert.Equal(t, reprepared.Preparation.SnapshotID, refreshed.Preparation.SnapshotID, "re-preparation preserves exact Goal snapshot identity")
+	assert.Equal(t, reprepared.Preparation.SnapshotID, refreshed.Preparation.SnapshotID, "re-preparation preserves exact Reading snapshot identity")
 	assert.Equal(t, domain.DeckPreparationQueued, refreshed.Preparation.State)
 	oldGeneration, err := service.Download(ctx, owner.ID, reprepared.Preparation.ID)
 	require.NoError(t, err)
@@ -224,117 +200,111 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	_, err = service.Get(ctx, other.ID, reprepared.Preparation.ID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "retired artifact remains owner-scoped")
 
-	oldGoal := firstGoal
-	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, firstGoal.SnapshotID))
-	oldGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, refreshed.Preparation.ID)
+	oldReading := firstReading
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, firstReading.SnapshotID))
+	oldReadingPreparation, err := store.GetDeckPreparation(ctx, owner.ID, refreshed.Preparation.ID)
 	require.NoError(t, err)
-	assert.Nil(t, oldGoalPreparation.RetiredAt, "releasing Reading leaves submitted work available to finish")
-	_, err = service.Submit(ctx, owner.ID, analysisID)
-	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "the former generic Book submission remains unavailable after Reading ends")
+	assert.Nil(t, oldReadingPreparation.RetiredAt, "releasing Reading leaves submitted work available to finish")
 
-	var firstGoalPreparation Handle
-	firstGoal, err = store.StartCurrentReadingWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.CurrentReading) error {
+	var firstReadingPreparation Handle
+	firstReading, err = store.StartCurrentReadingWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.CurrentReading) error {
 		var queueErr error
-		firstGoalPreparation, queueErr = service.SubmitForGoalTx(ctx, tx, owner.ID, analysisID, reading.SnapshotID)
+		firstReadingPreparation, queueErr = service.SubmitForCurrentReadingTx(ctx, tx, owner.ID, analysisID, reading.SnapshotID)
 		return queueErr
 	})
 	require.NoError(t, err)
-	require.Equal(t, domain.DeckPreparationQueued, firstGoalPreparation.Preparation.State)
-	require.NotZero(t, firstGoalPreparation.JobID)
-	assert.Equal(t, firstGoal.SnapshotID, firstGoalPreparation.Preparation.SnapshotID)
-	var goalSubmissions sync.WaitGroup
-	goalResults := make(chan Handle, 8)
-	goalErrors := make(chan error, 8)
-	startGoalSubmissions := make(chan struct{})
+	require.Equal(t, domain.DeckPreparationQueued, firstReadingPreparation.Preparation.State)
+	require.NotZero(t, firstReadingPreparation.JobID)
+	assert.Equal(t, firstReading.SnapshotID, firstReadingPreparation.Preparation.SnapshotID)
+	var readingSubmissions sync.WaitGroup
+	readingResults := make(chan Handle, 8)
+	readingErrors := make(chan error, 8)
+	startReadingSubmissions := make(chan struct{})
 	for range 8 {
-		goalSubmissions.Add(1)
+		readingSubmissions.Add(1)
 		go func() {
-			defer goalSubmissions.Done()
-			<-startGoalSubmissions
-			result, submitErr := service.SubmitForGoal(ctx, owner.ID, analysisID, firstGoal.SnapshotID)
+			defer readingSubmissions.Done()
+			<-startReadingSubmissions
+			result, submitErr := service.SubmitForCurrentReading(ctx, owner.ID, analysisID, firstReading.SnapshotID)
 			if submitErr != nil {
-				goalErrors <- submitErr
+				readingErrors <- submitErr
 				return
 			}
-			goalResults <- result
+			readingResults <- result
 		}()
 	}
-	close(startGoalSubmissions)
-	goalSubmissions.Wait()
-	close(goalResults)
-	close(goalErrors)
-	for submitErr := range goalErrors {
-		assert.NoError(t, submitErr, "concurrent Goal submission") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
+	close(startReadingSubmissions)
+	readingSubmissions.Wait()
+	close(readingResults)
+	close(readingErrors)
+	for submitErr := range readingErrors {
+		assert.NoError(t, submitErr, "concurrent Reading submission") //nolint:testifylint // Collect every independent concurrent result instead of stopping at the first failure.
 	}
-	for result := range goalResults {
-		assert.Equal(t, firstGoalPreparation.Preparation.ID, result.Preparation.ID)
-		assert.Equal(t, firstGoalPreparation.JobID, result.JobID)
+	for result := range readingResults {
+		assert.Equal(t, firstReadingPreparation.Preparation.ID, result.Preparation.ID)
+		assert.Equal(t, firstReadingPreparation.JobID, result.JobID)
 	}
-	require.NotEmpty(t, firstGoalPreparation.Preparation.ID)
-	_, err = store.ClaimDeckPreparation(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
+	require.NotEmpty(t, firstReadingPreparation.Preparation.ID)
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, firstReadingPreparation.Preparation.ID)
 	require.NoError(t, err)
-	_, err = store.CompleteDeckPreparation(ctx, owner.ID, firstGoalPreparation.Preparation.ID, domain.DeckPreparation{Artifact: []byte("goal-old-artifact"), Filename: "A Book.apkg", DeckName: "Mouseion::de::A Book", TotalCards: 1})
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, firstReadingPreparation.Preparation.ID, domain.DeckPreparation{Artifact: []byte("reading-old-artifact"), Filename: "A Book.apkg", DeckName: "Mouseion::de::A Book", TotalCards: 1})
 	require.NoError(t, err)
-	goalRefresh, err := service.Reprepare(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
+	readingRefresh, err := service.Reprepare(ctx, owner.ID, firstReadingPreparation.Preparation.ID)
 	require.NoError(t, err)
-	assert.NotEqual(t, firstGoalPreparation.Preparation.ID, goalRefresh.Preparation.ID)
-	assert.Equal(t, firstGoalPreparation.Preparation.AnalysisRunID, goalRefresh.Preparation.AnalysisRunID)
-	assert.Equal(t, firstGoal.SnapshotID, goalRefresh.Preparation.SnapshotID, "Goal re-preparation preserves exact snapshot identity")
-	goalHistory, err := service.Download(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
+	assert.NotEqual(t, firstReadingPreparation.Preparation.ID, readingRefresh.Preparation.ID)
+	assert.Equal(t, firstReadingPreparation.Preparation.AnalysisRunID, readingRefresh.Preparation.AnalysisRunID)
+	assert.Equal(t, firstReading.SnapshotID, readingRefresh.Preparation.SnapshotID, "Reading re-preparation preserves exact snapshot identity")
+	readingHistory, err := service.Download(ctx, owner.ID, firstReadingPreparation.Preparation.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []byte("goal-old-artifact"), goalHistory.Artifact)
-	_, err = service.Submit(ctx, owner.ID, analysisID)
-	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "generic submission must not reuse an active Goal preparation")
-	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, firstGoal.SnapshotID))
-	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, goalRefresh.Preparation.ID)
+	assert.Equal(t, []byte("reading-old-artifact"), readingHistory.Artifact)
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, firstReading.SnapshotID))
+	retiredReadingPreparation, err := store.GetDeckPreparation(ctx, owner.ID, readingRefresh.Preparation.ID)
 	require.NoError(t, err)
-	assert.Nil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot leaves its preparation available to finish")
-	_, err = service.Submit(ctx, owner.ID, analysisID)
-	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "the former generic Book submission remains unavailable after Reading ends")
-	secondGoal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	assert.Nil(t, retiredReadingPreparation.RetiredAt, "releasing a Reading snapshot leaves its preparation available to finish")
+	secondReading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	blockingClient := &blockingRiverClient{client: service.client, inserted: make(chan struct{}), release: make(chan struct{})}
 	service.client = blockingClient
 	submitted := make(chan Handle, 1)
 	submitErrors := make(chan error, 1)
 	go func() {
-		result, submitErr := service.SubmitForGoal(ctx, owner.ID, analysisID, secondGoal.SnapshotID)
+		result, submitErr := service.SubmitForCurrentReading(ctx, owner.ID, analysisID, secondReading.SnapshotID)
 		submitted <- result
 		submitErrors <- submitErr
 	}()
 	select {
 	case <-blockingClient.inserted:
 	case <-ctx.Done():
-		require.FailNow(t, "Goal submission did not reach River insertion", ctx.Err())
+		require.FailNow(t, "Reading submission did not reach River insertion", ctx.Err())
 	}
 	cleared := make(chan error, 1)
 	go func() {
-		cleared <- store.EndCurrentReading(ctx, owner.ID, "de", book.ID, secondGoal.SnapshotID)
+		cleared <- store.EndCurrentReading(ctx, owner.ID, "de", book.ID, secondReading.SnapshotID)
 	}()
 	select {
 	case clearErr := <-cleared:
-		require.FailNow(t, "Goal clear did not wait for snapshot-bound submission", clearErr)
+		require.FailNow(t, "Reading clear did not wait for snapshot-bound submission", clearErr)
 	case <-time.After(100 * time.Millisecond):
 	}
 	close(blockingClient.release)
-	secondGoalPreparation := <-submitted
+	secondReadingPreparation := <-submitted
 	require.NoError(t, <-submitErrors)
 	require.NoError(t, <-cleared)
-	retiredSecondGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
+	retiredSecondReadingPreparation, err := store.GetDeckPreparation(ctx, owner.ID, secondReadingPreparation.Preparation.ID)
 	require.NoError(t, err)
-	assert.Nil(t, retiredSecondGoalPreparation.RetiredAt, "Goal clear preserves the submitted preparation so its job can complete")
-	_, err = store.ClaimDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
-	require.NoError(t, err, "a job submitted before Goal clear remains claimable afterwards")
-	_, err = store.CompleteDeckPreparation(ctx, owner.ID, secondGoalPreparation.Preparation.ID, domain.DeckPreparation{Artifact: []byte("after-goal-clear"), Filename: "after-clear.apkg", DeckName: "After clear", TotalCards: 1})
+	assert.Nil(t, retiredSecondReadingPreparation.RetiredAt, "Reading clear preserves the submitted preparation so its job can complete")
+	_, err = store.ClaimDeckPreparation(ctx, owner.ID, secondReadingPreparation.Preparation.ID)
+	require.NoError(t, err, "a job submitted before Reading clear remains claimable afterwards")
+	_, err = store.CompleteDeckPreparation(ctx, owner.ID, secondReadingPreparation.Preparation.ID, domain.DeckPreparation{Artifact: []byte("after-reading-clear"), Filename: "after-clear.apkg", DeckName: "After clear", TotalCards: 1})
 	require.NoError(t, err)
 
-	_, err = service.Retry(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
+	_, err = service.Retry(ctx, owner.ID, firstReadingPreparation.Preparation.ID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a released snapshot cannot be retried into a new generation")
-	_, err = service.Retry(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
-	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a submitted job cannot be retried after Goal clear")
+	_, err = service.Retry(ctx, owner.ID, secondReadingPreparation.Preparation.ID)
+	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a submitted job cannot be retried after Reading clear")
 	_, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	assert.NotEmpty(t, oldGoal.SnapshotID, "the first Reading snapshot remains historical")
+	assert.NotEmpty(t, oldReading.SnapshotID, "the first Reading snapshot remains historical")
 }
 
 func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
@@ -383,6 +353,40 @@ func TestServiceReconcilesOrphanedPreparationStates(t *testing.T) {
 	var historyCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='prepared_deck' AND details->>'preparation_id'=$2`, owner.ID, preparing.ID).Scan(&historyCount))
 	assert.NotZero(t, historyCount, "reconciliation history")
+}
+
+// seedAnalyzedReading stores one Book with a completed analysis and starts it
+// as the owner's Current reading, returning the exact identities a deck
+// preparation is bound to.
+func seedAnalyzedReading(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner domain.User, sourceIdentifier string) (domain.SourceMaterial, domain.Book, analysis.Handle, domain.CurrentReading) {
+	t.Helper()
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: sourceIdentifier, Title: "A Book", MediaType: "application/epub+zip", Content: []byte("text"), FullText: "text"}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "text", EndOffset: 4}}})
+	require.NoError(t, err)
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	require.NoError(t, err)
+	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
+	analysisRiver, err := analysis.NewClient(store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	analysisService := analysis.NewService(store.Pool(), analysisRiver)
+	analysisHandle, err := analysisService.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	artifactHash := "sha256:prepared-analysis-artifact"
+	_, err = store.Pool().Exec(ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','casefold','1','fake','1')`, artifactHash)
+	require.NoError(t, err)
+	var corpusID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner.ID, source.ID, artifactHash, analysisHandle.RunID).Scan(&corpusID))
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner.ID, corpusID, analysisHandle.RunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, analysisHandle.RunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner.ID, corpusID, analysisHandle.RunID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisHandle.RunID)
+	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err)
+	return source, book, analysisHandle, reading
 }
 
 type failingRiverClient struct{ err error }
@@ -439,16 +443,15 @@ func TestServiceEnqueueFailureDoesNotLeaveWaitingPreparation(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 	owner, err := store.CreateUser(ctx, "enqueue-failure-owner", false)
 	require.NoError(t, err)
-	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "enqueue-failure-book", Title: "A Book", MediaType: "text/plain", ContentHash: "enqueue-failure-hash", Content: []byte("text"), FullText: "text"})
-	require.NoError(t, err)
+	source, _, analysisHandle, reading := seedAnalyzedReading(t, ctx, store, owner, "enqueue-failure-book")
 	failing := &failingRiverClient{err: errors.New("River unavailable")}
 	service := &Service{pool: store.Pool(), client: failing, store: store}
-	_, err = service.Submit(ctx, owner.ID, source.ID)
+	_, err = service.SubmitForCurrentReading(ctx, owner.ID, strconv.FormatInt(analysisHandle.ID, 10), reading.SnapshotID)
 	assert.Error(t, err, "expected initial enqueue failure") //nolint:testifylint // Error classification and the rollback query are independent expectations.
 	var count int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&count))
 	assert.Zero(t, count, "initial enqueue left preparations")
-	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, Filename: "retry.apkg", DeckName: "retry", ContentHash: "retry-hash"})
+	p, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, SnapshotID: reading.SnapshotID, Filename: "retry.apkg", DeckName: "retry", ContentHash: "retry-hash"})
 	require.NoError(t, err)
 	_, err = store.ClaimDeckPreparation(ctx, owner.ID, p.ID)
 	require.NoError(t, err)

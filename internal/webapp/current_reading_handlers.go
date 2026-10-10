@@ -13,7 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
-// goalSectionView is the server-truth fragment returned after an HTMX Goal
+// currentReadingSectionView is the server-truth fragment returned after an HTMX Current reading
 // mutation.
 type currentReadingSectionView struct {
 	CurrentReading *readingBookView
@@ -97,7 +97,7 @@ func (h *Handler) retryCurrentReadingDeck(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if currentReading.SnapshotSize == 0 {
-		h.respondCurrentReading(w, r, "No deck is required for this empty Goal snapshot.", "", currentReading.BookID)
+		h.respondCurrentReading(w, r, "No deck is required for this empty Current reading snapshot.", "", currentReading.BookID)
 		return
 	}
 	if h.services.PreparedDeck == nil {
@@ -106,7 +106,7 @@ func (h *Handler) retryCurrentReadingDeck(w http.ResponseWriter, r *http.Request
 	}
 	_, err := h.submitOrRetryCurrentReadingDeck(r.Context(), owner, currentReading)
 	if err != nil {
-		log.Printf("primary goal deck retry owner=%s book=%s: %v", owner, currentReading.BookID, err)
+		log.Printf("current reading deck retry owner=%s book=%s: %v", owner, currentReading.BookID, err)
 		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
 		return
 	}
@@ -122,16 +122,16 @@ func (h *Handler) cancelCurrentReadingDeck(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(r.Context(), owner, currentReading.SnapshotID)
+	preparation, err := h.services.PreparedDeck.GetForCurrentReadingSnapshot(r.Context(), owner, currentReading.SnapshotID)
 	if err != nil || !currentReadingPreparationMatches(preparation, owner, currentReading) {
 		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
-			log.Printf("primary goal deck cancel lookup owner=%s book=%s: %v", owner, currentReading.BookID, err)
+			log.Printf("current reading deck cancel lookup owner=%s book=%s: %v", owner, currentReading.BookID, err)
 		}
 		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
 		return
 	}
 	if _, err = h.services.PreparedDeck.Cancel(r.Context(), owner, preparation.ID); err != nil {
-		log.Printf("primary goal deck cancel owner=%s book=%s: %v", owner, currentReading.BookID, err)
+		log.Printf("current reading deck cancel owner=%s book=%s: %v", owner, currentReading.BookID, err)
 		h.respondCurrentReading(w, r, "", currentReadingDeckUnavailableMessage, currentReading.BookID)
 		return
 	}
@@ -154,11 +154,6 @@ func (h *Handler) currentReadingForDeckAction(w http.ResponseWriter, r *http.Req
 		return domain.CurrentReading{}, false
 	}
 	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-	if expectedSnapshotID == "" {
-		// Old focused-deck bookmarks remain safe: this identifies the same
-		// immutable snapshot and cannot mutate the current-reading lifecycle.
-		expectedSnapshotID = strings.TrimSpace(r.FormValue("expected_goal_snapshot_id"))
-	}
 	if expectedSnapshotID == "" || currentReading.SnapshotID != expectedSnapshotID {
 		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, currentReading.BookID)
 		return domain.CurrentReading{}, false
@@ -167,7 +162,7 @@ func (h *Handler) currentReadingForDeckAction(w http.ResponseWriter, r *http.Req
 }
 
 func (h *Handler) submitOrRetryCurrentReadingDeck(ctx context.Context, owner string, currentReading domain.CurrentReading) (prepareddeck.Handle, error) {
-	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(ctx, owner, currentReading.SnapshotID)
+	preparation, err := h.services.PreparedDeck.GetForCurrentReadingSnapshot(ctx, owner, currentReading.SnapshotID)
 	switch {
 	case err == nil:
 		if !currentReadingPreparationMatches(preparation, owner, currentReading) {
@@ -177,7 +172,7 @@ func (h *Handler) submitOrRetryCurrentReadingDeck(ctx context.Context, owner str
 	case !errors.Is(err, persistence.ErrNotFound):
 		return prepareddeck.Handle{}, err
 	}
-	return h.services.PreparedDeck.SubmitForGoal(ctx, owner, currentReading.AnalysisRunID, currentReading.SnapshotID)
+	return h.services.PreparedDeck.SubmitForCurrentReading(ctx, owner, currentReading.AnalysisRunID, currentReading.SnapshotID)
 }
 
 func currentReadingPreparationMatches(preparation domain.DeckPreparation, owner string, currentReading domain.CurrentReading) bool {

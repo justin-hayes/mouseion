@@ -67,13 +67,9 @@ type readingIntentAnalysis struct {
 	calls int
 }
 
-func (a *readingIntentAnalysis) SubmitAnalysis(context.Context, string, string) (analysis.Handle, error) {
+func (a *readingIntentAnalysis) SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error) {
 	a.calls++
 	return analysis.Handle{ID: int64(a.calls), DisplayNumber: int64(a.calls)}, nil
-}
-
-func (a *readingIntentAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
-	return a.SubmitAnalysis(ctx, owner, sourceID)
 }
 func (*readingIntentAnalysis) Get(context.Context, string, int64) (analysis.Status, error) {
 	return analysis.Status{}, nil

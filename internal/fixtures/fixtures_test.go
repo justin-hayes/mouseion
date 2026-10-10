@@ -342,7 +342,7 @@ func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testi
 	_, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound)
 
-	handle, err := (PreparedDeck{Store: store}).SubmitForGoal(ctx, OwnerID, ResultRunID, "fresh-goal-snapshot")
+	handle, err := (PreparedDeck{Store: store}).SubmitForCurrentReading(ctx, OwnerID, ResultRunID, "fresh-goal-snapshot")
 	require.NoError(t, err)
 	assert.Equal(t, "fresh-goal-snapshot", handle.Preparation.SnapshotID)
 	preparation, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, "fresh-goal-snapshot")

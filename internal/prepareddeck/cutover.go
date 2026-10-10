@@ -58,18 +58,18 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	if err != nil {
 		return nil, "", fmt.Errorf("load prepared deck input facts: %w", err)
 	}
-	if !facts.GoalSnapshotActive && facts.Analysis != nil {
+	if !facts.CurrentReadingSnapshotActive && facts.Analysis != nil {
 		facts.Candidates, err = projectPreparedDeckCandidates(preparation, facts.CorpusID, *facts.Analysis, facts.Corrections)
 		if err != nil {
 			return nil, "", err
 		}
 	}
 	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
-	if preparation.SnapshotID != "" && !facts.GoalSnapshotActive {
-		return nil, "", fmt.Errorf("prepareddeck: Goal snapshot %q is unavailable", preparation.SnapshotID)
+	if preparation.SnapshotID != "" && !facts.CurrentReadingSnapshotActive {
+		return nil, "", fmt.Errorf("prepareddeck: Current reading snapshot %q is unavailable", preparation.SnapshotID)
 	}
-	if facts.GoalSnapshotActive {
-		selected = append(selected, facts.GoalSnapshot...)
+	if facts.CurrentReadingSnapshotActive {
+		selected = append(selected, facts.CurrentReadingSnapshot...)
 	} else {
 		eligibility := selection.NewEligibility(facts.Known, facts.Reserved)
 		for _, candidate := range facts.Candidates {

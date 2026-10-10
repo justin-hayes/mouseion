@@ -27,16 +27,16 @@ type PreparedDeckCandidateFacts struct {
 // prepared-deck planner. Vocabulary slices are intentionally unclassified;
 // the planner owns recurring-vocabulary selection and exclusion.
 type PreparedDeckInputFacts struct {
-	DeckName           string
-	CorpusID           string
-	Candidates         []domain.SelectionCandidate
-	Analysis           *analyzer.Result
-	Corrections        []domain.OccurrenceLemmaCorrection
-	GoalSnapshotActive bool
-	GoalSnapshot       []domain.SelectionCandidate
-	Known              []domain.KnownVocabulary
-	Generated          []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
-	Reserved           []domain.DeckPreparationVocabulary
+	DeckName                     string
+	CorpusID                     string
+	Candidates                   []domain.SelectionCandidate
+	Analysis                     *analyzer.Result
+	Corrections                  []domain.OccurrenceLemmaCorrection
+	CurrentReadingSnapshotActive bool
+	CurrentReadingSnapshot       []domain.SelectionCandidate
+	Known                        []domain.KnownVocabulary
+	Generated                    []domain.GeneratedVocabulary // historical provenance, never an eligibility exclusion
+	Reserved                     []domain.DeckPreparationVocabulary
 }
 
 // LoadPreparedDeckInputFactsTx reads candidate and vocabulary facts through
@@ -51,47 +51,26 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	if err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
-	if preparation.SnapshotID == "" && corpusID != "" {
-		var bookID, analysisRunID string
-		lookupErr := tx.QueryRow(ctx, `SELECT sm.book_id::text,c.analysis_run_id::text FROM source_materials sm JOIN corpora c ON c.owner_id=sm.owner_id AND c.id=$3 WHERE sm.owner_id=$1 AND sm.id=$2 AND sm.book_id IS NOT NULL`, preparation.OwnerID, preparation.SourceMaterialID, corpusID).Scan(&bookID, &analysisRunID)
-		if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
-			return PreparedDeckInputFacts{}, lookupErr
-		}
-		if lookupErr == nil {
-			var lockedBookID string
-			if lockErr := tx.QueryRow(ctx, `SELECT id::text FROM books WHERE owner_id=$1 AND id=$2 FOR UPDATE`, preparation.OwnerID, bookID).Scan(&lockedBookID); lockErr != nil {
-				return PreparedDeckInputFacts{}, lockErr
-			}
-			blocked, gateErr := unresolvedLemmaReviewFlags(ctx, tx, preparation.OwnerID, bookID, analysisRunID)
-			if gateErr != nil {
-				return PreparedDeckInputFacts{}, gateErr
-			}
-			if blocked {
-				return PreparedDeckInputFacts{}, ErrUnresolvedLemmaReviewFlags
-			}
-		}
-	}
-
 	languages := make(map[string]struct{}, len(candidates))
 	for _, candidate := range candidates {
 		languages[canonicalization.NormalizeLanguage(candidate.Language)] = struct{}{}
 	}
 	result := PreparedDeckInputFacts{DeckName: deckName, CorpusID: corpusID, Candidates: candidates}
 	if snapshot, snapshotErr := q.GetActiveCurrentReadingSnapshotForPreparation(ctx, sqlcgen.GetActiveCurrentReadingSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
-		result.GoalSnapshotActive = true
-		result.GoalSnapshot, snapshotErr = listCurrentReadingSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
+		result.CurrentReadingSnapshotActive = true
+		result.CurrentReadingSnapshot, snapshotErr = listCurrentReadingSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
 		if snapshotErr != nil {
 			return PreparedDeckInputFacts{}, snapshotErr
 		}
 	} else if preparation.SnapshotID != "" {
 		if errors.Is(snapshotErr, pgx.ErrNoRows) {
-			return PreparedDeckInputFacts{}, fmt.Errorf("prepared deck Goal snapshot %q is unavailable: %w", preparation.SnapshotID, ErrNotFound)
+			return PreparedDeckInputFacts{}, fmt.Errorf("prepared deck Current reading snapshot %q is unavailable: %w", preparation.SnapshotID, ErrNotFound)
 		}
 		return PreparedDeckInputFacts{}, snapshotErr
 	} else if !errors.Is(snapshotErr, pgx.ErrNoRows) {
 		return PreparedDeckInputFacts{}, snapshotErr
 	}
-	if !result.GoalSnapshotActive && corpusID != "" {
+	if !result.CurrentReadingSnapshotActive && corpusID != "" {
 		analysis, corrections, loadErr := loadAnalysisProjectionFactsTx(ctx, tx, q, preparation, corpusID)
 		err = loadErr
 		if err != nil {

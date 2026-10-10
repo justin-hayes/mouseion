@@ -417,11 +417,11 @@ func (h *Handler) addCurrentReadingDeckPreparation(ctx context.Context, owner st
 		return
 	}
 	book.CurrentReadingDeckUnavailable = true
-	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(ctx, owner, currentReading.SnapshotID)
+	preparation, err := h.services.PreparedDeck.GetForCurrentReadingSnapshot(ctx, owner, currentReading.SnapshotID)
 	switch {
 	case err == nil:
 		if !currentReadingPreparationMatches(preparation, owner, currentReading) {
-			log.Printf("mouseion: Goal deck provenance mismatch for owner %s snapshot %s", owner, currentReading.SnapshotID)
+			log.Printf("mouseion: Current reading deck provenance mismatch for owner %s snapshot %s", owner, currentReading.SnapshotID)
 			return
 		}
 		book.CurrentReadingPreparation = &preparation
@@ -431,7 +431,7 @@ func (h *Handler) addCurrentReadingDeckPreparation(ctx context.Context, owner st
 		// the exact snapshot identity.
 		book.CurrentReadingDeckMissing = true
 	default:
-		log.Printf("mouseion: Goal deck unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
+		log.Printf("mouseion: Current reading deck unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
 	}
 }
 
