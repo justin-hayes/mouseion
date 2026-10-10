@@ -187,7 +187,7 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 				lemma = decision.Lemma
 			}
 			id := Identity{corpus.Language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(token.UPOS))}
-			if token.Dependency == "compound:prt" || !lexical.IsLemma(id.CanonicalLemma) || !cfg.AllowedPOS[id.UPOS] {
+			if !OccurrenceEligible(cfg, lemma, token.UPOS, token.Dependency) {
 				continue
 			}
 			a := aggs[id]
@@ -201,6 +201,17 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 		}
 	}
 	return aggs
+}
+
+// OccurrenceEligible is the per-occurrence test that decides whether an
+// analyzed token can count as vocabulary at all: it needs a valid lemma, an
+// allowed part of speech (trimmed and upper-cased), and must not be a
+// separable verb particle. Project and lemma review share it so neither
+// duplicates the rule in SQL.
+func OccurrenceEligible(cfg SelectionConfig, lemma, upos, dependency string) bool {
+	return dependency != "compound:prt" &&
+		lexical.IsLemma(strings.TrimSpace(lemma)) &&
+		cfg.AllowedPOS[strings.ToUpper(strings.TrimSpace(upos))]
 }
 
 func occurrenceIdentity(token analyzer.Token) OccurrenceIdentity {

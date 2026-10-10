@@ -235,6 +235,48 @@ func (q *Queries) GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverage
 	return i, err
 }
 
+const getCurrentAnalysisOccurrenceEvidence = `-- name: GetCurrentAnalysisOccurrenceEvidence :one
+SELECT t.canonical_lemma, t.upos, t.dependency
+FROM current_analysis_identity cai
+JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
+  AND t.analysis_run_id = cai.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+WHERE cai.owner_id = $1 AND cai.book_id = $2
+  AND cai.analysis_run_id = $3
+  AND s.unit_id = $4
+  AND t.start_offset = $5 AND t.end_offset = $6
+`
+
+type GetCurrentAnalysisOccurrenceEvidenceParams struct {
+	Owner            string
+	Book             string
+	AnalysisRun      string
+	SourceDocumentID string
+	StartOffset      int64
+	EndOffset        int64
+}
+
+type GetCurrentAnalysisOccurrenceEvidenceRow struct {
+	CanonicalLemma string
+	Upos           string
+	Dependency     string
+}
+
+func (q *Queries) GetCurrentAnalysisOccurrenceEvidence(ctx context.Context, arg GetCurrentAnalysisOccurrenceEvidenceParams) (GetCurrentAnalysisOccurrenceEvidenceRow, error) {
+	row := q.db.QueryRow(ctx, getCurrentAnalysisOccurrenceEvidence,
+		arg.Owner,
+		arg.Book,
+		arg.AnalysisRun,
+		arg.SourceDocumentID,
+		arg.StartOffset,
+		arg.EndOffset,
+	)
+	var i GetCurrentAnalysisOccurrenceEvidenceRow
+	err := row.Scan(&i.CanonicalLemma, &i.Upos, &i.Dependency)
+	return i, err
+}
+
 const hasCurrentLemmaCorrections = `-- name: HasCurrentLemmaCorrections :one
 SELECT EXISTS (
   SELECT 1 FROM occurrence_lemma_corrections d
@@ -369,7 +411,7 @@ func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysi
 const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
-       t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
+       t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
        COALESCE(d.excluded, false)::boolean AS excluded,
@@ -398,7 +440,6 @@ WHERE cai.owner_id = $1 AND cai.book_id = $2
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
    AND ($3::text = '' OR t.surface = $3)
-  AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
 ORDER BY s.sentence_ordinal, t.token_ordinal
 `
 
@@ -417,6 +458,7 @@ type ListLemmaReviewOccurrencesRow struct {
 	RawLemma             string
 	CanonicalLemma       string
 	Upos                 string
+	Dependency           string
 	StartOffset          int64
 	EndOffset            int64
 	SentenceText         string
@@ -446,6 +488,7 @@ func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaR
 			&i.RawLemma,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.Dependency,
 			&i.StartOffset,
 			&i.EndOffset,
 			&i.SentenceText,
@@ -914,7 +957,6 @@ WHERE cai.owner_id = $5 AND cai.book_id = $6
   AND t.surface = $11 AND t.raw_lemma = $12
   AND t.canonical_lemma = $13
   AND t.upos = $14
-   AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
    AND NOT EXISTS (
      SELECT 1 FROM primary_goals pg
      WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id

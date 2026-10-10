@@ -129,6 +129,7 @@ type Querier interface {
 	GetCorpusForAnalysis(ctx context.Context, arg GetCorpusForAnalysisParams) (GetCorpusForAnalysisRow, error)
 	GetCoverageEntryForBook(ctx context.Context, arg GetCoverageEntryForBookParams) (GetCoverageEntryForBookRow, error)
 	GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error)
+	GetCurrentAnalysisOccurrenceEvidence(ctx context.Context, arg GetCurrentAnalysisOccurrenceEvidenceParams) (GetCurrentAnalysisOccurrenceEvidenceRow, error)
 	GetCurrentContentRevisionForUpdate(ctx context.Context, arg GetCurrentContentRevisionForUpdateParams) (string, error)
 	GetCurrentExtractedUnitSnapshot(ctx context.Context, arg GetCurrentExtractedUnitSnapshotParams) (GetCurrentExtractedUnitSnapshotRow, error)
 	GetCurrentPreparedDeckRun(ctx context.Context, arg GetCurrentPreparedDeckRunParams) (DeckPreparationRun, error)

@@ -18,7 +18,7 @@ LIMIT 1;
 -- name: ListLemmaReviewOccurrences :many
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
-       t.canonical_lemma, t.upos, t.start_offset, t.end_offset,
+       t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
        COALESCE(d.excluded, false)::boolean AS excluded,
@@ -47,7 +47,6 @@ WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
    AND (sqlc.arg('surface')::text = '' OR t.surface = sqlc.arg('surface'))
-  AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
 ORDER BY s.sentence_ordinal, t.token_ordinal;
 
 -- name: ListOccurrenceLemmaCorrections :many
@@ -96,6 +95,18 @@ WHERE c.owner_id = sqlc.arg('owner') AND c.id = sqlc.arg('corpus')
   AND c.analysis_run_id = sqlc.arg('analysis_run')
 ORDER BY t.sentence_ordinal, t.token_ordinal;
 
+-- name: GetCurrentAnalysisOccurrenceEvidence :one
+SELECT t.canonical_lemma, t.upos, t.dependency
+FROM current_analysis_identity cai
+JOIN corpus_tokens t ON t.owner_id = cai.owner_id AND t.corpus_id = cai.corpus_id
+  AND t.analysis_run_id = cai.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
+  AND cai.analysis_run_id = sqlc.arg('analysis_run')
+  AND s.unit_id = sqlc.arg('source_document_id')
+  AND t.start_offset = sqlc.arg('start_offset') AND t.end_offset = sqlc.arg('end_offset');
+
 -- name: PutOccurrenceLemmaCorrection :one
 INSERT INTO occurrence_lemma_corrections(
   owner_id, book_id, corpus_id, analysis_run_id, source_document_id,
@@ -116,7 +127,6 @@ WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
   AND t.surface = sqlc.arg('expected_surface') AND t.raw_lemma = sqlc.arg('expected_raw_lemma')
   AND t.canonical_lemma = sqlc.arg('expected_canonical_lemma')
   AND t.upos = sqlc.arg('expected_upos')
-   AND t.upos IN ('NOUN', 'VERB', 'ADJ', 'ADV')
    AND NOT EXISTS (
      SELECT 1 FROM primary_goals pg
      WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
