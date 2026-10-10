@@ -70,7 +70,7 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 | **Current analysis input** | The analyzed portion of the current extracted EPUB snapshot: its identified main text when declared EPUB structure provides one, otherwise the complete snapshot. Source revision and extracted-unit provenance remain durable internal facts. | Unscoped text, inferred content |
 | **Stale analysis** | Existing evidence belongs to an older EPUB content revision. | Current evidence, failed Journey membership |
 | **Analysis trigger** | Moving a Book to To Read submits asynchronous analysis or re-analysis as needed. | Start analysis, continue, process book |
-| **Analysis run** | One durable queued/running/completed/failed/cancelled analysis attempt. | Job in primary learner-facing copy |
+| **Analysis run** | One durable queued/running/completed/failed/cancelled analysis run. | Job in primary learner-facing copy |
 | **Current analysis evidence** | The Book's current completed evidence, owned by the Book and presented from Reading. Immutable runs and exact source/revision provenance remain backend and operational audit facts. | Completed analysis #N, latest result, analysis history on the learner surface |
 | **Analysis evidence** | Current coverage and warning-only quality information used by Reading; internal thresholds and top-unknown data remain available to analysis services without a learner-facing detail page. | Dashboard metrics, difficulty score, text profile on the learner surface |
 | **View in Reading** | Leave operational status and open the Book's canonical Reading anchor, directly or through the run-specific compatibility redirect. | View job, view exact result |

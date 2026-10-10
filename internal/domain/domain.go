@@ -295,7 +295,9 @@ type SourceMaterialSummary struct {
 // is reported as if the Book were To Read with its source language chosen;
 // callers that need the learner's actual eligibility use MyBook.Classification.
 func (s SourceMaterialSummary) EvidenceClassification() BookEvidenceClassification {
-	return ClassifyBookEvidence(s.Signals, BookDispositionToRead, s.Source.Language)
+	signals := s.Signals
+	signals.CurrentReading = s.IsCurrentReading
+	return ClassifyBookEvidence(signals, BookDispositionToRead, s.Source.Language)
 }
 
 // EvidenceState classifies the acquisition and analysis evidence of this source.

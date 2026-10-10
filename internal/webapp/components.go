@@ -378,7 +378,9 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 
 // reanalysisLifecycleAction presents a newer run that the published analysis
 // outlives. The published analysis remains the evidence, so the copy names the
-// newer run as secondary and says what stays in effect.
+// newer run as secondary and says what stays in effect. A failed or cancelled
+// run offers Retry only when the classification does; the Current reading's
+// Book cannot be refreshed, so its run links to the job instead.
 func reanalysisLifecycleAction(book domain.SourceMaterialSummary, run domain.LatestRunSignal) bookLifecycleAction {
 	jobURL := ""
 	if book.AnalysisJobID > 0 {
@@ -388,18 +390,34 @@ func reanalysisLifecycleAction(book domain.SourceMaterialSummary, run domain.Lat
 	if bookID == "" {
 		bookID = book.Source.ID
 	}
+	retryable := book.EvidenceClassification().Recovery == domain.RecoveryRetryAnalysis
 	switch run {
 	case domain.RunQueued:
 		return bookLifecycleAction{"Re-analysis queued", "A newer analysis of the current EPUB is waiting to begin. The current analysis stays in effect until it completes.", "View analysis status", jobURL, StatusInfo, false}
 	case domain.RunRunning:
 		return bookLifecycleAction{"Re-analysis running", "A newer analysis of the current EPUB is being analyzed. The current analysis stays in effect until it completes.", "View analysis status", jobURL, StatusInfo, false}
 	case domain.RunFailed, domain.RunJobFailed:
+		if !retryable {
+			return reanalysisJobAction("Re-analysis failed", "The current analysis stays in effect.", "Review failed analysis", jobURL)
+		}
 		return bookLifecycleAction{"Re-analysis failed", "The newer analysis failed. The current analysis stays in effect; retry to refresh the evidence.", "Retry analysis", readingReanalyzeURL(bookID), StatusWarning, true}
 	case domain.RunCancelled:
+		if !retryable {
+			return reanalysisJobAction("Re-analysis cancelled", "The current analysis stays in effect.", "Review cancelled analysis", jobURL)
+		}
 		return bookLifecycleAction{"Re-analysis cancelled", "The newer analysis was cancelled. The current analysis stays in effect; retry to refresh the evidence.", "Retry analysis", readingReanalyzeURL(bookID), StatusWarning, true}
 	case domain.RunNone, domain.RunPublicationPending, domain.RunPublicationFailed, domain.RunCompleted:
 	}
 	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this book yet.", "", "", StatusInfo, false}
+}
+
+// reanalysisJobAction presents a settled newer run without a retry. The link
+// is omitted when no job is recorded, so no dead route is offered.
+func reanalysisJobAction(status, description, label, jobURL string) bookLifecycleAction {
+	if jobURL == "" {
+		return bookLifecycleAction{status, description, "", "", StatusWarning, false}
+	}
+	return bookLifecycleAction{status, description, label, jobURL, StatusWarning, false}
 }
 
 func feedbackClass(kind FeedbackKind) string {

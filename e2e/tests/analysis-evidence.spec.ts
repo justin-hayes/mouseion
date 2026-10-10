@@ -107,4 +107,14 @@ test.describe('Analysis evidence situations', () => {
       }
     });
   }
+
+  // Runs last: submitting the retry starts a new run for this non-current Book.
+  test('submitting the retry for a non-current re-analysis failure succeeds', async ({ page }) => {
+    await signIn(page);
+
+    await page.goto('/library?disposition=to_read');
+    const row = page.locator('#book-row-fixture-reanalysis-failed');
+    await row.getByRole('button', { name: 'Retry analysis', exact: true }).click();
+    await expect(page).toHaveURL(/\/reading\?message=Analysis/);
+  });
 });

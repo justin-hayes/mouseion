@@ -21,7 +21,7 @@ const (
 	PublishedStale   PublishedAnalysisSignal = "stale"
 )
 
-// LatestRunSignal is the state of the Book's most recent analysis attempt.
+// LatestRunSignal is the state of the Book's most recent analysis run.
 // Queued and running are kept apart because the lifecycle copy names them
 // differently. The two failure forms are kept apart because only an analysis
 // run's own failure is presented as a failed analysis; a job that failed before
@@ -46,6 +46,10 @@ type AnalysisSignals struct {
 	Content   ContentSignal
 	Published PublishedAnalysisSignal
 	LatestRun LatestRunSignal
+	// CurrentReading reports that the Book is the Current reading. Its frozen
+	// evidence cannot be refreshed, so a newer run that failed or was cancelled
+	// offers no retry while the published analysis stays in effect.
+	CurrentReading bool
 }
 
 // AnalysisPhase is the Book's analysis status as My Books and Reading present
@@ -109,19 +113,19 @@ func (c BookEvidenceClassification) RunFinished() bool {
 // failed, or cancelled while the published analysis still matches the current
 // content. The published analysis stays in effect; the run is secondary.
 func (c BookEvidenceClassification) ReAnalysisShadowed() bool {
-	return c.Phase == PhaseAnalyzed && newerAttempt(c.Run)
+	return c.Phase == PhaseAnalyzed && newerRun(c.Run)
 }
 
 // AnalysisInEffect reports that the published analysis is what Reading and the
-// chooser use: its latest run completed, or a newer attempt is shadowed by it.
+// chooser use: its latest run completed, or a newer run is shadowed by it.
 func (c BookEvidenceClassification) AnalysisInEffect() bool {
-	return c.Phase == PhaseAnalyzed && (c.Run == RunCompleted || newerAttempt(c.Run))
+	return c.Phase == PhaseAnalyzed && (c.Run == RunCompleted || newerRun(c.Run))
 }
 
-// newerAttempt reports the runs that a published analysis outlives while its
+// newerRun reports the runs that a published analysis outlives while its
 // content still matches. Publication states are not included: a run awaiting
 // publication keeps the Book out of the Current reading until it resolves.
-func newerAttempt(run LatestRunSignal) bool {
+func newerRun(run LatestRunSignal) bool {
 	switch run {
 	case RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled:
 		return true
@@ -151,7 +155,7 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 }
 
 func analysisPhase(signals AnalysisSignals) AnalysisPhase {
-	if signals.Published == PublishedCurrent && newerAttempt(signals.LatestRun) {
+	if signals.Published == PublishedCurrent && newerRun(signals.LatestRun) {
 		// The published analysis matches the current content, so a newer run
 		// that is still queued or running, or that failed or was cancelled, is
 		// secondary information rather than the Book's analysis phase.
@@ -206,7 +210,7 @@ func eligibilityReason(content ContentSignal, signals AnalysisSignals, phase Ana
 		return CurrentReadingNoChosenLanguage
 	case content != ContentCurrentEPUB:
 		return CurrentReadingNeedsCurrentContent
-	case phase == PhaseAnalyzed && (signals.LatestRun == RunCompleted || newerAttempt(signals.LatestRun)):
+	case phase == PhaseAnalyzed && (signals.LatestRun == RunCompleted || newerRun(signals.LatestRun)):
 		return CurrentReadingEligible
 	case phase == PhaseAnalyzing:
 		return CurrentReadingAnalysisInProgress
@@ -226,6 +230,9 @@ func recoveryAction(content ContentSignal, signals AnalysisSignals, phase Analys
 		return RecoveryNone
 	}
 	if signals.Published == PublishedCurrent && retryableRun(signals.LatestRun) {
+		if signals.CurrentReading {
+			return RecoveryNone
+		}
 		return RecoveryRetryAnalysis
 	}
 	switch phase {

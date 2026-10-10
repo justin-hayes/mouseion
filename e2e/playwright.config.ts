@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// WebKit runs the native-controls journey and the Analysis evidence situations;
-// the remaining specs run in Chromium only.
-const webkitSpecs = ['**/webkit-native.spec.ts', '**/analysis-evidence.spec.ts'];
+// WebKit runs the native-controls journey and the Analysis evidence situations,
+// including the Current reading over a failed re-analysis; the remaining specs
+// run in Chromium only.
+const webkitSpecs = ['**/webkit-native.spec.ts', '**/analysis-evidence.spec.ts', '**/analysis-evidence-current-reading.spec.ts'];
 
 export default defineConfig({
   testDir: './tests',
