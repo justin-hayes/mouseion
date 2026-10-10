@@ -382,7 +382,7 @@ func (h *Handler) lemmaReviewRecovery(r *http.Request, owner domain.User, bookID
 	for _, preparation := range preparations {
 		if preparation.State == domain.DeckPreparationReady {
 			recovery.ReadyPreparationID = preparation.ID
-			recovery.ReadyDeckSnapshotID = preparation.GoalSnapshotID
+			recovery.ReadyDeckSnapshotID = preparation.SnapshotID
 			break
 		}
 	}

@@ -282,7 +282,7 @@ func TestInputAssemblerFailsClosedForMissingGoalSnapshot(t *testing.T) {
 		Candidates: []domain.SelectionCandidate{{OwnerID: "alice", CorpusID: "corpus", Language: "de", CanonicalLemma: "mutable", UPOS: "NOUN", OccurrenceCount: 3}},
 	}}
 	_, _, err := NewInputAssembler(&store).AssemblePreparedDeckInputs(context.Background(), nil, domain.DeckPreparation{
-		ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", GoalSnapshotID: "frozen-snapshot",
+		ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", SnapshotID: "frozen-snapshot",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Goal snapshot")

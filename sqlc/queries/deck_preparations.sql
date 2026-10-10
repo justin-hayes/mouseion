@@ -39,7 +39,7 @@ WHERE owner_id = sqlc.arg('owner')
   AND analysis_run_id = sqlc.arg('analysis_run')
   AND retired_at IS NULL;
 
--- name: GetDeckPreparationForGoalSnapshot :one
+-- name: GetDeckPreparationForSnapshot :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -49,7 +49,7 @@ SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
           presentation_version, deck_revision, goal_snapshot_id
 FROM deck_preparations
 WHERE owner_id = sqlc.arg('owner')
-  AND goal_snapshot_id = sqlc.arg('goal_snapshot')
+  AND goal_snapshot_id = sqlc.arg('snapshot')
   AND retired_at IS NULL
 ORDER BY updated_at DESC, id DESC
 LIMIT 1;
@@ -137,7 +137,7 @@ WHERE owner_id = sqlc.arg('owner')
 
 -- name: CreateDeckPreparation :one
 INSERT INTO deck_preparations(owner_id, source_material_id, book_id, analysis_run_id, goal_snapshot_id, filename, deck_name, content_hash)
-VALUES (sqlc.arg('owner'), sqlc.arg('source_material'), sqlc.arg('book_id'), sqlc.arg('analysis_run'), sqlc.arg('goal_snapshot'), sqlc.arg('filename'), sqlc.arg('deck_name'), sqlc.arg('content_hash'))
+VALUES (sqlc.arg('owner'), sqlc.arg('source_material'), sqlc.arg('book_id'), sqlc.arg('analysis_run'), sqlc.arg('snapshot'), sqlc.arg('filename'), sqlc.arg('deck_name'), sqlc.arg('content_hash'))
 RETURNING id, owner_id, source_material_id, state, artifact, filename, deck_name,
           content_hash, total_cards, cards_with_english,
           cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -151,11 +151,11 @@ UPDATE deck_preparations
 SET retired_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND retired_at IS NULL;
 
--- name: RetireDeckPreparationForGoalSnapshot :exec
+-- name: RetireDeckPreparationForSnapshot :exec
 UPDATE deck_preparations
 SET retired_at = now(), updated_at = now()
 WHERE owner_id = sqlc.arg('owner')
-  AND goal_snapshot_id = sqlc.arg('goal_snapshot')
+  AND goal_snapshot_id = sqlc.arg('snapshot')
   AND retired_at IS NULL;
 
 -- name: ClaimDeckPreparation :one

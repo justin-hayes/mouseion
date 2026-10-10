@@ -176,9 +176,9 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	require.NoError(t, err)
 	assert.Equal(t, reading.SourceMaterialID, preparation.SourceMaterialID)
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
-	assert.Equal(t, reading.SnapshotID, preparation.GoalSnapshotID)
+	assert.Equal(t, reading.SnapshotID, preparation.SnapshotID)
 	assert.Equal(t, domain.DeckPreparationQueued, preparation.State)
-	preparedSnapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, preparation.GoalSnapshotID)
+	preparedSnapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, preparation.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, frozenVocabulary, preparedSnapshot, "preparation keeps frozen identities after live corpus and Known state change")
 	var jobArgs []byte
@@ -281,12 +281,12 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Contains(t, finished.Body.String(), "Reading finished")
 	continued, err := store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err, "a preparation submitted during Reading remains claimable after Reading ends")
-	assert.Equal(t, preparation.GoalSnapshotID, continued.GoalSnapshotID)
+	assert.Equal(t, preparation.SnapshotID, continued.SnapshotID)
 	completedAfterFinish, err := store.CompleteDeckPreparation(ctx, owner.ID, preparation.ID, domain.DeckPreparation{
 		Artifact: []byte("completed-after-reading"), Filename: "completed-after-reading.apkg", DeckName: "Completed after reading", TotalCards: 1,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, preparation.GoalSnapshotID, completedAfterFinish.GoalSnapshotID)
+	assert.Equal(t, preparation.SnapshotID, completedAfterFinish.SnapshotID)
 	completedDownload, err := store.DownloadDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("completed-after-reading"), completedDownload.Artifact)

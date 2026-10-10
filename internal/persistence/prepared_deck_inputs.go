@@ -51,7 +51,7 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	if err != nil {
 		return PreparedDeckInputFacts{}, err
 	}
-	if preparation.GoalSnapshotID == "" && corpusID != "" {
+	if preparation.SnapshotID == "" && corpusID != "" {
 		var bookID, analysisRunID string
 		lookupErr := tx.QueryRow(ctx, `SELECT sm.book_id::text,c.analysis_run_id::text FROM source_materials sm JOIN corpora c ON c.owner_id=sm.owner_id AND c.id=$3 WHERE sm.owner_id=$1 AND sm.id=$2 AND sm.book_id IS NOT NULL`, preparation.OwnerID, preparation.SourceMaterialID, corpusID).Scan(&bookID, &analysisRunID)
 		if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
@@ -77,15 +77,15 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 		languages[canonicalization.NormalizeLanguage(candidate.Language)] = struct{}{}
 	}
 	result := PreparedDeckInputFacts{DeckName: deckName, CorpusID: corpusID, Candidates: candidates}
-	if snapshot, snapshotErr := q.GetActivePrimaryGoalSnapshotForPreparation(ctx, sqlcgen.GetActivePrimaryGoalSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
+	if snapshot, snapshotErr := q.GetActiveCurrentReadingSnapshotForPreparation(ctx, sqlcgen.GetActiveCurrentReadingSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
 		result.GoalSnapshotActive = true
 		result.GoalSnapshot, snapshotErr = listCurrentReadingSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
 		if snapshotErr != nil {
 			return PreparedDeckInputFacts{}, snapshotErr
 		}
-	} else if preparation.GoalSnapshotID != "" {
+	} else if preparation.SnapshotID != "" {
 		if errors.Is(snapshotErr, pgx.ErrNoRows) {
-			return PreparedDeckInputFacts{}, fmt.Errorf("prepared deck Goal snapshot %q is unavailable: %w", preparation.GoalSnapshotID, ErrNotFound)
+			return PreparedDeckInputFacts{}, fmt.Errorf("prepared deck Goal snapshot %q is unavailable: %w", preparation.SnapshotID, ErrNotFound)
 		}
 		return PreparedDeckInputFacts{}, snapshotErr
 	} else if !errors.Is(snapshotErr, pgx.ErrNoRows) {
@@ -188,7 +188,7 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
-	useProjectedEntry := preparation.GoalSnapshotID != ""
+	useProjectedEntry := preparation.SnapshotID != ""
 	if !useProjectedEntry && corpusID != "" {
 		var bookID string
 		if err = tx.QueryRow(ctx, `SELECT COALESCE(book_id::text, '') FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
@@ -330,7 +330,7 @@ func listKnownVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language st
 	}
 	result := make([]domain.KnownVocabulary, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, domain.KnownVocabulary{ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: row.CreatedAt})
+		result = append(result, domain.KnownVocabulary{ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, CreatedAt: row.CreatedAt})
 	}
 	return result, nil
 }

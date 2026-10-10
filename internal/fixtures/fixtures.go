@@ -168,7 +168,7 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
 		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, GoalSnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
+			{ID: PrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
 		},
 		deckVocabulary: []domain.DeckPreparationVocabulary{
@@ -176,10 +176,10 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
 		},
 		known: []domain.KnownVocabulary{
-			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-known-only", OwnerID: OwnerID, Language: "fr", CanonicalLemma: "bonjour", UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", Provenance: "Explicitly recorded", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", Provenance: "Graduated from reviewed deck", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
+			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
+			{ID: "fixture-known-only", OwnerID: OwnerID, Language: "fr", CanonicalLemma: "bonjour", UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
+			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
+			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
 		},
 		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
@@ -1561,7 +1561,7 @@ func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMa
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, preparation := range s.preps {
-		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.AnalysisRunID == analysisRunID && preparation.GoalSnapshotID == "" && preparation.RetiredAt == nil {
+		if preparation.OwnerID == owner && preparation.SourceMaterialID == sourceMaterialID && preparation.AnalysisRunID == analysisRunID && preparation.SnapshotID == "" && preparation.RetiredAt == nil {
 			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
 			return preparation, nil
 		}
@@ -1569,11 +1569,11 @@ func (s *Store) GetDeckPreparationForAnalysis(_ context.Context, owner, sourceMa
 	return domain.DeckPreparation{}, errNotFound
 }
 
-func (s *Store) GetDeckPreparationForGoalSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+func (s *Store) GetDeckPreparationForSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, preparation := range s.preps {
-		if preparation.OwnerID == owner && preparation.GoalSnapshotID == snapshotID && preparation.RetiredAt == nil {
+		if preparation.OwnerID == owner && preparation.SnapshotID == snapshotID && preparation.RetiredAt == nil {
 			preparation.VocabularyCount = len(s.deckVocabularyFor(owner, preparation.ID))
 			return preparation, nil
 		}
@@ -2063,14 +2063,14 @@ func (s *Store) FinishCurrentReading(_ context.Context, owner, language, expecte
 		graduatedCount++
 		s.known = append(s.known, domain.KnownVocabulary{
 			OwnerID: owner, Language: language, CanonicalLemma: item.CanonicalLemma,
-			UPOS: item.UPOS, Provenance: "Accepted on Primary Goal completion", CreatedAt: now,
+			UPOS: item.UPOS, CreatedAt: now,
 		})
 	}
 	completion := domain.ReadingCompletion{
 		OwnerID: owner, Language: language, BookID: expectedBookID, CompletedAt: now,
 		GoalSnapshotID: goal.SnapshotID, SnapshotVocabularyCount: snapshotCount,
 		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
-		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount, Source: domain.ReadingCompletionPrimaryGoal,
+		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount, Source: domain.ReadingCompletionCurrentReading,
 	}
 	if existing, exists := s.readingHistory[historyKey]; exists {
 		completion = existing
@@ -2082,7 +2082,7 @@ func (s *Store) FinishCurrentReading(_ context.Context, owner, language, expecte
 		if preparation.OwnerID != owner || preparation.GraduatedAt != nil || preparation.StudyingAt == nil {
 			continue
 		}
-		matchesSnapshot := preparation.GoalSnapshotID != "" && preparation.GoalSnapshotID == goal.SnapshotID
+		matchesSnapshot := preparation.SnapshotID != "" && preparation.SnapshotID == goal.SnapshotID
 		matchesLegacyIdentity := preparation.SourceMaterialID == goal.SourceMaterialID && preparation.AnalysisRunID == goal.AnalysisRunID
 		if !matchesSnapshot && !matchesLegacyIdentity {
 			continue
@@ -2303,12 +2303,12 @@ func (p PreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapsh
 	if analysisID == "fixture-route-match-run" {
 		sourceMaterialID = routeMatchBookID
 	}
-	preparation := domain.DeckPreparation{ID: "fixture-goal-preparation-" + snapshotID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, GoalSnapshotID: snapshotID, State: domain.DeckPreparationQueued}
+	preparation := domain.DeckPreparation{ID: "fixture-goal-preparation-" + snapshotID, OwnerID: owner, SourceMaterialID: sourceMaterialID, AnalysisRunID: analysisID, SnapshotID: snapshotID, State: domain.DeckPreparationQueued}
 	if p.Store != nil {
 		p.Store.mu.Lock()
 		defer p.Store.mu.Unlock()
 		for _, existing := range p.Store.preps {
-			if existing.OwnerID == owner && existing.GoalSnapshotID == snapshotID && existing.RetiredAt == nil {
+			if existing.OwnerID == owner && existing.SnapshotID == snapshotID && existing.RetiredAt == nil {
 				return prepareddeck.Handle{Preparation: existing, JobID: 9}, nil
 			}
 		}
@@ -2359,7 +2359,7 @@ func (p PreparedDeck) GetForAnalysis(ctx context.Context, owner, sourceMaterialI
 }
 func (p PreparedDeck) GetForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	if p.Store != nil {
-		return p.Store.GetDeckPreparationForGoalSnapshot(ctx, owner, snapshotID)
+		return p.Store.GetDeckPreparationForSnapshot(ctx, owner, snapshotID)
 	}
 	return fixturePreparationFor(owner, PrepID), nil
 }

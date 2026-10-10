@@ -161,15 +161,15 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	knownAfterReading, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Len(t, knownAfterReading, 4)
-	provenance := map[string]string{}
+	knownLemmas := map[string]bool{}
 	for _, item := range knownAfterReading {
-		provenance[item.CanonicalLemma] = item.Provenance
+		knownLemmas[item.CanonicalLemma] = true
 	}
-	assert.Equal(t, "Explicitly recorded", provenance["Haus"])
-	assert.Equal(t, "Accepted on Primary Goal completion", provenance["residual"])
-	assert.Equal(t, "Accepted on Primary Goal completion", provenance["graduated"])
-	assert.Equal(t, "Explicitly recorded", provenance["legacy-state"])
-	assert.Empty(t, provenance["legacy"])
+	assert.True(t, knownLemmas["Haus"])
+	assert.True(t, knownLemmas["residual"])
+	assert.True(t, knownLemmas["graduated"])
+	assert.True(t, knownLemmas["legacy-state"])
+	assert.False(t, knownLemmas["legacy"])
 	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	legacyFound := false

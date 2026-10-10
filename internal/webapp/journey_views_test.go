@@ -50,7 +50,7 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 	goal.GoalSnapshotSize = 2
 	goal.GoalSnapshotID = "snapshot"
 	goal.GoalVocabularyEligible = 1
-	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", GoalSnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
+	goal.GoalPreparation = &domain.DeckPreparation{ID: "goal-preparation", SnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
 	html := renderJourney(t, journeyPageView{Goal: &goal}, "", "")
 	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")

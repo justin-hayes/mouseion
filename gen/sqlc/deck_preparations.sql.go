@@ -260,7 +260,7 @@ type CreateDeckPreparationParams struct {
 	SourceMaterial string
 	BookID         pgtype.UUID
 	AnalysisRun    pgtype.UUID
-	GoalSnapshot   pgtype.UUID
+	Snapshot       pgtype.UUID
 	Filename       string
 	DeckName       string
 	ContentHash    string
@@ -272,7 +272,7 @@ func (q *Queries) CreateDeckPreparation(ctx context.Context, arg CreateDeckPrepa
 		arg.SourceMaterial,
 		arg.BookID,
 		arg.AnalysisRun,
-		arg.GoalSnapshot,
+		arg.Snapshot,
 		arg.Filename,
 		arg.DeckName,
 		arg.ContentHash,
@@ -620,7 +620,7 @@ func (q *Queries) GetDeckPreparationForAnalysis(ctx context.Context, arg GetDeck
 	return i, err
 }
 
-const getDeckPreparationForGoalSnapshot = `-- name: GetDeckPreparationForGoalSnapshot :one
+const getDeckPreparationForSnapshot = `-- name: GetDeckPreparationForSnapshot :one
 SELECT id, owner_id, source_material_id, state, artifact, filename, deck_name,
        content_hash, total_cards, cards_with_english,
        cards_with_contextual_sentence_translations, quality_omissions, error,
@@ -636,13 +636,13 @@ ORDER BY updated_at DESC, id DESC
 LIMIT 1
 `
 
-type GetDeckPreparationForGoalSnapshotParams struct {
-	Owner        string
-	GoalSnapshot pgtype.UUID
+type GetDeckPreparationForSnapshotParams struct {
+	Owner    string
+	Snapshot pgtype.UUID
 }
 
-func (q *Queries) GetDeckPreparationForGoalSnapshot(ctx context.Context, arg GetDeckPreparationForGoalSnapshotParams) (DeckPreparation, error) {
-	row := q.db.QueryRow(ctx, getDeckPreparationForGoalSnapshot, arg.Owner, arg.GoalSnapshot)
+func (q *Queries) GetDeckPreparationForSnapshot(ctx context.Context, arg GetDeckPreparationForSnapshotParams) (DeckPreparation, error) {
+	row := q.db.QueryRow(ctx, getDeckPreparationForSnapshot, arg.Owner, arg.Snapshot)
 	var i DeckPreparation
 	err := row.Scan(
 		&i.ID,
@@ -1176,7 +1176,7 @@ func (q *Queries) PutPreparedDeckCard(ctx context.Context, arg PutPreparedDeckCa
 	return err
 }
 
-const retireDeckPreparationForGoalSnapshot = `-- name: RetireDeckPreparationForGoalSnapshot :exec
+const retireDeckPreparationForSnapshot = `-- name: RetireDeckPreparationForSnapshot :exec
 UPDATE deck_preparations
 SET retired_at = now(), updated_at = now()
 WHERE owner_id = $1
@@ -1184,13 +1184,13 @@ WHERE owner_id = $1
   AND retired_at IS NULL
 `
 
-type RetireDeckPreparationForGoalSnapshotParams struct {
-	Owner        string
-	GoalSnapshot pgtype.UUID
+type RetireDeckPreparationForSnapshotParams struct {
+	Owner    string
+	Snapshot pgtype.UUID
 }
 
-func (q *Queries) RetireDeckPreparationForGoalSnapshot(ctx context.Context, arg RetireDeckPreparationForGoalSnapshotParams) error {
-	_, err := q.db.Exec(ctx, retireDeckPreparationForGoalSnapshot, arg.Owner, arg.GoalSnapshot)
+func (q *Queries) RetireDeckPreparationForSnapshot(ctx context.Context, arg RetireDeckPreparationForSnapshotParams) error {
+	_, err := q.db.Exec(ctx, retireDeckPreparationForSnapshot, arg.Owner, arg.Snapshot)
 	return err
 }
 

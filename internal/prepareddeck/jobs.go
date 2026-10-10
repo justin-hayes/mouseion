@@ -201,7 +201,7 @@ func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, go
 			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
 				return Handle{}, err
 			}
-			p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, GoalSnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
+			p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, SnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
 		} else if err == nil && (p.SourceMaterialID != source.ID || p.AnalysisRunID != analysis.RunID) {
 			return Handle{}, persistence.ErrInvalidTransition
 		}
@@ -211,7 +211,7 @@ func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, go
 	if err != nil {
 		return Handle{}, err
 	}
-	if goalSnapshotID == "" && p.GoalSnapshotID != "" {
+	if goalSnapshotID == "" && p.SnapshotID != "" {
 		return Handle{}, persistence.ErrInvalidTransition
 	}
 	p, jobID, err := s.ensurePreparationJob(ctx, tx, p)
@@ -282,7 +282,7 @@ func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) 
 }
 
 func lockCurrentGoalSnapshotForPreparation(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) error {
-	if preparation.GoalSnapshotID == "" {
+	if preparation.SnapshotID == "" {
 		if preparation.BookID != "" {
 			return persistence.ErrInvalidTransition
 		}
@@ -295,8 +295,8 @@ func lockCurrentGoalSnapshotForPreparation(ctx context.Context, tx pgx.Tx, prepa
 		WHERE s.owner_id=$1 AND s.id=$2::uuid AND s.book_id=$3::uuid
 		  AND s.source_material_id=$4::uuid AND s.analysis_run_id=$5::uuid
 		  AND s.released_at IS NULL
-		FOR UPDATE OF pg, s`, preparation.OwnerID, preparation.GoalSnapshotID, preparation.BookID, preparation.SourceMaterialID, preparation.AnalysisRunID).Scan(&snapshotID)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && snapshotID != preparation.GoalSnapshotID) {
+		FOR UPDATE OF pg, s`, preparation.OwnerID, preparation.SnapshotID, preparation.BookID, preparation.SourceMaterialID, preparation.AnalysisRunID).Scan(&snapshotID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && snapshotID != preparation.SnapshotID) {
 		return persistence.ErrInvalidTransition
 	}
 	return err
@@ -395,7 +395,7 @@ func (s *Service) GetForGoalSnapshot(ctx context.Context, owner, snapshotID stri
 	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(snapshotID) == "" {
 		return domain.DeckPreparation{}, ErrInvalidInput
 	}
-	p, err := s.store.GetDeckPreparationForGoalSnapshot(ctx, owner, snapshotID)
+	p, err := s.store.GetDeckPreparationForSnapshot(ctx, owner, snapshotID)
 	if err != nil {
 		return p, err
 	}
@@ -585,10 +585,10 @@ func (s *Service) retry(ctx context.Context, owner, id string, forceReprepare bo
 		// A repeated submission may still point at the superseded preparation.
 		// Resolve the current exact analysis so recovery is idempotent without
 		// mutating or reusing the historical artifact.
-		if p.GoalSnapshotID == "" {
+		if p.SnapshotID == "" {
 			p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND goal_snapshot_id IS NULL AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, p.SourceMaterialID, p.AnalysisRunID))
 		} else {
-			p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND goal_snapshot_id=$4::uuid AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, p.SourceMaterialID, p.AnalysisRunID, p.GoalSnapshotID))
+			p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND source_material_id=$2 AND analysis_run_id=$3::uuid AND goal_snapshot_id=$4::uuid AND retired_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1 FOR UPDATE`, owner, p.SourceMaterialID, p.AnalysisRunID, p.SnapshotID))
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Handle{}, persistence.ErrInvalidTransition
@@ -730,6 +730,6 @@ type rowScanner interface{ Scan(...any) error }
 
 func scanPreparation(row rowScanner) (domain.DeckPreparation, error) {
 	var p domain.DeckPreparation
-	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.BookID, &p.GoalSnapshotID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt, &p.CardsWithFallbackGloss, &p.RenderInputVersion, &p.PresentationVersion, &p.DeckRevision)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.SourceMaterialID, &p.AnalysisRunID, &p.CurrentRunID, &p.BookID, &p.SnapshotID, &p.State, &p.Artifact, &p.Filename, &p.DeckName, &p.ContentHash, &p.TotalCards, &p.CardsWithEnglish, &p.CardsWithContextualSentenceTranslations, &p.QualityOmissions, &p.Error, &p.CreatedAt, &p.UpdatedAt, &p.StartedAt, &p.CompletedAt, &p.StudyingAt, &p.ReviewedAt, &p.GraduatedAt, &p.ReleasedAt, &p.RetiredAt, &p.CardsWithFallbackGloss, &p.RenderInputVersion, &p.PresentationVersion, &p.DeckRevision)
 	return p, err
 }

@@ -47,7 +47,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.CurrentReading{}, ErrNotFound
 	}
@@ -79,7 +79,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err = releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	identity, err := q.GetPrimaryGoalCandidateIdentity(ctx, sqlcgen.GetPrimaryGoalCandidateIdentityParams{Owner: owner, Language: language, Book: bookID})
+	identity, err := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Language: language, Book: bookID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.CurrentReading{}, ErrCurrentReadingIneligible
 	}
@@ -97,7 +97,7 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err != nil {
 		return domain.CurrentReading{}, err
 	}
-	row, err := q.ChangePrimaryGoalBook(ctx, sqlcgen.ChangePrimaryGoalBookParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshot.ID)})
+	row, err := q.ChangeCurrentReadingBook(ctx, sqlcgen.ChangeCurrentReadingBookParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshot.ID)})
 	if err != nil {
 		return domain.CurrentReading{}, err
 	}
@@ -131,9 +131,9 @@ func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, 
 	if err = lockCurrentReadingBook(ctx, q, owner, expectedBookID); err != nil {
 		return err
 	}
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
-		lifecycle, lifecycleErr := q.GetPrimaryGoalSnapshotLifecycle(ctx, sqlcgen.GetPrimaryGoalSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
+		lifecycle, lifecycleErr := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
 		if errors.Is(lifecycleErr, pgx.ErrNoRows) {
 			return ErrCurrentReadingStale
 		}
@@ -154,7 +154,7 @@ func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, 
 	if err = releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return err
 	}
-	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: owner, Language: language}); err != nil {
+	if err = q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -194,7 +194,7 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	if err = lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
-	current, err := q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		row, completionErr := getReadingCompletion(ctx, q, owner, language, expectedBookID, expectedSnapshotID)
 		if errors.Is(completionErr, pgx.ErrNoRows) {
@@ -217,9 +217,9 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	if current.GBookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
 		return domain.CurrentReadingFinishResult{}, ErrCurrentReadingStale
 	}
-	counts := sqlcgen.CountPrimaryGoalSnapshotVocabularyRow{}
+	counts := sqlcgen.CountCurrentReadingSnapshotVocabularyRow{}
 	if current.SnapshotID != "" {
-		counts, err = q.CountPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.CountPrimaryGoalSnapshotVocabularyParams{Owner: owner, Snapshot: current.SnapshotID})
+		counts, err = q.CountCurrentReadingSnapshotVocabulary(ctx, sqlcgen.CountCurrentReadingSnapshotVocabularyParams{Owner: owner, Snapshot: current.SnapshotID})
 		if err != nil {
 			return domain.CurrentReadingFinishResult{}, err
 		}
@@ -227,7 +227,7 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	completedAt := time.Now().UTC()
 	completionRow, insertErr := q.InsertReadingCompletion(ctx, sqlcgen.InsertReadingCompletionParams{
 		Owner: owner, Language: language, Book: expectedBookID, CompletedAt: completedAt,
-		GoalSnapshot: expectedSnapshotID, SnapshotVocabularyCount: counts.SnapshotCount,
+		Snapshot: expectedSnapshotID, SnapshotVocabularyCount: counts.SnapshotCount,
 		EligibleVocabularyCount: counts.EligibleCount, GraduatedVocabularyCount: 0,
 		AlreadyKnownVocabularyCount: counts.SnapshotCount - counts.EligibleCount,
 	})
@@ -250,14 +250,14 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	graduatedCount := completionRow.GraduatedVocabularyCount
 	alreadyKnownCount := completionRow.AlreadyKnownVocabularyCount
 	if inserted && current.SnapshotID != "" {
-		graduatedCount, err = q.GraduatePrimaryGoalSnapshotVocabulary(ctx, sqlcgen.GraduatePrimaryGoalSnapshotVocabularyParams{
+		graduatedCount, err = q.GraduateCurrentReadingSnapshotVocabulary(ctx, sqlcgen.GraduateCurrentReadingSnapshotVocabularyParams{
 			Owner: owner, Snapshot: current.SnapshotID, CompletedAt: completedAt,
 		})
 		if err != nil {
 			return domain.CurrentReadingFinishResult{}, err
 		}
 		if err = q.UpdateReadingCompletionOutcome(ctx, sqlcgen.UpdateReadingCompletionOutcomeParams{
-			Owner: owner, Language: language, GoalSnapshot: expectedSnapshotID,
+			Owner: owner, Language: language, Snapshot: expectedSnapshotID,
 			GraduatedVocabularyCount: graduatedCount, AlreadyKnownVocabularyCount: counts.SnapshotCount - graduatedCount,
 		}); err != nil {
 			return domain.CurrentReadingFinishResult{}, err
@@ -270,7 +270,7 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	if err = releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
-	if err = q.DeletePrimaryGoal(ctx, sqlcgen.DeletePrimaryGoalParams{Owner: owner, Language: language}); err != nil {
+	if err = q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {

@@ -2,12 +2,12 @@
 -- from the current_analysis_identity view so the identity chain is not
 -- duplicated in application SQL.
 
--- name: GetPrimaryGoalBookID :one
+-- name: GetCurrentReadingBookID :one
 SELECT book_id::text
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
--- name: GetPrimaryGoal :one
+-- name: GetCurrentReading :one
 SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
        COALESCE(s.id::text, '')::text AS snapshot_id,
        COALESCE(s.source_material_id::text, '')::text AS source_material_id,
@@ -19,7 +19,7 @@ FROM primary_goals g
 LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snapshot_id
 WHERE g.owner_id = sqlc.arg('owner') AND g.language = sqlc.arg('language');
 
--- name: GetPrimaryGoalForUpdate :one
+-- name: GetCurrentReadingForUpdate :one
 SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
        COALESCE(s.id::text, '')::text AS snapshot_id,
        COALESCE(s.source_material_id::text, '')::text AS source_material_id,
@@ -32,7 +32,7 @@ LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snaps
 WHERE g.owner_id = sqlc.arg('owner') AND g.language = sqlc.arg('language')
 FOR UPDATE OF g;
 
--- name: GetPrimaryGoalCandidateIdentity :one
+-- name: GetCurrentReadingCandidateIdentity :one
 SELECT ca.source_material_id::text, ca.analysis_run_id::text,
        ca.content_revision_id::text, ca.snapshot_id::text, ca.corpus_id::text
 FROM books b
@@ -48,7 +48,7 @@ WHERE b.owner_id = sqlc.arg('owner')
   AND b.language_tag = sqlc.arg('language')::text
   AND lower(s.media_type) = 'application/epub+zip';
 
--- name: CreatePrimaryGoalSnapshot :one
+-- name: CreateCurrentReadingSnapshot :one
 INSERT INTO primary_goal_snapshots(
     owner_id, language, book_id, source_material_id, analysis_run_id,
     content_revision_id, content_snapshot_id, corpus_id
@@ -61,7 +61,7 @@ RETURNING id::text, owner_id::text, language, book_id::text,
           content_revision_id::text, content_snapshot_id::text, corpus_id::text,
           created_at, released_at;
 
--- name: InsertPrimaryGoalSnapshotVocabulary :exec
+-- name: InsertCurrentReadingSnapshotVocabulary :exec
 INSERT INTO primary_goal_snapshot_vocabulary(
     owner_id, snapshot_id, corpus_id, language, canonical_lemma, upos,
     occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
@@ -71,14 +71,14 @@ VALUES (sqlc.arg('owner'), sqlc.arg('snapshot'), sqlc.arg('corpus'), sqlc.arg('l
         sqlc.arg('observed_forms'), sqlc.arg('eligible_sentence_refs'), sqlc.arg('provenance'),
         sqlc.arg('first_encounter'), sqlc.arg('selected_at'));
 
--- name: ListPrimaryGoalSnapshotVocabulary :many
+-- name: ListCurrentReadingSnapshotVocabulary :many
 SELECT owner_id::text, snapshot_id::text, corpus_id, language, canonical_lemma, upos,
        occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
 FROM primary_goal_snapshot_vocabulary
 WHERE owner_id = sqlc.arg('owner') AND snapshot_id = sqlc.arg('snapshot')
 ORDER BY language, canonical_lemma, upos;
 
--- name: ListPrimaryGoalSnapshotCandidates :many
+-- name: ListCurrentReadingSnapshotCandidates :many
 SELECT sc.owner_id::text AS owner_id,
        sc.corpus_id, sc.language, sc.canonical_lemma, sc.upos,
        sc.occurrence_count, sc.observed_forms, sc.eligible_sentence_refs,
@@ -105,7 +105,7 @@ SELECT EXISTS (
     AND pv.canonical_lemma = sqlc.arg('canonical_lemma') AND pv.upos = sqlc.arg('upos')
 );
 
--- name: GetActivePrimaryGoalSnapshotForPreparation :one
+-- name: GetActiveCurrentReadingSnapshotForPreparation :one
 SELECT s.id::text, s.owner_id::text, s.language, s.book_id::text,
        s.source_material_id::text, s.analysis_run_id::text,
        s.content_revision_id::text, s.content_snapshot_id::text, s.corpus_id::text,
@@ -117,7 +117,7 @@ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('preparation')
   AND p.analysis_run_id = s.analysis_run_id
 ;
 
--- name: GetPrimaryGoalSnapshotLifecycle :one
+-- name: GetCurrentReadingSnapshotLifecycle :one
 -- Durable facts that prove a lifecycle replay: who the commitment belonged to,
 -- when it was frozen and released, and whether it was completed.
 SELECT s.book_id::text AS book_id, s.created_at, s.released_at,
@@ -129,48 +129,48 @@ FROM primary_goal_snapshots s
 WHERE s.owner_id = sqlc.arg('owner') AND s.language = sqlc.arg('language')
   AND s.id = sqlc.arg('snapshot');
 
--- name: LockPrimaryGoalSnapshot :one
+-- name: LockCurrentReadingSnapshot :one
 SELECT id::text
 FROM primary_goal_snapshots
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('snapshot')
 FOR UPDATE;
 
--- name: LockPrimaryGoalsForBook :many
+-- name: LockCurrentReadingsForBook :many
 SELECT snapshot_id::text
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND book_id = sqlc.arg('book') AND snapshot_id IS NOT NULL
 FOR UPDATE;
 
--- name: LockPrimaryGoalsExceptLanguage :many
+-- name: LockCurrentReadingsExceptLanguage :many
 SELECT snapshot_id::text
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND language <> sqlc.arg('language') AND snapshot_id IS NOT NULL
 FOR UPDATE;
 
--- name: LockPrimaryGoalsForAllLanguages :many
+-- name: LockCurrentReadingsForAllLanguages :many
 SELECT snapshot_id::text
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND snapshot_id IS NOT NULL
 FOR UPDATE;
 
--- name: ReleasePrimaryGoalSnapshot :exec
+-- name: ReleaseCurrentReadingSnapshot :exec
 UPDATE primary_goal_snapshots
 SET released_at = COALESCE(released_at, now())
 WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('snapshot');
 
--- name: InsertPrimaryGoal :one
+-- name: InsertCurrentReading :one
 INSERT INTO primary_goals(owner_id, language, book_id, snapshot_id)
 VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('snapshot'))
 ON CONFLICT (owner_id, language) DO NOTHING
 RETURNING owner_id::text, language, book_id::text, created_at, updated_at, snapshot_id::text;
 
--- name: ChangePrimaryGoalBook :one
+-- name: ChangeCurrentReadingBook :one
 UPDATE primary_goals
 SET book_id = sqlc.arg('book'), snapshot_id = sqlc.arg('snapshot'), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
 RETURNING owner_id::text, language, book_id::text, created_at, updated_at, snapshot_id::text;
 
--- name: DeletePrimaryGoal :exec
+-- name: DeleteCurrentReading :exec
 DELETE FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
@@ -184,7 +184,7 @@ FROM reading_history
 WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
   AND book_id = sqlc.arg('book')
-  AND goal_snapshot_id IS NOT DISTINCT FROM NULLIF(sqlc.arg('goal_snapshot'), '')::uuid;
+  AND goal_snapshot_id IS NOT DISTINCT FROM NULLIF(sqlc.arg('snapshot'), '')::uuid;
 
 -- name: InsertReadingCompletion :one
 INSERT INTO reading_history(
@@ -193,10 +193,10 @@ INSERT INTO reading_history(
     graduated_vocabulary_count, already_known_vocabulary_count
 )
 SELECT sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('book'), sqlc.arg('completed_at'),
-       NULLIF(sqlc.arg('goal_snapshot'), '')::uuid,
+       NULLIF(sqlc.arg('snapshot'), '')::uuid,
        sqlc.arg('snapshot_vocabulary_count'), sqlc.arg('eligible_vocabulary_count'),
        sqlc.arg('graduated_vocabulary_count'), sqlc.arg('already_known_vocabulary_count')
-WHERE NULLIF(sqlc.arg('goal_snapshot'), '') IS NOT NULL
+WHERE NULLIF(sqlc.arg('snapshot'), '') IS NOT NULL
    OR NOT EXISTS (
        SELECT 1
        FROM reading_history
@@ -246,7 +246,7 @@ RETURNING owner_id::text, language, book_id::text, completed_at,
           snapshot_vocabulary_count, eligible_vocabulary_count,
           graduated_vocabulary_count, already_known_vocabulary_count, completion_source;
 
--- name: CountPrimaryGoalSnapshotVocabulary :one
+-- name: CountCurrentReadingSnapshotVocabulary :one
 SELECT count(*)::int AS snapshot_count,
        count(*) FILTER (WHERE NOT EXISTS (
            SELECT 1 FROM known_vocabulary kv
@@ -259,7 +259,7 @@ FROM primary_goal_snapshot_vocabulary pv
 WHERE pv.owner_id = sqlc.arg('owner')
   AND pv.snapshot_id = sqlc.arg('snapshot');
 
--- name: GraduatePrimaryGoalSnapshotVocabulary :one
+-- name: GraduateCurrentReadingSnapshotVocabulary :one
 WITH eligible AS (
     SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos,
            s.book_id, s.source_material_id, s.analysis_run_id,
@@ -328,9 +328,9 @@ SET graduated_vocabulary_count = sqlc.arg('graduated_vocabulary_count'),
     already_known_vocabulary_count = sqlc.arg('already_known_vocabulary_count')
 WHERE owner_id = sqlc.arg('owner')
   AND language = sqlc.arg('language')
-  AND goal_snapshot_id = NULLIF(sqlc.arg('goal_snapshot'), '')::uuid;
+  AND goal_snapshot_id = NULLIF(sqlc.arg('snapshot'), '')::uuid;
 
--- name: PrimaryGoalCandidateEligible :one
+-- name: CurrentReadingCandidateEligible :one
 SELECT EXISTS(
   SELECT 1
   FROM books b

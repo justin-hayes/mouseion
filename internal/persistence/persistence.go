@@ -692,7 +692,7 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 	}
 	return domain.KnownVocabulary{
 		ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma,
-		UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: row.CreatedAt,
+		UPOS: row.Upos, CreatedAt: row.CreatedAt,
 	}, nil
 }
 func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
@@ -705,7 +705,7 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	for _, row := range rows {
 		result = append(result, domain.KnownVocabulary{
 			ID: row.KvID, OwnerID: row.KvOwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma,
-			UPOS: row.Upos, Provenance: row.Provenance, CreatedAt: row.CreatedAt,
+			UPOS: row.Upos, CreatedAt: row.CreatedAt,
 		})
 	}
 	return result, nil

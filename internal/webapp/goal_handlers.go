@@ -184,5 +184,5 @@ func currentReadingPreparationMatches(preparation domain.DeckPreparation, owner 
 	return (preparation.OwnerID == "" || preparation.OwnerID == owner) &&
 		preparation.SourceMaterialID == goal.SourceMaterialID &&
 		preparation.AnalysisRunID == goal.AnalysisRunID &&
-		preparation.GoalSnapshotID == goal.SnapshotID
+		preparation.SnapshotID == goal.SnapshotID
 }

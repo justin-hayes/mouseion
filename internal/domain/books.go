@@ -71,7 +71,7 @@ const (
 )
 
 const (
-	ReadingCompletionPrimaryGoal    ReadingCompletionSource = "primary_goal"
+	ReadingCompletionCurrentReading ReadingCompletionSource = "primary_goal"
 	ReadingCompletionPreviouslyRead ReadingCompletionSource = "previously_read_import"
 )
 
