@@ -45,6 +45,11 @@ var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost
 var ErrFenced = ErrPreparedDeckClaimLost
 var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")
 var ErrUnresolvedLemmaReviewFlags = errors.New("persistence: unresolved high-risk lemma review flags")
+
+// ErrLemmaDecisionCurrentReading rejects a vocabulary decision for the Book
+// that is the owner's current reading. The review handler reports this exact
+// message as its conflict, so the gate reads the same at either layer.
+var ErrLemmaDecisionCurrentReading = errors.New("Stop this Book's current reading before changing its vocabulary.")
 var ErrAliasConflict = errors.New("persistence: book alias conflict")
 var ErrSourceBookConflict = errors.New("persistence: source material belongs to a different book")
 var ErrBookNotFound = ErrNotFound

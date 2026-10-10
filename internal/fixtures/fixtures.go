@@ -370,6 +370,14 @@ func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaRev
 	return nil
 }
 
+// lemmaDecisionBlockedByCurrentReadingLocked mirrors the store's gate: a
+// vocabulary decision is refused for the Book that is the active German
+// current reading. The caller holds s.mu.
+func (s *Store) lemmaDecisionBlockedByCurrentReadingLocked(owner, bookID string) bool {
+	goal, ok := s.currentReadings[fixtureGoalKey(owner, "de")]
+	return ok && goal.IsActive() && goal.BookID == bookID
+}
+
 func (s *Store) HasCurrentLemmaCorrections(_ context.Context, owner, bookID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -985,6 +993,12 @@ func (s *Store) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, 
 func (s *Store) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expected string) error {
 	if len(decisions) == 0 {
 		return errNotFound
+	}
+	s.mu.Lock()
+	blocked := s.lemmaDecisionBlockedByCurrentReadingLocked(decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID)
+	s.mu.Unlock()
+	if blocked {
+		return persistence.ErrLemmaDecisionCurrentReading
 	}
 	current, err := s.LemmaReviewStateFingerprint(ctx, decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID, language, surface, extras)
 	if err != nil {
