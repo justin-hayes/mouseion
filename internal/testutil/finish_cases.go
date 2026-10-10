@@ -14,6 +14,12 @@ type FinishCase struct {
 	// Snapshot holds the frozen identities; Known the pre-existing Known rows
 	// (an empty UPOS is the lemma wildcard).
 	Snapshot, Known []domain.SnapshotIdentity
+	// OtherLearnerKnown holds Known rows of a different learner in the same
+	// language. They never count for the finishing learner.
+	OtherLearnerKnown []domain.SnapshotIdentity
+	// Legacy names a reading that never received a snapshot, so Finish is
+	// named by an empty snapshot ID.
+	Legacy bool
 	// Expected Completion counts.
 	SnapshotCount, EligibleCount, GraduatedCount, AlreadyKnownCount int
 	// KnownAfter lists "lemma|UPOS" for every Known row after Finish.
@@ -54,6 +60,17 @@ func FinishCases() []FinishCase {
 		Name:       "empty snapshot",
 		Known:      []domain.SnapshotIdentity{germanIdentity("haus", "NOUN")},
 		KnownAfter: []string{"haus|NOUN"},
+	}, {
+		Name:       "empty legacy reading without a snapshot",
+		Legacy:     true,
+		Known:      []domain.SnapshotIdentity{germanIdentity("haus", "NOUN")},
+		KnownAfter: []string{"haus|NOUN"},
+	}, {
+		Name:              "identities Known only to another learner",
+		Snapshot:          []domain.SnapshotIdentity{germanIdentity("haus", "NOUN"), germanIdentity("gehen", "VERB")},
+		OtherLearnerKnown: []domain.SnapshotIdentity{germanIdentity("haus", ""), germanIdentity("gehen", "VERB")},
+		SnapshotCount:     2, EligibleCount: 2, GraduatedCount: 2, AlreadyKnownCount: 0,
+		KnownAfter: []string{"gehen|VERB", "haus|NOUN"},
 	}}
 }
 

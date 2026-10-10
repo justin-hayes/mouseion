@@ -194,27 +194,40 @@ func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-start-same", 1)
 
-	var winnerSnapshots sync.Map
+	// The loser of a same-Book race finds the winner's reading under the
+	// learner lock and replays it: both Starts succeed, one writes.
+	var results sync.Map
 	start := func(slot int) func(context.Context) error {
 		return func(ctx context.Context) error {
-			reading, err := store.StartCurrentReading(ctx, fixture.owner, "de", fixture.books[0].ID)
+			result, err := store.StartCurrentReadingResult(ctx, fixture.owner, "de", fixture.books[0].ID)
 			if err == nil {
-				winnerSnapshots.Store(slot, reading.SnapshotID)
+				results.Store(slot, result)
 			}
 			return err
 		}
 	}
 	errs := raceCurrentReadingTransitions(t, ctx, start(0), start(1))
-	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingExists)
+	for slot, err := range errs {
+		require.NoError(t, err, "same-Book Start %d", slot)
+	}
 
 	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner, "de")
-	snapshotID, ok := winnerSnapshots.Load(winner)
-	require.True(t, ok)
-	assert.Equal(t, snapshotID, current.SnapshotID)
 	assert.Equal(t, fixture.books[0].ID, current.BookID)
+	fresh := 0
+	for slot := range errs {
+		loaded, ok := results.Load(slot)
+		require.True(t, ok)
+		result, ok := loaded.(StartResult)
+		require.True(t, ok)
+		assert.Equal(t, current.SnapshotID, result.Reading.SnapshotID, "Start %d reports the one reading", slot)
+		if !result.Replayed {
+			fresh++
+		}
+	}
+	assert.Equal(t, 1, fresh, "exactly one Start writes the reading; the other replays it")
 	var snapshots int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1`, fixture.owner).Scan(&snapshots))
-	assert.Equal(t, 1, snapshots, "the losing Start leaves no snapshot behind")
+	assert.Equal(t, 1, snapshots, "the replayed Start leaves no snapshot behind")
 }
 
 func TestConcurrentCurrentReadingSwitchAndFinishKeepOneWinner(t *testing.T) {

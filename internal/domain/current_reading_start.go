@@ -8,6 +8,9 @@ type StartFacts struct {
 	Language string
 	// AlreadyCurrent reports that a reading is already current in Language.
 	AlreadyCurrent bool
+	// CurrentIsBook reports that the current reading in Language names the
+	// requested Book. It is only meaningful when AlreadyCurrent is set.
+	CurrentIsBook bool
 	// Signals, Disposition, and BookLanguage feed the Analysis evidence
 	// classifier. BookLanguage is empty unless the Book has a chosen language.
 	Signals      AnalysisSignals
@@ -25,15 +28,18 @@ type StartFacts struct {
 type StartOutcome string
 
 const (
-	StartAccepted                StartOutcome = "accepted"
+	StartAccepted StartOutcome = "accepted"
+	// StartReplayed means the requested Book is already the current reading,
+	// so the Start changes nothing and succeeds.
+	StartReplayed                StartOutcome = "replayed"
 	StartRejectedAlreadyCurrent  StartOutcome = "already-current"
 	StartRejectedIneligible      StartOutcome = "ineligible"
 	StartRejectedUnresolvedFlags StartOutcome = "unresolved-lemma-review-flags"
 )
 
-// StartDecision accepts or rejects a Start. Reason carries the classifier's
-// eligibility reason when the Book is ineligible and is CurrentReadingEligible
-// otherwise.
+// StartDecision accepts, replays, or rejects a Start. Reason carries the
+// classifier's eligibility reason when the Book is ineligible and is
+// CurrentReadingEligible otherwise.
 type StartDecision struct {
 	Outcome StartOutcome
 	Reason  CurrentReadingEligibilityReason
@@ -45,11 +51,15 @@ func (d StartDecision) Accepted() bool {
 }
 
 // DecideStart applies the Start rules in a fixed order: a reading already
-// current in the language, then eligibility from the Analysis evidence
-// classifier, then unresolved lemma-review flags. Snapshot candidate selection
+// current in the language, which replays when it names the requested Book and
+// is rejected otherwise; then eligibility from the Analysis evidence
+// classifier; then unresolved lemma-review flags. Snapshot candidate selection
 // is not part of the decision.
 func DecideStart(facts StartFacts) StartDecision {
 	if facts.AlreadyCurrent {
+		if facts.CurrentIsBook {
+			return StartDecision{Outcome: StartReplayed, Reason: CurrentReadingEligible}
+		}
 		return StartDecision{Outcome: StartRejectedAlreadyCurrent, Reason: CurrentReadingEligible}
 	}
 	classification := ClassifyBookEvidence(facts.Signals, facts.Disposition, facts.BookLanguage)

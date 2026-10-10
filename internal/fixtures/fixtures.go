@@ -1546,14 +1546,18 @@ func (s *Store) cancelFixtureAnalysisJob(id int64) bool {
 func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
+	return s.knownForOwnerLocked(owner, normalizeFixtureLanguage(language)), nil
+}
+
+// knownForOwnerLocked returns the owner's Known rows in language. Callers hold s.mu.
+func (s *Store) knownForOwnerLocked(owner, language string) []domain.KnownVocabulary {
 	var result []domain.KnownVocabulary
 	for _, entry := range s.known {
 		if entry.OwnerID == owner && normalizeFixtureLanguage(entry.Language) == language {
 			result = append(result, entry)
 		}
 	}
-	return result, nil
+	return result
 }
 
 // reservedDeckVocabularyLocked returns the active reading's frozen vocabulary.
@@ -1957,38 +1961,50 @@ func (s *Store) ListCurrentReadingSnapshotVocabulary(_ context.Context, owner, s
 	}
 	return result, nil
 }
-func (s *Store) StartCurrentReading(_ context.Context, owner, language, bookID string) (domain.CurrentReading, error) {
+func (s *Store) StartCurrentReading(ctx context.Context, owner, language, bookID string) (domain.CurrentReading, error) {
+	start, err := s.StartCurrentReadingResult(ctx, owner, language, bookID)
+	return start.Reading, err
+}
+
+// StartCurrentReadingResult applies domain.DecideStart. A replayed Start
+// returns the existing reading and writes nothing.
+func (s *Store) StartCurrentReadingResult(_ context.Context, owner, language, bookID string) (persistence.StartResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
 	goal := domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}
 	if err := goal.Validate(); err != nil {
-		return domain.CurrentReading{}, err
+		return persistence.StartResult{}, err
 	}
 	if !s.fixtureBookExists(owner, bookID) {
-		return domain.CurrentReading{}, errNotFound
+		return persistence.StartResult{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
-	if err := persistence.StartDecisionError(domain.DecideStart(s.fixtureStartFacts(owner, language, bookID))); err != nil {
-		return domain.CurrentReading{}, err
-	}
 	key := fixtureGoalKey(owner, language)
+	decision := domain.DecideStart(s.fixtureStartFacts(owner, language, bookID))
+	if err := persistence.StartDecisionError(decision); err != nil {
+		return persistence.StartResult{}, err
+	}
+	if decision.Outcome == domain.StartReplayed {
+		return persistence.StartResult{Reading: s.currentReadings[key], Replayed: true}, nil
+	}
 	now := time.Now()
 	goal = s.fixtureGoalFromBook(owner, language, bookID, now)
 	goal.CreatedAt, goal.UpdatedAt = now, now
 	s.currentReadings[key] = goal
 	s.snapshotLifecycles[goal.SnapshotID] = domain.CurrentReadingSnapshotLifecycle{BookID: bookID, CreatedAt: now}
-	return goal, nil
+	return persistence.StartResult{Reading: goal}, nil
 }
 
 // fixtureStartFacts loads the facts domain.DecideStart decides over. Fixture
 // IDs are not uuids, so an ID Postgres would reject as malformed is rejected
 // here the same way: it names no fixture Book and Start reports ErrNotFound.
 func (s *Store) fixtureStartFacts(owner, language, bookID string) domain.StartFacts {
-	_, current := s.currentReadings[fixtureGoalKey(owner, language)]
+	current, existing := s.currentReadings[fixtureGoalKey(owner, language)]
 	facts := domain.StartFacts{
 		Language:                   language,
-		AlreadyCurrent:             current,
+		AlreadyCurrent:             existing,
+		CurrentIsBook:              existing && current.BookID == bookID,
 		Disposition:                s.bookDispositionLocked(owner, bookID),
 		UnresolvedLemmaReviewFlags: s.hasUnresolvedLemmaReviewFlag(owner, bookID),
 	}
@@ -2193,13 +2209,10 @@ func (s *Store) FinishCurrentReading(_ context.Context, owner, language, expecte
 	language = normalizeFixtureLanguage(language)
 	key := fixtureGoalKey(owner, language)
 	historyKey := fixtureReadingHistoryKey(owner, language, expectedSnapshotID)
-	if expectedSnapshotID == "" {
-		return domain.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
-	}
 	goal := s.currentReadings[key]
 	facts := domain.CurrentReadingFinishFacts{
 		Current: goal, ExpectedBookID: expectedBookID, ExpectedSnapshotID: expectedSnapshotID,
-		Snapshot: s.fixtureSnapshotIdentitiesLocked(owner, language), Known: s.known,
+		Snapshot: s.fixtureSnapshotIdentitiesLocked(owner, language), Known: s.knownForOwnerLocked(owner, language),
 	}
 	completion, completed := s.readingHistory[historyKey]
 	if completed {

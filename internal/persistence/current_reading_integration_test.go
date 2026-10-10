@@ -213,8 +213,15 @@ func TestCurrentReadingCanStartAnalyzedToReadBookWithoutOrdering(t *testing.T) {
 	loaded, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, current, loaded)
-	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-	require.ErrorIs(t, err, ErrCurrentReadingExists)
+	before, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	repeat, err := store.StartCurrentReadingResult(ctx, owner.ID, "de", book.ID)
+	require.NoError(t, err, "starting the Book that is already current replays")
+	assert.True(t, repeat.Replayed)
+	assert.Equal(t, before, repeat.Reading, "a replayed Start returns the existing reading")
+	after, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "a replayed Start writes nothing")
 }
 
 func TestCurrentReadingEndReleasesOnlyActiveSnapshotIdempotently(t *testing.T) {

@@ -282,23 +282,19 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language before starting a book."))
 		return
 	}
-	_, err := h.services.Store.Reading.StartCurrentReading(r.Context(), owner, language, bookID)
+	start, err := h.services.Store.Reading.StartCurrentReadingResult(r.Context(), owner, language, bookID)
 	var ineligible persistence.CurrentReadingIneligibleError
 	switch {
 	case errors.Is(err, persistence.ErrNotFound):
 		http.NotFound(w, r)
 		return
-	case errors.Is(err, persistence.ErrCurrentReadingExists):
+	case err == nil && start.Replayed:
 		// Starting the Book that is already current is a repeat, not a conflict.
-		current, currentErr := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
-		if currentErr != nil {
-			fail(w, currentErr)
-			return
-		}
-		if current.BookID != bookID {
-			redirect(w, r, "/reading?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
-			return
-		}
+		redirect(w, r, "/reading?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
+		return
+	case errors.Is(err, persistence.ErrCurrentReadingExists):
+		redirect(w, r, "/reading?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
+		return
 	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
 		return

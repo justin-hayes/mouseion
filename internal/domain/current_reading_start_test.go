@@ -32,9 +32,14 @@ func TestDecideStart(t *testing.T) {
 			StartAccepted, CurrentReadingEligible,
 		},
 		{
-			"already current",
+			"another Book already current",
 			with(func(f *StartFacts) { f.AlreadyCurrent = true }),
 			StartRejectedAlreadyCurrent, CurrentReadingEligible,
+		},
+		{
+			"replay of the Book already current",
+			with(func(f *StartFacts) { f.AlreadyCurrent = true; f.CurrentIsBook = true }),
+			StartReplayed, CurrentReadingEligible,
 		},
 		{
 			"not To Read",
@@ -94,9 +99,18 @@ func TestDecideStart(t *testing.T) {
 			StartRejectedUnresolvedFlags, CurrentReadingEligible,
 		},
 		{
-			"already current wins over ineligibility",
+			"another Book current wins over ineligibility",
 			with(func(f *StartFacts) { f.AlreadyCurrent = true; f.Disposition = BookDispositionInbox }),
 			StartRejectedAlreadyCurrent, CurrentReadingEligible,
+		},
+		{
+			"replay wins over ineligibility",
+			with(func(f *StartFacts) {
+				f.AlreadyCurrent, f.CurrentIsBook = true, true
+				f.Disposition = BookDispositionInbox
+				f.UnresolvedLemmaReviewFlags = true
+			}),
+			StartReplayed, CurrentReadingEligible,
 		},
 		{
 			"ineligibility wins over unresolved flags",

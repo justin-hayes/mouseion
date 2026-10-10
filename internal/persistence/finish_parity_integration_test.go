@@ -41,11 +41,23 @@ func TestFinishMatchesSharedFinishCases(t *testing.T) {
 				_, err = store.PutKnownVocabulary(ctx, owner.ID, identity.Language, identity.CanonicalLemma, identity.UPOS)
 				require.NoError(t, err)
 			}
+			other, err := store.CreateUser(ctx, suffix+"-other", false)
+			require.NoError(t, err)
+			for _, identity := range tc.OtherLearnerKnown {
+				_, err = store.PutKnownVocabulary(ctx, other.ID, identity.Language, identity.CanonicalLemma, identity.UPOS)
+				require.NoError(t, err)
+			}
+			expectedSnapshot := reading.SnapshotID
+			if tc.Legacy {
+				_, err = store.Pool().Exec(ctx, `UPDATE primary_goals SET snapshot_id=NULL WHERE owner_id=$1 AND language='de'`, owner.ID)
+				require.NoError(t, err)
+				expectedSnapshot = ""
+			}
 
-			_, err = store.FinishCurrentReading(ctx, owner.ID, "de", "00000000-0000-0000-0000-000000000000", reading.SnapshotID)
+			_, err = store.FinishCurrentReading(ctx, owner.ID, "de", "00000000-0000-0000-0000-000000000000", expectedSnapshot)
 			require.ErrorIs(t, err, ErrCurrentReadingStale)
 
-			result, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID)
+			result, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, expectedSnapshot)
 			require.NoError(t, err)
 			assert.Equal(t, tc.SnapshotCount, result.Completion.SnapshotVocabularyCount)
 			assert.Equal(t, tc.EligibleCount, result.Completion.EligibleVocabularyCount)
@@ -55,7 +67,7 @@ func TestFinishMatchesSharedFinishCases(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.KnownAfter, testutil.KnownKeys(known))
 
-			replay, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID)
+			replay, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, expectedSnapshot)
 			require.NoError(t, err)
 			assert.Equal(t, result, replay)
 		})
