@@ -24,8 +24,10 @@ func currentReadingCompletionFromValues(ownerID, language, bookID string, comple
 }
 
 // SwitchCurrentReading replaces the current reading only when the caller's
-// expected commitment still names the language's current reading. A replay is
-// accepted only when durable facts prove that this exact switch already ran.
+// expected commitment still names the language's current reading. Postgres
+// loads the facts under the learner-state and Book locks;
+// domain.DecideSwitchCurrentReading accepts, rejects, or replays, and this
+// method applies the plan.
 func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, language, bookID, expectedBookID, expectedSnapshotID string) (result domain.CurrentReading, err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if err := (domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}).Validate(); err != nil {
@@ -47,48 +49,28 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.CurrentReading{}, ErrNotFound
-	}
+	facts, identity, err := loadSwitchFacts(ctx, tx, q, owner, language, bookID, expectedBookID, expectedSnapshotID)
 	if err != nil {
 		return domain.CurrentReading{}, err
 	}
-	if current.GBookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
-		if current.GBookID == bookID {
-			proven, proofErr := switchReplayProven(ctx, q, owner, language, expectedBookID, expectedSnapshotID, current.SnapshotID)
-			if proofErr != nil {
-				return domain.CurrentReading{}, proofErr
-			}
-			if proven {
-				snapshotSize, sizeErr := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
-				if sizeErr != nil {
-					return domain.CurrentReading{}, sizeErr
-				}
-				if err = tx.Commit(ctx); err != nil {
-					return domain.CurrentReading{}, err
-				}
-				return currentReadingFromValues(current.GOwnerID, current.Language, current.GBookID, current.SnapshotID, current.SourceMaterialID, current.AnalysisRunID, current.ContentRevisionID, current.ContentSnapshotID, current.CorpusID, snapshotSize, current.CreatedAt, current.UpdatedAt), nil
-			}
+	decision := domain.DecideSwitchCurrentReading(facts)
+	if err = currentReadingRejection(decision, ErrNotFound); err != nil {
+		return domain.CurrentReading{}, err
+	}
+	if decision.Verdict == domain.CurrentReadingReplay {
+		current := facts.Current
+		snapshotSize, sizeErr := snapshotSizeForGoal(ctx, q, current.SnapshotID, owner)
+		if sizeErr != nil {
+			return domain.CurrentReading{}, sizeErr
 		}
-		return domain.CurrentReading{}, ErrCurrentReadingStale
+		if err = tx.Commit(ctx); err != nil {
+			return domain.CurrentReading{}, err
+		}
+		current.SnapshotSize = snapshotSize
+		return current, nil
 	}
-	if err = requireCurrentReadingEligible(ctx, q, owner, language, bookID); err != nil {
+	if err = releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
 		return domain.CurrentReading{}, err
-	}
-	if err = releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
-		return domain.CurrentReading{}, err
-	}
-	identity, err := lookupCurrentReadingIdentity(ctx, q, owner, bookID)
-	if err != nil {
-		return domain.CurrentReading{}, err
-	}
-	blocked, err := unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
-	if err != nil {
-		return domain.CurrentReading{}, err
-	}
-	if blocked {
-		return domain.CurrentReading{}, ErrUnresolvedLemmaReviewFlags
 	}
 	snapshot, candidates, err := createCurrentReadingSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if err != nil {
@@ -105,12 +87,71 @@ func (s *PostgresStore) SwitchCurrentReading(ctx context.Context, owner, languag
 	return result, nil
 }
 
+// loadSwitchFacts reads everything DecideSwitchCurrentReading decides over. The
+// target's candidate identity and flags are read only when the classifier makes
+// it eligible, since an ineligible target has no published identity to read.
+func loadSwitchFacts(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.SwitchCurrentReadingFacts, sqlcgen.GetCurrentReadingCandidateIdentityRow, error) {
+	var identity sqlcgen.GetCurrentReadingCandidateIdentityRow
+	facts := domain.SwitchCurrentReadingFacts{
+		TargetBookID: bookID,
+		Expected:     domain.CurrentReadingCommitment{BookID: expectedBookID, SnapshotID: expectedSnapshotID},
+	}
+	current, err := loadCurrentReadingForUpdate(ctx, q, owner, language)
+	if err != nil {
+		return facts, identity, err
+	}
+	facts.Current = current
+	if err = loadSnapshotLifecycle(ctx, q, owner, language, expectedSnapshotID, &facts.ExpectedSnapshot); err != nil {
+		return facts, identity, err
+	}
+	if err = loadSnapshotLifecycle(ctx, q, owner, language, current.SnapshotID, &facts.CurrentSnapshot); err != nil {
+		return facts, identity, err
+	}
+	if facts.TargetEligibility, err = currentReadingEligibility(ctx, q, owner, language, bookID); err != nil {
+		return facts, identity, err
+	}
+	if facts.TargetEligibility != domain.CurrentReadingEligible {
+		return facts, identity, nil
+	}
+	identity, err = q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Book: bookID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The classifier and the identity view disagree: report the missing
+		// completed analysis.
+		facts.TargetEligibility = domain.CurrentReadingNoCompletedAnalysis
+		return facts, identity, nil
+	}
+	if err != nil {
+		return facts, identity, err
+	}
+	facts.UnresolvedFlags, err = unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
+	return facts, identity, err
+}
+
+// currentReadingRejection translates a rejecting decision to the sentinel
+// error the webapp store interface exposes, and accepted or replayed decisions
+// to nil. noCurrent is the error for a transition that needs a current reading
+// and found none.
+func currentReadingRejection(decision domain.CurrentReadingDecision, noCurrent error) error {
+	switch decision.Verdict {
+	case domain.CurrentReadingApply, domain.CurrentReadingReplay:
+		return nil
+	case domain.CurrentReadingRejectNoCurrent:
+		return noCurrent
+	case domain.CurrentReadingRejectIneligible:
+		return CurrentReadingIneligibleError{Reason: decision.Ineligible}
+	case domain.CurrentReadingRejectUnresolvedFlags:
+		return ErrUnresolvedLemmaReviewFlags
+	case domain.CurrentReadingRejectStale:
+		return ErrCurrentReadingStale
+	}
+	return ErrCurrentReadingStale
+}
+
 // EndCurrentReading releases exactly the expected commitment's Reserved
 // vocabulary and clears the current role without recording completion or Known
 // acceptance. The Book keeps its disposition (To Read), visibility, snapshot,
-// history, and artifacts. A replay is accepted only when durable facts prove
-// that the expected snapshot was released without completion and no reading is
-// current; Book identity or disposition alone is never proof.
+// history, and artifacts. domain.DecideEndCurrentReading accepts, rejects, or
+// proves a replay from the loaded facts; this method applies the plan.
 func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (err error) {
 	language = canonicalization.NormalizeLanguage(language)
 	if !exactCommitment(expectedBookID, expectedSnapshotID) {
@@ -128,27 +169,21 @@ func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language, 
 	if err = lockCurrentReadingBook(ctx, q, owner, expectedBookID); err != nil {
 		return err
 	}
-	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
-	if errors.Is(err, pgx.ErrNoRows) {
-		lifecycle, lifecycleErr := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
-		if errors.Is(lifecycleErr, pgx.ErrNoRows) {
-			return ErrCurrentReadingStale
-		}
-		if lifecycleErr != nil {
-			return lifecycleErr
-		}
-		if lifecycle.BookID != expectedBookID || !lifecycle.ReleasedAt.Valid || lifecycle.Completed {
-			return ErrCurrentReadingStale
-		}
-		return tx.Commit(ctx)
-	}
-	if err != nil {
+	facts := domain.EndCurrentReadingFacts{Expected: domain.CurrentReadingCommitment{BookID: expectedBookID, SnapshotID: expectedSnapshotID}}
+	if facts.Current, err = loadCurrentReadingForUpdate(ctx, q, owner, language); err != nil {
 		return err
 	}
-	if current.GBookID != expectedBookID || current.SnapshotID != expectedSnapshotID {
-		return ErrCurrentReadingStale
+	if err = loadSnapshotLifecycle(ctx, q, owner, language, expectedSnapshotID, &facts.Snapshot); err != nil {
+		return err
 	}
-	if err = releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
+	decision := domain.DecideEndCurrentReading(facts)
+	if err = currentReadingRejection(decision, ErrCurrentReadingStale); err != nil {
+		return err
+	}
+	if decision.Verdict == domain.CurrentReadingReplay {
+		return tx.Commit(ctx)
+	}
+	if err = releaseCurrentReadingSnapshot(ctx, q, owner, decision.ReleaseSnapshotID); err != nil {
 		return err
 	}
 	if err = q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {

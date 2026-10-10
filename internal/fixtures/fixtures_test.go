@@ -513,3 +513,38 @@ func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
 	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioDefault))
 	assert.Equal(t, int64(1), browse(t, query).Total, "the empty scenario restores the default fixture")
 }
+
+func TestStoreSwitchCurrentReadingDecidesFromSnapshotLifecycleAndFlags(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	store.dispositions[fixtureDispositionKey(OwnerID, LemmaFlagBookID)] = domain.BookDispositionToRead
+	store.dispositions[fixtureDispositionKey(OwnerID, routeMatchBookID)] = domain.BookDispositionToRead
+
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+
+	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", LemmaFlagBookID, reading.BookID, reading.SnapshotID)
+	require.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags, "Switch blocks on unresolved flags as Postgres does")
+	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, reading.BookID, reading.SnapshotID)
+	var ineligible persistence.CurrentReadingIneligibleError
+	require.ErrorAs(t, err, &ineligible)
+	assert.Equal(t, domain.CurrentReadingOtherLanguage, ineligible.Reason)
+
+	switched, err := store.SwitchCurrentReading(ctx, OwnerID, "de", routeMatchBookID, reading.BookID, reading.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, routeMatchBookID, switched.BookID)
+	replayed, err := store.SwitchCurrentReading(ctx, OwnerID, "de", routeMatchBookID, reading.BookID, reading.SnapshotID)
+	require.NoError(t, err, "the switch that created the current snapshot replays")
+	assert.Equal(t, switched.SnapshotID, replayed.SnapshotID)
+
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, switched.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, switched.SnapshotID), "End replays from the released snapshot")
+	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, reading.SnapshotID), persistence.ErrCurrentReadingStale, "a released snapshot is no End replay for another Book")
+
+	restarted, err := store.StartCurrentReading(ctx, OwnerID, "de", switched.BookID)
+	require.NoError(t, err)
+	finished, err := store.FinishCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, restarted.SnapshotID, finished.Completion.SnapshotID)
+	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID), persistence.ErrCurrentReadingStale, "a completed snapshot is never an End replay")
+}
