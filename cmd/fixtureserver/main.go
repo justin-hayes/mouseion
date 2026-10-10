@@ -37,7 +37,7 @@ func main() {
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, Jobs: store}
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
-		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
+		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
 		PreparedDeck: fixtures.PreparedDeck{Store: store}, Capabilities: fixtures.Capabilities{},
 		CatalogueSync: catalogueSync, LemmaSuggestions: fixtureLemmaSuggestions{},
 		SecureCookies: false, SessionLifetime: auth.DefaultSessionLifetime,

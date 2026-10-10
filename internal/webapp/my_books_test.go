@@ -12,6 +12,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -425,6 +426,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToJourneyEntry(t *testing.T
 }
 
 type bookRefreshStub struct {
+	fixtures.CatalogueSync
 	result cataloguesync.RefreshResult
 	owner  string
 	calls  int
@@ -486,20 +488,3 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	assert.True(t, strings.Contains(response.Body.String(), "Metadata refreshed."), "HTMX row refresh body=%s", response.Body.String())
 }
 
-func TestUnavailableCatalogueRefresherKeepsRowTargetIntact(t *testing.T) {
-	h, cookies, csrf, _ := goalFixtureSession(t)
-	requireHandler(t, h).services.CatalogueSync = nil
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Hx-Request-Type", "partial")
-	request.Header.Set("Hx-Target", "book-row-fixture-metadata-only")
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.True(t, strings.Contains(response.Body.String(), `id="book-row-fixture-metadata-only"`), "unavailable refresher row response body=%s", response.Body.String())
-	assert.True(t, strings.Contains(response.Body.String(), "Metadata could not be refreshed"), "unavailable refresher row response body=%s", response.Body.String())
-	assert.False(t, strings.Contains(response.Body.String(), `id="book-metadata-region"`), "unavailable refresher row response body=%s", response.Body.String())
-}

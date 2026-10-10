@@ -101,16 +101,11 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := user(r)
-	refresher, ok := h.services.CatalogueSync.(CatalogueMetadataRefresher)
-	if !ok {
-		h.renderBookRefreshFailure(w, r, u, r.PathValue("id"))
-		return
-	}
 	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
 	if !ok {
 		return
 	}
-	result, err := refresher.RefreshEntry(r.Context(), u.ID, detail.Book.ID)
+	result, err := h.services.CatalogueSync.RefreshEntry(r.Context(), u.ID, detail.Book.ID)
 	if errors.Is(err, cataloguesync.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -148,28 +143,6 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) myBooksRefreshRowDetail(ctx context.Context, owner, bookID string) (domain.MyBook, error) {
 	return h.services.Store.MyBooks.GetBookDetailForMyBooksRefresh(ctx, owner, bookID)
-}
-
-func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
-	message := "Metadata could not be refreshed. Check the connection and try again."
-	if isPartialHTMXRequest(r) {
-		book, err := h.myBooksRefreshRowDetail(r.Context(), u.ID, bookID)
-		if errors.Is(err, persistence.ErrNotFound) {
-			http.NotFound(w, r)
-			return
-		}
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		if err := h.annotateBookToRead(r.Context(), u.ID, &book); err != nil {
-			fail(w, err)
-			return
-		}
-		render(w, r, MyBookRow(h.csrf(w, r), book, false, message, myBooksReturnFromRequest(r)))
-		return
-	}
-	redirect(w, r, "/library?message="+url.QueryEscape(message))
 }
 
 func refreshMessage(result cataloguesync.RefreshResult) string {
@@ -227,11 +200,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
-	provider, ok := h.services.CatalogueSync.(CatalogueAcquisitionTargetProvider)
-	if !ok {
-		return cataloguesync.AcquisitionTarget{}, errors.New("catalogue acquisition is unavailable")
-	}
-	target, err := provider.FindAcquisitionTarget(ctx, owner, bookID)
+	target, err := h.services.CatalogueSync.FindAcquisitionTarget(ctx, owner, bookID)
 	if err != nil {
 		return target, err
 	}

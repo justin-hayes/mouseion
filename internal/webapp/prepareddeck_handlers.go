@@ -80,12 +80,7 @@ func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, o
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
-	if !ok {
-		http.NotFound(w, r)
-		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
-	}
-	result, err := reader.GetCompletedAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
+	result, err := h.services.Analysis.GetCompletedAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
 	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
@@ -114,7 +109,6 @@ type journeyDeckPreparationView struct {
 	Goal             bool
 	Preparation      *domain.DeckPreparation
 	Missing          bool
-	Unavailable      bool
 }
 
 func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Request) {
@@ -140,10 +134,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 	task.GoalSnapshotID = goal.SnapshotID
 	task.GoalSnapshotSize = goal.SnapshotSize
 	if goal.SnapshotSize > 0 {
-		reader, readerOK := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
-		if !readerOK {
-			task.Unavailable = true
-		} else if preparation, preparationErr := reader.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
+		if preparation, preparationErr := h.services.PreparedDeck.GetForGoalSnapshot(r.Context(), owner, goal.SnapshotID); preparationErr == nil {
 			if !currentReadingPreparationMatches(preparation, owner, goal) {
 				http.NotFound(w, r)
 				return
@@ -245,11 +236,7 @@ func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.
 	if err != nil || status.RunID == "" || status.SourceMaterialID == "" {
 		return false
 	}
-	reader, ok := h.services.Analysis.(CompletedAnalysisReader)
-	if !ok {
-		return false
-	}
-	completed, err := reader.GetCompletedAnalysis(r.Context(), user(r).ID, status.SourceMaterialID, status.RunID)
+	completed, err := h.services.Analysis.GetCompletedAnalysis(r.Context(), user(r).ID, status.SourceMaterialID, status.RunID)
 	if err != nil {
 		return false
 	}

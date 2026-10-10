@@ -425,11 +425,7 @@ func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book
 		return
 	}
 	book.GoalDeckUnavailable = true
-	reader, ok := h.services.PreparedDeck.(PreparedDeckForGoalSnapshot)
-	if !ok {
-		return
-	}
-	preparation, err := reader.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
+	preparation, err := h.services.PreparedDeck.GetForGoalSnapshot(ctx, owner, goal.SnapshotID)
 	switch {
 	case err == nil:
 		if !currentReadingPreparationMatches(preparation, owner, goal) {
