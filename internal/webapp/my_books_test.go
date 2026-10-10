@@ -53,14 +53,14 @@ func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
 		omit string
 	}{
 		{name: "metadata only is neutral", book: domain.MyBook{}, omit: "0%"},
-		{name: "analysis running", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzing"}}, want: "Analysis running."},
-		{name: "failed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analysis failed"}}, want: "Analysis failed."},
-		{name: "cancelled", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analysis cancelled"}}, want: "Analysis cancelled."},
-		{name: "stale", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "stale"}}, want: "Analysis out of date."},
-		{name: "unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "content unavailable"}}, want: "Content unavailable."},
-		{name: "not analysed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"}, AnalysisStatus: "not analyzed"}}, want: "Not analysed yet."},
-		{name: "coverage with next band gap", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzed"}, CoverageKnownTokens: 974, CoverageTotalTokens: 1000}, want: "97.4% of running words Known. 16 more words to reach 99%.", omit: "ready"},
-		{name: "deck state is distinct from coverage", book: domain.MyBook{IsCurrentReading: true, Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzed"}, CoverageTotalTokens: 0, DeckState: "ready", DeckCardCount: 412}, want: "Deck ready: 412 cards.", omit: "0%"},
+		{name: "analysis running", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testRunning}}, want: "Analysis running."},
+		{name: "failed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testFailed}}, want: "Analysis failed."},
+		{name: "cancelled", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testCancelled}}, want: "Analysis cancelled."},
+		{name: "stale", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testStale}}, want: "Analysis out of date."},
+		{name: "unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testNoContent}}, want: "Content unavailable."},
+		{name: "not analysed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"}, Signals: testNotAnalyzed}}, want: "Not analysed yet."},
+		{name: "coverage with next band gap", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, CoverageKnownTokens: 974, CoverageTotalTokens: 1000}, want: "97.4% of running words Known. 16 more words to reach 99%.", omit: "ready"},
+		{name: "deck state is distinct from coverage", book: domain.MyBook{IsCurrentReading: true, Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, CoverageTotalTokens: 0, DeckState: "ready", DeckCardCount: 412}, want: "Deck ready: 412 cards.", omit: "0%"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
 }
 
 func TestMyBookMarginEvidenceShowsDeckStateOnlyForCurrentReading(t *testing.T) {
-	book := domain.MyBook{Acquired: &domain.SourceMaterialSummary{AnalysisStatus: "analyzed"}, DeckState: "ready", DeckCardCount: 12}
+	book := domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, DeckState: "ready", DeckCardCount: 12}
 	assert.NotContains(t, myBookMarginEvidence(book), "Deck")
 	book.IsCurrentReading = true
 	assert.Contains(t, myBookMarginEvidence(book), "Deck ready: 12 cards.")
@@ -105,8 +105,8 @@ func TestMyBookEvidenceRecoveryHonorsToReadAndCurrentReadingPolicy(t *testing.T)
 	book := domain.MyBook{
 		Disposition: domain.BookDispositionToRead,
 		Acquired: &domain.SourceMaterialSummary{
-			AnalysisStatus: "analysis failed",
-			Source:         domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
+			Signals: testFailed,
+			Source:  domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
 		},
 	}
 	assert.Equal(t, "Retry analysis", myBookEvidenceRecovery(book))
@@ -117,10 +117,10 @@ func TestMyBookEvidenceRecoveryHonorsToReadAndCurrentReadingPolicy(t *testing.T)
 	book.IsCurrentReading = true
 	assert.Empty(t, myBookEvidenceRecovery(book), "current reading rejects its own reanalysis POST")
 	book.IsCurrentReading = false
-	book.Acquired.AnalysisStatus = "analysis cancelled"
+	book.Acquired.Signals = testCancelled
 	assert.Equal(t, "Retry analysis", myBookEvidenceRecovery(book))
-	book.Acquired.AnalysisStatus = "not analyzed"
-	book.Acquired.Source.ContentSnapshotID = ""
+	book.Acquired.Signals = testNotAnalyzed
+	book.Acquired.Signals = testNoContent
 	assert.Equal(t, "Retry acquisition", myBookEvidenceRecovery(book), "either missing content identity makes content unavailable")
 }
 
@@ -129,8 +129,8 @@ func TestMyBooksNonToReadFailureOffersBucketTransitionRecovery(t *testing.T) {
 		Book:        domain.Book{ID: "inbox-failed", OwnerID: "owner", Title: "Inbox failure"},
 		Disposition: domain.BookDispositionInbox,
 		Acquired: &domain.SourceMaterialSummary{
-			Source:         domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
-			AnalysisStatus: "analysis failed",
+			Source:  domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
+			Signals: testFailed,
 		},
 	}
 	var output bytes.Buffer
@@ -185,11 +185,10 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 		Book:     domain.Book{ID: "analyzed-book", OwnerID: "owner", Title: "Analyzed book"},
 		IsToRead: true,
 		Acquired: &domain.SourceMaterialSummary{
-			Source:         domain.SourceMaterial{ID: "source-analyzed-book", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
-			AnalysisStatus: "analyzed",
-			AnalysisState:  "completed",
-			AnalysisRunID:  "run-analyzed-book",
-			CorpusID:       "corpus-analyzed-book",
+			Source:        domain.SourceMaterial{ID: "source-analyzed-book", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
+			Signals:       testAnalyzed,
+			AnalysisRunID: "run-analyzed-book",
+			CorpusID:      "corpus-analyzed-book",
 		},
 	}
 	var output bytes.Buffer
@@ -203,11 +202,10 @@ func TestAnalyzedNonReadingMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 	book := domain.MyBook{
 		Book: domain.Book{ID: "analyzed-outside-journey", OwnerID: "owner", Title: "Analyzed outside Journey"},
 		Acquired: &domain.SourceMaterialSummary{
-			Source:         domain.SourceMaterial{ID: "source-analyzed-outside-journey", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
-			AnalysisStatus: "analyzed",
-			AnalysisState:  "completed",
-			AnalysisRunID:  "run-analyzed-outside-journey",
-			CorpusID:       "corpus-analyzed-outside-journey",
+			Source:        domain.SourceMaterial{ID: "source-analyzed-outside-journey", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
+			Signals:       testAnalyzed,
+			AnalysisRunID: "run-analyzed-outside-journey",
+			CorpusID:      "corpus-analyzed-outside-journey",
 		},
 	}
 	var output bytes.Buffer
@@ -243,18 +241,19 @@ func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
 	for i, state := range states {
 		book := domain.MyBook{Book: domain.Book{ID: "book-" + string(rune('a'+i)), OwnerID: "owner", Title: "Book " + string(rune('A'+i)), LanguageState: domain.LanguageChosen, LanguageTag: "de"}}
 		if state != domain.BookNotAcquired {
-			status := "not analyzed"
+			signals := testNotAnalyzed
 			revision := "revision"
 			if state == domain.BookUnavailable {
 				revision = ""
+				signals = testNoContent
 			}
 			if state == domain.BookAnalyzed {
-				status = "analyzed"
+				signals = testAnalyzed
 			}
 			if state == domain.BookStale {
-				status = "stale"
+				signals = testStale
 			}
-			book.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-" + book.Book.ID, OwnerID: "owner", Title: book.Book.Title, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: revision, ContentSnapshotID: "snapshot"}, BookID: book.Book.ID, AnalysisStatus: status}
+			book.Acquired = &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-" + book.Book.ID, OwnerID: "owner", Title: book.Book.Title, Language: "de", MediaType: "application/epub+zip", ContentRevisionID: revision, ContentSnapshotID: "snapshot"}, BookID: book.Book.ID, Signals: signals}
 		}
 		books = append(books, book)
 	}

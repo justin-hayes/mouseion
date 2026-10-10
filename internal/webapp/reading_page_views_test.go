@@ -19,12 +19,12 @@ func renderReading(t *testing.T, view readingPageView, message, pageError string
 	return output.String()
 }
 
-func testReadingBook(id, title, status string) readingBookView {
-	return readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, AnalysisStatus: status}}
+func testReadingBook(id, title string, signals domain.AnalysisSignals) readingBookView {
+	return readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: id, Title: title, Language: "de"}, Signals: signals}}
 }
 
 func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBook(t *testing.T) {
-	currentReading := testReadingBook("current", "Der lange Weg nach Hause", "ready")
+	currentReading := testReadingBook("current", "Der lange Weg nach Hause", testNoContent)
 	currentReading.Book.BookAuthor = "A. Reader"
 	currentReading.Cover = domain.BookCover{State: domain.BookCoverUnavailable}
 	currentReading.ReadingSince = time.Date(2026, time.January, 3, 12, 0, 0, 0, time.UTC)
@@ -46,7 +46,7 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 }
 
 func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
-	currentReading := testReadingBook("goal", "Goal book", "analyzed")
+	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReading.CurrentReadingSnapshotSize = 2
 	currentReading.CurrentReadingSnapshotID = "snapshot"
 	currentReading.CurrentReadingVocabularyEligible = 1
@@ -67,7 +67,7 @@ func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing
 }
 
 func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
-	currentReading := testReadingBook("empty-goal", "Empty Goal book", "analyzed")
+	currentReading := testReadingBook("empty-goal", "Empty Goal book", testAnalyzed)
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "0 lemmas are set aside from vocabulary selection while you read this Book.")
 	assert.NotContains(t, html, "Deck preparation unavailable")
@@ -75,7 +75,7 @@ func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
 }
 
 func TestIsCurrentReadingShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
-	currentReading := testReadingBook("unavailable-goal", "Unavailable Goal book", "analyzed")
+	currentReading := testReadingBook("unavailable-goal", "Unavailable Goal book", testAnalyzed)
 	currentReading.CurrentReadingSnapshotSize = 2
 	currentReading.CurrentReadingDeckUnavailable = true
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
@@ -85,7 +85,7 @@ func TestIsCurrentReadingShowsReservedVocabularyWhenDeckIsUnavailable(t *testing
 }
 
 func TestIsCurrentReadingShowsMissingDeckWithoutChangingCurrentReadingFacts(t *testing.T) {
-	currentReading := testReadingBook("missing-goal", "Missing Goal deck", "analyzed")
+	currentReading := testReadingBook("missing-goal", "Missing Goal deck", testAnalyzed)
 	currentReading.CurrentReadingSnapshotSize = 2
 	currentReading.CurrentReadingSnapshotID = "missing-snapshot"
 	currentReading.CurrentReadingDeckMissing = true
@@ -102,7 +102,7 @@ func TestReservedVocabularySummaryPluralizesLearnerCopy(t *testing.T) {
 }
 
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
-	currentReading := testReadingBook("goal-state", "Goal state book", "analyzed")
+	currentReading := testReadingBook("goal-state", "Goal state book", testAnalyzed)
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.Contains(t, html, "Reserved vocabulary</h2>")
 	assert.Contains(t, html, "Analysis</h2>")
@@ -111,11 +111,10 @@ func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 }
 
 func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
-	stale := testReadingBook("stale", "Stale book", "stale")
+	stale := testReadingBook("stale", "Stale book", testStale)
 	stale.Book.Source.MediaType = "application/epub+zip"
 	stale.Book.Source.ContentRevisionID = "current-revision"
 	stale.Book.Source.ContentSnapshotID = "current-snapshot"
-	stale.Book.AnalysisState = "completed"
 	stale.Book.AnalysisRunID = "old-run"
 	stale.Book.CorpusID = "old-corpus"
 	action := readingAnalysisAction(stale)
@@ -123,7 +122,7 @@ func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
 	assert.Equal(t, "Re-analyze", action.Label)
 	assert.Equal(t, "/reading/books/stale/reanalyze", action.URL)
 	assert.True(t, action.Submit)
-	unassessed := testReadingBook("unassessed", "Unassessed book", "not analyzed")
+	unassessed := testReadingBook("unassessed", "Unassessed book", testNotAnalyzed)
 	unassessed.Book.Source.MediaType = "application/epub+zip"
 	unassessed.Book.Source.ContentRevisionID = "revision"
 	unassessed.Book.Source.ContentSnapshotID = "snapshot"
@@ -133,7 +132,7 @@ func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
 	assert.Equal(t, "/reading/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 
-	missingSnapshot := testReadingBook("missing-snapshot", "Missing snapshot", "analyzed")
+	missingSnapshot := testReadingBook("missing-snapshot", "Missing snapshot", testAnalyzed)
 	missingSnapshot.Book.Source.MediaType = "application/epub+zip"
 	missingSnapshot.Book.Source.ContentRevisionID = "current-revision"
 	action = readingAnalysisAction(missingSnapshot)
@@ -141,12 +140,13 @@ func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
 	assert.Equal(t, "Retry acquisition", action.Label)
 
 	for _, test := range []struct {
-		status, wantStatus string
+		name, wantStatus string
+		signals          domain.AnalysisSignals
 	}{
-		{status: "analysis queued", wantStatus: "Analysis queued"},
-		{status: "analysis running", wantStatus: "Analysis running"},
+		{name: "analysis queued", signals: testQueued, wantStatus: "Analysis queued"},
+		{name: "analysis running", signals: testRunning, wantStatus: "Analysis running"},
 	} {
-		item := testReadingBook(test.status, test.status, test.status)
+		item := testReadingBook(test.name, test.name, test.signals)
 		item.Book.Source.MediaType = "application/epub+zip"
 		item.Book.Source.ContentRevisionID = "revision"
 		item.Book.Source.ContentSnapshotID = "snapshot"
@@ -159,11 +159,10 @@ func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
 }
 
 func TestReadingIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
-	item := testReadingBook("incomplete", "Incomplete analyzed book", "analyzed")
+	item := testReadingBook("incomplete", "Incomplete analyzed book", testAnalyzed)
 	item.Book.Source.MediaType = "application/epub+zip"
 	item.Book.Source.ContentRevisionID = "revision"
 	item.Book.Source.ContentSnapshotID = "snapshot"
-	item.Book.AnalysisState = "completed"
 	item.Book.AnalysisRunID = "run"
 	item.Book.CorpusID = "corpus"
 	item.StatisticsUnavailable = true
@@ -176,11 +175,10 @@ func TestReadingIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
 }
 
 func TestReadingTreatsAnalyzedEvidenceAndEligibleCurrentReadingsAsCurrent(t *testing.T) {
-	item := testReadingBook("analyzed", "Analyzed book", "analyzed")
+	item := testReadingBook("analyzed", "Analyzed book", testAnalyzed)
 	item.Book.Source.MediaType = "application/epub+zip"
 	item.Book.Source.ContentRevisionID = "revision"
 	item.Book.Source.ContentSnapshotID = "snapshot"
-	item.Book.AnalysisState = "completed"
 	item.Book.AnalysisRunID = "run"
 	item.Book.CorpusID = "corpus"
 	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}

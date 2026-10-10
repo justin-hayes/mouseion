@@ -445,22 +445,20 @@ func readingChooserEvidenceState(book domain.MyBook) (readingChooserState, strin
 	if book.Acquired == nil {
 		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
 	}
-	status := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisStatus))
-	state := strings.ToLower(strings.TrimSpace(book.Acquired.AnalysisState))
-	evidenceState := book.Acquired.EvidenceState()
-	if state == "completed" && evidenceState != domain.BookStale && (status == "analyzing" || status == "not analyzed") {
+	classification := book.Classification()
+	if classification.PublicationPending() {
 		return readingChooserInProgress, analysisPublicationPendingDescription
 	}
-	if strings.Contains(status, "queued") || strings.Contains(status, "running") || status == "analyzing" {
+	if classification.Phase == domain.PhaseAnalyzing {
 		return readingChooserInProgress, "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
 	}
-	if evidenceState == domain.BookStale {
+	if classification.Evidence == domain.BookStale {
 		return readingChooserNeedsAttention, "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."
 	}
-	if evidenceState == domain.BookUnavailable || evidenceState == domain.BookNotAcquired {
+	if classification.Evidence == domain.BookUnavailable || classification.Evidence == domain.BookNotAcquired {
 		return readingChooserNeedsAttention, "Current book content is unavailable. Retry acquisition or analysis from My Books."
 	}
-	if strings.Contains(status, "failed") || strings.Contains(status, "cancelled") {
+	if classification.Phase == domain.PhaseFailed || classification.Phase == domain.PhaseCancelled {
 		return readingChooserNeedsAttention, "The last analysis did not complete. Retry analysis to refresh its evidence."
 	}
 	return readingChooserNeedsAttention, "Current analysis is not complete. Retry analysis to produce usable evidence."

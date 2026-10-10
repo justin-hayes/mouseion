@@ -87,7 +87,7 @@ func TestCurrentReadingSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
 }
 
 func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
-	unassessed := testReadingBook("reading-only", "Reading-only book", "ready")
+	unassessed := testReadingBook("reading-only", "Reading-only book", testNoContent)
 	unassessed.ReadingOnly = true
 	unassessed.CurrentReadingUnassessed = true
 	readingOnlyHTML := renderCurrentReadingSection(t, &unassessed, "", "", "reading-only")
@@ -95,19 +95,19 @@ func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) 
 		assert.True(t, strings.Contains(readingOnlyHTML, want), "unassessed Goal missing %q: %s", want, readingOnlyHTML)
 	}
 
-	assessed := testReadingBook("assessed", "Assessed without deck", "analyzed")
+	assessed := testReadingBook("assessed", "Assessed without deck", testAnalyzed)
 	assessed.ReadingOnly = true
 	assessed.CurrentReadingUnassessed = false
 	assessedHTML := renderCurrentReadingSection(t, &assessed, "", "", "assessed")
 	assert.True(t, strings.Contains(assessedHTML, "Analysis evidence exists, but this Book has no deck-eligible vocabulary"), "assessed reading-only copy missing: %s", assessedHTML)
 
-	currentReading := testReadingBook("goal", "Goal book", "analyzed")
+	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReadingHTML := renderCurrentReadingSection(t, &currentReading, "", "", "goal")
 	assert.False(t, strings.Contains(currentReadingHTML, "Clear Current reading"), "retired Goal clear action remained visible: %s", currentReadingHTML)
 }
 
 func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) {
-	currentReading := testReadingBook("goal", "Goal book", "analyzed")
+	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReading.CurrentReadingSnapshotID = "goal-snapshot"
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading}, "", "")
 	assert.NotContains(t, html, `action="/goal/books/`)

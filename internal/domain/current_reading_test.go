@@ -7,19 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCurrentReadingEligibilityUsesCurrentReadingVocabulary(t *testing.T) {
-	summary := SourceMaterialSummary{
-		Source:         SourceMaterial{ID: "book", MediaType: "application/epub+zip", ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
-		AnalysisStatus: "analyzed",
-		AnalysisState:  "completed",
-		AnalysisRunID:  "run",
-		CorpusID:       "corpus",
-	}
-
-	assert.Equal(t, CurrentReadingEligible, summary.CurrentReadingEligibility())
-	assert.Equal(t, CurrentReadingEligible, summary.CurrentReadingEligibility())
-}
-
 func TestCurrentReadingValidate(t *testing.T) {
 	valid := CurrentReading{OwnerID: "owner", Language: "de", BookID: "book"}
 	require.NoError(t, valid.Validate())

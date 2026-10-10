@@ -15,9 +15,9 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 	store.books = append(store.books, domain.SourceMaterialSummary{
-		Source:         domain.SourceMaterial{ID: "fixture-detail-source", OwnerID: OwnerID, Language: "de", Title: "Distinct fixture identities"},
-		BookID:         "fixture-detail-book",
-		AnalysisStatus: "not analyzed",
+		Source:  domain.SourceMaterial{ID: "fixture-detail-source", OwnerID: OwnerID, Language: "de", Title: "Distinct fixture identities"},
+		BookID:  "fixture-detail-book",
+		Signals: notAnalyzedSignals,
 	})
 
 	for _, id := range []string{BookID, SourceID, "fixture-metadata-only", "fixture-detail-book", "fixture-detail-source"} {

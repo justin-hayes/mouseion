@@ -2,7 +2,6 @@
 package domain
 
 import (
-	"strings"
 	"time"
 )
 
@@ -279,11 +278,12 @@ type SourceMaterialSummary struct {
 	Source SourceMaterial
 	// BookTitle is the canonical catalogue title when this source is projected
 	// onto its learner-facing Book identity.
-	BookTitle        string
-	BookAuthor       string
-	BookID           string
-	AnalysisStatus   string
-	AnalysisState    string
+	BookTitle  string
+	BookAuthor string
+	BookID     string
+	// Signals is the typed analysis evidence, mapped from the source row by
+	// persistence. Presentation reads it through EvidenceClassification.
+	Signals          AnalysisSignals
 	AnalysisRunID    string
 	CorpusID         string
 	AnalysisJobID    int64
@@ -291,23 +291,16 @@ type SourceMaterialSummary struct {
 	IsCurrentReading bool
 }
 
-// EvidenceState classifies the raw acquisition and analysis signals for a
-// source summary without relying on a persisted projection.
+// EvidenceClassification classifies this source's Analysis evidence. Eligibility
+// is reported as if the Book were To Read with its source language chosen;
+// callers that need the learner's actual eligibility use MyBook.Classification.
+func (s SourceMaterialSummary) EvidenceClassification() BookEvidenceClassification {
+	return ClassifyBookEvidence(s.Signals, BookDispositionToRead, s.Source.Language)
+}
+
+// EvidenceState classifies the acquisition and analysis evidence of this source.
 func (s SourceMaterialSummary) EvidenceState() BookEvidenceState {
-	if s.Source.ID == "" {
-		return BookNotAcquired
-	}
-	if s.Source.ContentRevisionID == "" || s.Source.ContentSnapshotID == "" {
-		return BookUnavailable
-	}
-	switch strings.ToLower(strings.TrimSpace(s.AnalysisStatus)) {
-	case "stale":
-		return BookStale
-	case "analyzed":
-		return BookAnalyzed
-	default:
-		return BookAcquiredUnassessed
-	}
+	return s.EvidenceClassification().Evidence
 }
 
 type OpdsConnection struct {
