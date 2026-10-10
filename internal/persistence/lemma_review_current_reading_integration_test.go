@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,18 +22,14 @@ func TestLemmaDecisionProposalCommittedAfterStartIsRejectedAndSavesNothing(t *te
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
 	require.NoError(t, err)
 	require.Len(t, occurrences, 1)
-	affected := []domain.LemmaReviewIdentity{
-		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"},
-		{Language: "de", CanonicalLemma: "heim", UPOS: "NOUN"},
-	}
-	decisions := []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}
+	proposal := reviewProposal(owner.ID, target.ID, "Heim", "correct", "haus", occurrences[0])
 
 	_, err = store.StartCurrentReading(ctx, owner.ID, "de", target.ID)
 	require.NoError(t, err)
-	fingerprint, err := store.LemmaReviewStateFingerprint(ctx, owner.ID, target.ID, "de", "Heim", affected)
+	preview, err := store.ReadLemmaReviewProposal(ctx, proposal)
 	require.NoError(t, err)
 
-	err = store.PutLemmaDecisionProposal(ctx, decisions, "Heim", "de", affected, fingerprint)
+	err = store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint)
 	require.ErrorIs(t, err, ErrLemmaDecisionCurrentReading)
 	require.EqualError(t, err, "Stop this Book's current reading before changing its vocabulary.")
 	unchanged, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")

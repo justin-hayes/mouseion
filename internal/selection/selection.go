@@ -179,15 +179,12 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 	aggs := map[Identity]*aggregate{}
 	for si, sentence := range corpus.Sentences {
 		for _, token := range sentence.Tokens {
-			lemma := token.CanonicalLemma
-			if decision, ok := decisions[occurrenceIdentity(token)]; ok {
-				if decision.Excluded {
-					continue
-				}
-				lemma = decision.Lemma
+			var decision *OccurrenceDecision
+			if learner, ok := decisions[occurrenceIdentity(token)]; ok {
+				decision = &learner
 			}
-			id := Identity{corpus.Language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(token.UPOS))}
-			if !OccurrenceEligible(cfg, lemma, token.UPOS, token.Dependency) {
+			id, counts := Effective(cfg, corpus.Language, OccurrenceFact{Lemma: token.CanonicalLemma, UPOS: token.UPOS, Dependency: token.Dependency}, decision)
+			if !counts {
 				continue
 			}
 			a := aggs[id]
@@ -201,6 +198,28 @@ func aggregateTokens(corpus analyzer.Result, cfg SelectionConfig, decisions map[
 		}
 	}
 	return aggs
+}
+
+// OccurrenceFact is the analyzer evidence for one analyzed token, the inputs
+// Effective reads alongside a learner decision.
+type OccurrenceFact struct{ Lemma, UPOS, Dependency string }
+
+// Effective is the one per-occurrence step that decides an analyzed token's
+// effective vocabulary identity (ADR 0081, ADR 0087). The learner decision, when
+// present, replaces the analyzer lemma; an excluded occurrence has no identity.
+// It returns the identity and whether the occurrence counts at all. An
+// occurrence that OccurrenceEligible rejects keeps its identity but does not
+// count.
+func Effective(cfg SelectionConfig, language string, fact OccurrenceFact, decision *OccurrenceDecision) (Identity, bool) {
+	lemma := fact.Lemma
+	if decision != nil {
+		if decision.Excluded {
+			return Identity{}, false
+		}
+		lemma = decision.Lemma
+	}
+	id := Identity{language, strings.TrimSpace(lemma), strings.ToUpper(strings.TrimSpace(fact.UPOS))}
+	return id, OccurrenceEligible(cfg, lemma, fact.UPOS, fact.Dependency)
 }
 
 // OccurrenceEligible is the per-occurrence test that decides whether an

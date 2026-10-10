@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
@@ -135,7 +133,7 @@ func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, 
 			SourceDocumentID: row.UnitID, StartOffset: row.StartOffset, EndOffset: row.EndOffset,
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
-			UPOS: row.Upos, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
+			UPOS: row.Upos, Dependency: row.Dependency, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
 			ReviewFlagReason: row.ReviewFlagReason, ReviewFlagResolution: row.ReviewFlagResolution,
 		}
 		if err := json.Unmarshal([]byte(row.ReviewFlagProvenance), &occurrence.ReviewFlagProvenance); err != nil {
@@ -144,111 +142,6 @@ func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, 
 		result = append(result, occurrence)
 	}
 	return result, nil
-}
-
-// LemmaReviewStateFingerprint binds a preview to the reviewed occurrences and to
-// exactly what its impact depended on, for only the identities the proposal
-// affects: their projected effective counts in this Book and in the learner's
-// other currently analyzed Books, and their Known and Reserved state. Its work
-// is proportional to those identities, not the corpus. Like the impact preview
-// it reports the pending or unavailable count errors while a projection is not
-// ready.
-func (s *PostgresStore) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, affected []domain.LemmaReviewIdentity) (fingerprint string, err error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
-	if err != nil {
-		return "", fmt.Errorf("begin lemma review fingerprint: %w", err)
-	}
-	defer func() {
-		if rollbackErr := tx.Rollback(ctx); err == nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			err = rollbackErr
-		}
-	}()
-	return lemmaReviewStateFingerprintTx(ctx, tx, owner, bookID, language, surface, affected)
-}
-
-func lemmaReviewStateFingerprintTx(ctx context.Context, tx pgx.Tx, owner, bookID, language, surface string, affected []domain.LemmaReviewIdentity) (string, error) {
-	q := sqlcgen.New(tx)
-	occurrences, err := listLemmaReviewOccurrences(ctx, q, owner, bookID, surface)
-	if err != nil {
-		return "", err
-	}
-	scope, err := browseCountReadinessForDecision(ctx, tx, owner, bookID)
-	if err != nil {
-		return "", err
-	}
-	if !scope.ready {
-		return "", ErrVocabularyBrowseCountsPending
-	}
-	unique := make(map[domain.LemmaReviewIdentity]struct{}, len(affected))
-	lemmas := make([]string, 0, len(affected))
-	across := make([]currentReadingVocabularyIdentity, 0, len(affected))
-	for _, identity := range affected {
-		if _, seen := unique[identity]; seen {
-			continue
-		}
-		unique[identity] = struct{}{}
-		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
-		lemmas = append(lemmas, normalized.lemma)
-		across = append(across, currentReadingVocabularyIdentity{lemma: normalized.lemma, upos: normalized.upos})
-	}
-	inBook := make(map[browseCountIdentity]int64, len(unique))
-	rows, err := tx.Query(ctx, `SELECT canonical_lemma,upos,occurrence_count FROM vocabulary_browse_counts
-		WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND corpus_id=$4 AND canonical_lemma=ANY($5)`,
-		owner, bookID, scope.run, scope.corpus, lemmas)
-	if err != nil {
-		return "", fmt.Errorf("read projected counts for lemma review fingerprint: %w", err)
-	}
-	for rows.Next() {
-		var lemma, upos string
-		var count int64
-		if err := rows.Scan(&lemma, &upos, &count); err != nil {
-			rows.Close()
-			return "", err
-		}
-		inBook[normalizedBrowseCountIdentity(lemma, upos)] = count
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return "", err
-	}
-	others, err := currentAcrossBookCounts(ctx, tx, owner, scope.language, bookID, across)
-	if err != nil {
-		return "", err
-	}
-	knownRows, err := tx.Query(ctx, `SELECT canonical_lemma,upos FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=ANY($3)`,
-		owner, canonicalization.NormalizeLanguage(language), lemmas)
-	if err != nil {
-		return "", fmt.Errorf("read Known state for lemma review fingerprint: %w", err)
-	}
-	known := make(map[browseCountIdentity]bool)
-	for knownRows.Next() {
-		var lemma, upos string
-		if err := knownRows.Scan(&lemma, &upos); err != nil {
-			knownRows.Close()
-			return "", err
-		}
-		known[browseCountIdentity{lemma: lemma, upos: upos}] = true
-	}
-	knownRows.Close()
-	if err := knownRows.Err(); err != nil {
-		return "", err
-	}
-	states := make([]domain.LemmaReviewIdentityState, 0, len(unique))
-	for identity := range unique {
-		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
-		reserved, reserveErr := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-			OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
-		})
-		if reserveErr != nil {
-			return "", reserveErr
-		}
-		states = append(states, domain.LemmaReviewIdentityState{
-			Identity: identity, InBook: inBook[normalized],
-			OtherBooks: others[currentReadingVocabularyIdentity{lemma: normalized.lemma, upos: normalized.upos}],
-			Known:      known[browseCountIdentity{lemma: identity.CanonicalLemma, upos: identity.UPOS}], Reserved: reserved,
-		})
-	}
-	return domain.LemmaReviewStateFingerprint(occurrences, states), nil
 }
 
 // PutLemmaCorrection changes exactly the occurrence shown to the learner and
@@ -282,15 +175,17 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 	})
 }
 
-// PutLemmaDecisionProposal revalidates the preview fingerprint while holding
-// the learner-state lock, then commits the complete selected set atomically.
-// The current-reading gate runs first, under the same locks Start takes, so a
-// Start that committed after the review page was checked is rejected here.
-func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expectedFingerprint string) error {
-	if len(decisions) == 0 {
+// PutLemmaDecisionProposal is the one stale check of a confirmed proposal. It
+// rereads the preview's state while holding the learner-state and Book locks,
+// rejects any change since the preview, and otherwise commits the complete
+// selected set atomically. The current-reading gate runs first, under the same
+// locks Start takes, so a Start that committed after the review page was
+// checked is rejected here.
+func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, proposal domain.LemmaReviewProposal, expectedFingerprint string) error {
+	if len(proposal.Occurrences) == 0 {
 		return ErrNotFound
 	}
-	owner, book := decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID
+	owner, book := proposal.OwnerID, proposal.BookID
 	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 			return err
@@ -304,14 +199,14 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions 
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
 			return err
 		}
-		fingerprint, err := lemmaReviewStateFingerprintTx(ctx, tx, owner, book, language, surface, extras)
+		preview, err := readLemmaReviewProposalTx(ctx, tx, proposal)
 		if err != nil {
 			return err
 		}
-		if fingerprint != expectedFingerprint {
-			return ErrNotFound
+		if preview.Fingerprint != expectedFingerprint {
+			return ErrLemmaReviewPreviewStale
 		}
-		return applyLemmaDecisionsTx(ctx, tx, owner, book, decisions)
+		return applyLemmaDecisionsTx(ctx, tx, owner, book, proposal.Decisions())
 	})
 }
 
@@ -350,14 +245,8 @@ func applyLemmaDecisionsTx(ctx context.Context, tx pgx.Tx, owner, book string, d
 }
 
 func resolveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, decision domain.LemmaReviewDecision) error {
-	resolution := "correct"
-	if decision.Excluded {
-		resolution = "exclude"
-	} else if decision.CanonicalLemma == decision.Occurrence.CanonicalLemma {
-		resolution = "keep"
-	}
 	o := decision.Occurrence
-	_, err := tx.Exec(ctx, `UPDATE occurrence_lemma_review_flags SET resolution=$7,resolved_at=now() WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND source_document_id=$4 AND start_offset=$5 AND end_offset=$6`, o.OwnerID, o.BookID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, resolution)
+	_, err := tx.Exec(ctx, `UPDATE occurrence_lemma_review_flags SET resolution=$7,resolved_at=now() WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND source_document_id=$4 AND start_offset=$5 AND end_offset=$6`, o.OwnerID, o.BookID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, decision.Resolution())
 	return err
 }
 
@@ -415,11 +304,7 @@ func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain
 	if currentLemma != occurrence.CorrectedLemma || currentExcluded != occurrence.Excluded {
 		return false, ErrNotFound
 	}
-	desiredLemma := lemma
-	if excluded || lemma == occurrence.CanonicalLemma {
-		desiredLemma = ""
-	}
-	changed := currentLemma != desiredLemma || currentExcluded != excluded
+	changed := currentLemma != decision.StoredCorrection() || currentExcluded != excluded
 	expectedLemma := pgtype.Text{String: occurrence.CorrectedLemma, Valid: occurrence.CorrectedLemma != ""}
 	if lemma == occurrence.CanonicalLemma && !excluded {
 		deleted, deleteErr := q.DeleteOccurrenceLemmaCorrection(ctx, sqlcgen.DeleteOccurrenceLemmaCorrectionParams{

@@ -156,7 +156,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						for _, i := range proposal.Indices {
 							<input type="hidden" name="selected" value={ fmt.Sprint(i) }/>
 						}
-						if recovery.ReadyPreparationID != "" && lemmaProposalChangesIdentity(proposal) {
+						if recovery.ReadyPreparationID != "" && proposal.IdentityChanged {
 							if recovery.ReadyDeckSnapshotID != "" {
 								<p>Confirming will restart this Book with a new snapshot and prepare its deck from the corrected identities. The ready deck stays available as history.</p>
 								<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</span></label>

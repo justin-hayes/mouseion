@@ -94,13 +94,18 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.Len(t, flags, 1)
 	assert.Equal(t, "keep", flags[0].Resolution)
 	buildBrowseProjection(t, ctx, store, book.ID)
-	proposalIdentity := []domain.LemmaReviewIdentity{{Language: "de", CanonicalLemma: "drache", UPOS: "NOUN"}, {Language: "de", CanonicalLemma: "unrelated-known", UPOS: "NOUN"}}
-	staleFingerprint, err := store.LemmaReviewStateFingerprint(ctx, owner.ID, book.ID, "de", "Drachen", proposalIdentity)
+	// The proposal moves "unrelated-known", so making that identity Known after
+	// the preview is an affected-identity change that must reject the confirm.
+	proposal := domain.LemmaReviewProposal{
+		OwnerID: owner.ID, BookID: book.ID, Language: "de", Surface: "Drachen", Action: "correct", Lemma: "unrelated-known",
+		Occurrences: occurrences[:1], NormalizationProfile: "german-post-1996", NormalizationVersion: "6",
+	}
+	preview, err := store.ReadLemmaReviewProposal(ctx, proposal)
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "unrelated-known", "NOUN")
 	require.NoError(t, err)
-	err = store.PutLemmaDecisionProposal(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "drache", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}, "Drachen", "de", proposalIdentity, staleFingerprint)
-	require.ErrorIs(t, err, persistence.ErrNotFound, "a Known change to an identity the proposal affects after preview is rejected inside the decision transaction")
+	err = store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint)
+	require.ErrorIs(t, err, persistence.ErrLemmaReviewPreviewStale, "a Known change to an identity the proposal affects after preview is rejected inside the decision transaction")
 	unchangedAfterStaleProposal, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
 	assert.Empty(t, unchangedAfterStaleProposal[0].CorrectedLemma, "a stale preview cannot persist its proposed identity")

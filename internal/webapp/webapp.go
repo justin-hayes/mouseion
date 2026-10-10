@@ -105,17 +105,14 @@ type JobsStore interface {
 }
 
 // LemmaReviewStore provides the lemma review seam used by the Reading surface.
-type LemmaReviewStore interface { //nolint:interfacebloat // the lemma review seam also reads its Book's deck history; splitting it is a separate design change
+type LemmaReviewStore interface {
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
 	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
 	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
 	PutLemmaDecisions(context.Context, []domain.LemmaReviewDecision) error
 	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
-	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
-	PreviewLemmaDecisionCounts(context.Context, string, string, []domain.LemmaReviewDecision) ([]domain.LemmaDecisionCounts, error)
-	LemmaReviewStateFingerprint(context.Context, string, string, string, string, []domain.LemmaReviewIdentity) (string, error)
-	PutLemmaDecisionProposal(context.Context, []domain.LemmaReviewDecision, string, string, []domain.LemmaReviewIdentity, string) error
+	ReadLemmaReviewProposal(context.Context, domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
+	PutLemmaDecisionProposal(context.Context, domain.LemmaReviewProposal, string) error
 	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }
 
