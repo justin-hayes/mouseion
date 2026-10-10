@@ -228,7 +228,7 @@ func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 
 	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	_, err = store.GetDeckPreparationForGoalSnapshot(context.Background(), fixtures.OwnerID, goal.SnapshotID)
+	_, err = store.GetDeckPreparationForSnapshot(context.Background(), fixtures.OwnerID, goal.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "starting Reading does not auto-submit optional deck preparation")
 	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	assert.Equal(t, http.StatusOK, page.Code)
@@ -308,7 +308,7 @@ func TestGoalDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
 		preparation: domain.DeckPreparation{
 			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
 			SourceMaterialID: goal.SourceMaterialID, AnalysisRunID: goal.AnalysisRunID,
-			GoalSnapshotID: goal.SnapshotID, State: domain.DeckPreparationQueued,
+			SnapshotID: goal.SnapshotID, State: domain.DeckPreparationQueued,
 		},
 	}
 	handler := requireHandler(t, h)
@@ -334,7 +334,7 @@ func TestGoalDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
 		preparation: domain.DeckPreparation{
 			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
 			SourceMaterialID: goal.SourceMaterialID, AnalysisRunID: goal.AnalysisRunID,
-			GoalSnapshotID: goal.SnapshotID, State: domain.DeckPreparationPreparing,
+			SnapshotID: goal.SnapshotID, State: domain.DeckPreparationPreparing,
 		},
 	}
 	handler := requireHandler(t, h)
@@ -362,7 +362,7 @@ func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
 		preparation: domain.DeckPreparation{
 			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
 			SourceMaterialID: goal.SourceMaterialID, AnalysisRunID: goal.AnalysisRunID,
-			GoalSnapshotID: goal.SnapshotID, State: domain.DeckPreparationQueued,
+			SnapshotID: goal.SnapshotID, State: domain.DeckPreparationQueued,
 		},
 	}
 	handler := requireHandler(t, h)
@@ -435,6 +435,8 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 	h, cookies, csrf, store := goalFixtureSession(t)
 	goalBefore, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
+	knownBefore, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
 	finished := goalRequest(t, h, "/reading/finish", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goalBefore.SnapshotID},
 	}, cookies)
@@ -457,13 +459,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 	assert.Equal(t, domain.BookDispositionInbox, disposition)
 	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	graduated := 0
-	for _, item := range known {
-		if item.Provenance == "Accepted on Primary Goal completion" {
-			graduated++
-		}
-	}
-	assert.Equal(t, 2, graduated)
+	assert.Equal(t, 2, len(known)-len(knownBefore))
 	repeated := goalRequest(t, h, "/reading/finish", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goalBefore.SnapshotID},
 	}, cookies)

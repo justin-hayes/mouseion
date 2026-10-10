@@ -562,7 +562,7 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 	if bookID == "" {
 		return true
 	}
-	if preparation.GoalSnapshotID == "" {
+	if preparation.SnapshotID == "" {
 		http.NotFound(w, r)
 		return false
 	}
@@ -580,11 +580,11 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 		fail(w, err)
 		return false
 	}
-	if !goal.IsActive() || goal.BookID != bookID || goal.SnapshotID != preparation.GoalSnapshotID || goal.SourceMaterialID != preparation.SourceMaterialID || goal.AnalysisRunID != preparation.AnalysisRunID {
+	if !goal.IsActive() || goal.BookID != bookID || goal.SnapshotID != preparation.SnapshotID || goal.SourceMaterialID != preparation.SourceMaterialID || goal.AnalysisRunID != preparation.AnalysisRunID {
 		http.NotFound(w, r)
 		return false
 	}
-	if !expectedCommitmentMatches(r, preparation.GoalSnapshotID) {
+	if !expectedCommitmentMatches(r, preparation.SnapshotID) {
 		if wantsPreparationJSON(r) {
 			http.Error(w, goalStaleMessage, http.StatusConflict)
 		} else {

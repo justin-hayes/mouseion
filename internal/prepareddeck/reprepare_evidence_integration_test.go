@@ -182,7 +182,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NotEmpty(t, goal.SnapshotID)
 	require.Equal(t, 1, goal.SnapshotSize)
 	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
-		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRunID, GoalSnapshotID: goal.SnapshotID,
+		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRunID, SnapshotID: goal.SnapshotID,
 		Filename: cardexport.DownloadFilename(source.Title), DeckName: source.Title, ContentHash: source.ContentHash,
 	})
 	require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	assert.NotEqual(t, first.ID, refreshed.Preparation.ID)
 	require.Equal(t, domain.DeckPreparationQueued, refreshed.Preparation.State)
 	assert.Equal(t, analysisRunID, refreshed.Preparation.AnalysisRunID)
-	assert.Equal(t, goal.SnapshotID, refreshed.Preparation.GoalSnapshotID, "explicit re-preparation must retain the frozen Reading snapshot")
+	assert.Equal(t, goal.SnapshotID, refreshed.Preparation.SnapshotID, "explicit re-preparation must retain the frozen Reading snapshot")
 	second := prepare(refreshed.Preparation)
 	secondRun, err := store.GetCurrentPreparedDeckRun(ctx, owner.ID, second.ID)
 	require.NoError(t, err)

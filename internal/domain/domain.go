@@ -38,17 +38,17 @@ func (s DeckPreparationState) CanTransitionTo(next DeckPreparationState) bool {
 }
 
 type DeckPreparation struct {
-	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, BookID, GoalSnapshotID, Filename, DeckName, ContentHash, Error string
-	State                                                                                                                      DeckPreparationState
-	Artifact                                                                                                                   []byte
-	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                              int
-	ContextualGlosses, ContextOnlyGlosses                                                                                      int
-	ContextualGlossesReported                                                                                                  bool
-	QualityOmissions                                                                                                           int
-	RenderInputVersion, PresentationVersion, DeckRevision                                                                      int
-	VocabularyCount                                                                                                            int
-	EvidenceCoverage                                                                                                           []DeckPreparationEvidenceCoverage
-	MeaningOmissions                                                                                                           []DeckPreparationMeaningOmission
+	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, BookID, SnapshotID, Filename, DeckName, ContentHash, Error string
+	State                                                                                                                  DeckPreparationState
+	Artifact                                                                                                               []byte
+	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                          int
+	ContextualGlosses, ContextOnlyGlosses                                                                                  int
+	ContextualGlossesReported                                                                                              bool
+	QualityOmissions                                                                                                       int
+	RenderInputVersion, PresentationVersion, DeckRevision                                                                  int
+	VocabularyCount                                                                                                        int
+	EvidenceCoverage                                                                                                       []DeckPreparationEvidenceCoverage
+	MeaningOmissions                                                                                                       []DeckPreparationMeaningOmission
 	// The fields below are a derived, owner-scoped status projection. They are
 	// deliberately not part of the public state machine; they describe the
 	// durable run and Batch work behind the existing preparing state.
@@ -555,11 +555,7 @@ type SharedLemma struct {
 }
 type KnownVocabulary struct {
 	ID, OwnerID, Language, CanonicalLemma, UPOS string
-	// Provenance is a presentation-only projection. Explicitly recorded
-	// entries have no durable source column; reviewed-deck graduation is
-	// available when the deck snapshot can be joined.
-	Provenance string
-	CreatedAt  time.Time
+	CreatedAt                                   time.Time
 }
 type GeneratedVocabulary struct {
 	OwnerID, Language, CanonicalLemma, UPOS string

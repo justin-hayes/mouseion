@@ -172,9 +172,9 @@ func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos strin
 func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparation {
 	return domain.DeckPreparation{
 		ID: row.ID, OwnerID: row.OwnerID, SourceMaterialID: row.SourceMaterialID,
-		BookID:         uuidString(row.BookID),
-		GoalSnapshotID: uuidString(row.GoalSnapshotID),
-		State:          domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
+		BookID:     uuidString(row.BookID),
+		SnapshotID: uuidString(row.GoalSnapshotID),
+		State:      domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
 		DeckName: row.DeckName, ContentHash: row.ContentHash, TotalCards: row.TotalCards,
 		CardsWithEnglish: row.CardsWithEnglish, CardsWithContextualSentenceTranslations: row.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: row.CardsWithFallbackGloss,
 		QualityOmissions: row.QualityOmissions, Error: row.Error, CreatedAt: row.CreatedAt,

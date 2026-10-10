@@ -24,7 +24,7 @@ func (repreparingPreparedDeck) Get(_ context.Context, owner, id string) (domain.
 	return domain.DeckPreparation{
 		ID: id, OwnerID: owner, SourceMaterialID: fixtures.SourceID,
 		AnalysisRunID: fixtures.ResultRunID, BookID: fixtures.BookID,
-		GoalSnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady,
+		SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady,
 	}, nil
 }
 

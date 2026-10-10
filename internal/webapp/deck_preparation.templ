@@ -39,8 +39,8 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 		if preparation.State == domain.DeckPreparationReady {
 			if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
 				@Feedback(FeedbackError, "Action needed", domain.DeckPreparationRequiresRepreparationError)
-				if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
-					<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
+				if preparation.SnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
+					<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/><button class="button" type="submit">Re-prepare deck</button></form>
 				} else if journeyAction.BookID == "" {
 					<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 						<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -66,15 +66,15 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 				}
 				@ActionGroup() {
 					<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-					if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
+					if preparation.SnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
 						<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/>
+							<input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/>
 							<button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button>
 						</form>
 					}
 				}
-				if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
+				if preparation.SnapshotID != "" && journeyAction.State == deckIsCurrentReading || journeyAction.BookID == "" {
 					<p>Re-preparation remains bound to this snapshot while using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
 				} else if journeyAction.BookID == "" {
 					<p>Re-preparation creates a new deck generation using current dictionary evidence and translation rules. The existing deck remains available for download.</p>
@@ -89,8 +89,8 @@ templ DeckPreparationStatus(csrf string, preparation domain.DeckPreparation, res
 			if preparation.State == domain.DeckPreparationFailed {
 				@Feedback(FeedbackError, "Action needed", preparationFailureMessageFor(preparation))
 			}
-			if preparation.GoalSnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
-				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
+			if preparation.SnapshotID != "" && journeyAction.State == deckIsCurrentReading && journeyAction.BookID != "" {
+				<form method="post" action={ templ.SafeURL("/reading/books/"+journeyAction.BookID+"/deck/retry") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/><button class="button" type="submit">Retry deck preparation</button></form>
 			} else if journeyAction.BookID == "" {
 				<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/retry") }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>

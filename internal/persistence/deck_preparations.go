@@ -288,7 +288,7 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 		if err = sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: p.OwnerID, Book: uuidArg(bookID)}); err != nil {
 			return domain.DeckPreparation{}, false, err
 		}
-		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), GoalSnapshot: nullableUUIDArg(p.GoalSnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+		model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, BookID: uuidArg(bookID), AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
 		return deckPreparationFromModel(model), true, err
 	}
 
@@ -306,7 +306,7 @@ func CreateDeckPreparationTx(ctx context.Context, tx pgx.Tx, p domain.DeckPrepar
 	if !errors.Is(err, ErrNotFound) {
 		return domain.DeckPreparation{}, false, err
 	}
-	model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: nullableUUIDArg(p.AnalysisRunID), GoalSnapshot: nullableUUIDArg(p.GoalSnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
+	model, err := sqlcgen.New(tx).CreateDeckPreparation(ctx, sqlcgen.CreateDeckPreparationParams{Owner: p.OwnerID, SourceMaterial: p.SourceMaterialID, AnalysisRun: nullableUUIDArg(p.AnalysisRunID), Snapshot: nullableUUIDArg(p.SnapshotID), Filename: p.Filename, DeckName: p.DeckName, ContentHash: p.ContentHash})
 	return deckPreparationFromModel(model), true, err
 }
 
@@ -475,10 +475,10 @@ func (s *PostgresStore) GetDeckPreparationForAnalysis(ctx context.Context, owner
 	return deckPreparationFromModel(model), missing(err)
 }
 
-// GetDeckPreparationForGoalSnapshot returns the current, owner-scoped
+// GetDeckPreparationForSnapshot returns the current, owner-scoped
 // preparation bound to one exact immutable reading snapshot.
-func (s *PostgresStore) GetDeckPreparationForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
-	model, err := s.queries().GetDeckPreparationForGoalSnapshot(ctx, sqlcgen.GetDeckPreparationForGoalSnapshotParams{Owner: owner, GoalSnapshot: uuidArg(snapshotID)})
+func (s *PostgresStore) GetDeckPreparationForSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+	model, err := s.queries().GetDeckPreparationForSnapshot(ctx, sqlcgen.GetDeckPreparationForSnapshotParams{Owner: owner, Snapshot: uuidArg(snapshotID)})
 	return deckPreparationFromModel(model), missing(err)
 }
 

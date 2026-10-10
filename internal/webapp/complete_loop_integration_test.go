@@ -239,7 +239,7 @@ func TestCompleteLearnerLoopFromOnboardingToGoalCompletion(t *testing.T) {
 	if preparation.TotalCards != 1 || preparation.CurrentRunID == "" {
 		require.Failf(t, "ready preparation failure", "ready preparation state=%s total_cards=%d current_run=%q translation=%d/%d error=%q", string(preparation.State), preparation.TotalCards, preparation.CurrentRunID, preparation.TranslationDone, preparation.TranslationEligible, preparation.Error)
 	}
-	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
+	assert.Equal(t, goal.SnapshotID, preparation.SnapshotID)
 	run, err := store.GetPreparedDeckRun(ctx, owner.ID, preparation.ID, preparation.CurrentRunID)
 	require.NoError(t, err)
 	assert.True(t, run.ExternalTranslationConfigured, "new Goal preparation requires contextual translation")

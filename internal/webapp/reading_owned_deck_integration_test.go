@@ -91,7 +91,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	require.NoError(t, err)
 	assert.Equal(t, reading.SourceMaterialID, preparation.SourceMaterialID)
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
-	assert.Equal(t, reading.SnapshotID, preparation.GoalSnapshotID)
+	assert.Equal(t, reading.SnapshotID, preparation.SnapshotID)
 
 	// Verify the actual preparation input reader uses the frozen rows, not the
 	// now-ineligible live projection.
@@ -110,7 +110,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	afterRetry, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, preparation.ID, afterRetry.ID)
-	assert.Equal(t, reading.SnapshotID, afterRetry.GoalSnapshotID)
+	assert.Equal(t, reading.SnapshotID, afterRetry.SnapshotID)
 
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {book.ID},
@@ -152,13 +152,13 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	require.Equal(t, http.StatusSeeOther, nextSubmitted.Code)
 	nextPreparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, nextReading.SnapshotID)
 	require.NoError(t, err)
-	assert.Equal(t, nextReading.SnapshotID, nextPreparation.GoalSnapshotID)
+	assert.Equal(t, nextReading.SnapshotID, nextPreparation.SnapshotID)
 	oldGeneration, err := store.GetDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err)
 	require.NotNil(t, oldGeneration.RetiredAt, "the new reading keeps its own deck generation")
 	continued, err := store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID)
 	require.NoError(t, err, "a submitted historical job remains claimable after a newer generation retires it")
-	assert.Equal(t, reading.SnapshotID, continued.GoalSnapshotID)
+	assert.Equal(t, reading.SnapshotID, continued.SnapshotID)
 	_, err = store.CompleteDeckPreparation(ctx, owner.ID, preparation.ID, domain.DeckPreparation{
 		Artifact: []byte("finished-reading-deck"), Filename: "finished-reading.apkg", DeckName: "Reading-owned deck", TotalCards: 2,
 	})

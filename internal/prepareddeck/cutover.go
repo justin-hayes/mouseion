@@ -43,7 +43,7 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 	if a == nil || a.Store == nil {
 		return nil, "", errors.New("prepareddeck: input fact store is unavailable")
 	}
-	if preparation.GoalSnapshotID == "" && tx != nil {
+	if preparation.SnapshotID == "" && tx != nil {
 		var bookID *string
 		if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, preparation.OwnerID, preparation.SourceMaterialID).Scan(&bookID); err != nil {
 			return nil, "", fmt.Errorf("resolve direct-deck Book identity: %w", err)
@@ -65,8 +65,8 @@ func (a *InputAssembler) AssemblePreparedDeckInputs(ctx context.Context, tx pgx.
 		}
 	}
 	selected := make([]domain.SelectionCandidate, 0, len(facts.Candidates))
-	if preparation.GoalSnapshotID != "" && !facts.GoalSnapshotActive {
-		return nil, "", fmt.Errorf("prepareddeck: Goal snapshot %q is unavailable", preparation.GoalSnapshotID)
+	if preparation.SnapshotID != "" && !facts.GoalSnapshotActive {
+		return nil, "", fmt.Errorf("prepareddeck: Goal snapshot %q is unavailable", preparation.SnapshotID)
 	}
 	if facts.GoalSnapshotActive {
 		selected = append(selected, facts.GoalSnapshot...)

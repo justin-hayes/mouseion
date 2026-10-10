@@ -69,7 +69,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	testutil.StopOnCleanup(t, "River client", client.Stop)
 	AddPreparedDeckWorker(workers, store, cardexport.NewPresentation(nil), client, nil, BatchConfig{}, PreparedDeckConfig{}, false)
 	service := &Service{pool: store.Pool(), client: &unconfirmedRiverClient{client: client}, store: store}
-	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, GoalSnapshotID: firstGoal.SnapshotID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
+	unconfiguredPreparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisHandle.RunID, SnapshotID: firstGoal.SnapshotID, Filename: "unconfigured.apkg", DeckName: "Unconfigured", ContentHash: source.ContentHash})
 	require.NoError(t, err)
 	unconfiguredWorker := &Worker{Store: store, Coordinator: NewDurableCoordinator(store, client, NewPreparedDeckPlanner(NewInputAssembler(store), cardexport.NewPresentation(nil), nil, false, BatchConfig{}, PreparedDeckConfig{}))}
 	unconfiguredArgs := JobArgs{PreparationID: unconfiguredPreparation.ID, OwnerID: owner.ID, SourceMaterialID: source.ID, ContentHash: source.ContentHash, AnalysisRunID: analysisHandle.RunID}
@@ -202,7 +202,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.NotEqual(t, reprepared.Preparation.ID, refreshed.Preparation.ID, "explicit re-preparation creates a distinct generation")
 	assert.Equal(t, analysisHandle.RunID, refreshed.Preparation.AnalysisRunID, "re-preparation preserves exact analysis identity")
-	assert.Equal(t, reprepared.Preparation.GoalSnapshotID, refreshed.Preparation.GoalSnapshotID, "re-preparation preserves exact Goal snapshot identity")
+	assert.Equal(t, reprepared.Preparation.SnapshotID, refreshed.Preparation.SnapshotID, "re-preparation preserves exact Goal snapshot identity")
 	assert.Equal(t, domain.DeckPreparationQueued, refreshed.Preparation.State)
 	oldGeneration, err := service.Download(ctx, owner.ID, reprepared.Preparation.ID)
 	require.NoError(t, err)
@@ -241,7 +241,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	require.Equal(t, domain.DeckPreparationQueued, firstGoalPreparation.Preparation.State)
 	require.NotZero(t, firstGoalPreparation.JobID)
-	assert.Equal(t, firstGoal.SnapshotID, firstGoalPreparation.Preparation.GoalSnapshotID)
+	assert.Equal(t, firstGoal.SnapshotID, firstGoalPreparation.Preparation.SnapshotID)
 	var goalSubmissions sync.WaitGroup
 	goalResults := make(chan Handle, 8)
 	goalErrors := make(chan error, 8)
@@ -279,7 +279,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.NoError(t, err)
 	assert.NotEqual(t, firstGoalPreparation.Preparation.ID, goalRefresh.Preparation.ID)
 	assert.Equal(t, firstGoalPreparation.Preparation.AnalysisRunID, goalRefresh.Preparation.AnalysisRunID)
-	assert.Equal(t, firstGoal.SnapshotID, goalRefresh.Preparation.GoalSnapshotID, "Goal re-preparation preserves exact snapshot identity")
+	assert.Equal(t, firstGoal.SnapshotID, goalRefresh.Preparation.SnapshotID, "Goal re-preparation preserves exact snapshot identity")
 	goalHistory, err := service.Download(ctx, owner.ID, firstGoalPreparation.Preparation.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("goal-old-artifact"), goalHistory.Artifact)

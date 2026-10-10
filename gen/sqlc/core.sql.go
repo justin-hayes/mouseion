@@ -334,16 +334,6 @@ SELECT kv.id::text,
        kv.language,
        kv.canonical_lemma,
        kv.upos,
-       (CASE WHEN EXISTS (
-          SELECT 1 FROM known_vocabulary completion
-          WHERE completion.id = kv.id AND completion.completion_book_id IS NOT NULL
-        ) THEN 'Accepted on Primary Goal completion' WHEN EXISTS (
-          SELECT 1 FROM deck_preparation_vocabulary dv
-          JOIN deck_preparations p ON p.owner_id = dv.owner_id AND p.id = dv.deck_preparation_id
-         WHERE dv.owner_id = kv.owner_id AND dv.language = kv.language
-           AND dv.canonical_lemma = kv.canonical_lemma AND dv.upos = kv.upos
-           AND dv.graduated_at IS NOT NULL AND p.reviewed_at IS NOT NULL
-       ) THEN 'Graduated from reviewed deck' ELSE 'Explicitly recorded' END)::text AS provenance,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2
 `
@@ -359,7 +349,6 @@ type GetKnownVocabularyRow struct {
 	Language       string
 	CanonicalLemma string
 	Upos           string
-	Provenance     string
 	CreatedAt      time.Time
 }
 
@@ -372,7 +361,6 @@ func (q *Queries) GetKnownVocabulary(ctx context.Context, arg GetKnownVocabulary
 		&i.Language,
 		&i.CanonicalLemma,
 		&i.Upos,
-		&i.Provenance,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -893,16 +881,6 @@ SELECT kv.id::text,
        kv.language,
        kv.canonical_lemma,
        kv.upos,
-       (CASE WHEN EXISTS (
-          SELECT 1 FROM known_vocabulary completion
-          WHERE completion.id = kv.id AND completion.completion_book_id IS NOT NULL
-        ) THEN 'Accepted on Primary Goal completion' WHEN EXISTS (
-          SELECT 1 FROM deck_preparation_vocabulary dv
-         JOIN deck_preparations p ON p.owner_id = dv.owner_id AND p.id = dv.deck_preparation_id
-         WHERE dv.owner_id = kv.owner_id AND dv.language = kv.language
-           AND dv.canonical_lemma = kv.canonical_lemma AND dv.upos = kv.upos
-           AND dv.graduated_at IS NOT NULL AND p.reviewed_at IS NOT NULL
-       ) THEN 'Graduated from reviewed deck' ELSE 'Explicitly recorded' END)::text AS provenance,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.id
 `
@@ -918,7 +896,6 @@ type ListKnownVocabularyRow struct {
 	Language       string
 	CanonicalLemma string
 	Upos           string
-	Provenance     string
 	CreatedAt      time.Time
 }
 
@@ -937,7 +914,6 @@ func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabula
 			&i.Language,
 			&i.CanonicalLemma,
 			&i.Upos,
-			&i.Provenance,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

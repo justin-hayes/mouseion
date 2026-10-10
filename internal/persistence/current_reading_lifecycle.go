@@ -26,12 +26,12 @@ func currentReadingFromValues(ownerID, language, bookID, snapshotID, sourceMater
 	}
 }
 
-func currentReadingFromRow(row sqlcgen.GetPrimaryGoalRow, snapshotSize int) domain.CurrentReading {
+func currentReadingFromRow(row sqlcgen.GetCurrentReadingRow, snapshotSize int) domain.CurrentReading {
 	return currentReadingFromValues(row.GOwnerID, row.Language, row.GBookID, row.SnapshotID, row.SourceMaterialID, row.AnalysisRunID, row.ContentRevisionID, row.ContentSnapshotID, row.CorpusID, snapshotSize, row.CreatedAt, row.UpdatedAt)
 }
 
 func listCurrentReadingSnapshotVocabulary(ctx context.Context, q *sqlcgen.Queries, owner, snapshotID string) ([]domain.SelectionCandidate, error) {
-	rows, err := q.ListPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.ListPrimaryGoalSnapshotVocabularyParams{Owner: owner, Snapshot: snapshotID})
+	rows, err := q.ListCurrentReadingSnapshotVocabulary(ctx, sqlcgen.ListCurrentReadingSnapshotVocabularyParams{Owner: owner, Snapshot: snapshotID})
 	if err != nil {
 		return nil, err
 	}
@@ -42,25 +42,25 @@ func listCurrentReadingSnapshotVocabulary(ctx context.Context, q *sqlcgen.Querie
 	return result, nil
 }
 
-func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string, identity sqlcgen.GetPrimaryGoalCandidateIdentityRow) (sqlcgen.CreatePrimaryGoalSnapshotRow, []domain.SelectionCandidate, error) {
-	snapshot, err := q.CreatePrimaryGoalSnapshot(ctx, sqlcgen.CreatePrimaryGoalSnapshotParams{
+func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) (sqlcgen.CreateCurrentReadingSnapshotRow, []domain.SelectionCandidate, error) {
+	snapshot, err := q.CreateCurrentReadingSnapshot(ctx, sqlcgen.CreateCurrentReadingSnapshotParams{
 		Owner: owner, Language: language, Book: bookID, SourceMaterial: identity.CaSourceMaterialID,
 		AnalysisRun: identity.CaAnalysisRunID, ContentRevision: identity.CaContentRevisionID,
 		ContentSnapshot: identity.CaSnapshotID, Corpus: identity.CaCorpusID,
 	})
 	if err != nil {
-		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
 	hasCorrections, err := q.HasCurrentLemmaCorrections(ctx, sqlcgen.HasCurrentLemmaCorrectionsParams{Owner: owner, Book: bookID})
 	if err != nil {
-		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
 	var candidates []domain.SelectionCandidate
 	if hasCorrections {
 		candidates, err = correctedCurrentReadingCandidates(ctx, tx, q, owner, bookID, language, identity)
 	} else {
-		var rows []sqlcgen.ListPrimaryGoalSnapshotCandidatesRow
-		rows, err = q.ListPrimaryGoalSnapshotCandidates(ctx, sqlcgen.ListPrimaryGoalSnapshotCandidatesParams{Owner: owner, Language: language, Corpus: identity.CaCorpusID})
+		var rows []sqlcgen.ListCurrentReadingSnapshotCandidatesRow
+		rows, err = q.ListCurrentReadingSnapshotCandidates(ctx, sqlcgen.ListCurrentReadingSnapshotCandidatesParams{Owner: owner, Language: language, Corpus: identity.CaCorpusID})
 		if err == nil {
 			candidates = make([]domain.SelectionCandidate, 0, len(rows))
 			for _, row := range rows {
@@ -69,20 +69,20 @@ func createCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, q *sqlcgen.Que
 		}
 	}
 	if err != nil {
-		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
 	candidates, err = eligibleCurrentReadingCandidates(ctx, tx, q, owner, language, candidates)
 	if err != nil {
-		return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+		return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 	}
 	for _, candidate := range candidates {
-		if err := q.InsertPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.InsertPrimaryGoalSnapshotVocabularyParams{
+		if err := q.InsertCurrentReadingSnapshotVocabulary(ctx, sqlcgen.InsertCurrentReadingSnapshotVocabularyParams{
 			Owner: owner, Snapshot: snapshot.ID, Corpus: candidate.CorpusID, Language: candidate.Language,
 			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS, OccurrenceCount: candidate.OccurrenceCount,
 			ObservedForms: candidate.ObservedForms, EligibleSentenceRefs: candidate.SentenceReferences,
 			Provenance: candidate.Provenance, FirstEncounter: candidate.FirstEncounter, SelectedAt: candidate.SelectedAt,
 		}); err != nil {
-			return sqlcgen.CreatePrimaryGoalSnapshotRow{}, nil, err
+			return sqlcgen.CreateCurrentReadingSnapshotRow{}, nil, err
 		}
 	}
 	return snapshot, candidates, nil
@@ -222,7 +222,7 @@ LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos`, owner, langu
 // correctedCurrentReadingCandidates rebuilds the current Book's candidate set
 // from immutable analyzer evidence plus exact-occurrence learner corrections.
 // It runs in the same transaction as the freeze, after the Book row is locked.
-func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, bookID, language string, identity sqlcgen.GetPrimaryGoalCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
+func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, bookID, language string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
 	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, domain.DeckPreparation{
 		OwnerID: owner, SourceMaterialID: identity.CaSourceMaterialID, AnalysisRunID: identity.CaAnalysisRunID,
 	}, identity.CaCorpusID)
@@ -287,10 +287,10 @@ func releaseCurrentReadingSnapshot(ctx context.Context, q *sqlcgen.Queries, owne
 	if snapshotID == "" {
 		return nil
 	}
-	if _, err := q.LockPrimaryGoalSnapshot(ctx, sqlcgen.LockPrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID}); err != nil {
+	if _, err := q.LockCurrentReadingSnapshot(ctx, sqlcgen.LockCurrentReadingSnapshotParams{Owner: owner, Snapshot: snapshotID}); err != nil {
 		return err
 	}
-	return q.ReleasePrimaryGoalSnapshot(ctx, sqlcgen.ReleasePrimaryGoalSnapshotParams{Owner: owner, Snapshot: snapshotID})
+	return q.ReleaseCurrentReadingSnapshot(ctx, sqlcgen.ReleaseCurrentReadingSnapshotParams{Owner: owner, Snapshot: snapshotID})
 }
 
 func releaseCurrentReadingSnapshots(ctx context.Context, q *sqlcgen.Queries, owner string, snapshotIDs []string) error {
@@ -332,7 +332,7 @@ func importedReadingCompletion(owner, language, book string, completedAt time.Ti
 }
 
 func getReadingCompletion(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID, snapshotID string) (sqlcgen.GetReadingCompletionRow, error) {
-	return q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: bookID, GoalSnapshot: snapshotID})
+	return q.GetReadingCompletion(ctx, sqlcgen.GetReadingCompletionParams{Owner: owner, Language: language, Book: bookID, Snapshot: snapshotID})
 }
 
 // CountCurrentReadingVocabularyToAccept reports the currently eligible frozen
@@ -346,7 +346,7 @@ func (s *PostgresStore) CountCurrentReadingVocabularyToAccept(ctx context.Contex
 	if !goal.IsActive() || goal.SnapshotID == "" {
 		return 0, nil
 	}
-	counts, err := s.queries().CountPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.CountPrimaryGoalSnapshotVocabularyParams{Owner: owner, Snapshot: goal.SnapshotID})
+	counts, err := s.queries().CountCurrentReadingSnapshotVocabulary(ctx, sqlcgen.CountCurrentReadingSnapshotVocabularyParams{Owner: owner, Snapshot: goal.SnapshotID})
 	if err != nil {
 		return 0, err
 	}
@@ -360,7 +360,7 @@ func (s *PostgresStore) GetCurrentReading(ctx context.Context, owner, language s
 	if language == "" {
 		return domain.CurrentReading{}, nil
 	}
-	row, err := s.queries().GetPrimaryGoal(ctx, sqlcgen.GetPrimaryGoalParams{Owner: owner, Language: language})
+	row, err := s.queries().GetCurrentReading(ctx, sqlcgen.GetCurrentReadingParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.CurrentReading{}, nil
 	}
@@ -387,7 +387,7 @@ func snapshotSizeForGoal(ctx context.Context, q *sqlcgen.Queries, snapshotID, ow
 	if snapshotID == "" {
 		return 0, nil
 	}
-	rows, err := q.ListPrimaryGoalSnapshotVocabulary(ctx, sqlcgen.ListPrimaryGoalSnapshotVocabularyParams{Owner: owner, Snapshot: snapshotID})
+	rows, err := q.ListCurrentReadingSnapshotVocabulary(ctx, sqlcgen.ListCurrentReadingSnapshotVocabularyParams{Owner: owner, Snapshot: snapshotID})
 	if err != nil {
 		return 0, err
 	}
@@ -422,7 +422,7 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	_, err = q.GetPrimaryGoalForUpdate(ctx, sqlcgen.GetPrimaryGoalForUpdateParams{Owner: owner, Language: language})
+	_, err = q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
 	if err == nil {
 		return domain.CurrentReading{}, ErrCurrentReadingExists
 	}
@@ -432,7 +432,7 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	if err = ensureCurrentReadingCandidate(ctx, tx, owner, language, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	identity, identityErr := q.GetPrimaryGoalCandidateIdentity(ctx, sqlcgen.GetPrimaryGoalCandidateIdentityParams{Owner: owner, Language: language, Book: bookID})
+	identity, identityErr := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Language: language, Book: bookID})
 	if errors.Is(identityErr, pgx.ErrNoRows) {
 		return domain.CurrentReading{}, ErrCurrentReadingIneligible
 	}
@@ -472,7 +472,7 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 }
 
 func ensureCurrentReadingCandidate(ctx context.Context, tx pgx.Tx, owner, language, bookID string) error {
-	eligible, err := sqlcgen.New(tx).PrimaryGoalCandidateEligible(ctx, sqlcgen.PrimaryGoalCandidateEligibleParams{
+	eligible, err := sqlcgen.New(tx).CurrentReadingCandidateEligible(ctx, sqlcgen.CurrentReadingCandidateEligibleParams{
 		Owner: owner, Language: language, Book: bookID,
 	})
 	if err != nil {
@@ -493,7 +493,7 @@ func lockCurrentReadingBook(ctx context.Context, q *sqlcgen.Queries, owner, book
 }
 
 func insertCurrentReading(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID, snapshotID string) (domain.CurrentReading, error) {
-	row, err := q.InsertPrimaryGoal(ctx, sqlcgen.InsertPrimaryGoalParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshotID)})
+	row, err := q.InsertCurrentReading(ctx, sqlcgen.InsertCurrentReadingParams{Owner: owner, Language: language, Book: bookID, Snapshot: uuidArg(snapshotID)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.CurrentReading{}, ErrCurrentReadingExists
 	}
@@ -512,7 +512,7 @@ func switchReplayProven(ctx context.Context, q *sqlcgen.Queries, owner, language
 	if currentSnapshotID == "" {
 		return false, nil
 	}
-	former, err := q.GetPrimaryGoalSnapshotLifecycle(ctx, sqlcgen.GetPrimaryGoalSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
+	former, err := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -522,7 +522,7 @@ func switchReplayProven(ctx context.Context, q *sqlcgen.Queries, owner, language
 	if former.BookID != expectedBookID || !former.ReleasedAt.Valid || former.Completed {
 		return false, nil
 	}
-	successor, err := q.GetPrimaryGoalSnapshotLifecycle(ctx, sqlcgen.GetPrimaryGoalSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: currentSnapshotID})
+	successor, err := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: currentSnapshotID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}

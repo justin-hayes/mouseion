@@ -154,7 +154,7 @@ templ GoalDeckPreparationStatus(csrf, bookID, snapshotID string, preparation dom
 				<p>No cards were created from this snapshot.</p>
 			} else {
 			<a class="button" download href={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/download") }>Download deck</a>
-			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.GoalSnapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
+			<form method="post" action={ templ.SafeURL("/deck-preparations/"+preparation.ID+"/reprepare") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ preparation.SnapshotID }/><button type="submit" class="button button--outline">Re-prepare with current Meaning evidence</button></form>
 		}
 	} else if deckPreparationActive(preparation) {
 		<form method="post" action={ templ.SafeURL("/reading/books/"+bookID+"/deck/cancel") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_snapshot_id" value={ snapshotID }/><button class="button button--outline">Cancel preparation</button></form>

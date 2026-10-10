@@ -142,7 +142,7 @@ type recordingPreparedDeck struct {
 
 func (r *recordingPreparedDeck) GetForGoalSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	for _, p := range r.preparations {
-		if p.OwnerID == owner && p.GoalSnapshotID == snapshotID {
+		if p.OwnerID == owner && p.SnapshotID == snapshotID {
 			return p, nil
 		}
 	}
@@ -160,7 +160,7 @@ func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID stri
 	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
 }
 func (r *recordingPreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
-	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, GoalSnapshotID: snapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, SnapshotID: snapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 94}, nil
 }

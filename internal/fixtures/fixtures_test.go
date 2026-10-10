@@ -288,20 +288,20 @@ func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testi
 	goal, err := store.GetCurrentReading(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, 2, goal.SnapshotSize)
-	preparation, err := store.GetDeckPreparationForGoalSnapshot(ctx, OwnerID, goal.SnapshotID)
+	preparation, err := store.GetDeckPreparationForSnapshot(ctx, OwnerID, goal.SnapshotID)
 	require.NoError(t, err)
-	assert.Equal(t, goal.SnapshotID, preparation.GoalSnapshotID)
+	assert.Equal(t, goal.SnapshotID, preparation.SnapshotID)
 
 	emptyGoal, err := store.GetCurrentReading(ctx, OwnerID, "it")
 	require.NoError(t, err)
 	assert.Zero(t, emptyGoal.SnapshotSize)
-	_, err = store.GetDeckPreparationForGoalSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
+	_, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound)
 
 	handle, err := (PreparedDeck{Store: store}).SubmitForGoal(ctx, OwnerID, ResultRunID, "fresh-goal-snapshot")
 	require.NoError(t, err)
-	assert.Equal(t, "fresh-goal-snapshot", handle.Preparation.GoalSnapshotID)
-	preparation, err = store.GetDeckPreparationForGoalSnapshot(ctx, OwnerID, "fresh-goal-snapshot")
+	assert.Equal(t, "fresh-goal-snapshot", handle.Preparation.SnapshotID)
+	preparation, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, "fresh-goal-snapshot")
 	require.NoError(t, err)
 	assert.Equal(t, handle.Preparation.ID, preparation.ID)
 }
@@ -371,12 +371,12 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	assert.Nil(t, legacy[0].FirstSourceMaterialID, "legacy generated fixture=%+v err=%v", legacy, err)
 	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
-	provenance := map[string]string{}
+	knownLemmas := map[string]bool{}
 	for _, item := range known {
-		provenance[item.CanonicalLemma] = item.Provenance
+		knownLemmas[item.CanonicalLemma] = true
 	}
-	assert.Equal(t, "Explicitly recorded", provenance[IndependentKnownLemma], "known vocabulary provenance=%v", provenance)
-	assert.Equal(t, "Graduated from reviewed deck", provenance[GraduatedKnownLemma], "known vocabulary provenance=%v", provenance)
+	assert.True(t, knownLemmas[IndependentKnownLemma], "known vocabulary=%v", known)
+	assert.True(t, knownLemmas[GraduatedKnownLemma], "known vocabulary=%v", known)
 	books, err := store.ListMyBooksWithEvidence(ctx, OwnerID)
 	require.NoError(t, err)
 	for _, book := range books {
@@ -416,7 +416,7 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 	assert.False(t, result.Failed, "wrong connection refresh=%+v err=%v", result, err)
 }
 
-func TestFixtureReservedVocabularyFollowsPrimaryGoalSnapshot(t *testing.T) {
+func TestFixtureReservedVocabularyFollowsCurrentReadingSnapshot(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
