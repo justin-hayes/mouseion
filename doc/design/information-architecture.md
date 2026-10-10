@@ -119,7 +119,7 @@ These objects remain important, but they do not define principal navigation:
   review presents reliable top-level EPUB 3 TOC entries as an all-on checklist,
   or readable persisted units in flat spine order when projection is
   unreliable; TOC entries expand to existing unit IDs.
-- **Analysis run** — asynchronous analysis attempt; queue and retry details are
+- **Analysis run** — asynchronous analysis run; queue and retry details are
   operational state.
 - **Current analysis** — the one completed analysis whose evidence supports the
   Book anchor in Reading. Its immutable corpus and provenance remain

@@ -180,33 +180,36 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 			for _, run := range runs {
 				for _, disposition := range dispositions {
 					for _, language := range languages {
-						signals := AnalysisSignals{Content: content, Published: published, LatestRun: run}
-						got := ClassifyBookEvidence(signals, disposition, language)
+						for _, current := range []bool{false, true} {
+							signals := AnalysisSignals{Content: content, Published: published, LatestRun: run, CurrentReading: current}
+							got := ClassifyBookEvidence(signals, disposition, language)
 
-						// A published analysis stays in effect under a newer run that is
-						// queued, running, failed, or cancelled; only a completed run or
-						// such a shadowed run makes the analysis usable for Reading.
-						newerShadowed := published == PublishedCurrent && (run == RunQueued || run == RunRunning || run == RunFailed || run == RunJobFailed || run == RunCancelled)
-						analyzed := got.Phase == PhaseAnalyzed && (run == RunCompleted || newerShadowed)
-						ready := content == ContentCurrentEPUB && analyzed && disposition == BookDispositionToRead && language != ""
-						assert.Equal(t, ready, got.Eligibility == CurrentReadingEligible, "eligibility for %+v %v %q", signals, disposition, language)
+							// A published analysis stays in effect under a newer run that is
+							// queued, running, failed, or cancelled; only a completed run or
+							// such a shadowed run makes the analysis usable for Reading.
+							newerShadowed := published == PublishedCurrent && (run == RunQueued || run == RunRunning || run == RunFailed || run == RunJobFailed || run == RunCancelled)
+							analyzed := got.Phase == PhaseAnalyzed && (run == RunCompleted || newerShadowed)
+							ready := content == ContentCurrentEPUB && analyzed && disposition == BookDispositionToRead && language != ""
+							assert.Equal(t, ready, got.Eligibility == CurrentReadingEligible, "eligibility for %+v %v %q", signals, disposition, language)
 
-						switch content {
-						case ContentNotAcquired:
-							assert.Equal(t, BookNotAcquired, got.Evidence, "%+v", signals)
-							assert.Equal(t, RecoveryNone, got.Recovery, "%+v", signals)
-						case ContentNoCurrentRevision:
-							assert.Equal(t, BookUnavailable, got.Evidence, "%+v", signals)
-						case ContentNonEPUB, ContentCurrentEPUB:
+							switch content {
+							case ContentNotAcquired:
+								assert.Equal(t, BookNotAcquired, got.Evidence, "%+v", signals)
+								assert.Equal(t, RecoveryNone, got.Recovery, "%+v", signals)
+							case ContentNoCurrentRevision:
+								assert.Equal(t, BookUnavailable, got.Evidence, "%+v", signals)
+							case ContentNonEPUB, ContentCurrentEPUB:
+							}
+
+							shadowedRetry := published == PublishedCurrent && !current && (run == RunFailed || run == RunJobFailed || run == RunCancelled)
+							retryAnalysis := got.Phase == PhaseFailed || got.Phase == PhaseCancelled || got.Phase == PhaseStale || shadowedRetry
+							if content != ContentNotAcquired {
+								assert.Equal(t, retryAnalysis, got.Recovery == RecoveryRetryAnalysis, "recovery for %+v", signals)
+							}
+							hasRevision := content == ContentNonEPUB || content == ContentCurrentEPUB
+							assert.Equal(t, got.Phase == PhaseAnalyzed && hasRevision, got.Evidence == BookAnalyzed, "evidence for %+v", signals)
+							assert.False(t, got.Eligibility == CurrentReadingEligible && got.Phase != PhaseAnalyzed, "eligible without analysis for %+v", signals)
 						}
-
-						retryAnalysis := got.Phase == PhaseFailed || got.Phase == PhaseCancelled || got.Phase == PhaseStale || (published == PublishedCurrent && (run == RunFailed || run == RunJobFailed || run == RunCancelled))
-						if content != ContentNotAcquired {
-							assert.Equal(t, retryAnalysis, got.Recovery == RecoveryRetryAnalysis, "recovery for %+v", signals)
-						}
-						hasRevision := content == ContentNonEPUB || content == ContentCurrentEPUB
-						assert.Equal(t, got.Phase == PhaseAnalyzed && hasRevision, got.Evidence == BookAnalyzed, "evidence for %+v", signals)
-						assert.False(t, got.Eligibility == CurrentReadingEligible && got.Phase != PhaseAnalyzed, "eligible without analysis for %+v", signals)
 					}
 				}
 			}
@@ -225,12 +228,35 @@ func TestBookEvidenceClassificationReAnalysisShadowedByPublishedAnalysis(t *test
 	assert.True(t, failed.AnalysisInEffect())
 
 	completed := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCompleted}, BookDispositionToRead, "de")
-	assert.False(t, completed.ReAnalysisShadowed(), "a completed run is the analysis, not a shadowed attempt")
+	assert.False(t, completed.ReAnalysisShadowed(), "a completed run is the analysis, not a shadowed run")
 	assert.True(t, completed.AnalysisInEffect())
 
 	unpublished := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, LatestRun: RunFailed}, BookDispositionToRead, "de")
 	assert.False(t, unpublished.ReAnalysisShadowed())
 	assert.False(t, unpublished.AnalysisInEffect())
+}
+
+func TestBookEvidenceClassificationCurrentReadingOffersNoRetryForShadowedRun(t *testing.T) {
+	for _, run := range []LatestRunSignal{RunFailed, RunJobFailed, RunCancelled} {
+		current := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: run, CurrentReading: true}, BookDispositionToRead, "de")
+		assert.Equal(t, RecoveryNone, current.Recovery, "current reading under %s", run)
+		assert.Equal(t, CurrentReadingEligible, current.Eligibility, "current reading under %s stays eligible", run)
+		assert.True(t, current.AnalysisInEffect(), "current reading under %s keeps its published analysis", run)
+		assert.True(t, current.ReAnalysisShadowed(), "current reading under %s keeps the newer run as secondary", run)
+
+		other := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: run}, BookDispositionToRead, "de")
+		assert.Equal(t, RecoveryRetryAnalysis, other.Recovery, "a To Read book under %s offers retry", run)
+	}
+
+	failedStale := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedStale, LatestRun: RunFailed, CurrentReading: true}, BookDispositionToRead, "de")
+	assert.Equal(t, RecoveryRetryAnalysis, failedStale.Recovery, "a stale publication still offers retry even for the Current reading")
+
+	mybook := MyBook{Book: Book{LanguageState: LanguageChosen, LanguageTag: "de"}, Disposition: BookDispositionToRead, IsCurrentReading: true, Acquired: &SourceMaterialSummary{Signals: AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunFailed}}}
+	assert.Equal(t, RecoveryNone, mybook.Classification().Recovery, "My Books classifies the Current reading without retry")
+	assert.Equal(t, CurrentReadingEligible, mybook.Classification().Eligibility)
+
+	source := SourceMaterialSummary{Source: SourceMaterial{Language: "de"}, Signals: AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: RunCancelled}, IsCurrentReading: true}
+	assert.Equal(t, RecoveryNone, source.EvidenceClassification().Recovery, "Reading classifies the Current reading without retry")
 }
 
 func TestBookEvidenceClassificationPublicationPending(t *testing.T) {

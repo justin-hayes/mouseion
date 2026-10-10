@@ -617,7 +617,7 @@ func ineligibleCurrentReadingCases(t *testing.T, ctx context.Context, store *Pos
 	}
 }
 
-// unanalyzedToReadBook makes a To Read Book whose latest analysis attempt is in
+// unanalyzedToReadBook makes a To Read Book whose latest analysis run is in
 // runState, or has none when runState is empty.
 func unanalyzedToReadBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix, runState string) domain.Book {
 	t.Helper()
@@ -629,7 +629,7 @@ func unanalyzedToReadBook(t *testing.T, ctx context.Context, store *PostgresStor
 	return book
 }
 
-// insertAnalysisRun records a newer analysis attempt for source in state, with
+// insertAnalysisRun records a newer analysis run for source in state, with
 // the job that the evidence view reads as its latest run. It leaves any
 // published analysis in place, as a re-analysis does.
 func insertAnalysisRun(t *testing.T, ctx context.Context, store *PostgresStore, source domain.SourceMaterial, state string) {
@@ -637,7 +637,7 @@ func insertAnalysisRun(t *testing.T, ctx context.Context, store *PostgresStore, 
 	var snapshotID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT current_snapshot_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, source.OwnerID, source.ID).Scan(&snapshotID))
 	var runID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state) VALUES($1,$2,$3,$4,'test','1',$5,$6) RETURNING id::text`, source.OwnerID, source.ID, source.ContentRevisionID, snapshotID, "attempt-"+state, state).Scan(&runID))
+	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state) VALUES($1,$2,$3,$4,'test','1',$5,$6) RETURNING id::text`, source.OwnerID, source.ID, source.ContentRevisionID, snapshotID, "run-"+state, state).Scan(&runID))
 	_, err := store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,display_number,owner_id,source_material_id,content_hash,analysis_run_id) SELECT COALESCE(MAX(river_job_id),0)+1, COALESCE(MAX(display_number),0)+1, $1, $2, $3, $4 FROM analysis_jobs`, source.OwnerID, source.ID, source.ContentHash, runID)
 	require.NoError(t, err)
 }

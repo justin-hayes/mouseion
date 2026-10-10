@@ -209,6 +209,7 @@ func (m MyBook) Classification() BookEvidenceClassification {
 	if m.Acquired != nil {
 		signals = m.Acquired.Signals
 	}
+	signals.CurrentReading = m.IsCurrentReading
 	language := ""
 	if m.Book.LanguageState == LanguageChosen {
 		language = m.Book.LanguageTag

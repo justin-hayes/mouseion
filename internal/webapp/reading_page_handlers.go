@@ -384,6 +384,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 			return readingPageView{}, bookErr
 		}
 		book.CurrentReading = true
+		book.Book.IsCurrentReading = true
 		book.Cover = coverByBookID[currentReading.BookID]
 		book.ReadingSince = currentReading.CreatedAt
 		if err = h.addReadingEvidence(ctx, owner, &book); err != nil {
