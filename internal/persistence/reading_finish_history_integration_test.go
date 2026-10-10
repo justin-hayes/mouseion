@@ -46,9 +46,9 @@ func TestFinishProjectsReadHistoryWithoutHidingAndReadAgainOnlySetsToRead(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, domain.MyBookBucketCurrentReading, finishedBookState(t, ctx, store, owner.ID, book.ID).WorkflowBucket())
 
-	first, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	first, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
-	replay, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	replay, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, first.Completion, replay.Completion)
 

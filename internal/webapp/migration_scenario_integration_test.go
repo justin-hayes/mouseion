@@ -141,7 +141,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	// Stale writes, missing CSRF, cross-owner references, and invalid progress
 	// are rejected without changing the accepted state.
-	_, err = store.ChangeCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book")
+	_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book", goal.SnapshotID)
 	assert.ErrorIs(t, err, persistence.ErrCurrentReadingStale) //nolint:testifylint // Stale goal rejection is independently asserted before HTTP checks.
 	bobCookies, bobCSRF := loginCookies(t, h, "migration-bob", "bob-password")
 	foreign := perform(t, h, http.MethodPost, "/goal/books/"+book.ID, url.Values{"csrf_token": {bobCSRF}, "expected_goal_book_id": {""}}, bobCookies)
@@ -184,7 +184,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(7), afterCoverage.KnownTokenCount)
 	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
-	completion, err := store.RecordCurrentReadingFinished(ctx, alice.ID, "de", book.ID, goal.SnapshotID)
+	completion, err := store.FinishCurrentReading(ctx, alice.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 3, completion.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)

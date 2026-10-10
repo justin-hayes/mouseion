@@ -147,7 +147,7 @@ func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate dom
 }
 
 // IsReservedVocabulary reports whether an identity belongs to the owner's
-// active Goal snapshot.
+// active reading snapshot.
 func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
 	return s.queries().ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
 		OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos,

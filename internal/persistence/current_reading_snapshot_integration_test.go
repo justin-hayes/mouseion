@@ -66,7 +66,7 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	require.Len(t, frozenReferences, 5)
 	assert.Equal(t, "Wir reisen heute.", frozenReferences[0].Text)
 
-	err = store.ClearCurrentReading(ctx, owner.ID, "de", book.ID)
+	err = store.EndCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	reserved, err = store.ListReservedVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCa
 	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','crossing','NOUN',2,'[]','[]','{}')`, owner.ID, targetCorpus)
 	require.NoError(t, err)
 
-	_, err = store.ChangeCurrentReading(ctx, owner.ID, "de", target.ID, current.ID)
+	_, err = store.SwitchCurrentReading(ctx, owner.ID, "de", target.ID, current.ID, reading.SnapshotID)
 	require.ErrorIs(t, err, ErrVocabularyBrowseCountsPending)
 	stillCurrent, getErr := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, getErr)
@@ -201,7 +201,7 @@ func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCa
 	_, err = store.Pool().Exec(ctx, `INSERT INTO river_job(kind,args,queue,state,max_attempts,finalized_at)
 VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid,'book_id',$2::uuid,'run_id',$3::uuid),'default','discarded',1,now())`, owner.ID, target.ID, targetRun)
 	require.NoError(t, err)
-	_, err = store.ChangeCurrentReading(ctx, owner.ID, "de", target.ID, current.ID)
+	_, err = store.SwitchCurrentReading(ctx, owner.ID, "de", target.ID, current.ID, reading.SnapshotID)
 	require.ErrorIs(t, err, ErrVocabularyBrowseCountsUnavailable)
 	stillCurrent, getErr = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, getErr)
@@ -229,7 +229,7 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 	_, err = store.Pool().Exec(ctx, `DELETE FROM river_job WHERE kind='rebuild_vocabulary_browse_counts' AND args->>'owner_id'=$1 AND args->>'book_id'=$2 AND args->>'run_id'=$3`, owner.ID, target.ID, targetRun)
 	require.NoError(t, err)
 
-	switched, err := store.ChangeCurrentReading(ctx, owner.ID, "de", target.ID, current.ID)
+	switched, err := store.SwitchCurrentReading(ctx, owner.ID, "de", target.ID, current.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, target.ID, switched.BookID)
 	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, switched.SnapshotID)
@@ -294,7 +294,7 @@ CREATE TRIGGER test_goal_graduation_failure
 BEFORE UPDATE ON book_dispositions
 FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
-	_, err = store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.Error(t, err)
 	var graduatedAfterRollback int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&graduatedAfterRollback)
@@ -306,9 +306,9 @@ FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_goal_graduation_failure ON book_dispositions; DROP FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
 
-	result, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	result, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
-	assert.Equal(t, goal.SnapshotID, result.Completion.GoalSnapshotID)
+	assert.Equal(t, goal.SnapshotID, result.Completion.SnapshotID)
 	assert.Equal(t, 5, result.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 2, result.Completion.EligibleVocabularyCount)
 	assert.Equal(t, 2, result.Completion.GraduatedVocabularyCount)
@@ -341,7 +341,7 @@ WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&completionBook
 	assert.Equal(t, "Accepted on Primary Goal completion", knownByLemma["bleiben"].Provenance)
 
 	assert.NotEmpty(t, result.Completion.BookID)
-	repeated, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	repeated, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, result.Completion, repeated.Completion)
 	reserved, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
@@ -361,13 +361,13 @@ func TestCurrentReadingCompletionAcceptsEmptySnapshot(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, goal.SnapshotSize)
 
-	result, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	result, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 0, result.Completion.EligibleVocabularyCount)
 	assert.Equal(t, 0, result.Completion.GraduatedVocabularyCount)
 	assert.Equal(t, 0, result.Completion.AlreadyKnownVocabularyCount)
-	assert.NotEmpty(t, result.Completion.GoalSnapshotID)
+	assert.NotEmpty(t, result.Completion.SnapshotID)
 }
 
 func TestCurrentReadingCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
@@ -395,12 +395,12 @@ func TestCurrentReadingCompletionHandlesMissingSnapshotIdempotently(t *testing.T
 	require.NoError(t, err)
 
 	start := make(chan struct{})
-	results := make(chan ReadingFinishResult, 2)
+	results := make(chan domain.CurrentReadingFinishResult, 2)
 	errors := make(chan error, 2)
 	for range 2 {
 		go func() {
 			<-start
-			result, finishErr := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, "")
+			result, finishErr := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, "")
 			results <- result
 			errors <- finishErr
 		}()
@@ -411,13 +411,13 @@ func TestCurrentReadingCompletionHandlesMissingSnapshotIdempotently(t *testing.T
 	}
 	first, second := <-results, <-results
 	assert.Equal(t, first.Completion, second.Completion)
-	assert.Empty(t, first.Completion.GoalSnapshotID)
+	assert.Empty(t, first.Completion.SnapshotID)
 	assert.Zero(t, first.Completion.SnapshotVocabularyCount)
 	assert.Zero(t, first.Completion.EligibleVocabularyCount)
 	assert.Zero(t, first.Completion.GraduatedVocabularyCount)
 	assert.Zero(t, first.Completion.AlreadyKnownVocabularyCount)
 
-	repeated, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, "")
+	repeated, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, "")
 	require.NoError(t, err)
 	assert.Equal(t, first.Completion, repeated.Completion)
 	var historyCount, knownCount int
