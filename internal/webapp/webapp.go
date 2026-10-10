@@ -35,34 +35,75 @@ const (
 	maxRequestBody = 4 << 20
 )
 
-// StudyLanguageStore provides the active study-language and vocabulary
-// language settings consumed by the shell and vocabulary surfaces.
-type StudyLanguageStore interface {
+// ShellStore provides the study-language settings and the book cover reads
+// shared by the application shell and every learner surface.
+type ShellStore interface {
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	GetStoredActiveStudyLanguage(context.Context, string) (string, error)
 	SetActiveStudyLanguage(context.Context, string, string) error
 	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)
-}
-
-// BookStore provides the owner-scoped book reads shared by the library and
-// Reading surfaces.
-type BookStore interface {
-	GetBook(context.Context, string, string) (domain.Book, error)
-	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
-	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
-}
-
-// MyBooksRefreshRowStore adds the full margin evidence needed only when an
-// HTMX metadata refresh re-renders a My Books row.
-type MyBooksRefreshRowStore interface {
-	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
-}
-
-type BookCoverStore interface {
 	GetActiveBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
 }
 
+// MyBooksStore provides the My Books (/library/**) browse, intent, visibility,
+// and metadata-refresh reads and writes.
+type MyBooksStore interface {
+	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
+	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
+	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+	ListMyBooksBrowseWithVisibility(context.Context, string, string, string, string, bool, bool, int, int) (persistence.MyBooksBrowseResult, error)
+	ImportPreviouslyRead(context.Context, string, string) (domain.ReadingCompletion, error)
+	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
+	SetBookHidden(context.Context, string, string, int64, bool) (bool, error)
+	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+}
+
+// ReadingStore provides the Reading (/reading/**) surface: the owner-scoped
+// book reads, the current reading lifecycle, the lemma review seam, and the
+// vocabulary browse shown beside the current reading.
+type ReadingStore interface { //nolint:interfacebloat // the Reading surface owns the current reading lifecycle and the lemma review seam; splitting either is a separate design change
+	GetBook(context.Context, string, string) (domain.Book, error)
+	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
+	ListSourceMaterials(context.Context, string) ([]domain.SourceMaterialSummary, error)
+	ResolveBookID(context.Context, string, string) (string, bool, error)
+	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
+	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
+	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
+	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
+	EndCurrentReading(context.Context, string, string, string, string) error
+	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
+	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
+	LemmaReviewStore
+}
+
+// VocabularyStore provides the Vocabulary (/vocabulary/**) concordance and
+// sentence study reads.
+type VocabularyStore interface {
+	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
+	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+	ListVocabularyConcordance(context.Context, string, string, domain.ConcordanceLookup) (domain.ConcordanceResult, error)
+	GetVocabularySentenceStudy(context.Context, string, string, string, string, string, int64, int64, string) (domain.SentenceStudy, error)
+}
+
+// CatalogsStore provides owner-scoped OPDS connection management and the
+// catalogue alias and sync status reads shown beside it.
+type CatalogsStore interface {
+	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
+	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
+	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
+	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
+	DeleteOpdsConnection(context.Context, string, string) error
+	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
+}
+
+// JobsStore provides the analysis job list shown by the jobs surface.
+type JobsStore interface {
+	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
+}
+
+// LemmaReviewStore provides the lemma review seam used by the Reading surface.
 type LemmaReviewStore interface { //nolint:interfacebloat // the lemma review seam also reads its Book's deck history; splitting it is a separate design change
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
 	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
@@ -77,63 +118,16 @@ type LemmaReviewStore interface { //nolint:interfacebloat // the lemma review se
 	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }
 
-// GoalStore provides the Primary Goal lifecycle.
-type GoalStore interface {
-	GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error)
-	CountPrimaryGoalVocabularyToGraduate(context.Context, string, string) (int, error)
-	CreatePrimaryGoal(context.Context, string, string, string) (domain.PrimaryGoal, error)
-	ChangePrimaryGoal(context.Context, string, string, string, string) (domain.PrimaryGoal, error)
-	ClearPrimaryGoal(context.Context, string, string, string) error
-}
-
-// CurrentReadingStore is the cohesive lifecycle seam for new reading
-// surfaces. GoalStore remains available to the existing handlers through the
-// compatibility methods on the production and fixture stores.
-type CurrentReadingStore interface {
-	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
-	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
-	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
-	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
-	EndCurrentReading(context.Context, string, string, string, string) error
-	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
-}
-
-// CatalogStore provides owner-scoped OPDS connection management.
-type CatalogStore interface {
-	CreateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
-	GetOpdsConnection(context.Context, string, string) (domain.OpdsConnection, error)
-	ListOpdsConnections(context.Context, string) ([]domain.OpdsConnection, error)
-	UpdateOpdsConnection(context.Context, string, domain.OpdsConnection) (domain.OpdsConnection, error)
-	DeleteOpdsConnection(context.Context, string, string) error
-}
-
-// AnalysisJobStore provides the analysis job list shown by the jobs surface.
-type AnalysisJobStore interface {
-	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
-}
-
-type VocabularyBrowseStore interface {
-	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
-}
-
-type VocabularyConcordanceStore interface {
-	ListVocabularyConcordance(context.Context, string, string, domain.ConcordanceLookup) (domain.ConcordanceResult, error)
-	GetVocabularySentenceStudy(context.Context, string, string, string, string, string, int64, int64, string) (domain.SentenceStudy, error)
-}
-
-// StoreDependencies groups the focused persistence capabilities consumed by the
-// web application. Production supplies one persistence store to every field.
+// StoreDependencies groups the persistence capabilities consumed by the web
+// application, one interface per learner surface. Production supplies one
+// persistence store to every field; overlapping method sets are intentional.
 type StoreDependencies struct {
-	StudyLanguages        StudyLanguageStore
-	Books                 BookStore
-	Goals                 GoalStore
-	CurrentReading        CurrentReadingStore
-	Catalog               CatalogStore
-	AnalysisJobs          AnalysisJobStore
-	Covers                BookCoverStore
-	LemmaReview           LemmaReviewStore
-	VocabularyBrowse      VocabularyBrowseStore
-	VocabularyConcordance VocabularyConcordanceStore
+	Shell      ShellStore
+	MyBooks    MyBooksStore
+	Reading    ReadingStore
+	Vocabulary VocabularyStore
+	Catalogs   CatalogsStore
+	Jobs       JobsStore
 }
 
 type csrfFailureContextKey struct{}
@@ -152,6 +146,9 @@ type Analysis interface {
 type CatalogueSyncScheduler interface {
 	RegisterConnection(context.Context, string, string) error
 	UnregisterConnection(string, string) error
+	// ListCatalogueSyncStatuses overlays durable sync status with River's live
+	// state, so the store alone cannot report a stale Syncing row accurately.
+	ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error)
 }
 type CatalogueMetadataRefresher interface {
 	RefreshEntry(context.Context, string, string) (cataloguesync.RefreshResult, error)

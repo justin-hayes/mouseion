@@ -13,6 +13,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/knownvocab"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -480,8 +481,7 @@ func TestKnownVocabTerminalStatesExplainResultsAndUseContainedTables(t *testing.
 }
 
 type knownVocabContextStore struct {
-	StudyLanguageStore
-	CurrentReadingStore
+	*fixtures.Store
 }
 
 func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
@@ -579,8 +579,8 @@ func (failedVocabularyBrowseStore) ListVocabularyBrowsePage(context.Context, str
 	return domain.VocabularyBrowsePage{}, errors.New("database unavailable")
 }
 
-func browseTestServices(store VocabularyBrowseStore) Services {
-	return Services{Store: StoreDependencies{VocabularyBrowse: store}}
+func browseTestServices(store allStoreCapabilities) Services {
+	return Services{Store: storeDependencies(store)}
 }
 
 func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
@@ -682,7 +682,7 @@ func TestVocabularyBrowseExplainsMalformedAndOutOfRangePagesWithFirstPage(t *tes
 }
 
 func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
-	h := &Handler{services: Services{Store: StoreDependencies{StudyLanguages: knownVocabContextStore{}}}}
+	h := &Handler{services: Services{Store: storeDependencies(knownVocabContextStore{})}}
 
 	var oversized bytes.Buffer
 	oversized.WriteString("--known-vocabulary\r\nContent-Disposition: form-data; name=\"vocabulary_file\"; filename=\"words.txt\"\r\nContent-Type: text/plain\r\n\r\n")

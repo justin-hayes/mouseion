@@ -1133,6 +1133,13 @@ func fixtureKnownCorpusTokens(corpusID string) int64 {
 	}
 }
 
+// GetBookDetailForMyBooksRefresh returns the same complete margin evidence as
+// GetBookDetail: the in-memory fixture never defers the evidence the
+// production refresh read loads lazily.
+func (s *Store) GetBookDetailForMyBooksRefresh(ctx context.Context, owner, id string) (domain.MyBook, error) {
+	return s.GetBookDetail(ctx, owner, id)
+}
+
 func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBook, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

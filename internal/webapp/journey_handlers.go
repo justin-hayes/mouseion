@@ -255,7 +255,7 @@ func (h *Handler) deckJourneyStatus(ctx context.Context, owner, bookID string) (
 	}
 	bookID = resolved
 	language, _ := activeStudyLanguageForContext(ctx)
-	goal, err := h.currentReading(ctx, owner, language)
+	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return deckJourneyActionView{}, err
 	}
@@ -264,10 +264,7 @@ func (h *Handler) deckJourneyStatus(ctx context.Context, owner, bookID string) (
 		action.State = deckIsCurrentReading
 		return action, nil
 	}
-	if h.services.Store.Books == nil {
-		return action, nil
-	}
-	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
 	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 		return deckJourneyActionView{}, err
 	}
@@ -278,17 +275,11 @@ func (h *Handler) deckJourneyStatus(ctx context.Context, owner, bookID string) (
 }
 
 func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
-	resolver, ok := h.services.Store.Books.(interface {
-		ResolveBookID(context.Context, string, string) (string, bool, error)
-	})
-	if !ok {
-		return "", false, nil
-	}
-	return resolver.ResolveBookID(ctx, owner, id)
+	return h.services.Store.Reading.ResolveBookID(ctx, owner, id)
 }
 
 func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string) (analysis.Handle, cataloguesync.AcquisitionTarget, string, bool, error) {
-	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
 		return analysis.Handle{}, cataloguesync.AcquisitionTarget{}, "", false, err
 	}
@@ -304,7 +295,7 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 		if err != nil {
 			return analysis.Handle{}, target, detail.Book.Title, true, err
 		}
-		detail, err = h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+		detail, err = h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
 		if err != nil {
 			return analysis.Handle{}, target, detail.Book.Title, true, err
 		}
@@ -316,7 +307,7 @@ func (h *Handler) ensureToReadAnalysis(ctx context.Context, owner, bookID string
 	return handle, target, detail.Book.Title, false, err
 }
 
-func toReadAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
+func toReadAnalysisError(ctx context.Context, catalog CatalogsStore, owner, bookID, title string, target cataloguesync.AcquisitionTarget, acquisitionFailed bool, err error) string {
 	if acquisitionFailed {
 		return "Book moved to To Read, but " + journeyAcquisitionError(ctx, catalog, owner, bookID, title, target, err) + ". The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
 	}
@@ -328,7 +319,7 @@ func toReadAnalysisError(ctx context.Context, catalog CatalogStore, owner, bookI
 
 func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
-	goal, err := h.currentReading(ctx, owner, language)
+	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -353,7 +344,7 @@ func (h *Handler) annotateBookToRead(ctx context.Context, owner string, book *do
 }
 
 func (h *Handler) annotateBookToReadLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
-	goal, err := h.currentReading(ctx, owner, language)
+	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -366,19 +357,12 @@ func (h *Handler) annotateBookToReadLanguage(ctx context.Context, owner, languag
 	return nil
 }
 
-func (h *Handler) currentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error) {
-	if h.services.Store.CurrentReading != nil {
-		return h.services.Store.CurrentReading.GetCurrentReading(ctx, owner, language)
-	}
-	return h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
-}
-
 func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) (journeyPageView, error) {
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(ctx, owner, language)
+	goal, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return journeyPageView{}, err
 	}
-	books, err := h.services.Store.Books.ListSourceMaterials(ctx, owner)
+	books, err := h.services.Store.Reading.ListSourceMaterials(ctx, owner)
 	if err != nil {
 		return journeyPageView{}, err
 	}
@@ -387,29 +371,25 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
-	if reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
-	}); ok {
-		myBooks, readErr := reader.ListMyBooksWithEvidence(ctx, owner)
-		if readErr != nil {
-			return journeyPageView{}, readErr
-		}
-		for _, myBook := range myBooks {
-			coverByBookID[myBook.Book.ID] = myBook.Cover
-			if myBook.Acquired != nil {
-				book := *myBook.Acquired
-				book.BookTitle = myBook.Book.Title
-				book.BookAuthor = myBook.Book.Author
-				bookByID[myBook.Book.ID] = book
-				bookByID[book.Source.ID] = book
-				coverByBookID[book.Source.ID] = myBook.Cover
-			} else {
-				bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
-					Source:     domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
-					BookTitle:  myBook.Book.Title,
-					BookAuthor: myBook.Book.Author,
-					BookID:     myBook.Book.ID,
-				}
+	myBooks, readErr := h.services.Store.Reading.ListMyBooksWithEvidence(ctx, owner)
+	if readErr != nil {
+		return journeyPageView{}, readErr
+	}
+	for _, myBook := range myBooks {
+		coverByBookID[myBook.Book.ID] = myBook.Cover
+		if myBook.Acquired != nil {
+			book := *myBook.Acquired
+			book.BookTitle = myBook.Book.Title
+			book.BookAuthor = myBook.Book.Author
+			bookByID[myBook.Book.ID] = book
+			bookByID[book.Source.ID] = book
+			coverByBookID[book.Source.ID] = myBook.Cover
+		} else {
+			bookByID[myBook.Book.ID] = domain.SourceMaterialSummary{
+				Source:     domain.SourceMaterial{ID: myBook.Book.ID, OwnerID: myBook.Book.OwnerID, Title: myBook.Book.Title, Language: myBook.Book.LanguageTag},
+				BookTitle:  myBook.Book.Title,
+				BookAuthor: myBook.Book.Author,
+				BookID:     myBook.Book.ID,
 			}
 		}
 	}
@@ -427,7 +407,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 			return journeyPageView{}, err
 		}
 		book.GoalUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
-		book.GoalVocabularyEligible, err = h.services.Store.Goals.CountPrimaryGoalVocabularyToGraduate(ctx, owner, language)
+		book.GoalVocabularyEligible, err = h.services.Store.Reading.CountCurrentReadingVocabularyToAccept(ctx, owner, language)
 		if err != nil {
 			return journeyPageView{}, err
 		}
@@ -473,7 +453,7 @@ func (h *Handler) journeyBook(ctx context.Context, owner, bookID string, bookByI
 	}
 	// Goal and To Read status are allowed to exist before acquisition. Keep
 	// that identity visible instead of silently dropping it from the surface.
-	book, err := h.services.Store.Books.GetBook(ctx, owner, bookID)
+	book, err := h.services.Store.Reading.GetBook(ctx, owner, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			return journeyBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}, BookID: bookID}, nil

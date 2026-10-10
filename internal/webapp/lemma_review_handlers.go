@@ -83,7 +83,7 @@ func (h *Handler) ensureLemmaReviewFlags(ctx context.Context, owner string, deta
 	if h.services.LemmaRiskIndex == nil || detail.Acquired == nil || detail.Book.LanguageTag != "de" {
 		return false, nil
 	}
-	occurrences, err := h.services.Store.LemmaReview.ListLemmaReviewOccurrences(ctx, owner, detail.Book.ID, "")
+	occurrences, err := h.services.Store.Reading.ListLemmaReviewOccurrences(ctx, owner, detail.Book.ID, "")
 	if err != nil {
 		return false, err
 	}
@@ -118,7 +118,7 @@ func (h *Handler) ensureLemmaReviewFlags(ctx context.Context, owner string, deta
 			"version": flag.Alternative.Version, "evidence_id": flag.Alternative.EvidenceID,
 		}})
 	}
-	if err := h.services.Store.LemmaReview.SaveLemmaReviewFlags(ctx, persisted); err != nil {
+	if err := h.services.Store.Reading.SaveLemmaReviewFlags(ctx, persisted); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -131,12 +131,12 @@ func lemmaReviewOccurrenceID(occurrence domain.LemmaReviewOccurrence) string {
 func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
 	bookID := strings.TrimSpace(r.PathValue("bookID"))
-	store := h.services.Store.LemmaReview
+	store := h.services.Store.Reading
 	if store == nil {
 		http.Error(w, "Occurrence review is unavailable.", http.StatusServiceUnavailable)
 		return
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -203,7 +203,7 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Choose an occurrence to request a suggestion.", http.StatusBadRequest)
 		return
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -213,7 +213,7 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Choose this Book's study language in Reading before requesting a suggestion.", http.StatusConflict)
 		return
 	}
-	occurrences, err := h.services.Store.LemmaReview.ListLemmaReviewOccurrences(r.Context(), owner.ID, bookID, form)
+	occurrences, err := h.services.Store.Reading.ListLemmaReviewOccurrences(r.Context(), owner.ID, bookID, form)
 	if err != nil {
 		fail(w, err)
 		return
@@ -256,7 +256,7 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) lemmaReviewCorrectionAvailability(ctx context.Context, ownerID, bookID, language string) (bool, string, error) {
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(ctx, ownerID, language)
+	current, err := h.services.Store.Reading.GetCurrentReading(ctx, ownerID, language)
 	if err != nil {
 		return false, "", err
 	}
@@ -276,7 +276,7 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r)
 	bookID := strings.TrimSpace(r.PathValue("bookID"))
-	store := h.services.Store.LemmaReview
+	store := h.services.Store.Reading
 	if store == nil {
 		http.Error(w, "Occurrence review is unavailable.", http.StatusServiceUnavailable)
 		return
@@ -286,7 +286,7 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid review form.", http.StatusBadRequest)
 			return
 		}
-		detail, detailErr := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+		detail, detailErr := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 		if detailErr != nil {
 			fail(w, detailErr)
 			return
@@ -310,7 +310,7 @@ func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		page, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+		page, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.NotFound(w, r)
 			return
@@ -367,7 +367,7 @@ func lemmaDecisionChangesIdentity(occurrence domain.LemmaReviewOccurrence, actio
 
 func (h *Handler) lemmaReviewRecovery(r *http.Request, owner domain.User, bookID string, detail domain.MyBook) (lemmaReviewRecovery, error) {
 	language := detail.Book.LanguageTag
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner.ID, language)
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner.ID, language)
 	if err != nil {
 		return lemmaReviewRecovery{}, err
 	}
@@ -375,7 +375,7 @@ func (h *Handler) lemmaReviewRecovery(r *http.Request, owner domain.User, bookID
 	if detail.Acquired == nil || h.services.PreparedDeck == nil {
 		return recovery, nil
 	}
-	preparations, err := h.services.Store.LemmaReview.ListDeckPreparationsForSourceMaterial(r.Context(), owner.ID, detail.Acquired.Source.ID)
+	preparations, err := h.services.Store.Reading.ListDeckPreparationsForSourceMaterial(r.Context(), owner.ID, detail.Acquired.Source.ID)
 	if err != nil {
 		return lemmaReviewRecovery{}, err
 	}
@@ -431,7 +431,7 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
 	proposalIdentities := lemmaProposalIdentities(chosen, action, lemma, language)
-	fingerprint, err := h.services.Store.LemmaReview.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), proposalIdentities)
+	fingerprint, err := h.services.Store.Reading.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), proposalIdentities)
 	if err != nil {
 		return nil, err
 	}
@@ -444,13 +444,13 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 }
 
 func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, language, corpusID string, chosen []domain.LemmaReviewOccurrence, action, lemma string) ([]lemmaOccurrenceChange, []lemmaIdentityImpact, error) {
-	insights, err := h.services.Store.LemmaReview.GetAnalysisCorpusVocabulary(r.Context(), ownerID, corpusID)
+	insights, err := h.services.Store.Reading.GetAnalysisCorpusVocabulary(r.Context(), ownerID, corpusID)
 	if err != nil {
 		return nil, nil, err
 	}
 	// The language is taken from the analyzed Book, not inferred from a lemma.
 	// The caller's active language is already checked by the review route.
-	known, err := h.services.Store.LemmaReview.ListKnownVocabulary(r.Context(), ownerID, language)
+	known, err := h.services.Store.Reading.ListKnownVocabulary(r.Context(), ownerID, language)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -471,7 +471,7 @@ func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, language, corpu
 		key := item.CanonicalLemma + "\x00" + item.UPOS
 		counts[key] = item.OccurrenceCount
 		uposByIdentity[key] = item.UPOS
-		reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), ownerID, item.Language, item.CanonicalLemma, item.UPOS)
+		reserved, reserveErr := h.services.Store.Reading.IsReservedVocabulary(r.Context(), ownerID, item.Language, item.CanonicalLemma, item.UPOS)
 		if reserveErr != nil {
 			return nil, nil, reserveErr
 		}
@@ -509,7 +509,7 @@ func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, language, corpu
 	for key := range affectedKeys {
 		if _, ok := reservedByIdentity[key]; !ok {
 			parts := strings.SplitN(key, "\x00", 2)
-			reserved, reserveErr := h.services.Store.LemmaReview.IsReservedVocabulary(r.Context(), ownerID, language, parts[0], parts[1])
+			reserved, reserveErr := h.services.Store.Reading.IsReservedVocabulary(r.Context(), ownerID, language, parts[0], parts[1])
 			if reserveErr != nil {
 				return nil, nil, reserveErr
 			}
@@ -588,7 +588,7 @@ func lemmaProposalFingerprint(state, action, lemma string, selected []int) strin
 }
 
 func (h *Handler) lemmaReviewWritable(w http.ResponseWriter, r *http.Request, owner domain.User, bookID string) bool {
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return false
@@ -602,7 +602,7 @@ func (h *Handler) lemmaReviewWritable(w http.ResponseWriter, r *http.Request, ow
 		http.Error(w, "Choose this Book's study language in Reading before reviewing occurrences.", http.StatusConflict)
 		return false
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner.ID, language)
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner.ID, language)
 	if err != nil {
 		fail(w, err)
 		return false
@@ -631,7 +631,7 @@ func normalizedLemma(profile canonicalization.Profile, value string) (string, er
 
 func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, owner domain.User) {
 	bookID, form := strings.TrimSpace(r.PathValue("bookID")), strings.TrimSpace(r.FormValue("form"))
-	store := h.services.Store.LemmaReview
+	store := h.services.Store.Reading
 	matches, err := store.ListLemmaReviewOccurrences(r.Context(), owner.ID, bookID, form)
 	if err != nil {
 		fail(w, err)
@@ -697,7 +697,7 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		http.Error(w, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.", http.StatusConflict)
 		return
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.NotFound(w, r)
@@ -745,7 +745,7 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		var handle prepareddeck.Handle
 		var reprepareErr error
 		if recovery.ReadyDeckSnapshotID != "" {
-			reading, startErr := h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner.ID, language, bookID)
+			reading, startErr := h.services.Store.Reading.StartCurrentReading(r.Context(), owner.ID, language, bookID)
 			if startErr != nil {
 				http.Error(w, "The identity decision was saved, but a new Reading snapshot could not be started. Start this Book in Reading, then prepare its deck; the historical deck remains available.", http.StatusServiceUnavailable)
 				return

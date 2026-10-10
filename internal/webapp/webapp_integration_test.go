@@ -86,6 +86,10 @@ func (catalogueLanguageCorrectionRefresher) RegisterConnection(context.Context, 
 
 func (catalogueLanguageCorrectionRefresher) UnregisterConnection(string, string) error { return nil }
 
+func (catalogueLanguageCorrectionRefresher) ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error) {
+	return nil, nil
+}
+
 func (r catalogueLanguageCorrectionRefresher) RefreshEntry(ctx context.Context, owner, bookID string) (cataloguesync.RefreshResult, error) {
 	book, err := r.store.GetBook(ctx, owner, bookID)
 	if err != nil {
@@ -104,6 +108,10 @@ func (metadataBookAcquisitionStub) RegisterConnection(context.Context, string, s
 }
 
 func (metadataBookAcquisitionStub) UnregisterConnection(string, string) error { return nil }
+
+func (metadataBookAcquisitionStub) ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error) {
+	return nil, nil
+}
 
 func (s metadataBookAcquisitionStub) FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
 	return s.target, nil

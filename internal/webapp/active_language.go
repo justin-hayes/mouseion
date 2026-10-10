@@ -66,19 +66,19 @@ func activeStudyLanguageForContext(ctx context.Context) (language, label string)
 }
 
 func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, error) {
-	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(ctx, owner)
+	studyLanguages, err := h.services.Store.Shell.ListStudyLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
-	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(ctx, owner)
+	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
-	stored, err := h.services.Store.StudyLanguages.GetStoredActiveStudyLanguage(ctx, owner)
+	stored, err := h.services.Store.Shell.GetStoredActiveStudyLanguage(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
-	recent, err := h.services.Store.StudyLanguages.MostRecentlyActivatedStudyLanguage(ctx, owner)
+	recent, err := h.services.Store.Shell.MostRecentlyActivatedStudyLanguage(ctx, owner)
 	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 		return nil, err
 	}
@@ -118,12 +118,12 @@ func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/library")
 		return
 	}
-	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
+	languages, err := h.services.Store.Shell.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -132,7 +132,7 @@ func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "choose a current study language", http.StatusBadRequest)
 		return
 	}
-	if err = h.services.Store.StudyLanguages.SetActiveStudyLanguage(r.Context(), u.ID, language); err != nil {
+	if err = h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), u.ID, language); err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.NotFound(w, r)
 			return

@@ -18,7 +18,7 @@ import (
 
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	jobs, e := h.services.Store.AnalysisJobs.ListAnalysisJobs(r.Context(), u.ID)
+	jobs, e := h.services.Store.Jobs.ListAnalysisJobs(r.Context(), u.ID)
 	if e != nil {
 		fail(w, e)
 		return

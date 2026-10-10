@@ -44,7 +44,7 @@ type readingChooserPageView struct {
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r)
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner.ID, language)
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner.ID, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -86,7 +86,7 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) renderReadingBrowseOriginExpired(w http.ResponseWriter, r *http.Request, owner domain.User, language string, hasCurrent bool) {
 	myBooksURL := ""
 	if bookID := strings.TrimSpace(r.URL.Query().Get("reading")); bookID != "" {
-		detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner.ID, bookID)
+		detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 		switch {
 		case errors.Is(err, persistence.ErrNotFound):
 		case err != nil:
@@ -102,7 +102,7 @@ func (h *Handler) renderReadingBrowseOriginExpired(w http.ResponseWriter, r *htt
 func (h *Handler) switchReadingPage(w http.ResponseWriter, r *http.Request) {
 	owner := user(r).ID
 	language, languageLabel := activeStudyLanguageForContext(r.Context())
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -151,7 +151,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language and refresh Reading before switching books."))
 		return
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -168,7 +168,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -181,7 +181,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
 		return
 	}
-	_, err = h.services.Store.CurrentReading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
+	_, err = h.services.Store.Reading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrCurrentReadingStale) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
 		return
@@ -228,7 +228,7 @@ func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape(endCurrentReadingStaleMessage))
 		return
 	}
-	err := h.services.Store.CurrentReading.EndCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
+	err := h.services.Store.Reading.EndCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrCurrentReadingStale) || errors.Is(err, persistence.ErrNotFound) {
 		redirect(w, r, "/reading?error="+url.QueryEscape(endCurrentReadingStaleMessage))
 		return
@@ -248,7 +248,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	bookID := r.PathValue("id")
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -257,7 +257,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, detail.Book.LanguageTag)
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, detail.Book.LanguageTag)
 	if err != nil {
 		fail(w, err)
 		return
@@ -297,7 +297,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language before starting a book."))
 		return
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -310,7 +310,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return
@@ -320,7 +320,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !current.IsActive() {
-		_, err = h.services.Store.CurrentReading.StartCurrentReading(r.Context(), owner, language, bookID)
+		_, err = h.services.Store.Reading.StartCurrentReading(r.Context(), owner, language, bookID)
 		if errors.Is(err, persistence.ErrCurrentReadingExists) {
 			redirect(w, r, "/reading?error="+url.QueryEscape("Another book became current while you were choosing. Review Reading before trying again."))
 			return
@@ -354,13 +354,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, languageLabel string) (readingChooserPageView, error) {
-	reader, ok := h.services.Store.Books.(interface {
-		ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
-	})
-	if !ok {
-		return readingChooserPageView{}, errors.New("reading chooser is unavailable")
-	}
-	books, err := reader.ListMyBooksWithEvidence(ctx, owner)
+	books, err := h.services.Store.Reading.ListMyBooksWithEvidence(ctx, owner)
 	if err != nil {
 		return readingChooserPageView{}, err
 	}

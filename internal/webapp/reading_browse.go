@@ -115,7 +115,7 @@ func (h *Handler) loadReadingBrowse(ctx context.Context, r *http.Request, owner,
 	// waiting indefinitely or turn a partial read into a successful page.
 	browseCtx, cancel := context.WithTimeout(ctx, h.interactiveReadTimeout())
 	defer cancel()
-	page, err := h.services.Store.VocabularyBrowse.ListVocabularyBrowsePage(browseCtx, owner, language, view.Query)
+	page, err := h.services.Store.Reading.ListVocabularyBrowsePage(browseCtx, owner, language, view.Query)
 	if err != nil {
 		log.Printf("mouseion: load vocabulary Browse: %v", err)
 		status := vocabularyBrowseErrorStatus(err, browseCtx)

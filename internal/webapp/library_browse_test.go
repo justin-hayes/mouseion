@@ -74,6 +74,7 @@ func TestNeedsLanguageClearSearchResetsQueryAndPreservesDisposition(t *testing.T
 }
 
 type pagedBookBrowseReader struct {
+	*fixtures.Store
 	bookID      string
 	requestedAt int
 	requests    int
@@ -83,7 +84,7 @@ type pagedBookBrowseReader struct {
 	gotHistory  bool
 }
 
-func (r *pagedBookBrowseReader) ListMyBooksBrowse(_ context.Context, owner, _, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (r *pagedBookBrowseReader) ListMyBooksBrowseWithVisibility(_ context.Context, owner, _, language, disposition string, history, _ bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	r.requests++
 	r.gotOwner, r.gotLanguage, r.gotBucket, r.gotHistory = owner, language, disposition, history
 	if offset == r.requestedAt {
@@ -93,7 +94,7 @@ func (r *pagedBookBrowseReader) ListMyBooksBrowse(_ context.Context, owner, _, l
 }
 
 func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
-	reader := &pagedBookBrowseReader{bookID: "historical-book", requestedAt: myBooksPageSize}
+	reader := &pagedBookBrowseReader{Store: fixtures.NewStore(), bookID: "historical-book", requestedAt: myBooksPageSize}
 	book := domain.MyBook{
 		Book:            domain.Book{ID: "historical-book"},
 		Disposition:     domain.BookDispositionInbox,
@@ -112,7 +113,7 @@ func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
 }
 
 func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
-	reader := &pagedBookBrowseReader{bookID: "current-book", requestedAt: 0}
+	reader := &pagedBookBrowseReader{Store: fixtures.NewStore(), bookID: "current-book", requestedAt: 0}
 	book := domain.MyBook{
 		Book: domain.Book{ID: "current-book"}, Disposition: domain.BookDispositionToRead, IsCurrentReading: true,
 	}
@@ -136,13 +137,9 @@ type browseRecordingStore struct {
 	limit       int
 }
 
-func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *browseRecordingStore) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, _ bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	s.owner, s.query, s.language, s.disposition, s.offset, s.limit = owner, query, language, disposition, offset, limit
 	return s.result, s.err
-}
-
-func (s *browseRecordingStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, _ bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
-	return s.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
 }
 
 func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary(t *testing.T) {

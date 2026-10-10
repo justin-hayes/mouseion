@@ -10,10 +10,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
-type currentReadingFinisher interface {
-	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
-}
-
 type primaryGoalFinishView struct {
 	BookTitle                string
 	GraduatedVocabularyCount int
@@ -22,11 +18,6 @@ type primaryGoalFinishView struct {
 
 func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
-		return
-	}
-	finisher, ok := h.services.Store.CurrentReading.(currentReadingFinisher)
-	if !ok {
-		h.respondGoal(w, r, "", "Reading finish is not available. No changes were made; review Reading and try again.", "")
 		return
 	}
 	owner := user(r).ID
@@ -42,7 +33,7 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := finisher.FinishCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
+	result, err := h.services.Store.Reading.FinishCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, persistence.ErrCurrentReadingStale) {
 		h.respondGoal(w, r, "", goalStaleMessage, "")
 		return
@@ -70,7 +61,7 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) finishBookTitle(ctx context.Context, owner, bookID string) string {
-	book, err := h.services.Store.Books.GetBook(ctx, owner, bookID)
+	book, err := h.services.Store.Reading.GetBook(ctx, owner, bookID)
 	if err == nil && strings.TrimSpace(book.Title) != "" {
 		return book.Title
 	}

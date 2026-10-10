@@ -63,9 +63,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 			}
 		}
 	}
-	dependencies := handler.services.Store
-	dependencies.Books = readingChooserBooks{Store: store, books: books}
-	handler.services.Store = dependencies
+	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
@@ -127,9 +125,7 @@ func TestCurrentReadingRefreshIsRejectedWithoutSubmittingAnalysis(t *testing.T) 
 	detail, err := store.GetBookDetail(context.Background(), fixtures.OwnerID, fixtures.BookID)
 	require.NoError(t, err)
 	detail.Acquired = nil
-	dependencies := handler.services.Store
-	dependencies.Books = unavailableCurrentReadingBook{BookStore: store, detail: detail}
-	handler.services.Store = dependencies
+	handler.services.Store = storeDependencies(unavailableCurrentReadingBook{Store: store, detail: detail})
 	opdsStub := &countingToReadOPDS{}
 	handler.services.OPDS = opdsStub
 	analysisStub := &recordingToReadAnalysis{}
@@ -146,7 +142,7 @@ func TestCurrentReadingRefreshIsRejectedWithoutSubmittingAnalysis(t *testing.T) 
 }
 
 type unavailableCurrentReadingBook struct {
-	BookStore
+	*fixtures.Store
 	detail domain.MyBook
 }
 
@@ -325,9 +321,7 @@ func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
-	dependencies := handler.services.Store
-	dependencies.Books = readingChooserBooks{Store: store}
-	handler.services.Store = dependencies
+	handler.services.Store = storeDependencies(readingChooserBooks{Store: store})
 
 	unauthenticated := httptest.NewRecorder()
 	h.ServeHTTP(unauthenticated, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil))
@@ -356,9 +350,7 @@ func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 			books[i].Acquired.AnalysisStatus = "analysis queued"
 		}
 	}
-	dependencies := handler.services.Store
-	dependencies.Books = readingChooserBooks{Store: store, books: books}
-	handler.services.Store = dependencies
+	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
