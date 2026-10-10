@@ -50,7 +50,9 @@ type AnalysisSignals struct {
 
 // AnalysisPhase is the Book's analysis status as My Books and Reading present
 // it. Phase precedence is part of the classification: an in-progress run hides
-// a published result, and a failed run hides a stale one.
+// a stale or unpublished result, and a failed run hides a stale one. A current
+// published analysis is not hidden by a newer queued, running, failed, or
+// cancelled run; that run is secondary information.
 type AnalysisPhase string
 
 const (
@@ -103,6 +105,31 @@ func (c BookEvidenceClassification) RunFinished() bool {
 	return c.Run == RunCompleted || c.Run == RunPublicationPending || c.Run == RunPublicationFailed
 }
 
+// ReAnalysisShadowed reports a newer analysis run that is queued, running,
+// failed, or cancelled while the published analysis still matches the current
+// content. The published analysis stays in effect; the run is secondary.
+func (c BookEvidenceClassification) ReAnalysisShadowed() bool {
+	return c.Phase == PhaseAnalyzed && newerAttempt(c.Run)
+}
+
+// AnalysisInEffect reports that the published analysis is what Reading and the
+// chooser use: its latest run completed, or a newer attempt is shadowed by it.
+func (c BookEvidenceClassification) AnalysisInEffect() bool {
+	return c.Phase == PhaseAnalyzed && (c.Run == RunCompleted || newerAttempt(c.Run))
+}
+
+// newerAttempt reports the runs that a published analysis outlives while its
+// content still matches. Publication states are not included: a run awaiting
+// publication keeps the Book out of the Current reading until it resolves.
+func newerAttempt(run LatestRunSignal) bool {
+	switch run {
+	case RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled:
+		return true
+	case RunNone, RunPublicationPending, RunPublicationFailed, RunCompleted:
+	}
+	return false
+}
+
 // ClassifyBookEvidence is the single domain entry point for Analysis evidence,
 // Current reading eligibility, and recovery. Disposition and language affect
 // only eligibility; a zero disposition or an empty language is not To Read or
@@ -119,11 +146,17 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 		Phase:       phase,
 		Run:         runOrNone(signals.LatestRun),
 		Eligibility: eligibilityReason(content, signals, phase, disposition, language),
-		Recovery:    recoveryAction(content, phase),
+		Recovery:    recoveryAction(content, signals, phase),
 	}
 }
 
 func analysisPhase(signals AnalysisSignals) AnalysisPhase {
+	if signals.Published == PublishedCurrent && newerAttempt(signals.LatestRun) {
+		// The published analysis matches the current content, so a newer run
+		// that is still queued or running, or that failed or was cancelled, is
+		// secondary information rather than the Book's analysis phase.
+		return PhaseAnalyzed
+	}
 	switch signals.LatestRun {
 	case RunQueued, RunRunning:
 		return PhaseAnalyzing
@@ -173,6 +206,8 @@ func eligibilityReason(content ContentSignal, signals AnalysisSignals, phase Ana
 		return CurrentReadingNoChosenLanguage
 	case content != ContentCurrentEPUB:
 		return CurrentReadingNeedsCurrentContent
+	case phase == PhaseAnalyzed && (signals.LatestRun == RunCompleted || newerAttempt(signals.LatestRun)):
+		return CurrentReadingEligible
 	case phase == PhaseAnalyzing:
 		return CurrentReadingAnalysisInProgress
 	case signals.LatestRun == RunFailed, signals.LatestRun == RunJobFailed:
@@ -181,16 +216,17 @@ func eligibilityReason(content ContentSignal, signals AnalysisSignals, phase Ana
 		return CurrentReadingCancelled
 	case phase == PhaseStale:
 		return CurrentReadingStale
-	case phase == PhaseAnalyzed && signals.LatestRun == RunCompleted:
-		return CurrentReadingEligible
 	default:
 		return CurrentReadingNoCompletedAnalysis
 	}
 }
 
-func recoveryAction(content ContentSignal, phase AnalysisPhase) BookEvidenceRecovery {
+func recoveryAction(content ContentSignal, signals AnalysisSignals, phase AnalysisPhase) BookEvidenceRecovery {
 	if content == ContentNotAcquired {
 		return RecoveryNone
+	}
+	if signals.Published == PublishedCurrent && retryableRun(signals.LatestRun) {
+		return RecoveryRetryAnalysis
 	}
 	switch phase {
 	case PhaseFailed, PhaseCancelled, PhaseStale:
@@ -201,6 +237,12 @@ func recoveryAction(content ContentSignal, phase AnalysisPhase) BookEvidenceReco
 		return RecoveryRetryAcquisition
 	}
 	return RecoveryNone
+}
+
+// retryableRun reports a newer run whose failure or cancellation offers a retry
+// while the published analysis stays in effect.
+func retryableRun(run LatestRunSignal) bool {
+	return run == RunFailed || run == RunJobFailed || run == RunCancelled
 }
 
 func runOrNone(run LatestRunSignal) LatestRunSignal {

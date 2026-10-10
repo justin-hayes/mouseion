@@ -114,9 +114,8 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 					<h2 id={ "reading-note-analysis-" + readingBookID(item) }>Analysis</h2>
 					if readingEvidenceState(item) == "current" {
 						<p>Current analysis evidence is available for this Book.</p>
-					} else {
-						@ReadingEvidence(item, csrf)
 					}
+					@ReadingEvidence(item, csrf)
 					if analysisReadyForReading(item.Book) {
 						<p><a href={ templ.SafeURL("/reading/books/" + readingBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
 					}
@@ -172,9 +171,15 @@ templ CurrentReadingDeckPreparationStatus(csrf, bookID, snapshotID string, prepa
 }
 
 templ ReadingEvidence(item readingBookView, csrf string) {
+	{{ action := readingAnalysisAction(item) }}
+	{{ shadowed := item.Book.EvidenceClassification().ReAnalysisShadowed() }}
 	if readingEvidenceState(item) != "current" {
 		<p><strong>{ readingEvidenceLabel(item) }:</strong> { readingEvidenceDescription(item) }</p>
-		{{ action := readingAnalysisAction(item) }}
+	}
+	if shadowed {
+		<p><strong>{ action.Status }.</strong> { action.Description }</p>
+	}
+	if readingEvidenceState(item) != "current" || shadowed {
 		if action.Status != "" {
 			if action.Label != "" && action.Submit {
 				<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">{ action.Label }</button></form>

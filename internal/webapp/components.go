@@ -324,6 +324,9 @@ type bookLifecycleAction struct {
 func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleAction {
 	runID := book.AnalysisRunID
 	classification := book.EvidenceClassification()
+	if classification.ReAnalysisShadowed() {
+		return reanalysisLifecycleAction(book, classification.Run)
+	}
 
 	var state string
 	switch {
@@ -370,6 +373,32 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		}
 	}
 
+	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this book yet.", "", "", StatusInfo, false}
+}
+
+// reanalysisLifecycleAction presents a newer run that the published analysis
+// outlives. The published analysis remains the evidence, so the copy names the
+// newer run as secondary and says what stays in effect.
+func reanalysisLifecycleAction(book domain.SourceMaterialSummary, run domain.LatestRunSignal) bookLifecycleAction {
+	jobURL := ""
+	if book.AnalysisJobID > 0 {
+		jobURL = fmt.Sprintf("/jobs/%d", book.AnalysisJobID)
+	}
+	bookID := book.BookID
+	if bookID == "" {
+		bookID = book.Source.ID
+	}
+	switch run {
+	case domain.RunQueued:
+		return bookLifecycleAction{"Re-analysis queued", "A newer analysis of the current EPUB is waiting to begin. The current analysis stays in effect until it completes.", "View analysis status", jobURL, StatusInfo, false}
+	case domain.RunRunning:
+		return bookLifecycleAction{"Re-analysis running", "A newer analysis of the current EPUB is being analyzed. The current analysis stays in effect until it completes.", "View analysis status", jobURL, StatusInfo, false}
+	case domain.RunFailed, domain.RunJobFailed:
+		return bookLifecycleAction{"Re-analysis failed", "The newer analysis failed. The current analysis stays in effect; retry to refresh the evidence.", "Retry analysis", readingReanalyzeURL(bookID), StatusWarning, true}
+	case domain.RunCancelled:
+		return bookLifecycleAction{"Re-analysis cancelled", "The newer analysis was cancelled. The current analysis stays in effect; retry to refresh the evidence.", "Retry analysis", readingReanalyzeURL(bookID), StatusWarning, true}
+	case domain.RunNone, domain.RunPublicationPending, domain.RunPublicationFailed, domain.RunCompleted:
+	}
 	return bookLifecycleAction{"Analysis not started", "Analysis evidence is not available for this book yet.", "", "", StatusInfo, false}
 }
 

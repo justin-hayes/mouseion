@@ -76,6 +76,7 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 | **View in Reading** | Leave operational status and open the Book's canonical Reading anchor, directly or through the run-specific compatibility redirect. | View job, view exact result |
 | **Not analysed yet** | Current acquired content has no completed analysis; a recovery action may accompany the note when available. | Not assessed as 0%, analysis failure |
 | **Analysis failed** / **Content unavailable** | A factual current-evidence state. Keep its adjacent recovery action when one is available, and do not expose an action whose route or preconditions are invalid. | Dead retry link, failure framing for absent evidence |
+| **Re-analysis queued** / **Re-analysis running** / **Re-analysis failed** / **Re-analysis cancelled** | A newer analysis run of the Book's unchanged revision, shown as secondary information. The **Current analysis evidence** stays in effect while its content still matches; keep **Retry analysis** adjacent to a failed or cancelled run. | Analysis failed or Analysis running for a Book whose published evidence is still current |
 
 Use **job** only for operational history or implementation-facing detail. A
 Book's learner-facing state may be **ready to analyze**, **analysis queued**,
