@@ -2140,10 +2140,6 @@ func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt ti
 	return goal
 }
 
-func (s *Store) fixtureCurrentReadingEligible(owner, language, bookID string) bool {
-	return s.fixtureCurrentReadingEligibility(owner, language, bookID) == domain.CurrentReadingEligible
-}
-
 // fixtureCurrentReadingEligibility classifies a Book's Analysis evidence for a
 // study language with the same domain rules as the Postgres store.
 func (s *Store) fixtureCurrentReadingEligibility(owner, language, bookID string) domain.CurrentReadingEligibilityReason {

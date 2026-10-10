@@ -570,18 +570,6 @@ func currentReadingEligibility(ctx context.Context, q *sqlcgen.Queries, owner, l
 	return domain.CurrentReadingEligibilityIn(classification, facts.BookLanguage, language), nil
 }
 
-// lookupCurrentReadingIdentity reads the published analysis identity that a
-// Book the classifier made eligible must have. A missing identity would mean
-// the classifier and the identity view disagree, so it is reported as the
-// missing completed analysis.
-func lookupCurrentReadingIdentity(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) (sqlcgen.GetCurrentReadingCandidateIdentityRow, error) {
-	identity, err := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Book: bookID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return identity, CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}
-	}
-	return identity, err
-}
-
 func lockCurrentReadingBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
 	_, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID})
 	if errors.Is(err, pgx.ErrNoRows) {
