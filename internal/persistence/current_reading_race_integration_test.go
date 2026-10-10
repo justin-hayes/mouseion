@@ -15,13 +15,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const currentReadingRaceLemma = "race-lemma"
+const (
+	currentReadingRaceLemma   = "race-lemma"
+	currentReadingRaceTimeout = 30 * time.Second
+)
 
 // raceCurrentReadingTransitions releases every transition at once and returns
-// their errors in argument order. The wait is bounded by ctx so a transition
-// that blocks forever fails the test instead of hanging the suite.
+// their errors in argument order. The race, not the fixture setup, is bounded
+// so a transition that blocks forever fails the test instead of hanging the
+// suite.
 func raceCurrentReadingTransitions(t *testing.T, ctx context.Context, transitions ...func(context.Context) error) []error {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(ctx, currentReadingRaceTimeout)
+	defer cancel()
 	start := make(chan struct{})
 	errs := make([]error, len(transitions))
 	var wait sync.WaitGroup
@@ -157,15 +163,8 @@ func newCurrentReadingRaceFixture(t *testing.T, ctx context.Context, store *Post
 	return fixture
 }
 
-func raceContext(t *testing.T) context.Context {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	t.Cleanup(cancel)
-	return ctx
-}
-
 func TestConcurrentCurrentReadingStartsOnDifferentBooksKeepOneWinner(t *testing.T) {
-	ctx := raceContext(t)
+	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-start-different", 2)
@@ -190,7 +189,7 @@ func TestConcurrentCurrentReadingStartsOnDifferentBooksKeepOneWinner(t *testing.
 }
 
 func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
-	ctx := raceContext(t)
+	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-start-same", 1)
@@ -219,7 +218,7 @@ func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
 }
 
 func TestConcurrentCurrentReadingSwitchAndFinishKeepOneWinner(t *testing.T) {
-	ctx := raceContext(t)
+	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-switch-finish", 2)
@@ -258,7 +257,7 @@ func TestConcurrentCurrentReadingSwitchAndFinishKeepOneWinner(t *testing.T) {
 }
 
 func TestConcurrentCurrentReadingEndAndFinishKeepOneWinner(t *testing.T) {
-	ctx := raceContext(t)
+	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-end-finish", 1)
