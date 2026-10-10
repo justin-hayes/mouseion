@@ -219,8 +219,8 @@ func (s *PostgresStore) ListDeckPreparationVocabulary(ctx context.Context, owner
 }
 
 // ListReservedVocabulary returns the vocabulary currently reserved by the
-// owner's active Goal snapshot, scoped to one language. Reserved vocabulary is
-// neither counted as known nor eligible for another deck until the Goal is
+// owner's active reading snapshot, scoped to one language. Reserved vocabulary is
+// neither counted as known nor eligible for another deck until the reading is
 // changed, cleared, or completed.
 func (s *PostgresStore) ListReservedVocabulary(ctx context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
 	rows, err := s.queries().ListReservedDeckVocabulary(ctx, sqlcgen.ListReservedDeckVocabularyParams{Owner: owner, Language: language})
@@ -476,7 +476,7 @@ func (s *PostgresStore) GetDeckPreparationForAnalysis(ctx context.Context, owner
 }
 
 // GetDeckPreparationForGoalSnapshot returns the current, owner-scoped
-// preparation bound to one exact immutable Goal snapshot.
+// preparation bound to one exact immutable reading snapshot.
 func (s *PostgresStore) GetDeckPreparationForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	model, err := s.queries().GetDeckPreparationForGoalSnapshot(ctx, sqlcgen.GetDeckPreparationForGoalSnapshotParams{Owner: owner, GoalSnapshot: uuidArg(snapshotID)})
 	return deckPreparationFromModel(model), missing(err)

@@ -46,9 +46,19 @@ func TestReadingChooserFormatsEvidenceWithoutChangingBandBoundaries(t *testing.T
 	assert.Equal(t, domain.CoverageBand97To99, domain.CoverageBandFor(989, 1000), "display rounding must not determine group membership")
 }
 
+// endGermanFixtureReading ends the fixture's German current reading through the
+// exact-commitment End path, reading its snapshot identity first.
+func endGermanFixtureReading(t *testing.T, store *fixtures.Store) {
+	t.Helper()
+	ctx := context.Background()
+	current, err := store.GetCurrentReading(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.EndCurrentReading(ctx, fixtures.OwnerID, "de", fixtures.BookID, current.SnapshotID))
+}
+
 func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	books, err := store.ListMyBooksWithEvidence(context.Background(), fixtures.OwnerID)
@@ -103,7 +113,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 
 func TestReadingChooserRecoveryRequiresToReadIntent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionInbox))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
@@ -172,7 +182,7 @@ func (a *recordingToReadAnalysis) SubmitToReadBookAnalysis(ctx context.Context, 
 
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	response := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "/reading?message=")
@@ -318,7 +328,7 @@ func TestLegacyGoalMutationsAreRejectedWithoutChangingCurrentReading(t *testing.
 
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store})
@@ -340,7 +350,7 @@ func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 
 func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	books, err := store.ListMyBooksWithEvidence(context.Background(), fixtures.OwnerID)

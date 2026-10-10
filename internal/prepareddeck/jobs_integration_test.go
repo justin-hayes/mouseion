@@ -225,7 +225,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.ErrorIs(t, err, persistence.ErrNotFound, "retired artifact remains owner-scoped")
 
 	oldGoal := firstGoal
-	require.NoError(t, store.ClearCurrentReading(ctx, owner.ID, "de", book.ID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, firstGoal.SnapshotID))
 	oldGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, refreshed.Preparation.ID)
 	require.NoError(t, err)
 	assert.Nil(t, oldGoalPreparation.RetiredAt, "releasing Reading leaves submitted work available to finish")
@@ -285,7 +285,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	assert.Equal(t, []byte("goal-old-artifact"), goalHistory.Artifact)
 	_, err = service.Submit(ctx, owner.ID, analysisID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "generic submission must not reuse an active Goal preparation")
-	require.NoError(t, store.ClearCurrentReading(ctx, owner.ID, "de", book.ID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, firstGoal.SnapshotID))
 	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, goalRefresh.Preparation.ID)
 	require.NoError(t, err)
 	assert.Nil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot leaves its preparation available to finish")
@@ -309,7 +309,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	}
 	cleared := make(chan error, 1)
 	go func() {
-		cleared <- store.ClearCurrentReading(ctx, owner.ID, "de", book.ID)
+		cleared <- store.EndCurrentReading(ctx, owner.ID, "de", book.ID, secondGoal.SnapshotID)
 	}()
 	select {
 	case clearErr := <-cleared:

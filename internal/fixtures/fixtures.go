@@ -1461,7 +1461,7 @@ func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) (
 	return result, nil
 }
 
-// reservedDeckVocabularyLocked returns the active Goal's frozen vocabulary.
+// reservedDeckVocabularyLocked returns the active reading's frozen vocabulary.
 // Callers hold s.mu.
 func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.DeckPreparationVocabulary {
 	var result []domain.DeckPreparationVocabulary
@@ -1528,7 +1528,7 @@ func (s *Store) goalSnapshotVocabularyLocked(owner, language string) []domain.De
 }
 
 // ListReservedVocabulary returns the vocabulary currently reserved by the
-// owner's active Goal snapshot, scoped to one language. It is the read seam
+// owner's active reading snapshot, scoped to one language. It is the read seam
 // used by the coverage service.
 func (s *Store) ListReservedVocabulary(_ context.Context, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
 	s.mu.Lock()
@@ -1906,34 +1906,6 @@ func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
 	return false
 }
 
-func (s *Store) ChangeCurrentReading(_ context.Context, owner, language, bookID, expectedBookID string) (domain.CurrentReading, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	key := fixtureGoalKey(owner, language)
-	goal, ok := s.currentReadings[key]
-	if !ok {
-		return domain.CurrentReading{}, persistence.ErrNotFound
-	}
-	if goal.BookID != expectedBookID {
-		return domain.CurrentReading{}, persistence.ErrCurrentReadingStale
-	}
-	if !s.fixtureBookExists(owner, bookID) {
-		return domain.CurrentReading{}, errNotFound
-	}
-	bookID = s.fixtureBookID(owner, bookID)
-	if s.hasUnresolvedLemmaReviewFlag(owner, bookID) {
-		return domain.CurrentReading{}, persistence.ErrUnresolvedLemmaReviewFlags
-	}
-	if !s.fixtureCurrentReadingEligible(owner, language, bookID) {
-		return domain.CurrentReading{}, persistence.ErrCurrentReadingIneligible
-	}
-	goal = s.fixtureGoalFromBook(owner, language, bookID, goal.CreatedAt)
-	goal.UpdatedAt = time.Now()
-	s.currentReadings[key] = goal
-	return goal, nil
-}
-
 func (s *Store) SwitchCurrentReading(_ context.Context, owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.CurrentReading, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -2016,21 +1988,6 @@ func (s *Store) fixtureCurrentReadingEligible(owner, language, bookID string) bo
 	}
 	return false
 }
-func (s *Store) ClearCurrentReading(_ context.Context, owner, language, expectedBookID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	language = normalizeFixtureLanguage(language)
-	key := fixtureGoalKey(owner, language)
-	goal, ok := s.currentReadings[key]
-	if !ok {
-		return persistence.ErrNotFound
-	}
-	if goal.BookID != expectedBookID {
-		return persistence.ErrCurrentReadingStale
-	}
-	delete(s.currentReadings, key)
-	return nil
-}
 
 // EndCurrentReading clears the exact expected commitment. A replay succeeds
 // only for a snapshot this store recorded as ended.
@@ -2057,26 +2014,41 @@ func (s *Store) EndCurrentReading(_ context.Context, owner, language, expectedBo
 	return nil
 }
 
-// RecordCurrentReadingFinished records the reading fact and clears the
-// active Goal and Journey membership.
-func (s *Store) RecordCurrentReadingFinished(_ context.Context, owner, language, expectedBookID, expectedSnapshotID string) (persistence.ReadingFinishResult, error) {
+// FinishCurrentReading records the reading fact, accepts the frozen snapshot into
+// modeled Known vocabulary, returns the Book to Inbox, and ends the current
+// reading. A replay for a finished snapshot returns the recorded completion.
+func (s *Store) FinishCurrentReading(_ context.Context, owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	language = normalizeFixtureLanguage(language)
 	key := fixtureGoalKey(owner, language)
+	historyKey := fixtureReadingHistoryKey(owner, language, expectedSnapshotID)
+	finished := func(completion domain.ReadingCompletion) (domain.CurrentReadingFinishResult, error) {
+		if completion.BookID != expectedBookID {
+			return domain.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
+		}
+		return domain.CurrentReadingFinishResult{Completion: domain.CurrentReadingCompletion{
+			OwnerID: completion.OwnerID, Language: completion.Language, BookID: completion.BookID,
+			CompletedAt: completion.CompletedAt, SnapshotID: completion.GoalSnapshotID,
+			SnapshotVocabularyCount:     completion.SnapshotVocabularyCount,
+			EligibleVocabularyCount:     completion.EligibleVocabularyCount,
+			GraduatedVocabularyCount:    completion.GraduatedVocabularyCount,
+			AlreadyKnownVocabularyCount: completion.AlreadyKnownVocabularyCount,
+		}}, nil
+	}
 	if expectedBookID == "" || expectedSnapshotID == "" {
-		return persistence.ReadingFinishResult{}, persistence.ErrCurrentReadingStale
+		return domain.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
 	}
 	goal, ok := s.currentReadings[key]
 	if !ok {
-		completion, completed := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)]
+		completion, completed := s.readingHistory[historyKey]
 		if !completed {
-			return persistence.ReadingFinishResult{}, persistence.ErrNotFound
+			return domain.CurrentReadingFinishResult{}, persistence.ErrNotFound
 		}
-		return persistence.ReadingFinishResult{Completion: completion}, nil
+		return finished(completion)
 	}
 	if goal.BookID != expectedBookID || goal.SnapshotID != expectedSnapshotID {
-		return persistence.ReadingFinishResult{}, persistence.ErrCurrentReadingStale
+		return domain.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
 	}
 	now := time.Now()
 	snapshot := s.goalSnapshotVocabularyLocked(owner, language)
@@ -2100,10 +2072,10 @@ func (s *Store) RecordCurrentReadingFinished(_ context.Context, owner, language,
 		EligibleVocabularyCount: eligibleCount, GraduatedVocabularyCount: graduatedCount,
 		AlreadyKnownVocabularyCount: snapshotCount - eligibleCount, Source: domain.ReadingCompletionPrimaryGoal,
 	}
-	if existing, exists := s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)]; exists {
+	if existing, exists := s.readingHistory[historyKey]; exists {
 		completion = existing
 	} else {
-		s.readingHistory[fixtureReadingHistoryKey(owner, language, expectedSnapshotID)] = completion
+		s.readingHistory[historyKey] = completion
 	}
 	for index := range s.preps {
 		preparation := &s.preps[index]
@@ -2121,26 +2093,7 @@ func (s *Store) RecordCurrentReadingFinished(_ context.Context, owner, language,
 	}
 	s.dispositions[fixtureDispositionKey(owner, expectedBookID)] = domain.BookDispositionInbox
 	delete(s.currentReadings, key)
-	return persistence.ReadingFinishResult{Completion: completion}, nil
-}
-
-func (s *Store) FinishCurrentReading(ctx context.Context, owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error) {
-	result, err := s.RecordCurrentReadingFinished(ctx, owner, language, expectedBookID, expectedSnapshotID)
-	if err != nil {
-		return domain.CurrentReadingFinishResult{}, err
-	}
-	if result.Completion.BookID != expectedBookID {
-		return domain.CurrentReadingFinishResult{}, persistence.ErrCurrentReadingStale
-	}
-	completion := result.Completion
-	return domain.CurrentReadingFinishResult{Completion: domain.CurrentReadingCompletion{
-		OwnerID: completion.OwnerID, Language: completion.Language, BookID: completion.BookID,
-		CompletedAt: completion.CompletedAt, SnapshotID: completion.GoalSnapshotID,
-		SnapshotVocabularyCount:     completion.SnapshotVocabularyCount,
-		EligibleVocabularyCount:     completion.EligibleVocabularyCount,
-		GraduatedVocabularyCount:    completion.GraduatedVocabularyCount,
-		AlreadyKnownVocabularyCount: completion.AlreadyKnownVocabularyCount,
-	}}, nil
+	return finished(completion)
 }
 
 func (s *Store) fixtureBookExists(owner, bookID string) bool {

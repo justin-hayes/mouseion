@@ -29,7 +29,7 @@ func (p *lemmaSuggestionFixture) SuggestLemma(_ context.Context, request enrichm
 
 func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	provider := &lemmaSuggestionFixture{}
 	webHandler, ok := h.(*Handler)
 	require.True(t, ok)
@@ -51,7 +51,7 @@ func TestOptionalLemmaSuggestionIsBoundedAndNeverApplied(t *testing.T) {
 
 func TestFailedOptionalLemmaSuggestionKeepsManualReviewAvailable(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	webHandler, ok := h.(*Handler)
 	require.True(t, ok)
 	webHandler.services.LemmaSuggestions = &lemmaSuggestionFixture{err: context.DeadlineExceeded}
@@ -73,7 +73,7 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	h.ServeHTTP(activePage, activeRequest)
 	assert.Contains(t, activePage.Body.String(), "Stop before changing this Book's vocabulary")
 	assert.Contains(t, activePage.Body.String(), "A ready deck is a historical artifact")
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 	reviewBookID := "fixture-route-match"
 	path := "/reading/books/" + reviewBookID + "/lemma-review?form=Weg"
 	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
@@ -157,7 +157,7 @@ func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) 
 	oldReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	oldSnapshotID := oldReading.SnapshotID
-	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	endGermanFixtureReading(t, store)
 
 	preview := goalRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
 		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {"0"}, "decision": {"correct"}, "lemma": {"Pfad"},
