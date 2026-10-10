@@ -119,13 +119,51 @@ func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen
 		}
 	}
 
-	acrossBooks := make(map[currentReadingVocabularyIdentity]int64, len(identities))
-	if len(identities) > 0 {
-		lemmas, upos := make([]string, 0, len(identities)), make([]string, 0, len(identities))
-		for _, identity := range identities {
-			lemmas, upos = append(lemmas, identity.lemma), append(upos, identity.upos)
+	acrossBooks, err := currentAcrossBookCounts(ctx, tx, owner, language, "", identities)
+	if err != nil {
+		return nil, err
+	}
+
+	selected := make([]domain.SelectionCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		frequency := int64(0)
+		if candidate.OccurrenceCount == 2 {
+			frequency = acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
 		}
-		rows, err := tx.Query(ctx, `
+		if !eligibility.AllowsBookDeckCandidate(candidate, frequency) {
+			continue
+		}
+		activeReserved, err := q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
+			Owner: owner, Language: language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if activeReserved {
+			continue
+		}
+		selected = append(selected, candidate)
+	}
+	return selected, nil
+}
+
+// currentAcrossBookCounts totals each identity's projected count over the
+// learner's currently analyzed Books in a language, optionally leaving one Book
+// out. Counts and readiness share one SQL statement snapshot; the totals are
+// withheld with a pending or unavailable error while any such Book lacks a
+// ready projection.
+func currentAcrossBookCounts(ctx context.Context, q interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}, owner, language, excludeBook string, identities []currentReadingVocabularyIdentity) (map[currentReadingVocabularyIdentity]int64, error) {
+	acrossBooks := make(map[currentReadingVocabularyIdentity]int64, len(identities))
+	if len(identities) == 0 {
+		return acrossBooks, nil
+	}
+	lemmas, upos := make([]string, 0, len(identities)), make([]string, 0, len(identities))
+	for _, identity := range identities {
+		lemmas, upos = append(lemmas, identity.lemma), append(upos, identity.upos)
+	}
+	rows, err := q.Query(ctx, `
 WITH requested AS (
  SELECT lemma,upos FROM unnest($3::text[],$4::text[]) AS r(lemma,upos)
 ), current_books AS MATERIALIZED (
@@ -165,58 +203,37 @@ WITH requested AS (
  JOIN vocabulary_browse_counts c ON c.owner_id=cb.owner_id AND c.book_id=cb.book_id
    AND c.analysis_run_id=cb.analysis_run_id AND c.corpus_id=cb.corpus_id AND c.language=cb.language
  JOIN requested i ON i.lemma=c.canonical_lemma AND i.upos=c.upos
+ WHERE $5::text='' OR c.book_id::text<>$5
  GROUP BY c.canonical_lemma,c.upos
 )
 SELECT i.lemma,i.upos,COALESCE(c.occurrences,0)::bigint,s.ready,s.unavailable
 FROM requested i CROSS JOIN projection_status s
-LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos`, owner, language, lemmas, upos)
-		if err != nil {
-			return nil, fmt.Errorf("load current across-Book vocabulary counts: %w", err)
-		}
-		ready, unavailable := true, false
-		for rows.Next() {
-			var lemma, pos string
-			var count int64
-			if err := rows.Scan(&lemma, &pos, &count, &ready, &unavailable); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			acrossBooks[currentReadingVocabularyIdentity{lemma: lemma, upos: pos}] = count
-		}
-		if err := rows.Err(); err != nil {
+LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos`, owner, language, lemmas, upos, excludeBook)
+	if err != nil {
+		return nil, fmt.Errorf("load current across-Book vocabulary counts: %w", err)
+	}
+	ready, unavailable := true, false
+	for rows.Next() {
+		var lemma, pos string
+		var count int64
+		if err := rows.Scan(&lemma, &pos, &count, &ready, &unavailable); err != nil {
 			rows.Close()
 			return nil, err
 		}
+		acrossBooks[currentReadingVocabularyIdentity{lemma: lemma, upos: pos}] = count
+	}
+	if err := rows.Err(); err != nil {
 		rows.Close()
-		if !ready {
-			if unavailable {
-				return nil, ErrVocabularyBrowseCountsUnavailable
-			}
-			return nil, ErrVocabularyBrowseCountsPending
-		}
+		return nil, err
 	}
-
-	selected := make([]domain.SelectionCandidate, 0, len(candidates))
-	for _, candidate := range candidates {
-		frequency := int64(0)
-		if candidate.OccurrenceCount == 2 {
-			frequency = acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
+	rows.Close()
+	if !ready {
+		if unavailable {
+			return nil, ErrVocabularyBrowseCountsUnavailable
 		}
-		if !eligibility.AllowsBookDeckCandidate(candidate, frequency) {
-			continue
-		}
-		activeReserved, err := q.IsCurrentReadingVocabularyReserved(ctx, sqlcgen.IsCurrentReadingVocabularyReservedParams{
-			Owner: owner, Language: language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if activeReserved {
-			continue
-		}
-		selected = append(selected, candidate)
+		return nil, ErrVocabularyBrowseCountsPending
 	}
-	return selected, nil
+	return acrossBooks, nil
 }
 
 // correctedCurrentReadingCandidates rebuilds the current Book's candidate set

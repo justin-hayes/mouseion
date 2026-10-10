@@ -74,6 +74,8 @@ func TestReadyDeckIsOfferedAndRepreparedOnIdentityChangeWithProductionWiring(t *
 		require.NoError(t, err)
 	}
 
+	buildBrowseProjection(t, ctx, store, book.ID)
+
 	readyDeck, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun, Filename: "ready.apkg", DeckName: "Ready", ContentHash: source.ContentHash})
 	require.NoError(t, err)
 	readyDeck, err = store.ClaimDeckPreparation(ctx, owner.ID, readyDeck.ID)

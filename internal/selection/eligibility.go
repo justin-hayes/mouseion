@@ -39,9 +39,14 @@ func (e Eligibility) Allows(candidate domain.SelectionCandidate, minOccurrences 
 // exactly-two occurrences only when current same-language evidence reaches
 // the corpus-wide threshold.
 func (e Eligibility) AllowsBookDeckCandidate(candidate domain.SelectionCandidate, acrossBooksOccurrences int64) bool {
-	frequencyEligible := candidate.OccurrenceCount >= DefaultRecurringMinOccurrences ||
-		(candidate.OccurrenceCount == 2 && acrossBooksOccurrences >= DefaultAcrossBooksMinOccurrences)
-	return frequencyEligible && !e.ExcludesLearnerState(candidate)
+	return readingFrequencyEligible(int64(candidate.OccurrenceCount), acrossBooksOccurrences) && !e.ExcludesLearnerState(candidate)
+}
+
+// readingFrequencyEligible is the Reading frequency rule shared by the snapshot
+// freeze and the lemma review impact preview: three occurrences in the Book, or
+// two with ten across the learner's currently analyzed Books.
+func readingFrequencyEligible(inBook, acrossBooks int64) bool {
+	return inBook >= DefaultRecurringMinOccurrences || (inBook == 2 && acrossBooks >= DefaultAcrossBooksMinOccurrences)
 }
 
 // ExcludesLearnerState reports whether Known or Reserved state excludes an

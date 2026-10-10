@@ -110,9 +110,9 @@ type LemmaReviewStore interface { //nolint:interfacebloat // the lemma review se
 	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
 	PutLemmaDecisions(context.Context, []domain.LemmaReviewDecision) error
 	HasCurrentLemmaCorrections(context.Context, string, string) (bool, error)
-	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
+	PreviewLemmaDecisionCounts(context.Context, string, string, []domain.LemmaReviewDecision) ([]domain.LemmaDecisionCounts, error)
 	LemmaReviewStateFingerprint(context.Context, string, string, string, string, []domain.LemmaReviewIdentity) (string, error)
 	PutLemmaDecisionProposal(context.Context, []domain.LemmaReviewDecision, string, string, []domain.LemmaReviewIdentity, string) error
 	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
