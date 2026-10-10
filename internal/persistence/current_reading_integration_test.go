@@ -553,6 +553,23 @@ func TestCurrentReadingStartAndSwitchRejectEachIneligibilityReason(t *testing.T)
 	assert.Equal(t, reading.SnapshotID, current.SnapshotID, "rejected switches keep the reservation")
 }
 
+func TestCurrentReadingStartTreatsMalformedIdentitiesAsNotFound(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	owner, err := store.CreateUser(ctx, "current-reading-malformed", false)
+	require.NoError(t, err)
+	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "malformed-anchor")
+	makeAnalyzedToReadBook(t, ctx, store, book, source)
+
+	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {
+		_, err := store.StartCurrentReading(ctx, owner.ID, "de", bookID)
+		require.ErrorIs(t, err, ErrNotFound, bookID)
+	}
+	_, err = store.StartCurrentReading(ctx, "not-a-uuid", "de", book.ID)
+	require.ErrorIs(t, err, ErrNotFound, "malformed owner")
+}
+
 func TestCurrentReadingStartAcceptsPublishedAnalysisDuringReAnalysis(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
