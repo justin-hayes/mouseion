@@ -557,7 +557,7 @@ func (h *Handler) lemmaReviewWritable(w http.ResponseWriter, r *http.Request, ow
 		return false
 	}
 	if currentReadingBlocksLemmaDecision(current, bookID) {
-		http.Error(w, "Stop this Book's current reading before changing its vocabulary.", http.StatusConflict)
+		http.Error(w, persistence.ErrLemmaDecisionCurrentReading.Error(), http.StatusConflict)
 		return false
 	}
 	return true
@@ -678,6 +678,10 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 	if err := store.PutLemmaDecisionProposal(r.Context(), decisions, form, language, extras, stateFingerprint); err != nil {
+		if errors.Is(err, persistence.ErrLemmaDecisionCurrentReading) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		if errors.Is(err, persistence.ErrNotFound) || lemmaCountsRefreshing(err) {
 			http.Error(w, "Learner vocabulary state changed or froze after preview. No decision was saved; review it again.", http.StatusConflict)
 			return
@@ -694,7 +698,17 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		var handle prepareddeck.Handle
 		var reprepareErr error
 		if recovery.ReadyDeckSnapshotID != "" {
+			// Flag detection is a write the new snapshot depends on, so it runs
+			// before the restart freezes it, as Start and Switch do.
+			if _, detectErr := h.ensureLemmaReviewFlags(r.Context(), owner.ID, detail); detectErr != nil {
+				fail(w, detectErr)
+				return
+			}
 			reading, startErr := h.services.Store.Reading.StartCurrentReading(r.Context(), owner.ID, language, bookID)
+			if errors.Is(startErr, persistence.ErrUnresolvedLemmaReviewFlags) {
+				redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
+				return
+			}
 			if startErr != nil {
 				http.Error(w, "The identity decision was saved, but a new Reading snapshot could not be started. Start this Book in Reading, then prepare its deck; the historical deck remains available.", http.StatusServiceUnavailable)
 				return

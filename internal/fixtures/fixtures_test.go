@@ -179,6 +179,23 @@ func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
 	assert.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags)
 }
 
+func TestLemmaDecisionProposalIsRejectedForTheCurrentReadingBook(t *testing.T) {
+	store := NewStore()
+	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
+	require.NoError(t, err)
+	require.Equal(t, BookID, current.BookID, "the fixture seeds BookID as the German current reading")
+	occurrences, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
+	require.NoError(t, err)
+	decisions := []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "pfad", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}
+	err = store.PutLemmaDecisionProposal(t.Context(), decisions, "Weg", "de", nil, "any-fingerprint")
+	require.ErrorIs(t, err, persistence.ErrLemmaDecisionCurrentReading, "the gate runs before the preview fingerprint")
+	err = store.PutLemmaDecisions(t.Context(), decisions)
+	require.ErrorIs(t, err, persistence.ErrNotFound, "the single-decision path keeps its not-found contract")
+	unchanged, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
+	require.NoError(t, err)
+	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")
+}
+
 func TestStartingFixtureBookRejectsMalformedAndUnknownIDsAsNotFound(t *testing.T) {
 	store := NewStore()
 	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {

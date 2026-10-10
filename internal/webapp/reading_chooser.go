@@ -282,6 +282,21 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language before starting a book."))
 		return
 	}
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	// Flag detection is a write the freeze depends on, so it runs before the
+	// Start. Persistence decides everything else.
+	if _, err := h.ensureLemmaReviewFlags(r.Context(), owner, detail); err != nil {
+		fail(w, err)
+		return
+	}
 	start, err := h.services.Store.Reading.StartCurrentReadingResult(r.Context(), owner, language, bookID)
 	var ineligible persistence.CurrentReadingIneligibleError
 	switch {

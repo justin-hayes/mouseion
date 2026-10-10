@@ -284,6 +284,8 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 
 // PutLemmaDecisionProposal revalidates the preview fingerprint while holding
 // the learner-state lock, then commits the complete selected set atomically.
+// The current-reading gate runs first, under the same locks Start takes, so a
+// Start that committed after the review page was checked is rejected here.
 func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expectedFingerprint string) error {
 	if len(decisions) == 0 {
 		return ErrNotFound
@@ -294,6 +296,9 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions 
 			return err
 		}
 		if err := lockCurrentReadingBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
+			return err
+		}
+		if err := rejectLemmaDecisionForCurrentReading(ctx, tx, owner, book); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
@@ -359,6 +364,21 @@ func resolveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, decision domain.Lemm
 func lockLemmaReviewLearnerState(ctx context.Context, tx pgx.Tx, owner string) error {
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 194))`, owner)
 	return err
+}
+
+// rejectLemmaDecisionForCurrentReading refuses vocabulary decisions on the
+// Book that is the owner's current reading. The caller holds the learner-state
+// and Book locks, so Start cannot make the Book current before this decision
+// commits, and the row read here is the one Start would have written.
+func rejectLemmaDecisionForCurrentReading(ctx context.Context, tx pgx.Tx, owner, book string) error {
+	var current bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM primary_goals WHERE owner_id=$1 AND book_id=$2)`, owner, book).Scan(&current); err != nil {
+		return err
+	}
+	if current {
+		return ErrLemmaDecisionCurrentReading
+	}
+	return nil
 }
 
 func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, error) {
