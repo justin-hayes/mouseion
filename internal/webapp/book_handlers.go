@@ -16,13 +16,12 @@ import (
 )
 
 func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
-	reader := h.services.Store.Covers
 	bookID := strings.TrimSpace(r.PathValue("id"))
-	if reader == nil || bookID == "" {
+	if bookID == "" {
 		http.NotFound(w, r)
 		return
 	}
-	resource, err := reader.GetActiveBookCoverResource(r.Context(), user(r).ID, bookID)
+	resource, err := h.services.Store.Shell.GetActiveBookCoverResource(r.Context(), user(r).ID, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return
@@ -47,7 +46,7 @@ func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id s
 		http.NotFound(w, r)
 		return domain.MyBook{}, false
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, id)
+	detail, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, id)
 	if errors.Is(err, persistence.ErrNotFound) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, false
@@ -59,16 +58,8 @@ func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id s
 	return detail, true
 }
 
-type catalogueAliasReader interface {
-	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
-}
-
 func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string) (bool, error) {
-	reader, ok := h.services.Store.Catalog.(catalogueAliasReader)
-	if !ok {
-		return false, nil
-	}
-	alias, err := reader.GetBookCatalogEntryAlias(ctx, owner, bookID)
+	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return false, nil
 	}
@@ -81,7 +72,7 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 	if strings.TrimSpace(alias.ConnectionID) == "" {
 		return false, nil
 	}
-	_, err = h.services.Store.Catalog.GetOpdsConnection(ctx, owner, alias.ConnectionID)
+	_, err = h.services.Store.Catalogs.GetOpdsConnection(ctx, owner, alias.ConnectionID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return false, nil
 	}
@@ -156,10 +147,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) myBooksRefreshRowDetail(ctx context.Context, owner, bookID string) (domain.MyBook, error) {
-	if reader, ok := h.services.Store.Books.(MyBooksRefreshRowStore); ok {
-		return reader.GetBookDetailForMyBooksRefresh(ctx, owner, bookID)
-	}
-	return h.services.Store.Books.GetBookDetail(ctx, owner, bookID)
+	return h.services.Store.MyBooks.GetBookDetailForMyBooksRefresh(ctx, owner, bookID)
 }
 
 func (h *Handler) renderBookRefreshFailure(w http.ResponseWriter, r *http.Request, u domain.User, bookID string) {
@@ -254,7 +242,7 @@ func (h *Handler) acquireBookForJourneyContext(ctx context.Context, owner, bookI
 	return target, err
 }
 
-func journeyAcquisitionError(ctx context.Context, catalog CatalogStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
+func journeyAcquisitionError(ctx context.Context, catalog CatalogsStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
 	connectionName, entryTitle := "catalog connection", "this book"
 	if strings.TrimSpace(target.Entry.Title) != "" {
 		entryTitle = target.Entry.Title
@@ -264,12 +252,10 @@ func journeyAcquisitionError(ctx context.Context, catalog CatalogStore, owner, b
 	if strings.TrimSpace(target.ConnectionID) != "" {
 		connectionName = target.ConnectionID
 	}
-	if provider, ok := catalog.(catalogueAliasReader); ok {
-		if alias, aliasErr := provider.GetBookCatalogEntryAlias(ctx, owner, bookID); aliasErr == nil {
-			if connection, connectionErr := catalog.GetOpdsConnection(ctx, owner, alias.ConnectionID); connectionErr == nil {
-				if strings.TrimSpace(connection.Name) != "" {
-					connectionName = connection.Name
-				}
+	if alias, aliasErr := catalog.GetBookCatalogEntryAlias(ctx, owner, bookID); aliasErr == nil {
+		if connection, connectionErr := catalog.GetOpdsConnection(ctx, owner, alias.ConnectionID); connectionErr == nil {
+			if strings.TrimSpace(connection.Name) != "" {
+				connectionName = connection.Name
 			}
 		}
 	}

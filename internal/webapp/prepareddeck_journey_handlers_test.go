@@ -14,7 +14,7 @@ import (
 func TestValidJourneyDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t *testing.T) {
 	store := fixtures.NewStore()
 	h := &Handler{services: Services{
-		Store:    StoreDependencies{Books: store, Goals: store},
+		Store:    storeDependencies(store),
 		Analysis: fixtures.Analysis{},
 	}}
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/reading/books/fixture-route-match/deck/preparations/new", nil)

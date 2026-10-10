@@ -38,6 +38,10 @@ func NewCatalogueSync(store *Store) *CatalogueSync { return &CatalogueSync{Store
 func (s *CatalogueSync) RegisterConnection(context.Context, string, string) error { return nil }
 func (s *CatalogueSync) UnregisterConnection(string, string) error                { return nil }
 
+func (s *CatalogueSync) ListCatalogueSyncStatuses(ctx context.Context, owner string) ([]domain.CatalogueSyncStatus, error) {
+	return s.Store.ListCatalogueSyncStatuses(ctx, owner)
+}
+
 func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string) (cataloguesync.Handle, error) {
 	if _, err := s.Store.GetOpdsConnection(ctx, owner, connectionID); err != nil {
 		return cataloguesync.Handle{}, cataloguesync.ErrNotFound

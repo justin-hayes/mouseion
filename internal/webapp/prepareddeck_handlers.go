@@ -31,7 +31,7 @@ func (h *Handler) createJourneyEntryDeckPreparation(w http.ResponseWriter, r *ht
 	if !ok {
 		return
 	}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), u.ID, bookStudyLanguage(detail))
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), u.ID, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
@@ -58,7 +58,7 @@ func (h *Handler) validJourneyDeckBook(w http.ResponseWriter, r *http.Request, o
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	goal, err := h.currentReading(r.Context(), owner, bookStudyLanguage(detail))
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
@@ -127,7 +127,7 @@ func (h *Handler) newJourneyDeckPreparation(w http.ResponseWriter, r *http.Reque
 	book.BookID = detail.Book.ID
 	book.BookTitle = detail.Book.Title
 	task := journeyDeckPreparationView{Book: book, BookID: detail.Book.ID, AnalysisRunID: result.RunID}
-	goal, err := h.services.Store.Goals.GetPrimaryGoal(r.Context(), owner, bookStudyLanguage(detail))
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return
@@ -201,7 +201,7 @@ func (h *Handler) submitCurrentBookDeckPreparation(w http.ResponseWriter, r *htt
 	if !isBook {
 		return false
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), user(r).ID, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), user(r).ID, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.NotFound(w, r)
@@ -210,7 +210,7 @@ func (h *Handler) submitCurrentBookDeckPreparation(w http.ResponseWriter, r *htt
 		}
 		return true
 	}
-	goal, err := h.currentReading(r.Context(), user(r).ID, bookStudyLanguage(detail))
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), user(r).ID, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return true
@@ -238,7 +238,7 @@ func (h *Handler) submitCurrentBookDeckPreparation(w http.ResponseWriter, r *htt
 
 func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.Request, analysisID string) bool {
 	jobID, err := strconv.ParseInt(analysisID, 10, 64)
-	if err != nil || h.services.Analysis == nil || h.services.Store.LemmaReview == nil {
+	if err != nil || h.services.Analysis == nil {
 		return false
 	}
 	status, err := h.services.Analysis.Get(r.Context(), user(r).ID, jobID)
@@ -253,7 +253,7 @@ func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.
 	if err != nil {
 		return false
 	}
-	books, err := h.services.Store.Books.ListSourceMaterials(r.Context(), user(r).ID)
+	books, err := h.services.Store.Reading.ListSourceMaterials(r.Context(), user(r).ID)
 	if err != nil {
 		fail(w, err)
 		return true
@@ -262,7 +262,7 @@ func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.
 		if item.Source.ID != status.SourceMaterialID || item.BookID == "" {
 			continue
 		}
-		detail, detailErr := h.services.Store.Books.GetBookDetail(r.Context(), user(r).ID, item.BookID)
+		detail, detailErr := h.services.Store.Reading.GetBookDetail(r.Context(), user(r).ID, item.BookID)
 		if detailErr != nil {
 			fail(w, detailErr)
 			return true
@@ -274,7 +274,7 @@ func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.
 			fail(w, detectErr)
 			return true
 		}
-		occurrences, listErr := h.services.Store.LemmaReview.ListLemmaReviewOccurrences(r.Context(), user(r).ID, item.BookID, "")
+		occurrences, listErr := h.services.Store.Reading.ListLemmaReviewOccurrences(r.Context(), user(r).ID, item.BookID, "")
 		if listErr != nil {
 			fail(w, listErr)
 			return true
@@ -579,7 +579,7 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return false
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(r.Context(), owner, bookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			http.NotFound(w, r)
@@ -588,7 +588,7 @@ func (h *Handler) allowPreparationGeneration(w http.ResponseWriter, r *http.Requ
 		}
 		return false
 	}
-	goal, err := h.currentReading(r.Context(), owner, bookStudyLanguage(detail))
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, bookStudyLanguage(detail))
 	if err != nil {
 		fail(w, err)
 		return false
@@ -617,7 +617,7 @@ func (h *Handler) redirectToPreparationStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckJourneyActionView) (string, error) {
-	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, action.BookID)
+	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, action.BookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
 			return "", nil

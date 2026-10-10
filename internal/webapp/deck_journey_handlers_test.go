@@ -5,11 +5,12 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 type deckJourneyActionStore struct {
-	GoalStore
+	*fixtures.Store
 	goal                   domain.PrimaryGoal
 	bookIDBySourceMaterial map[string]string
 	noBookIdentity         map[string]bool
@@ -26,17 +27,16 @@ func (s *deckJourneyActionStore) ResolveBookID(_ context.Context, _ string, id s
 	return id, true, nil
 }
 
-func (s *deckJourneyActionStore) GetPrimaryGoal(context.Context, string, string) (domain.PrimaryGoal, error) {
+func (s *deckJourneyActionStore) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
 	return s.goal, nil
 }
 
-func (s *deckJourneyActionStore) CountPrimaryGoalVocabularyToGraduate(context.Context, string, string) (int, error) {
+func (s *deckJourneyActionStore) CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error) {
 	return 0, nil
 }
 
 type journeyIntentStore struct {
 	*deckJourneyActionStore
-	BookStore
 	detail domain.MyBook
 }
 

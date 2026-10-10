@@ -152,7 +152,7 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageJour
 		deckJourneyActionStore: &deckJourneyActionStore{},
 		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", LanguageTag: "de"}, Disposition: domain.BookDispositionToRead, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: "application/epub+zip", ContentRevisionID: "revision-1", ContentSnapshotID: "snapshot-1"}, AnalysisStatus: "analyzed", AnalysisState: "completed", AnalysisRunID: "run-1", CorpusID: "corpus-1"}},
 	}
-	h := &Handler{services: Services{Store: StoreDependencies{Books: store, Goals: store}}}
+	h := &Handler{services: Services{Store: storeDependencies(store)}}
 	action := deckJourneyActionView{BookID: "book-1", State: deckJourneyNotMember}
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)

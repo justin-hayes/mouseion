@@ -34,7 +34,7 @@ func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID s
 	if sourceID == "" {
 		return jobBookContext{}, nil
 	}
-	detail, err := h.services.Store.Books.GetBookDetail(ctx, owner, sourceID)
+	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, sourceID)
 	if errors.Is(err, persistence.ErrNotFound) {
 		return jobBookContext{}, nil
 	}

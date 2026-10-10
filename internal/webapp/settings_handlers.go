@@ -17,12 +17,12 @@ import (
 
 func (h *Handler) vocabularyImportPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
+	languages, err := h.services.Store.Shell.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -77,7 +77,7 @@ func (h *Handler) importKnownVocab(w http.ResponseWriter, r *http.Request) {
 		h.renderKnownVocabResult(w, r, language, nil, "Choose a language before importing.")
 		return
 	}
-	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
+	studyLanguages, err := h.services.Store.Shell.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -138,12 +138,12 @@ func (h *Handler) renderKnownVocabResult(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	u := user(r)
-	studyLanguages, err := h.services.Store.StudyLanguages.ListStudyLanguages(r.Context(), u.ID)
+	studyLanguages, err := h.services.Store.Shell.ListStudyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(r.Context(), u.ID)
+	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return

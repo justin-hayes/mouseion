@@ -30,7 +30,7 @@ const (
 )
 
 func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) string {
-	books, err := h.services.Store.Books.ListSourceMaterials(ctx, owner)
+	books, err := h.services.Store.Reading.ListSourceMaterials(ctx, owner)
 	if err == nil {
 		for _, book := range books {
 			if book.Source.ID == bookID {
@@ -38,7 +38,7 @@ func (h *Handler) goalBookTitle(ctx context.Context, owner, bookID string) strin
 			}
 		}
 	}
-	if book, err := h.services.Store.Books.GetBook(ctx, owner, bookID); err == nil && strings.TrimSpace(book.Title) != "" {
+	if book, err := h.services.Store.Reading.GetBook(ctx, owner, bookID); err == nil && strings.TrimSpace(book.Title) != "" {
 		return book.Title
 	}
 	return bookID
@@ -149,7 +149,7 @@ func (h *Handler) currentReadingForDeckAction(w http.ResponseWriter, r *http.Req
 		h.respondGoal(w, r, "", goalLanguageRequiredMessage, "")
 		return domain.CurrentReading{}, false
 	}
-	goal, err := h.services.Store.CurrentReading.GetCurrentReading(r.Context(), owner, language)
+	goal, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
 	if err != nil {
 		fail(w, err)
 		return domain.CurrentReading{}, false

@@ -34,7 +34,7 @@ func main() {
 	store := fixtures.NewStore()
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{StudyLanguages: store, Books: books, Goals: store, CurrentReading: store, Catalog: store, AnalysisJobs: store, Covers: store, LemmaReview: store, VocabularyBrowse: store, VocabularyConcordance: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, Jobs: store}
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtures.OPDS{},
 		Analysis: fixtures.Analysis{}, AnalysisInsights: fixtures.Insights{}, KnownVocab: fixtures.KnownVocab{},
@@ -80,13 +80,6 @@ func main() {
 // fixtureBooksStore exposes one deterministic real handler failure for browser
 // acceptance of enhanced My Books error responses.
 type fixtureBooksStore struct{ *fixtures.Store }
-
-func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
-	if query == "fixture-handler-error" {
-		return persistence.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
-	}
-	return s.Store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
-}
 
 func (s fixtureBooksStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	if query == "fixture-handler-error" {

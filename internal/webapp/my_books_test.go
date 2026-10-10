@@ -432,6 +432,9 @@ type bookRefreshStub struct {
 
 func (s *bookRefreshStub) RegisterConnection(context.Context, string, string) error { return nil }
 func (s *bookRefreshStub) UnregisterConnection(string, string) error                { return nil }
+func (s *bookRefreshStub) ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error) {
+	return nil, nil
+}
 func (s *bookRefreshStub) RefreshEntry(_ context.Context, owner, _ string) (cataloguesync.RefreshResult, error) {
 	s.owner = owner
 	s.calls++

@@ -52,12 +52,12 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		log.Printf("mouseion: load Concordance context: %v", err)
 		h.renderConcordanceFailure(w, r, http.StatusInternalServerError, u, language, lookup, origin, false)
 	}
-	languages, err := h.services.Store.StudyLanguages.ListStudyLanguages(queryCtx, u.ID)
+	languages, err := h.services.Store.Shell.ListStudyLanguages(queryCtx, u.ID)
 	if err != nil {
 		loadError(requestedLanguage, err)
 		return
 	}
-	knownLanguages, err := h.services.Store.StudyLanguages.ListKnownVocabularyLanguages(queryCtx, u.ID)
+	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(queryCtx, u.ID)
 	if err != nil {
 		loadError(requestedLanguage, err)
 		return
@@ -70,7 +70,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	// owned Book in the study language, or it is dropped; it never exposes
 	// another owner's Book and authorizes nothing.
 	if origin.Active() && language != "" {
-		detail, detailErr := h.services.Store.Books.GetBookDetail(queryCtx, u.ID, origin.BookID)
+		detail, detailErr := h.services.Store.Vocabulary.GetBookDetail(queryCtx, u.ID, origin.BookID)
 		switch {
 		case errors.Is(detailErr, persistence.ErrNotFound):
 			origin = browseOrigin{}
@@ -102,7 +102,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		invite(http.StatusBadRequest, concordanceNoticeOneTerm)
 		return
 	}
-	current, err := h.services.Store.CurrentReading.GetCurrentReading(queryCtx, u.ID, language)
+	current, err := h.services.Store.Vocabulary.GetCurrentReading(queryCtx, u.ID, language)
 	if err != nil {
 		loadError(language, err)
 		return
@@ -117,7 +117,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 	if lookup.Priority == "" {
 		lookup.Priority = currentPriority
 	}
-	result, err := h.services.Store.VocabularyConcordance.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
+	result, err := h.services.Store.Vocabulary.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
 	if err != nil {
 		log.Printf("mouseion: load Vocabulary Concordance: %v", err)
 		status := http.StatusInternalServerError
@@ -168,7 +168,7 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		http.NotFound(w, r)
 		return
 	}
-	study, err := h.services.Store.VocabularyConcordance.GetVocabularySentenceStudy(r.Context(), u.ID,
+	study, err := h.services.Store.Vocabulary.GetVocabularySentenceStudy(r.Context(), u.ID,
 		query.Get("book"), query.Get("run"), query.Get("corpus"), query.Get("unit"), sentence, target, query.Get("target_surface"))
 	if err != nil {
 		http.NotFound(w, r)
