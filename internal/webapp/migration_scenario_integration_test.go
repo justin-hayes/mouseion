@@ -134,6 +134,12 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Contains(t, toReadPage.Body.String(), "To Read (2)")
 	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "legacy-state", "ADJ")
 	require.NoError(t, err)
+	publishProjectedCounts(t, ctx, store, alice.ID, book.ID, []domain.LemmaOccurrence{
+		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
+		{Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3},
+		{Language: "de", CanonicalLemma: "legacy", UPOS: "ADJ", OccurrenceCount: 1},
+	})
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), beforeCoverage.KnownTokenCount)

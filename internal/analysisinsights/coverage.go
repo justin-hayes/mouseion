@@ -8,10 +8,13 @@ import (
 	"sort"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
 var ErrStatisticsUnavailable = errors.New("analysis insights: corpus statistics unavailable")
+
+// ErrCountsUpdating reports that the Book's effective vocabulary counts are not
+// ready. Coverage is then withheld rather than derived from raw corpus counts.
+var ErrCountsUpdating = errors.New("analysis insights: vocabulary counts updating")
 
 var thresholdTargets = [...]int{95, 97, 99}
 var projectionSizes = [...]int64{10, 25, 50}
@@ -22,7 +25,7 @@ const (
 )
 
 type Store interface {
-	GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error)
+	GetProjectedCorpusVocabulary(context.Context, string, string) (domain.ProjectedCorpusVocabulary, error)
 	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
 	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
 	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
@@ -33,23 +36,23 @@ type Service struct{ store Store }
 func NewService(store Store) *Service { return &Service{store: store} }
 
 func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.AnalysisCoverage, error) {
-	input, err := s.store.GetAnalysisCorpusVocabulary(ctx, owner, corpusID)
+	projected, err := s.store.GetProjectedCorpusVocabulary(ctx, owner, corpusID)
 	if err != nil {
-		return domain.AnalysisCoverage{}, fmt.Errorf("load analysis corpus vocabulary: %w", err)
+		return domain.AnalysisCoverage{}, fmt.Errorf("load projected corpus vocabulary: %w", err)
 	}
-	if input.Statistics == nil {
+	if projected.Statistics == nil {
 		return domain.AnalysisCoverage{}, ErrStatisticsUnavailable
 	}
+	if !projected.Ready {
+		return domain.AnalysisCoverage{}, ErrCountsUpdating
+	}
 
-	return s.coverage(ctx, owner, input, false)
+	return s.coverage(ctx, owner, projected.AnalysisCorpusVocabulary, false)
 }
 
 func (s *Service) coverage(ctx context.Context, owner string, input domain.AnalysisCorpusVocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, error) {
 	vocabularies := make(map[string]vocabulary)
 	for _, lemma := range input.Lemmas {
-		if !lexical.IsLemma(lemma.CanonicalLemma) {
-			continue
-		}
 		if _, ok := vocabularies[lemma.Language]; ok {
 			continue
 		}
@@ -119,11 +122,6 @@ func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies 
 	}
 	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
 	for _, lemma := range input.Lemmas {
-		if !lexical.IsLemma(lemma.CanonicalLemma) {
-			result.AnalyzableTokenCount = max(result.AnalyzableTokenCount-lemma.OccurrenceCount, 0)
-			result.DistinctLemmaCount = max(result.DistinctLemmaCount-1, 0)
-			continue
-		}
 		vocab := vocabularies[lemma.Language]
 
 		key := identity(lemma.CanonicalLemma, lemma.UPOS)

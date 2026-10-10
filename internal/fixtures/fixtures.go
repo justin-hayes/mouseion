@@ -1110,6 +1110,16 @@ func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusI
 	}, nil
 }
 
+// GetProjectedCorpusVocabulary supplies the fixture Book's projected effective
+// counts as data, always ready, so coverage never depends on a real projection.
+func (s *Store) GetProjectedCorpusVocabulary(ctx context.Context, owner, corpusID string) (domain.ProjectedCorpusVocabulary, error) {
+	vocabulary, err := s.GetAnalysisCorpusVocabulary(ctx, owner, corpusID)
+	if err != nil {
+		return domain.ProjectedCorpusVocabulary{}, err
+	}
+	return domain.ProjectedCorpusVocabulary{AnalysisCorpusVocabulary: vocabulary, Ready: true}, nil
+}
+
 func (s *Store) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
 	return false, nil
 }

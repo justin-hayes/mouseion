@@ -592,3 +592,12 @@ type SelectionCandidate struct {
 	ObservedForms, SentenceReferences, Provenance     []byte
 	SelectedAt                                        time.Time
 }
+
+// ProjectedCorpusVocabulary is the per-Book effective vocabulary of one
+// corpus, read from the Browse count projection. Ready is false while the
+// Book's current analysis has no ready projection; Lemmas is then empty and
+// must not be replaced by counts derived any other way.
+type ProjectedCorpusVocabulary struct {
+	AnalysisCorpusVocabulary
+	Ready bool
+}

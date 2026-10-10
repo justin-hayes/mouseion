@@ -23,6 +23,7 @@ const (
 	readingEvidenceStale       readingEvidenceStatus = "stale"
 	readingEvidenceFailed      readingEvidenceStatus = "failed"
 	readingEvidenceUnavailable readingEvidenceStatus = "unavailable"
+	readingEvidenceUpdating    readingEvidenceStatus = "updating"
 )
 
 // readingEvidenceStatusFor maps a classification and coverage availability to

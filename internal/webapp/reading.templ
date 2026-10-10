@@ -238,6 +238,17 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 			@ReadingChooserBand("95% to below 97%", "At least 95%, but less than 97%, of word occurrences are already Known.", chooser.At95To97, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 			@ReadingChooserBand("Below 95%", "Less than 95% of word occurrences are already Known.", chooser.Below95, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 			@ReadingChooserBand("No vocabulary comparison", "There are no words to compare for coverage in this analysis.", chooser.NoComparison, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+			if len(chooser.Updating) > 0 {
+				<section aria-labelledby="reading-chooser-updating-heading">
+					<h2 id="reading-chooser-updating-heading">Updating</h2>
+					<p>Coverage is withheld until each Book's vocabulary counts are ready.</p>
+					<ul class="reading-chooser-list" role="list">
+						for _, item := range chooser.Updating {
+							@ReadingChooserBook(item, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+						}
+					</ul>
+				</section>
+			}
 			if len(chooser.InProgress) > 0 {
 				<section aria-labelledby="reading-chooser-in-progress-heading">
 					<h2 id="reading-chooser-in-progress-heading">Analysis in progress</h2>

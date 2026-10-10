@@ -36,6 +36,7 @@ type readingBookView struct {
 	CanChooseCurrentReading          bool
 	Coverage                         *domain.AnalysisCoverage
 	StatisticsUnavailable            bool
+	CountsUpdating                   bool
 }
 
 func readingBookAnchorID(bookID string) string {
@@ -90,6 +91,9 @@ func currentReadingSectionFocusID(bookID string) string {
 // readingEvidenceState combines the Book's Analysis evidence classification with
 // whether its coverage statistics are available to present.
 func readingEvidenceState(item readingBookView) readingEvidenceStatus {
+	if item.CountsUpdating && item.Book.EvidenceClassification().Evidence == domain.BookAnalyzed {
+		return readingEvidenceUpdating
+	}
 	return readingEvidenceStatusFor(item.Book.EvidenceClassification(), item.Coverage != nil && !item.StatisticsUnavailable)
 }
 
@@ -105,6 +109,8 @@ func readingEvidenceLabel(item readingBookView) string {
 		return "Evidence unavailable"
 	case readingEvidencePublishing:
 		return analysisPublicationPendingLabel
+	case readingEvidenceUpdating:
+		return "Updating"
 	case readingEvidenceCurrent:
 		return ""
 	default:
@@ -127,6 +133,8 @@ func readingEvidenceDescription(item readingBookView) string {
 		return "Current book content is unavailable, so coverage cannot be calculated."
 	case readingEvidencePublishing:
 		return analysisPublicationPendingDescription
+	case readingEvidenceUpdating:
+		return vocabularyCountsUpdatingDescription
 	case readingEvidenceCurrent:
 		return ""
 	default:
@@ -180,7 +188,7 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 			action.Tone = StatusWarning
 			return action
 		}
-	case readingEvidenceCurrent, readingEvidenceStale, readingEvidenceUnavailable:
+	case readingEvidenceCurrent, readingEvidenceStale, readingEvidenceUnavailable, readingEvidenceUpdating:
 	}
 	if action.Status == "Analysis not started" {
 		action.Label = "Retry analysis"
@@ -455,6 +463,10 @@ func (h *Handler) addReadingEvidence(ctx context.Context, owner string, book *re
 	coverage, err := h.services.AnalysisInsights.Coverage(ctx, owner, book.Book.CorpusID)
 	if errors.Is(err, analysisinsights.ErrStatisticsUnavailable) {
 		book.StatisticsUnavailable = true
+		return nil
+	}
+	if errors.Is(err, analysisinsights.ErrCountsUpdating) {
+		book.CountsUpdating = true
 		return nil
 	}
 	if err != nil {

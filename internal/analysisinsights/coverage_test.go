@@ -11,14 +11,15 @@ import (
 
 type memoryStore struct {
 	input     domain.AnalysisCorpusVocabulary
+	notReady  bool
 	known     []domain.KnownVocabulary
 	generated []domain.GeneratedVocabulary
 	reserved  []domain.DeckPreparationVocabulary
 	err       error
 }
 
-func (m *memoryStore) GetAnalysisCorpusVocabulary(context.Context, string, string) (domain.AnalysisCorpusVocabulary, error) {
-	return m.input, m.err
+func (m *memoryStore) GetProjectedCorpusVocabulary(context.Context, string, string) (domain.ProjectedCorpusVocabulary, error) {
+	return domain.ProjectedCorpusVocabulary{AnalysisCorpusVocabulary: m.input, Ready: !m.notReady}, m.err
 }
 func (m *memoryStore) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
 	var result []domain.KnownVocabulary
@@ -291,18 +292,24 @@ func TestCoverageRequiresPersistedStatistics(t *testing.T) {
 	assert.ErrorIs(t, err, ErrStatisticsUnavailable, "error = %v", err)
 }
 
-func TestCoverageExcludesStaleNonLexicalLemmaRows(t *testing.T) {
-	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 10, DistinctLemmaCount: 3}
+func TestCoverageKeepsExcludedOccurrencesInTheDenominator(t *testing.T) {
+	// Projected counts omit excluded occurrences; the persisted analyzable
+	// total still includes them, so they stay unknown rather than vanishing.
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 10, DistinctLemmaCount: 2}
 	store := &memoryStore{input: domain.AnalysisCorpusVocabulary{Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
-		{Language: "de", CanonicalLemma: "5", UPOS: "NOUN", OccurrenceCount: 6},
 		{Language: "de", CanonicalLemma: "Straße", UPOS: "NOUN", OccurrenceCount: 3},
-		{Language: "de", CanonicalLemma: "B2", UPOS: "NOUN", OccurrenceCount: 1},
-	}}}
+		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 4},
+	}}, known: []domain.KnownVocabulary{{OwnerID: "alice", Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}}
 	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
 	require.NoError(t, err)
-	assert.Equal(t, int64(4), got.AnalyzableTokenCount)
-	assert.Equal(t, int64(2), got.DistinctLemmaCount)
-	assert.Equal(t, int64(4), got.UnknownTokenCount)
-	require.Len(t, got.TopUnknownLemmas, 2)
-	assert.Equal(t, "Straße", got.TopUnknownLemmas[0].CanonicalLemma, "coverage = %+v", got)
+	assert.Equal(t, int64(10), got.AnalyzableTokenCount)
+	assert.Equal(t, int64(4), got.KnownTokenCount)
+	assert.Equal(t, int64(6), got.UnknownTokenCount)
+}
+
+func TestCoverageIsUpdatingWhileCountsAreNotReady(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 10}
+	store := &memoryStore{notReady: true, input: domain.AnalysisCorpusVocabulary{Statistics: statistics}}
+	_, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	assert.ErrorIs(t, err, ErrCountsUpdating)
 }
