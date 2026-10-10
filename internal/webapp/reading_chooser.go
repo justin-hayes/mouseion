@@ -27,9 +27,14 @@ type readingChooserBookView struct {
 
 type readingChooserState string
 
+// vocabularyCountsUpdatingDescription explains why a Book shows no coverage
+// while its effective vocabulary counts are rebuilt.
+const vocabularyCountsUpdatingDescription = "This Book's vocabulary counts are being refreshed. Coverage appears when they are ready."
+
 const (
 	readingChooserInProgress     readingChooserState = "in_progress"
 	readingChooserNeedsAttention readingChooserState = "needs_attention"
+	readingChooserUpdating       readingChooserState = "updating"
 )
 
 type readingChooserPageView struct {
@@ -39,6 +44,7 @@ type readingChooserPageView struct {
 	At95To97, Below95                []readingChooserBookView
 	NoComparison                     []readingChooserBookView
 	InProgress, Attention            []readingChooserBookView
+	Updating                         []readingChooserBookView
 }
 
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
@@ -377,6 +383,7 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 				view.InProgress = append(view.InProgress, candidate)
 			case readingChooserNeedsAttention:
 				view.Attention = append(view.Attention, candidate)
+			case readingChooserUpdating: // set only once coverage is read, below
 			}
 			continue
 		}
@@ -391,6 +398,12 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 			candidate.State = readingChooserNeedsAttention
 			candidate.Description = "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence."
 			view.Attention = append(view.Attention, candidate)
+			continue
+		}
+		if errors.Is(coverageErr, analysisinsights.ErrCountsUpdating) {
+			candidate.State = readingChooserUpdating
+			candidate.Description = vocabularyCountsUpdatingDescription
+			view.Updating = append(view.Updating, candidate)
 			continue
 		}
 		if coverageErr != nil {
@@ -411,7 +424,7 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 			view.NoComparison = append(view.NoComparison, candidate)
 		}
 	}
-	for _, group := range [][]readingChooserBookView{view.At99Plus, view.At97To99, view.At95To97, view.Below95, view.NoComparison, view.InProgress, view.Attention} {
+	for _, group := range [][]readingChooserBookView{view.At99Plus, view.At97To99, view.At95To97, view.Below95, view.NoComparison, view.Updating, view.InProgress, view.Attention} {
 		sort.Slice(group, func(i, j int) bool { return readingChooserLess(group[i], group[j]) })
 	}
 	return view, nil
@@ -466,8 +479,12 @@ func readingChooserStatusFor(c domain.BookEvidenceClassification) (readingChoose
 }
 
 func readingChooserStateLabel(state readingChooserState) string {
-	if state == readingChooserInProgress {
+	switch state {
+	case readingChooserInProgress:
 		return "Analysis in progress"
+	case readingChooserUpdating:
+		return "Updating"
+	case readingChooserNeedsAttention:
 	}
 	return "Not assessed"
 }
@@ -494,7 +511,7 @@ func readingChooserPageDescription(view readingChooserPageView) string {
 }
 
 func readingChooserCandidateCount(view readingChooserPageView) int {
-	return len(view.At99Plus) + len(view.At97To99) + len(view.At95To97) + len(view.Below95) + len(view.NoComparison) + len(view.InProgress) + len(view.Attention)
+	return len(view.At99Plus) + len(view.At97To99) + len(view.At95To97) + len(view.Below95) + len(view.NoComparison) + len(view.Updating) + len(view.InProgress) + len(view.Attention)
 }
 
 func readingChooserNextMarkerText(coverage domain.AnalysisCoverage, band domain.CoverageBand) string {

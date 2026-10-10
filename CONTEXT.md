@@ -192,7 +192,12 @@ not the classification itself), deck readiness, evidence status.
 **Vocabulary coverage band**:
 A neutral grouping of trustworthy analyzed To Read Books by current
 analyzable-token coverage: at least 99%, at least 97% but below 99%, at least
-95% but below 97%, or below 95%. It is evidence, not a reading recommendation.
+95% but below 97%, or below 95%. Coverage counts analyzable tokens by effective
+vocabulary identity, so confirmed Lemma corrections apply, and excluded
+occurrences remain in the analyzable-token total. It reads the Book's Browse
+count projection, the same per-Book counts My Books uses, and shows Updating
+instead of a band while that projection is not ready. It is evidence, not a
+reading recommendation.
 _Avoid_: accessibility, readiness, difficulty band.
 
 **No vocabulary comparison**:

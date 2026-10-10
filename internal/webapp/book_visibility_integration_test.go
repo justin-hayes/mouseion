@@ -74,7 +74,9 @@ func visibilityHandler(store *persistence.PostgresStore) http.Handler {
 // Reading chooser can assess and start.
 func seedVisibilityToReadBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title, lemma string) domain.Book {
 	t.Helper()
-	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, suffix, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}})
+	counts := []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}}
+	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, suffix, title, counts)
+	publishProjectedCounts(t, ctx, store, owner, book.ID, counts)
 	_, err := store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de',$3,'NOUN',3,'[]','[]','{}')`, owner, corpus.ID, lemma)
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))
