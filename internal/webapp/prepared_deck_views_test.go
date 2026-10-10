@@ -110,7 +110,7 @@ func TestDeckPreparationStatusHasServerRenderedLifecycle(t *testing.T) {
 		{
 			name:     "failed",
 			state:    domain.DeckPreparationFailed,
-			want:     []string{"Deck preparation failed", "Action needed", "Retry preparation", "temporarily unavailable"},
+			want:     []string{"Deck preparation failed", "Action needed", "temporarily unavailable"},
 			unwanted: []string{"Cancel preparation", `hx-trigger="every 3s"`},
 			progress: 100,
 		},

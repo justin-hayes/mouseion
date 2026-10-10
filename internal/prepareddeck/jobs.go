@@ -119,24 +119,12 @@ func NewServiceWithBatchCanceller(store *persistence.PostgresStore, client *rive
 	return service
 }
 
-// Submit creates a preparation for one completed scoped analysis and its
-// River job in one transaction. The analysis run and content hash in the job
-// freeze the immutable input used by all retries.
-func (s *Service) Submit(ctx context.Context, owner, analysisID string) (result Handle, err error) {
-	return s.submit(ctx, owner, analysisID, "")
-}
-
-// SubmitForGoal starts a fresh preparation bound to the Goal's frozen snapshot
-// so an existing ready deck cannot bypass it.
-func (s *Service) SubmitForGoal(ctx context.Context, owner, analysisID, snapshotID string) (result Handle, err error) {
-	if strings.TrimSpace(snapshotID) == "" {
-		return Handle{}, ErrInvalidInput
-	}
-	return s.submit(ctx, owner, analysisID, snapshotID)
-}
-
-func (s *Service) submit(ctx context.Context, owner, analysisID, goalSnapshotID string) (result Handle, err error) {
-	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" {
+// SubmitForCurrentReading starts a fresh preparation bound to the Current
+// reading's frozen snapshot so an existing ready deck cannot bypass it. The
+// analysis run and content hash in the job freeze the immutable input used by
+// all retries.
+func (s *Service) SubmitForCurrentReading(ctx context.Context, owner, analysisID, snapshotID string) (result Handle, err error) {
+	if s == nil || s.pool == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" || strings.TrimSpace(snapshotID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -144,7 +132,7 @@ func (s *Service) submit(ctx context.Context, owner, analysisID, goalSnapshotID 
 		return Handle{}, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	result, err = s.submitTx(ctx, tx, owner, analysisID, goalSnapshotID)
+	result, err = s.submitTx(ctx, tx, owner, analysisID, snapshotID)
 	if err != nil {
 		return Handle{}, err
 	}
@@ -154,65 +142,49 @@ func (s *Service) submit(ctx context.Context, owner, analysisID, goalSnapshotID 
 	return result, nil
 }
 
-// SubmitForGoalTx creates or ensures local preparation and its durable job in
-// tx. Callers can include the current-reading snapshot in the same commit.
-func (s *Service) SubmitForGoalTx(ctx context.Context, tx pgx.Tx, owner, analysisID, snapshotID string) (Handle, error) {
+// SubmitForCurrentReadingTx creates or ensures local preparation and its durable
+// job in tx. Callers can include the current-reading snapshot in the same commit.
+func (s *Service) SubmitForCurrentReadingTx(ctx context.Context, tx pgx.Tx, owner, analysisID, snapshotID string) (Handle, error) {
 	if s == nil || tx == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(analysisID) == "" || strings.TrimSpace(snapshotID) == "" {
 		return Handle{}, ErrInvalidInput
 	}
 	return s.submitTx(ctx, tx, owner, analysisID, snapshotID)
 }
 
-func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, goalSnapshotID string) (result Handle, err error) {
+func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, snapshotID string) (result Handle, err error) {
 	analysis, err := loadCompletedAnalysis(ctx, tx, owner, analysisID)
 	if err != nil {
 		return Handle{}, err
 	}
 	source := analysis.Source
-	if goalSnapshotID == "" {
-		var bookID *string
-		if err := tx.QueryRow(ctx, `SELECT book_id::text FROM source_materials WHERE owner_id=$1 AND id=$2`, owner, source.ID).Scan(&bookID); err != nil {
-			return Handle{}, err
-		}
-		if bookID != nil {
-			return Handle{}, persistence.ErrInvalidTransition
-		}
-	}
 	deckName := cardexport.DeckName(source.Language, source.Title)
 	filename := cardexport.DownloadFilename(source.Title)
-	var p domain.DeckPreparation
-	var created bool
-	if goalSnapshotID != "" {
-		bookID, bookErr := sqlcBookForSource(ctx, tx, owner, source.ID)
-		if bookErr != nil {
-			return Handle{}, bookErr
-		}
-		if bookID == "" {
-			return Handle{}, ErrAnalysisUnavailable
-		}
-		if _, lockErr := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); lockErr != nil {
-			return Handle{}, lockErr
-		}
-		if snapshotErr := validateGoalSnapshot(ctx, tx, owner, goalSnapshotID, source.ID, analysis.RunID); snapshotErr != nil {
-			return Handle{}, snapshotErr
-		}
-		p, err = scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE`, owner, goalSnapshotID))
-		if errors.Is(err, pgx.ErrNoRows) {
-			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
-				return Handle{}, err
-			}
-			p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, SnapshotID: goalSnapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
-		} else if err == nil && (p.SourceMaterialID != source.ID || p.AnalysisRunID != analysis.RunID) {
-			return Handle{}, persistence.ErrInvalidTransition
-		}
-	} else {
-		p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
-	}
+	bookID, err := sqlcBookForSource(ctx, tx, owner, source.ID)
 	if err != nil {
 		return Handle{}, err
 	}
-	if goalSnapshotID == "" && p.SnapshotID != "" {
+	if bookID == "" {
+		return Handle{}, ErrAnalysisUnavailable
+	}
+	if _, err = sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); err != nil {
+		return Handle{}, err
+	}
+	if err = validateCurrentReadingSnapshot(ctx, tx, owner, snapshotID, source.ID, analysis.RunID); err != nil {
+		return Handle{}, err
+	}
+	p, err := scanPreparation(tx.QueryRow(ctx, `SELECT `+preparationColumns+` FROM deck_preparations WHERE owner_id=$1 AND goal_snapshot_id=$2::uuid AND retired_at IS NULL FOR UPDATE`, owner, snapshotID))
+	var created bool
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, bookID); err != nil {
+			return Handle{}, err
+		}
+		p, created, err = persistence.CreateDeckPreparationTx(ctx, tx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, AnalysisRunID: analysis.RunID, SnapshotID: snapshotID, Filename: filename, DeckName: deckName, ContentHash: source.ContentHash})
+	case err == nil && (p.SourceMaterialID != source.ID || p.AnalysisRunID != analysis.RunID):
 		return Handle{}, persistence.ErrInvalidTransition
+	}
+	if err != nil {
+		return Handle{}, err
 	}
 	p, jobID, err := s.ensurePreparationJob(ctx, tx, p)
 	if err != nil {
@@ -228,7 +200,7 @@ func (s *Service) submitTx(ctx context.Context, tx pgx.Tx, owner, analysisID, go
 	return Handle{Preparation: p, JobID: jobID}, nil
 }
 
-func validateGoalSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID, sourceMaterialID, analysisRunID string) error {
+func validateCurrentReadingSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID, sourceMaterialID, analysisRunID string) error {
 	var lockedSnapshotID string
 	err := tx.QueryRow(ctx, `SELECT s.id::text FROM primary_goal_snapshots s
 		JOIN primary_goals pg ON pg.owner_id=s.owner_id AND pg.snapshot_id=s.id
@@ -238,10 +210,10 @@ func validateGoalSnapshot(ctx context.Context, tx pgx.Tx, owner, snapshotID, sou
 		  AND s.released_at IS NULL
 		FOR UPDATE OF pg, s`, owner, snapshotID, sourceMaterialID, analysisRunID).Scan(&lockedSnapshotID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("%w: Goal snapshot does not match the completed analysis", ErrAnalysisUnavailable)
+		return fmt.Errorf("%w: Current reading snapshot does not match the completed analysis", ErrAnalysisUnavailable)
 	}
 	if err != nil || lockedSnapshotID != snapshotID {
-		return fmt.Errorf("%w: Goal snapshot is unavailable", ErrAnalysisUnavailable)
+		return fmt.Errorf("%w: Current reading snapshot is unavailable", ErrAnalysisUnavailable)
 	}
 	return nil
 }
@@ -281,7 +253,7 @@ func lockPreparationForUpdate(ctx context.Context, tx pgx.Tx, owner, id string) 
 	return preparation, err
 }
 
-func lockCurrentGoalSnapshotForPreparation(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) error {
+func lockCurrentReadingSnapshotForPreparation(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) error {
 	if preparation.SnapshotID == "" {
 		if preparation.BookID != "" {
 			return persistence.ErrInvalidTransition
@@ -305,7 +277,7 @@ func lockCurrentGoalSnapshotForPreparation(ctx context.Context, tx pgx.Tx, prepa
 func sqlcRetireDeckPreparationsForBook(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
 	parsed, err := uuid.Parse(bookID)
 	if err != nil {
-		return fmt.Errorf("invalid Goal book identity: %w", err)
+		return fmt.Errorf("invalid Current reading book identity: %w", err)
 	}
 	return sqlcgen.New(tx).RetireDeckPreparationsForBook(ctx, sqlcgen.RetireDeckPreparationsForBookParams{Owner: owner, Book: pgtype.UUID{Bytes: parsed, Valid: true}})
 }
@@ -389,9 +361,9 @@ func (s *Service) GetForAnalysis(ctx context.Context, owner, sourceMaterialID, a
 	return s.Get(ctx, owner, p.ID)
 }
 
-// GetForGoalSnapshot returns the preparation bound to one exact Goal snapshot.
+// GetForCurrentReadingSnapshot returns the preparation bound to one exact Current reading snapshot.
 // It never substitutes a manual or newer preparation for that snapshot.
-func (s *Service) GetForGoalSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+func (s *Service) GetForCurrentReadingSnapshot(ctx context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	if s == nil || s.store == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(snapshotID) == "" {
 		return domain.DeckPreparation{}, ErrInvalidInput
 	}
@@ -467,7 +439,7 @@ func (s *Service) Rerender(ctx context.Context, owner, id string) (result Handle
 	if err != nil {
 		return Handle{}, err
 	}
-	if err = lockCurrentGoalSnapshotForPreparation(ctx, tx, p); err != nil {
+	if err = lockCurrentReadingSnapshotForPreparation(ctx, tx, p); err != nil {
 		return Handle{}, err
 	}
 	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil || p.CurrentRunID == "" {
@@ -575,7 +547,7 @@ func (s *Service) retry(ctx context.Context, owner, id string, forceReprepare bo
 	if err != nil {
 		return Handle{}, err
 	}
-	if err = lockCurrentGoalSnapshotForPreparation(ctx, tx, p); err != nil {
+	if err = lockCurrentReadingSnapshotForPreparation(ctx, tx, p); err != nil {
 		return Handle{}, err
 	}
 	if p.RetiredAt != nil {
@@ -608,7 +580,7 @@ func (s *Service) retry(ctx context.Context, owner, id string, forceReprepare bo
 		// Either the immutable specification cannot be rendered or the learner
 		// explicitly requested current meaning evidence. Retire the current row
 		// and roll forward to a new specification bound to the same exact
-		// analysis (and Goal snapshot, if present).
+		// analysis (and Current reading snapshot, if present).
 		if p.BookID != "" {
 			if err = sqlcRetireDeckPreparationsForBook(ctx, tx, owner, p.BookID); err != nil {
 				return Handle{}, err

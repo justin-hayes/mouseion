@@ -82,11 +82,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.NoError(t, err)
 	readyDeck, err = store.CompleteDeckPreparation(ctx, owner.ID, readyDeck.ID, domain.DeckPreparation{Artifact: []byte("historical-an identity-deck"), Filename: "historical.apkg", DeckName: "Historical", TotalCards: 1})
 	require.NoError(t, err)
-	directTx, err := store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	_, _, err = prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, directTx, domain.DeckPreparation{ID: readyDeck.ID, OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun})
-	require.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags, "direct deck specification freeze observes the same unresolved flag")
-	require.NoError(t, directTx.Rollback(ctx))
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: occurrences[0].CanonicalLemma, Excluded: false, NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}), "an explicit keep resolves the review flag")
 	require.NoError(t, store.SaveLemmaReviewFlags(ctx, []domain.LemmaReviewFlag{flag}), "later reference refreshes cannot reopen a resolved occurrence flag")
 	resolved, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
@@ -190,7 +185,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, int64(3), insights.Lemmas[0].OccurrenceCount)
 	assert.Equal(t, int64(3), insights.Statistics.AnalyzableTokenCount, "the source-derived coverage denominator is unchanged")
 
-	directTx, err = store.Pool().Begin(ctx)
+	directTx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	directProjections, _, assembleErr := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, directTx, domain.DeckPreparation{
 		ID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,

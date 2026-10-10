@@ -87,7 +87,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	assert.Contains(t, missing.Header().Get("Location"), "error=", "missing commitment identity is rejected")
 	submitted := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, submitted.Code)
-	preparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	preparation, err := deckService.GetForCurrentReadingSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, reading.SourceMaterialID, preparation.SourceMaterialID)
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
@@ -100,14 +100,14 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	facts, err := store.LoadPreparedDeckInputFactsTx(ctx, tx, preparation)
 	require.NoError(t, err)
 	require.NoError(t, tx.Rollback(ctx))
-	assert.True(t, facts.GoalSnapshotActive)
-	assert.Equal(t, initialSnapshot, facts.GoalSnapshot)
+	assert.True(t, facts.CurrentReadingSnapshotActive)
+	assert.Equal(t, initialSnapshot, facts.CurrentReadingSnapshot)
 
 	retried := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/retry", url.Values{
 		"csrf_token": {csrf}, "expected_current_snapshot_id": {reading.SnapshotID},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, retried.Code)
-	afterRetry, err := deckService.GetForGoalSnapshot(ctx, owner.ID, reading.SnapshotID)
+	afterRetry, err := deckService.GetForCurrentReadingSnapshot(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, preparation.ID, afterRetry.ID)
 	assert.Equal(t, reading.SnapshotID, afterRetry.SnapshotID)
@@ -128,7 +128,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	afterFinishFacts, err := store.LoadPreparedDeckInputFactsTx(ctx, afterFinishTx, preparation)
 	require.NoError(t, err)
 	require.NoError(t, afterFinishTx.Rollback(ctx))
-	assert.Equal(t, initialSnapshot, afterFinishFacts.GoalSnapshot, "the queued job still reads its historical snapshot after Reading ends")
+	assert.Equal(t, initialSnapshot, afterFinishFacts.CurrentReadingSnapshot, "the queued job still reads its historical snapshot after Reading ends")
 
 	// The already-submitted job remains usable and retains the exact snapshot
 	// even after Reading releases it and a reread submits a newer generation.
@@ -150,7 +150,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	assert.Contains(t, staleSubmitted.Header().Get("Location"), "error=", "the previous snapshot cannot prepare the restarted reading")
 	nextSubmitted := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/deck/preparations", url.Values{"csrf_token": {csrf}, "expected_current_snapshot_id": {nextReading.SnapshotID}}, cookies)
 	require.Equal(t, http.StatusSeeOther, nextSubmitted.Code)
-	nextPreparation, err := deckService.GetForGoalSnapshot(ctx, owner.ID, nextReading.SnapshotID)
+	nextPreparation, err := deckService.GetForCurrentReadingSnapshot(ctx, owner.ID, nextReading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, nextReading.SnapshotID, nextPreparation.SnapshotID)
 	oldGeneration, err := store.GetDeckPreparation(ctx, owner.ID, preparation.ID)

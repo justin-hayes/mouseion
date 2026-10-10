@@ -25,7 +25,7 @@ type unavailableCurrentReadingPreparedDeck struct {
 	fixtures.PreparedDeck
 }
 
-func (unavailableCurrentReadingPreparedDeck) GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
+func (unavailableCurrentReadingPreparedDeck) GetForCurrentReadingSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
 	return domain.DeckPreparation{}, persistence.ErrNotFound
 }
 
@@ -34,11 +34,10 @@ type existingCurrentReadingPreparedDeck struct {
 	preparation               domain.DeckPreparation
 	retries                   int
 	currentReadingSubmissions int
-	genericSubmissions        int
 	cancellations             int
 }
 
-func (p *existingCurrentReadingPreparedDeck) GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
+func (p *existingCurrentReadingPreparedDeck) GetForCurrentReadingSnapshot(context.Context, string, string) (domain.DeckPreparation, error) {
 	return p.preparation, nil
 }
 
@@ -47,13 +46,8 @@ func (p *existingCurrentReadingPreparedDeck) Retry(_ context.Context, _, _ strin
 	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
 }
 
-func (p *existingCurrentReadingPreparedDeck) SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error) {
+func (p *existingCurrentReadingPreparedDeck) SubmitForCurrentReading(context.Context, string, string, string) (prepareddeck.Handle, error) {
 	p.currentReadingSubmissions++
-	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
-}
-
-func (p *existingCurrentReadingPreparedDeck) Submit(context.Context, string, string) (prepareddeck.Handle, error) {
-	p.genericSubmissions++
 	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
 }
 
@@ -376,9 +370,8 @@ func TestReadingDeckSubmissionKeepsCurrentReadingPreparationLocal(t *testing.T) 
 	}, cookies)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, 1, preparedDeck.retries)
-	assert.Equal(t, 1, preparedDeck.retries, "Goal retry must queue the same contextual preparation")
-	assert.Zero(t, preparedDeck.genericSubmissions, "Goal preparation remains bound to its frozen snapshot")
+	assert.Equal(t, 1, preparedDeck.retries, "Current reading retry must queue the same contextual preparation")
+	assert.Zero(t, preparedDeck.currentReadingSubmissions, "retry reuses the frozen snapshot instead of submitting a new preparation")
 }
 
 func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {

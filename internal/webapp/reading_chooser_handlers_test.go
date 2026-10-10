@@ -177,7 +177,7 @@ type recordingToReadAnalysis struct {
 
 func (a *recordingToReadAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, sourceID string) (analysis.Handle, error) {
 	a.submissions++
-	return a.Analysis.SubmitAnalysis(ctx, owner, sourceID)
+	return a.Analysis.SubmitToReadBookAnalysis(ctx, owner, bookID, sourceID)
 }
 
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {

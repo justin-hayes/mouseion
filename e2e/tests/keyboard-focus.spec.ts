@@ -265,7 +265,6 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
       state = 'cancelled';
       await route.fulfill({ contentType: 'application/json', body: '{}' });
     });
-    await page.route('**/deck-preparations/*/retry', (route) => { state = 'ready'; return route.fulfill({ contentType: 'application/json', body: '{}' }); });
     const status = page.locator('[data-deck-preparation]');
     await page.getByRole('button', { name: 'Prepare deck' }).press('Enter');
     const cancel = status.getByRole('button', { name: 'Cancel preparation' });
@@ -276,6 +275,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(status.getByRole('status')).toHaveText('Canceling deck preparation…');
     releaseCancel();
     await expect(status).toContainText('Deck preparation cancelled');
+    // Retry resubmits the Reading preparation form, so mock that POST rather than a retired retry URL.
+    await page.route('**/reading/books/fixture-route-match/deck/preparations', (route) => {
+      state = 'ready';
+      return route.fulfill({ status: 303, headers: { location: '/deck-preparations/prep-retry/status' } });
+    });
     const retry = status.getByRole('button', { name: 'Retry preparation' });
     await retry.press('Enter');
     await expect(status).toContainText('Deck ready');

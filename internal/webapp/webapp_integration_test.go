@@ -140,7 +140,7 @@ type recordingPreparedDeck struct {
 	downloads    int
 }
 
-func (r *recordingPreparedDeck) GetForGoalSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
+func (r *recordingPreparedDeck) GetForCurrentReadingSnapshot(_ context.Context, owner, snapshotID string) (domain.DeckPreparation, error) {
 	for _, p := range r.preparations {
 		if p.OwnerID == owner && p.SnapshotID == snapshotID {
 			return p, nil
@@ -149,17 +149,7 @@ func (r *recordingPreparedDeck) GetForGoalSnapshot(_ context.Context, owner, sna
 	return domain.DeckPreparation{}, persistence.ErrNotFound
 }
 
-func (r *recordingPreparedDeck) Submit(_ context.Context, owner, analysisID string) (prepareddeck.Handle, error) {
-	for _, p := range r.preparations {
-		if p.OwnerID == owner && p.AnalysisRunID == analysisID {
-			return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
-		}
-	}
-	p := domain.DeckPreparation{ID: "prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
-	r.preparations[p.ID] = p
-	return prepareddeck.Handle{Preparation: p, JobID: 91}, nil
-}
-func (r *recordingPreparedDeck) SubmitForGoal(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
+func (r *recordingPreparedDeck) SubmitForCurrentReading(_ context.Context, owner, analysisID, snapshotID string) (prepareddeck.Handle, error) {
 	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, SourceMaterialID: "00000000-0000-0000-0000-000000000001", AnalysisRunID: analysisID, SnapshotID: snapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
 	r.preparations[p.ID] = p
 	return prepareddeck.Handle{Preparation: p, JobID: 94}, nil
@@ -246,14 +236,10 @@ func (r *recordingKnownVocab) Get(_ context.Context, owner string, id int64) (kn
 	return r.status, nil
 }
 
-func (r *recordingAnalysis) SubmitAnalysis(_ context.Context, owner, source string) (analysis.Handle, error) {
+func (r *recordingAnalysis) SubmitToReadBookAnalysis(_ context.Context, owner, bookID, source string) (analysis.Handle, error) {
 	r.owner, r.source, r.scope = owner, source, ""
 	r.calls++
 	return analysis.Handle{ID: 42, DisplayNumber: 1}, nil
-}
-
-func (r *recordingAnalysis) SubmitToReadBookAnalysis(ctx context.Context, owner, bookID, source string) (analysis.Handle, error) {
-	return r.SubmitAnalysis(ctx, owner, source)
 }
 
 func (r *recordingAnalysis) Get(_ context.Context, owner string, id int64) (analysis.Status, error) {
@@ -568,24 +554,17 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
 
-	got := perform(t, h, "POST", "/jobs/42/deck/preparations", nil, aliceCookies)
-	assert.Equal(t, http.StatusForbidden, got.Code)
-	created := perform(t, h, "POST", "/jobs/42/deck/preparations", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
-	assert.Equal(t, http.StatusSeeOther, created.Code)
-	assert.Equal(t, "/deck-preparations/prep-1/status", created.Header().Get("Location"))
-	preparation := decks.preparations["prep-1"]
-	preparation.SourceMaterialID = book.ID
-	decks.preparations[preparation.ID] = preparation
-	statusPage := perform(t, h, "GET", created.Header().Get("Location"), nil, aliceCookies)
+	decks.preparations["prep-1"] = domain.DeckPreparation{ID: "prep-1", OwnerID: alice.ID, SourceMaterialID: book.ID, AnalysisRunID: "run-1", State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
+	statusPage := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, statusPage.Code)
 	assert.True(t, strings.Contains(statusPage.Body.String(), "Deck preparation queued"), "body=%s", statusPage.Body.String())
 	assert.True(t, strings.Contains(statusPage.Body.String(), "Cancel preparation"), "body=%s", statusPage.Body.String())
-	status := perform(t, h, "GET", created.Header().Get("Location")+"?format=json", nil, aliceCookies)
+	status := perform(t, h, "GET", "/deck-preparations/prep-1/status?format=json", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, status.Code)
 	assert.Equal(t, "application/json; charset=utf-8", status.Header().Get("Content-Type"))
 	assert.True(t, strings.Contains(status.Body.String(), `"state":"queued"`), "body=%s", status.Body.String())
 	assert.True(t, strings.Contains(status.Body.String(), `"progress":0`), "body=%s", status.Body.String())
-	got = perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, bobCookies)
+	got := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, bobCookies)
 	assert.Equal(t, http.StatusNotFound, got.Code)
 	got = perform(t, h, "GET", "/deck-preparations/missing/status", nil, aliceCookies)
 	assert.Equal(t, http.StatusNotFound, got.Code)
@@ -596,11 +575,8 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	cancelled := perform(t, h, "POST", "/deck-preparations/prep-1/cancel?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, cancelled.Code)
 	assert.True(t, strings.Contains(cancelled.Body.String(), `"state":"cancelled"`), "body=%s", cancelled.Body.String())
-	got = perform(t, h, "POST", "/deck-preparations/prep-1/retry", nil, aliceCookies)
-	assert.Equal(t, http.StatusForbidden, got.Code)
 	retried := perform(t, h, "POST", "/deck-preparations/prep-1/retry?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
-	assert.Equal(t, http.StatusOK, retried.Code)
-	assert.True(t, strings.Contains(retried.Body.String(), `"state":"queued"`), "body=%s", retried.Body.String())
+	assert.Equal(t, http.StatusNotFound, retried.Code, "the retired deck retry route is gone; Book retries use the Reading route")
 	got = perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {bobCSRF}}, bobCookies)
 	assert.Equal(t, http.StatusNotFound, got.Code)
 

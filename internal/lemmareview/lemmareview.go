@@ -45,7 +45,7 @@ type Store interface {
 
 // Preparer submits the deck preparations that follow a confirmed identity change.
 type Preparer interface {
-	SubmitForGoal(context.Context, string, string, string) (prepareddeck.Handle, error)
+	SubmitForCurrentReading(context.Context, string, string, string) (prepareddeck.Handle, error)
 	Reprepare(context.Context, string, string) (prepareddeck.Handle, error)
 }
 
@@ -390,7 +390,7 @@ func (s *Service) restart(ctx context.Context, owner, bookID, language string) (
 		return Outcome{Kind: OutcomeRestartFailed}, nil //nolint:nilerr // The committed decision must not be reported as failed.
 	}
 	return s.prepare(func() (prepareddeck.Handle, error) {
-		return s.preparer.SubmitForGoal(ctx, owner, reading.AnalysisRunID, reading.SnapshotID)
+		return s.preparer.SubmitForCurrentReading(ctx, owner, reading.AnalysisRunID, reading.SnapshotID)
 	}), nil
 }
 

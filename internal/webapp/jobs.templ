@@ -101,9 +101,7 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 						if status.SourceMaterialID != "" && status.RunID != "" {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
 						} else {
-							<p>Analysis complete. Prepare a deck from this immutable analysis result.</p>
-							<p>Deck preparation requires the configured translation provider to produce contextual Glosses. Only the target, one representative sentence, and public lexical evidence are sent.</p>
-							<form method="post" action={ templ.SafeURL(fmt.Sprintf("/jobs/%d/deck/preparations", status.ID)) } data-prepare-deck><input type="hidden" name="csrf_token" value={ csrf }/><small>Preparation runs in the background. You can download the completed deck when it is ready.</small><button type="submit">Prepare deck</button></form><section data-deck-preparation role="status" aria-live="polite" aria-atomic="true" hidden></section>
+							<p>Analysis complete. Book decks are prepared from the Book in Reading.</p>
 						}
 					}
 			} else {

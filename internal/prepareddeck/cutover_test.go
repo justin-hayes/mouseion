@@ -276,7 +276,7 @@ func TestGreekInputAssemblerLeavesKnownVocabularyUnchangedUntilGraduation(t *tes
 	assert.Equal(t, "γνωστό", store.facts.Known[0].CanonicalLemma)
 }
 
-func TestInputAssemblerFailsClosedForMissingGoalSnapshot(t *testing.T) {
+func TestInputAssemblerFailsClosedForMissingCurrentReadingSnapshot(t *testing.T) {
 	store := inputFactsStore{facts: persistence.PreparedDeckInputFacts{
 		DeckName:   "Book",
 		Candidates: []domain.SelectionCandidate{{OwnerID: "alice", CorpusID: "corpus", Language: "de", CanonicalLemma: "mutable", UPOS: "NOUN", OccurrenceCount: 3}},
@@ -285,5 +285,5 @@ func TestInputAssemblerFailsClosedForMissingGoalSnapshot(t *testing.T) {
 		ID: "preparation", OwnerID: "alice", SourceMaterialID: "book", SnapshotID: "frozen-snapshot",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Goal snapshot")
+	assert.Contains(t, err.Error(), "Current reading snapshot")
 }

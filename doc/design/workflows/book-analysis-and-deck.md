@@ -218,8 +218,10 @@ The interface must answer:
 - a newly completed rerun replaces the book's current learner-facing analysis
   while prior immutable analyses remain operational audit records.
 
-The direct `POST /jobs/{id}/deck/preparations` action is retained only for
-legacy compatibility and is not a canonical path for new analyses.
+Book decks are prepared only from Reading, against the Current reading's exact
+snapshot. The former direct `POST /jobs/{id}/deck/preparations` action and the
+generic `POST /deck-preparations/{id}/retry` action are retired; legacy
+preparations without a snapshot remain status and download only.
 
 Deck preparation may use JavaScript to consume its JSON status resource, but the
 focused task and preparation status retain a coherent server-rendered baseline;
