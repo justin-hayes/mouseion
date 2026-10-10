@@ -532,11 +532,11 @@ func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
 	var corpusCount int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpora WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID).Scan(&corpusCount))
 	assert.Equal(t, 1, corpusCount, "publication replay does not duplicate corpus evidence")
-	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID}, retry.JobID))
+	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID, Language: "de"}, retry.JobID))
 
 	_, err = putAnalysisSource(ctx, store, owner.ID, "current-retry-guard", book.Title, "Changed source.", "sha256:publication-retry-changed")
 	require.NoError(t, err)
-	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID}, retry.JobID))
+	require.NoError(t, (&Worker{Pool: pool}).publishCompletedRun(ctx, JobArgs{OwnerID: owner.ID, SourceMaterialID: source.ID, RunID: handle.RunID, Language: "de"}, retry.JobID))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&currentCount))
 	assert.Zero(t, currentCount, "a replay after a source revision change cannot keep stale analysis current")
 }

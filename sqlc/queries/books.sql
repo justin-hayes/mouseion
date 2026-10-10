@@ -172,7 +172,7 @@ WITH ready AS (
       AND r.book_id::text = e.book_id
       AND r.analysis_run_id::text = e.analysis_run_id
       AND r.corpus_id::text = e.corpus_id
-      AND r.builder_version = 2
+      AND r.builder_version = 3
     JOIN corpora co ON co.owner_id = r.owner_id AND co.id = r.corpus_id
       AND co.analysis_run_id = r.analysis_run_id
 ), counted AS (

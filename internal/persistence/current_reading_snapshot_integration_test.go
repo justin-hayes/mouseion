@@ -135,7 +135,7 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 	VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus, item.lemma, item.pos, item.count)
 			require.NoError(t, insertErr)
 		}
-		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,2)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus)
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,$3,$4,$5,3)`, book.OwnerID, book.ID, book.LanguageTag, run, corpus)
 		require.NoError(t, insertErr)
 	}
 	putProjection(target, []countRow{
@@ -219,7 +219,7 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 			_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_counts(owner_id,book_id,language,analysis_run_id,corpus_id,canonical_lemma,upos,occurrence_count) VALUES($1,$2,'de',$3,$4,$5,'NOUN',$6)`, owner.ID, book.ID, run, corpus, item.lemma, item.count)
 			require.NoError(t, insertErr)
 		}
-		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,2)`, owner.ID, book.ID, run, corpus)
+		_, insertErr := store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,3)`, owner.ID, book.ID, run, corpus)
 		require.NoError(t, insertErr)
 	}
 	putReady(current, countItem{lemma: "three-local", count: 3})
