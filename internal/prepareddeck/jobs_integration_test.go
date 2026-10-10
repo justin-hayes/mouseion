@@ -61,7 +61,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, book.ID, source.ID, analysisHandle.RunID)
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
-	firstGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	firstGoal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	workers := river.NewWorkers()
 	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}}, Workers: workers})
@@ -225,7 +225,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.ErrorIs(t, err, persistence.ErrNotFound, "retired artifact remains owner-scoped")
 
 	oldGoal := firstGoal
-	require.NoError(t, store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID))
+	require.NoError(t, store.ClearCurrentReading(ctx, owner.ID, "de", book.ID))
 	oldGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, refreshed.Preparation.ID)
 	require.NoError(t, err)
 	assert.Nil(t, oldGoalPreparation.RetiredAt, "releasing Reading leaves submitted work available to finish")
@@ -233,7 +233,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "the former generic Book submission remains unavailable after Reading ends")
 
 	var firstGoalPreparation Handle
-	firstGoal, err = store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.PrimaryGoal) error {
+	firstGoal, err = store.StartCurrentReadingWith(ctx, owner.ID, "de", book.ID, func(ctx context.Context, tx pgx.Tx, reading domain.CurrentReading) error {
 		var queueErr error
 		firstGoalPreparation, queueErr = service.SubmitForGoalTx(ctx, tx, owner.ID, analysisID, reading.SnapshotID)
 		return queueErr
@@ -285,13 +285,13 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	assert.Equal(t, []byte("goal-old-artifact"), goalHistory.Artifact)
 	_, err = service.Submit(ctx, owner.ID, analysisID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "generic submission must not reuse an active Goal preparation")
-	require.NoError(t, store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID))
+	require.NoError(t, store.ClearCurrentReading(ctx, owner.ID, "de", book.ID))
 	retiredGoalPreparation, err := store.GetDeckPreparation(ctx, owner.ID, goalRefresh.Preparation.ID)
 	require.NoError(t, err)
 	assert.Nil(t, retiredGoalPreparation.RetiredAt, "releasing a Goal snapshot leaves its preparation available to finish")
 	_, err = service.Submit(ctx, owner.ID, analysisID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "the former generic Book submission remains unavailable after Reading ends")
-	secondGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	secondGoal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	blockingClient := &blockingRiverClient{client: service.client, inserted: make(chan struct{}), release: make(chan struct{})}
 	service.client = blockingClient
@@ -309,7 +309,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	}
 	cleared := make(chan error, 1)
 	go func() {
-		cleared <- store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID)
+		cleared <- store.ClearCurrentReading(ctx, owner.ID, "de", book.ID)
 	}()
 	select {
 	case clearErr := <-cleared:
@@ -332,7 +332,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a released snapshot cannot be retried into a new generation")
 	_, err = service.Retry(ctx, owner.ID, secondGoalPreparation.Preparation.ID)
 	require.ErrorIs(t, err, persistence.ErrInvalidTransition, "a submitted job cannot be retried after Goal clear")
-	_, err = store.GetPrimaryGoal(ctx, owner.ID, "de")
+	_, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.NotEmpty(t, oldGoal.SnapshotID, "the first Reading snapshot remains historical")
 }

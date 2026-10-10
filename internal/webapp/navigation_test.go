@@ -93,8 +93,8 @@ func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
 			assert.NotContains(t, navigation, `class="site-nav__link btn`)
 			assert.NotContains(t, navigation, `role="button"`)
-		assert.Equal(t, 4, strings.Count(navigation, `<a href="/`), "four destinations remain native links")
-		assert.Contains(t, navigation, `<a class="site-header__brand" href="/">`)
+			assert.Equal(t, 4, strings.Count(navigation, `<a href="/`), "four destinations remain native links")
+			assert.Contains(t, navigation, `<a class="site-header__brand" href="/">`)
 		})
 	}
 }

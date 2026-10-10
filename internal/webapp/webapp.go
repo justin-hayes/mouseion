@@ -73,7 +73,7 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
 	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
 	EndCurrentReading(context.Context, string, string, string, string) error
-	FinishCurrentReading(context.Context, string, string, string, string) (persistence.CurrentReadingFinishResult, error)
+	FinishCurrentReading(context.Context, string, string, string, string) (domain.CurrentReadingFinishResult, error)
 	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
 	LemmaReviewStore
 }

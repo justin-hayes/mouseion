@@ -25,7 +25,7 @@ type journeyBookView struct {
 	Cover                  domain.BookCover
 	ReadingSince           time.Time
 	Position               int
-	PrimaryGoal            bool
+	CurrentReading         bool
 	GoalReadingOnly        bool
 	GoalUnassessed         bool
 	GoalVocabularyEligible int
@@ -190,20 +190,20 @@ func journeyAnalysisAction(item journeyBookView) bookLifecycleAction {
 }
 
 func journeyGoalEligibility(book domain.SourceMaterialSummary) (bool, string) {
-	switch book.GoalEligibility() {
-	case domain.GoalNeedsCurrentContent:
+	switch book.CurrentReadingEligibility() {
+	case domain.CurrentReadingNeedsCurrentContent:
 		return false, "This book cannot be started until current EPUB content is available."
-	case domain.GoalAnalysisInProgress:
+	case domain.CurrentReadingAnalysisInProgress:
 		return false, "This book cannot be started while its current analysis is still in progress."
-	case domain.GoalFailed:
+	case domain.CurrentReadingFailed:
 		return false, "This book cannot be started until its failed analysis is retried successfully."
-	case domain.GoalCancelled:
+	case domain.CurrentReadingCancelled:
 		return false, "This book cannot be started until its cancelled analysis is retried successfully."
-	case domain.GoalStale:
+	case domain.CurrentReadingStale:
 		return false, "This book cannot be started until its analysis matches the current content."
-	case domain.GoalNoCompletedAnalysis:
+	case domain.CurrentReadingNoCompletedAnalysis:
 		return false, "This book needs a successfully completed current analysis before it can be started."
-	case domain.GoalEligible:
+	case domain.CurrentReadingEligible:
 		return true, ""
 	default:
 		return false, "This book's Goal eligibility is unavailable."
@@ -400,7 +400,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 		if bookErr != nil {
 			return journeyPageView{}, bookErr
 		}
-		book.PrimaryGoal = true
+		book.CurrentReading = true
 		book.Cover = coverByBookID[goal.BookID]
 		book.ReadingSince = goal.CreatedAt
 		if err = h.addJourneyEvidence(ctx, owner, &book); err != nil {
@@ -420,7 +420,7 @@ func (h *Handler) buildJourneyView(ctx context.Context, owner, language string) 
 	return view, nil
 }
 
-func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book *journeyBookView, goal domain.PrimaryGoal) {
+func (h *Handler) addGoalDeckPreparation(ctx context.Context, owner string, book *journeyBookView, goal domain.CurrentReading) {
 	if goal.SnapshotSize == 0 {
 		return
 	}

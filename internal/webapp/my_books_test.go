@@ -487,4 +487,3 @@ func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
 	assert.True(t, strings.Contains(response.Body.String(), "Updated row title"), "HTMX row refresh body=%s", response.Body.String())
 	assert.True(t, strings.Contains(response.Body.String(), "Metadata refreshed."), "HTMX row refresh body=%s", response.Body.String())
 }
-

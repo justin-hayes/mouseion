@@ -124,7 +124,7 @@ func TestRenderedFormsCarryTheActiveLanguage(t *testing.T) {
 
 func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	before, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	before, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	require.NotEmpty(t, before.BookID)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
@@ -144,7 +144,7 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
 		})
 	}
-	after, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	after, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, before, after, "a stale old-language submission must not change the reading")
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)

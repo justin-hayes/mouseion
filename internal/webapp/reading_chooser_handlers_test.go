@@ -48,7 +48,7 @@ func TestReadingChooserFormatsEvidenceWithoutChangingBandBoundaries(t *testing.T
 
 func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	books, err := store.ListMyBooksWithEvidence(context.Background(), fixtures.OwnerID)
@@ -103,7 +103,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 
 func TestReadingChooserRecoveryRequiresToReadIntent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	require.NoError(t, store.SetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", domain.BookDispositionInbox))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
@@ -172,7 +172,7 @@ func (a *recordingToReadAnalysis) SubmitToReadBookAnalysis(ctx context.Context, 
 
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	response := goalRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "/reading?message=")
@@ -318,7 +318,7 @@ func TestLegacyGoalMutationsAreRejectedWithoutChangingCurrentReading(t *testing.
 
 func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store})
@@ -340,7 +340,7 @@ func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 
 func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	h, cookies, _, store := goalFixtureSession(t)
-	require.NoError(t, store.ClearPrimaryGoal(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
+	require.NoError(t, store.ClearCurrentReading(context.Background(), fixtures.OwnerID, "de", fixtures.BookID))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	books, err := store.ListMyBooksWithEvidence(context.Background(), fixtures.OwnerID)

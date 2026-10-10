@@ -35,10 +35,10 @@ var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for
 var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
-var ErrGoalExists = errors.New("persistence: primary goal already exists")
+var ErrCurrentReadingExists = errors.New("persistence: current reading already exists")
 
-var ErrGoalStale = errors.New("persistence: primary goal state is stale")
-var ErrGoalIneligible = errors.New("persistence: current reading requires an analyzed To Read book")
+var ErrCurrentReadingStale = errors.New("persistence: current reading state is stale")
+var ErrCurrentReadingIneligible = errors.New("persistence: current reading requires an analyzed To Read book")
 var ErrReadingAlreadyCompleted = errors.New("persistence: Book has already been completed")
 var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before moving to To Read")
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
@@ -49,12 +49,6 @@ var ErrAliasConflict = errors.New("persistence: book alias conflict")
 var ErrSourceBookConflict = errors.New("persistence: source material belongs to a different book")
 var ErrBookNotFound = ErrNotFound
 
-// Current-reading names are the canonical vocabulary for new callers. The
-// Goal names remain aliases so the shipped handlers keep their behavior until
-// route cutover.
-var ErrCurrentReadingExists = ErrGoalExists
-var ErrCurrentReadingStale = ErrGoalStale
-var ErrCurrentReadingIneligible = ErrGoalIneligible
 var ErrVocabularyBrowseCountsPending = errors.New("current vocabulary counts are being refreshed")
 var ErrVocabularyBrowseCountsUnavailable = errors.New("current vocabulary counts are unavailable after repeated failures")
 

@@ -177,7 +177,7 @@ func (s *PostgresStore) PutLemmaDecisions(ctx context.Context, decisions []domai
 		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 			return err
 		}
-		if err := lockPrimaryGoalBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
+		if err := lockCurrentReadingBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
@@ -198,7 +198,7 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions 
 		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 			return err
 		}
-		if err := lockPrimaryGoalBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
+		if err := lockCurrentReadingBook(ctx, sqlcgen.New(tx), owner, book); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {

@@ -59,7 +59,7 @@ func TestCurrentReadingSwitchIsAtomicAndReturnFreezesFreshSnapshot(t *testing.T)
 
 	snapshotLemmas := func(snapshotID string) []string {
 		t.Helper()
-		rows, listErr := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, snapshotID)
+		rows, listErr := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, snapshotID)
 		require.NoError(t, listErr)
 		lemmas := make([]string, 0, len(rows))
 		for _, row := range rows {

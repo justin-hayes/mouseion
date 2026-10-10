@@ -133,7 +133,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	var reservationCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshot_vocabulary WHERE owner_id=$1 AND snapshot_id=$2`, owner.ID, reading.SnapshotID).Scan(&reservationCount))
 	assert.Equal(t, reading.SnapshotSize, reservationCount)
-	frozenVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
+	frozenVocabulary, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Len(t, frozenVocabulary, reading.SnapshotSize)
 	pendingBook, pendingSource, pendingCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "publication-pending", "Publication pending", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "buch", UPOS: "NOUN", OccurrenceCount: 1}})
@@ -178,7 +178,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Equal(t, reading.AnalysisRunID, preparation.AnalysisRunID)
 	assert.Equal(t, reading.SnapshotID, preparation.GoalSnapshotID)
 	assert.Equal(t, domain.DeckPreparationQueued, preparation.State)
-	preparedSnapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, preparation.GoalSnapshotID)
+	preparedSnapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, preparation.GoalSnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, frozenVocabulary, preparedSnapshot, "preparation keeps frozen identities after live corpus and Known state change")
 	var jobArgs []byte
@@ -188,7 +188,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	unchanged, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, reading, unchanged, "retry changed current-reading identity or its frozen snapshot")
-	retriedVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
+	retriedVocabulary, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, frozenVocabulary, retriedVocabulary, "retry changed the frozen vocabulary snapshot")
 
@@ -398,7 +398,7 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 	reading, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, reading.BookID)
-	snapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	require.Len(t, snapshot, 1)
 	assert.Equal(t, "crossing", snapshot[0].CanonicalLemma)

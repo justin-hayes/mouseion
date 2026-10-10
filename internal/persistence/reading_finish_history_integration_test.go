@@ -42,13 +42,13 @@ func TestFinishProjectsReadHistoryWithoutHidingAndReadAgainOnlySetsToRead(t *tes
 	require.NoError(t, err)
 	require.True(t, applied)
 
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.MyBookBucketCurrentReading, finishedBookState(t, ctx, store, owner.ID, book.ID).WorkflowBucket())
 
-	first, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	first, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
-	replay, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	replay, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, first.Completion, replay.Completion)
 
@@ -60,7 +60,7 @@ func TestFinishProjectsReadHistoryWithoutHidingAndReadAgainOnlySetsToRead(t *tes
 	require.NoError(t, err)
 	assert.True(t, hidden)
 	assert.Equal(t, int64(1), revision)
-	current, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, current.BookID, "Finish must not select a next Book")
 
@@ -73,7 +73,7 @@ func TestFinishProjectsReadHistoryWithoutHidingAndReadAgainOnlySetsToRead(t *tes
 	assert.Equal(t, domain.MyBookBucketToRead, again.WorkflowBucket())
 	assert.Equal(t, 1, again.CompletionCount)
 	assert.True(t, again.Hidden)
-	current, err = store.GetPrimaryGoal(ctx, owner.ID, "de")
+	current, err = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, current.BookID, "Read again must not start a reading")
 	var active int

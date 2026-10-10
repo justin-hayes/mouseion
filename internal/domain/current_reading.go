@@ -21,24 +21,6 @@ const (
 	CurrentReadingEligible            CurrentReadingEligibilityReason = "eligible"
 )
 
-// PrimaryGoal is retained as a source-compatibility alias while the existing
-// Goal handlers are migrated to the current-reading vocabulary.
-type PrimaryGoal = CurrentReading
-
-// GoalEligibilityReason is the compatibility name for the current-reading
-// eligibility projection.
-type GoalEligibilityReason = CurrentReadingEligibilityReason
-
-const (
-	GoalNeedsCurrentContent = CurrentReadingNeedsCurrentContent
-	GoalAnalysisInProgress  = CurrentReadingAnalysisInProgress
-	GoalFailed              = CurrentReadingFailed
-	GoalCancelled           = CurrentReadingCancelled
-	GoalStale               = CurrentReadingStale
-	GoalNoCompletedAnalysis = CurrentReadingNoCompletedAnalysis
-	GoalEligible            = CurrentReadingEligible
-)
-
 // CurrentReading is the owner's commitment to finish one Book in a study
 // language. Analysis, deck preparation, reading progress, and vocabulary work
 // are independent of the current reading and may not exist yet.

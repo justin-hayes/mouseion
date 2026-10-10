@@ -157,7 +157,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	}})
 	var toReadCorpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, alice.ID, aliceToReadBook.ID).Scan(&toReadCorpusID))
-	goal, err := store.CreatePrimaryGoal(ctx, alice.ID, "de", aliceToReadBook.ID)
+	goal, err := store.StartCurrentReading(ctx, alice.ID, "de", aliceToReadBook.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goal_snapshot_vocabulary(owner_id,snapshot_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,$3,'de','haus','NOUN',1,'[]','[]','{}')`, alice.ID, goal.SnapshotID, toReadCorpusID)
 	require.NoError(t, err)
