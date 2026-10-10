@@ -419,6 +419,9 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 	language, _ := activeStudyLanguageForContext(r.Context())
 	proposalIdentities := lemmaProposalIdentities(chosen, action, lemma, language)
 	fingerprint, err := h.services.Store.Reading.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), proposalIdentities)
+	if lemmaCountsRefreshing(err) {
+		return nil, errors.New("Vocabulary counts are being refreshed. Preview this decision again shortly.")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +450,7 @@ func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, bookID, languag
 		decisions = append(decisions, domain.LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: after, Excluded: action == "exclude"})
 	}
 	counts, err := h.services.Store.Reading.PreviewLemmaDecisionCounts(r.Context(), ownerID, bookID, decisions)
-	if errors.Is(err, persistence.ErrVocabularyBrowseCountsPending) || errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable) {
+	if lemmaCountsRefreshing(err) {
 		return nil, nil, errors.New("Vocabulary counts are being refreshed. Preview this decision again shortly.")
 	}
 	if err != nil {
@@ -473,6 +476,10 @@ func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, bookID, languag
 		})
 	}
 	return changes, selection.NewEligibility(known, reserved).ReviewImpact(impactCounts), nil
+}
+
+func lemmaCountsRefreshing(err error) bool {
+	return errors.Is(err, persistence.ErrVocabularyBrowseCountsPending) || errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable)
 }
 
 func lemmaProposalIdentities(occurrences []domain.LemmaReviewOccurrence, action, lemma, language string) []domain.LemmaReviewIdentity {
@@ -631,6 +638,10 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 	}
 	extras := lemmaProposalIdentities(chosen, action, lemma, language)
 	stateFingerprint, err := store.LemmaReviewStateFingerprint(r.Context(), owner.ID, bookID, language, form, extras)
+	if lemmaCountsRefreshing(err) {
+		http.Error(w, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly.", http.StatusConflict)
+		return
+	}
 	if err != nil {
 		fail(w, err)
 		return
@@ -667,7 +678,7 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 	if err := store.PutLemmaDecisionProposal(r.Context(), decisions, form, language, extras, stateFingerprint); err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
+		if errors.Is(err, persistence.ErrNotFound) || lemmaCountsRefreshing(err) {
 			http.Error(w, "Learner vocabulary state changed or froze after preview. No decision was saved; review it again.", http.StatusConflict)
 			return
 		}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
@@ -118,7 +120,11 @@ func listEligibleLemmaReviewRows(ctx context.Context, q *sqlcgen.Queries, owner,
 // ListLemmaReviewOccurrences resolves an exact observed form only in the
 // owner's current completed analysis for the given Book.
 func (s *PostgresStore) ListLemmaReviewOccurrences(ctx context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
-	rows, err := listEligibleLemmaReviewRows(ctx, s.queries(), owner, bookID, surface)
+	return listLemmaReviewOccurrences(ctx, s.queries(), owner, bookID, surface)
+}
+
+func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
+	rows, err := listEligibleLemmaReviewRows(ctx, q, owner, bookID, surface)
 	if err != nil {
 		return nil, err
 	}
@@ -140,38 +146,109 @@ func (s *PostgresStore) ListLemmaReviewOccurrences(ctx context.Context, owner, b
 	return result, nil
 }
 
-func (s *PostgresStore) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, extras []domain.LemmaReviewIdentity) (string, error) {
-	occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
+// LemmaReviewStateFingerprint binds a preview to the reviewed occurrences and to
+// exactly what its impact depended on, for only the identities the proposal
+// affects: their projected effective counts in this Book and in the learner's
+// other currently analyzed Books, and their Known and Reserved state. Its work
+// is proportional to those identities, not the corpus. Like the impact preview
+// it reports the pending or unavailable count errors while a projection is not
+// ready.
+func (s *PostgresStore) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, affected []domain.LemmaReviewIdentity) (fingerprint string, err error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return "", fmt.Errorf("begin lemma review fingerprint: %w", err)
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(ctx); err == nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			err = rollbackErr
+		}
+	}()
+	return lemmaReviewStateFingerprintTx(ctx, tx, owner, bookID, language, surface, affected)
+}
+
+func lemmaReviewStateFingerprintTx(ctx context.Context, tx pgx.Tx, owner, bookID, language, surface string, affected []domain.LemmaReviewIdentity) (string, error) {
+	q := sqlcgen.New(tx)
+	occurrences, err := listLemmaReviewOccurrences(ctx, q, owner, bookID, surface)
 	if err != nil {
 		return "", err
 	}
-	var vocabulary domain.AnalysisCorpusVocabulary
-	if len(occurrences) > 0 {
-		vocabulary, err = s.GetAnalysisCorpusVocabulary(ctx, owner, occurrences[0].CorpusID)
-		if err != nil {
+	scope, err := browseCountReadinessForDecision(ctx, tx, owner, bookID)
+	if err != nil {
+		return "", err
+	}
+	if !scope.ready {
+		return "", ErrVocabularyBrowseCountsPending
+	}
+	unique := make(map[domain.LemmaReviewIdentity]struct{}, len(affected))
+	lemmas := make([]string, 0, len(affected))
+	across := make([]currentReadingVocabularyIdentity, 0, len(affected))
+	for _, identity := range affected {
+		if _, seen := unique[identity]; seen {
+			continue
+		}
+		unique[identity] = struct{}{}
+		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
+		lemmas = append(lemmas, normalized.lemma)
+		across = append(across, currentReadingVocabularyIdentity{lemma: normalized.lemma, upos: normalized.upos})
+	}
+	inBook := make(map[browseCountIdentity]int64, len(unique))
+	rows, err := tx.Query(ctx, `SELECT canonical_lemma,upos,occurrence_count FROM vocabulary_browse_counts
+		WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND corpus_id=$4 AND canonical_lemma=ANY($5)`,
+		owner, bookID, scope.run, scope.corpus, lemmas)
+	if err != nil {
+		return "", fmt.Errorf("read projected counts for lemma review fingerprint: %w", err)
+	}
+	for rows.Next() {
+		var lemma, upos string
+		var count int64
+		if err := rows.Scan(&lemma, &upos, &count); err != nil {
+			rows.Close()
 			return "", err
 		}
+		inBook[normalizedBrowseCountIdentity(lemma, upos)] = count
 	}
-	known, err := s.ListKnownVocabulary(ctx, owner, language)
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	others, err := currentAcrossBookCounts(ctx, tx, owner, scope.language, bookID, across)
 	if err != nil {
 		return "", err
 	}
-	identities := make(map[domain.LemmaReviewIdentity]bool, len(vocabulary.Lemmas)+len(extras))
-	for _, item := range vocabulary.Lemmas {
-		identities[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = true
+	knownRows, err := tx.Query(ctx, `SELECT canonical_lemma,upos FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=ANY($3)`,
+		owner, canonicalization.NormalizeLanguage(language), lemmas)
+	if err != nil {
+		return "", fmt.Errorf("read Known state for lemma review fingerprint: %w", err)
 	}
-	for _, item := range extras {
-		identities[item] = true
+	known := make(map[browseCountIdentity]bool)
+	for knownRows.Next() {
+		var lemma, upos string
+		if err := knownRows.Scan(&lemma, &upos); err != nil {
+			knownRows.Close()
+			return "", err
+		}
+		known[browseCountIdentity{lemma: lemma, upos: upos}] = true
 	}
-	reserved := make(map[domain.LemmaReviewIdentity]bool, len(identities))
-	for identity := range identities {
-		isReserved, reserveErr := s.IsReservedVocabulary(ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS)
+	knownRows.Close()
+	if err := knownRows.Err(); err != nil {
+		return "", err
+	}
+	states := make([]domain.LemmaReviewIdentityState, 0, len(unique))
+	for identity := range unique {
+		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
+		reserved, reserveErr := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
+			OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
+		})
 		if reserveErr != nil {
 			return "", reserveErr
 		}
-		reserved[identity] = isReserved
+		states = append(states, domain.LemmaReviewIdentityState{
+			Identity: identity, InBook: inBook[normalized],
+			OtherBooks: others[currentReadingVocabularyIdentity{lemma: normalized.lemma, upos: normalized.upos}],
+			Known:      known[browseCountIdentity{lemma: identity.CanonicalLemma, upos: identity.UPOS}], Reserved: reserved,
+		})
 	}
-	return domain.LemmaReviewStateFingerprint(occurrences, vocabulary, known, reserved, extras), nil
+	return domain.LemmaReviewStateFingerprint(occurrences, states), nil
 }
 
 // PutLemmaCorrection changes exactly the occurrence shown to the learner and
@@ -222,7 +299,7 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, decisions 
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
 			return err
 		}
-		fingerprint, err := s.LemmaReviewStateFingerprint(ctx, owner, book, language, surface, extras)
+		fingerprint, err := lemmaReviewStateFingerprintTx(ctx, tx, owner, book, language, surface, extras)
 		if err != nil {
 			return err
 		}

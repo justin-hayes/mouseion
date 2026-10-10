@@ -41,6 +41,18 @@ func reviewImpactBook(t *testing.T, ctx context.Context, store *PostgresStore, o
 	return book
 }
 
+// reviewImpactReservingBook creates a To Read Book whose three "haus"
+// occurrences exist only through a correction, which makes the snapshot freeze
+// project them, so starting it reserves the identity "haus".
+func reviewImpactReservingBook(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string) domain.Book {
+	t.Helper()
+	book := reviewImpactBook(t, ctx, store, ownerID, "reserving", true, []string{"Haus", "Haus", "Heim"})
+	occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, book.ID, "Heim")
+	require.NoError(t, err)
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
+	return book
+}
+
 // TestLemmaReviewImpactAgreesWithSnapshotFreeze previews a decision, confirms
 // it, freezes the Current reading, and requires the previewed "after"
 // eligibility to match whether the identity is in the frozen snapshot.
@@ -50,6 +62,8 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 		name          string
 		target        []string
 		otherBooks    [][]string
+		known         bool
+		reserved      bool
 		decision      func(occurrences []domain.LemmaReviewOccurrence) domain.LemmaReviewDecision
 		form          string
 		wantBefore    bool
@@ -86,6 +100,26 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 			},
 		},
 		{
+			name:       "a correction into a Known identity is not eligible",
+			target:     append(repeat("Haus", 2), "Heim"),
+			known:      true,
+			form:       "Heim",
+			wantBefore: false, wantAfter: false, wantAfterSize: 0,
+			decision: func(o []domain.LemmaReviewOccurrence) domain.LemmaReviewDecision {
+				return domain.LemmaReviewDecision{Occurrence: o[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}
+			},
+		},
+		{
+			name:       "a correction into a Reserved identity is not eligible",
+			target:     append(repeat("Haus", 2), "Heim"),
+			reserved:   true,
+			form:       "Heim",
+			wantBefore: false, wantAfter: false, wantAfterSize: 0,
+			decision: func(o []domain.LemmaReviewOccurrence) domain.LemmaReviewDecision {
+				return domain.LemmaReviewDecision{Occurrence: o[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}
+			},
+		},
+		{
 			name:       "an exclusion drops an identity below the threshold",
 			target:     repeat("Haus", 3),
 			form:       "Haus",
@@ -104,7 +138,19 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 			for i, words := range tt.otherBooks {
 				reviewImpactBook(t, ctx, store, owner.ID, fmt.Sprintf("other%d", i), false, words)
 			}
+			if tt.known {
+				_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "haus", "NOUN")
+				require.NoError(t, err)
+			}
+			var reservingBook domain.Book
+			if tt.reserved {
+				reservingBook = reviewImpactReservingBook(t, ctx, store, owner.ID)
+			}
 			book := reviewImpactBook(t, ctx, store, owner.ID, "target", true, tt.target)
+			if tt.reserved {
+				_, err = store.StartCurrentReading(ctx, owner.ID, "de", reservingBook.ID)
+				require.NoError(t, err)
+			}
 
 			occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, tt.form)
 			require.NoError(t, err)
@@ -112,7 +158,17 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 			counts, err := store.PreviewLemmaDecisionCounts(ctx, owner.ID, book.ID, decisions)
 			require.NoError(t, err)
 			var haus selection.Impact
-			for _, impact := range selection.NewEligibility(nil, nil).ReviewImpact(toImpactCounts(counts)) {
+			known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
+			require.NoError(t, err)
+			var reserved []domain.DeckPreparationVocabulary
+			for _, c := range counts {
+				isReserved, reserveErr := store.IsReservedVocabulary(ctx, owner.ID, c.Language, c.CanonicalLemma, c.UPOS)
+				require.NoError(t, reserveErr)
+				if isReserved {
+					reserved = append(reserved, domain.DeckPreparationVocabulary{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: c.UPOS})
+				}
+			}
+			for _, impact := range selection.NewEligibility(known, reserved).ReviewImpact(toImpactCounts(counts)) {
 				if impact.Identity.CanonicalLemma == "haus" {
 					haus = impact
 				}
@@ -125,6 +181,11 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 			assert.Equal(t, occurrences, unchanged, "previewing writes nothing")
 
 			require.NoError(t, store.PutLemmaDecisions(ctx, decisions))
+			if tt.reserved {
+				_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+				require.ErrorIs(t, err, ErrCurrentReadingExists, "while the identity is Reserved no other snapshot can freeze it")
+				return
+			}
 			reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 			require.NoError(t, err)
 			snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
@@ -164,4 +225,113 @@ func TestPreviewLemmaDecisionCountsWithholdsUntilProjectionsAreReady(t *testing.
 	require.NoError(t, err)
 	_, err = store.PreviewLemmaDecisionCounts(ctx, owner.ID, book.ID, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus"}})
 	require.ErrorIs(t, err, ErrVocabularyBrowseCountsPending)
+}
+
+// TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn previews a
+// correction of "Heim" into "haus" and then changes one thing the preview's
+// impact read. Each change must make confirming stale; a change to an identity
+// the proposal does not affect must not.
+func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing.T) {
+	repeat := func(word string, n int) []string { return strings.Fields(strings.Repeat(word+" ", n)) }
+	affected := []domain.LemmaReviewIdentity{
+		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"},
+		{Language: "de", CanonicalLemma: "heim", UPOS: "NOUN"},
+	}
+	correct := func(occurrence domain.LemmaReviewOccurrence) domain.LemmaReviewDecision {
+		return domain.LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}
+	}
+	tests := []struct {
+		name      string
+		target    []string
+		other     []string
+		reserving bool
+		change    func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, other, reserving domain.Book)
+		wantStale bool
+	}{
+		{
+			name:   "a decision on another surface form of the same lemma",
+			target: []string{"Haus", "Heim", "Dach"},
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, _, _ domain.Book) {
+				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, target.ID, "Dach")
+				require.NoError(t, err)
+				require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{correct(occurrences[0])}))
+			},
+			wantStale: true,
+		},
+		{
+			name:   "a cross-Book count change that flips the two-plus-ten route",
+			target: []string{"Haus", "Heim"},
+			other:  repeat("Haus", 8),
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, other, _ domain.Book) {
+				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, other.ID, "Haus")
+				require.NoError(t, err)
+				require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], Excluded: true}}))
+			},
+			wantStale: true,
+		},
+		{
+			name:   "an affected identity becoming Known",
+			target: []string{"Haus", "Heim"},
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, _ domain.Book) {
+				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "haus", "NOUN")
+				require.NoError(t, err)
+			},
+			wantStale: true,
+		},
+		{
+			name:      "an affected identity becoming Reserved",
+			target:    []string{"Haus", "Heim"},
+			reserving: true,
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, reserving domain.Book) {
+				_, err := store.StartCurrentReading(ctx, ownerID, "de", reserving.ID)
+				require.NoError(t, err)
+			},
+			wantStale: true,
+		},
+		{
+			name:   "an unaffected identity becoming Known",
+			target: []string{"Haus", "Heim"},
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, _ domain.Book) {
+				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "unrelated", "NOUN")
+				require.NoError(t, err)
+			},
+		},
+	}
+	for index, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+			owner, err := store.CreateUser(ctx, fmt.Sprintf("review-fingerprint-%d", index), false)
+			require.NoError(t, err)
+			var other, reserving domain.Book
+			if tt.other != nil {
+				other = reviewImpactBook(t, ctx, store, owner.ID, "other", false, tt.other)
+			}
+			if tt.reserving {
+				reserving = reviewImpactReservingBook(t, ctx, store, owner.ID)
+			}
+			target := reviewImpactBook(t, ctx, store, owner.ID, "target", true, tt.target)
+			occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
+			require.NoError(t, err)
+			decisions := []domain.LemmaReviewDecision{correct(occurrences[0])}
+
+			previewed, err := store.LemmaReviewStateFingerprint(ctx, owner.ID, target.ID, "de", "Heim", affected)
+			require.NoError(t, err)
+			again, err := store.LemmaReviewStateFingerprint(ctx, owner.ID, target.ID, "de", "Heim", affected)
+			require.NoError(t, err)
+			require.Equal(t, previewed, again, "the fingerprint is stable while nothing changes")
+
+			tt.change(t, ctx, store, owner.ID, target, other, reserving)
+
+			err = store.PutLemmaDecisionProposal(ctx, decisions, "Heim", "de", affected, previewed)
+			if tt.wantStale {
+				require.ErrorIs(t, err, ErrNotFound)
+				unchanged, listErr := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
+				require.NoError(t, listErr)
+				assert.Empty(t, unchanged[0].CorrectedLemma, "a stale preview persists nothing")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }

@@ -1075,9 +1075,9 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 	return s.myBooksForOwner(owner), nil
 }
 
-// GetAnalysisCorpusVocabulary provides deterministic fixture facts for the
-// coverage summary without involving a real analyzer.
-func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusID string) (domain.AnalysisCorpusVocabulary, error) {
+// corpusVocabulary provides deterministic fixture facts for the coverage
+// summary without involving a real analyzer.
+func (s *Store) corpusVocabulary(corpusID string) (domain.AnalysisCorpusVocabulary, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var source domain.SourceMaterialSummary
@@ -1114,7 +1114,7 @@ func (s *Store) GetAnalysisCorpusVocabulary(_ context.Context, _ string, corpusI
 // GetProjectedCorpusVocabulary supplies the fixture Book's projected effective
 // counts as data, always ready, so coverage never depends on a real projection.
 func (s *Store) GetProjectedCorpusVocabulary(ctx context.Context, owner, corpusID string) (domain.ProjectedCorpusVocabulary, error) {
-	vocabulary, err := s.GetAnalysisCorpusVocabulary(ctx, owner, corpusID)
+	vocabulary, err := s.corpusVocabulary(corpusID)
 	if err != nil {
 		return domain.ProjectedCorpusVocabulary{}, err
 	}
@@ -1131,7 +1131,7 @@ func (s *Store) PreviewLemmaDecisionCounts(ctx context.Context, owner, _ string,
 	if len(decisions) == 0 {
 		return nil, nil
 	}
-	vocabulary, err := s.GetAnalysisCorpusVocabulary(ctx, owner, decisions[0].Occurrence.CorpusID)
+	vocabulary, err := s.corpusVocabulary(decisions[0].Occurrence.CorpusID)
 	if err != nil {
 		return nil, err
 	}
@@ -1169,30 +1169,36 @@ func (s *Store) PreviewLemmaDecisionCounts(ctx context.Context, owner, _ string,
 	return counts, nil
 }
 
-func (s *Store) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, extras []domain.LemmaReviewIdentity) (string, error) {
+// LemmaReviewStateFingerprint fingerprints the affected identities from the
+// fixture Book's projected counts, with no other Books and nothing Reserved.
+func (s *Store) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, affected []domain.LemmaReviewIdentity) (string, error) {
 	occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
 	if err != nil {
 		return "", err
 	}
-	var vocabulary domain.AnalysisCorpusVocabulary
+	projected := map[domain.LemmaReviewIdentity]int64{}
 	if len(occurrences) > 0 {
-		vocabulary, err = s.GetAnalysisCorpusVocabulary(ctx, owner, occurrences[0].CorpusID)
-		if err != nil {
-			return "", err
+		vocabulary, vocabularyErr := s.GetProjectedCorpusVocabulary(ctx, owner, occurrences[0].CorpusID)
+		if vocabularyErr != nil {
+			return "", vocabularyErr
+		}
+		for _, item := range vocabulary.Lemmas {
+			projected[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = item.OccurrenceCount
 		}
 	}
 	known, err := s.ListKnownVocabulary(ctx, owner, language)
 	if err != nil {
 		return "", err
 	}
-	reserved := make(map[domain.LemmaReviewIdentity]bool)
-	for _, item := range vocabulary.Lemmas {
-		reserved[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = false
+	knownSet := make(map[domain.LemmaReviewIdentity]bool, len(known))
+	for _, item := range known {
+		knownSet[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = true
 	}
-	for _, item := range extras {
-		reserved[item] = false
+	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
+	for _, identity := range affected {
+		states = append(states, domain.LemmaReviewIdentityState{Identity: identity, InBook: projected[identity], Known: knownSet[identity]})
 	}
-	return domain.LemmaReviewStateFingerprint(occurrences, vocabulary, known, reserved, extras), nil
+	return domain.LemmaReviewStateFingerprint(occurrences, states), nil
 }
 
 func (s *Store) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expected string) error {
