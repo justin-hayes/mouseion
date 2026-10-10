@@ -2,13 +2,10 @@ package webapp
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"log"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -24,13 +21,14 @@ import (
 )
 
 type lemmaDecisionProposal struct {
-	Action      string
-	Lemma       string
-	Occurrences []domain.LemmaReviewOccurrence
-	Indices     []int
-	Fingerprint string
-	Changes     []lemmaOccurrenceChange
-	Impacts     []selection.Impact
+	Action          string
+	Lemma           string
+	Occurrences     []domain.LemmaReviewOccurrence
+	Indices         []int
+	Fingerprint     string
+	IdentityChanged bool
+	Changes         []lemmaOccurrenceChange
+	Impacts         []selection.Impact
 }
 
 type lemmaOccurrenceChange struct{ Sentence, Before, After string }
@@ -78,10 +76,7 @@ func (h *Handler) ensureLemmaReviewFlags(ctx context.Context, owner string, deta
 	byID := make(map[string]domain.LemmaReviewOccurrence, len(occurrences))
 	for _, occurrence := range occurrences {
 		id := lemmaReviewOccurrenceID(occurrence)
-		lemma := occurrence.CanonicalLemma
-		if occurrence.CorrectedLemma != "" {
-			lemma = occurrence.CorrectedLemma
-		}
+		lemma := selection.ReviewIdentityNow(detail.Book.LanguageTag, occurrence).CanonicalLemma
 		input = append(input, lemmarisk.Occurrence{ID: id, Language: detail.Book.LanguageTag, Surface: occurrence.Surface, Lemma: lemma, UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText, Reviewed: occurrence.CorrectedLemma != "" || occurrence.ReviewFlagResolution != "", Excluded: occurrence.Excluded})
 		byID[id] = occurrence
 	}
@@ -335,21 +330,15 @@ func lemmaOccurrencesHaveDecision(occurrences []domain.LemmaReviewOccurrence) bo
 	return false
 }
 
-func lemmaProposalChangesIdentity(proposal *lemmaDecisionProposal) bool {
-	if proposal == nil {
-		return false
-	}
-	for _, occurrence := range proposal.Occurrences {
-		if lemmaDecisionChangesIdentity(occurrence, proposal.Action, proposal.Lemma) {
+// lemmaProposalChangesIdentity reports whether any selected occurrence counts
+// under a different vocabulary identity once the proposal applies.
+func lemmaProposalChangesIdentity(proposal domain.LemmaReviewProposal) bool {
+	for _, decision := range proposal.Decisions() {
+		if selection.ReviewIdentityNow(proposal.Language, decision.Occurrence) != selection.ReviewIdentityAfter(proposal.Language, decision.Occurrence, decision) {
 			return true
 		}
 	}
 	return false
-}
-
-func lemmaDecisionChangesIdentity(occurrence domain.LemmaReviewOccurrence, action, lemma string) bool {
-	before, after := lemmaDecisionIdentities(occurrence, action, lemma)
-	return before != after
 }
 
 func (h *Handler) lemmaReviewRecovery(r *http.Request, owner domain.User, bookID string, detail domain.MyBook) (lemmaReviewRecovery, error) {
@@ -417,123 +406,44 @@ func (h *Handler) lemmaProposal(r *http.Request, matches []domain.LemmaReviewOcc
 		}
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
-	proposalIdentities := lemmaProposalIdentities(chosen, action, lemma, language)
-	fingerprint, err := h.services.Store.Reading.LemmaReviewStateFingerprint(r.Context(), user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, strings.TrimSpace(r.FormValue("form")), proposalIdentities)
+	proposal := domain.LemmaReviewProposal{
+		OwnerID: user(r).ID, BookID: strings.TrimSpace(r.PathValue("bookID")), Language: language,
+		Surface: strings.TrimSpace(r.FormValue("form")), Action: action, Lemma: lemma, Occurrences: chosen,
+	}
+	preview, err := h.services.Store.Reading.ReadLemmaReviewProposal(r.Context(), proposal)
 	if lemmaCountsRefreshing(err) {
 		return nil, errors.New("Vocabulary counts are being refreshed. Preview this decision again shortly.")
 	}
 	if err != nil {
 		return nil, err
 	}
-	p := &lemmaDecisionProposal{Action: action, Lemma: lemma, Occurrences: chosen, Indices: indices, Fingerprint: lemmaProposalFingerprint(fingerprint, action, lemma, indices)}
-	p.Changes, p.Impacts, err = h.lemmaProposalImpacts(r, user(r).ID, strings.TrimSpace(r.PathValue("bookID")), language, chosen, action, lemma)
-	if err != nil {
-		return nil, err
-	}
-	return p, nil
+	return &lemmaDecisionProposal{
+		Action: action, Lemma: lemma, Occurrences: chosen, Indices: indices,
+		Fingerprint: preview.Fingerprint, IdentityChanged: lemmaProposalChangesIdentity(proposal),
+		Changes: lemmaOccurrenceChanges(proposal), Impacts: selection.ReviewImpact(preview.States),
+	}, nil
 }
 
-func (h *Handler) lemmaProposalImpacts(r *http.Request, ownerID, bookID, language string, chosen []domain.LemmaReviewOccurrence, action, lemma string) ([]lemmaOccurrenceChange, []selection.Impact, error) {
-	changes := make([]lemmaOccurrenceChange, 0, len(chosen))
-	decisions := make([]domain.LemmaReviewDecision, 0, len(chosen))
-	for _, occurrence := range chosen {
-		before, after := lemmaDecisionIdentities(occurrence, action, lemma)
-		beforeDisplay := before
-		if occurrence.Excluded {
-			beforeDisplay = "excluded"
+// lemmaOccurrenceChanges shows each selected occurrence's lemma before and after
+// the proposal. An excluded side shows as "excluded".
+func lemmaOccurrenceChanges(proposal domain.LemmaReviewProposal) []lemmaOccurrenceChange {
+	changes := make([]lemmaOccurrenceChange, 0, len(proposal.Occurrences))
+	for _, decision := range proposal.Decisions() {
+		before := selection.ReviewIdentityNow(proposal.Language, decision.Occurrence).CanonicalLemma
+		if before == "" {
+			before = "excluded"
 		}
-		afterDisplay := after
-		if afterDisplay == "" {
-			afterDisplay = "excluded"
+		after := selection.ReviewIdentityAfter(proposal.Language, decision.Occurrence, decision).CanonicalLemma
+		if after == "" {
+			after = "excluded"
 		}
-		changes = append(changes, lemmaOccurrenceChange{Sentence: occurrence.SentenceText, Before: beforeDisplay, After: afterDisplay})
-		decisions = append(decisions, domain.LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: after, Excluded: action == "exclude"})
+		changes = append(changes, lemmaOccurrenceChange{Sentence: decision.Occurrence.SentenceText, Before: before, After: after})
 	}
-	counts, err := h.services.Store.Reading.PreviewLemmaDecisionCounts(r.Context(), ownerID, bookID, decisions)
-	if lemmaCountsRefreshing(err) {
-		return nil, nil, errors.New("Vocabulary counts are being refreshed. Preview this decision again shortly.")
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	known, err := h.services.Store.Reading.ListKnownVocabulary(r.Context(), ownerID, language)
-	if err != nil {
-		return nil, nil, err
-	}
-	reserved := make([]domain.DeckPreparationVocabulary, 0, len(counts))
-	impactCounts := make([]selection.ImpactCounts, 0, len(counts))
-	for _, c := range counts {
-		isReserved, reserveErr := h.services.Store.Reading.IsReservedVocabulary(r.Context(), ownerID, c.Language, c.CanonicalLemma, c.UPOS)
-		if reserveErr != nil {
-			return nil, nil, reserveErr
-		}
-		if isReserved {
-			reserved = append(reserved, domain.DeckPreparationVocabulary{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: c.UPOS})
-		}
-		impactCounts = append(impactCounts, selection.ImpactCounts{
-			Identity: selection.Identity{Language: c.Language, CanonicalLemma: c.CanonicalLemma, UPOS: c.UPOS},
-			Before:   c.Before, After: c.After, OtherBooks: c.OtherBooks,
-		})
-	}
-	return changes, selection.NewEligibility(known, reserved).ReviewImpact(impactCounts), nil
+	return changes
 }
 
 func lemmaCountsRefreshing(err error) bool {
 	return errors.Is(err, persistence.ErrVocabularyBrowseCountsPending) || errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable)
-}
-
-func lemmaProposalIdentities(occurrences []domain.LemmaReviewOccurrence, action, lemma, language string) []domain.LemmaReviewIdentity {
-	identities := make(map[domain.LemmaReviewIdentity]bool)
-	for _, occurrence := range occurrences {
-		before, after := lemmaDecisionIdentities(occurrence, action, lemma)
-		if occurrence.Excluded {
-			before = ""
-		}
-		if before != "" {
-			identities[domain.LemmaReviewIdentity{Language: language, CanonicalLemma: before, UPOS: occurrence.UPOS}] = true
-		}
-		if after != "" {
-			identities[domain.LemmaReviewIdentity{Language: language, CanonicalLemma: after, UPOS: occurrence.UPOS}] = true
-		}
-	}
-	result := make([]domain.LemmaReviewIdentity, 0, len(identities))
-	for identity := range identities {
-		result = append(result, identity)
-	}
-	sort.Slice(result, func(i, j int) bool {
-		left := result[i].Language + "\x00" + result[i].CanonicalLemma + "\x00" + result[i].UPOS
-		right := result[j].Language + "\x00" + result[j].CanonicalLemma + "\x00" + result[j].UPOS
-		return left < right
-	})
-	return result
-}
-
-func lemmaDecisionIdentities(occurrence domain.LemmaReviewOccurrence, action, lemma string) (before, after string) {
-	before = occurrence.CanonicalLemma
-	if occurrence.CorrectedLemma != "" {
-		before = occurrence.CorrectedLemma
-	}
-	if occurrence.Excluded {
-		before = ""
-	}
-	after = lemma
-	if action == "keep" {
-		after = occurrence.CanonicalLemma
-	}
-	if action == "exclude" {
-		after = ""
-	}
-	return before, after
-}
-
-func lemmaProposalFingerprint(state, action, lemma string, selected []int) string {
-	values := make([]string, len(selected))
-	for i, value := range selected {
-		values[i] = strconv.Itoa(value)
-	}
-	sort.Strings(values)
-	digest := sha256.Sum256([]byte(state + "\x00" + action + "\x00" + lemma + "\x00" + strings.Join(values, ",")))
-	return hex.EncodeToString(digest[:])
 }
 
 func (h *Handler) lemmaReviewWritable(w http.ResponseWriter, r *http.Request, owner domain.User, bookID string) bool {
@@ -610,7 +520,6 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 	indices := make(map[int]bool, len(selected))
-	orderedIndices := make([]int, 0, len(selected))
 	for _, raw := range selected {
 		i, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || i < 0 || i >= len(matches) {
@@ -618,38 +527,22 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 			return
 		}
 		indices[i] = true
-		orderedIndices = append(orderedIndices, i)
 	}
-	decisions := make([]domain.LemmaReviewDecision, 0, len(indices))
 	chosen := make([]domain.LemmaReviewOccurrence, 0, len(indices))
-	identityChanged := false
 	for i, occurrence := range matches {
-		if !indices[i] {
-			continue
+		if indices[i] {
+			chosen = append(chosen, occurrence)
 		}
-		decision := lemma
-		excluded := action == "exclude"
-		if action == "keep" {
-			decision = occurrence.CanonicalLemma
-		}
-		identityChanged = identityChanged || lemmaDecisionChangesIdentity(occurrence, action, lemma)
-		chosen = append(chosen, occurrence)
-		decisions = append(decisions, domain.LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: decision, Excluded: excluded, NormalizationProfile: profile.Name(), NormalizationVersion: profile.Version()})
 	}
-	extras := lemmaProposalIdentities(chosen, action, lemma, language)
-	stateFingerprint, err := store.LemmaReviewStateFingerprint(r.Context(), owner.ID, bookID, language, form, extras)
-	if lemmaCountsRefreshing(err) {
-		http.Error(w, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly.", http.StatusConflict)
-		return
+	if action != "correct" {
+		lemma = ""
 	}
-	if err != nil {
-		fail(w, err)
-		return
+	proposal := domain.LemmaReviewProposal{
+		OwnerID: owner.ID, BookID: bookID, Language: language, Surface: form,
+		Action: action, Lemma: lemma, Occurrences: chosen,
+		NormalizationProfile: profile.Name(), NormalizationVersion: profile.Version(),
 	}
-	if lemmaProposalFingerprint(stateFingerprint, action, lemma, orderedIndices) != r.FormValue("fingerprint") {
-		http.Error(w, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.", http.StatusConflict)
-		return
-	}
+	identityChanged := lemmaProposalChangesIdentity(proposal)
 	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 	if err != nil {
 		if errors.Is(err, persistence.ErrNotFound) {
@@ -677,16 +570,17 @@ func (h *Handler) confirmLemmaProposal(w http.ResponseWriter, r *http.Request, o
 		http.Error(w, "Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot.", http.StatusConflict)
 		return
 	}
-	if err := store.PutLemmaDecisionProposal(r.Context(), decisions, form, language, extras, stateFingerprint); err != nil {
-		if errors.Is(err, persistence.ErrLemmaDecisionCurrentReading) {
+	if err := store.PutLemmaDecisionProposal(r.Context(), proposal, r.FormValue("fingerprint")); err != nil {
+		switch {
+		case errors.Is(err, persistence.ErrLemmaDecisionCurrentReading):
 			http.Error(w, err.Error(), http.StatusConflict)
-			return
+		case errors.Is(err, persistence.ErrLemmaReviewPreviewStale), errors.Is(err, persistence.ErrNotFound):
+			http.Error(w, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again.", http.StatusConflict)
+		case lemmaCountsRefreshing(err):
+			http.Error(w, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly.", http.StatusConflict)
+		default:
+			fail(w, err)
 		}
-		if errors.Is(err, persistence.ErrNotFound) || lemmaCountsRefreshing(err) {
-			http.Error(w, "Learner vocabulary state changed or froze after preview. No decision was saved; review it again.", http.StatusConflict)
-			return
-		}
-		fail(w, err)
 		return
 	}
 	if err := h.services.Analysis.EnqueueBrowseCountRebuild(r.Context(), owner.ID, bookID); err != nil {

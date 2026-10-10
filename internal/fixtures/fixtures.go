@@ -23,6 +23,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
+	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -914,100 +915,71 @@ func (s *Store) IsReservedVocabulary(context.Context, string, string, string, st
 	return false, nil
 }
 
-// PreviewLemmaDecisionCounts derives deterministic before/after counts from the
-// fixture Book's vocabulary, with no other Books contributing.
-func (s *Store) PreviewLemmaDecisionCounts(ctx context.Context, owner, _ string, decisions []domain.LemmaReviewDecision) ([]domain.LemmaDecisionCounts, error) {
-	if len(decisions) == 0 {
-		return nil, nil
-	}
-	vocabulary, err := s.corpusVocabulary(decisions[0].Occurrence.CorpusID)
+// ReadLemmaReviewProposal derives deterministic before and after counts from the
+// fixture Book's vocabulary, with no other Books contributing and nothing Reserved.
+func (s *Store) ReadLemmaReviewProposal(ctx context.Context, proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
+	occurrences, err := s.ListLemmaReviewOccurrences(ctx, proposal.OwnerID, proposal.BookID, proposal.Surface)
 	if err != nil {
-		return nil, err
+		return domain.LemmaReviewPreview{}, err
 	}
-	language := "de"
-	if len(vocabulary.Lemmas) > 0 {
-		language = vocabulary.Lemmas[0].Language
-	}
-	type key struct{ lemma, upos string }
-	before := make(map[key]int64, len(vocabulary.Lemmas))
-	for _, item := range vocabulary.Lemmas {
-		before[key{item.CanonicalLemma, item.UPOS}] = item.OccurrenceCount
-	}
-	after := maps.Clone(before)
-	touched := make(map[key]bool)
-	for _, decision := range decisions {
-		o := decision.Occurrence
-		current := o.CanonicalLemma
-		if o.CorrectedLemma != "" {
-			current = o.CorrectedLemma
-		}
-		if !o.Excluded {
-			after[key{current, o.UPOS}]--
-			touched[key{current, o.UPOS}] = true
-		}
-		if !decision.Excluded && decision.CanonicalLemma != "" {
-			after[key{decision.CanonicalLemma, o.UPOS}]++
-			touched[key{decision.CanonicalLemma, o.UPOS}] = true
-		}
-	}
-	counts := make([]domain.LemmaDecisionCounts, 0, len(touched))
-	for k := range touched {
-		counts = append(counts, domain.LemmaDecisionCounts{Language: language, CanonicalLemma: k.lemma, UPOS: k.upos, Before: before[k], After: after[k]})
-	}
-	sort.Slice(counts, func(i, j int) bool { return counts[i].CanonicalLemma < counts[j].CanonicalLemma })
-	return counts, nil
-}
-
-// LemmaReviewStateFingerprint fingerprints the affected identities from the
-// fixture Book's projected counts, with no other Books and nothing Reserved.
-func (s *Store) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, affected []domain.LemmaReviewIdentity) (string, error) {
-	occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
-	if err != nil {
-		return "", err
-	}
-	projected := map[domain.LemmaReviewIdentity]int64{}
+	before := map[domain.LemmaReviewIdentity]int64{}
 	if len(occurrences) > 0 {
-		vocabulary, vocabularyErr := s.GetProjectedCorpusVocabulary(ctx, owner, occurrences[0].CorpusID)
+		vocabulary, vocabularyErr := s.GetProjectedCorpusVocabulary(ctx, proposal.OwnerID, occurrences[0].CorpusID)
 		if vocabularyErr != nil {
-			return "", vocabularyErr
+			return domain.LemmaReviewPreview{}, vocabularyErr
 		}
 		for _, item := range vocabulary.Lemmas {
-			projected[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = item.OccurrenceCount
+			before[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = item.OccurrenceCount
 		}
 	}
-	known, err := s.ListKnownVocabulary(ctx, owner, language)
+	after := maps.Clone(before)
+	for _, decision := range proposal.Decisions() {
+		if current := selection.ReviewIdentityNow(proposal.Language, decision.Occurrence); current != (selection.Identity{}) {
+			after[domain.LemmaReviewIdentity(current)]--
+		}
+		if next := selection.ReviewIdentityAfter(proposal.Language, decision.Occurrence, decision); next != (selection.Identity{}) {
+			after[domain.LemmaReviewIdentity(next)]++
+		}
+	}
+	known, err := s.ListKnownVocabulary(ctx, proposal.OwnerID, proposal.Language)
 	if err != nil {
-		return "", err
+		return domain.LemmaReviewPreview{}, err
 	}
 	knownSet := make(map[domain.LemmaReviewIdentity]bool, len(known))
 	for _, item := range known {
 		knownSet[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS}] = true
 	}
+	affected := selection.ProposalIdentities(proposal)
 	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
 	for _, identity := range affected {
-		states = append(states, domain.LemmaReviewIdentityState{Identity: identity, InBook: projected[identity], Known: knownSet[identity]})
+		states = append(states, domain.LemmaReviewIdentityState{
+			Identity: identity, InBook: before[identity], AfterInBook: after[identity],
+			Known: knownSet[identity] || knownSet[domain.LemmaReviewIdentity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma}],
+		})
 	}
-	return domain.LemmaReviewStateFingerprint(occurrences, states), nil
+	return domain.LemmaReviewPreview{States: states, Fingerprint: domain.LemmaReviewFingerprint(proposal, occurrences, states)}, nil
 }
 
-func (s *Store) PutLemmaDecisionProposal(ctx context.Context, decisions []domain.LemmaReviewDecision, surface, language string, extras []domain.LemmaReviewIdentity, expected string) error {
-	if len(decisions) == 0 {
+// PutLemmaDecisionProposal applies a proposal only when its state still matches
+// the preview's fingerprint, as the persistence store does.
+func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.LemmaReviewProposal, expected string) error {
+	if len(proposal.Occurrences) == 0 {
 		return errNotFound
 	}
 	s.mu.Lock()
-	blocked := s.lemmaDecisionBlockedByCurrentReadingLocked(decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID)
+	blocked := s.lemmaDecisionBlockedByCurrentReadingLocked(proposal.OwnerID, proposal.BookID)
 	s.mu.Unlock()
 	if blocked {
 		return persistence.ErrLemmaDecisionCurrentReading
 	}
-	current, err := s.LemmaReviewStateFingerprint(ctx, decisions[0].Occurrence.OwnerID, decisions[0].Occurrence.BookID, language, surface, extras)
+	preview, err := s.ReadLemmaReviewProposal(ctx, proposal)
 	if err != nil {
 		return err
 	}
-	if current != expected {
-		return errNotFound
+	if preview.Fingerprint != expected {
+		return persistence.ErrLemmaReviewPreviewStale
 	}
-	return s.PutLemmaDecisions(ctx, decisions)
+	return s.PutLemmaDecisions(ctx, proposal.Decisions())
 }
 
 func fixtureKnownCorpusTokens(corpusID string) int64 {
