@@ -93,7 +93,7 @@ func (h *Handler) validReadingDeckBook(w http.ResponseWriter, r *http.Request, o
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
-	if _, detectErr := h.ensureLemmaReviewFlags(r.Context(), owner, detail); detectErr != nil {
+	if _, detectErr := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); detectErr != nil {
 		fail(w, detectErr)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -257,20 +257,14 @@ func (h *Handler) preflightDirectDeckLemmaReview(w http.ResponseWriter, r *http.
 		if detail.Acquired == nil || detail.Acquired.AnalysisRunID != completed.RunID || detail.Acquired.CorpusID != completed.Corpus.ID {
 			return false
 		}
-		if _, detectErr := h.ensureLemmaReviewFlags(r.Context(), user(r).ID, detail); detectErr != nil {
-			fail(w, detectErr)
+		assessment, assessErr := h.services.LemmaReview.Assess(r.Context(), user(r).ID, item.BookID)
+		if assessErr != nil {
+			fail(w, assessErr)
 			return true
 		}
-		occurrences, listErr := h.services.Store.Reading.ListLemmaReviewOccurrences(r.Context(), user(r).ID, item.BookID, "")
-		if listErr != nil {
-			fail(w, listErr)
+		if assessment.Unresolved {
+			http.Redirect(w, r, "/reading/books/"+url.PathEscape(item.BookID)+"/lemma-review", http.StatusSeeOther)
 			return true
-		}
-		for _, occurrence := range occurrences {
-			if occurrence.ReviewFlagReason != "" && occurrence.ReviewFlagResolution == "" {
-				http.Redirect(w, r, "/reading/books/"+url.PathEscape(item.BookID)+"/lemma-review", http.StatusSeeOther)
-				return true
-			}
 		}
 		return false
 	}

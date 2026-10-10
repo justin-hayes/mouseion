@@ -617,7 +617,7 @@ func TestBrowseCountsRebuildDiscardsCandidateWhenDecisionChangesDuringScan(t *te
 	require.NoError(t, err)
 	require.Len(t, occurrences, 1)
 	decisionStart := time.Now()
-	require.NoError(t, store.PutLemmaCorrection(ctx, occurrences[0], "tageszeit", "german-post-1996", "6"))
+	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "tageszeit", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
 	assert.Less(t, time.Since(decisionStart), 750*time.Millisecond, "a decision on an unready Book must not wait for the full rebuild scan")
 	require.ErrorIs(t, <-result, persistence.ErrBrowseCountDecisionsChanged, "the stale staged candidate must be discarded")
 	_, err = pool.Exec(ctx, `DROP TRIGGER pause_browse_count_candidate ON vocabulary_browse_counts; DROP FUNCTION pause_browse_count_candidate()`)

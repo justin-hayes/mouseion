@@ -168,7 +168,7 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 	}
 	// Flag detection is a write the freeze depends on, so it runs before the
 	// switch. Persistence decides everything else.
-	if _, err := h.ensureLemmaReviewFlags(r.Context(), owner, detail); err != nil {
+	if _, err := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); err != nil {
 		fail(w, err)
 		return
 	}
@@ -293,7 +293,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 	}
 	// Flag detection is a write the freeze depends on, so it runs before the
 	// Start. Persistence decides everything else.
-	if _, err := h.ensureLemmaReviewFlags(r.Context(), owner, detail); err != nil {
+	if _, err := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); err != nil {
 		fail(w, err)
 		return
 	}

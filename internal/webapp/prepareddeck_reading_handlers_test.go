@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/fixtures"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,8 +15,9 @@ import (
 func TestValidReadingDeckBookPreservesOwnerMembershipAndCurrentAnalysisChecks(t *testing.T) {
 	store := fixtures.NewStore()
 	h := &Handler{services: Services{
-		Store:    storeDependencies(store),
-		Analysis: fixtures.Analysis{},
+		Store:       storeDependencies(store),
+		Analysis:    fixtures.Analysis{},
+		LemmaReview: lemmareview.New(lemmareview.Config{Store: store}),
 	}}
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/reading/books/fixture-route-match/deck/preparations/new", nil)
 	beforeStart := httptest.NewRecorder()

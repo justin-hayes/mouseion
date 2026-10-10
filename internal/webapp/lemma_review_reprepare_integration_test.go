@@ -102,7 +102,11 @@ func TestReadyDeckIsOfferedAndRepreparedOnIdentityChangeWithProductionWiring(t *
 	require.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), "/deck-preparations/"+readyDeck.ID+"/download", "the historical ready deck is offered for download")
 
-	preview := perform(t, h, http.MethodPost, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Drachen"}, "target": {"0"}, "decision": {"correct"}, "lemma": {"drache"}}, cookies)
+	drachen, err := store.ListLemmaReviewOccurrences(context.Background(), owner.ID, book.ID, "Drachen")
+	require.NoError(t, err)
+	require.NotEmpty(t, drachen)
+	target := drachen[0].ID()
+	preview := perform(t, h, http.MethodPost, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Drachen"}, "target": {target}, "decision": {"correct"}, "lemma": {"drache"}}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code)
 	assert.Contains(t, preview.Body.String(), "drach (NOUN):</strong> recurrence 2 → 1", "the preview renders the impact from the count projection")
 	assert.Contains(t, preview.Body.String(), "Reading snapshot/deck eligible no → no")
@@ -110,7 +114,7 @@ func TestReadyDeckIsOfferedAndRepreparedOnIdentityChangeWithProductionWiring(t *
 	require.Len(t, fingerprint, 2)
 	assert.Contains(t, preview.Body.String(), `name="reprepare_ready_deck"`, "an identity-changing preview asks for explicit re-preparation consent")
 
-	confirm := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Drachen"}, "decision": {"correct"}, "lemma": {"drache"}, "fingerprint": {fingerprint[1]}, "selected": {"0"}}
+	confirm := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Drachen"}, "decision": {"correct"}, "lemma": {"drache"}, "fingerprint": {fingerprint[1]}, "selected": {target}}
 	unconsented := perform(t, h, http.MethodPost, lemmaPath, confirm, cookies)
 	require.Equal(t, http.StatusBadRequest, unconsented.Code, "the identity change is refused without explicit consent")
 	assert.Empty(t, spy.reprepared, "a refused confirmation does not re-prepare the ready deck")

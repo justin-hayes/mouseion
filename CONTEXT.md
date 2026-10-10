@@ -391,6 +391,14 @@ the selection is neither read nor written. Stored rows may remain until a schema
 cleanup is approved under ADR 0038 and ADR 0070.
 _Avoid_: custom deck, prepared deck, temporary filter result.
 
+**Lemma review**:
+The learner's Book-scoped workflow for vocabulary identity problems: assessing
+lemma risk, then reviewing exact occurrences and previewing and confirming a
+**Lemma correction** or **Occurrence exclusion**. Flags raised by the assessment
+and any **Lemma suggestion** are inputs to it; only a confirmed decision changes
+vocabulary identity.
+_Avoid_: lemma fix, lemma audit, dictionary check.
+
 **Lemma review flag**:
 A non-authoritative indication that an analyzed occurrence's lemma may assign
 the wrong vocabulary identity, offered for learner review before it affects a
