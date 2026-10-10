@@ -79,7 +79,7 @@ WITH current_books AS MATERIALIZED (
   AND b.language_state='chosen' AND b.language_tag=$2
  LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
   AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
-  AND r.language=$2 AND r.builder_version=2
+  AND r.language=$2 AND r.builder_version=3
  WHERE cai.owner_id=$1
 ), evidence AS (
  SELECT c.book_id,c.canonical_lemma AS lemma,c.upos,c.occurrence_count
@@ -322,7 +322,7 @@ WITH target AS MATERIALIZED (
   AND b.language_state='chosen' AND b.language_tag=t.language
  LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
   AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
-  AND r.language=t.language AND r.builder_version=2
+  AND r.language=t.language AND r.builder_version=3
 ), evidence AS (
  SELECT i.canonical_lemma AS lemma,i.upos,b.book_id::text AS book_id,
   b.analysis_run_id::text AS run_id,b.title,c.occurrence_count AS occurrences
@@ -503,7 +503,7 @@ WITH decks AS MATERIALIZED (
  JOIN (SELECT DISTINCT language FROM decks) d ON d.language=b.language_tag
  LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
   AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
-  AND r.language=b.language_tag AND r.builder_version=2
+  AND r.language=b.language_tag AND r.builder_version=3
  WHERE cai.owner_id=$1
 ), evidence AS (
  SELECT i.canonical_lemma AS lemma,i.upos,b.language

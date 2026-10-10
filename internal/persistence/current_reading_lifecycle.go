@@ -138,14 +138,14 @@ WITH requested AS (
    SELECT 1 FROM current_books cb
    LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
      AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
-     AND r.language=cb.language AND r.builder_version=2
+     AND r.language=cb.language AND r.builder_version=3
    WHERE r.owner_id IS NULL
  ) AS ready,
  EXISTS (
    SELECT 1 FROM current_books cb
    LEFT JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
      AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
-     AND r.language=cb.language AND r.builder_version=2
+     AND r.language=cb.language AND r.builder_version=3
    JOIN river_job failed ON failed.kind='rebuild_vocabulary_browse_counts' AND failed.state='discarded'
      AND failed.args->>'owner_id'=cb.owner_id::text AND failed.args->>'book_id'=cb.book_id::text
      AND failed.args->>'run_id'=cb.analysis_run_id::text
@@ -161,7 +161,7 @@ WITH requested AS (
  FROM current_books cb
  JOIN vocabulary_browse_count_readiness r ON r.owner_id=cb.owner_id AND r.book_id=cb.book_id
    AND r.analysis_run_id=cb.analysis_run_id AND r.corpus_id=cb.corpus_id
-   AND r.language=cb.language AND r.builder_version=2
+   AND r.language=cb.language AND r.builder_version=3
  JOIN vocabulary_browse_counts c ON c.owner_id=cb.owner_id AND c.book_id=cb.book_id
    AND c.analysis_run_id=cb.analysis_run_id AND c.corpus_id=cb.corpus_id AND c.language=cb.language
  JOIN requested i ON i.lemma=c.canonical_lemma AND i.upos=c.upos
