@@ -500,14 +500,14 @@ func (e CurrentReadingIneligibleError) Is(target error) bool {
 	return target == ErrCurrentReadingIneligible
 }
 
-// requireCurrentReadingEligible asks the domain classifier whether the Book may
+// currentReadingEligibility asks the domain classifier whether the Book may
 // become the owner's current reading in language. The caller holds the
 // learner-state and Book locks, so the evidence, disposition, and language it
 // reads cannot change before the transition commits.
-func requireCurrentReadingEligible(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) error {
+func currentReadingEligibility(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) (domain.CurrentReadingEligibilityReason, error) {
 	evidence, err := q.GetCurrentReadingEvidence(ctx, sqlcgen.GetCurrentReadingEvidenceParams{Owner: owner, Book: bookID})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return err
+		return "", err
 	}
 	// A Book without an evidence row has no acquired content, no analysis, and
 	// no disposition, so the zero row reads as exactly that.
@@ -517,11 +517,18 @@ func requireCurrentReadingEligible(ctx context.Context, q *sqlcgen.Queries, owne
 		bookLanguage = evidence.BookLanguageTag
 	}
 	classification := domain.ClassifyBookEvidence(signals, domain.BookDisposition(evidence.Disposition), bookLanguage)
-	if classification.Eligibility != domain.CurrentReadingEligible {
-		return CurrentReadingIneligibleError{Reason: classification.Eligibility}
+	return domain.CurrentReadingEligibilityIn(classification, bookLanguage, language), nil
+}
+
+// requireCurrentReadingEligible rejects a Start whose target the classifier
+// does not allow to become the current reading.
+func requireCurrentReadingEligible(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) error {
+	reason, err := currentReadingEligibility(ctx, q, owner, language, bookID)
+	if err != nil {
+		return err
 	}
-	if bookLanguage != language {
-		return CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}
+	if reason != domain.CurrentReadingEligible {
+		return CurrentReadingIneligibleError{Reason: reason}
 	}
 	return nil
 }
@@ -557,31 +564,38 @@ func insertCurrentReading(ctx context.Context, q *sqlcgen.Queries, owner, langua
 	return currentReadingFromValues(row.OwnerID, row.Language, row.BookID, row.SnapshotID, "", "", "", "", "", 0, row.CreatedAt, row.UpdatedAt), nil
 }
 
-// switchReplayProven reports whether the current reading is the successor that
-// an earlier Switch from the expected commitment created. Switch releases the
-// old snapshot and freezes the new one in one transaction, so their timestamps
-// coincide; an End followed by a later Start does not satisfy that, and neither
-// does a completed or still-active expected snapshot.
-func switchReplayProven(ctx context.Context, q *sqlcgen.Queries, owner, language, expectedBookID, expectedSnapshotID, currentSnapshotID string) (bool, error) {
-	if currentSnapshotID == "" {
-		return false, nil
+// loadSnapshotLifecycle reads the durable lifecycle facts of one snapshot into
+// *into, leaving it nil when the snapshot is unnamed or not recorded for the
+// owner and language.
+func loadSnapshotLifecycle(ctx context.Context, q *sqlcgen.Queries, owner, language, snapshotID string, into **domain.CurrentReadingSnapshotLifecycle) error {
+	*into = nil
+	if snapshotID == "" {
+		return nil
 	}
-	former, err := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: expectedSnapshotID})
+	row, err := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: snapshotID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+		return nil
 	}
 	if err != nil {
-		return false, err
+		return err
 	}
-	if former.BookID != expectedBookID || !former.ReleasedAt.Valid || former.Completed {
-		return false, nil
+	lifecycle := &domain.CurrentReadingSnapshotLifecycle{BookID: row.BookID, CreatedAt: row.CreatedAt, Completed: row.Completed}
+	if row.ReleasedAt.Valid {
+		lifecycle.ReleasedAt = row.ReleasedAt.Time
 	}
-	successor, err := q.GetCurrentReadingSnapshotLifecycle(ctx, sqlcgen.GetCurrentReadingSnapshotLifecycleParams{Owner: owner, Language: language, Snapshot: currentSnapshotID})
+	*into = lifecycle
+	return nil
+}
+
+// loadCurrentReadingForUpdate locks and reads the owner's current reading in
+// language; the zero value means none is current.
+func loadCurrentReadingForUpdate(ctx context.Context, q *sqlcgen.Queries, owner, language string) (domain.CurrentReading, error) {
+	current, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+		return domain.CurrentReading{}, nil
 	}
 	if err != nil {
-		return false, err
+		return domain.CurrentReading{}, err
 	}
-	return successor.CreatedAt.Equal(former.ReleasedAt.Time), nil
+	return currentReadingFromValues(current.GOwnerID, current.Language, current.GBookID, current.SnapshotID, current.SourceMaterialID, current.AnalysisRunID, current.ContentRevisionID, current.ContentSnapshotID, current.CorpusID, 0, current.CreatedAt, current.UpdatedAt), nil
 }
