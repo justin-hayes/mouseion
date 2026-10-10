@@ -1969,22 +1969,39 @@ func (s *Store) StartCurrentReading(_ context.Context, owner, language, bookID s
 		return domain.CurrentReading{}, errNotFound
 	}
 	bookID = s.fixtureBookID(owner, bookID)
-	if s.hasUnresolvedLemmaReviewFlag(owner, bookID) {
-		return domain.CurrentReading{}, persistence.ErrUnresolvedLemmaReviewFlags
+	if err := persistence.StartDecisionError(domain.DecideStart(s.fixtureStartFacts(owner, language, bookID))); err != nil {
+		return domain.CurrentReading{}, err
 	}
 	key := fixtureGoalKey(owner, language)
-	if _, ok := s.currentReadings[key]; ok {
-		return domain.CurrentReading{}, persistence.ErrCurrentReadingExists
-	}
-	if !s.fixtureCurrentReadingEligible(owner, language, bookID) {
-		return domain.CurrentReading{}, persistence.ErrCurrentReadingIneligible
-	}
 	now := time.Now()
 	goal = s.fixtureGoalFromBook(owner, language, bookID, now)
 	goal.CreatedAt, goal.UpdatedAt = now, now
 	s.currentReadings[key] = goal
 	s.snapshotLifecycles[goal.SnapshotID] = domain.CurrentReadingSnapshotLifecycle{BookID: bookID, CreatedAt: now}
 	return goal, nil
+}
+
+// fixtureStartFacts loads the facts domain.DecideStart decides over. Fixture
+// IDs are not uuids, so an ID Postgres would reject as malformed is rejected
+// here the same way: it names no fixture Book and Start reports ErrNotFound.
+func (s *Store) fixtureStartFacts(owner, language, bookID string) domain.StartFacts {
+	_, current := s.currentReadings[fixtureGoalKey(owner, language)]
+	facts := domain.StartFacts{
+		Language:                   language,
+		AlreadyCurrent:             current,
+		Disposition:                s.bookDispositionLocked(owner, bookID),
+		UnresolvedLemmaReviewFlags: s.hasUnresolvedLemmaReviewFlag(owner, bookID),
+	}
+	for _, book := range s.books {
+		if s.fixtureBookID(owner, book.Source.ID) != bookID {
+			continue
+		}
+		facts.Signals = book.Signals
+		facts.BookLanguage = normalizeFixtureLanguage(book.Source.Language)
+		facts.IdentityPublished = true
+		return facts
+	}
+	return facts
 }
 
 func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
@@ -2125,10 +2142,6 @@ func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt ti
 		break
 	}
 	return goal
-}
-
-func (s *Store) fixtureCurrentReadingEligible(owner, language, bookID string) bool {
-	return s.fixtureCurrentReadingEligibility(owner, language, bookID) == domain.CurrentReadingEligible
 }
 
 // fixtureCurrentReadingEligibility classifies a Book's Analysis evidence for a

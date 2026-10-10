@@ -426,6 +426,11 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	if err := goalInput.Validate(); err != nil {
 		return domain.CurrentReading{}, err
 	}
+	// An identity Postgres cannot read as a uuid names no Book, so it is the
+	// same not-found a well-formed unknown Book gets.
+	if !validUUID(owner) || !validUUID(bookID) {
+		return domain.CurrentReading{}, ErrNotFound
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -439,26 +444,12 @@ func (s *PostgresStore) StartCurrentReadingWith(ctx context.Context, owner, lang
 	if err = lockCurrentReadingBook(ctx, q, owner, bookID); err != nil {
 		return domain.CurrentReading{}, err
 	}
-	_, err = q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
-	if err == nil {
-		return domain.CurrentReading{}, ErrCurrentReadingExists
-	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return domain.CurrentReading{}, err
-	}
-	if err = requireCurrentReadingEligible(ctx, q, owner, language, bookID); err != nil {
-		return domain.CurrentReading{}, err
-	}
-	identity, err := lookupCurrentReadingIdentity(ctx, q, owner, bookID)
+	facts, identity, err := loadStartFacts(ctx, tx, q, owner, language, bookID)
 	if err != nil {
 		return domain.CurrentReading{}, err
 	}
-	blocked, err := unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
-	if err != nil {
+	if err = StartDecisionError(domain.DecideStart(facts)); err != nil {
 		return domain.CurrentReading{}, err
-	}
-	if blocked {
-		return domain.CurrentReading{}, ErrUnresolvedLemmaReviewFlags
 	}
 	snapshot, candidates, snapshotErr := createCurrentReadingSnapshot(ctx, tx, q, owner, language, bookID, identity)
 	if snapshotErr != nil {
@@ -500,49 +491,83 @@ func (e CurrentReadingIneligibleError) Is(target error) bool {
 	return target == ErrCurrentReadingIneligible
 }
 
+// StartDecisionError maps a domain Start decision to the error every store
+// returns for it, so adapters reject a Start the same way. An accepted decision maps to nil.
+func StartDecisionError(decision domain.StartDecision) error {
+	switch decision.Outcome {
+	case domain.StartAccepted:
+		return nil
+	case domain.StartRejectedAlreadyCurrent:
+		return ErrCurrentReadingExists
+	case domain.StartRejectedUnresolvedFlags:
+		return ErrUnresolvedLemmaReviewFlags
+	case domain.StartRejectedIneligible:
+		return CurrentReadingIneligibleError{Reason: decision.Reason}
+	}
+	return CurrentReadingIneligibleError{Reason: decision.Reason}
+}
+
+// loadStartFacts reads the facts domain.DecideStart decides over, in the order
+// the Start rules consult them. The caller holds the learner-state and Book
+// locks, so the facts cannot change before the transition commits. The identity
+// is only meaningful when the decision accepts.
+func loadStartFacts(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, bookID string) (domain.StartFacts, sqlcgen.GetCurrentReadingCandidateIdentityRow, error) {
+	facts := domain.StartFacts{Language: language}
+	var identity sqlcgen.GetCurrentReadingCandidateIdentityRow
+	_, err := q.GetCurrentReadingForUpdate(ctx, sqlcgen.GetCurrentReadingForUpdateParams{Owner: owner, Language: language})
+	switch {
+	case err == nil:
+		facts.AlreadyCurrent = true
+	case !errors.Is(err, pgx.ErrNoRows):
+		return facts, identity, err
+	}
+	if err = loadStartEvidence(ctx, q, owner, bookID, &facts); err != nil {
+		return facts, identity, err
+	}
+	identity, err = q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Book: bookID})
+	switch {
+	case err == nil:
+		facts.IdentityPublished = true
+	case !errors.Is(err, pgx.ErrNoRows):
+		return facts, identity, err
+	}
+	if facts.IdentityPublished {
+		facts.UnresolvedLemmaReviewFlags, err = unresolvedLemmaReviewFlags(ctx, tx, owner, bookID, identity.CaAnalysisRunID)
+		if err != nil {
+			return facts, identity, err
+		}
+	}
+	return facts, identity, nil
+}
+
+// loadStartEvidence fills the classifier's inputs from the Book's evidence row.
+func loadStartEvidence(ctx context.Context, q *sqlcgen.Queries, owner, bookID string, facts *domain.StartFacts) error {
+	evidence, err := q.GetCurrentReadingEvidence(ctx, sqlcgen.GetCurrentReadingEvidenceParams{Owner: owner, Book: bookID})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	// A Book without an evidence row has no acquired content, no analysis, and
+	// no disposition, so the zero row reads as exactly that.
+	facts.Signals = analysisSignalsFromView(evidence.SourceID, evidence.SourceMediaType, evidence.SourceContentRevisionID, evidence.SourceContentSnapshotID, evidence.AnalysisStatus, evidence.AnalysisState, evidence.AnalysisRunID)
+	facts.Disposition = domain.BookDisposition(evidence.Disposition)
+	facts.BookLanguage = ""
+	if evidence.BookLanguageState == domain.LanguageChosen {
+		facts.BookLanguage = evidence.BookLanguageTag
+	}
+	return nil
+}
+
 // currentReadingEligibility asks the domain classifier whether the Book may
 // become the owner's current reading in language. The caller holds the
 // learner-state and Book locks, so the evidence, disposition, and language it
 // reads cannot change before the transition commits.
 func currentReadingEligibility(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) (domain.CurrentReadingEligibilityReason, error) {
-	evidence, err := q.GetCurrentReadingEvidence(ctx, sqlcgen.GetCurrentReadingEvidenceParams{Owner: owner, Book: bookID})
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	var facts domain.StartFacts
+	if err := loadStartEvidence(ctx, q, owner, bookID, &facts); err != nil {
 		return "", err
 	}
-	// A Book without an evidence row has no acquired content, no analysis, and
-	// no disposition, so the zero row reads as exactly that.
-	signals := analysisSignalsFromView(evidence.SourceID, evidence.SourceMediaType, evidence.SourceContentRevisionID, evidence.SourceContentSnapshotID, evidence.AnalysisStatus, evidence.AnalysisState, evidence.AnalysisRunID)
-	bookLanguage := ""
-	if evidence.BookLanguageState == domain.LanguageChosen {
-		bookLanguage = evidence.BookLanguageTag
-	}
-	classification := domain.ClassifyBookEvidence(signals, domain.BookDisposition(evidence.Disposition), bookLanguage)
-	return domain.CurrentReadingEligibilityIn(classification, bookLanguage, language), nil
-}
-
-// requireCurrentReadingEligible rejects a Start whose target the classifier
-// does not allow to become the current reading.
-func requireCurrentReadingEligible(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string) error {
-	reason, err := currentReadingEligibility(ctx, q, owner, language, bookID)
-	if err != nil {
-		return err
-	}
-	if reason != domain.CurrentReadingEligible {
-		return CurrentReadingIneligibleError{Reason: reason}
-	}
-	return nil
-}
-
-// lookupCurrentReadingIdentity reads the published analysis identity that a
-// Book the classifier made eligible must have. A missing identity would mean
-// the classifier and the identity view disagree, so it is reported as the
-// missing completed analysis.
-func lookupCurrentReadingIdentity(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) (sqlcgen.GetCurrentReadingCandidateIdentityRow, error) {
-	identity, err := q.GetCurrentReadingCandidateIdentity(ctx, sqlcgen.GetCurrentReadingCandidateIdentityParams{Owner: owner, Book: bookID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return identity, CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}
-	}
-	return identity, err
+	classification := domain.ClassifyBookEvidence(facts.Signals, facts.Disposition, facts.BookLanguage)
+	return domain.CurrentReadingEligibilityIn(classification, facts.BookLanguage, language), nil
 }
 
 func lockCurrentReadingBook(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {

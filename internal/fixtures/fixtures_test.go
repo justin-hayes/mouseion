@@ -171,8 +171,31 @@ func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
 
 func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
 	store := NewStore()
-	_, err := store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
+	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
+	require.NoError(t, err)
+	require.NoError(t, store.EndCurrentReading(t.Context(), OwnerID, "de", current.BookID, current.SnapshotID))
+	store.dispositions[fixtureDispositionKey(OwnerID, LemmaFlagBookID)] = domain.BookDispositionToRead
+	_, err = store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
 	assert.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags)
+}
+
+func TestStartingFixtureBookRejectsMalformedAndUnknownIDsAsNotFound(t *testing.T) {
+	store := NewStore()
+	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {
+		_, err := store.StartCurrentReading(t.Context(), OwnerID, "de", bookID)
+		require.ErrorIs(t, err, persistence.ErrNotFound, bookID)
+	}
+	_, err := store.StartCurrentReading(t.Context(), "not-a-uuid", "de", BookID)
+	assert.ErrorIs(t, err, persistence.ErrNotFound, "malformed owner")
+}
+
+func TestStartingFixtureBookReportsAlreadyCurrentBeforeLemmaReviewFlags(t *testing.T) {
+	store := NewStore()
+	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
+	require.NoError(t, err)
+	require.True(t, current.IsActive(), "the fixture seeds a German current reading")
+	_, err = store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
+	assert.ErrorIs(t, err, persistence.ErrCurrentReadingExists)
 }
 
 func fixtureBookIDs(books []domain.MyBook) []string {

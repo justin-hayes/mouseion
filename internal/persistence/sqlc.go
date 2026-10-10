@@ -46,6 +46,13 @@ func uuidArg(value string) pgtype.UUID {
 	return id
 }
 
+// validUUID reports whether Postgres would read value as a uuid. The pgtype
+// scan accepts the same spellings the uuid type does.
+func validUUID(value string) bool {
+	var id pgtype.UUID
+	return id.Scan(value) == nil
+}
+
 // nullableUUIDArg converts a UUID string into the pgtype form for nullable
 // uuid columns; the empty string is written as NULL.
 func nullableUUIDArg(value string) pgtype.UUID {
