@@ -24,16 +24,19 @@ func myBookMarginEvidence(book domain.MyBook) string {
 		return ""
 	}
 	var notes []string
-	switch book.Classification().Phase {
-	case domain.PhaseAnalyzing:
+	classification := book.Classification()
+	switch {
+	case classification.PublicationPending():
+		notes = append(notes, analysisPublicationPendingNote)
+	case classification.Phase == domain.PhaseAnalyzing:
 		notes = append(notes, "Analysis running.")
-	case domain.PhaseFailed:
+	case classification.Phase == domain.PhaseFailed:
 		notes = append(notes, "Analysis failed.")
-	case domain.PhaseCancelled:
+	case classification.Phase == domain.PhaseCancelled:
 		notes = append(notes, "Analysis cancelled.")
-	case domain.PhaseStale:
+	case classification.Phase == domain.PhaseStale:
 		notes = append(notes, "Analysis out of date.")
-	case domain.PhaseAnalyzed:
+	case classification.Phase == domain.PhaseAnalyzed:
 		if book.CoverageTotalTokens > 0 {
 			known := max(min(book.CoverageKnownTokens, book.CoverageTotalTokens), 0)
 			percent := float64(known) * 100 / float64(book.CoverageTotalTokens)
@@ -44,8 +47,8 @@ func myBookMarginEvidence(book domain.MyBook) string {
 				notes = append(notes, fmt.Sprintf("%.1f%% of running words Known.", percent))
 			}
 		}
-	case domain.PhaseNotAnalyzed:
-		if !myBookHasCurrentContent(book) {
+	case classification.Phase == domain.PhaseNotAnalyzed:
+		if classification.Evidence == domain.BookUnavailable {
 			notes = append(notes, "Content unavailable.")
 		} else {
 			notes = append(notes, "Not analysed yet.")
@@ -96,10 +99,6 @@ func myBookEvidenceRecoveryURL(book domain.MyBook) string {
 		return "/library/books/" + url.PathEscape(book.Book.ID) + "/read-again"
 	}
 	return "/library/books/" + url.PathEscape(book.Book.ID) + "/to-read"
-}
-
-func myBookHasCurrentContent(book domain.MyBook) bool {
-	return book.Acquired != nil && book.Acquired.Source.ContentRevisionID != "" && book.Acquired.Source.ContentSnapshotID != ""
 }
 
 // MyBooksBrowseState carries the server-rendered collection controls and

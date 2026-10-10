@@ -370,8 +370,8 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 			continue
 		}
 		candidate := readingChooserBookView{Book: book}
-		if book.Acquired == nil || book.Acquired.EvidenceState() != domain.BookAnalyzed || !bookHasCompletedAnalysis(*book.Acquired) {
-			candidate.State, candidate.Description = readingChooserEvidenceState(book)
+		if book.Acquired == nil || !analysisReadyForReading(*book.Acquired) {
+			candidate.State, candidate.Description = readingChooserStatusFor(book.Classification())
 			switch candidate.State {
 			case readingChooserInProgress:
 				view.InProgress = append(view.InProgress, candidate)
@@ -441,24 +441,25 @@ func readingChooserBookTitle(book domain.MyBook) string {
 	return book.Book.ID
 }
 
-func readingChooserEvidenceState(book domain.MyBook) (readingChooserState, string) {
-	if book.Acquired == nil {
+// readingChooserStatusFor places a To Read Book without completed analysis in
+// the chooser's in-progress or needs-attention group.
+func readingChooserStatusFor(c domain.BookEvidenceClassification) (readingChooserState, string) {
+	if c.Content == domain.ContentNotAcquired {
 		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
 	}
-	classification := book.Classification()
-	if classification.PublicationPending() {
+	if c.PublicationPending() {
 		return readingChooserInProgress, analysisPublicationPendingDescription
 	}
-	if classification.Phase == domain.PhaseAnalyzing {
+	if c.Phase == domain.PhaseAnalyzing {
 		return readingChooserInProgress, "Analysis is queued or running. This candidate will appear in a coverage group when current evidence is ready."
 	}
-	if classification.Evidence == domain.BookStale {
+	if c.Evidence == domain.BookStale {
 		return readingChooserNeedsAttention, "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."
 	}
-	if classification.Evidence == domain.BookUnavailable || classification.Evidence == domain.BookNotAcquired {
+	if c.Evidence == domain.BookUnavailable || c.Evidence == domain.BookNotAcquired {
 		return readingChooserNeedsAttention, "Current book content is unavailable. Retry acquisition or analysis from My Books."
 	}
-	if classification.Phase == domain.PhaseFailed || classification.Phase == domain.PhaseCancelled {
+	if c.Phase == domain.PhaseFailed || c.Phase == domain.PhaseCancelled {
 		return readingChooserNeedsAttention, "The last analysis did not complete. Retry analysis to refresh its evidence."
 	}
 	return readingChooserNeedsAttention, "Current analysis is not complete. Retry analysis to produce usable evidence."

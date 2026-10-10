@@ -132,7 +132,7 @@ func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
 	assert.Equal(t, "/reading/books/unassessed/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 
-	missingSnapshot := testReadingBook("missing-snapshot", "Missing snapshot", testAnalyzed)
+	missingSnapshot := testReadingBook("missing-snapshot", "Missing snapshot", testNoContent)
 	missingSnapshot.Book.Source.MediaType = "application/epub+zip"
 	missingSnapshot.Book.Source.ContentRevisionID = "current-revision"
 	action = readingAnalysisAction(missingSnapshot)
@@ -183,8 +183,6 @@ func TestReadingTreatsAnalyzedEvidenceAndEligibleCurrentReadingsAsCurrent(t *tes
 	item.Book.CorpusID = "corpus"
 	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
 
-	assert.Equal(t, "current", readingEvidenceState(item))
-	eligible, message := readingCurrentReadingEligibility(item.Book)
-	assert.True(t, eligible)
-	assert.Empty(t, message)
+	assert.Equal(t, readingEvidenceCurrent, readingEvidenceState(item))
+	assert.True(t, item.Book.EvidenceClassification().Eligibility == domain.CurrentReadingEligible, "eligibility is owned by the domain classification")
 }

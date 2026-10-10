@@ -174,7 +174,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	book := *detail.Acquired
-	if !bookHasCompletedAnalysis(book) {
+	if !analysisReadyForReading(book) {
 		http.NotFound(w, r)
 		return
 	}

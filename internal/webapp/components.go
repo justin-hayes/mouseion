@@ -327,6 +327,8 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 
 	var state string
 	switch {
+	case classification.PublicationPending():
+		state = "publishing"
 	case classification.Phase == domain.PhaseStale:
 		state = "stale"
 	case classification.Run == domain.RunQueued:
@@ -350,6 +352,8 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		bookID = book.Source.ID
 	}
 	switch state {
+	case "publishing":
+		return bookLifecycleAction{analysisPublicationPendingLabel, analysisPublicationPendingDescription, "", "", StatusInfo, false}
 	case "stale":
 		return bookLifecycleAction{"Stale analysis", "The current acquired content differs from the analyzed revision. Re-analyze it to refresh the evidence in Reading.", "Re-analyze", readingReanalyzeURL(bookID), StatusWarning, true}
 	case "queued":

@@ -117,11 +117,11 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 					} else {
 						@ReadingEvidence(item, csrf)
 					}
-					if bookHasCompletedAnalysis(item.Book) {
+					if analysisReadyForReading(item.Book) {
 						<p><a href={ templ.SafeURL("/reading/books/" + readingBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
 					}
 				</section>
-				if bookHasCompletedAnalysis(item.Book) {
+				if analysisReadyForReading(item.Book) {
 					<section class="reading-note" aria-labelledby={ "reading-note-preparation-" + readingBookID(item) }>
 						<h2 id={ "reading-note-preparation-" + readingBookID(item) }>Preparation</h2>
 						<p><a href={ templ.SafeURL(readingDeckPreparationTaskURL(readingBookID(item))) }>Open focused deck task</a></p>
@@ -186,7 +186,7 @@ templ ReadingEvidence(item readingBookView, csrf string) {
 }
 
 func readingEntryAvailable(item readingBookView) bool {
-	return item.Book.EvidenceState() == domain.BookAnalyzed && bookHasCompletedAnalysis(item.Book)
+	return analysisReadyForReading(item.Book)
 }
 
 templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView, message string, pageError string) {
