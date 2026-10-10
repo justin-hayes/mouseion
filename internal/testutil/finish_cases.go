@@ -27,6 +27,8 @@ func germanIdentity(lemma, upos string) domain.SnapshotIdentity {
 // FinishCases is the shared table of facts and expected outcomes.
 func FinishCases() []FinishCase {
 	return []FinishCase{{
+		// Every snapshot identity is Reserved by the Current reading; Known
+		// decides which of them are already accepted.
 		Name: "mixed Known, Reserved, and new identities",
 		Snapshot: []domain.SnapshotIdentity{
 			germanIdentity("haus", "NOUN"), germanIdentity("gehen", "VERB"),

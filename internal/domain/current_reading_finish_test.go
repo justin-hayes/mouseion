@@ -15,6 +15,8 @@ func finishFacts() CurrentReadingFinishFacts {
 	}
 }
 
+// Every snapshot identity is Reserved by the Current reading, so Reserved never
+// excludes one; only Known does.
 func TestPlanCurrentReadingFinishAcceptsOnlyIdentitiesNotKnown(t *testing.T) {
 	facts := finishFacts()
 	facts.Snapshot = []SnapshotIdentity{
