@@ -52,3 +52,10 @@ func (r CurrentReading) Validate() error {
 	}
 	return nil
 }
+
+// IsBookChoiceRejection reports whether the reason says the Book itself is not
+// an eligible To Read choice in the study language, as opposed to lacking
+// usable analysis.
+func (r CurrentReadingEligibilityReason) IsBookChoiceRejection() bool {
+	return r == CurrentReadingNotToRead || r == CurrentReadingOtherLanguage
+}
