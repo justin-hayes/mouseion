@@ -155,7 +155,8 @@ func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
 	toRead, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	assert.Contains(t, fixtureBookIDs(toRead.Items), BookID, "current reading belongs in To Read")
-	assert.Equal(t, 9, dispositionCount(toRead.DispositionCounts, domain.BookDispositionToRead))
+	// Nine German To Read Books plus the five Analysis evidence situations.
+	assert.Equal(t, 14, dispositionCount(toRead.DispositionCounts, domain.BookDispositionToRead))
 	all, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
 	var current domain.MyBook

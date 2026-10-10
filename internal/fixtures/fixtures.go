@@ -137,6 +137,22 @@ var (
 	failedSignals      = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedNone, LatestRun: domain.RunFailed}
 	runningSignals     = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedNone, LatestRun: domain.RunRunning}
 	noContentSignals   = domain.AnalysisSignals{Content: domain.ContentNoCurrentRevision, Published: domain.PublishedNone, LatestRun: domain.RunNone}
+	// The five Analysis evidence situations SQL can produce beyond the above.
+	staleSignals              = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedStale, LatestRun: domain.RunCompleted}
+	cancelledSignals          = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedNone, LatestRun: domain.RunCancelled}
+	publicationPendingSignals = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedNone, LatestRun: domain.RunPublicationPending}
+	reAnalysisRunningSignals  = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedCurrent, LatestRun: domain.RunRunning}
+	reAnalysisFailedSignals   = domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedCurrent, LatestRun: domain.RunFailed}
+)
+
+// Fixture Books for the Analysis evidence situations that browser acceptance
+// checks in My Books and the Reading chooser.
+const (
+	staleBookID              = "fixture-stale"
+	cancelledBookID          = "fixture-cancelled"
+	publicationPendingBookID = "fixture-publication-pending"
+	reAnalysisRunningBookID  = "fixture-reanalysis-running"
+	reAnalysisFailedBookID   = "fixture-reanalysis-failed"
 )
 
 func NewStore() *Store {
@@ -158,6 +174,11 @@ func NewStore() *Store {
 			{Source: domain.SourceMaterial{ID: routeUnavailableBookID, OwnerID: OwnerID, Language: "de", Title: "Route evidence pending", MediaType: "application/epub+zip"}, Signals: noContentSignals},
 			{Source: domain.SourceMaterial{ID: edgeBookID, OwnerID: OwnerID, Title: "Donaudampfschifffahrtsgesellschaftskapitänsmütze: Eine Geschichte der deutschen Wörter, langen Reisen und unerwarteten Begegnungen am Fluss", Language: "it", FullText: "La biblioteca conserva una storia italiana con molte parole e una descrizione volutamente assente."}, Signals: noContentSignals},
 			{Source: domain.SourceMaterial{ID: italianRouteBookID, OwnerID: OwnerID, Language: "it", Title: "Italian route baseline", MediaType: "application/epub+zip", ContentRevisionID: "fixture-italian-route-revision", ContentSnapshotID: "fixture-italian-route-snapshot"}, BookAuthor: "Luca Bianchi", Signals: analyzedSignals, AnalysisRunID: "fixture-italian-route-run", CorpusID: "fixture-italian-route-corpus"},
+			{Source: domain.SourceMaterial{ID: staleBookID, OwnerID: OwnerID, Language: "de", Title: "Veraltete Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-stale-revision", ContentSnapshotID: "fixture-stale-snapshot"}, BookAuthor: "Ruth Koch", Signals: staleSignals, AnalysisRunID: "fixture-stale-run", CorpusID: "fixture-stale-corpus"},
+			{Source: domain.SourceMaterial{ID: cancelledBookID, OwnerID: OwnerID, Language: "de", Title: "Abgebrochene Analyse", MediaType: "application/epub+zip", ContentRevisionID: "fixture-cancelled-revision", ContentSnapshotID: "fixture-cancelled-snapshot"}, BookAuthor: "Tim Lang", Signals: cancelledSignals},
+			{Source: domain.SourceMaterial{ID: publicationPendingBookID, OwnerID: OwnerID, Language: "de", Title: "Veröffentlichung ausstehend", MediaType: "application/epub+zip", ContentRevisionID: "fixture-publication-pending-revision", ContentSnapshotID: "fixture-publication-pending-snapshot"}, BookAuthor: "Lea Hahn", Signals: publicationPendingSignals},
+			{Source: domain.SourceMaterial{ID: reAnalysisRunningBookID, OwnerID: OwnerID, Language: "de", Title: "Neue Analyse läuft", MediaType: "application/epub+zip", ContentRevisionID: "fixture-reanalysis-running-revision", ContentSnapshotID: "fixture-reanalysis-running-snapshot"}, BookAuthor: "Oskar Ruhl", Signals: reAnalysisRunningSignals, AnalysisRunID: "fixture-reanalysis-running-run", CorpusID: "fixture-reanalysis-running-corpus"},
+			{Source: domain.SourceMaterial{ID: reAnalysisFailedBookID, OwnerID: OwnerID, Language: "de", Title: "Neue Analyse fehlgeschlagen", MediaType: "application/epub+zip", ContentRevisionID: "fixture-reanalysis-failed-revision", ContentSnapshotID: "fixture-reanalysis-failed-snapshot"}, BookAuthor: "Clara Vogt", Signals: reAnalysisFailedSignals, AnalysisRunID: "fixture-reanalysis-failed-run", CorpusID: "fixture-reanalysis-failed-corpus"},
 		},
 		jobs:      fixtureJobs(),
 		supported: []domain.SupportedLanguage{{Language: "de", DisplayName: "German"}, {Language: "it", DisplayName: "Italian"}},
@@ -201,20 +222,25 @@ func NewStore() *Store {
 			CompletionCount: 1, LatestCompletionAt: timePtr(fixtureJourneyTime.AddDate(0, 0, -12)), LatestCompletionSource: domain.ReadingCompletionPreviouslyRead,
 		}},
 		dispositions: map[string]domain.BookDisposition{
-			fixtureDispositionKey(OwnerID, BookID):                 domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-failed"):       domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-running"):      domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"): domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeMatchBookID):       domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, LemmaFlagBookID):        domain.BookDispositionInbox,
-			fixtureDispositionKey(OwnerID, routeDiffersBookID):     domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeTieABookID):        domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeTieBBookID):        domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, routeUnavailableBookID): domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, "fixture-empty"):        domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, edgeBookID):             domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, italianRouteBookID):     domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, ItalianGoalBookID):      domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, BookID):                   domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-failed"):         domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-running"):        domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"):   domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeMatchBookID):         domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, LemmaFlagBookID):          domain.BookDispositionInbox,
+			fixtureDispositionKey(OwnerID, routeDiffersBookID):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeTieABookID):          domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeTieBBookID):          domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, routeUnavailableBookID):   domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, "fixture-empty"):          domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, edgeBookID):               domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, italianRouteBookID):       domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, ItalianGoalBookID):        domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, staleBookID):              domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, cancelledBookID):          domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, publicationPendingBookID): domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, reAnalysisRunningBookID):  domain.BookDispositionToRead,
+			fixtureDispositionKey(OwnerID, reAnalysisFailedBookID):   domain.BookDispositionToRead,
 		},
 		dispositionRevisions: make(map[string]int64),
 		visibility:           make(map[string]fixtureVisibility),

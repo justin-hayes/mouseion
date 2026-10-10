@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// WebKit runs the native-controls journey and the Analysis evidence situations;
+// the remaining specs run in Chromium only.
+const webkitSpecs = ['**/webkit-native.spec.ts', '**/analysis-evidence.spec.ts'];
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -21,9 +25,9 @@ export default defineConfig({
     { name: 'desktop-dark', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, colorScheme: 'dark' } },
     { name: 'compact-light', use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 667 }, colorScheme: 'light' } },
     { name: 'compact-dark', use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 667 }, colorScheme: 'dark' } },
-    { name: 'webkit-desktop-light', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 1280, height: 800 }, colorScheme: 'light' } },
-    { name: 'webkit-desktop-dark', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 1280, height: 800 }, colorScheme: 'dark' } },
-    { name: 'webkit-compact-light', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 375, height: 667 }, colorScheme: 'light' } },
-    { name: 'webkit-compact-dark', testMatch: '**/webkit-native.spec.ts', use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 375, height: 667 }, colorScheme: 'dark' } },
+    { name: 'webkit-desktop-light', testMatch: webkitSpecs, use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 1280, height: 800 }, colorScheme: 'light' } },
+    { name: 'webkit-desktop-dark', testMatch: webkitSpecs, use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 1280, height: 800 }, colorScheme: 'dark' } },
+    { name: 'webkit-compact-light', testMatch: webkitSpecs, use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 375, height: 667 }, colorScheme: 'light' } },
+    { name: 'webkit-compact-dark', testMatch: webkitSpecs, use: { ...devices['Desktop Safari'], browserName: 'webkit', viewport: { width: 375, height: 667 }, colorScheme: 'dark' } },
   ],
 });
