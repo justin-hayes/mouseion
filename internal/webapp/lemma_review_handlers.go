@@ -375,11 +375,7 @@ func (h *Handler) lemmaReviewRecovery(r *http.Request, owner domain.User, bookID
 	if detail.Acquired == nil || h.services.PreparedDeck == nil {
 		return recovery, nil
 	}
-	history, ok := h.services.PreparedDeck.(DeckPreparationHistoryReader)
-	if !ok {
-		return recovery, nil
-	}
-	preparations, err := history.ListDeckPreparationsForSourceMaterial(r.Context(), owner.ID, detail.Acquired.Source.ID)
+	preparations, err := h.services.Store.LemmaReview.ListDeckPreparationsForSourceMaterial(r.Context(), owner.ID, detail.Acquired.Source.ID)
 	if err != nil {
 		return lemmaReviewRecovery{}, err
 	}

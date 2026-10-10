@@ -2382,13 +2382,6 @@ func (p PreparedDeck) Download(ctx context.Context, owner, id string) (domain.De
 	return preparation, nil
 }
 
-func (p PreparedDeck) ListDeckPreparationsForSourceMaterial(ctx context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
-	if p.Store == nil {
-		return nil, nil
-	}
-	return p.Store.ListDeckPreparationsForSourceMaterial(ctx, owner, sourceMaterialID)
-}
-
 type Capabilities struct{}
 
 func (Capabilities) GetCapabilities(context.Context) (analyzer.Capabilities, error) {
