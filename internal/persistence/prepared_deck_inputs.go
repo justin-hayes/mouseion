@@ -79,7 +79,7 @@ func (s *PostgresStore) LoadPreparedDeckInputFactsTx(ctx context.Context, tx pgx
 	result := PreparedDeckInputFacts{DeckName: deckName, CorpusID: corpusID, Candidates: candidates}
 	if snapshot, snapshotErr := q.GetActivePrimaryGoalSnapshotForPreparation(ctx, sqlcgen.GetActivePrimaryGoalSnapshotForPreparationParams{Owner: preparation.OwnerID, Preparation: preparation.ID}); snapshotErr == nil {
 		result.GoalSnapshotActive = true
-		result.GoalSnapshot, snapshotErr = listPrimaryGoalSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
+		result.GoalSnapshot, snapshotErr = listCurrentReadingSnapshotVocabulary(ctx, q, preparation.OwnerID, snapshot.SID)
 		if snapshotErr != nil {
 			return PreparedDeckInputFacts{}, snapshotErr
 		}

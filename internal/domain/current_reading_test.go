@@ -17,7 +17,7 @@ func TestCurrentReadingEligibilityUsesCurrentReadingVocabulary(t *testing.T) {
 	}
 
 	assert.Equal(t, CurrentReadingEligible, summary.CurrentReadingEligibility())
-	assert.Equal(t, GoalEligible, summary.GoalEligibility())
+	assert.Equal(t, CurrentReadingEligible, summary.CurrentReadingEligibility())
 }
 
 func TestCurrentReadingValidate(t *testing.T) {

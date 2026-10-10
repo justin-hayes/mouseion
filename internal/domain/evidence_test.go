@@ -52,8 +52,8 @@ func TestMyBookEvidenceDerivationDelegatesToAcquiredSummary(t *testing.T) {
 	assert.Equal(t, BookNotAcquired, (MyBook{}).EvidenceState())
 }
 
-func TestPrimaryGoalIsActive(t *testing.T) {
-	for name, goal := range map[string]PrimaryGoal{
+func TestCurrentReadingIsActive(t *testing.T) {
+	for name, goal := range map[string]CurrentReading{
 		"active": {BookID: "book"},
 		"empty":  {},
 	} {
@@ -67,20 +67,20 @@ func TestSourceMaterialSummaryGoalEligibility(t *testing.T) {
 	tests := []struct {
 		name   string
 		source SourceMaterialSummary
-		want   GoalEligibilityReason
+		want   CurrentReadingEligibilityReason
 	}{
-		{name: "needs current content", source: SourceMaterialSummary{Source: SourceMaterial{ID: "source"}}, want: GoalNeedsCurrentContent},
-		{name: "analysis in progress", source: withAnalysis(base, "analyzing", "running", "", ""), want: GoalAnalysisInProgress},
-		{name: "failed", source: withAnalysis(base, "analysis failed", "failed", "", ""), want: GoalFailed},
-		{name: "cancelled", source: withAnalysis(base, "analysis cancelled", "cancelled", "", ""), want: GoalCancelled},
-		{name: "stale", source: withAnalysis(base, "stale", "", "run", "corpus"), want: GoalStale},
-		{name: "no completed analysis", source: withAnalysis(base, "not analyzed", "", "", ""), want: GoalNoCompletedAnalysis},
-		{name: "eligible", source: withAnalysis(base, "analyzed", "completed", "run", "corpus"), want: GoalEligible},
+		{name: "needs current content", source: SourceMaterialSummary{Source: SourceMaterial{ID: "source"}}, want: CurrentReadingNeedsCurrentContent},
+		{name: "analysis in progress", source: withAnalysis(base, "analyzing", "running", "", ""), want: CurrentReadingAnalysisInProgress},
+		{name: "failed", source: withAnalysis(base, "analysis failed", "failed", "", ""), want: CurrentReadingFailed},
+		{name: "cancelled", source: withAnalysis(base, "analysis cancelled", "cancelled", "", ""), want: CurrentReadingCancelled},
+		{name: "stale", source: withAnalysis(base, "stale", "", "run", "corpus"), want: CurrentReadingStale},
+		{name: "no completed analysis", source: withAnalysis(base, "not analyzed", "", "", ""), want: CurrentReadingNoCompletedAnalysis},
+		{name: "eligible", source: withAnalysis(base, "analyzed", "completed", "run", "corpus"), want: CurrentReadingEligible},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.source.GoalEligibility())
+			assert.Equal(t, tt.want, tt.source.CurrentReadingEligibility())
 		})
 	}
 }

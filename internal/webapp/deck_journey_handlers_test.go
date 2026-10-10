@@ -11,7 +11,7 @@ import (
 
 type deckJourneyActionStore struct {
 	*fixtures.Store
-	goal                   domain.PrimaryGoal
+	goal                   domain.CurrentReading
 	bookIDBySourceMaterial map[string]string
 	noBookIdentity         map[string]bool
 }

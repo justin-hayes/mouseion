@@ -70,7 +70,7 @@ func TestCurrentReadingPreparationSurvivesLiveEvidenceChangesAndFinish(t *testin
 	require.Equal(t, http.StatusSeeOther, started.Code)
 	reading, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	initialSnapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
+	initialSnapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
 	require.NoError(t, err)
 	require.Len(t, initialSnapshot, 2)
 	assert.Equal(t, []string{"buch", "haus"}, []string{initialSnapshot[0].CanonicalLemma, initialSnapshot[1].CanonicalLemma})

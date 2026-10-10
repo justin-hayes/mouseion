@@ -177,7 +177,7 @@ func TestExplicitRepreparePublishesCurrentMeaningEvidenceAndKeepsHistoryFrozen(t
 	require.NoError(t, err)
 	_, err = store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner.ID, CorpusID: corpus.ID, Language: "de", CanonicalLemma: "umhauen", UPOS: "VERB", OccurrenceCount: 3, ObservedForms: []byte(`["haut","um"]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{"min_occurrences":3}`)})
 	require.NoError(t, err)
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, goal.SnapshotID)
 	require.Equal(t, 1, goal.SnapshotSize)

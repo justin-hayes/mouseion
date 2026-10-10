@@ -198,7 +198,7 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, changed.Code)
 	assert.Contains(t, changed.Header().Get("Location"), "is+now+your+current+reading")
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", goal.BookID)
 
@@ -226,7 +226,7 @@ func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, chosen.Code)
 
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	_, err = store.GetDeckPreparationForGoalSnapshot(context.Background(), fixtures.OwnerID, goal.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "starting Reading does not auto-submit optional deck preparation")
@@ -285,7 +285,7 @@ func TestJourneyPageShowsReservedCountWhenGoalArtifactIsUnavailable(t *testing.T
 
 func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 
 	response := goalRequest(t, h, "/reading/books/"+goal.BookID+"/deck/retry", url.Values{
@@ -301,7 +301,7 @@ func TestGoalDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
 
 func TestGoalDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	preparedDeck := &existingGoalPreparedDeck{
 		PreparedDeck: fixtures.PreparedDeck{Store: store},
@@ -327,7 +327,7 @@ func TestGoalDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
 
 func TestGoalDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	preparedDeck := &existingGoalPreparedDeck{
 		PreparedDeck: fixtures.PreparedDeck{Store: store},
@@ -355,7 +355,7 @@ func TestGoalDeckCancelRequiresAndUsesTheCurrentSnapshot(t *testing.T) {
 
 func TestJourneyDeckSubmissionKeepsGoalPreparationLocal(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	preparedDeck := &existingGoalPreparedDeck{
 		PreparedDeck: fixtures.PreparedDeck{Store: store},
@@ -433,7 +433,7 @@ func performReadingRequest(t *testing.T, h http.Handler, method, path string, fo
 
 func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goalBefore, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goalBefore, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	finished := goalRequest(t, h, "/reading/finish", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {goalBefore.SnapshotID},
@@ -449,7 +449,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 	}
 	assert.NotContains(t, finished.Body.String(), "achievement")
 	assert.NotContains(t, finished.Body.String(), "Where next?")
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID, "finished Goal=%+v", goal)
 	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, fixtures.BookID)
@@ -474,7 +474,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 
 func TestCurrentReadingFinishRejectsStaleAndMissingCSRF(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	stale := goalRequest(t, h, "/reading/finish", url.Values{
 		"csrf_token": {csrf}, "expected_current_book_id": {"stale-book"}, "expected_current_snapshot_id": {goal.SnapshotID},
@@ -524,7 +524,7 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 		"csrf_token": {csrf},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, chosen.Code)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Zero(t, goal.SnapshotSize)
 
@@ -545,7 +545,7 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 
 func TestEndCurrentReadingRejectsStaleMissingAndCSRFThenEndsExactCommitment(t *testing.T) {
 	h, cookies, csrf, store := goalFixtureSession(t)
-	goal, err := store.GetPrimaryGoal(context.Background(), fixtures.OwnerID, "de")
+	goal, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 
 	for name, form := range map[string]url.Values{

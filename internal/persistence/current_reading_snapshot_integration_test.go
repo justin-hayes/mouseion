@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
+func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -41,7 +41,7 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	assert.Equal(t, 5, selected[0].OccurrenceCount)
 	assert.Len(t, selected[0].SentenceReferences, 5)
 
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, goal.SnapshotID)
 	assert.Equal(t, corpusID, goal.CorpusID)
@@ -53,11 +53,11 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 
 	_, err = store.Pool().Exec(ctx, `UPDATE selection_candidates SET occurrence_count=99 WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID)
 	require.NoError(t, err)
-	stored, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	stored, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, goal.SnapshotID, stored.SnapshotID)
 	assert.Equal(t, 1, stored.SnapshotSize)
-	snapshotVocabulary, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	snapshotVocabulary, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	require.Len(t, snapshotVocabulary, 1)
 	assert.Equal(t, 5, snapshotVocabulary[0].OccurrenceCount)
@@ -66,7 +66,7 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	require.Len(t, frozenReferences, 5)
 	assert.Equal(t, "Wir reisen heute.", frozenReferences[0].Text)
 
-	err = store.ClearPrimaryGoal(ctx, owner.ID, "de", book.ID)
+	err = store.ClearCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	reserved, err = store.ListReservedVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestPrimaryGoalFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	assert.Equal(t, 1, released)
 }
 
-func TestPrimaryGoalFreezesCorpusQualifiedTwoOccurrenceCandidates(t *testing.T) {
+func TestCurrentReadingFreezesCorpusQualifiedTwoOccurrenceCandidates(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -156,9 +156,9 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 	putProjection(italian, []countRow{{lemma: "nine-total", pos: "NOUN", count: 100}})
 	putProjection(foreign, []countRow{{lemma: "nine-total", pos: "NOUN", count: 100}})
 
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", target.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", target.ID)
 	require.NoError(t, err)
-	snapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	identities := make(map[string]int, len(snapshot))
 	for _, candidate := range snapshot {
@@ -168,7 +168,7 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 		"nine does not meet the total threshold; language, POS, Known, owner, and Generated-provenance boundaries remain exact")
 }
 
-func TestPrimaryGoalCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandidates(t *testing.T) {
+func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandidates(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -182,7 +182,7 @@ func TestPrimaryGoalCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandi
 	require.NoError(t, err)
 	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-other")
 	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
-	reading, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", current.ID)
+	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", current.ID)
 	require.NoError(t, err, "a three-occurrence-only freeze does not wait for another Book's count projection")
 
 	target, targetSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-target")
@@ -192,18 +192,18 @@ func TestPrimaryGoalCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandi
 	_, err = store.Pool().Exec(ctx, `INSERT INTO selection_candidates(owner_id,corpus_id,language,canonical_lemma,upos,occurrence_count,observed_forms,eligible_sentence_refs,provenance) VALUES($1,$2,'de','crossing','NOUN',2,'[]','[]','{}')`, owner.ID, targetCorpus)
 	require.NoError(t, err)
 
-	_, err = store.ChangePrimaryGoal(ctx, owner.ID, "de", target.ID, current.ID)
+	_, err = store.ChangeCurrentReading(ctx, owner.ID, "de", target.ID, current.ID)
 	require.ErrorIs(t, err, ErrVocabularyBrowseCountsPending)
-	stillCurrent, getErr := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	stillCurrent, getErr := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, getErr)
 	assert.Equal(t, reading, stillCurrent, "an incomplete count projection cannot partially switch Reading")
 
 	_, err = store.Pool().Exec(ctx, `INSERT INTO river_job(kind,args,queue,state,max_attempts,finalized_at)
 VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid,'book_id',$2::uuid,'run_id',$3::uuid),'default','discarded',1,now())`, owner.ID, target.ID, targetRun)
 	require.NoError(t, err)
-	_, err = store.ChangePrimaryGoal(ctx, owner.ID, "de", target.ID, current.ID)
+	_, err = store.ChangeCurrentReading(ctx, owner.ID, "de", target.ID, current.ID)
 	require.ErrorIs(t, err, ErrVocabularyBrowseCountsUnavailable)
-	stillCurrent, getErr = store.GetPrimaryGoal(ctx, owner.ID, "de")
+	stillCurrent, getErr = store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, getErr)
 	assert.Equal(t, reading, stillCurrent, "an unavailable count projection leaves the former reading intact")
 
@@ -229,17 +229,17 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 	_, err = store.Pool().Exec(ctx, `DELETE FROM river_job WHERE kind='rebuild_vocabulary_browse_counts' AND args->>'owner_id'=$1 AND args->>'book_id'=$2 AND args->>'run_id'=$3`, owner.ID, target.ID, targetRun)
 	require.NoError(t, err)
 
-	switched, err := store.ChangePrimaryGoal(ctx, owner.ID, "de", target.ID, current.ID)
+	switched, err := store.ChangeCurrentReading(ctx, owner.ID, "de", target.ID, current.ID)
 	require.NoError(t, err)
 	assert.Equal(t, target.ID, switched.BookID)
-	snapshot, err := store.ListPrimaryGoalSnapshotVocabulary(ctx, owner.ID, switched.SnapshotID)
+	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, switched.SnapshotID)
 	require.NoError(t, err)
 	require.Len(t, snapshot, 1)
 	assert.Equal(t, "crossing", snapshot[0].CanonicalLemma)
 	assert.Equal(t, 2, snapshot[0].OccurrenceCount)
 }
 
-func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing.T) {
+func TestCurrentReadingCompletionGraduatesFrozenVocabularyWithProvenance(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -266,7 +266,7 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 		})
 		require.NoError(t, err)
 	}
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "known-before-completion", "VERB")
 	require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestPrimaryGoalCompletionGraduatesFrozenVocabularyWithProvenance(t *testing
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "exact-known", "NOUN")
 	require.NoError(t, err)
-	eligibleCount, err := store.CountPrimaryGoalVocabularyToGraduate(ctx, owner.ID, "de")
+	eligibleCount, err := store.CountCurrentReadingVocabularyToAccept(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, 2, eligibleCount)
 
@@ -294,19 +294,19 @@ CREATE TRIGGER test_goal_graduation_failure
 BEFORE UPDATE ON book_dispositions
 FOR EACH ROW EXECUTE FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	_, err = store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.Error(t, err)
 	var graduatedAfterRollback int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&graduatedAfterRollback)
 	require.NoError(t, err)
 	assert.Zero(t, graduatedAfterRollback)
-	goalAfterRollback, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	goalAfterRollback, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, goalAfterRollback.BookID)
 	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_goal_graduation_failure ON book_dispositions; DROP FUNCTION test_goal_graduation_failure();`)
 	require.NoError(t, err)
 
-	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	result, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, goal.SnapshotID, result.Completion.GoalSnapshotID)
 	assert.Equal(t, 5, result.Completion.SnapshotVocabularyCount)
@@ -341,7 +341,7 @@ WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&completionBook
 	assert.Equal(t, "Accepted on Primary Goal completion", knownByLemma["bleiben"].Provenance)
 
 	assert.NotEmpty(t, result.Completion.BookID)
-	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	repeated, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, result.Completion, repeated.Completion)
 	reserved, err := store.ListReservedVocabulary(ctx, owner.ID, "de")
@@ -349,7 +349,7 @@ WHERE owner_id=$1 AND canonical_lemma='bleiben'`, owner.ID).Scan(&completionBook
 	assert.Empty(t, reserved)
 }
 
-func TestPrimaryGoalCompletionAcceptsEmptySnapshot(t *testing.T) {
+func TestCurrentReadingCompletionAcceptsEmptySnapshot(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -357,11 +357,11 @@ func TestPrimaryGoalCompletionAcceptsEmptySnapshot(t *testing.T) {
 	require.NoError(t, err)
 	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "empty-completion")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	assert.Zero(t, goal.SnapshotSize)
 
-	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	result, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Completion.SnapshotVocabularyCount)
 	assert.Equal(t, 0, result.Completion.EligibleVocabularyCount)
@@ -370,7 +370,7 @@ func TestPrimaryGoalCompletionAcceptsEmptySnapshot(t *testing.T) {
 	assert.NotEmpty(t, result.Completion.GoalSnapshotID)
 }
 
-func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
+func TestCurrentReadingCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -400,7 +400,7 @@ func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 	for range 2 {
 		go func() {
 			<-start
-			result, finishErr := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, "")
+			result, finishErr := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, "")
 			results <- result
 			errors <- finishErr
 		}()
@@ -417,7 +417,7 @@ func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 	assert.Zero(t, first.Completion.GraduatedVocabularyCount)
 	assert.Zero(t, first.Completion.AlreadyKnownVocabularyCount)
 
-	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, "")
+	repeated, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, "")
 	require.NoError(t, err)
 	assert.Equal(t, first.Completion, repeated.Completion)
 	var historyCount, knownCount int
@@ -428,13 +428,13 @@ func TestPrimaryGoalCompletionHandlesMissingSnapshotIdempotently(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, knownCount)
 
-	goal, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	goal, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, goal.BookID)
-	italianGoal, err := store.GetPrimaryGoal(ctx, owner.ID, "it")
+	italianGoal, err := store.GetCurrentReading(ctx, owner.ID, "it")
 	require.NoError(t, err)
 	assert.Equal(t, italianBook.ID, italianGoal.BookID, "completion crossed the language boundary")
-	otherGoal, err := store.GetPrimaryGoal(ctx, otherOwner.ID, "de")
+	otherGoal, err := store.GetCurrentReading(ctx, otherOwner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, otherBook.ID, otherGoal.BookID, "completion crossed the owner boundary")
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrimaryGoalSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
+func TestCurrentReadingSnapshotBackfillPreservesLegacyStudies(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -196,9 +196,9 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	err = pool.QueryRow(ctx, `SELECT COALESCE(snapshot_id::text, '') FROM primary_goals WHERE owner_id=$1 AND language='de'`, missingSnapshotOwner.ID).Scan(&missingSnapshot)
 	require.NoError(t, err)
 	assert.Empty(t, missingSnapshot, "a Goal without current analysis unexpectedly received a snapshot")
-	firstCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	firstCompletion, err := store.RecordCurrentReadingFinished(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
 	require.NoError(t, err)
-	secondCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
+	secondCompletion, err := store.RecordCurrentReadingFinished(ctx, missingSnapshotOwner.ID, "de", missingSnapshotBook.ID, "")
 	require.NoError(t, err)
 	assert.Equal(t, firstCompletion.Completion, secondCompletion.Completion, "missing-snapshot completion retry changed the outcome")
 	var missingSnapshotHistoryCount int
@@ -206,9 +206,9 @@ FROM deck_preparations WHERE owner_id=$1 AND id=$2`, languageOwner.ID, languageP
 	require.NoError(t, err)
 	assert.Equal(t, 1, missingSnapshotHistoryCount, "missing-snapshot completion retry duplicated history")
 
-	emptyCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, emptyOwner.ID, "de", emptyBook, emptySnapshot)
+	emptyCompletion, err := store.RecordCurrentReadingFinished(ctx, emptyOwner.ID, "de", emptyBook, emptySnapshot)
 	require.NoError(t, err)
-	emptyCompletionRetry, err := store.RecordReadingFinishedPrimaryGoal(ctx, emptyOwner.ID, "de", emptyBook, emptySnapshot)
+	emptyCompletionRetry, err := store.RecordCurrentReadingFinished(ctx, emptyOwner.ID, "de", emptyBook, emptySnapshot)
 	require.NoError(t, err)
 	assert.Equal(t, emptyCompletion.Completion, emptyCompletionRetry.Completion, "empty Goal completion retry changed the outcome")
 	assert.Zero(t, emptyCompletion.Completion.SnapshotVocabularyCount, "empty Goal completion invented vocabulary")
@@ -229,9 +229,9 @@ FROM deck_preparations p WHERE p.owner_id=$1 AND p.id=$2`, emptyOwner.ID, emptyP
 	assert.Equal(t, []byte("empty-artifact"), emptyArtifact, "empty Goal completion removed the deck artifact")
 	assert.Equal(t, 1, emptyGeneratedCount, "empty Goal completion removed generated-vocabulary provenance")
 
-	migratedCompletion, err := store.RecordReadingFinishedPrimaryGoal(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
+	migratedCompletion, err := store.RecordCurrentReadingFinished(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
 	require.NoError(t, err)
-	migratedRetry, err := store.RecordReadingFinishedPrimaryGoal(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
+	migratedRetry, err := store.RecordCurrentReadingFinished(ctx, matchingOwner.ID, "de", matchingBook, matchingSnapshot)
 	require.NoError(t, err)
 	assert.Equal(t, migratedCompletion.Completion, migratedRetry.Completion, "migrated completion retry changed the outcome")
 	var migratedHistoryCount int
@@ -240,7 +240,7 @@ FROM deck_preparations p WHERE p.owner_id=$1 AND p.id=$2`, emptyOwner.ID, emptyP
 	assert.Equal(t, 1, migratedHistoryCount, "migrated completion retry duplicated history")
 }
 
-func TestPrimaryGoalSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testing.T) {
+func TestCurrentReadingSnapshotEmptyPreparationPreservesOnlyActiveStudies(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -383,16 +383,16 @@ WHERE g.owner_id=$1`, expected.owner).Scan(&snapshotVocabularyCount)
 	require.NoError(t, err)
 	assert.NotEmpty(t, activeSnapshotAfterRetry, "migration retry detached the active empty preparation")
 
-	activeGoal, err := store.GetPrimaryGoal(ctx, activeOwner.ID, "de")
+	activeGoal, err := store.GetCurrentReading(ctx, activeOwner.ID, "de")
 	require.NoError(t, err)
-	completion, err := store.RecordReadingFinishedPrimaryGoal(ctx, activeOwner.ID, "de", activeBook, activeGoal.SnapshotID)
+	completion, err := store.RecordCurrentReadingFinished(ctx, activeOwner.ID, "de", activeBook, activeGoal.SnapshotID)
 	require.NoError(t, err)
 	assert.Zero(t, completion.Completion.SnapshotVocabularyCount, "empty Goal completion invented vocabulary")
 	assert.Zero(t, completion.Completion.GraduatedVocabularyCount, "empty Goal completion graduated vocabulary")
 	known, err := store.ListKnownVocabulary(ctx, activeOwner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, known, "empty Goal completion added Known vocabulary")
-	clearedGoal, err := store.GetPrimaryGoal(ctx, activeOwner.ID, "de")
+	clearedGoal, err := store.GetCurrentReading(ctx, activeOwner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, clearedGoal.BookID, "completed empty Goal remained active")
 }

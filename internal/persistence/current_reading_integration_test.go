@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrimaryGoalPersistence(t *testing.T) {
+func TestCurrentReadingPersistence(t *testing.T) {
 	ctx := context.Background()
 	url, pool := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, url)
@@ -36,16 +36,16 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 	_, _, _ = createReadingFixture(t, ctx, store, dave.ID, "goal-complete")
 	_, _, _ = createReadingFixture(t, ctx, store, erin.ID, "goal-abandoned")
 
-	goal, err := store.GetPrimaryGoal(ctx, carol.ID, "de")
+	goal, err := store.GetCurrentReading(ctx, carol.ID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, domain.PrimaryGoal{}, goal, "owner without a Goal")
+	assert.Equal(t, domain.CurrentReading{}, goal, "owner without a Goal")
 	// Model a legacy goal directly against the baseline. The historical
 	// migration that added language is retired, but current goal behavior still
 	// needs coverage for persisted language-scoped rows.
 	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, alice.ID, aliceBook.ID)
 	require.NoError(t, err)
 
-	goal, err = store.GetPrimaryGoal(ctx, alice.ID, "de")
+	goal, err = store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, alice.ID, goal.OwnerID, "migrated active goal")
 	assert.Equal(t, aliceBook.ID, goal.BookID, "migrated active goal")
@@ -53,55 +53,55 @@ func TestPrimaryGoalPersistence(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, alice.ID, "it", italianBook.ID)
 	require.NoError(t, err)
-	italianGoal, getErr := store.GetPrimaryGoal(ctx, alice.ID, "it")
+	italianGoal, getErr := store.GetCurrentReading(ctx, alice.ID, "it")
 	require.NoError(t, getErr)
 	assert.Equal(t, italianBook.ID, italianGoal.BookID, "parallel Italian goal")
-	err = store.ClearPrimaryGoal(ctx, alice.ID, "it", italianBook.ID)
+	err = store.ClearCurrentReading(ctx, alice.ID, "it", italianBook.ID)
 	require.NoError(t, err, "clear parallel Italian goal")
-	germanGoal, getErr := store.GetPrimaryGoal(ctx, alice.ID, "de")
+	germanGoal, getErr := store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, getErr)
 	assert.Equal(t, aliceBook.ID, germanGoal.BookID, "German goal after Italian clear")
 	for _, owner := range []string{bob.ID, carol.ID, dave.ID, erin.ID} {
-		goal, err := store.GetPrimaryGoal(ctx, owner, "de")
+		goal, err := store.GetCurrentReading(ctx, owner, "de")
 		require.NoError(t, err)
-		assert.Equal(t, domain.PrimaryGoal{}, goal, "non-active owner=%s", owner)
+		assert.Equal(t, domain.CurrentReading{}, goal, "non-active owner=%s", owner)
 	}
 
 	otherAliceBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice second goal book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
-	_, err = store.CreatePrimaryGoal(ctx, alice.ID, "de", otherAliceBook.ID)
-	assert.ErrorIs(t, err, ErrGoalExists) //nolint:testifylint // Duplicate-goal rejection is independent of later eligibility cases.
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", otherAliceBook.ID)
+	assert.ErrorIs(t, err, ErrCurrentReadingExists) //nolint:testifylint // Duplicate-goal rejection is independent of later eligibility cases.
 
 	noDeckBook, err := store.CreateBook(ctx, domain.Book{OwnerID: carol.ID, Title: "Carol reading-only book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
-	_, err = store.CreatePrimaryGoal(ctx, carol.ID, "de", noDeckBook.ID)
-	assert.ErrorIs(t, err, ErrGoalIneligible) //nolint:testifylint // Eligibility rejection is an independent goal case.
+	_, err = store.StartCurrentReading(ctx, carol.ID, "de", noDeckBook.ID)
+	assert.ErrorIs(t, err, ErrCurrentReadingIneligible) //nolint:testifylint // Eligibility rejection is an independent goal case.
 	_, err = pool.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,$2,$3)`, carol.ID, "de", noDeckBook.ID)
 	require.NoError(t, err)
-	_, err = store.CreatePrimaryGoal(ctx, carol.ID, "de", bobBook.ID)
+	_, err = store.StartCurrentReading(ctx, carol.ID, "de", bobBook.ID)
 	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner goal rejection is independently asserted.
 
-	changed, err := store.ChangePrimaryGoal(ctx, carol.ID, "de", otherAliceBook.ID, noDeckBook.ID)
+	changed, err := store.ChangeCurrentReading(ctx, carol.ID, "de", otherAliceBook.ID, noDeckBook.ID)
 	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
-	assert.Equal(t, domain.PrimaryGoal{}, changed, "cross-owner change goal")
+	assert.Equal(t, domain.CurrentReading{}, changed, "cross-owner change goal")
 	replacementBook, replacementSource, _ := createReadingFixture(t, ctx, store, carol.ID, "goal-replacement")
 	makeAnalyzedToReadBook(t, ctx, store, replacementBook, replacementSource)
-	_, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, "stale-book")
-	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
-	changed, err = store.ChangePrimaryGoal(ctx, carol.ID, "de", replacementBook.ID, noDeckBook.ID)
+	_, err = store.ChangeCurrentReading(ctx, carol.ID, "de", replacementBook.ID, "stale-book")
+	assert.ErrorIs(t, err, ErrCurrentReadingStale) //nolint:testifylint // Stale-book change rejection is independent of the valid replacement.
+	changed, err = store.ChangeCurrentReading(ctx, carol.ID, "de", replacementBook.ID, noDeckBook.ID)
 	require.NoError(t, err)
 	assert.Equal(t, replacementBook.ID, changed.BookID, "valid change goal")
-	err = store.ClearPrimaryGoal(ctx, carol.ID, "de", noDeckBook.ID)
-	assert.ErrorIs(t, err, ErrGoalStale) //nolint:testifylint // Stale clear rejection is independent of the valid clear.
-	err = store.ClearPrimaryGoal(ctx, carol.ID, "de", replacementBook.ID)
+	err = store.ClearCurrentReading(ctx, carol.ID, "de", noDeckBook.ID)
+	assert.ErrorIs(t, err, ErrCurrentReadingStale) //nolint:testifylint // Stale clear rejection is independent of the valid clear.
+	err = store.ClearCurrentReading(ctx, carol.ID, "de", replacementBook.ID)
 	require.NoError(t, err, "valid clear")
-	err = store.ClearPrimaryGoal(ctx, carol.ID, "de", replacementBook.ID)
+	err = store.ClearCurrentReading(ctx, carol.ID, "de", replacementBook.ID)
 	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Repeated clear rejection is an independent idempotency case.
-	err = store.ClearPrimaryGoal(ctx, bob.ID, "de", aliceBook.ID)
+	err = store.ClearCurrentReading(ctx, bob.ID, "de", aliceBook.ID)
 	assert.ErrorIs(t, err, ErrNotFound) //nolint:testifylint // Cross-owner clear rejection is independent of the final owner lookup.
-	goal, err = store.GetPrimaryGoal(ctx, bob.ID, "de")
+	goal, err = store.GetCurrentReading(ctx, bob.ID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, domain.PrimaryGoal{}, goal, "cross-owner get goal")
+	assert.Equal(t, domain.CurrentReading{}, goal, "cross-owner get goal")
 
 }
 
@@ -190,7 +190,7 @@ func TestCurrentReadingCanStartAnalyzedToReadBookWithoutOrdering(t *testing.T) {
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	queueFailure := errors.New("prepared deck queue unavailable")
-	_, err = store.CreatePrimaryGoalWith(ctx, owner.ID, "de", book.ID, func(context.Context, pgx.Tx, domain.PrimaryGoal) error {
+	_, err = store.StartCurrentReadingWith(ctx, owner.ID, "de", book.ID, func(context.Context, pgx.Tx, domain.CurrentReading) error {
 		return queueFailure
 	})
 	require.ErrorIs(t, err, queueFailure)
@@ -213,7 +213,7 @@ func TestCurrentReadingCanStartAnalyzedToReadBookWithoutOrdering(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, current, loaded)
 	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-	require.ErrorIs(t, err, ErrGoalExists)
+	require.ErrorIs(t, err, ErrCurrentReadingExists)
 }
 
 func TestCurrentReadingEndReleasesOnlyActiveSnapshotIdempotently(t *testing.T) {
@@ -336,7 +336,7 @@ func TestConcurrentCurrentReadingSwitchesKeepOneWinnerAndOneReservation(t *testi
 	assert.Equal(t, 1, oldSnapshotReleased)
 }
 
-func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
+func TestCurrentReadingReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -347,7 +347,7 @@ func TestPrimaryGoalReadingFinishIsGuardedPersistentAndIdempotent(t *testing.T) 
 	replacement, replacementSource, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-replacement")
 	makeAnalyzedToReadBook(t, ctx, store, book, bookSource)
 	makeAnalyzedToReadBook(t, ctx, store, replacement, replacementSource)
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `
 CREATE FUNCTION test_reading_completion_failure() RETURNS trigger
@@ -356,14 +356,14 @@ CREATE TRIGGER test_reading_completion_failure
 BEFORE UPDATE ON book_dispositions
 FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	_, err = store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.Error(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, owner.ID, book.ID), "failed completion changed disposition")
 	var historyCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
 	require.NoError(t, err)
 	assert.Zero(t, historyCount, "failed completion left durable history")
-	goalAfterRollback, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	goalAfterRollback, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, goalAfterRollback.BookID, "failed completion cleared Goal")
 	knownAfterRollback, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
@@ -372,11 +372,11 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	_, err = store.Pool().Exec(ctx, `DROP TRIGGER test_reading_completion_failure ON book_dispositions; DROP FUNCTION test_reading_completion_failure();`)
 	require.NoError(t, err)
 
-	result, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	result, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, result.Completion.BookID, "reading completion")
 	assert.Equal(t, domain.BookDispositionInbox, mustBookDisposition(t, store, owner.ID, book.ID), "completed Book did not return to Inbox")
-	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	persisted, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, persisted.BookID, "completed Goal cleared")
 	var historyBook, historyLanguage string
@@ -387,33 +387,33 @@ FOR EACH ROW EXECUTE FUNCTION test_reading_completion_failure();`)
 	assert.Equal(t, "de", historyLanguage)
 	assert.False(t, completedAt.IsZero())
 
-	repeated, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	repeated, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, result.Completion, repeated.Completion, "idempotent finish")
-	_, err = store.CreatePrimaryGoal(ctx, owner.ID, "de", replacement.ID)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", replacement.ID)
 	require.NoError(t, err)
-	_, err = store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
-	require.ErrorIs(t, err, ErrGoalStale)
-	goalAfterStale, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	_, err = store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	require.ErrorIs(t, err, ErrCurrentReadingStale)
+	goalAfterStale, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, replacement.ID, goalAfterStale.BookID, "stale completion changed replacement Goal")
-	err = store.ClearPrimaryGoal(ctx, owner.ID, "de", replacement.ID)
+	err = store.ClearCurrentReading(ctx, owner.ID, "de", replacement.ID)
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
-	secondGoal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	secondGoal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	second, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, secondGoal.SnapshotID)
+	second, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, secondGoal.SnapshotID)
 	require.NoError(t, err)
 	assert.NotEqual(t, result.Completion.CompletedAt, second.Completion.CompletedAt)
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, owner.ID, book.ID).Scan(&historyCount)
 	require.NoError(t, err)
 	assert.Equal(t, 2, historyCount)
-	oldRetry, err := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	oldRetry, err := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, result.Completion, oldRetry.Completion)
 }
 
-func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) {
+func TestCurrentReadingReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -434,7 +434,7 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 		OccurrenceCount: 5, ObservedForms: []byte(`[]`), SentenceReferences: []byte(`[]`), Provenance: []byte(`{}`),
 	})
 	require.NoError(t, err)
-	goal, err := store.CreatePrimaryGoal(ctx, owner.ID, "de", book.ID)
+	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "legacy-concurrent", "VERB")
 	require.NoError(t, err)
@@ -445,7 +445,7 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 	for range 2 {
 		go func() {
 			<-start
-			result, finishErr := store.RecordReadingFinishedPrimaryGoal(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+			result, finishErr := store.RecordCurrentReadingFinished(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
 			results <- result
 			errors <- finishErr
 		}()
@@ -468,7 +468,7 @@ func TestPrimaryGoalReadingFinishConcurrentRequestsTransitionOnce(t *testing.T) 
 	assert.Equal(t, 1, first.Completion.EligibleVocabularyCount)
 	assert.Equal(t, 1, first.Completion.GraduatedVocabularyCount)
 	assert.Equal(t, 1, first.Completion.AlreadyKnownVocabularyCount)
-	persisted, err := store.GetPrimaryGoal(ctx, owner.ID, "de")
+	persisted, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, persisted.BookID)
 }

@@ -462,7 +462,7 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 		if err != nil {
 			return err
 		}
-		if err := releasePrimaryGoalSnapshots(ctx, q, owner, snapshotIDs); err != nil {
+		if err := releaseCurrentReadingSnapshots(ctx, q, owner, snapshotIDs); err != nil {
 			return err
 		}
 		return q.DeleteBookGoals(ctx, sqlcgen.DeleteBookGoalsParams{OwnerID: owner, BookID: bookID})
@@ -736,7 +736,7 @@ func removeIncompatibleBookGoals(ctx context.Context, q *sqlcgen.Queries, owner,
 	if err != nil {
 		return false, err
 	}
-	if err = releasePrimaryGoalSnapshots(ctx, q, owner, snapshotIDs); err != nil {
+	if err = releaseCurrentReadingSnapshots(ctx, q, owner, snapshotIDs); err != nil {
 		return false, err
 	}
 	if err = q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: owner, BookID: bookID, Language: language}); err != nil {

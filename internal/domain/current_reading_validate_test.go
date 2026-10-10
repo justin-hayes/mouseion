@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrimaryGoalValidate(t *testing.T) {
-	valid := PrimaryGoal{OwnerID: "owner", Language: "de", BookID: "book"}
+func TestCurrentReadingIdentityValidate(t *testing.T) {
+	valid := CurrentReading{OwnerID: "owner", Language: "de", BookID: "book"}
 	require.NoError(t, valid.Validate(), "valid primary goal rejected")
 
-	for _, goal := range []PrimaryGoal{
+	for _, goal := range []CurrentReading{
 		{BookID: "book"},
 		{OwnerID: "owner", BookID: "book"},
 		{OwnerID: "owner", Language: " ", BookID: "book"},
