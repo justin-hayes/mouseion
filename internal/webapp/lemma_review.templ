@@ -137,10 +137,10 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							<li><span class="reading-text">{ change.Sentence }</span> — effective identity { change.Before } → { change.After }</li>
 						}
 					</ul>
-					<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Recurrence eligibility uses the three-occurrence floor. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p>
+					<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or two with ten across your analyzed Books. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p>
 					<ul>
 						for _, impact := range proposal.Impacts {
-							<li><strong>{ impact.Lemma } ({ impact.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.BeforeKnown) }; Reserved match { yesNo(impact.BeforeReserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
+							<li><strong>{ impact.Identity.CanonicalLemma } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
 						}
 					</ul>
 					if len(proposal.Impacts) == 0 {

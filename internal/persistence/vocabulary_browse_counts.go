@@ -86,7 +86,7 @@ func applyVocabularyBrowseDecisionDeltasTx(ctx context.Context, tx pgx.Tx, ready
 	for lemma := range lemmaSet {
 		lemmas = append(lemmas, lemma)
 	}
-	projected, err := projectBrowseCounts(ctx, tx, ready, lemmas)
+	projected, err := projectBrowseCounts(ctx, tx, ready, lemmas, nil)
 	if err != nil {
 		return err
 	}
@@ -115,6 +115,11 @@ func normalizedBrowseCountIdentity(lemma, upos string) browseCountIdentity {
 	return browseCountIdentity{lemma: strings.TrimSpace(lemma), upos: strings.ToUpper(strings.TrimSpace(upos))}
 }
 
+type proposedOccurrence struct {
+	unit       string
+	start, end int64
+}
+
 type browseCountValue struct {
 	occurrences int64
 	corrected   bool
@@ -124,8 +129,9 @@ type browseCountValue struct {
 // eligibility and effective identity. A non-nil lemmas list only narrows which
 // token rows are fetched (by raw or corrected lemma); the returned counts are
 // exact for every identity whose lemma is listed because Project judges each
-// occurrence independently.
-func projectBrowseCounts(ctx context.Context, tx pgx.Tx, scope browseCountReadiness, lemmas []string) (map[browseCountIdentity]browseCountValue, error) {
+// occurrence independently. Proposed decisions replace the persisted decision
+// of the same occurrence, which previews a change without writing it.
+func projectBrowseCounts(ctx context.Context, tx pgx.Tx, scope browseCountReadiness, lemmas []string, proposed []domain.LemmaReviewDecision) (map[browseCountIdentity]browseCountValue, error) {
 	rows, err := tx.Query(ctx, `
 SELECT s.sentence_ordinal,s.unit_id,t.canonical_lemma,t.upos,t.dependency,t.start_offset,t.end_offset,d.canonical_lemma,COALESCE(d.excluded,false)
 FROM corpus_tokens t
@@ -144,6 +150,11 @@ ORDER BY s.sentence_ordinal,t.token_ordinal`,
 		return nil, fmt.Errorf("load Browse count facts: %w", err)
 	}
 	defer rows.Close()
+	proposedByOccurrence := make(map[proposedOccurrence]domain.LemmaReviewDecision, len(proposed))
+	for _, decision := range proposed {
+		o := decision.Occurrence
+		proposedByOccurrence[proposedOccurrence{unit: o.SourceDocumentID, start: o.StartOffset, end: o.EndOffset}] = decision
+	}
 	analysis := analyzer.Result{Language: scope.language}
 	var decisions []selection.OccurrenceDecision
 	currentOrdinal := int64(-1)
@@ -157,6 +168,12 @@ ORDER BY s.sentence_ordinal,t.token_ordinal`,
 		)
 		if err := rows.Scan(&ordinal, &unit, &lemma, &upos, &dependency, &start, &end, &correction, &excluded); err != nil {
 			return nil, fmt.Errorf("scan Browse count facts: %w", err)
+		}
+		if replacement, ok := proposedByOccurrence[proposedOccurrence{unit: unit, start: start, end: end}]; ok {
+			excluded, correction = replacement.Excluded, nil
+			if !excluded && strings.TrimSpace(replacement.CanonicalLemma) != "" {
+				correction = &replacement.CanonicalLemma
+			}
 		}
 		startOffset, startErr := checked.Uint64FromInt64(start)
 		endOffset, endErr := checked.Uint64FromInt64(end)
@@ -217,7 +234,7 @@ func BuildVocabularyBrowseCountsTx(ctx context.Context, tx pgx.Tx, owner, book, 
 		return fmt.Errorf("load analysis snapshot for Browse counts: %w", err)
 	}
 	scope := browseCountReadiness{owner: owner, book: book, source: source, snapshot: snapshot, run: run, corpus: corpus, language: language}
-	projected, err := projectBrowseCounts(ctx, tx, scope, nil)
+	projected, err := projectBrowseCounts(ctx, tx, scope, nil, nil)
 	if err != nil {
 		return err
 	}

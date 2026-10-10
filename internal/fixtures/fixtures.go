@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -1122,6 +1123,50 @@ func (s *Store) GetProjectedCorpusVocabulary(ctx context.Context, owner, corpusI
 
 func (s *Store) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
 	return false, nil
+}
+
+// PreviewLemmaDecisionCounts derives deterministic before/after counts from the
+// fixture Book's vocabulary, with no other Books contributing.
+func (s *Store) PreviewLemmaDecisionCounts(ctx context.Context, owner, _ string, decisions []domain.LemmaReviewDecision) ([]domain.LemmaDecisionCounts, error) {
+	if len(decisions) == 0 {
+		return nil, nil
+	}
+	vocabulary, err := s.GetAnalysisCorpusVocabulary(ctx, owner, decisions[0].Occurrence.CorpusID)
+	if err != nil {
+		return nil, err
+	}
+	language := "de"
+	if len(vocabulary.Lemmas) > 0 {
+		language = vocabulary.Lemmas[0].Language
+	}
+	type key struct{ lemma, upos string }
+	before := make(map[key]int64, len(vocabulary.Lemmas))
+	for _, item := range vocabulary.Lemmas {
+		before[key{item.CanonicalLemma, item.UPOS}] = item.OccurrenceCount
+	}
+	after := maps.Clone(before)
+	touched := make(map[key]bool)
+	for _, decision := range decisions {
+		o := decision.Occurrence
+		current := o.CanonicalLemma
+		if o.CorrectedLemma != "" {
+			current = o.CorrectedLemma
+		}
+		if !o.Excluded {
+			after[key{current, o.UPOS}]--
+			touched[key{current, o.UPOS}] = true
+		}
+		if !decision.Excluded && decision.CanonicalLemma != "" {
+			after[key{decision.CanonicalLemma, o.UPOS}]++
+			touched[key{decision.CanonicalLemma, o.UPOS}] = true
+		}
+	}
+	counts := make([]domain.LemmaDecisionCounts, 0, len(touched))
+	for k := range touched {
+		counts = append(counts, domain.LemmaDecisionCounts{Language: language, CanonicalLemma: k.lemma, UPOS: k.upos, Before: before[k], After: after[k]})
+	}
+	sort.Slice(counts, func(i, j int) bool { return counts[i].CanonicalLemma < counts[j].CanonicalLemma })
+	return counts, nil
 }
 
 func (s *Store) LemmaReviewStateFingerprint(ctx context.Context, owner, bookID, language, surface string, extras []domain.LemmaReviewIdentity) (string, error) {

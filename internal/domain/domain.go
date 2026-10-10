@@ -361,6 +361,14 @@ type LemmaReviewOccurrence struct {
 	ReviewFlagProvenance                     map[string]any
 }
 
+// LemmaDecisionCounts is a proposed lemma decision's effect on one vocabulary
+// identity: its effective count in the Book before and after the decision, and
+// its count in the learner's other currently analyzed Books.
+type LemmaDecisionCounts struct {
+	Language, CanonicalLemma, UPOS string
+	Before, After, OtherBooks      int64
+}
+
 type LemmaReviewDecision struct {
 	Occurrence           LemmaReviewOccurrence
 	CanonicalLemma       string

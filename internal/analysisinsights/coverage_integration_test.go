@@ -64,7 +64,7 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	// than derived from raw corpus counts.
 	_, err = service.Coverage(ctx, alice.ID, corpus.ID)
 	require.ErrorIs(t, err, ErrCountsUpdating)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,2)`, alice.ID, book.ID, runID, corpus.ID)
+	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,3)`, alice.ID, book.ID, runID, corpus.ID)
 	require.NoError(t, err)
 	for _, count := range []struct {
 		lemma, upos string
