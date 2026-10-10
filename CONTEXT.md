@@ -383,11 +383,12 @@ is distinct from both the filtered Browse results and the recurring-vocabulary
 pool used for Book prepared decks and current-reading snapshots.
 _Avoid_: prepared-deck candidates, known-vocabulary list.
 
-**Browse selection**:
+**Browse selection** (retired):
 An owner- and study-language-scoped unnamed selection of effective vocabulary
-identities made in Vocabulary Browse before creating a Custom deck. It persists
-across changes of Current reading and can contain identities not evidenced in
-the current Book; it is not itself a saved deck or preparation artifact.
+identities that Vocabulary Browse once kept before creating a Custom deck. ADR
+0085 retired it as a value and action: Browse shows no selection controls, and
+the selection is neither read nor written. Stored rows may remain until a schema
+cleanup is approved under ADR 0038 and ADR 0070.
 _Avoid_: custom deck, prepared deck, temporary filter result.
 
 **Lemma review flag**:
