@@ -63,7 +63,7 @@ type BookCoverStore interface {
 	GetActiveBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
 }
 
-type LemmaReviewStore interface {
+type LemmaReviewStore interface { //nolint:interfacebloat // the lemma review seam also reads its Book's deck history; splitting it is a separate design change
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
 	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
 	PutLemmaDecision(context.Context, domain.LemmaReviewOccurrence, string, bool, string, string) error
@@ -74,6 +74,7 @@ type LemmaReviewStore interface {
 	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
 	LemmaReviewStateFingerprint(context.Context, string, string, string, string, []domain.LemmaReviewIdentity) (string, error)
 	PutLemmaDecisionProposal(context.Context, []domain.LemmaReviewDecision, string, string, []domain.LemmaReviewIdentity, string) error
+	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }
 
 // GoalStore provides the Primary Goal lifecycle.
@@ -180,9 +181,6 @@ type PreparedDeck interface {
 }
 type PreparedDeckForGoalSnapshot interface {
 	GetForGoalSnapshot(context.Context, string, string) (domain.DeckPreparation, error)
-}
-type DeckPreparationHistoryReader interface {
-	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
 }
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
