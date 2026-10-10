@@ -247,20 +247,30 @@ RETURNING owner_id::text, language, book_id::text, completed_at,
           snapshot_vocabulary_count, eligible_vocabulary_count,
           graduated_vocabulary_count, already_known_vocabulary_count, completion_source;
 
--- name: CountCurrentReadingSnapshotVocabulary :one
-SELECT count(*)::int AS snapshot_count,
-       count(*) FILTER (WHERE NOT EXISTS (
-           SELECT 1 FROM known_vocabulary kv
-           WHERE kv.owner_id = pv.owner_id
-             AND kv.language = pv.language
-             AND kv.canonical_lemma = pv.canonical_lemma
-             AND (kv.upos = pv.upos OR kv.upos = '')
-       ))::int AS eligible_count
+-- name: ListCurrentReadingSnapshotIdentities :many
+SELECT pv.language, pv.canonical_lemma, pv.upos
 FROM primary_goal_snapshot_vocabulary pv
 WHERE pv.owner_id = sqlc.arg('owner')
-  AND pv.snapshot_id = sqlc.arg('snapshot');
+  AND pv.snapshot_id = sqlc.arg('snapshot')
+ORDER BY pv.language, pv.canonical_lemma, pv.upos;
 
--- name: GraduateCurrentReadingSnapshotVocabulary :one
+-- name: ListKnownVocabularyForCurrentReadingSnapshot :many
+-- Known rows that can match a frozen identity (same language and lemma, any
+-- POS). The domain decides which identities they cover.
+SELECT kv.language, kv.canonical_lemma, kv.upos
+FROM known_vocabulary kv
+WHERE kv.owner_id = sqlc.arg('owner')
+  AND EXISTS (
+      SELECT 1 FROM primary_goal_snapshot_vocabulary pv
+      WHERE pv.owner_id = kv.owner_id
+        AND pv.snapshot_id = sqlc.arg('snapshot')
+        AND pv.language = kv.language
+        AND pv.canonical_lemma = kv.canonical_lemma
+  );
+
+-- name: InsertCurrentReadingKnownVocabulary :one
+-- Inserts the identities the domain decided to accept, only where absent.
+-- Which identities become Known is never decided here.
 WITH eligible AS (
     SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos,
            s.book_id, s.source_material_id, s.analysis_run_id,
@@ -296,12 +306,11 @@ WITH eligible AS (
     ) generated ON true
     WHERE pv.owner_id = sqlc.arg('owner')
       AND pv.snapshot_id = sqlc.arg('snapshot')
-      AND NOT EXISTS (
-          SELECT 1 FROM known_vocabulary kv
-          WHERE kv.owner_id = pv.owner_id
-            AND kv.language = pv.language
-            AND kv.canonical_lemma = pv.canonical_lemma
-            AND (kv.upos = pv.upos OR kv.upos = '')
+      AND (pv.language, pv.canonical_lemma, pv.upos) IN (
+          SELECT l.value, c.value, u.value
+          FROM unnest(sqlc.arg('languages')::text[]) WITH ORDINALITY AS l(value, position)
+          JOIN unnest(sqlc.arg('lemmas')::text[]) WITH ORDINALITY AS c(value, position) USING (position)
+          JOIN unnest(sqlc.arg('uposes')::text[]) WITH ORDINALITY AS u(value, position) USING (position)
       )
 ), inserted AS (
     INSERT INTO known_vocabulary(
@@ -322,12 +331,3 @@ WITH eligible AS (
     RETURNING owner_id
 )
 SELECT count(*)::int AS graduated_count FROM inserted;
-
--- name: UpdateReadingCompletionOutcome :exec
-UPDATE reading_history
-SET graduated_vocabulary_count = sqlc.arg('graduated_vocabulary_count'),
-    already_known_vocabulary_count = sqlc.arg('already_known_vocabulary_count')
-WHERE owner_id = sqlc.arg('owner')
-  AND language = sqlc.arg('language')
-  AND goal_snapshot_id = NULLIF(sqlc.arg('snapshot'), '')::uuid;
-
