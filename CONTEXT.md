@@ -176,15 +176,16 @@ snapshot into modeled Known vocabulary when reading is finished. It is never
 implied by generation, deck readiness, or merely starting a Book.
 _Avoid_: completion, mastering, promotion.
 
-**Analysis evidence**:
+**Analysis evidence** (book evidence state):
 The classification of a Book's current acquired source against its analysis
-standing, owned per Book and derived from the raw analysis signals rather than
-stored by hand. It is the single state both My Books and Reading
-present: not acquired, unavailable (content present but no current revision),
-stale (a prior analysis no longer matches the current content), analyzed, or
-acquired-but-unassessed (current content present, analysis not yet complete).
+standing, owned per Book and derived from raw acquisition and analysis signals
+rather than stored by hand or persisted as learner state. It is the single
+state every surface presents: not acquired, unavailable (content present but no
+current revision), stale (a prior analysis no longer matches the current
+content), analyzed, or acquired-but-unassessed (current content present,
+analysis not yet complete).
 _Avoid_: book status, analysis state (the raw signal the classification reads,
-not the classification itself), deck readiness.
+not the classification itself), deck readiness, evidence status.
 
 **Vocabulary coverage band**:
 A neutral grouping of trustworthy analyzed To Read Books by current
@@ -220,15 +221,6 @@ languages are derived. A Book without a chosen language belongs to no study
 language partition and remains visible in Needs language.
 _Avoid_: detected language, inferred language (nothing is ever inferred from
 content).
-
-**Book evidence state**:
-The domain-derived classification of a Book's current acquired evidence:
-`not_acquired`, `unavailable`, `acquired_unassessed`, `analyzed`, or `stale`.
-It is derived from raw acquisition and current-analysis signals rather than
-persisted as learner state. Current-reading eligibility is a separate derivation
-with reason codes for missing current content, analysis in progress, failed or
-cancelled analysis, stale analysis, no completed analysis, and eligibility.
-_Avoid_: evidence status as a persisted source of truth.
 
 **Catalog entry**:
 A book as offered by a learner-owned catalog, identified by the catalog
@@ -309,7 +301,11 @@ _Avoid_: current disposition, archived, rejected, abandoned.
 **Current reading**:
 The analyzed To Read Book the learner has committed to reading in a study
 language, at most one per language. Its frozen snapshot remains distinct from
-the Book's later analysis evidence.
+the Book's later analysis evidence. A Book is eligible to become the Current
+reading only when it is To Read, has a chosen Book language, and its Analysis
+evidence is analyzed; an ineligible Book has one reason: not To Read, no chosen
+language, missing current content, analysis in progress, failed or cancelled
+analysis, stale analysis, or no completed analysis.
 _Avoid_: Primary Goal, reading status, current project.
 
 **End current reading**:
