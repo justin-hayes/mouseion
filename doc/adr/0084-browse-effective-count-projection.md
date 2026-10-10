@@ -4,7 +4,7 @@ Status: **Accepted (partially implemented)** · Date: 2026-10-03 · Author: Just
 
 Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §7: Browse is hosted by Reading rather than Vocabulary. Projection and readiness guarantees are unchanged.
 
-Amendment proposed by [ADR 0087](0087-vocabulary-counts-come-only-from-selection.md): every per-Book vocabulary-count consumer reads this projection, and only Go `selection` applies the eligibility rule.
+Amended by [ADR 0087](0087-vocabulary-counts-come-only-from-selection.md): every per-Book vocabulary-count consumer reads this projection, and only Go `selection` applies the eligibility rule.
 
 ## Context
 
