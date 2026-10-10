@@ -147,7 +147,7 @@ func run() (err error) {
 	}
 	catalogueWorker.Client = riverClient
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
-	prepareddeck.AddCustomDeckPreparationWorker(workers, store, presentation, translationProvider, llmConfig.Enabled)
+	prepareddeck.AddCustomDeckPreparationWorker(workers, store)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err = prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
 		return err

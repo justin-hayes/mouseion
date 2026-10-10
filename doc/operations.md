@@ -197,9 +197,6 @@ These commands run against `MOUSEION_DATABASE_URL`.
 - `go run ./cmd/cataloguebackfill` — assigns legacy catalogue-entry aliases to
   their owning OPDS connection
   ([ADR 0044](adr/0044-catalogue-entry-connection-scoped-identity.md)).
-- `go run ./cmd/vocabularyselectioncutover --apply` — removes retired saved
-  Browse selections after a verified backup; follow the
-  [archived runbook](archive/operations/2026-10-06-vocabulary-browse-selections.md).
 
 Dated one-time cutover records are kept in
 [`archive/operations/`](archive/operations/).

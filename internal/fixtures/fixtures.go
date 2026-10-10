@@ -42,7 +42,6 @@ const (
 	OutsidePrepID          = "fixture-outside-journey-preparation"
 	BrowserSyncBookID      = "fixture-browser-sync-book"
 	LegacyGeneratedLemma   = "fixture-legacy-generated"
-	customDeckReadyLemma   = "fixture-prepare-ready"
 	GraduatedKnownLemma    = "fixture-graduated-known"
 	IndependentKnownLemma  = "fixture-independent-known"
 	routeMatchBookID       = "fixture-route-match"
@@ -123,9 +122,6 @@ type Store struct {
 	lemmaCorrections       map[string]string
 	lemmaExclusions        map[string]bool
 	lemmaReviewFlags       map[string]domain.LemmaReviewFlag
-	vocabularySelections   map[string]map[string]domain.VocabularyIdentity
-	customVocabularyDecks  map[string]domain.CustomVocabularyDeck
-	customDeckActions      map[string]string
 	browseScenario         string
 }
 
@@ -257,15 +253,12 @@ func NewStore() *Store {
 				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
 			},
 		},
-		readingHistory:        make(map[string]domain.ReadingCompletion),
-		storedActiveLanguage:  &initialActiveLanguage,
-		mostRecentLanguage:    "it",
-		lemmaCorrections:      make(map[string]string),
-		lemmaExclusions:       make(map[string]bool),
-		lemmaReviewFlags:      make(map[string]domain.LemmaReviewFlag),
-		vocabularySelections:  make(map[string]map[string]domain.VocabularyIdentity),
-		customVocabularyDecks: make(map[string]domain.CustomVocabularyDeck),
-		customDeckActions:     make(map[string]string),
+		readingHistory:       make(map[string]domain.ReadingCompletion),
+		storedActiveLanguage: &initialActiveLanguage,
+		mostRecentLanguage:   "it",
+		lemmaCorrections:     make(map[string]string),
+		lemmaExclusions:      make(map[string]bool),
+		lemmaReviewFlags:     make(map[string]domain.LemmaReviewFlag),
 	}
 	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
 		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},
@@ -594,14 +587,6 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 		for i := start; i < min(start+25, 26); i++ {
 			rows = append(rows, domain.VocabularyBrowseRow{CanonicalLemma: fmt.Sprintf("paging%02d", i), UPOS: "NOUN", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 1})
 		}
-		count, selected, selectionErr := s.VocabularyBrowseSelectionState(ctx, owner, language, rows)
-		if selectionErr != nil {
-			return domain.VocabularyBrowsePage{}, selectionErr
-		}
-		page.SelectionCount = count
-		for i := range rows {
-			rows[i].Selected = selected[i]
-		}
 		page.Rows = rows
 		return page, nil
 	}
@@ -642,210 +627,8 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	if page.Page > lastPage {
 		page.Page = lastPage
 	}
-	count, selected, err := s.VocabularyBrowseSelectionState(ctx, owner, language, rows)
-	if err != nil {
-		return domain.VocabularyBrowsePage{}, err
-	}
-	page.SelectionCount = count
-	for i, row := range rows {
-		row.Selected = i < len(selected) && selected[i]
-		page.Rows = append(page.Rows, row)
-	}
+	page.Rows = rows
 	return page, nil
-}
-
-func (s *Store) SetVocabularyBrowseSelection(_ context.Context, owner, language, lemma, upos string, selected bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := fixtureLanguageKey(owner, language)
-	if s.vocabularySelections[key] == nil {
-		s.vocabularySelections[key] = make(map[string]domain.VocabularyIdentity)
-	}
-	identityKey := lemma + "\x00" + upos
-	if selected {
-		identity := domain.VocabularyIdentity{CanonicalLemma: lemma, UPOS: upos, MissingEvidence: true}
-		if lemma == customDeckReadyLemma {
-			identity.OccurrenceCount, identity.BookCount = 1, 1
-			identity.MissingEvidence = false
-		}
-		s.vocabularySelections[key][identityKey] = identity
-	} else {
-		delete(s.vocabularySelections[key], identityKey)
-	}
-	return nil
-}
-
-func (s *Store) ListVocabularyBrowseSelection(_ context.Context, owner, language string) ([]domain.VocabularyIdentity, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	values := s.vocabularySelections[fixtureLanguageKey(owner, language)]
-	result := make([]domain.VocabularyIdentity, 0, len(values))
-	for _, value := range values {
-		result = append(result, value)
-	}
-	sortVocabularyIdentities(result)
-	return result, nil
-}
-
-func (s *Store) VocabularyBrowseSelectionState(ctx context.Context, owner, language string, rows []domain.VocabularyBrowseRow) (int, []bool, error) {
-	selection, err := s.ListVocabularyBrowseSelection(ctx, owner, language)
-	if err != nil {
-		return 0, nil, err
-	}
-	selected := make(map[string]bool, len(selection))
-	for _, identity := range selection {
-		selected[identity.CanonicalLemma+"\x00"+identity.UPOS] = true
-	}
-	flags := make([]bool, len(rows))
-	for i, row := range rows {
-		flags[i] = selected[row.CanonicalLemma+"\x00"+row.UPOS]
-	}
-	return len(selection), flags, nil
-}
-
-func sortVocabularyIdentities(identities []domain.VocabularyIdentity) {
-	sort.Slice(identities, func(i, j int) bool {
-		if identities[i].CanonicalLemma == identities[j].CanonicalLemma {
-			return identities[i].UPOS < identities[j].UPOS
-		}
-		return identities[i].CanonicalLemma < identities[j].CanonicalLemma
-	})
-}
-
-func (s *Store) ClearVocabularyBrowseSelection(_ context.Context, owner, language string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.vocabularySelections, fixtureLanguageKey(owner, language))
-	return nil
-}
-
-func (s *Store) CreateCustomVocabularyDeck(_ context.Context, owner, language, name, action string) (domain.CustomVocabularyDeck, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	actionKey := owner + "\x00" + action
-	if id := s.customDeckActions[actionKey]; id != "" {
-		return s.customVocabularyDecks[id], nil
-	}
-	selectionKey := fixtureLanguageKey(owner, language)
-	identities := s.vocabularySelections[selectionKey]
-	if len(identities) == 0 {
-		return domain.CustomVocabularyDeck{}, persistence.ErrEmptyVocabularySelection
-	}
-	deck := domain.CustomVocabularyDeck{ID: action, Language: language, Name: strings.TrimSpace(name)}
-	for _, identity := range identities {
-		deck.Identities = append(deck.Identities, identity)
-		if identity.MissingEvidence {
-			deck.MissingCount++
-		}
-	}
-	sortVocabularyIdentities(deck.Identities)
-	deck.IdentityCount = int64(len(deck.Identities))
-	s.customVocabularyDecks[deck.ID] = deck
-	s.customDeckActions[actionKey] = deck.ID
-	delete(s.vocabularySelections, selectionKey)
-	return deck, nil
-}
-
-func (s *Store) GetCustomVocabularyDeck(_ context.Context, owner, id string) (domain.CustomVocabularyDeck, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	deck, ok := s.customVocabularyDecks[id]
-	if !ok {
-		return domain.CustomVocabularyDeck{}, errors.New("deck not found")
-	}
-	_ = owner
-	return deck, nil
-}
-
-func (s *Store) ListCustomVocabularyDeckIdentityPage(ctx context.Context, owner, id string, page int, missingOnly bool) (domain.CustomVocabularyDeck, int64, error) {
-	deck, err := s.GetCustomVocabularyDeck(ctx, owner, id)
-	if err != nil {
-		return domain.CustomVocabularyDeck{}, 0, err
-	}
-	all := deck.Identities
-	deck.Identities = nil
-	filtered := make([]domain.VocabularyIdentity, 0, len(all))
-	for _, identity := range all {
-		if !missingOnly || identity.MissingEvidence {
-			filtered = append(filtered, identity)
-		}
-	}
-	if page < 1 {
-		page = 1
-	}
-	start := min((page-1)*25, len(filtered))
-	end := min(start+25, len(filtered))
-	deck.Identities = filtered[start:end]
-	return deck, int64(len(filtered)), nil
-}
-
-func (s *Store) ListCustomVocabularyDecks(_ context.Context, owner string) ([]domain.CustomVocabularyDeck, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if owner != OwnerID {
-		return nil, nil
-	}
-	var decks []domain.CustomVocabularyDeck
-	for _, deck := range s.customVocabularyDecks {
-		decks = append(decks, deck)
-	}
-	return decks, nil
-}
-
-func (s *Store) RenameCustomVocabularyDeck(_ context.Context, _, id, name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	deck, ok := s.customVocabularyDecks[id]
-	if !ok {
-		return persistence.ErrCustomVocabularyDeckNotFound
-	}
-	deck.Name = strings.TrimSpace(name)
-	s.customVocabularyDecks[id] = deck
-	return nil
-}
-
-func (s *Store) SetCustomVocabularyDeckIdentity(_ context.Context, _, id, lemma, upos string, selected bool) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	deck, ok := s.customVocabularyDecks[id]
-	if !ok {
-		return persistence.ErrCustomVocabularyDeckNotFound
-	}
-	identities := deck.Identities[:0]
-	found := false
-	for _, identity := range deck.Identities {
-		if identity.CanonicalLemma == lemma && identity.UPOS == upos {
-			found = true
-			if !selected {
-				continue
-			}
-		}
-		identities = append(identities, identity)
-	}
-	if selected && !found {
-		identities = append(identities, domain.VocabularyIdentity{CanonicalLemma: lemma, UPOS: upos, MissingEvidence: true})
-	}
-	deck.Identities = identities
-	sortVocabularyIdentities(deck.Identities)
-	deck.IdentityCount = int64(len(identities))
-	deck.MissingCount = 0
-	for _, identity := range identities {
-		if identity.MissingEvidence {
-			deck.MissingCount++
-		}
-	}
-	s.customVocabularyDecks[id] = deck
-	return nil
-}
-
-func (s *Store) DeleteCustomVocabularyDeck(_ context.Context, _, id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.customVocabularyDecks[id]; !ok {
-		return persistence.ErrCustomVocabularyDeckNotFound
-	}
-	delete(s.customVocabularyDecks, id)
-	return nil
 }
 
 // ListVocabularyConcordance serves deterministic synthetic evidence so browser
