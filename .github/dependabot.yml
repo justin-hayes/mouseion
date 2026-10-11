@@ -52,9 +52,9 @@ updates:
           - patch
     ignore:
       # github.com/a-h/templ: the module must match the templ CLI that `make templ`
-      # and the Dockerfile run, and newer templ requires Go 1.25 or later. The CLI
-      # is not in a file Dependabot reads, so both pins move by hand with this
-      # module. Lift by bumping them together (doc/development.md, Dependency updates).
+      # runs to produce the committed views, and newer templ requires Go 1.25 or
+      # later. The CLI is not in a file Dependabot reads, so it moves by hand with
+      # this module. Lift by bumping them together (doc/development.md, Dependency updates).
       - dependency-name: "github.com/a-h/templ"
       # google.golang.org/protobuf: kept equal to the protoc-gen-go version that CI
       # installs, so the runtime and the generator that verify gen/go and gen/python

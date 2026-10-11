@@ -20,14 +20,14 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage lint lint-go gen templ templ-install templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
 
-# Generated templ output (internal/webapp/*_templ.go) is not committed, so every
-# target that compiles Go regenerates it first.
-go-tmp: templ
+# Every target that compiles Go refreshes the committed templ output first when
+# the pinned templ is installed, and otherwise builds the committed files as-is.
+go-tmp: templ-if-installed
 	mkdir -p $(GOTMPDIR)
 
 setup:
@@ -55,10 +55,10 @@ test: python-test-preflight go-tmp
 
 # Targeted Go tests get a per-invocation build temp directory under .tmp, so
 # interrupted runs cannot leave build files in a RAM-backed system temp dir.
-test-go: templ
+test-go: templ-if-installed
 	tools/go-test.sh unit $(if $(strip $(PACKAGES)),$(PACKAGES),./...)
 
-test-go-integration: templ
+test-go-integration: templ-if-installed
 	tools/go-test.sh integration $(if $(strip $(PACKAGES)),$(PACKAGES),./internal/...)
 
 go-test-clean:
@@ -135,6 +135,15 @@ templ:
 		exit 1; \
 	}
 	$(TEMPL) generate
+
+# CodeQL autobuild and fresh checkouts have no templ; CI's generated-code check
+# runs the strict `make templ` and fails on stale output.
+templ-if-installed:
+	@if test "$$($(TEMPL) version 2>/dev/null)" = "$(TEMPL_VERSION)"; then \
+		$(TEMPL) generate; \
+	else \
+		printf 'templ $(TEMPL_VERSION) not found; using the committed internal/webapp/*_templ.go (make templ-install to regenerate).\n' >&2; \
+	fi
 
 # Build committed frontend stylesheets with checksummed standalone tools; Go
 # serves the generated assets and never invokes the compiler at runtime.

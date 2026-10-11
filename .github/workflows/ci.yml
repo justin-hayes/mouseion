@@ -85,14 +85,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # make sqlc and make gen build through templ, so generated changes need it too.
-      - name: Generate templ views
-        if: needs.changes.outputs.go == 'true' || needs.changes.outputs.generated == 'true'
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
-
       - name: Go build
         if: needs.changes.outputs.go == 'true'
         run: go build ./...
@@ -165,8 +157,17 @@ jobs:
           .venv/bin/ruff format --check nlp/src nlp/tests
 
       # ------------------------------------------------------------------
-      # Generated protobuf and sqlc code
+      # Generated templ, protobuf, and sqlc code
       # ------------------------------------------------------------------
+
+      # Unlike the Go-compiling make targets, make templ fails without the
+      # pinned templ, so stale committed views cannot pass unnoticed.
+      - name: Generate templ views
+        if: needs.changes.outputs.generated == 'true'
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
 
       # arduino/setup-protoc stays on v3.0.0: its latest release still runs on
       # Node 20 and no Node 24 release exists. Dependabot rewrites the version
@@ -223,12 +224,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Generate templ views
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
@@ -252,12 +247,6 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-
-      - name: Generate templ views
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
 
       # Every package with integration tests runs; each test gets its own
       # database cloned from a migrated template, so packages run in parallel.
@@ -294,12 +283,6 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-
-      - name: Generate templ views
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
 
       # Artifact upload does not preserve the executable bit, so shards restore
       # it. The commit and platform files let shards reject a mismatched binary.

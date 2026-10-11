@@ -11,7 +11,7 @@
 # Classes:
 #   go         Go build, Go test, Go lint, and integration tests
 #   python     NLP build, test, and lint
-#   generated  regeneration of protobuf, sqlc, and the committed gen/ outputs
+#   generated  regeneration of templ, protobuf, and sqlc, and the committed outputs
 #   frontend   stylesheet generation and template/static asset checks
 #   browser    the Playwright browser smoke suite and the fixture server it runs
 #   build      derived: any of go, python, generated, or frontend
@@ -80,8 +80,8 @@ classify() {
       mark go frontend browser
       echo "embedded static asset: $path" >&2 ;;
     *.templ)
-      mark go frontend browser
-      echo "template: $path" >&2 ;;
+      mark go frontend browser generated
+      echo "template (internal/webapp/*_templ.go is its output): $path" >&2 ;;
     internal/webapp/components.go)
       mark go frontend browser
       echo "stylesheet class source: $path" >&2 ;;
@@ -90,7 +90,7 @@ classify() {
       echo "embedded data: $path" >&2 ;;
 
     # Generated code is committed, so each output is checked against its generator.
-    gen/go/* | gen/sqlc/*)
+    gen/go/* | gen/sqlc/* | internal/webapp/*_templ.go)
       mark go browser generated
       echo "generated Go: $path" >&2 ;;
     gen/python/*)

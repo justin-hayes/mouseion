@@ -46,12 +46,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Generate templ views
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
-
       # make coverage runs the NLP tests, so it needs the same Python environment
       # as ci.yml. Its preflight fails fast when this environment is missing.
       - name: Set up uv
