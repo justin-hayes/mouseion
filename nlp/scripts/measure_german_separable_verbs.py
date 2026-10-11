@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Generate precision evidence for German separable-verb reattachment."""
+"""Generate precision evidence for German separable-verb reattachment.
+
+Exit status:
+- 0 (EXIT_OK): the run completed and the report was written.
+- 3 (EXIT_SKIPPED): the German Stanza model is unavailable, so nothing was
+  measured and no report was written. The committed report is left untouched.
+  Callers that treat a missing model as acceptable must check for this status
+  explicitly; any other non-zero status is a failure.
+- 2: invalid arguments (argparse).
+"""
 
 from __future__ import annotations
 
@@ -16,13 +25,15 @@ SOURCE_TITLE = "Die Leiden des jungen Werther — Band 1"
 SOURCE_URL = "https://www.gutenberg.org/ebooks/2407"
 DEFAULT_INPUT = Path("nlp/testdata/german_prose_werther_excerpt.txt")
 DEFAULT_OUTPUT = Path("doc/evidence/german-separable-verb-precision.md")
+EXIT_OK = 0
+EXIT_SKIPPED = 3
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     text = args.input.read_text(encoding="utf-8")
     producer = Producer()
@@ -30,7 +41,7 @@ def main() -> int:
         producer.warmup("de")
     except Exception as error:  # noqa: BLE001 - model availability is the gate
         print(f"SKIP: German Stanza model unavailable: {error}", file=sys.stderr)
-        return 0
+        return EXIT_SKIPPED
 
     corpus = producer.analyze(
         text,
@@ -52,7 +63,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report, encoding="utf-8")
     print(f"Wrote {args.output}")
-    return 0
+    return EXIT_OK
 
 
 if __name__ == "__main__":

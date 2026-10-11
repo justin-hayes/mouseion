@@ -11,7 +11,7 @@ German separable-prefix set.
 - Sample SHA-256: `e066b0ee1c3fff0bfca6a7f4a45fedf0c9148e7bbea6106df19110aaf9865a1e`
 - Stanza version: `1.14.0`
 - Regenerate: `PYTHONPATH=nlp/src:gen/python .venv/bin/python nlp/scripts/measure_german_separable_verbs.py`
-- An unavailable Stanza German model causes the generator to print `SKIP` and exit successfully; it does not replace this committed report.
+- An unavailable Stanza German model causes the generator to print `SKIP`, exit with status 3, and write no report; this committed report is left unchanged.
 
 ## Counts
 
