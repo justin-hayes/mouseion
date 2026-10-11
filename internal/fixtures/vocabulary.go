@@ -249,15 +249,13 @@ func fixtureMultiBookConcordance(result domain.ConcordanceResult) domain.Concord
 
 func fixtureConcordanceOccurrence(rawLemma, effectiveLemma string, corrected, excluded bool) domain.ConcordanceResultOccurrence {
 	return domain.ConcordanceResultOccurrence{
-		ConcordanceOccurrence: domain.ConcordanceOccurrence{
-			Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "obj",
-			HeadOrdinal: 1, HeadSurface: "sieht", SentenceText: "Das Haus sieht gut aus.",
-			SentenceStartOffset: 4, SentenceEndOffset: 8, BookID: BookID,
-			BookTitle: "Der lange Weg nach Hause", SourceMaterialID: SourceID,
-			AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
-			UnitID: "fixture-concordance-unit", ChapterTitle: "Kapitel 1", UnitOrder: 0,
-			SentenceOrdinal: 0, TokenOrdinal: 1,
-		},
+		Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "obj",
+		HeadOrdinal: 1, HeadSurface: "sieht", SentenceText: "Das Haus sieht gut aus.",
+		SentenceStartOffset: 4, SentenceEndOffset: 8, BookID: BookID,
+		BookTitle: "Der lange Weg nach Hause", SourceMaterialID: SourceID,
+		AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
+		UnitID: "fixture-concordance-unit", ChapterTitle: "Kapitel 1", UnitOrder: 0,
+		SentenceOrdinal: 0, TokenOrdinal: 1,
 		RawLemma: rawLemma, EffectiveLemma: effectiveLemma, Corrected: corrected, Excluded: excluded,
 	}
 }

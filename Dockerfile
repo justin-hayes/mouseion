@@ -1,6 +1,6 @@
 # Dockerfile for the mouseion Go web server.
 # Builds the server binary from source; migrations are embedded in the binary.
-FROM golang:1.25 AS build
+FROM golang:1.27 AS build
 WORKDIR /src
 # Cache module deps first
 COPY go.mod go.sum ./

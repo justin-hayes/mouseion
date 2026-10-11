@@ -259,8 +259,7 @@ func classifyStandardProviderError(err error, parent context.Context) (string, s
 	if errors.Is(parent.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 		return "cancellation", "cancelled", false
 	}
-	var httpErr *enrichment.LLMHTTPError
-	if errors.As(err, &httpErr) {
+	if httpErr, ok := errors.AsType[*enrichment.LLMHTTPError](err); ok {
 		if httpErr.Temporary() {
 			return "provider", fmt.Sprintf("http_%d", httpErr.StatusCode), true
 		}

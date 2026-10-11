@@ -181,7 +181,8 @@ func testJPEG(t *testing.T, width, height int, pixel color.RGBA) []byte {
 
 func assertCoverPixelNear(t *testing.T, got color.Color, want color.NRGBA, tolerance uint8) {
 	t.Helper()
-	actual := color.NRGBAModel.Convert(got).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
+	actual, ok := color.NRGBAModel.Convert(got).(color.NRGBA)
+	require.True(t, ok, "color model converts to color.NRGBA")
 	assert.InDelta(t, int(want.R), int(actual.R), float64(tolerance), "red channel")
 	assert.InDelta(t, int(want.G), int(actual.G), float64(tolerance), "green channel")
 	assert.InDelta(t, int(want.B), int(actual.B), float64(tolerance), "blue channel")

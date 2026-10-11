@@ -60,10 +60,10 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
 		ActiveLanguage: "de",
 		Options: []activeStudyLanguageOption{
-			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
-			{StudyLanguage: domain.StudyLanguage{Language: "it", DisplayName: "Italian"}, HasBooks: true, NewArrival: true},
-			{StudyLanguage: domain.StudyLanguage{Language: "el", DisplayName: "Greek"}, HasBooks: true},
-			{StudyLanguage: domain.StudyLanguage{Language: "fr", DisplayName: "French"}},
+			{Language: "de", DisplayName: "German", HasBooks: true},
+			{Language: "it", DisplayName: "Italian", HasBooks: true, NewArrival: true},
+			{Language: "el", DisplayName: "Greek", HasBooks: true},
+			{Language: "fr", DisplayName: "French"},
 		},
 	}
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
@@ -86,7 +86,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
 	view := &shellView{
 		Options: []activeStudyLanguageOption{
-			{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true},
+			{Language: "de", DisplayName: "German", HasBooks: true},
 		},
 	}
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")

@@ -472,11 +472,10 @@ func TestSyncRecordsCoverAdvertisementsAfterSuccessAndNeverFailsOnCoverErrors(t 
 		{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/one.epub"},
 		{Rel: opds.CoverImageRel, Type: "image/png", Href: "https://catalog.example/one.png"},
 	}}
-	store := &recordingCoverStore{refreshStore: refreshStore{
+	store := &recordingCoverStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
 		connections: []domain.OpdsConnection{{ID: "connection-1", OwnerID: "alice"}},
-		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
-	}}
+		reconcile:   persistence.CatalogueEntryReconcileResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}}
 	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{entry}}}
 	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: stubCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
 

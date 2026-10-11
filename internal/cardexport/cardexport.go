@@ -1053,7 +1053,7 @@ func newManifest(owner, deckName string, entries []Entry) manifest {
 		manifest.accepted = append(manifest.accepted, renderInputFromEntry(entry))
 		manifest.decisions = append(manifest.decisions, ManifestItem{Ordinal: ordinal, Disposition: ManifestAccepted, CorpusID: entry.CorpusID, SentenceOrdinal: entry.SentenceOrdinal, Entry: decisionEntry, Quality: quality})
 		manifest.enrichmentCandidates = append(manifest.enrichmentCandidates, enrichment.Candidate{
-			Identity:                  enrichment.Identity{Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS},
+			Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 			TargetWord:                entry.TargetWord,
 			ExampleSentence:           strings.TrimSpace(entry.Sentence),
 			DictionaryProviderVersion: entry.DictionaryProviderVersion,
@@ -1293,7 +1293,7 @@ func renderAccepted(ctx context.Context, owner, deckName string, entries []Rende
 			completeness.CardsWithFallbackGloss++
 		}
 		enrichmentCandidates = append(enrichmentCandidates, enrichment.Candidate{
-			Identity:                  enrichment.Identity{Language: input.Language, CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS},
+			Language: input.Language, CanonicalLemma: input.CanonicalLemma, UPOS: input.UPOS,
 			TargetWord:                testedRenderTarget(input),
 			ExampleSentence:           strings.TrimSpace(input.Sentence),
 			DictionaryProviderVersion: input.DictionaryProviderVersion,

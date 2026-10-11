@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,9 +84,8 @@ func TestPreparedDeckConfigFromEnv(t *testing.T) {
 
 func unsetenv(t *testing.T, name string) {
 	t.Helper()
-	previous, existed := os.LookupEnv(name)
+	// t.Setenv records the prior value for restoration; the Unsetenv that
+	// follows is what leaves the variable unset for this test.
+	t.Setenv(name, "")
 	require.NoError(t, os.Unsetenv(name))
-	if existed {
-		testutil.Cleanup(t, "environment "+name, func() error { return os.Setenv(name, previous) })
-	}
 }

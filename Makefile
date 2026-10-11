@@ -23,7 +23,7 @@ export GOTMPDIR := $(CURDIR)/.tmp/go
 .PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
-GOLANGCI_LINT_VERSION := 2.13.2
+GOLANGCI_LINT_VERSION := 2.14.0
 
 # Generated templ output (internal/webapp/*_templ.go) is not committed, so every
 # target that compiles Go regenerates it first.

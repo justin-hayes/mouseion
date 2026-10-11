@@ -5,18 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfiguredJobTimeout(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
-		previous, existed := os.LookupEnv(jobTimeoutEnv)
+		// t.Setenv records the prior value for restoration; the Unsetenv that
+		// follows is what leaves the variable unset for this subtest.
+		t.Setenv(jobTimeoutEnv, "")
 		require.NoError(t, os.Unsetenv(jobTimeoutEnv))
-		if existed {
-			testutil.Cleanup(t, "job timeout environment", func() error { return os.Setenv(jobTimeoutEnv, previous) })
-		}
 		timeout, err := configuredJobTimeout()
 		require.NoError(t, err)
 		assert.Equal(t, defaultJobTimeout, timeout)

@@ -213,8 +213,7 @@ func (w *BatchPollWorker) loadTerminalBatchItems(ctx context.Context, args Batch
 }
 
 func (w *BatchPollWorker) handleTerminalFileError(ctx context.Context, chunk domain.PreparedDeckBatchChunk, args BatchPollJobArgs, token string, batch enrichment.Batch, err error) error {
-	var resultErr *enrichment.BatchResultError
-	if errors.As(err, &resultErr) {
+	if resultErr, ok := errors.AsType[*enrichment.BatchResultError](err); ok {
 		class := batchResultFailureClass(resultErr.Kind)
 		return w.failUntrustworthy(ctx, args, token, string(batch.Status), class, string(resultErr.Kind))
 	}

@@ -5,7 +5,7 @@ How to build, test, and change Mouseion. For running an installation, see the
 
 ## Toolchain
 
-- Go 1.25
+- Go 1.27
 - Python 3.13, pinned in `nlp/pyproject.toml`, the NLP image, and CI (3.14 needs
   a grpcio upgrade: the pinned grpcio 1.71.2 has no 3.14 wheels)
 - Protobuf compiler 29.x and `protoc-gen-go` for regenerating the shared
@@ -22,7 +22,7 @@ GO_BIN_DIR="$(go env GOBIN 2>/dev/null)"
 [ -n "$GO_BIN_DIR" ] || GO_BIN_DIR="$(go env GOPATH)/bin"
 export PATH="$PATH:$GO_BIN_DIR:/usr/local/go/bin"
 curl -sSfL https://golangci-lint.run/install.sh | sh -s -- \
-  -b "$GO_BIN_DIR" v2.13.2
+  -b "$GO_BIN_DIR" v2.14.0
 make setup
 make gen
 make build

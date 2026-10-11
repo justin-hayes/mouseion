@@ -195,7 +195,7 @@ func TestLLMRetryRateLimitAndPermanentDegradation(t *testing.T) {
 			provider, err := NewLLMProvider("openai-compatible", "model/translation-v1", client)
 			require.NoError(t, err)
 			result := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3, RetryBaseDelay: time.Nanosecond}, nil, nil, nil, provider, nil).
-				Enrich(context.Background(), []Candidate{{Identity: Identity{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}}})[0]
+				Enrich(context.Background(), []Candidate{{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"}})[0]
 			assert.Equal(t, test.wantCalls, calls, "result=%+v", result)
 			assert.Equal(t, test.wantAvailable, result.Translation.Available, "result=%+v", result)
 			if !test.wantAvailable {

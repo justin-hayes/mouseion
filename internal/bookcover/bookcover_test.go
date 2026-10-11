@@ -176,7 +176,10 @@ func encodePNG(t *testing.T, img image.Image) []byte {
 
 func assertPixelNear(t *testing.T, got color.Color, want color.NRGBA, tolerance uint8) {
 	t.Helper()
-	actual := color.NRGBAModel.Convert(got).(color.NRGBA) //nolint:errcheck // the color model always returns NRGBA.
+	actual, ok := color.NRGBAModel.Convert(got).(color.NRGBA)
+	if !ok {
+		t.Fatalf("color model converted %T to %T, want color.NRGBA", got, actual)
+	}
 	if channelDistance(actual.R, want.R) > tolerance ||
 		channelDistance(actual.G, want.G) > tolerance ||
 		channelDistance(actual.B, want.B) > tolerance ||
