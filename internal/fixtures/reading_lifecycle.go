@@ -1,9 +1,8 @@
 package fixtures
 
 // Contract status: contractual. Current reading lifecycle transitions must
-// match internal/storecontract scenarios shared with PostgreSQL (ADR 0088).
-// Finish already shares cases (finish_parity_test.go); issue #1722 adds the
-// shared scenarios for the rest of this file.
+// match internal/storecontract scenarios shared with PostgreSQL (ADR 0088). The
+// fixtures harness in storecontract_test.go runs them.
 
 import (
 	"context"
@@ -212,6 +211,9 @@ func (s *Store) fixtureGoalFromBook(owner, language, bookID string, createdAt ti
 				vocabulary[i].Language = language
 			}
 			s.goalSnapshotVocabulary[snapshotID] = vocabulary
+		}
+		if seeded, ok := s.bookSnapshotVocabulary[bookID]; ok {
+			s.goalSnapshotVocabulary[snapshotID] = append([]domain.DeckPreparationVocabulary(nil), seeded...)
 		}
 	}
 	goal := domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID, SnapshotID: snapshotID, CreatedAt: createdAt}
