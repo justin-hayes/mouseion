@@ -22,6 +22,12 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+# make coverage runs from the repository root. Relative filenames, and no
+# source root to strip, keep the Cobertura report paths resolvable from there.
+relative_files = true
+include = ["nlp/src/*"]
+
 [tool.ruff]
 target-version = "py313"
 line-length = 100

@@ -91,9 +91,14 @@ test-integration-shared: go-tmp
 	if test "$$ready" -ne 1; then docker logs "$$container"; exit 1; fi; \
 	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -count=1 -tags=integration $(MOUSEION_TEST_PACKAGES)
 
-# Go unit-test coverage, filtered of generated code, in .tmp/coverage. Later
-# tickets add integration and Python reports to this target.
-coverage: go-tmp
+# Python and Go coverage reports in .tmp/coverage (gitignored). The Python
+# report runs first so it is written before the Go integration run, which needs
+# a database. Fails before any test runs when the Python environment is missing.
+COVERAGE_DIR := .tmp/coverage
+
+coverage: python-test-preflight go-tmp
+	mkdir -p $(COVERAGE_DIR)
+	PYTHONPATH=nlp/src:gen/python COVERAGE_FILE=$(COVERAGE_DIR)/python.coverage $(VENV_BIN)/pytest -q nlp/tests --cov --cov-config=nlp/pyproject.toml --cov-report=xml:$(COVERAGE_DIR)/python.xml
 	tools/go-coverage.sh
 
 lint-go: go-tmp
