@@ -166,9 +166,12 @@ jobs:
       # Generated protobuf and sqlc code
       # ------------------------------------------------------------------
 
+      # arduino/setup-protoc stays on v3.0.0: its latest release still runs on
+      # Node 20 and no Node 24 release exists. Dependabot rewrites the version
+      # comment on the uses line, so the reason lives here instead.
       - name: Set up protoc
         if: needs.changes.outputs.generated == 'true'
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0; latest release uses Node 20, no Node 24 release available
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
         with:
           version: '29.3'
 

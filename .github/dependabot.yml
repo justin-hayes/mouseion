@@ -1,14 +1,48 @@
 version: 2
 
-# Version updates are grouped so related bumps arrive as one pull request per
-# ecosystem and week. Grouping makes it cheaper to see a shared toolchain
-# change (for example a go.mod `go` directive raise) once, instead of in each
-# of several overlapping pull requests that each conflict on go.mod.
+# Dependency-update conventions shared by every ecosystem below; the policy is
+# documented in doc/development.md ("Dependency updates").
+#
+# - schedule: weekly on one fixed day and time, so update pull requests arrive
+#   together and can be reviewed in one sitting.
+# - groups: minor and patch updates share one pull request per ecosystem; major
+#   updates are left ungrouped so each breaking change gets its own review.
+# - open-pull-requests-limit: caps open version-update pull requests per
+#   ecosystem.
+# - commit-message prefix: Conventional Commits, `ci(deps)` for GitHub Actions
+#   and `build(deps)` for application dependencies.
+#
+# update-types restricts version updates only; security updates are created
+# regardless. See the policy for how ignore rules apply to security updates.
 updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      github-actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
     groups:
       go-modules:
         patterns:
@@ -21,6 +55,12 @@ updates:
     directory: /nlp
     schedule:
       interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
     groups:
       python-dependencies:
         patterns:
