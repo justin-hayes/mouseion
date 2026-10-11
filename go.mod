@@ -1,6 +1,6 @@
 module github.com/justin-hayes/mouseion
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/a-h/templ v0.3.977

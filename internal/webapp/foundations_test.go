@@ -701,7 +701,7 @@ func TestKnownVocabImportParseFailuresPreserveVocabularyContext(t *testing.T) {
 			request.Header.Set("Content-Type", `multipart/form-data; boundary=known-vocabulary`)
 			request = request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, &shellView{
 				ActiveLanguage: "de",
-				Options:        []activeStudyLanguageOption{{StudyLanguage: domain.StudyLanguage{Language: "de", DisplayName: "German"}, HasBooks: true}},
+				Options:        []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}},
 			}))
 			response := httptest.NewRecorder()
 			h.importKnownVocab(response, request)

@@ -39,7 +39,7 @@ type WorkItem struct {
 // enrichment overlay without exposing the frozen manifest.
 func (w WorkItem) RequestCandidate() enrichment.Candidate {
 	return enrichment.Candidate{
-		Identity:                  enrichment.Identity{Language: w.Request.Language, CanonicalLemma: w.Request.CanonicalLemma, UPOS: w.Request.UPOS},
+		Language: w.Request.Language, CanonicalLemma: w.Request.CanonicalLemma, UPOS: w.Request.UPOS,
 		TargetWord:                w.Request.TargetWord,
 		ExampleSentence:           w.Request.ExampleSentence,
 		DictionaryProviderVersion: w.DictionaryProviderVersion,

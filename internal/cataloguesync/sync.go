@@ -1081,7 +1081,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 	}
 	upserted, workErr := service.work(ctx, args)
 	if workErr == nil {
-		if err := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSynced, LastSyncedAt: timePtr(time.Now()), LastUpsertedCount: upserted}); err != nil {
+		if err := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSynced, LastSyncedAt: new(time.Now()), LastUpsertedCount: upserted}); err != nil {
 			return err
 		}
 		return nil
@@ -1092,8 +1092,6 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 	}
 	return safe
 }
-
-func timePtr(value time.Time) *time.Time { return &value }
 
 func AddWorker(workers *river.Workers, deps StoreDependencies, reader catalogueReader, capabilities analyzer.CapabilityProvider) *Worker {
 	worker := &Worker{Connections: deps.Connections, Catalogue: deps.Catalogue, Statuses: deps.Statuses, Reader: reader, Capabilities: capabilities}

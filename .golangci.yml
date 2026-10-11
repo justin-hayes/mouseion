@@ -36,6 +36,18 @@ linters:
     - perfsprint
     - usestdlibvars
     - errname
+    - godot
+    - misspell
+    - makezero
+    - reassign
+    - sloglint
+    - protogetter
+    - copyloopvar
+    - gochecksumtype
+    - errchkjson
+    - nakedret
+    - usetesting
+    - forcetypeassert
 
   settings:
     gocognit:

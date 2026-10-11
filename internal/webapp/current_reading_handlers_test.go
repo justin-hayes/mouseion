@@ -270,7 +270,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 func TestReadingPageShowsReservedCountWhenCurrentReadingArtifactIsUnavailable(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	handler := requireHandler(t, h)
-	handler.services.PreparedDeck = unavailableCurrentReadingPreparedDeck{PreparedDeck: fixtures.PreparedDeck{Store: store}}
+	handler.services.PreparedDeck = unavailableCurrentReadingPreparedDeck{Store: store}
 
 	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies, false)
 	require.Equal(t, http.StatusOK, page.Code)
@@ -301,7 +301,7 @@ func TestCurrentReadingDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	preparedDeck := &existingCurrentReadingPreparedDeck{
-		PreparedDeck: fixtures.PreparedDeck{Store: store},
+		Store: store,
 		preparation: domain.DeckPreparation{
 			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
 			SourceMaterialID: currentReading.SourceMaterialID, AnalysisRunID: currentReading.AnalysisRunID,
@@ -327,7 +327,7 @@ func TestCurrentReadingDeckCancelChecksOnlyOwnershipAndLiveState(t *testing.T) {
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	preparedDeck := &existingCurrentReadingPreparedDeck{
-		PreparedDeck: fixtures.PreparedDeck{Store: store},
+		Store: store,
 		preparation: domain.DeckPreparation{
 			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
 			SourceMaterialID: currentReading.SourceMaterialID, AnalysisRunID: currentReading.AnalysisRunID,
@@ -351,7 +351,7 @@ func TestReadingDeckSubmissionKeepsCurrentReadingPreparationLocal(t *testing.T) 
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	preparedDeck := &existingCurrentReadingPreparedDeck{
-		PreparedDeck: fixtures.PreparedDeck{Store: store},
+		Store: store,
 		preparation: domain.DeckPreparation{
 			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
 			SourceMaterialID: currentReading.SourceMaterialID, AnalysisRunID: currentReading.AnalysisRunID,

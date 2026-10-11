@@ -324,8 +324,7 @@ func validCreatedBatch(created enrichment.Batch, inputFileID string, metadata ma
 }
 
 func providerErrorCode(err error) string {
-	var providerErr *enrichment.ProviderError
-	if errors.As(err, &providerErr) {
+	if providerErr, ok := errors.AsType[*enrichment.ProviderError](err); ok {
 		return string(providerErr.Class)
 	}
 	return "provider_error"

@@ -181,8 +181,7 @@ func ClassifyExternalError(err error) ExternalErrorClass {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return ExternalErrorTimeout
 	}
-	var httpErr *LLMHTTPError
-	if errors.As(err, &httpErr) {
+	if httpErr, ok := errors.AsType[*LLMHTTPError](err); ok {
 		if httpErr.StatusCode == http.StatusTooManyRequests {
 			return ExternalErrorRateLimit
 		}

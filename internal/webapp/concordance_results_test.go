@@ -14,11 +14,10 @@ import (
 func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 	sentence := `Vor 🐈 Haus.`
 	start := int64(strings.Index(sentence, "Haus"))
-	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
+	occurrence := domain.ConcordanceResultOccurrence{
 		BookID: "book-1", BookTitle: `Title </script><img src=x>`, SentenceText: sentence,
 		Surface: "Haus", SentenceStartOffset: start, SentenceEndOffset: start + 4,
-		SentenceOrdinal: 2, TokenOrdinal: 3, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
-	}}
+		SentenceOrdinal: 2, TokenOrdinal: 3, AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit"}
 	continued := occurrence
 	continued.SentenceOrdinal++
 	otherBook := occurrence
@@ -104,9 +103,8 @@ func TestConcordanceResultsRenderOneNativeList(t *testing.T) {
 }
 
 func TestConcordanceContinuedBookKeepsItsPageLocalCount(t *testing.T) {
-	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
-		BookID: "book-1", BookTitle: "Der lange Weg nach Hause", SentenceText: "Ein Haus.", Surface: "Haus",
-	}}
+	occurrence := domain.ConcordanceResultOccurrence{
+		BookID: "book-1", BookTitle: "Der lange Weg nach Hause", SentenceText: "Ein Haus.", Surface: "Haus"}
 	result := domain.ConcordanceResult{
 		Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 2, Continued: true, Match: domain.ConcordanceMatchForm, Term: "haus",
 	}
@@ -126,9 +124,8 @@ func TestConcordanceContinuedBookKeepsItsPageLocalCount(t *testing.T) {
 }
 
 func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
-	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
-		BookID: "book-1", SentenceOrdinal: 2, TokenOrdinal: 3, Surface: "Haus", SentenceText: "Ein Haus.",
-	}}
+	occurrence := domain.ConcordanceResultOccurrence{
+		BookID: "book-1", SentenceOrdinal: 2, TokenOrdinal: 3, Surface: "Haus", SentenceText: "Ein Haus."}
 	lookup := domain.ConcordanceLookup{Term: "Haus", Page: 1}
 	result := domain.ConcordanceResult{Occurrences: []domain.ConcordanceResultOccurrence{occurrence}, Page: 1, Match: domain.ConcordanceMatchForm, Term: "haus"}
 	render := func(target string, result domain.ConcordanceResult) string {
@@ -233,10 +230,9 @@ func TestConcordanceSentencePartsUseCodePointOffsets(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			start := int64(utf8.RuneCountInString(test.before))
-			occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
+			occurrence := domain.ConcordanceResultOccurrence{
 				SentenceText: test.sentence, Surface: test.surface,
-				SentenceStartOffset: start, SentenceEndOffset: start + int64(utf8.RuneCountInString(test.surface)),
-			}}
+				SentenceStartOffset: start, SentenceEndOffset: start + int64(utf8.RuneCountInString(test.surface))}
 			before, target, after := concordanceSentenceParts(occurrence)
 			if before != test.before || target != test.surface || after != test.after {
 				t.Fatalf("parts = %q | %q | %q, want %q | %q | %q", before, target, after, test.before, test.surface, test.after)
@@ -246,9 +242,8 @@ func TestConcordanceSentencePartsUseCodePointOffsets(t *testing.T) {
 }
 
 func TestConcordanceSentencePartsRejectOffsetsOutsideTheSentence(t *testing.T) {
-	occurrence := domain.ConcordanceResultOccurrence{ConcordanceOccurrence: domain.ConcordanceOccurrence{
-		SentenceText: "Das Haus.", Surface: "Haus", SentenceStartOffset: 4, SentenceEndOffset: 40,
-	}}
+	occurrence := domain.ConcordanceResultOccurrence{
+		SentenceText: "Das Haus.", Surface: "Haus", SentenceStartOffset: 4, SentenceEndOffset: 40}
 	if before, target, after := concordanceSentenceParts(occurrence); before != "" || target != "" || after != "" {
 		t.Fatalf("out-of-range offsets produced parts %q | %q | %q", before, target, after)
 	}

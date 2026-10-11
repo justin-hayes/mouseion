@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -52,7 +51,7 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 	if connectionID == "fixture-connection" {
 		s.Store.arriveNextFixtureStudyLanguage()
 		status.State = domain.CatalogueSyncSynced
-		status.LastSyncedAt = timePtr(fixtureJourneyTime)
+		status.LastSyncedAt = new(fixtureJourneyTime)
 		status.LastUpsertedCount = 3
 	}
 	if err := s.Store.SetCatalogueSyncStatus(ctx, status); err != nil {
@@ -201,10 +200,10 @@ func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueS
 	switch durable.State {
 	case domain.CatalogueSyncSynced:
 		status.State, status.LogicalState, status.Progress = "completed", "completed", 100
-		status.FinalizedAt = timePtr(updatedAt)
+		status.FinalizedAt = new(updatedAt)
 	case domain.CatalogueSyncFailed:
 		status.State, status.LogicalState, status.Progress, status.Error = "discarded", "failed", 42, durable.LastError
-		status.FinalizedAt = timePtr(updatedAt)
+		status.FinalizedAt = new(updatedAt)
 	case domain.CatalogueSyncSyncing:
 		status.State, status.LogicalState, status.Progress = "running", "running", 35
 	default:
@@ -213,5 +212,3 @@ func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueS
 	}
 	return status, nil
 }
-
-func timePtr(value time.Time) *time.Time { return &value }
