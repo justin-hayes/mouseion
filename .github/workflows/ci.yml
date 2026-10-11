@@ -164,10 +164,7 @@ jobs:
       # pinned templ, so stale committed views cannot pass unnoticed.
       - name: Generate templ views
         if: needs.changes.outputs.generated == 'true'
-        run: |
-          make templ-install
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          PATH="$(go env GOPATH)/bin:$PATH" make templ
+        run: make templ
 
       # arduino/setup-protoc stays on v3.0.0: its latest release still runs on
       # Node 20 and no Node 24 release exists. Dependabot rewrites the version
@@ -180,12 +177,6 @@ jobs:
           # Authenticated release lookups get a far higher GitHub API rate limit
           # than anonymous ones, which shared runner IPs exhaust.
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install protoc-gen-go
-        if: needs.changes.outputs.generated == 'true'
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Generate protobuf code
         if: needs.changes.outputs.generated == 'true'

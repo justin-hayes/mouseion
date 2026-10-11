@@ -8,9 +8,9 @@ How to build, test, and change Mouseion. For running an installation, see the
 - Go 1.27
 - Python 3.13, pinned in `nlp/pyproject.toml`, the NLP image, and CI (3.14 needs
   a grpcio upgrade: the pinned grpcio 1.71.2 has no 3.14 wheels)
-- Protobuf compiler 29.x and `protoc-gen-go` for regenerating the shared
-  contract
-- templ `v0.3.1070` (installed by `make templ-install`)
+- Protobuf compiler 29.x for regenerating the shared contract (`protoc-gen-go`
+  and `protoc-gen-go-grpc` run from `go.mod` tool directives, with no install step)
+- templ `v0.3.1070` (run from the `go.mod` tool directive, with no install step)
 - Docker, for Testcontainers-based integration tests
 - Node.js 20, only for the Playwright browser suite
 
@@ -397,7 +397,7 @@ tracking issue. Each rule carries its reason as a comment in `dependabot.yml`.
 | Dependency | Ecosystem | Reason | Lifted by | Tracking issue |
 | --- | --- | --- | --- | --- |
 | `github.com/a-h/templ` | `gomod` | The module must match the templ CLI pin (`TEMPL_VERSION`), which generates the committed views. Newer templ requires Go 1.25 or later. | Manual bump, below. | #1742 |
-| `google.golang.org/protobuf` | `gomod` | Must equal the `protoc-gen-go` version CI installs, so the runtime and the generator that verify `gen/` move together. | Manual bump, below. | #1742 |
+| `google.golang.org/protobuf` | `gomod` | Must equal the `protoc-gen-go` tool version in `go.mod`, so the runtime and the generator that verify `gen/` move together. | Manual bump, below. | #1742 |
 | `golang` (tags `>= 1.28`) | `docker` | The Go toolchain is set by the `go` directive in `go.mod`, which CI reads. An image ahead of it would drift from the build. | Manual Go bump, below. | #1742 |
 | `grpcio`, `grpcio-tools`, `protobuf` | `pip` | `grpcio-tools` generates the committed Python protobuf code that CI verifies. grpcio is held at 1.71.2 for the Python 3.13 pin; Python 3.14 needs a grpcio upgrade first. | Manual Python protobuf bump, below. | #1743 |
 | `@playwright/test` | `npm` (`/e2e`) | Must match the digest-pinned Playwright image in `ci.yml`, which Dependabot cannot update. CI fails when they differ. | Manual Playwright bump: [`e2e/README.md`](../e2e/README.md), "Dependency and update policy". | #1743 |
@@ -422,18 +422,19 @@ one by hand, then regenerate and verify as listed.
   1. Check the release's minimum Go version against the `go` directive.
   2. `go get github.com/a-h/templ@vX.Y.Z`, then update `TEMPL_VERSION` to the
      same version.
-  3. `make templ-install && make templ && make build test lint`, then commit
+  3. `make templ && make build test lint`, then commit
      the regenerated `internal/webapp/*_templ.go`.
 - **protoc-gen-go and the protobuf runtime** (`google.golang.org/protobuf` in
-  `go.mod`, `protoc-gen-go@` in `.github/workflows/ci.yml`):
-  1. `go get google.golang.org/protobuf@vX.Y.Z`, then update the
-     `protoc-gen-go@` version in `ci.yml` to match.
+  `go.mod`, and the `protoc-gen-go` tool directive in `go.mod`):
+  1. `go get google.golang.org/protobuf@vX.Y.Z` and
+     `go get -tool google.golang.org/protobuf/cmd/protoc-gen-go@vX.Y.Z`, so the
+     tool and the runtime match.
   2. `make gen`, then review `git diff gen/` against the source change. The
      generated headers record the generator version.
   3. `make build test`.
-- **protoc-gen-go-grpc** (`PROTOC_GEN_GO_GRPC` version in the `Makefile`, currently
-  `v1.5.1`): change the version in the `Makefile` `go install` line, then run
-  `make gen` and review the `gen/go` diff. Its runtime, `google.golang.org/grpc`,
+- **protoc-gen-go-grpc** (the `protoc-gen-go-grpc` tool directive in `go.mod`,
+  currently `v1.5.1`): run `go get -tool google.golang.org/grpc/cmd/protoc-gen-go-grpc@vX.Y.Z`,
+  then run `make gen` and review the `gen/go` diff. Its runtime, `google.golang.org/grpc`,
   is a normal Dependabot-managed module.
 - **Go toolchain** (the `go` directive in `go.mod`, the `golang:` tag in the
   `Dockerfile`, and the `golang` ignore rule's `>= 1.28` bound in
