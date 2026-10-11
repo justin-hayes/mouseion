@@ -10,7 +10,7 @@ How to build, test, and change Mouseion. For running an installation, see the
   a grpcio upgrade: the pinned grpcio 1.71.2 has no 3.14 wheels)
 - Protobuf compiler 29.x and `protoc-gen-go` for regenerating the shared
   contract
-- templ `v0.3.977` (installed by `make templ-install`)
+- templ `v0.3.1070` (installed by `make templ-install`)
 - Docker, for Testcontainers-based integration tests
 - Node.js 20, only for the Playwright browser suite
 

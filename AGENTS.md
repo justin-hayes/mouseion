@@ -14,7 +14,7 @@ Mouseion is a self-hosted reading environment for learning foreign languages. Go
 
 ## Commands
 
-Go 1.27, Python 3.13 (pin `3.13`; 3.14 needs a grpcio upgrade, since the pinned grpcio 1.71.2 has no 3.14 wheels), protoc 29.x, templ pinned to `v0.3.977` (newer templ requires Go >= 1.25).
+Go 1.27, Python 3.13 (pin `3.13`; 3.14 needs a grpcio upgrade, since the pinned grpcio 1.71.2 has no 3.14 wheels), protoc 29.x, templ pinned to `v0.3.1070` (newer templ requires Go >= 1.25).
 
 ```sh
 make setup            # .venv + nlp/requirements-dev.txt + CPU-only torch
