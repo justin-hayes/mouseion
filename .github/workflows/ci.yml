@@ -8,9 +8,8 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: read
+# No workflow-level grants: each job declares only what it uses.
+permissions: {}
 
 # The changes job classifies the pull request once (tools/ci-changes.sh); every
 # gated job reads that result. A gated job still runs when classification did
@@ -21,6 +20,8 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       build: ${{ steps.classify.outputs.build }}
       go: ${{ steps.classify.outputs.go }}
@@ -58,6 +59,8 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.build == 'true') }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
 
     steps:
       - name: Fail when change detection failed
@@ -237,6 +240,8 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true') }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
 
     steps:
       - name: Fail when change detection failed
@@ -265,6 +270,8 @@ jobs:
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.browser == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
     outputs:
       artifact: ${{ steps.artifact.outputs.name }}
     steps:
@@ -312,6 +319,8 @@ jobs:
     if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -398,6 +407,8 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
