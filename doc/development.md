@@ -280,7 +280,7 @@ inventing their own.
 
 - **What it updates:** GitHub Actions (`github-actions`, `/`), Go modules
   (`gomod`, `/`), and Python NLP dependencies (`pip`, `/nlp`).
-- **Schedule:** weekly, on Monday at 06:00 UTC.
+- **Schedule:** weekly, on Monday at 06:00 Berlin time.
 - **Grouping:** minor and patch updates share one pull request per ecosystem.
   Major updates are not grouped, so each breaking change gets its own review.
 - **Open pull request cap:** at most five open version-update pull requests per

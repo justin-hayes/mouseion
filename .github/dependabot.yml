@@ -3,7 +3,7 @@ version: 2
 # Dependency-update conventions shared by every ecosystem below; the policy is
 # documented in doc/development.md ("Dependency updates").
 #
-# - schedule: weekly on one fixed day and time, so update pull requests arrive
+# - schedule: weekly on one fixed day and time (Berlin time), so update pull requests arrive
 #   together and can be reviewed in one sitting.
 # - groups: minor and patch updates share one pull request per ecosystem; major
 #   updates are left ungrouped so each breaking change gets its own review.
@@ -21,7 +21,7 @@ updates:
       interval: weekly
       day: monday
       time: "06:00"
-      timezone: Etc/UTC
+      timezone: Europe/Berlin
     open-pull-requests-limit: 5
     commit-message:
       prefix: ci(deps)
@@ -39,7 +39,7 @@ updates:
       interval: weekly
       day: monday
       time: "06:00"
-      timezone: Etc/UTC
+      timezone: Europe/Berlin
     open-pull-requests-limit: 5
     commit-message:
       prefix: build(deps)
@@ -57,7 +57,7 @@ updates:
       interval: weekly
       day: monday
       time: "06:00"
-      timezone: Etc/UTC
+      timezone: Europe/Berlin
     open-pull-requests-limit: 5
     commit-message:
       prefix: build(deps)
