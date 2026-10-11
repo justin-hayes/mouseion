@@ -1,6 +1,6 @@
-pytest==9.0.3
-grpcio==1.71.2
-grpcio-tools==1.71.2
+pytest==9.1.1
+grpcio==1.84.0
+grpcio-tools==1.84.0
 protobuf==5.29.6
-ruff==0.12.9
+ruff==0.16.10
 setuptools==83.0.0
