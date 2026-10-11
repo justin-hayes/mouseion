@@ -53,6 +53,8 @@ func TestCurrentReadingInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBounda
 		{"/goal/books/" + replacement.ID, url.Values{"csrf_token": {aliceCSRF}, "expected_goal_book_id": {"stale"}}},
 		{"/goal/clear", url.Values{"csrf_token": {aliceCSRF}, "expected_goal_book_id": {readingOnly.ID}}},
 		{"/goal/finish", url.Values{"csrf_token": {aliceCSRF}, "expected_goal_book_id": {readingOnly.ID}, "expected_goal_snapshot_id": {"stale"}}},
+		{"/goal/books/" + readingOnly.ID + "/deck/cancel", url.Values{"csrf_token": {aliceCSRF}, "expected_goal_snapshot_id": {"stale"}}},
+		{"/goal/books/" + readingOnly.ID + "/deck/retry", url.Values{"csrf_token": {aliceCSRF}, "expected_goal_snapshot_id": {"stale"}}},
 	} {
 		response := perform(t, h, http.MethodPost, test.path, test.form, aliceCookies)
 		assert.Equalf(t, http.StatusNotFound, response.Code, "retired Goal mutation %s", test.path)

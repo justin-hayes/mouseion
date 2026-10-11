@@ -236,10 +236,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /reading/end", h.user(http.HandlerFunc(h.endCurrentReading)))
 	h.mux.Handle("POST /reading/books/{id}/deck/cancel", h.user(http.HandlerFunc(h.cancelCurrentReadingDeck)))
 	h.mux.Handle("POST /reading/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryCurrentReadingDeck)))
-	// Preserve focused artifact controls under their old URLs; these routes
-	// operate only on the current reading's exact snapshot, never its lifecycle.
-	h.mux.Handle("POST /goal/books/{id}/deck/cancel", h.user(http.HandlerFunc(h.cancelCurrentReadingDeck)))
-	h.mux.Handle("POST /goal/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryCurrentReadingDeck)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
