@@ -40,7 +40,7 @@ CPU-only PyTorch. Python commands need `PYTHONPATH=nlp/src:gen/python`.
 | --- | --- |
 | `make build` | `go build ./...` plus Python `compileall` |
 | `make test` | Go unit tests and pytest |
-| `make coverage` | Go unit-test coverage profile in `.tmp/coverage/` |
+| `make coverage` | Go unit and integration coverage profiles in `.tmp/coverage/` (needs the `make test-integration` database prerequisites) |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
 | `make lint` | golangci-lint over the whole module plus ruff |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
@@ -90,12 +90,20 @@ Regenerate rather than hand-edit:
 
 ### Test coverage
 
-`make coverage` runs the Go unit tests with a coverage profile and writes the
-filtered profile to `.tmp/coverage/go-unit.out`. `.tmp/` is gitignored, so the
-reports are never committed. The target regenerates templ output first, then
-`tools/go-coverage.sh` removes generated code (`gen/` and `*_templ.go`) from
-the profile with `tools/coverage-filter.sh`. `tools/coverage-filter_test.sh`
-checks that filter.
+`make coverage` runs the Go unit tests and the Go integration tests, each with a
+coverage profile, and writes the filtered profiles to
+`.tmp/coverage/go-unit.out` and `.tmp/coverage/go-integration.out`. `.tmp/` is
+gitignored, so the reports are never committed. The target regenerates templ
+output first, then `tools/go-coverage.sh` removes generated code (`gen/` and
+`*_templ.go`) from each profile with `tools/coverage-filter.sh`.
+`tools/coverage-filter_test.sh` checks that filter.
+
+The integration profile uses `-coverpkg=./...`, so coverage is credited to every
+module package the integration tests execute, such as the PostgreSQL store, not
+only to the package under test. `make coverage` needs the same database
+prerequisites as `make test-integration`: a running Docker daemon for
+Testcontainers, or `MOUSEION_TEST_DATABASE_URL` pointing at a PostgreSQL role
+with `CREATEDB`.
 
 Test coverage here means test line coverage: the share of statements that the
 tests execute. It is not vocabulary coverage, the learner-facing measure in
@@ -106,15 +114,17 @@ unrelated, and a figure from one never describes the other.
 
 `.github/workflows/sonarqube.yml` analyses the repository in SonarQube Cloud
 (organisation `justin-hayes`, project `justin-hayes_mouseion`) on every push to
-`main` and on every pull request. It runs the filter behavior test, runs
-`make coverage`, and then runs the official scan action. The scan's settings
-live in `sonar-project.properties` at the repository root. Excluded paths are
+`main` and on every pull request. It runs on a GitHub-hosted runner, which
+provides Docker for the integration tests' Testcontainers PostgreSQL. It runs the
+filter behavior test, runs `make coverage` (unit and integration), and then runs
+the official scan action. The scan's settings live in
+`sonar-project.properties` at the repository root. Excluded paths are
 generated code, vendored static assets, the generated stylesheet, and the
 immutable baseline migration.
 
-The scan reads the Go profile from `sonar.go.coverage.reportPaths`, so Go test
-coverage reaches SonarQube Cloud as part of the same analysis. Later tickets add
-integration and Python reports to that property.
+The scan reads both Go profiles from `sonar.go.coverage.reportPaths`, so unit and
+integration test coverage reach SonarQube Cloud as part of the same analysis,
+which merges them. Later tickets add Python reports to that property.
 
 Fork pull requests cannot read repository secrets, so `SONAR_TOKEN` is
 unavailable there. The scan step is skipped for them, and the coverage steps

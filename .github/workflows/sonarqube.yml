@@ -52,7 +52,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           PATH="$(go env GOPATH)/bin:$PATH" make templ
 
-      - name: Go unit-test coverage
+      - name: Go unit and integration coverage
         run: make coverage
 
       - name: SonarQube Cloud scan
