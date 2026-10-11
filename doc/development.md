@@ -127,9 +127,12 @@ filter behavior test, sets up the Python environment the same way `ci.yml` does,
 runs `make coverage` (Python, Go unit, and Go integration), and then runs the
 official scan action. The scan's settings live in
 `sonar-project.properties` at the repository root. Excluded paths are
-generated code, vendored static assets, the generated stylesheet, and the
-immutable baseline migration. Python test files under `nlp/tests` are classified
-as tests, not sources.
+generated code, vendored static assets, the generated stylesheet, the
+immutable baseline migration, and the deliberate EPUB and card-export test
+fixtures. Intended behaviour that Sonar flags is recorded there as
+issue-ignore criteria, each scoped to one rule and one file, with its reason in
+a comment. Python test files under `nlp/tests` are classified as tests, not
+sources.
 
 The scan reads the Go profiles from `sonar.go.coverage.reportPaths` and the
 Python report from `sonar.python.coverage.reportPaths`, so coverage for both
