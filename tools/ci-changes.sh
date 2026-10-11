@@ -123,20 +123,20 @@ classify() {
   esac
 }
 
-if [ "${1:-}" = "--all" ]; then
+if [[ "${1:-}" = "--all" ]]; then
   mark_all
   echo "manual dispatch: running every check" >&2
 else
   while IFS= read -r path; do
-    [ -n "$path" ] || continue
+    [[ -n "$path" ]] || continue
     classify "$path"
   done
 fi
 
 for class in "${CLASSES[@]}"; do
-  if [ -n "${on[$class]:-}" ]; then echo "$class=true"; else echo "$class=false"; fi
+  if [[ -n "${on[$class]:-}" ]]; then echo "$class=true"; else echo "$class=false"; fi
 done
-if [ -n "${on[go]:-}${on[python]:-}${on[generated]:-}${on[frontend]:-}" ]; then
+if [[ -n "${on[go]:-}${on[python]:-}${on[generated]:-}${on[frontend]:-}" ]]; then
   echo "build=true"
 else
   echo "build=false"

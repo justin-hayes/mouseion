@@ -17,7 +17,7 @@ expect() {
   local name=$1 want=$2 got
   shift 2
   if got=$("$FILTER" <<<"$(printf '%s\n' "$@")"); then
-    if [ "$got" = "$want" ]; then
+    if [[ "$got" = "$want" ]]; then
       echo "ok   $name"
       return
     fi
@@ -61,7 +61,7 @@ expect "only generated lines yield a header-only profile" \
   "$MODULE/gen/go/mouseion/v1/normalized_corpus.pb.go:20.2,25.3 3 1" \
   "$MODULE/internal/webapp/layout_templ.go:40.2,44.3 2 0"
 
-if [ "$failures" -ne 0 ]; then
+if [[ "$failures" -ne 0 ]]; then
   echo "$failures check(s) failed"
   exit 1
 fi
