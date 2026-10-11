@@ -1,6 +1,5 @@
-from pathlib import Path
 import re
-
+from pathlib import Path
 
 COMPOSE_FILE = Path(__file__).parents[2] / "compose.yaml"
 DEFAULT_LANGUAGES = "MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el}"

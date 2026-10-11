@@ -1,9 +1,14 @@
 import json
 from unittest.mock import patch
 
-from huggingface_hub.errors import LocalEntryNotFoundError
 import pytest
+from huggingface_hub.errors import LocalEntryNotFoundError
 
+from mouseion_nlp.model_config import (
+    GREEK_BERT_MODEL,
+    LanguageModelConfig,
+    model_config_for_language,
+)
 from mouseion_nlp.provision import (
     MARKER_FILENAME,
     ensure_external_dependency,
@@ -12,7 +17,6 @@ from mouseion_nlp.provision import (
     read_marker,
     wipe_resources,
 )
-from mouseion_nlp.model_config import GREEK_BERT_MODEL, LanguageModelConfig, model_config_for_language
 
 STANZA_VERSION = "1.15.0"
 
@@ -248,7 +252,7 @@ def test_missing_marker_wipes_a_partially_baked_volume(tmp_path) -> None:
 
 
 def test_failed_download_aborts_without_writing_the_marker(tmp_path) -> None:
-    def failing_download(language: str, **kwargs) -> None:  # noqa: ARG001
+    def failing_download(language: str, **kwargs) -> None:
         raise RuntimeError("model source unreachable")
 
     with pytest.raises(RuntimeError, match="model source unreachable"):

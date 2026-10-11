@@ -1,16 +1,17 @@
-from datetime import datetime, timezone
 import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import stanza
 from google.protobuf.json_format import MessageToDict
 from mouseion.v1 import normalized_corpus_pb2
+from stanza.pipeline.core import DownloadMethod
+
 from mouseion_nlp import Producer, SourceDocument
 from mouseion_nlp.model_config import LanguageModelConfig, model_config_for_language
-import stanza
-from stanza.pipeline.core import DownloadMethod
 
 
 def word(
@@ -69,7 +70,7 @@ def test_maps_one_batch_stanza_result_to_versioned_artifact() -> None:
         "de",
         SourceDocument("book-1", "opds:42", "Das Buch", "1", "opening"),
         run_id="run-7",
-        analyzed_at=datetime(2026, 8, 21, 12, tzinfo=timezone.utc),
+        analyzed_at=datetime(2026, 8, 21, 12, tzinfo=UTC),
     )
 
     assert calls == ["Goethe schrieb."]
@@ -633,7 +634,7 @@ def test_italian_linguistic_regression_fixture() -> None:
         "it",
         SourceDocument("italian-book", "fixture:italian", "Italian fixture"),
         run_id="italian-regression",
-        analyzed_at=datetime(2026, 8, 25, tzinfo=timezone.utc),
+        analyzed_at=datetime(2026, 8, 25, tzinfo=UTC),
     )
 
     expected = json.loads((Path(__file__).parent / "testdata" / "italian_stanza_expected.json").read_text())
@@ -680,7 +681,7 @@ def test_greek_linguistic_regression_fixture() -> None:
         "el",
         SourceDocument("greek-book", "fixture:greek", "Greek fixture"),
         run_id="greek-regression",
-        analyzed_at=datetime(2026, 8, 25, tzinfo=timezone.utc),
+        analyzed_at=datetime(2026, 8, 25, tzinfo=UTC),
     )
 
     config = model_config_for_language("el")

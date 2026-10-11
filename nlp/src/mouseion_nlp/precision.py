@@ -8,7 +8,6 @@ from typing import Any
 
 from .producer import GERMAN_SEPARABLE_PREFIXES, Producer
 
-
 # These prefixes have common non-particle uses in ordinary prose. They are not
 # rejected by the producer, but are called out for a human review of the sample.
 DEBATABLE_PREFIXES = frozenset(

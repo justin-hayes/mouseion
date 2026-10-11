@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-
 DEFAULT_PROCESSORS = "tokenize,pos,lemma,depparse"
 GREEK_BERT_MODEL = "nlpaueb/bert-base-greek-uncased-v1"
 Package = str | Mapping[str, str]

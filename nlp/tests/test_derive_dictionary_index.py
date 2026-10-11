@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import importlib.util
 import gzip
+import importlib.util
 import json
 import sqlite3
 import stat
@@ -11,7 +11,8 @@ from pathlib import Path
 def load_script():
     path = Path(__file__).parents[1] / "scripts" / "derive_dictionary_index.py"
     spec = importlib.util.spec_from_file_location("derive_dictionary_index", path)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

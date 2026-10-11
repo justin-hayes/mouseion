@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from concurrent import futures
-from dataclasses import dataclass
 import os
 import sys
+from concurrent import futures
+from dataclasses import dataclass
 from typing import NoReturn
 
 import grpc
@@ -14,7 +14,6 @@ from mouseion.v1 import normalized_corpus_pb2, normalized_corpus_pb2_grpc
 from stanza.models.common.constant import lcode2lang
 
 from .producer import Producer, SourceDocument
-
 
 SUPPORTED_FEATURES = ("tokenize", "pos", "lemma", "depparse")
 
@@ -104,7 +103,7 @@ class AnalyzerServicer(normalized_corpus_pb2_grpc.AnalyzerServiceServicer):
                     title=source.title,
                 ),
             )
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             context.abort(grpc.StatusCode.INTERNAL, f"analysis failed: {error}")
 
 
@@ -127,7 +126,7 @@ def warm_configured_languages(servicer: AnalyzerServicer) -> None:
         print(f"warming Stanza pipeline for language '{language}'…", flush=True)
         try:
             servicer.warmup(language)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             print(
                 f"failed to warm Stanza pipeline for language '{language}': {error}",
                 file=sys.stderr,
