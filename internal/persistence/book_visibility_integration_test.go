@@ -139,11 +139,9 @@ func TestBookVisibilityConcurrentWritesSerialize(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make([]error, 2)
 	for i, hide := range []bool{true, false} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_, results[i] = store.SetBookHidden(ctx, owner.ID, created.Book.ID, 0, hide)
-		}()
+		})
 	}
 	wg.Wait()
 	// Unhide at revision 0 is a no-op on a visible Book, so at most one

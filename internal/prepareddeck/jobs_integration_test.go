@@ -90,16 +90,14 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	results := make(chan Handle, 8)
 	errorsCh := make(chan error, 8)
 	for range 8 {
-		submissions.Add(1)
-		go func() {
-			defer submissions.Done()
+		submissions.Go(func() {
 			result, submitErr := service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, firstReading.SnapshotID)
 			if submitErr != nil {
 				errorsCh <- submitErr
 				return
 			}
 			results <- result
-		}()
+		})
 	}
 	submissions.Wait()
 	close(results)
@@ -127,16 +125,14 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	retryResults := make(chan Handle, 8)
 	retryErrors := make(chan error, 8)
 	for range 8 {
-		retries.Add(1)
-		go func() {
-			defer retries.Done()
+		retries.Go(func() {
 			result, retryErr := service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, firstReading.SnapshotID)
 			if retryErr != nil {
 				retryErrors <- retryErr
 				return
 			}
 			retryResults <- result
-		}()
+		})
 	}
 	retries.Wait()
 	close(retryResults)
@@ -213,9 +209,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 	readingErrors := make(chan error, 8)
 	startReadingSubmissions := make(chan struct{})
 	for range 8 {
-		readingSubmissions.Add(1)
-		go func() {
-			defer readingSubmissions.Done()
+		readingSubmissions.Go(func() {
 			<-startReadingSubmissions
 			result, submitErr := service.PrepareCurrentReadingDeck(ctx, owner.ID, book.ID, firstReading.SnapshotID)
 			if submitErr != nil {
@@ -223,7 +217,7 @@ func TestServiceEnqueuesOwnerScopedImmutablePreparationAndConfirmsUnreportedJob(
 				return
 			}
 			readingResults <- result
-		}()
+		})
 	}
 	close(startReadingSubmissions)
 	readingSubmissions.Wait()
