@@ -163,11 +163,9 @@ func TestBookCoverConcurrentInitialAdvertisementsChooseOneCandidate(t *testing.T
 		{first.ID, "entry-1", "sha256:first", []byte("first-image")},
 		{second.ID, "entry-2", "sha256:second", []byte("second-image")},
 	} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			assert.NoError(t, store.SaveBookCover(ctx, owner.ID, reconciled.Book.ID, candidate.connectionID, candidate.source, advertisedAt, "image/png", 4, 6, candidate.hash, candidate.body))
-		}()
+		})
 	}
 	wg.Wait()
 

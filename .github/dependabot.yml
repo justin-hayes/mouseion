@@ -1,0 +1,30 @@
+version: 2
+
+# Version updates are grouped so related bumps arrive as one pull request per
+# ecosystem and week. Grouping makes it cheaper to see a shared toolchain
+# change (for example a go.mod `go` directive raise) once, instead of in each
+# of several overlapping pull requests that each conflict on go.mod.
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: pip
+    directory: /nlp
+    schedule:
+      interval: weekly
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
