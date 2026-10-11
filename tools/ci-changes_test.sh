@@ -26,7 +26,7 @@ expect() {
   shift 2
   got=$(printf '%s\n' "$@" | "$CLASSIFIER" 2>/dev/null | grep '=true$' | sed 's/=true$//' || true)
   got=$(normalize "$got")
-  if [ "$got" = "$want" ]; then
+  if [[ "$got" == "$want" ]]; then
     echo "ok   $name"
   else
     echo "FAIL $name: want [$want] got [$got]"
@@ -39,7 +39,7 @@ gate() {
   local name=$1 want=$2 got
   shift 2
   if "$GATE" "$@" >/dev/null 2>&1; then got=pass; else got=fail; fi
-  if [ "$got" = "$want" ]; then
+  if [[ "$got" == "$want" ]]; then
     echo "ok   $name"
   else
     echo "FAIL $name: want $want got $got"
@@ -119,7 +119,7 @@ expect "empty change set runs no check" "" \
 
 echo "== manual dispatch"
 dispatch=$("$CLASSIFIER" --all 2>/dev/null | grep '=true$' | sed 's/=true$//' || true)
-if [ "$(normalize "$dispatch")" = "$(normalize "$ALL")" ]; then
+if [[ "$(normalize "$dispatch")" == "$(normalize "$ALL")" ]]; then
   echo "ok   manual dispatch runs every check"
 else
   echo "FAIL manual dispatch runs every check: got [$dispatch]"
@@ -166,7 +166,7 @@ gated() {
   if [[ $line != *"needs.changes.outputs.$class == 'true'"* ]]; then
     echo "FAIL $job is not gated on $class"
     failures=$((failures + 1))
-  elif [ "$3" = yes ] && [[ $line != *"!cancelled()"* || $line != *"needs.changes.result != 'success'"* ]]; then
+  elif [[ "$3" == yes ]] && [[ $line != *"!cancelled()"* || $line != *"needs.changes.result != 'success'"* ]]; then
     echo "FAIL $job does not run and fail when change detection failed"
     failures=$((failures + 1))
   else
@@ -181,7 +181,7 @@ gated browser-fixture browser yes
 gated browser-smoke-shard browser no
 
 guards=$(grep -c 'Fail when change detection failed' "$workflow" || true)
-if [ "$guards" -eq 4 ]; then
+if [[ "$guards" -eq 4 ]]; then
   echo "ok   four guarded jobs fail when change detection failed"
 else
   echo "FAIL expected 4 change-detection guard steps, found $guards"
@@ -210,7 +210,7 @@ gate "failed change detection fails the gate" fail failure true failure
 gate "failed change detection fails even when shards skipped" fail failure false skipped
 gate "cancelled change detection fails the gate" fail cancelled false skipped
 
-if [ "$failures" -ne 0 ]; then
+if [[ "$failures" -ne 0 ]]; then
   echo "$failures check(s) failed"
   exit 1
 fi

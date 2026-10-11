@@ -9,7 +9,7 @@
 # unexpectedly skipped shard therefore never reports success.
 set -euo pipefail
 
-if [ "$#" -ne 3 ]; then
+if [[ "$#" -ne 3 ]]; then
   echo "usage: $0 <changes-result> <browser-required> <shards-result>" >&2
   exit 2
 fi
@@ -18,18 +18,18 @@ changes_result=$1
 browser_required=$2
 shards_result=$3
 
-if [ "$changes_result" != success ]; then
+if [[ "$changes_result" != success ]]; then
   echo "change detection ended with '$changes_result'; browser smoke cannot be decided" >&2
   exit 1
 fi
 
-if [ "$browser_required" = true ]; then
+if [[ "$browser_required" == true ]]; then
   expected=success
 else
   expected=skipped
 fi
 
-if [ "$shards_result" != "$expected" ]; then
+if [[ "$shards_result" != "$expected" ]]; then
   echo "browser shards ended with '$shards_result'; expected '$expected'" >&2
   exit 1
 fi
