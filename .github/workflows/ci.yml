@@ -107,7 +107,7 @@ jobs:
 
       - name: Set up uv
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.generated == 'true'
-        uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: nlp/requirements-dev.txt
