@@ -40,7 +40,7 @@ CPU-only PyTorch. Python commands need `PYTHONPATH=nlp/src:gen/python`.
 | --- | --- |
 | `make build` | `go build ./...` plus Python `compileall` |
 | `make test` | Go unit tests and pytest |
-| `make coverage` | Go unit and integration coverage profiles in `.tmp/coverage/` (needs the `make test-integration` database prerequisites) |
+| `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
 | `make lint` | golangci-lint over the whole module plus ruff |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
@@ -90,13 +90,17 @@ Regenerate rather than hand-edit:
 
 ### Test coverage
 
-`make coverage` runs the Go unit tests and the Go integration tests, each with a
-coverage profile, and writes the filtered profiles to
-`.tmp/coverage/go-unit.out` and `.tmp/coverage/go-integration.out`. `.tmp/` is
-gitignored, so the reports are never committed. The target regenerates templ
-output first, then `tools/go-coverage.sh` removes generated code (`gen/` and
-`*_templ.go`) from each profile with `tools/coverage-filter.sh`.
-`tools/coverage-filter_test.sh` checks that filter.
+`make coverage` writes the NLP service's Python coverage as a Cobertura XML
+report to `.tmp/coverage/python.xml`, measured over `nlp/src` with pytest-cov
+(pinned in `nlp/requirements-dev.txt`). Its file paths are relative to the
+repository root, so SonarQube Cloud can match them to sources. It then runs the
+Go unit tests and the Go integration tests, each with a coverage profile, and
+writes the filtered profiles to `.tmp/coverage/go-unit.out` and
+`.tmp/coverage/go-integration.out`. `.tmp/` is gitignored, so the reports are
+never committed. The target fails before running any test when `.venv` or pytest
+is missing. The target regenerates templ output first, then `tools/go-coverage.sh`
+removes generated code (`gen/` and `*_templ.go`) from each Go profile with
+`tools/coverage-filter.sh`. `tools/coverage-filter_test.sh` checks that filter.
 
 The integration profile uses `-coverpkg=./...`, so coverage is credited to every
 module package the integration tests execute, such as the PostgreSQL store, not
@@ -116,15 +120,17 @@ unrelated, and a figure from one never describes the other.
 (organisation `justin-hayes`, project `justin-hayes_mouseion`) on every push to
 `main` and on every pull request. It runs on a GitHub-hosted runner, which
 provides Docker for the integration tests' Testcontainers PostgreSQL. It runs the
-filter behavior test, runs `make coverage` (unit and integration), and then runs
-the official scan action. The scan's settings live in
+filter behavior test, sets up the Python environment the same way `ci.yml` does,
+runs `make coverage` (Python, Go unit, and Go integration), and then runs the
+official scan action. The scan's settings live in
 `sonar-project.properties` at the repository root. Excluded paths are
 generated code, vendored static assets, the generated stylesheet, and the
-immutable baseline migration.
+immutable baseline migration. Python test files under `nlp/tests` are classified
+as tests, not sources.
 
-The scan reads both Go profiles from `sonar.go.coverage.reportPaths`, so unit and
-integration test coverage reach SonarQube Cloud as part of the same analysis,
-which merges them. Later tickets add Python reports to that property.
+The scan reads the Go profiles from `sonar.go.coverage.reportPaths` and the
+Python report from `sonar.python.coverage.reportPaths`, so coverage for both
+languages reaches SonarQube Cloud as part of the same analysis.
 
 Fork pull requests cannot read repository secrets, so `SONAR_TOKEN` is
 unavailable there. The scan step is skipped for them, and the coverage steps
