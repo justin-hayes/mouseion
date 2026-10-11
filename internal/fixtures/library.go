@@ -11,7 +11,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 var fixtureCoverPNG = []byte{137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130}
@@ -174,17 +173,29 @@ func (s *Store) SetBookHidden(_ context.Context, owner, bookID string, expectedR
 	}
 	key := fixtureDispositionKey(owner, bookID)
 	state := s.visibility[key]
-	if state.revision == expectedRevision+1 && state.hidden == hidden {
-		return false, nil
-	}
-	if state.revision != expectedRevision {
-		return false, persistence.ErrStaleBookVisibility
+	if done, err := fixtureRevisionCheck(state.revision, expectedRevision, state.hidden == hidden, domain.ErrStaleBookVisibility); done || err != nil {
+		return false, err
 	}
 	if state.hidden == hidden {
 		return false, nil
 	}
 	s.visibility[key] = fixtureVisibility{hidden: hidden, revision: expectedRevision + 1}
 	return true, nil
+}
+
+// fixtureRevisionCheck is the expected-revision protocol the visibility and
+// disposition writes share, mirroring the PostgreSQL adapters. A single-step
+// replay of an accepted request (accepted reports that the stored state already
+// equals the request) is done without writing; any other revision that is not
+// the expected one is stale. Otherwise the caller decides whether to write.
+func fixtureRevisionCheck(revision, expected int64, accepted bool, stale error) (done bool, err error) {
+	if revision == expected+1 && accepted {
+		return true, nil
+	}
+	if revision != expected {
+		return false, stale
+	}
+	return false, nil
 }
 
 func (s *Store) bookDispositionLocked(owner, bookID string) domain.BookDisposition {
@@ -205,13 +216,13 @@ func (s *Store) bookDispositionRevisionLocked(owner, bookID string) int64 {
 // the shared browser fixture store: literal case-insensitive title substring
 // search, one language filter, lowercased deterministic title ordering, and
 // counts over the complete active owner collection.
-func (s *Store) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *Store) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	return s.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, false, offset, limit)
 }
 
 // ListMyBooksBrowseWithVisibility mirrors the production visibility scope:
 // Hidden Books are omitted unless showHidden is set and all counts follow it.
-func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	query = strings.ToLower(strings.TrimSpace(query))
@@ -221,7 +232,7 @@ func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query,
 		language = normalizeFixtureLanguage(language)
 	}
 	everything := s.myBooksForOwner(owner)
-	result := persistence.MyBooksBrowseResult{AllCount: len(everything)}
+	result := domain.MyBooksBrowseResult{AllCount: len(everything)}
 	all := make([]domain.MyBook, 0, len(everything))
 	for _, book := range everything {
 		inLanguage := language == "" || (language == domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageUnknown) || (language != domain.LanguageUnknown && book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language)
@@ -242,7 +253,7 @@ func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query,
 		counts[tag]++
 	}
 	for tag, count := range counts {
-		result.Counts = append(result.Counts, persistence.LanguageCount{Tag: tag, Count: count})
+		result.Counts = append(result.Counts, domain.LanguageCount{Tag: tag, Count: count})
 	}
 	dispositionCounts := map[domain.BookDisposition]int{}
 	for _, book := range all {
@@ -260,7 +271,7 @@ func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query,
 		}
 	}
 	for disposition, count := range dispositionCounts {
-		result.DispositionCounts = append(result.DispositionCounts, persistence.DispositionCount{Disposition: disposition, Count: count})
+		result.DispositionCounts = append(result.DispositionCounts, domain.DispositionCount{Disposition: disposition, Count: count})
 	}
 	sort.Slice(result.DispositionCounts, func(i, j int) bool {
 		return result.DispositionCounts[i].Disposition < result.DispositionCounts[j].Disposition
@@ -440,11 +451,8 @@ func (s *Store) TransitionBookDisposition(_ context.Context, owner, bookID strin
 	key := fixtureDispositionKey(owner, bookID)
 	revision := s.bookDispositionRevisionLocked(owner, bookID)
 	current := s.bookDispositionLocked(owner, bookID)
-	if revision == expectedRevision+1 && current == disposition {
-		return false, nil
-	}
-	if revision != expectedRevision {
-		return false, persistence.ErrStaleBookDisposition
+	if done, err := fixtureRevisionCheck(revision, expectedRevision, current == disposition, domain.ErrStaleBookDisposition); done || err != nil {
+		return false, err
 	}
 	s.dispositions[key] = disposition
 	s.dispositionRevisions[key] = revision + 1

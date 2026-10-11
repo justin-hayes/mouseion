@@ -16,28 +16,13 @@ import (
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
-// LanguageCount is one owner-scoped language pill count. Tag is "unknown"
-// for books whose language state is unknown.
-type LanguageCount struct {
-	Tag   string
-	Count int
-}
-
-type DispositionCount struct {
-	Disposition domain.BookDisposition
-	Count       int
-}
-
-type MyBooksBrowseResult struct {
-	Items             []domain.MyBook
-	ScopeTotal        int
-	Total             int
-	Counts            []LanguageCount
-	DispositionCounts []DispositionCount
-	AllCount          int
-	HiddenCount       int
-	ReadCount         int
-}
+// The My Books browse result types are defined in domain so store contracts can
+// read them without importing an adapter; these names are the same types.
+type (
+	LanguageCount       = domain.LanguageCount
+	DispositionCount    = domain.DispositionCount
+	MyBooksBrowseResult = domain.MyBooksBrowseResult
+)
 
 func (s *PostgresStore) ListMyBooks(ctx context.Context, owner string) ([]domain.Book, error) {
 	rows, err := s.queries().ListActiveBooks(ctx, owner)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,9 +39,9 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 	require.NotNil(t, detail.Acquired, "acquired detail=%+v err=%v", detail, err)
 	assert.Equal(t, domain.BookAnalyzed, detail.EvidenceState(), "acquired detail=%+v err=%v", detail, err)
 	_, err = store.GetBookDetail(ctx, "other-owner", BookID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "cross-owner detail error=%v", err) //nolint:testifylint // Cross-owner and unknown-detail lookups are independent cases.
+	assert.ErrorIs(t, err, domain.ErrNotFound, "cross-owner detail error=%v", err) //nolint:testifylint // Cross-owner and unknown-detail lookups are independent cases.
 	_, err = store.GetBookDetail(ctx, OwnerID, "unknown")
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "unknown detail error=%v", err)
+	assert.ErrorIs(t, err, domain.ErrNotFound, "unknown detail error=%v", err)
 }
 
 func TestStoreStudyLanguagesDeriveFromFixtureBooks(t *testing.T) {
@@ -176,7 +175,7 @@ func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
 	require.NoError(t, store.EndCurrentReading(t.Context(), OwnerID, "de", current.BookID, current.SnapshotID))
 	store.dispositions[fixtureDispositionKey(OwnerID, LemmaFlagBookID)] = domain.BookDispositionToRead
 	_, err = store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
-	assert.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags)
+	assert.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
 }
 
 func TestLemmaDecisionProposalIsRejectedForTheCurrentReadingBook(t *testing.T) {
@@ -193,7 +192,7 @@ func TestLemmaDecisionProposalIsRejectedForTheCurrentReadingBook(t *testing.T) {
 	err = store.PutLemmaDecisionProposal(t.Context(), proposal, "any-fingerprint")
 	require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading, "the gate runs before the preview fingerprint")
 	err = store.PutLemmaDecisions(t.Context(), proposal.Decisions())
-	require.ErrorIs(t, err, persistence.ErrNotFound, "the single-decision path keeps its not-found contract")
+	require.ErrorIs(t, err, domain.ErrNotFound, "the single-decision path keeps its not-found contract")
 	unchanged, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
 	require.NoError(t, err)
 	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")
@@ -203,10 +202,10 @@ func TestStartingFixtureBookRejectsMalformedAndUnknownIDsAsNotFound(t *testing.T
 	store := NewStore()
 	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {
 		_, err := store.StartCurrentReading(t.Context(), OwnerID, "de", bookID)
-		require.ErrorIs(t, err, persistence.ErrNotFound, bookID)
+		require.ErrorIs(t, err, domain.ErrNotFound, bookID)
 	}
 	_, err := store.StartCurrentReading(t.Context(), "not-a-uuid", "de", BookID)
-	assert.ErrorIs(t, err, persistence.ErrNotFound, "malformed owner")
+	assert.ErrorIs(t, err, domain.ErrNotFound, "malformed owner")
 }
 
 func TestStartingFixtureBookReportsAlreadyCurrentBeforeLemmaReviewFlags(t *testing.T) {
@@ -215,7 +214,7 @@ func TestStartingFixtureBookReportsAlreadyCurrentBeforeLemmaReviewFlags(t *testi
 	require.NoError(t, err)
 	require.True(t, current.IsActive(), "the fixture seeds a German current reading")
 	_, err = store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
-	assert.ErrorIs(t, err, persistence.ErrCurrentReadingExists)
+	assert.ErrorIs(t, err, domain.ErrCurrentReadingExists)
 }
 
 func fixtureBookIDs(books []domain.MyBook) []string {
@@ -226,7 +225,7 @@ func fixtureBookIDs(books []domain.MyBook) []string {
 	return ids
 }
 
-func dispositionCount(counts []persistence.DispositionCount, disposition domain.BookDisposition) int {
+func dispositionCount(counts []domain.DispositionCount, disposition domain.BookDisposition) int {
 	for _, count := range counts {
 		if count.Disposition == disposition {
 			return count.Count
@@ -272,7 +271,7 @@ func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
 	assert.Len(t, reserved, 2)
 
 	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, "stale-book", reading.SnapshotID)
-	require.ErrorIs(t, err, persistence.ErrCurrentReadingStale)
+	require.ErrorIs(t, err, domain.ErrCurrentReadingStale)
 	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", BookID, reading.SnapshotID))
 	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
@@ -296,7 +295,7 @@ func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
 	assert.Equal(t, ItalianGoalBookID, reading.BookID)
 
 	_, err = store.FinishCurrentReading(ctx, OwnerID, "it", "wrong-book", reading.SnapshotID)
-	require.ErrorIs(t, err, persistence.ErrCurrentReadingStale)
+	require.ErrorIs(t, err, domain.ErrCurrentReadingStale)
 	finished, err := store.FinishCurrentReading(ctx, OwnerID, "it", reading.BookID, reading.SnapshotID)
 	require.NoError(t, err)
 	replayed, err := store.FinishCurrentReading(ctx, OwnerID, "it", reading.BookID, reading.SnapshotID)
@@ -340,7 +339,7 @@ func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testi
 	require.NoError(t, err)
 	assert.Zero(t, emptyGoal.SnapshotSize)
 	_, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
-	require.ErrorIs(t, err, persistence.ErrNotFound)
+	require.ErrorIs(t, err, domain.ErrNotFound)
 
 	fixtureDeck := PreparedDeck{Store: store}
 	_, err = fixtureDeck.PrepareCurrentReadingDeck(ctx, OwnerID, goal.BookID, goal.SnapshotID)
@@ -570,9 +569,9 @@ func TestStoreSwitchCurrentReadingDecidesFromSnapshotLifecycleAndFlags(t *testin
 	require.NoError(t, err)
 
 	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", LemmaFlagBookID, reading.BookID, reading.SnapshotID)
-	require.ErrorIs(t, err, persistence.ErrUnresolvedLemmaReviewFlags, "Switch blocks on unresolved flags as Postgres does")
+	require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags, "Switch blocks on unresolved flags as Postgres does")
 	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, reading.BookID, reading.SnapshotID)
-	var ineligible persistence.CurrentReadingIneligibleError
+	var ineligible domain.CurrentReadingIneligibleError
 	require.ErrorAs(t, err, &ineligible)
 	assert.Equal(t, domain.CurrentReadingOtherLanguage, ineligible.Reason)
 
@@ -585,12 +584,12 @@ func TestStoreSwitchCurrentReadingDecidesFromSnapshotLifecycleAndFlags(t *testin
 
 	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, switched.SnapshotID))
 	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, switched.SnapshotID), "End replays from the released snapshot")
-	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, reading.SnapshotID), persistence.ErrCurrentReadingStale, "a released snapshot is no End replay for another Book")
+	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, reading.SnapshotID), domain.ErrCurrentReadingStale, "a released snapshot is no End replay for another Book")
 
 	restarted, err := store.StartCurrentReading(ctx, OwnerID, "de", switched.BookID)
 	require.NoError(t, err)
 	finished, err := store.FinishCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, restarted.SnapshotID, finished.Completion.SnapshotID)
-	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID), persistence.ErrCurrentReadingStale, "a completed snapshot is never an End replay")
+	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID), domain.ErrCurrentReadingStale, "a completed snapshot is never an End replay")
 }

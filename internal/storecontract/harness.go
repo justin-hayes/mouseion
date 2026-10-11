@@ -1,5 +1,6 @@
-// Package storecontract holds the scenarios that pin Current reading lifecycle
-// and deck admission behavior. Each store adapter that carries contractual
+// Package storecontract holds the scenarios that pin Current reading lifecycle,
+// deck admission, lemma review, and Book visibility, disposition, and previously
+// read import behavior. Each store adapter that carries contractual
 // transitions (ADR 0088) implements Harness and runs every scenario, so the
 // fixtures and PostgreSQL adapters are held to the same outcomes.
 //
@@ -27,6 +28,9 @@ type BookSeed struct {
 	// ToRead reports whether the Book is To Read. A Book that is not cannot
 	// become the current reading.
 	ToRead bool
+	// LanguageUnknown reports that the Book's language is not chosen, so it
+	// cannot be imported as previously read.
+	LanguageUnknown bool
 }
 
 // OccurrenceSeed is one observed token of a Book's analysis.
@@ -40,7 +44,21 @@ type OccurrenceSeed struct {
 type Harness interface {
 	Store() Store
 	LemmaReview() LemmaReviewStore
+	BookState() BookStateStore
 	Seeds() Seeder
+}
+
+// BookStateStore is the Book visibility, workflow disposition, and previously
+// read import surface under test. Each write takes the revision the learner
+// rendered; the adapter returns its own stale and not-found errors.
+type BookStateStore interface {
+	// GetBookDetail returns the Book with its disposition and visibility and
+	// the revisions a write must present.
+	GetBookDetail(owner, bookID string) (domain.MyBook, error)
+	GetBookVisibility(owner, bookID string) (hidden bool, revision int64, err error)
+	SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (applied bool, err error)
+	TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error)
+	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
 }
 
 // Store is the Current reading and deck admission surface under test.
@@ -102,14 +120,15 @@ type Scenario struct {
 	Run  func(t *testing.T, h Harness)
 }
 
-// Scenarios returns every Current reading lifecycle and deck admission scenario.
+// Scenarios returns every store contract scenario.
 func Scenarios() []Scenario {
 	scenarios := lifecycleScenarios()
 	for _, tc := range finishCases() {
 		scenarios = append(scenarios, finishScenario(tc))
 	}
 	scenarios = append(scenarios, admissionScenarios()...)
-	return append(scenarios, lemmaReviewScenarios()...)
+	scenarios = append(scenarios, lemmaReviewScenarios()...)
+	return append(scenarios, bookStateScenarios()...)
 }
 
 // Run runs every scenario as a subtest, each against a fresh harness.

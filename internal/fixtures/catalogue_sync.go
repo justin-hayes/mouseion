@@ -12,7 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 var fixtureCatalogueSyncJobIDs = map[string]int64{
@@ -65,14 +64,14 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 
 func (s *CatalogueSync) FindAcquisitionTarget(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
 	book, err := s.Store.GetBook(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
 	}
 	if err != nil {
 		return cataloguesync.AcquisitionTarget{}, err
 	}
 	alias, err := s.Store.GetBookCatalogEntryAlias(ctx, owner, book.ID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
 	}
 	if err != nil || alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
@@ -92,14 +91,14 @@ func (s *CatalogueSync) FindAcquisitionTarget(ctx context.Context, owner, bookID
 // implementation that the fixture server does not otherwise use.
 func (s *CatalogueSync) RefreshEntry(ctx context.Context, owner, bookID string) (cataloguesync.RefreshResult, error) {
 	book, err := s.Store.GetBook(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
 	}
 	if err != nil {
 		return cataloguesync.RefreshResult{Failed: true}, err
 	}
 	alias, err := s.Store.GetBookCatalogEntryAlias(ctx, owner, book.ID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
 	}
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 const (
@@ -42,7 +41,7 @@ const edgeBookID = "fixture-edge-content"
 
 const italianRouteBookID = "fixture-italian-route"
 
-var errNotFound = persistence.ErrNotFound
+var errNotFound = domain.ErrNotFound
 
 var fixtureJourneyTime = time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)
 
