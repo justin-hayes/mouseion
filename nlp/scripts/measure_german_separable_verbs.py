@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Generate precision evidence for German separable-verb reattachment."""
+"""Generate precision evidence for German separable-verb reattachment.
+
+Exit status:
+- 0: the report was written.
+- EXIT_SKIPPED (3): the German Stanza model is unavailable, so no report was
+  written. Callers that accept a missing model must check for this status.
+- Any other non-zero status is a failure.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +23,8 @@ SOURCE_TITLE = "Die Leiden des jungen Werther — Band 1"
 SOURCE_URL = "https://www.gutenberg.org/ebooks/2407"
 DEFAULT_INPUT = Path("nlp/testdata/german_prose_werther_excerpt.txt")
 DEFAULT_OUTPUT = Path("doc/evidence/german-separable-verb-precision.md")
+EXIT_COMPLETED = 0
+EXIT_SKIPPED = 3
 
 
 def main() -> int:
@@ -30,7 +39,7 @@ def main() -> int:
         producer.warmup("de")
     except Exception as error:  # noqa: BLE001 - model availability is the gate
         print(f"SKIP: German Stanza model unavailable: {error}", file=sys.stderr)
-        return 0
+        return EXIT_SKIPPED
 
     corpus = producer.analyze(
         text,
@@ -52,7 +61,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report, encoding="utf-8")
     print(f"Wrote {args.output}")
-    return 0
+    return EXIT_COMPLETED
 
 
 if __name__ == "__main__":
