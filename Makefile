@@ -112,7 +112,7 @@ lint: lint-go
 
 # templ is pinned: newer releases require Go >= 1.25.
 TEMPL ?= templ
-TEMPL_VERSION := v0.3.977
+TEMPL_VERSION := v0.3.1070
 
 templ-install:
 	mkdir -p $(GOTMPDIR)
