@@ -65,6 +65,9 @@ type Store struct {
 	deckVocabulary         []domain.DeckPreparationVocabulary
 	known                  []domain.KnownVocabulary
 	goalSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
+	// bookSnapshotVocabulary is the vocabulary a Book's next Start freezes. It is
+	// seeded by store contract harnesses, the way analysis supplies it in Postgres.
+	bookSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
 	legacyGenerated        []domain.GeneratedVocabulary
 	myBooks                []domain.MyBook
 	dispositions           map[string]domain.BookDisposition
@@ -204,8 +207,9 @@ func NewStore() *Store {
 			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
-		goalSnapshotSequence: make(map[string]int),
-		snapshotLifecycles:   make(map[string]domain.CurrentReadingSnapshotLifecycle),
+		goalSnapshotSequence:   make(map[string]int),
+		snapshotLifecycles:     make(map[string]domain.CurrentReadingSnapshotLifecycle),
+		bookSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{},
 		goalSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{
 			"fixture-de-goal-snapshot": {
 				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},

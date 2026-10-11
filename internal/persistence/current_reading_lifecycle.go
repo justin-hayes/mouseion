@@ -520,20 +520,8 @@ func readCurrentReadingLocked(ctx context.Context, q *sqlcgen.Queries, owner, la
 	return currentReadingFromRow(row, snapshotSize), nil
 }
 
-// CurrentReadingIneligibleError rejects a Book that the domain classifier does
-// not allow to become the current reading. It matches ErrCurrentReadingIneligible
-// and carries the classifier's reason for callers that report it.
-type CurrentReadingIneligibleError struct {
-	Reason domain.CurrentReadingEligibilityReason
-}
-
-func (e CurrentReadingIneligibleError) Error() string {
-	return ErrCurrentReadingIneligible.Error() + " (" + string(e.Reason) + ")"
-}
-
-func (e CurrentReadingIneligibleError) Is(target error) bool {
-	return target == ErrCurrentReadingIneligible
-}
+// CurrentReadingIneligibleError is domain.CurrentReadingIneligibleError.
+type CurrentReadingIneligibleError = domain.CurrentReadingIneligibleError
 
 // StartDecisionError maps a domain Start decision to the error every store
 // returns for it, so adapters reject a Start the same way. Accepted and replayed

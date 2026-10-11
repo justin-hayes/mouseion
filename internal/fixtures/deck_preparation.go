@@ -2,7 +2,7 @@ package fixtures
 
 // Contract status: contractual. Deck preparation and admission transitions
 // must match internal/storecontract scenarios shared with PostgreSQL (ADR
-// 0088). Issue #1722 introduces those shared scenarios.
+// 0088).
 
 import (
 	"context"

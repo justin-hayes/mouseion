@@ -30,21 +30,23 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
-var ErrNotFound = errors.New("persistence: not found")
+// The Current reading refusals are defined in domain so store contracts can
+// assert on them; these names are the same sentinels.
+var ErrNotFound = domain.ErrNotFound
 var ErrSecretRequired = errors.New("persistence: MOUSEION_SECRET is required for OPDS credentials")
 var ErrSecretWeak = errors.New("persistence: MOUSEION_SECRET must be at least 32 bytes")
 var ErrInvalidTransition = errors.New("persistence: invalid state transition")
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
-var ErrCurrentReadingExists = errors.New("persistence: current reading already exists")
+var ErrCurrentReadingExists = domain.ErrCurrentReadingExists
 
-var ErrCurrentReadingStale = errors.New("persistence: current reading state is stale")
-var ErrCurrentReadingIneligible = errors.New("persistence: current reading requires an analyzed To Read book")
+var ErrCurrentReadingStale = domain.ErrCurrentReadingStale
+var ErrCurrentReadingIneligible = domain.ErrCurrentReadingIneligible
 var ErrReadingAlreadyCompleted = errors.New("persistence: Book has already been completed")
 var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before moving to To Read")
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
 var ErrFenced = ErrPreparedDeckClaimLost
 var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")
-var ErrUnresolvedLemmaReviewFlags = errors.New("persistence: unresolved high-risk lemma review flags")
+var ErrUnresolvedLemmaReviewFlags = domain.ErrUnresolvedLemmaReviewFlags
 
 // ErrLemmaDecisionCurrentReading rejects a vocabulary decision for the Book
 // that is the owner's current reading. The review handler reports this exact
