@@ -89,3 +89,10 @@ run:
   build-tags:
     - integration
   tests: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: strict

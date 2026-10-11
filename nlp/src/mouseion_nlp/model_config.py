@@ -51,8 +51,7 @@ class LanguageModelConfig:
         if package is not None and not isinstance(package, (str, dict)):
             return None
         if isinstance(package, dict) and not all(
-            isinstance(key, str) and isinstance(value, str)
-            for key, value in package.items()
+            isinstance(key, str) and isinstance(value, str) for key, value in package.items()
         ):
             return None
         if not isinstance(dependencies, list) or not all(

@@ -4,8 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	//nolint:gosec // Anki's legacy collection schema requires SHA-1 compatibility.
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // Anki's legacy collection schema requires SHA-1 compatibility.
 	"database/sql"
 	_ "embed"
 	"encoding/hex"

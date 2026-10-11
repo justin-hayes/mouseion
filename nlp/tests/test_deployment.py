@@ -31,4 +31,6 @@ def test_standard_nlp_services_share_the_configured_model_caches() -> None:
 def test_nlp_waits_for_successful_model_provisioning() -> None:
     nlp = _service_block(COMPOSE_FILE.read_text(encoding="utf-8"), "nlp")
 
-    assert "    depends_on:\n      nlp-init:\n        condition: service_completed_successfully" in nlp
+    assert (
+        "    depends_on:\n      nlp-init:\n        condition: service_completed_successfully" in nlp
+    )
