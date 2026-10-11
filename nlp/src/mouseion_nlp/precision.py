@@ -162,7 +162,7 @@ def render_report(
         f"- Sample SHA-256: `{source_sha256}`",
         f"- Stanza version: `{stanza_version}`",
         f"- Regenerate: `{generator_command}`",
-        "- An unavailable Stanza German model causes the generator to print `SKIP` and exit successfully; it does not replace this committed report.",
+        "- An unavailable Stanza German model causes the generator to print `SKIP`, exit with status 3, and write no report; this committed report is left unchanged.",
         "",
         "## Counts",
         "",
