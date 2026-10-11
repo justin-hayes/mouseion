@@ -25,16 +25,13 @@ import (
 // times, and the fixture seeds only two occurrences.
 type threeWegReading struct{ *fixtures.Store }
 
-func (s threeWegReading) ListLemmaReviewOccurrences(ctx context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
-	occurrences, err := s.Store.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
-	if err != nil || bookID != "fixture-route-match" || (surface != "" && surface != "Weg") {
-		return occurrences, err
-	}
-	return append(occurrences, domain.LemmaReviewOccurrence{
-		OwnerID: owner, BookID: bookID, CorpusID: "fixture-route-match-corpus", AnalysisRunID: "fixture-route-match-run",
+func newThreeWegReading(store *fixtures.Store) threeWegReading {
+	store.SeedLemmaReviewOccurrence(domain.LemmaReviewOccurrence{
+		OwnerID: fixtures.OwnerID, BookID: "fixture-route-match", CorpusID: "fixture-route-match-corpus", AnalysisRunID: "fixture-route-match-run",
 		SourceDocumentID: "fixture-route-match-unit", StartOffset: 40, EndOffset: 43, SentenceOrdinal: 2, TokenOrdinal: 1,
 		Surface: "Weg", RawLemma: "Weg", CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg führt zum Haus.",
-	}), nil
+	})
+	return threeWegReading{Store: store}
 }
 
 // ListDeckPreparationsForSourceMaterial reports one ready, snapshotted deck for
@@ -88,7 +85,7 @@ func startSessionOver(t *testing.T, reading threeWegReading, index lemmarisk.Alt
 
 func TestStartRunsLemmaRiskDetectionBeforeFreezingTheBook(t *testing.T) {
 	store := fixtures.NewStore()
-	reading := threeWegReading{Store: store}
+	reading := newThreeWegReading(store)
 	endGermanFixtureReading(t, store)
 	h, cookies, csrf := startSessionOver(t, reading, competingLemmaIndex{})
 
@@ -106,7 +103,7 @@ func TestStartRunsLemmaRiskDetectionBeforeFreezingTheBook(t *testing.T) {
 
 func TestConfirmedIdentityRestartRunsLemmaRiskDetectionBeforeFreezing(t *testing.T) {
 	store := fixtures.NewStore()
-	reading := threeWegReading{Store: store}
+	reading := newThreeWegReading(store)
 	endGermanFixtureReading(t, store)
 	lemmaPath := "/reading/books/fixture-route-match/lemma-review"
 
@@ -131,7 +128,7 @@ func TestConfirmedIdentityRestartRunsLemmaRiskDetectionBeforeFreezing(t *testing
 
 func TestStartWithoutLemmaRiskIndexStillStartsTheBook(t *testing.T) {
 	store := fixtures.NewStore()
-	reading := threeWegReading{Store: store}
+	reading := newThreeWegReading(store)
 	endGermanFixtureReading(t, store)
 	h, cookies, csrf := startSessionOver(t, reading, nil)
 

@@ -84,7 +84,11 @@ type Store struct {
 	lemmaCorrections       map[string]string
 	lemmaExclusions        map[string]bool
 	lemmaReviewFlags       map[string]domain.LemmaReviewFlag
-	browseScenario         string
+	// lemmaOccurrences are the occurrences each Book's analysis contributes to
+	// lemma review, keyed by lemmaOccurrenceKey. Decisions and flags validate
+	// against them.
+	lemmaOccurrences map[string][]domain.LemmaReviewOccurrence
+	browseScenario   string
 }
 
 // Fixture Books state the typed analysis evidence they present. Eligibility is
@@ -222,6 +226,7 @@ func NewStore() *Store {
 		lemmaCorrections:     make(map[string]string),
 		lemmaExclusions:      make(map[string]bool),
 		lemmaReviewFlags:     make(map[string]domain.LemmaReviewFlag),
+		lemmaOccurrences:     fixtureCannedLemmaOccurrences(),
 	}
 	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
 		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},

@@ -288,7 +288,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 
 			err = store.PutLemmaDecisionProposal(ctx, proposal, previewed.Fingerprint)
 			if tt.wantStale {
-				require.ErrorIs(t, err, ErrLemmaReviewPreviewStale)
+				require.ErrorIs(t, err, domain.ErrLemmaReviewPreviewStale)
 				unchanged, listErr := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
 				require.NoError(t, listErr)
 				assert.Empty(t, unchanged[0].CorrectedLemma, "a stale preview persists nothing")

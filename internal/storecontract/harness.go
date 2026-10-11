@@ -21,9 +21,17 @@ type BookSeed struct {
 	// Vocabulary is the identities the Book's analysis contributes. A Start
 	// freezes the eligible ones into the reading's snapshot.
 	Vocabulary []domain.SnapshotIdentity
+	// Occurrences are the observed tokens the Book's analysis contributes to
+	// lemma review, in sentence order. Each one becomes its own sentence.
+	Occurrences []OccurrenceSeed
 	// ToRead reports whether the Book is To Read. A Book that is not cannot
 	// become the current reading.
 	ToRead bool
+}
+
+// OccurrenceSeed is one observed token of a Book's analysis.
+type OccurrenceSeed struct {
+	Surface, Lemma, UPOS string
 }
 
 // Harness is what an adapter implements to run the scenarios. Store exposes the
@@ -31,6 +39,7 @@ type BookSeed struct {
 // facts a scenario needs and fails the test on error.
 type Harness interface {
 	Store() Store
+	LemmaReview() LemmaReviewStore
 	Seeds() Seeder
 }
 
@@ -49,6 +58,24 @@ type Store interface {
 	// RepreparePreparation rolls the preparation forward for the snapshot the
 	// request names and returns the resulting preparation.
 	RepreparePreparation(owner, id, expectedSnapshotID string) (domain.DeckPreparation, error)
+}
+
+// LemmaReviewStore is the lemma review surface under test: occurrences, flags,
+// and the previewed and confirmed vocabulary decisions.
+type LemmaReviewStore interface {
+	// ListLemmaReviewOccurrences returns the occurrences of surface in the
+	// Book's current analysis, with any learner decision and flag applied. An
+	// empty surface returns every occurrence.
+	ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error)
+	// SaveLemmaReviewFlags records detector flags without reopening a flag the
+	// learner has already resolved.
+	SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error
+	// ReadLemmaReviewProposal previews a proposal and returns the fingerprint a
+	// confirm must present.
+	ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
+	// PutLemmaDecisionProposal confirms a previewed proposal against its
+	// fingerprint and commits the decisions atomically.
+	PutLemmaDecisionProposal(proposal domain.LemmaReviewProposal, expectedFingerprint string) error
 }
 
 // Seeder builds the learner, Book, and preparation facts a scenario starts from.
@@ -81,7 +108,8 @@ func Scenarios() []Scenario {
 	for _, tc := range finishCases() {
 		scenarios = append(scenarios, finishScenario(tc))
 	}
-	return append(scenarios, admissionScenarios()...)
+	scenarios = append(scenarios, admissionScenarios()...)
+	return append(scenarios, lemmaReviewScenarios()...)
 }
 
 // Run runs every scenario as a subtest, each against a fresh harness.

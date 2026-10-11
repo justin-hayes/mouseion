@@ -170,7 +170,7 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, proposal d
 			return err
 		}
 		if preview.Fingerprint != expectedFingerprint {
-			return ErrLemmaReviewPreviewStale
+			return domain.ErrLemmaReviewPreviewStale
 		}
 		return applyLemmaDecisionsTx(ctx, tx, owner, book, proposal.Decisions())
 	})
@@ -231,7 +231,7 @@ func rejectLemmaDecisionForCurrentReading(ctx context.Context, tx pgx.Tx, owner,
 		return err
 	}
 	if current {
-		return ErrLemmaDecisionCurrentReading
+		return domain.ErrLemmaDecisionCurrentReading
 	}
 	return nil
 }

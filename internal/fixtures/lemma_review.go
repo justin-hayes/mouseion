@@ -1,7 +1,8 @@
 package fixtures
 
-// Contract status: illustrative. Canned state for browser scenarios; not held
-// to internal/storecontract parity (ADR 0088).
+// Contract status: contractual. Lemma review runs the internal/storecontract
+// scenarios (ADR 0088) against this store and the PostgreSQL adapter. Occurrences
+// are seeded per Book, and every decision and flag is validated against them.
 
 import (
 	"context"
@@ -10,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
@@ -18,34 +18,77 @@ func fixtureLemmaCorrectionKey(owner, book, analysis string, start, end int64) s
 	return owner + "\x00" + book + "\x00" + analysis + "\x00" + strconv.FormatInt(start, 10) + "\x00" + strconv.FormatInt(end, 10)
 }
 
+// lemmaOccurrenceKey names the occurrences one Book's analysis contributes to
+// lemma review.
+func lemmaOccurrenceKey(owner, bookID string) string {
+	return owner + "\x00" + bookID
+}
+
+// fixtureLemmaOccurrences builds the two "Weg" occurrences a canned Book's
+// analysis contributes, one per sentence, with no learner decision applied.
+func fixtureLemmaOccurrences(owner, bookID, corpusID, analysisRunID, sourceDocumentID string) []domain.LemmaReviewOccurrence {
+	result := make([]domain.LemmaReviewOccurrence, 0, 2)
+	for i, offset := range []int64{4, 20} {
+		result = append(result, domain.LemmaReviewOccurrence{
+			OwnerID: owner, BookID: bookID, CorpusID: corpusID, AnalysisRunID: analysisRunID,
+			SourceDocumentID: sourceDocumentID, StartOffset: offset, EndOffset: offset + 3,
+			SentenceOrdinal: int64(i), TokenOrdinal: 1, Surface: "Weg", RawLemma: "Weg",
+			CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg führt zum Haus.",
+		})
+	}
+	return result
+}
+
+// fixtureCannedLemmaOccurrences seeds the lemma review occurrences of the Books
+// the browser fixtures present.
+func fixtureCannedLemmaOccurrences() map[string][]domain.LemmaReviewOccurrence {
+	canned := []struct{ book, corpus, run, unit string }{
+		{BookID, "fixture-corpus", ResultRunID, "fixture-unit"},
+		{routeMatchBookID, "fixture-route-match-corpus", "fixture-route-match-run", "fixture-route-match-unit"},
+		{LemmaFlagBookID, "fixture-lemma-flag-corpus", "fixture-lemma-flag-run", "fixture-lemma-flag-unit"},
+	}
+	occurrences := make(map[string][]domain.LemmaReviewOccurrence, len(canned))
+	for _, c := range canned {
+		occurrences[lemmaOccurrenceKey(OwnerID, c.book)] = fixtureLemmaOccurrences(OwnerID, c.book, c.corpus, c.run, c.unit)
+	}
+	return occurrences
+}
+
+// SeedLemmaReviewOccurrence adds an occurrence to a Book's analysis, so a test can
+// review a surface form the browser fixtures do not present.
+func (s *Store) SeedLemmaReviewOccurrence(occurrence domain.LemmaReviewOccurrence) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := lemmaOccurrenceKey(occurrence.OwnerID, occurrence.BookID)
+	s.lemmaOccurrences[key] = append(s.lemmaOccurrences[key], occurrence)
+}
+
+// hasLemmaOccurrenceLocked reports whether occurrence is one the Book's analysis
+// was seeded with. The caller holds s.mu.
+func (s *Store) hasLemmaOccurrenceLocked(occurrence domain.LemmaReviewOccurrence) bool {
+	for _, seeded := range s.lemmaOccurrences[lemmaOccurrenceKey(occurrence.OwnerID, occurrence.BookID)] {
+		if seeded.ID() == occurrence.ID() {
+			return true
+		}
+	}
+	return false
+}
+
+// ListLemmaReviewOccurrences returns the seeded occurrences of surface with the
+// learner's decisions and flags applied. An empty surface returns every one.
 func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if owner != OwnerID || (surface != "" && surface != "Weg") || (bookID != BookID && bookID != routeMatchBookID && bookID != LemmaFlagBookID) {
-		return nil, nil
-	}
-	if surface == "" {
-		surface = "Weg"
-	}
-	corpusID, analysisRunID, sourceDocumentID := "fixture-corpus", ResultRunID, "fixture-unit"
-	if bookID == routeMatchBookID {
-		corpusID, analysisRunID, sourceDocumentID = "fixture-route-match-corpus", "fixture-route-match-run", "fixture-route-match-unit"
-	}
-	if bookID == LemmaFlagBookID {
-		corpusID, analysisRunID, sourceDocumentID = "fixture-lemma-flag-corpus", "fixture-lemma-flag-run", "fixture-lemma-flag-unit"
-	}
-	result := make([]domain.LemmaReviewOccurrence, 0, 2)
-	for i, offset := range []int64{4, 20} {
-		start, end := offset, offset+3
-		occurrence := domain.LemmaReviewOccurrence{
-			OwnerID: owner, BookID: bookID, CorpusID: corpusID, AnalysisRunID: analysisRunID,
-			SourceDocumentID: sourceDocumentID, StartOffset: start, EndOffset: end,
-			SentenceOrdinal: int64(i), TokenOrdinal: 1, Surface: surface, RawLemma: "Weg",
-			CanonicalLemma: "weg", UPOS: "NOUN", SentenceText: "Der Weg führt zum Haus.",
-			CorrectedLemma: s.lemmaCorrections[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
-			Excluded:       s.lemmaExclusions[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)],
+	seeded := s.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)]
+	result := make([]domain.LemmaReviewOccurrence, 0, len(seeded))
+	for _, occurrence := range seeded {
+		if surface != "" && occurrence.Surface != surface {
+			continue
 		}
-		if flag, ok := s.lemmaReviewFlags[fixtureLemmaCorrectionKey(owner, bookID, analysisRunID, start, end)]; ok {
+		key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+		occurrence.CorrectedLemma = s.lemmaCorrections[key]
+		occurrence.Excluded = s.lemmaExclusions[key]
+		if flag, ok := s.lemmaReviewFlags[key]; ok {
 			occurrence.ReviewFlagReason = flag.Reason
 			occurrence.ReviewFlagProvenance = flag.Provenance
 			occurrence.ReviewFlagResolution = flag.Resolution
@@ -55,9 +98,16 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 	return result, nil
 }
 
+// SaveLemmaReviewFlags validates every flag before it records any, as the
+// persistence store's transaction does, and never reopens a resolved flag.
 func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	for _, flag := range flags {
+		if strings.TrimSpace(flag.Reason) == "" || !s.hasLemmaOccurrenceLocked(flag.Occurrence) {
+			return errNotFound
+		}
+	}
 	for _, flag := range flags {
 		o := flag.Occurrence
 		key := fixtureLemmaCorrectionKey(o.OwnerID, o.BookID, o.AnalysisRunID, o.StartOffset, o.EndOffset)
@@ -73,11 +123,10 @@ func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaRev
 	defer s.mu.Unlock()
 	for _, decision := range decisions {
 		occurrence := decision.Occurrence
-		validAnalysis := occurrence.BookID == BookID && occurrence.AnalysisRunID == ResultRunID || occurrence.BookID == routeMatchBookID && occurrence.AnalysisRunID == "fixture-route-match-run" || occurrence.BookID == LemmaFlagBookID && occurrence.AnalysisRunID == "fixture-lemma-flag-run"
-		if occurrence.OwnerID != OwnerID || !validAnalysis || occurrence.Surface != "Weg" {
+		if !s.hasLemmaOccurrenceLocked(occurrence) {
 			return errNotFound
 		}
-		if goal, ok := s.currentReadings[fixtureGoalKey(occurrence.OwnerID, "de")]; ok && goal.IsActive() && goal.BookID == occurrence.BookID {
+		if s.lemmaDecisionBlockedByCurrentReadingLocked(occurrence.OwnerID, occurrence.BookID) {
 			return errNotFound
 		}
 		key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
@@ -175,31 +224,24 @@ func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.Le
 	blocked := s.lemmaDecisionBlockedByCurrentReadingLocked(proposal.OwnerID, proposal.BookID)
 	s.mu.Unlock()
 	if blocked {
-		return persistence.ErrLemmaDecisionCurrentReading
+		return domain.ErrLemmaDecisionCurrentReading
 	}
 	preview, err := s.ReadLemmaReviewProposal(ctx, proposal)
 	if err != nil {
 		return err
 	}
 	if preview.Fingerprint != expected {
-		return persistence.ErrLemmaReviewPreviewStale
+		return domain.ErrLemmaReviewPreviewStale
 	}
 	return s.PutLemmaDecisions(ctx, proposal.Decisions())
 }
 
+// hasUnresolvedLemmaReviewFlag reports whether any seeded occurrence of the Book
+// carries a flag the learner has not resolved.
 func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
-	runID := ""
-	if bookID == routeMatchBookID {
-		runID = "fixture-route-match-run"
-	}
-	if bookID == LemmaFlagBookID {
-		runID = "fixture-lemma-flag-run"
-	}
-	if bookID == BookID {
-		runID = ResultRunID
-	}
-	for key, flag := range s.lemmaReviewFlags {
-		if strings.HasPrefix(key, owner+"\x00"+bookID+"\x00"+runID+"\x00") && flag.Resolution == "" {
+	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] {
+		key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+		if flag, ok := s.lemmaReviewFlags[key]; ok && flag.Resolution == "" {
 			return true
 		}
 	}

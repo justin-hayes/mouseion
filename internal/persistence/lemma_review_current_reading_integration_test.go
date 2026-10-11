@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +31,7 @@ func TestLemmaDecisionProposalCommittedAfterStartIsRejectedAndSavesNothing(t *te
 	require.NoError(t, err)
 
 	err = store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint)
-	require.ErrorIs(t, err, ErrLemmaDecisionCurrentReading)
+	require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading)
 	require.EqualError(t, err, "Stop this Book's current reading before changing its vocabulary.")
 	unchanged, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
 	require.NoError(t, err)

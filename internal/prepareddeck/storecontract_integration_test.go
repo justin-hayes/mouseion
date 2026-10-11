@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -58,8 +59,9 @@ func TestStoreContracts(t *testing.T) {
 	storecontract.Run(t, newPostgresHarness)
 }
 
-func (h *postgresHarness) Store() storecontract.Store  { return h }
-func (h *postgresHarness) Seeds() storecontract.Seeder { return h }
+func (h *postgresHarness) Store() storecontract.Store                  { return h }
+func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
+func (h *postgresHarness) Seeds() storecontract.Seeder                 { return h }
 
 func (h *postgresHarness) Owner() string      { return h.owner }
 func (h *postgresHarness) OtherOwner() string { return h.other }
@@ -82,7 +84,10 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: storecontract.Language})
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, book.ID, source.ID))
-	corpusID := h.completeAnalysis(t, owner, book.ID, source.ID, identifier)
+	runID, corpusID := h.completeAnalysis(t, owner, book.ID, source.ID, identifier)
+	if len(seed.Occurrences) > 0 {
+		h.seedLemmaOccurrences(t, owner, book.ID, source.ID, runID, corpusID, seed.Occurrences)
+	}
 	if seed.ToRead {
 		require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, book.ID, domain.BookDispositionToRead))
 	}
@@ -94,8 +99,8 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 }
 
 // completeAnalysis runs the Book's analysis to completion as analysis does,
-// makes it the Book's current analysis, and returns its corpus ID.
-func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier string) string {
+// makes it the Book's current analysis, and returns its run and corpus IDs.
+func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier string) (string, string) {
 	t.Helper()
 	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(h.store))
 	require.NoError(t, err)
@@ -109,7 +114,26 @@ func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID
 	h.exec(t, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, handle.RunID)
 	h.exec(t, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner, corpusID, handle.RunID)
 	h.exec(t, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, bookID, sourceID, handle.RunID)
-	return corpusID
+	return handle.RunID, corpusID
+}
+
+// seedLemmaOccurrences stores the scenario's occurrences as analysis would, one
+// sentence each in the Book's extracted unit, then builds the Book's vocabulary
+// count projection so lemma review previews are ready.
+func (h *postgresHarness) seedLemmaOccurrences(t *testing.T, owner, bookID, sourceID, runID, corpusID string, seeds []storecontract.OccurrenceSeed) {
+	t.Helper()
+	unitID := domain.EPUBUnitID(0, "unit")
+	start := int64(0)
+	for ordinal, seed := range seeds {
+		end := start + int64(utf8.RuneCountInString(seed.Surface))
+		h.exec(t, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, owner, runID, corpusID, unitID, ordinal, seed.Surface, start, end)
+		h.exec(t, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset) VALUES($1,$2,$3,$4,$5,0,$6,$7,$7,$8,'root',0,'{}',$9,$10)`, owner, storecontract.Language, runID, corpusID, ordinal, seed.Surface, seed.Lemma, seed.UPOS, start, end)
+		start = end + 1
+	}
+	tx, err := h.store.Pool().Begin(h.ctx)
+	require.NoError(t, err)
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(h.ctx, tx, owner, bookID, sourceID, runID, corpusID, storecontract.Language))
+	require.NoError(t, tx.Commit(h.ctx))
 }
 
 func (h *postgresHarness) SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity) {
@@ -157,6 +181,22 @@ func (h *postgresHarness) FinishCurrentReading(owner, language, expectedBookID, 
 
 func (h *postgresHarness) ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error) {
 	return h.store.ListKnownVocabulary(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
+	return h.store.ListLemmaReviewOccurrences(h.ctx, owner, bookID, surface)
+}
+
+func (h *postgresHarness) SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error {
+	return h.store.SaveLemmaReviewFlags(h.ctx, flags)
+}
+
+func (h *postgresHarness) ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
+	return h.store.ReadLemmaReviewProposal(h.ctx, proposal)
+}
+
+func (h *postgresHarness) PutLemmaDecisionProposal(proposal domain.LemmaReviewProposal, expectedFingerprint string) error {
+	return h.store.PutLemmaDecisionProposal(h.ctx, proposal, expectedFingerprint)
 }
 
 func (h *postgresHarness) PrepareCurrentReadingDeck(owner, bookID, expectedSnapshotID string) (domain.DeckPreparation, error) {

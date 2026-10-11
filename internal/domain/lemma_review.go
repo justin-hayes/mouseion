@@ -25,6 +25,15 @@ var (
 	ErrLemmaReviewDecision              = errors.New("Choose a decision to preview.")
 	ErrLemmaReviewLemma                 = errors.New("Enter one valid canonical lemma without spaces.")
 	ErrLemmaReviewUnsupportedLanguage   = errors.New("Choose a supported study language before correcting a lemma.")
+
+	// ErrLemmaDecisionCurrentReading is what every store returns when a vocabulary
+	// decision targets the Book that is the owner's current reading. It is the
+	// same sentinel the review handler reports, so the gate reads identically at
+	// each layer.
+	ErrLemmaDecisionCurrentReading = ErrLemmaReviewCurrentReading
+	// ErrLemmaReviewPreviewStale reports that the learner's vocabulary state or the
+	// surface form's occurrences changed after the proposal was previewed.
+	ErrLemmaReviewPreviewStale = errors.New("persistence: lemma review preview is stale")
 )
 
 // ID is the stable identity of an occurrence within its Book: the analysis run,
