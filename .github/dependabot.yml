@@ -122,3 +122,36 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # grpcio, grpcio-tools, protobuf: grpcio-tools generates the Python protobuf code
+      # that CI verifies with `make gen`, so the three move together. grpcio is held at
+      # 1.71.2, the pin that matches the Python 3.13 toolchain; Python 3.14 needs a grpcio
+      # upgrade first (AGENTS.md). Lift by bumping all three by hand
+      # (doc/development.md, Dependency updates > Manual bumps).
+      - dependency-name: "grpcio"
+      - dependency-name: "grpcio-tools"
+      - dependency-name: "protobuf"
+
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build(deps)
+    groups:
+      e2e-npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # @playwright/test: must move together with the digest-pinned Playwright image in
+      # .github/workflows/ci.yml, which Dependabot cannot update, and CI fails if the
+      # image tag and the locked version differ. Bump by hand as described in
+      # e2e/README.md ("Dependency and update policy"); this exclusion is permanent.
+      - dependency-name: "@playwright/test"
