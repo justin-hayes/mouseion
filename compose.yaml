@@ -31,8 +31,18 @@ services:
     build:
       context: .
       dockerfile: nlp/Dockerfile
-    entrypoint: ["python", "-m", "mouseion_nlp.provision"]
+    # Volumes populated before the image ran as non-root are root-owned. Run as root only
+    # long enough to hand both model caches to the NLP user (10001), then drop privileges
+    # for provisioning. The nlp service inherits the non-root USER from the image.
+    user: "0:0"
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        chown -R 10001:10001 /opt/stanza_resources /opt/huggingface &&
+        exec setpriv --reuid=10001 --regid=10001 --clear-groups python -m mouseion_nlp.provision
     environment:
+      HOME: /home/mouseion
       MOUSEION_NLP_WARM_LANGUAGES: ${MOUSEION_NLP_WARM_LANGUAGES:-de,it,el}
       STANZA_RESOURCES_DIR: /opt/stanza_resources
       HF_HOME: /opt/huggingface
