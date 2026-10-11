@@ -5,9 +5,9 @@ Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independen
 The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
 contract is being implemented in slices. New Book-deck preparation is now
 available only for the Current reading and uses its frozen snapshot; starting,
-switching, and finishing do not enqueue or depend on deck work. The existing
-three-occurrence selection floor remains in effect until the corpus-qualified
-two-occurrence slice ships. Custom-deck retirement is also pending.
+switching, and finishing do not enqueue or depend on deck work. Selection
+follows the three-occurrence floor plus the library-total route of
+[ADR 0090](../adr/0090-library-total-book-vocabulary-selection.md).
 
 ## Goal
 

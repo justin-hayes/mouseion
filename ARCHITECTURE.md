@@ -175,10 +175,11 @@ flowchart TD
 
 - **Selection** ([`internal/selection`](internal/selection)) keeps content
   words (NOUN, VERB, ADJ, ADV) that occur at least three times in the book, or
-  exactly twice when they occur at least ten times across the learner's
+  at least once when they occur at least fifteen times across the learner's
   analyzed books. It excludes Known and Reserved vocabulary
   ([ADR 0048](doc/adr/0048-frequency-floor-deck-selection.md),
-  [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md)).
+  [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md),
+  [ADR 0090](doc/adr/0090-library-total-book-vocabulary-selection.md)).
 - **The reading snapshot** freezes that vocabulary when reading starts, so
   later corrections or imports cannot silently change a deck in progress.
   Finishing the book moves the snapshot into Known vocabulary; generating cards

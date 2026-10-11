@@ -3,7 +3,10 @@ package selection
 import "github.com/justin-hayes/mouseion/internal/domain"
 
 const DefaultRecurringMinOccurrences = 3
-const DefaultAcrossBooksMinOccurrences = 10
+
+// DefaultAcrossBooksMinOccurrences is provisional (issue #1803): an absolute
+// library total that needs re-measuring as the learner's library grows.
+const DefaultAcrossBooksMinOccurrences = 15
 
 // Eligibility contains the learner-state exclusions shared by recurring-
 // vocabulary selectors. Generated vocabulary is deliberately absent: it is
@@ -36,17 +39,18 @@ func (e Eligibility) Allows(candidate domain.SelectionCandidate, minOccurrences 
 }
 
 // AllowsBookDeckCandidate preserves the in-Book frequency floor and permits
-// exactly-two occurrences only when current same-language evidence reaches
-// the corpus-wide threshold.
+// rarer in-Book identities only when current same-language evidence reaches
+// the across-Books threshold.
 func (e Eligibility) AllowsBookDeckCandidate(candidate domain.SelectionCandidate, acrossBooksOccurrences int64) bool {
 	return readingFrequencyEligible(int64(candidate.OccurrenceCount), acrossBooksOccurrences) && !e.ExcludesLearnerState(candidate)
 }
 
 // readingFrequencyEligible is the Reading frequency rule shared by the snapshot
 // freeze and the lemma review impact preview: three occurrences in the Book, or
-// two with ten across the learner's currently analyzed Books.
+// at least one with fifteen across the learner's currently analyzed Books,
+// including this one.
 func readingFrequencyEligible(inBook, acrossBooks int64) bool {
-	return inBook >= DefaultRecurringMinOccurrences || (inBook == 2 && acrossBooks >= DefaultAcrossBooksMinOccurrences)
+	return inBook >= DefaultRecurringMinOccurrences || (inBook >= 1 && acrossBooks >= DefaultAcrossBooksMinOccurrences)
 }
 
 // ExcludesLearnerState reports whether Known or Reserved state excludes an

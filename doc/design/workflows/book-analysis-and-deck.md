@@ -12,8 +12,8 @@ The implemented [Reading-owned Book vocabulary contract](../../features/reading-
 supersedes the pre-reading/direct deck submission and independent-selection
 portions of the shipped workflow below. New Book preparations are currently
 gated on Current reading and use its exact snapshot; starting, switching, and
-finishing do not depend on preparation. The two-occurrence corpus exception is
-frozen with the snapshot, and Custom decks are retired. Older direct artifacts
+finishing do not depend on preparation. The library-total route for rarer
+identities (ADR 0090) is frozen with the snapshot, and Custom decks are retired. Older direct artifacts
 remain downloadable but cannot start new Book preparations.
 
 ## Goal

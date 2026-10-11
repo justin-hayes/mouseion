@@ -266,7 +266,7 @@ func TestEligibilityUsesKnownWildcardAndLanguageScopedReservations(t *testing.T)
 	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "häufig", UPOS: "NOUN", OccurrenceCount: 2}, 3))
 }
 
-func TestBookDeckEligibilityCorpusQualifiedTwoOccurrenceBoundary(t *testing.T) {
+func TestBookDeckEligibilityAcrossBooksBoundary(t *testing.T) {
 	eligibility := NewEligibility(nil, nil)
 	allows := func(inBook int, across int64) bool {
 		return eligibility.AllowsBookDeckCandidate(domain.SelectionCandidate{
@@ -274,19 +274,21 @@ func TestBookDeckEligibilityCorpusQualifiedTwoOccurrenceBoundary(t *testing.T) {
 		}, across)
 	}
 	assert.True(t, allows(3, 3), "three in-Book occurrences qualify without extra evidence")
-	assert.False(t, allows(2, 9), "nine across Books does not meet the threshold")
-	assert.True(t, allows(2, 10), "ten across Books qualifies")
-	assert.False(t, allows(1, 100), "singletons never qualify")
+	assert.False(t, allows(2, 14), "fourteen across Books does not meet the threshold")
+	assert.True(t, allows(2, 15), "fifteen across Books qualifies")
+	assert.False(t, allows(1, 14), "a single occurrence needs the same across-Books threshold")
+	assert.True(t, allows(1, 15), "a single occurrence qualifies with fifteen across Books")
+	assert.False(t, allows(0, 100), "an identity absent from the Book never qualifies")
 	assert.True(t, allows(4, 0), "existing three-plus eligibility is unchanged")
 
 	known := NewEligibility([]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "wort", UPOS: ""}}, nil)
 	assert.False(t, known.AllowsBookDeckCandidate(domain.SelectionCandidate{
 		Language: "de", CanonicalLemma: "wort", UPOS: "NOUN", OccurrenceCount: 2,
-	}, 10), "lemma-wide Known vocabulary excludes every POS")
+	}, 15), "lemma-wide Known vocabulary excludes every POS")
 	reserved := NewEligibility(nil, []domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "wort", UPOS: "NOUN"}})
 	assert.False(t, reserved.AllowsBookDeckCandidate(domain.SelectionCandidate{
 		Language: "de", CanonicalLemma: "wort", UPOS: "NOUN", OccurrenceCount: 2,
-	}, 10), "reserved identities remain excluded")
+	}, 15), "reserved identities remain excluded")
 }
 
 func TestGreekEligibilityKeepsKnownAndReservedVocabularyOwnerAndLanguageScoped(t *testing.T) {
