@@ -552,7 +552,7 @@ def test_pipeline_and_capability_model_version_use_language_configuration() -> N
             "lemma": "gdt_nocharlm",
             "depparse": "gdt_greek-bert",
         },
-        model_version="stanza-1.14.0-gdt-accurate",
+        model_version="stanza-1.15.0-gdt-accurate",
     )
 
     with (
@@ -588,7 +588,7 @@ def test_default_languages_keep_stanza_library_model_version() -> None:
 def test_greek_model_version_identifies_the_accurate_package() -> None:
     producer = Producer(pipeline_factory=lambda _language: lambda _text: None)
 
-    assert producer.model_version("el") == "stanza-1.14.0-gdt-accurate"
+    assert producer.model_version("el") == "stanza-1.15.0-gdt-accurate"
 
 
 def test_italian_linguistic_regression_fixture() -> None:
@@ -692,6 +692,6 @@ def test_greek_linguistic_regression_fixture() -> None:
         "lemma": "gdt_nocharlm",
         "depparse": "gdt_greek-bert",
     }
-    assert config.model_version == "stanza-1.14.0-gdt-accurate"
+    assert config.model_version == "stanza-1.15.0-gdt-accurate"
     expected = json.loads((Path(__file__).parent / "testdata" / "greek_stanza_expected.json").read_text())
     assert MessageToDict(artifact, preserving_proto_field_name=True) == expected

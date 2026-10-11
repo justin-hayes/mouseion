@@ -14,7 +14,7 @@ from mouseion_nlp.provision import (
 )
 from mouseion_nlp.model_config import GREEK_BERT_MODEL, LanguageModelConfig, model_config_for_language
 
-STANZA_VERSION = "1.14.0"
+STANZA_VERSION = "1.15.0"
 
 
 class RecordingDownload:
@@ -94,7 +94,7 @@ def test_second_run_against_the_same_directory_is_a_no_op(tmp_path) -> None:
 
 def test_changed_stanza_version_wipes_and_provisions_from_scratch(tmp_path) -> None:
     provision(
-        tmp_path, ["de"], stanza_version=STANZA_VERSION, download=RecordingDownload()
+        tmp_path, ["de"], stanza_version="1.14.0", download=RecordingDownload()
     )
     sentinel = tmp_path / "de" / "tokenize" / "stale.pt"
     sentinel.parent.mkdir(parents=True)
