@@ -1,5 +1,8 @@
 package fixtures
 
+// Contract status: illustrative. Canned catalogue sync state for browser
+// scenarios; not held to internal/storecontract parity (ADR 0088).
+
 import (
 	"context"
 	"errors"
