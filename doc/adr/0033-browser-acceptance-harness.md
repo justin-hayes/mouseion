@@ -1,5 +1,9 @@
 # ADR 0033: Deterministic in-memory fixture server driven by Playwright for browser acceptance
 
+Amended by [ADR 0088](0088-fixture-adapter-transition-store-contracts.md): fixture
+adapter transitions require shared store contracts run against fixtures and
+PostgreSQL; other canned browser states are explicitly illustrative.
+
 ## Context
 
 Mouseion ships a server-rendered Go web application (Templ views, HTMX
