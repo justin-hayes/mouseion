@@ -105,7 +105,9 @@ updates:
           - minor
           - patch
 
-  - package-ecosystem: pip
+  # The uv ecosystem updates nlp/uv.lock and nlp/pyproject.toml together. CI fails
+  # (uv lock --check) when a pull request changes one without the other.
+  - package-ecosystem: uv
     directory: /nlp
     schedule:
       interval: weekly

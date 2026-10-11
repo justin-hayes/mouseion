@@ -48,7 +48,16 @@ def test_nlp_image_runs_as_a_dedicated_non_root_user() -> None:
     assert f"chown {NLP_UID}:{NLP_UID} /opt/stanza_resources /opt/huggingface" in dockerfile
     # The USER directive must come after every root-only install step and before the entrypoint.
     assert dockerfile.index(f"USER {NLP_UID}:{NLP_UID}") < dockerfile.index("ENTRYPOINT")
-    assert dockerfile.index(f"USER {NLP_UID}:{NLP_UID}") > dockerfile.index("pip install")
+    assert dockerfile.index(f"USER {NLP_UID}:{NLP_UID}") > dockerfile.index("uv sync")
+
+
+def test_nlp_image_installs_only_from_the_lock() -> None:
+    dockerfile = NLP_DOCKERFILE.read_text(encoding="utf-8")
+
+    assert "uv sync --project /src/nlp --locked --no-build --no-dev" in dockerfile
+    # pip is used only to bootstrap the pinned uv; every dependency comes from the lock.
+    assert dockerfile.count("pip install") == 1
+    assert "uv==0.13.0" in dockerfile
 
 
 def test_nlp_services_do_not_override_the_image_user_to_root() -> None:

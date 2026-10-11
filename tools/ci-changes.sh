@@ -46,7 +46,7 @@ classify() {
     nlp/tests/testdata/* | nlp/testdata/*)
       mark go python
       echo "nlp data read by Go tests: $path" >&2 ;;
-    nlp/requirements*.txt | nlp/pyproject.toml)
+    nlp/pyproject.toml | nlp/uv.lock)
       mark python generated
       echo "python dependencies: $path" >&2 ;;
     nlp/*)

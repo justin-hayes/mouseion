@@ -24,7 +24,7 @@
 /go.mod                          @justin-hayes
 /go.sum                          @justin-hayes
 /nlp/pyproject.toml              @justin-hayes
-/nlp/requirements*.txt           @justin-hayes
+/nlp/uv.lock                     @justin-hayes
 
 # Containers, deployment, and infrastructure.
 /Dockerfile*                     @justin-hayes
