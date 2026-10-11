@@ -1,0 +1,3 @@
+# Generated templ output: collapsed in GitHub diffs. Never hand-resolve a merge
+# conflict in these files; resolve the .templ source and run `make templ`.
+internal/webapp/*_templ.go linguist-generated=true

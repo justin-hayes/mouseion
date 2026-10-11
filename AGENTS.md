@@ -20,7 +20,7 @@ Go 1.27, Python 3.13 (pin `3.13`; 3.14 needs a grpcio upgrade, since the pinned 
 make setup            # .venv + nlp/requirements-dev.txt + CPU-only torch
 make gen              # protobuf -> gen/go, gen/python (source of truth: proto/)
 make templ-install    # install pinned templ (go install)
-make templ            # templ generate -> internal/webapp/*_templ.go (gitignored, never committed)
+make templ            # templ generate -> internal/webapp/*_templ.go (committed)
 make build            # go build ./... + python compileall
 make test             # go test ./... + pytest (PYTHONPATH=nlp/src:gen/python)
 make test-integration # go test -count=1 -tags=integration ./internal/...
@@ -50,7 +50,9 @@ is optional fast feedback, not a replacement for the final full-tree run.
 
 ## Generated artifacts
 
-Regenerate rather than hand-edit. `gen/{go,python}` (protobuf), and `gen/sqlc` (sqlc, pinned to v1.31.1 via `make sqlc`) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`. `internal/webapp/*_templ.go` (templ) is generated but **not** committed: run `make templ` after checkout or any `.templ` change (every Go-compiling `make` target does it for you); plain `go build`/`go test` need the generated files to exist. Keep templates split by feature (`internal/webapp/*.templ`) instead of growing one file.
+Regenerate rather than hand-edit. `internal/webapp/*_templ.go` (templ), `gen/{go,python}` (protobuf), and `gen/sqlc` (sqlc, pinned to v1.31.1 via `make sqlc`) are committed and CI asserts they're current. After regenerating, review the diff to confirm it matches the source change. Migrations are embedded in the server binary via `migrations/embed.go`. Run `make templ` after any `.templ` change and commit both files; Go-compiling `make` targets also regenerate when the pinned templ is installed. Keep templates split by feature (`internal/webapp/*.templ`) instead of growing one file.
+
+Never hand-resolve a merge or rebase conflict in a generated file. Generated templ output records source line and column positions, so it often conflicts when the `.templ` source merges cleanly. Resolve the source (`.templ`, `proto/`, `sqlc/queries/`, migrations), then regenerate (`make templ`, `make gen`, `make sqlc`) and `git add` the result; regeneration overwrites the conflicted file, markers included.
 
 sqlc reads the schema from the baseline and successor migrations (`sqlc.yaml`, ADR 0070) and the annotated queries from `sqlc/queries/*.sql`; `make sqlc` regenerates `gen/sqlc`.
 

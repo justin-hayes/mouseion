@@ -62,8 +62,10 @@ expect "browser test runs browser" "browser" \
   e2e/tests/smoke.spec.ts
 expect "browser support code runs browser" "browser" \
   e2e/support/test.ts
-expect "frontend template runs browser, Go, and frontend checks" "browser build frontend go" \
+expect "frontend template runs browser, Go, frontend, and generated checks" "browser build frontend generated go" \
   internal/webapp/layout.templ
+expect "generated templ output runs generated, Go, and browser checks" "browser build generated go" \
+  internal/webapp/layout_templ.go
 expect "frontend stylesheet source runs frontend checks only" "build frontend" \
   internal/webapp/styles/app.css
 expect "embedded static asset runs browser, Go, and frontend checks" "browser build frontend go" \
