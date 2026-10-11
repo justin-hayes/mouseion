@@ -77,7 +77,7 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	assert.Equal(t, 1, released)
 }
 
-func TestCurrentReadingFreezesCorpusQualifiedTwoOccurrenceCandidates(t *testing.T) {
+func TestCurrentReadingFreezesCorpusQualifiedCandidates(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -100,8 +100,9 @@ func TestCurrentReadingFreezesCorpusQualifiedTwoOccurrenceCandidates(t *testing.
 		count int64
 	}{
 		{"three-local", "NOUN", 3},
-		{"nine-total", "NOUN", 2},
-		{"ten-total", "NOUN", 2},
+		{"fourteen-total", "NOUN", 2},
+		{"fifteen-total", "NOUN", 2},
+		{"single-fifteen-total", "NOUN", 1},
 		{"generated-total", "NOUN", 2},
 		{"known-total", "NOUN", 2},
 		{"pos-total", "NOUN", 2},
@@ -140,21 +141,23 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 	}
 	putProjection(target, []countRow{
 		{lemma: "three-local", pos: "NOUN", count: 3},
-		{lemma: "nine-total", pos: "NOUN", count: 2},
-		{lemma: "ten-total", pos: "NOUN", count: 2},
+		{lemma: "fourteen-total", pos: "NOUN", count: 2},
+		{lemma: "fifteen-total", pos: "NOUN", count: 2},
+		{lemma: "single-fifteen-total", pos: "NOUN", count: 1},
 		{lemma: "generated-total", pos: "NOUN", count: 2},
 		{lemma: "known-total", pos: "NOUN", count: 2},
 		{lemma: "pos-total", pos: "NOUN", count: 2},
 	})
 	putProjection(other, []countRow{
-		{lemma: "nine-total", pos: "NOUN", count: 7},
-		{lemma: "ten-total", pos: "NOUN", count: 8},
-		{lemma: "generated-total", pos: "NOUN", count: 8},
-		{lemma: "known-total", pos: "NOUN", count: 8},
-		{lemma: "pos-total", pos: "VERB", count: 8},
+		{lemma: "fourteen-total", pos: "NOUN", count: 12},
+		{lemma: "fifteen-total", pos: "NOUN", count: 13},
+		{lemma: "single-fifteen-total", pos: "NOUN", count: 14},
+		{lemma: "generated-total", pos: "NOUN", count: 13},
+		{lemma: "known-total", pos: "NOUN", count: 13},
+		{lemma: "pos-total", pos: "VERB", count: 13},
 	})
-	putProjection(italian, []countRow{{lemma: "nine-total", pos: "NOUN", count: 100}})
-	putProjection(foreign, []countRow{{lemma: "nine-total", pos: "NOUN", count: 100}})
+	putProjection(italian, []countRow{{lemma: "fourteen-total", pos: "NOUN", count: 100}})
+	putProjection(foreign, []countRow{{lemma: "fourteen-total", pos: "NOUN", count: 100}})
 
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", target.ID)
 	require.NoError(t, err)
@@ -164,11 +167,11 @@ VALUES($1,(SELECT corpus_id FROM current_analysis_identity WHERE owner_id=$1 AND
 	for _, candidate := range snapshot {
 		identities[candidate.CanonicalLemma] = candidate.OccurrenceCount
 	}
-	assert.Equal(t, map[string]int{"three-local": 3, "ten-total": 2, "generated-total": 2}, identities,
-		"nine does not meet the total threshold; language, POS, Known, owner, and Generated-provenance boundaries remain exact")
+	assert.Equal(t, map[string]int{"three-local": 3, "fifteen-total": 2, "single-fifteen-total": 1, "generated-total": 2}, identities,
+		"fourteen does not meet the total threshold; a single occurrence qualifies through the same total; language, POS, Known, owner, and Generated-provenance boundaries remain exact")
 }
 
-func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededForTwoOccurrenceCandidates(t *testing.T) {
+func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededBelowTheInBookFloor(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -223,7 +226,7 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 		require.NoError(t, insertErr)
 	}
 	putReady(current, countItem{lemma: "three-local", count: 3})
-	putReady(other, countItem{lemma: "crossing", count: 8})
+	putReady(other, countItem{lemma: "crossing", count: 13})
 	putReady(target, countItem{lemma: "crossing", count: 2})
 	// Remove the discarded terminal job to model a successful durable rebuild.
 	_, err = store.Pool().Exec(ctx, `DELETE FROM river_job WHERE kind='rebuild_vocabulary_browse_counts' AND args->>'owner_id'=$1 AND args->>'book_id'=$2 AND args->>'run_id'=$3`, owner.ID, target.ID, targetRun)

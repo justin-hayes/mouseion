@@ -93,7 +93,7 @@ LEFT JOIN LATERAL (
 WHERE sc.owner_id = sqlc.arg('owner')
   AND sc.corpus_id = sqlc.arg('corpus')
   AND sc.language = sqlc.arg('language')
-  AND sc.occurrence_count >= 2
+  AND sc.occurrence_count >= 1
 ORDER BY sc.language, sc.canonical_lemma, sc.upos;
 
 -- name: IsCurrentReadingVocabularyReserved :one

@@ -64,9 +64,9 @@ _Avoid_: frequent words, deck coverage.
 
 **Book vocabulary candidates**:
 Unknown vocabulary eligible for a Book's prepared deck and current-reading
-vocabulary snapshot: either recurring in that Book or appearing twice there
-and frequently across the learner's currently analyzed Books in the same
-study language, including that Book. Generated provenance does not exclude it.
+vocabulary snapshot: either recurring in that Book or appearing there and
+frequently across the learner's currently analyzed Books in the same study
+language, including that Book. Generated provenance does not exclude it.
 _Avoid_: recurring vocabulary (only one route into this pool), corpus words.
 
 **Reserved vocabulary**:

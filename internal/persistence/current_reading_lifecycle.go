@@ -95,8 +95,8 @@ type currentReadingVocabularyIdentity struct {
 }
 
 // eligibleCurrentReadingCandidates applies the common learner-state exclusions
-// and uses only ready current per-Book projections for the two-occurrence
-// exception. Readiness and totals share one SQL statement snapshot.
+// and uses only ready current per-Book projections for the across-Books
+// route. Readiness and totals share one SQL statement snapshot.
 func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, candidates []domain.SelectionCandidate) ([]domain.SelectionCandidate, error) {
 	known, err := listKnownVocabulary(ctx, tx, owner, language)
 	if err != nil {
@@ -110,7 +110,7 @@ func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen
 	identities := make([]currentReadingVocabularyIdentity, 0)
 	seen := make(map[currentReadingVocabularyIdentity]struct{})
 	for _, candidate := range candidates {
-		if candidate.OccurrenceCount != 2 || eligibility.ExcludesLearnerState(candidate) {
+		if candidate.OccurrenceCount >= selection.DefaultRecurringMinOccurrences || eligibility.ExcludesLearnerState(candidate) {
 			continue
 		}
 		identity := currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}
@@ -128,7 +128,7 @@ func eligibleCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen
 	selected := make([]domain.SelectionCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		frequency := int64(0)
-		if candidate.OccurrenceCount == 2 {
+		if candidate.OccurrenceCount < selection.DefaultRecurringMinOccurrences {
 			frequency = acrossBooks[currentReadingVocabularyIdentity{lemma: candidate.CanonicalLemma, upos: candidate.UPOS}]
 		}
 		if !eligibility.AllowsBookDeckCandidate(candidate, frequency) {
@@ -266,9 +266,6 @@ func correctedCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcge
 	}
 	candidates := make([]domain.SelectionCandidate, 0, len(projected))
 	for _, candidate := range projected {
-		if candidate.OccurrenceCount < 2 {
-			continue
-		}
 		forms, err := json.Marshal(candidate.ObservedForms)
 		if err != nil {
 			return nil, err

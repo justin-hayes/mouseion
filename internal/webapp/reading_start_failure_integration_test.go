@@ -381,7 +381,7 @@ VALUES('rebuild_vocabulary_browse_counts',jsonb_build_object('owner_id',$1::uuid
 		count  int64
 	}{
 		{book: book, corpus: corpus, count: 2},
-		{book: other, corpus: otherCorpus, count: 8},
+		{book: other, corpus: otherCorpus, count: 13},
 	} {
 		var run string
 		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, item.book.ID).Scan(&run))

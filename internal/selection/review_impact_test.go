@@ -18,12 +18,12 @@ func TestReviewImpactUsesReadingEligibility(t *testing.T) {
 		assert.True(t, impacts[0].AfterEligible)
 	})
 
-	t.Run("two occurrences qualify only with ten across analyzed Books", func(t *testing.T) {
-		short := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 1, AfterInBook: 2, OtherBooks: 7}})
-		assert.False(t, short[0].AfterEligible, "two here plus seven elsewhere is nine")
-		route := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 1, AfterInBook: 2, OtherBooks: 8}})
-		assert.False(t, route[0].BeforeEligible)
-		assert.True(t, route[0].AfterEligible, "two here plus eight elsewhere is ten")
+	t.Run("rarer identities qualify only with fifteen across analyzed Books", func(t *testing.T) {
+		short := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 1, AfterInBook: 2, OtherBooks: 12}})
+		assert.False(t, short[0].AfterEligible, "two here plus twelve elsewhere is fourteen")
+		route := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 0, AfterInBook: 1, OtherBooks: 14}})
+		assert.False(t, route[0].BeforeEligible, "an identity absent from the Book is ineligible")
+		assert.True(t, route[0].AfterEligible, "one here plus fourteen elsewhere is fifteen")
 	})
 
 	t.Run("an exclusion drops an identity below threshold", func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestReviewImpactUsesReadingEligibility(t *testing.T) {
 	})
 
 	t.Run("losing an occurrence also loses the across-Book route", func(t *testing.T) {
-		impacts := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 2, AfterInBook: 1, OtherBooks: 8}})
+		impacts := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 1, AfterInBook: 0, OtherBooks: 14}})
 		assert.True(t, impacts[0].BeforeEligible)
 		assert.False(t, impacts[0].AfterEligible)
 	})

@@ -1,6 +1,6 @@
 # ADR 0085: Reading owns Book vocabulary and deck preparation
 
-Status: **Accepted (implemented)** · Date: 2026-10-06 · Implemented: #1509, #1515, #1516 · Author: Justin + OpenCode
+Status: **Accepted (implemented); candidate rule amended by [ADR 0090](0090-library-total-book-vocabulary-selection.md)** · Date: 2026-10-06 · Implemented: #1509, #1515, #1516 · Author: Justin + OpenCode
 
 Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §9: Browse lives in Reading and Concordance in Vocabulary, and "any Book disposition" counts Inbox and To Read, Hidden or not.
 

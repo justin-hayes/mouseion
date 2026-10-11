@@ -935,7 +935,7 @@ LEFT JOIN LATERAL (
 WHERE sc.owner_id = $1
   AND sc.corpus_id = $2
   AND sc.language = $3
-  AND sc.occurrence_count >= 2
+  AND sc.occurrence_count >= 1
 ORDER BY sc.language, sc.canonical_lemma, sc.upos
 `
 
