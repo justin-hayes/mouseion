@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
-
-def load_script():
-    path = Path(__file__).parents[1] / "scripts" / "measure_german_separable_verbs.py"
-    spec = importlib.util.spec_from_file_location("measure_german_separable_verbs", path)
-    assert spec
-    assert spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from mouseion_nlp import separable_measurement
+from mouseion_nlp.separable_measurement import EXIT_OK, EXIT_SKIPPED, run
 
 
 def write_input(tmp_path: Path) -> Path:
@@ -46,31 +38,26 @@ class AvailableProducer:
 def test_skipped_run_exits_with_distinct_status_and_writes_nothing(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
-    module = load_script()
-    monkeypatch.setattr(module, "Producer", UnavailableProducer)
+    monkeypatch.setattr(separable_measurement, "Producer", UnavailableProducer)
     output = tmp_path / "report.md"
 
-    status = module.main(["--input", str(write_input(tmp_path)), "--output", str(output)])
+    status = run(write_input(tmp_path), output)
 
-    assert status == module.EXIT_SKIPPED
-    assert status != 0
+    assert status == EXIT_SKIPPED
     assert not output.exists()
     assert "SKIP" in capsys.readouterr().err
 
 
 def test_completed_run_exits_zero_and_writes_report(tmp_path: Path, monkeypatch) -> None:
-    module = load_script()
-    monkeypatch.setattr(module, "Producer", AvailableProducer)
+    monkeypatch.setattr(separable_measurement, "Producer", AvailableProducer)
     output = tmp_path / "report.md"
 
-    status = module.main(["--input", str(write_input(tmp_path)), "--output", str(output)])
+    status = run(write_input(tmp_path), output)
 
-    assert status == 0
+    assert status == EXIT_OK
     assert output.exists()
 
 
-def test_skip_status_is_not_success_status() -> None:
-    module = load_script()
-
-    assert module.EXIT_OK == 0
-    assert module.EXIT_SKIPPED not in (module.EXIT_OK, 1, 2)
+def test_skip_status_is_distinct_from_success_and_usage_error() -> None:
+    assert EXIT_OK == 0
+    assert EXIT_SKIPPED not in (EXIT_OK, 1, 2)
