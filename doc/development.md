@@ -34,6 +34,9 @@ make check-frontend-css
 `make setup` creates `.venv` with the pinned development requirements and
 CPU-only PyTorch. Python commands need `PYTHONPATH=nlp/src:gen/python`.
 
+Formatting is enforced: `make lint` fails on unformatted Go or Python. Fix it
+with `golangci-lint fmt ./...` and `.venv/bin/ruff format nlp/src nlp/tests`.
+
 ## Common commands
 
 | Command | Purpose |
@@ -42,7 +45,7 @@ CPU-only PyTorch. Python commands need `PYTHONPATH=nlp/src:gen/python`.
 | `make test` | Go unit tests and pytest |
 | `make coverage` | Python and Go coverage reports in `.tmp/coverage/` (the Go integration part needs the `make test-integration` database prerequisites) |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
-| `make lint` | golangci-lint over the whole module plus ruff |
+| `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check` and `ruff format --check` |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
 | `make dev` | Run the web server (needs PostgreSQL and the NLP service) |
 | `make gen` | Regenerate protobuf code from `proto/` |

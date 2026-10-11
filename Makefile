@@ -119,6 +119,7 @@ lint-go: go-tmp
 
 lint: lint-go
 	$(VENV_BIN)/ruff check nlp/src nlp/tests
+	$(VENV_BIN)/ruff format --check nlp/src nlp/tests
 
 # templ is pinned: newer releases require Go >= 1.25.
 TEMPL ?= templ
