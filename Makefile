@@ -20,7 +20,7 @@ DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage lint lint-go gen templ templ-install dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources python-test-preflight
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -90,6 +90,11 @@ test-integration-shared: go-tmp
 	done; \
 	if test "$$ready" -ne 1; then docker logs "$$container"; exit 1; fi; \
 	MOUSEION_TEST_DATABASE_URL="$$database_url" go test -count=1 -tags=integration $(MOUSEION_TEST_PACKAGES)
+
+# Go unit-test coverage, filtered of generated code, in .tmp/coverage. Later
+# tickets add integration and Python reports to this target.
+coverage: go-tmp
+	tools/go-coverage.sh
 
 lint-go: go-tmp
 	@version="$$( "$(GOLANGCI_LINT)" version 2>&1 )" || { \

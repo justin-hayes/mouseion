@@ -40,6 +40,7 @@ CPU-only PyTorch. Python commands need `PYTHONPATH=nlp/src:gen/python`.
 | --- | --- |
 | `make build` | `go build ./...` plus Python `compileall` |
 | `make test` | Go unit tests and pytest |
+| `make coverage` | Go unit-test coverage profile in `.tmp/coverage/` |
 | `make test-integration` | PostgreSQL-backed Go integration tests |
 | `make lint` | golangci-lint over the whole module plus ruff |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
@@ -86,6 +87,39 @@ Regenerate rather than hand-edit:
 - **Python** — pytest under `nlp/tests` covers the NLP producer, gRPC server,
   model provisioning, dictionary-index derivation, and the precision
   measurement script.
+
+### Test coverage
+
+`make coverage` runs the Go unit tests with a coverage profile and writes the
+filtered profile to `.tmp/coverage/go-unit.out`. `.tmp/` is gitignored, so the
+reports are never committed. The target regenerates templ output first, then
+`tools/go-coverage.sh` removes generated code (`gen/` and `*_templ.go`) from
+the profile with `tools/coverage-filter.sh`. `tools/coverage-filter_test.sh`
+checks that filter.
+
+Test coverage here means test line coverage: the share of statements that the
+tests execute. It is not vocabulary coverage, the learner-facing measure in
+[#1732](https://github.com/justin-hayes/mouseion/issues/1732). The two are
+unrelated, and a figure from one never describes the other.
+
+### Static analysis (SonarQube Cloud)
+
+`.github/workflows/sonarqube.yml` analyses the repository in SonarQube Cloud
+(organisation `justin-hayes`, project `justin-hayes_mouseion`) on every push to
+`main` and on every pull request. It runs the filter behavior test, runs
+`make coverage`, and then runs the official scan action. The scan's settings
+live in `sonar-project.properties` at the repository root. Excluded paths are
+generated code, vendored static assets, the generated stylesheet, and the
+immutable baseline migration.
+
+The scan reads the Go profile from `sonar.go.coverage.reportPaths`, so Go test
+coverage reaches SonarQube Cloud as part of the same analysis. Later tickets add
+integration and Python reports to that property.
+
+Fork pull requests cannot read repository secrets, so `SONAR_TOKEN` is
+unavailable there. The scan step is skipped for them, and the coverage steps
+still run, so the job succeeds without an analysis. Those pull requests get no
+SonarQube Cloud analysis and no decoration.
 
 ## Regenerating screenshots
 

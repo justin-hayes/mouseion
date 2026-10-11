@@ -1,0 +1,63 @@
+name: SonarQube Cloud
+
+# Analyses every push to main and every pull request. It does not use the
+# change classifier in ci.yml: static analysis and coverage are cheap, and the
+# analysis history must not have gaps.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: sonarqube-${{ github.workflow }}-${{ github.ref }}
+  # Only pull requests supersede older runs; main keeps every analysis.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  sonarqube:
+    name: SonarQube Cloud analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Read-only: lets the scanner read pull-request details for decoration.
+      pull-requests: read
+    env:
+      # Fork pull requests get no repository secrets, so the scan is skipped
+      # there. The coverage steps still run, so the job still succeeds.
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
+
+    steps:
+      # SonarQube Cloud needs full history to resolve pull-request base and
+      # new-code periods.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Test coverage filter behavior
+        run: tools/coverage-filter_test.sh
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Generate templ views
+        run: |
+          make templ-install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          PATH="$(go env GOPATH)/bin:$PATH" make templ
+
+      - name: Go unit-test coverage
+        run: make coverage
+
+      - name: SonarQube Cloud scan
+        if: env.HAS_SONAR_TOKEN == 'true'
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
