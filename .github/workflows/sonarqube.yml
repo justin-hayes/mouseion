@@ -66,25 +66,35 @@ jobs:
       - name: Create Python environment
         run: uv venv --python 3.13 .venv
 
+      # Installs are binary-only and pinned. The NLP package is not installed
+      # from source: the tests import it from PYTHONPATH (nlp/src, set by
+      # make coverage), so only its runtime dependencies are needed here.
       - name: Install Python dev dependencies
         run: |
           uv pip install --python .venv/bin/python \
             --disable-pip-version-check \
+            --only-binary :all: \
             -r nlp/requirements-dev.txt
 
-      # Install CPU-only Torch explicitly before installing Mouseion, as in ci.yml.
+      # Install CPU-only Torch explicitly, as in ci.yml. Pinned to the version in
+      # the CPU index that the NLP service resolves.
       - name: Install CPU-only PyTorch
         run: |
           uv pip install --python .venv/bin/python \
             --disable-pip-version-check \
-            torch \
+            --only-binary :all: \
+            torch==2.14.1 \
             --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Install Mouseion NLP
+      # Runtime dependencies of nlp/pyproject.toml, pinned to the same versions.
+      - name: Install NLP runtime dependencies
         run: |
           uv pip install --python .venv/bin/python \
             --disable-pip-version-check \
-            -e nlp
+            --only-binary :all: \
+            stanza==1.14.0 \
+            huggingface-hub==1.33.0 \
+            transformers==5.10.1
 
       - name: Go and Python coverage
         run: make coverage
