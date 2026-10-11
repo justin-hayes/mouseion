@@ -57,8 +57,18 @@ func TestStoreContracts(t *testing.T) {
 	storecontract.Run(t, newPostgresHarness)
 }
 
+func (h *postgresHarness) Store() storecontract.Store  { return h }
+func (h *postgresHarness) Seeds() storecontract.Seeder { return h }
+
 func (h *postgresHarness) Owner() string      { return h.owner }
 func (h *postgresHarness) OtherOwner() string { return h.other }
+
+// exec runs one seeding statement and fails the test if it does not apply.
+func (h *postgresHarness) exec(t *testing.T, sql string, args ...any) {
+	t.Helper()
+	_, err := h.store.Pool().Exec(h.ctx, sql, args...)
+	require.NoError(t, err)
+}
 
 // SeedBook creates a Book with a completed analysis and the given candidate
 // identities, as analysis and selection would, and marks it To Read when asked.
@@ -71,23 +81,7 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: source.Title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: storecontract.Language})
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, book.ID, source.ID))
-	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(h.store))
-	require.NoError(t, err)
-	analysisHandle, err := analysis.NewService(h.store.Pool(), analysisRiver).SubmitAnalysis(h.ctx, owner, source.ID)
-	require.NoError(t, err)
-	artifactHash := fmt.Sprintf("sha256:contract-artifact-%d", h.books)
-	_, err = h.store.Pool().Exec(h.ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','casefold','1','fake','1')`, artifactHash)
-	require.NoError(t, err)
-	var corpusID string
-	require.NoError(t, h.store.Pool().QueryRow(h.ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner, source.ID, artifactHash, analysisHandle.RunID).Scan(&corpusID))
-	_, err = h.store.Pool().Exec(h.ctx, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner, corpusID, analysisHandle.RunID)
-	require.NoError(t, err)
-	_, err = h.store.Pool().Exec(h.ctx, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, analysisHandle.RunID)
-	require.NoError(t, err)
-	_, err = h.store.Pool().Exec(h.ctx, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner, corpusID, analysisHandle.RunID)
-	require.NoError(t, err)
-	_, err = h.store.Pool().Exec(h.ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, book.ID, source.ID, analysisHandle.RunID)
-	require.NoError(t, err)
+	corpusID := h.completeAnalysis(t, owner, book.ID, source.ID, identifier)
 	if seed.ToRead {
 		require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, book.ID, domain.BookDispositionToRead))
 	}
@@ -96,6 +90,25 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 		require.NoError(t, err)
 	}
 	return book.ID
+}
+
+// completeAnalysis runs the Book's analysis to completion as analysis does,
+// makes it the Book's current analysis, and returns its corpus ID.
+func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier string) string {
+	t.Helper()
+	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(h.store))
+	require.NoError(t, err)
+	handle, err := analysis.NewService(h.store.Pool(), analysisRiver).SubmitAnalysis(h.ctx, owner, sourceID)
+	require.NoError(t, err)
+	artifactHash := "sha256:" + identifier
+	h.exec(t, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,'de','1','casefold','1','fake','1')`, artifactHash)
+	var corpusID string
+	require.NoError(t, h.store.Pool().QueryRow(h.ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',0,0,1,1,0,1,1,0) RETURNING id::text`, owner, sourceID, artifactHash, handle.RunID).Scan(&corpusID))
+	h.exec(t, `UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`, owner, corpusID, handle.RunID)
+	h.exec(t, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, handle.RunID)
+	h.exec(t, `UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`, owner, corpusID, handle.RunID)
+	h.exec(t, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, bookID, sourceID, handle.RunID)
+	return corpusID
 }
 
 func (h *postgresHarness) SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity) {
@@ -112,15 +125,13 @@ func (h *postgresHarness) SeedReadyPreparation(t *testing.T, owner, bookID, snap
 	t.Helper()
 	preparation, err := h.PrepareCurrentReadingDeck(owner, bookID, snapshotID)
 	require.NoError(t, err)
-	_, err = h.store.Pool().Exec(h.ctx, `UPDATE deck_preparations SET state='ready',artifact=$3,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, preparation.ID, []byte("deck"))
-	require.NoError(t, err)
+	h.exec(t, `UPDATE deck_preparations SET state='ready',artifact=$3,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$2`, owner, preparation.ID, []byte("deck"))
 	return preparation.ID
 }
 
 func (h *postgresHarness) ClearSnapshotID(t *testing.T, owner, language string) {
 	t.Helper()
-	_, err := h.store.Pool().Exec(h.ctx, `UPDATE primary_goals SET snapshot_id=NULL WHERE owner_id=$1 AND language=$2`, owner, language)
-	require.NoError(t, err)
+	h.exec(t, `UPDATE primary_goals SET snapshot_id=NULL WHERE owner_id=$1 AND language=$2`, owner, language)
 }
 
 func (h *postgresHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
@@ -156,6 +167,3 @@ func (h *postgresHarness) RepreparePreparation(owner, id, expectedSnapshotID str
 	handle, err := h.service.Reprepare(h.ctx, owner, id, expectedSnapshotID)
 	return handle.Preparation, err
 }
-
-func (h *postgresHarness) Store() storecontract.Store  { return h }
-func (h *postgresHarness) Seeds() storecontract.Seeder { return h }

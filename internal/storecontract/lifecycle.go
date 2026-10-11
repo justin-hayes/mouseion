@@ -19,16 +19,40 @@ func german(lemma, upos string) domain.SnapshotIdentity {
 // snapshot when nothing is Known.
 var defaultVocabulary = []domain.SnapshotIdentity{german("haus", "NOUN"), german("gehen", "VERB")}
 
+// otherVocabulary is the analysis of a second Book.
+var otherVocabulary = []domain.SnapshotIdentity{german("hund", "NOUN")}
+
+// seedToRead seeds an analyzed To Read Book for the learner under test.
+func seedToRead(t *testing.T, h Harness, vocabulary []domain.SnapshotIdentity) string {
+	t.Helper()
+	return h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: vocabulary, ToRead: true})
+}
+
 // startReading seeds an eligible To Read Book with vocabulary and starts it.
 func startReading(t *testing.T, h Harness, vocabulary []domain.SnapshotIdentity) (string, domain.CurrentReading) {
 	t.Helper()
-	bookID := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: vocabulary, ToRead: true})
+	bookID := seedToRead(t, h, vocabulary)
 	reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
 	require.NoError(t, err)
 	return bookID, reading
 }
 
+// requireCurrent asserts that the learner's current reading is bookID.
+func requireCurrent(t *testing.T, h Harness, bookID string) domain.CurrentReading {
+	t.Helper()
+	current, err := h.Store().GetCurrentReading(h.Seeds().Owner(), Language)
+	require.NoError(t, err)
+	assert.Equal(t, bookID, current.BookID)
+	return current
+}
+
 func lifecycleScenarios() []Scenario {
+	scenarios := startScenarios()
+	scenarios = append(scenarios, switchScenarios()...)
+	return append(scenarios, endScenarios()...)
+}
+
+func startScenarios() []Scenario {
 	return []Scenario{{
 		Name: "start accepts an analyzed To Read Book and freezes its vocabulary",
 		Run: func(t *testing.T, h Harness) {
@@ -36,10 +60,8 @@ func lifecycleScenarios() []Scenario {
 			assert.Equal(t, bookID, reading.BookID)
 			assert.NotEmpty(t, reading.SnapshotID)
 			assert.Equal(t, len(defaultVocabulary), reading.SnapshotSize)
-			current, err := h.Store().GetCurrentReading(h.Seeds().Owner(), Language)
-			require.NoError(t, err)
+			current := requireCurrent(t, h, bookID)
 			assert.Equal(t, reading.SnapshotID, current.SnapshotID)
-			assert.Equal(t, bookID, current.BookID)
 		},
 	}, {
 		Name: "start replays the current Book without a new snapshot",
@@ -53,7 +75,7 @@ func lifecycleScenarios() []Scenario {
 		Name: "start refuses a second Book while a reading is current",
 		Run: func(t *testing.T, h Harness) {
 			startReading(t, h, defaultVocabulary)
-			second := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: defaultVocabulary, ToRead: true})
+			second := seedToRead(t, h, defaultVocabulary)
 			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, second)
 			require.ErrorIs(t, err, domain.ErrCurrentReadingExists)
 		},
@@ -70,28 +92,34 @@ func lifecycleScenarios() []Scenario {
 			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, unknownBookID)
 			require.ErrorIs(t, err, domain.ErrNotFound)
 		},
-	}, {
+	}}
+}
+
+func switchScenarios() []Scenario {
+	return []Scenario{{
 		Name: "switch moves the current reading to another Book with a new snapshot",
 		Run: func(t *testing.T, h Harness) {
 			first, reading := startReading(t, h, defaultVocabulary)
-			second := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: []domain.SnapshotIdentity{german("hund", "NOUN")}, ToRead: true})
+			second := seedToRead(t, h, otherVocabulary)
 			switched, err := h.Store().SwitchCurrentReading(h.Seeds().Owner(), Language, second, first, reading.SnapshotID)
 			require.NoError(t, err)
 			assert.Equal(t, second, switched.BookID)
 			assert.NotEqual(t, reading.SnapshotID, switched.SnapshotID)
-			current, err := h.Store().GetCurrentReading(h.Seeds().Owner(), Language)
-			require.NoError(t, err)
-			assert.Equal(t, second, current.BookID)
+			requireCurrent(t, h, second)
 		},
 	}, {
 		Name: "switch refuses a stale expected snapshot",
 		Run: func(t *testing.T, h Harness) {
 			first, _ := startReading(t, h, defaultVocabulary)
-			second := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: []domain.SnapshotIdentity{german("hund", "NOUN")}, ToRead: true})
+			second := seedToRead(t, h, otherVocabulary)
 			_, err := h.Store().SwitchCurrentReading(h.Seeds().Owner(), Language, second, first, "stale-snapshot")
 			require.ErrorIs(t, err, domain.ErrCurrentReadingStale)
 		},
-	}, {
+	}}
+}
+
+func endScenarios() []Scenario {
+	return []Scenario{{
 		Name: "end clears the exact commitment",
 		Run: func(t *testing.T, h Harness) {
 			bookID, reading := startReading(t, h, defaultVocabulary)
