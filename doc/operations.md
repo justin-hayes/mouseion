@@ -17,6 +17,11 @@ cp .env.example .env   # set a strong MOUSEION_DB_PASSWORD and MOUSEION_SECRET
 docker compose up -d --build
 ```
 
+`MOUSEION_DB_PASSWORD` has no default: Compose stops with a message naming the
+variable if it is unset or empty, and nothing in the repository supplies one.
+Use letters and digits only, or URL-encode the value, because it is embedded in
+the web service's database URL.
+
 Compose starts:
 
 - `db` — PostgreSQL 17 with a named volume
@@ -67,7 +72,7 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | --- | --- |
 | `MOUSEION_DATABASE_URL` | PostgreSQL connection string (required). |
 | `MOUSEION_SECRET` | Application secret; validated at startup and used to encrypt OPDS catalog credentials at rest (required). |
-| `MOUSEION_DB_PASSWORD` | Compose only: the PostgreSQL password shared by `db` and `web`. |
+| `MOUSEION_DB_PASSWORD` | Compose only, required: the PostgreSQL password shared by `db` and `web`. Compose refuses to start when it is unset or empty. |
 | `MOUSEION_HTTP_ADDR` | Web listen address. |
 | `MOUSEION_COOKIE_SECURE` | `true` only when serving HTTPS (for example through a TLS reverse proxy); defaults to `false`. |
 | `MOUSEION_NLP_ADDR` | Address of the NLP gRPC service; defaults to `localhost:50051`. |

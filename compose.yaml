@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: mouseion
-      POSTGRES_PASSWORD: ${MOUSEION_DB_PASSWORD:-mouseion}
+      POSTGRES_PASSWORD: ${MOUSEION_DB_PASSWORD:?Set MOUSEION_DB_PASSWORD in .env (copy .env.example) before starting the stack}
       POSTGRES_DB: mouseion
     # postgres:18+ keeps each cluster in a major-version subdirectory
     # (/var/lib/postgresql/<major>/docker), so mount the parent directory.
@@ -69,7 +69,7 @@ services:
       nlp:
         condition: service_started
     environment:
-      MOUSEION_DATABASE_URL: postgres://mouseion:${MOUSEION_DB_PASSWORD:-mouseion}@db:5432/mouseion?sslmode=disable
+      MOUSEION_DATABASE_URL: postgres://mouseion:${MOUSEION_DB_PASSWORD:?Set MOUSEION_DB_PASSWORD in .env (copy .env.example) before starting the stack}@db:5432/mouseion?sslmode=disable
       MOUSEION_NLP_ADDR: nlp:50051
       MOUSEION_HTTP_ADDR: ":8080"
       # Set to "true" only when serving HTTPS (e.g. tailscale cert / TLS reverse proxy); ADR 0009.
